@@ -1,0 +1,802 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>:: VoidPanel :: PHP</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="VoidPanel PHP ">
+    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+
+    <!-- VENDOR CSS -->
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
+    <style>
+        /* Basic styling for the p tag */
+        p.processing {
+            font-size: 18px;
+            font-weight: bold;
+
+        }
+
+        /* Animation for the dots */
+        .dots::after {
+            content: '';
+            display: inline-block;
+            width: 1em;
+            text-align: left;
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        /* Keyframes for the dots animation */
+        @keyframes dots {
+
+            0%,
+            100% {
+                content: '';
+            }
+
+            25% {
+                content: '.';
+            }
+
+            50% {
+                content: '..';
+            }
+
+            75% {
+                content: '...';
+            }
+        }
+    </style>
+
+    <!-- MAIN Project CSS file -->
+    <link rel="stylesheet" href="/static/assets/css/main.css">
+
+    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+
+    <style>
+        .myname {
+            border-radius: 30px;
+            box-shadow: inset;
+            border-width: 4px;
+
+
+        }
+
+        .text-container {
+
+            border: 1px solid #ccc;
+
+            word-wrap: break-word;
+            /* Force text to wrap */
+            white-space: normal;
+            /* Ensure normal wrapping */
+            overflow-wrap: break-word;
+            /* Ensure long words break */
+        }
+    </style>
+
+</head>
+
+<body data-theme="light" class="font-nunito">
+
+    <div id="wrapper" class="theme-cyan">
+
+        <!-- Page Loader -->
+        <div class="page-loader-wrapper">
+            <div class="loader">
+                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
+                </div>
+                <p>Please wait...</p>
+            </div>
+        </div>
+
+
+
+        {% include 'navbar.html' %}
+
+        <!-- main left menu -->
+        {% include 'left.html' %}
+        <!-- rightbar icon div -->
+        {% include 'right.html' %}
+
+
+        <!-- mani page content body part -->
+
+        <div id="main-content">
+
+            <div class="container-fluid">
+                <div class="block-header">
+                    <div class="row">
+                        <div class="col-lg-6 col-md-6 col-sm-12">
+                            <h2>User Profile</h2>
+                            <ul class="breadcrumb">
+                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
+                                </li>
+                                <li class="breadcrumb-item">Dashboard</li>
+                                <li class="breadcrumb-item active">PHP Versions</li>
+                            </ul>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="row clearfix">
+                    <div class="col-lg-12">
+                        <div class="">
+                            <div class="body">
+                                <ul class="nav nav-tabs">
+                                    <li class="nav-item"><a class="nav-link active" data-toggle="tab"
+                                            href="#Settings">Install PHP Version</a></li>
+                                    <li class="nav-item"><a class="nav-link" data-toggle="tab"
+                                            href="#billings">Extentions</a></li>
+
+                                    <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#ini">PHP INI</a>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="tab-content">
+
+                                <div class="tab-pane active" id="Settings">
+
+
+                                    <form id="adddbform" method="post" action="">{% csrf_token %}
+                                        <div class="body">
+                                            <h6>Select PHP Version</h6>
+                                            <p id="pro" style="display: none;" class="processing">Processing<span
+                                                    class="dots"></span>
+                                            </p>
+                                            <div class="row clearfix">
+                                                <div class="col-lg-6 col-md-12">
+                                                    <div class="form-group">
+                                                        <select class="form-control" name="php">
+                                                            {% for i in available %}
+                                                            <option value="{{i}}">{{i}}</option>
+                                                            {% endfor %}
+
+                                                            {% for i in installed %}
+                                                            <option disabled value="{{i.name}}">{{i.name}} Installed
+                                                            </option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+
+
+                                                </div>
+
+                                            </div>
+                                            <button onclick="install(event);" type="button"
+                                                class="btn btn-primary">Install</button> &nbsp;&nbsp;
+
+                                        </div>
+
+
+                                    </form>
+
+                                </div>
+
+                                <div class="tab-pane" id="billings">
+
+
+
+                                    <div class="body">
+                                        <h6>Extentions</h6>
+                                        <form id="exte" method="post" action="">{% csrf_token %}
+                                            <div class="body">
+                                                <h6>Search PHP Extention</h6>
+                                                <p id="pro33" style="display: none;" class="processing">Processing<span
+                                                        class="dots"></span>
+                                                </p>
+
+
+
+                                                <div class="row clearfix">
+                                                    <div class="col-lg-6 col-md-12">
+                                                        <div class="form-group">
+                                                            <select id="versionname" onchange="display();"
+                                                                class="form-control" name="jerer">
+                                                                <option selected>Select s Version</option>
+
+
+                                                                {% for i in installed %}
+                                                                <option value="{{i.name}}">{{i.name}} Installed
+                                                                </option>
+                                                                {% endfor %}
+                                                            </select>
+                                                        </div>
+
+
+                                                    </div>
+
+                                                </div>
+
+
+                                                <div class="row clearfix" style="margin-top: 10px;">
+                                                    {% for i, j in extentionname.items %}
+                                                    <div class="col-lg-12 col-md-6" id="{{ i }}"
+                                                        style="margin-top: 5px; display: none;">
+                                                        {% for i1, x in j.items %}
+                                                        <div class="col-lg-2 col-md-4"
+                                                            style="margin-top: 10px; display: inline-block; padding: 0 5px;">
+                                                            {% if x == 0 %}
+                                                            <li
+                                                                class="d-flex justify-content-between list-group-item align-items-center">
+                                                                <h6 class="mb-0">{{ i1 }}</h6>
+                                                                <label class="toggle-switch">
+                                                                    <input id="{{ i1 }}"
+                                                                        onchange="checkboxChanged(event,'{{i1}}','on','{{i}}');"
+                                                                        value="{{i1}}" type="checkbox">
+                                                                    <span class="toggle-switch-slider"></span>
+                                                                </label>
+                                                            </li>
+                                                            {% else %}
+                                                            <li
+                                                                class="d-flex justify-content-between list-group-item align-items-center">
+                                                                <h6 class="mb-0">{{ i1 }}</h6>
+                                                                <label class="toggle-switch">
+                                                                    <input id="{{ i1 }}" checked
+                                                                        onchange="checkboxChanged(event,'{{i1}}','off','{{i}}')"
+                                                                        value="{{i1}}" type="checkbox">
+                                                                    <span class="toggle-switch-slider"></span>
+                                                                </label>
+                                                            </li>
+                                                            {% endif %}
+                                                        </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                    {% endfor %}
+                                                </div>
+
+
+                                            </div>
+
+
+
+
+
+
+
+                                    </div>
+
+
+                                    </form>
+
+                                </div>
+
+
+                                <div class="tab-pane" id="ini">
+
+
+
+                                    <div class="body">
+                                        <h6>PHP INI</h6>
+                                        <form id="exte" method="post" action="">{% csrf_token %}
+                                            <div class="body">
+                                                <h6>Search PHP Version</h6>
+                                                <p id="pro23" style="display: none;" class="processing">Processing<span
+                                                        class="dots"></span>
+                                                </p>
+
+
+
+                                                <div class="row clearfix">
+                                                    <div class="col-lg-6 col-md-12">
+                                                        <div class="form-group">
+                                                            <select id="ininame" onchange="displayini();"
+                                                                class="form-control" name="jerer">
+                                                                <option selected>Select  Version</option>
+
+
+                                                                {% for i in installed %}
+                                                                <option value="{{i.name}}1">{{i.name}} Installed
+                                                                </option>
+                                                                {% endfor %}
+                                                            </select>
+                                                        </div>
+
+
+                                                    </div>
+                                                    <form action="" method="post">{% csrf_token %}
+                                                    {% for i, j in phpini.items %}
+                                                    <div class="col-lg-12 col-md-6" id="{{ i }}1"
+                                                        style="margin-top: 5px; display: none;">
+                                                        <textarea name="{{i}}"  rows="90" cols="100">{{j}}</textarea><br>
+                                                        <button type="submit"  class="btn btn-success me-2" >Save PHPini</button>
+                                                
+                                                    </div>
+                                                    {% endfor %}
+                                                </form>
+                                                </div>
+
+
+                                                
+
+
+                                            </div>
+
+
+
+
+
+
+
+                                    </div>
+
+
+                                    </form>
+
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
+            <div class="modal-dialog modal-sm" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h6 class="title" id="defaultModalLabel">Status</h6>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="col-md-12 col-sm-12">
+                            <div id="statusemail" style="text-align: center;" class="row clearfix">
+
+
+
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button onclick="closeelol();" class="btn btn-danger">Close</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        
+
+        <script>
+            function closeelol() {
+                document.getElementById('eeee').style.display = 'none';
+            }
+        </script>
+    </div>
+    </div>
+    </div>
+    
+    <script>
+          function saveFile(event,data,php) {
+              // Prevent default behavior (e.g., form submission)
+              if (event) {
+                  event.preventDefault();
+              }
+              console.log(data);
+              alert(php);
+
+            //   document.getElementById('pro1').style.display="block";
+                
+            //   var content = editor.getValue();
+            //   var path = "{{ request.path|cut:'/editor_view/' }}";
+  
+            //   fetch('/save/', {
+            //       method: 'POST',
+            //       headers: {
+            //           'Content-Type': 'application/json',
+            //           'X-CSRFToken': '{{ csrf_token }}'
+            //       },
+            //       body: JSON.stringify({ content: content, path: path })
+            //   })
+            //   .then(response => response.json())
+            //   .then(data => {
+            //     if (data.status === 'success') {
+            //         document.getElementById('pro1').style.display="none";
+            //         document.getElementById('saved').style.display='block';
+            //     } else {
+            //         document.getElementById('pro1').style.display="none";
+            //         document.getElementById('error').style.display='block';
+
+            //     }
+            // })
+            // .catch(error => {
+            //     console.error('Error saving file:', error);
+            //     document.getElementById('error').style.display='block';
+            // });
+          };
+        function display() {
+            const versionname = document.getElementById('versionname').value;
+            try{
+  
+                document.getElementById('8.4').style.display = 'none';
+            }
+            catch(error){
+
+            }
+            try{
+                document.getElementById('8.3').style.display = 'none';
+}
+catch(error){
+
+}
+try{
+    document.getElementById('8.2').style.display = 'none';
+}
+catch(error){
+
+}
+try{
+    document.getElementById('8.1').style.display = 'none';
+}
+catch(error){
+
+}
+try{
+    document.getElementById('7.4').style.display = 'none';
+}
+catch(error){
+
+}
+try{
+    document.getElementById('7.3').style.display = 'none';
+}
+catch(error){
+
+}
+try{
+    document.getElementById('7.2').style.display = 'none';
+}
+catch(error){
+
+}
+try{
+    document.getElementById('7.1').style.display = 'none';
+}
+catch(error){
+
+}
+try{
+    document.getElementById('5.6').style.display = 'none';
+}
+catch(error){
+
+}
+       
+           
+            
+            
+         
+      
+       
+          
+            document.getElementById(versionname).style.display = 'block';
+        }
+    </script>
+
+<script>
+    function displayini() {
+        const versionnamee = document.getElementById('ininame').value;
+
+   
+        try{
+  
+  document.getElementById('8.41').style.display = 'none';
+}
+catch(error){
+
+}
+try{
+  document.getElementById('8.31').style.display = 'none';
+}
+catch(error){
+
+}
+try{
+document.getElementById('8.21').style.display = 'none';
+}
+catch(error){
+
+}
+try{
+document.getElementById('8.11').style.display = 'none';
+}
+catch(error){
+
+}
+try{
+document.getElementById('7.41').style.display = 'none';
+}
+catch(error){
+
+}
+try{
+document.getElementById('7.31').style.display = 'none';
+}
+catch(error){
+
+}
+try{
+document.getElementById('7.21').style.display = 'none';
+}
+catch(error){
+
+}
+try{
+document.getElementById('7.11').style.display = 'none';
+}
+catch(error){
+
+}
+try{
+document.getElementById('5.61').style.display = 'none';
+}
+catch(error){
+
+}
+
+        document.getElementById(versionnamee).style.display = 'block';
+    }
+</script>
+
+
+    <script>
+
+        async function install(event) {
+            // Prevent the default action (e.g., form submission)
+            if (event) {
+                event.preventDefault();
+            }
+
+            document.getElementById('pro').style.display = 'block';
+            const form = document.getElementById('adddbform');
+            const formData = new FormData(form);
+
+
+
+            try {
+                // Fetch request to submit form data
+                const response = await fetch('/installphpversion/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                    }
+                });
+
+                // Parse the JSON response
+                const result = await response.json();
+
+
+                // Handle response
+                if (response.ok && result.status === 'success') {
+                    document.getElementById('pro').style.display = 'none';
+
+                    document.getElementById('eeee').style.display = "block";
+                    document.getElementById('statusemail').innerHTML = "Successfully Installed";
+                    window.location.reload();
+
+                } else {
+                    document.getElementById('pro').style.display = 'nonw';
+
+                    document.getElementById('eeee').style.display = "block";
+                    document.getElementById('statusemail').innerHTML = "Successfully Installed";
+                    window.location.reload();
+
+
+                }
+            } catch (error) {
+                document.getElementById('pro').style.display = 'none';
+
+                document.getElementById('eeee').style.display = "block";
+                document.getElementById('statusemail').innerHTML = "Successfully Installed";
+                window.location.reload();
+
+
+            }
+        }
+        async function checkboxChanged(event, name, option, phpname) {
+
+            if (event) {
+                event.preventDefault();
+            }
+            const dataa = {
+                name: name,
+                option: option,  // Add other fields here
+                phpname: phpname,
+
+            };
+            document.getElementById('pro33').style.display = 'inline-block';
+            try {
+                // Fetch request to submit form data
+                const response = await fetch('/installphpextention/', {
+                    method: 'POST',
+                    body: JSON.stringify(dataa),
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                    }
+                });
+
+                // Parse the JSON response
+                const result = await response.json();
+
+
+                // Handle response
+                if (response.ok && result.status === 'success') {
+                    document.getElementById('pro33').style.display = 'none';
+
+                    document.getElementById('eeee').style.display = "block";
+
+
+                    const checkboxxx = document.getElementById(name);
+
+
+                    // If the checkbox is already checked, uncheck it and disable it
+                    if (checkboxxx.checked) {
+                        checkboxxx.checked = true;  // Uncheck the checkbox
+                        checkboxxx.disabled = flase;  // Disable the checkbox
+                    }
+                    // If the checkbox is unchecked, check it and enable it
+                    else {
+                        checkboxxx.checked = false;   // Check the checkbox
+                        checkboxxx.disabled = false; // Enable the checkbox
+                    }
+                    document.getElementById('statusemail').innerHTML = "Successfully Updated";
+
+
+
+
+
+                }
+
+                else if (response.ok && result.status === 'cannot') {
+                    document.getElementById('pro33').style.display = 'none';
+
+                    document.getElementById('eeee').style.display = "block";
+                    document.getElementById('statusemail').innerHTML = "Installation Error";
+
+
+                }
+
+                else {
+                    document.getElementById('pro33').style.display = 'nonw';
+
+                    document.getElementById('eeee').style.display = "block";
+
+                    const checkboxxx = document.getElementById(name);
+
+                    // If the checkbox is already checked, uncheck it and disable it
+                    if (checkboxxx.checked) {
+                        checkboxxx.checked = false;  // Uncheck the checkbox
+                        checkboxxx.disabled = true;  // Disable the checkbox
+                    }
+                    // If the checkbox is unchecked, check it and enable it
+                    else {
+                        checkboxxx.checked = true;   // Check the checkbox
+                        checkboxxx.disabled = false; // Enable the checkbox
+                    }
+                    document.getElementById('statusemail').innerHTML = "Successfully Updated";
+
+
+
+
+
+                }
+            } catch (error) {
+
+                document.getElementById('pro33').style.display = 'none';
+
+                document.getElementById('eeee').style.display = "block";
+                const checkboxxx = document.getElementById(name);
+
+                // If the checkbox is already checked, uncheck it and disable it
+                if (checkboxxx.checked) {
+                    checkboxxx.checked = true;  // Uncheck the checkbox
+                    checkboxxx.disabled = true;  // Disable the checkbox
+                }
+                // If the checkbox is unchecked, check it and enable it
+                else {
+                    checkboxxx.checked = false;   // Check the checkbox
+                    checkboxxx.disabled = true; // Enable the checkbox
+                }
+                document.getElementById('statusemail').innerHTML = "Successfully Updated";
+
+
+
+            }
+
+        }
+
+        async function installextention(event) {
+            // Prevent the default action (e.g., form submission)
+            if (event) {
+                event.preventDefault();
+            }
+
+            document.getElementById('pro').style.display = 'inline-block';
+            const form = document.getElementById('exte');
+            const formData = new FormData(form);
+
+
+
+            try {
+                // Fetch request to submit form data
+                const response = await fetch('/installphpextention/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                    }
+                });
+
+                // Parse the JSON response
+                const result = await response.json();
+
+
+                // Handle response
+                if (response.ok && result.status === 'success') {
+                    document.getElementById('pro').style.display = 'none';
+
+                    document.getElementById('eeee').style.display = "block";
+                    document.getElementById('statusemail').innerHTML = "Successfully Installed";
+                    form.reset();
+
+                }
+
+                else if (response.ok && result.status === 'cannot') {
+                    document.getElementById('pro').style.display = 'none';
+
+                    document.getElementById('eeee').style.display = "block";
+                    document.getElementById('statusemail').innerHTML = "Installation Error";
+                    form.reset();
+
+                }
+
+                else {
+                    document.getElementById('pro').style.display = 'nonw';
+
+                    document.getElementById('eeee').style.display = "block";
+                    document.getElementById('statusemail').innerHTML = "Successfully Installed";
+                    form.reset();
+
+
+                }
+            } catch (error) {
+
+                document.getElementById('pro').style.display = 'none';
+
+                document.getElementById('eeee').style.display = "block";
+                document.getElementById('statusemail').innerHTML = "Something Went Wrong";
+                form.reset();
+
+
+            }
+        }
+    </script>
+    <!-- Javascript -->
+    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+
+    <!-- page vendor js file -->
+    <script src="/static/assets/vendor/toastr/toastr.js"></script>
+    <script src="/static/assets/bundles/c3.bundle.js"></script>
+
+
+    <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
+    <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
+
+
+    <!-- page js file -->
+    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/chartjs.js"></script>
+    <script src="/static/assets/index2.js"></script>
+
+
+</body>
+
+</html>

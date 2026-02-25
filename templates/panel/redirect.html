@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>:: VoidPanel :: Redirects</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="VoidPanel Redirects ">
+    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+
+    <!-- VENDOR CSS -->
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
+
+    <!-- MAIN Project CSS file -->
+    <link rel="stylesheet" href="/static/assets/css/main.css">
+
+    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+    <style>
+        /* Basic styling for the p tag */
+        p.processing {
+            font-size: 18px;
+            font-weight: bold;
+
+        }
+
+        /* Animation for the dots */
+        .dots::after {
+            content: '';
+            display: inline-block;
+            width: 1em;
+            text-align: left;
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        /* Keyframes for the dots animation */
+        @keyframes dots {
+
+            0%,
+            100% {
+                content: '';
+            }
+
+            25% {
+                content: '.';
+            }
+
+            50% {
+                content: '..';
+            }
+
+            75% {
+                content: '...';
+            }
+        }
+    </style>
+    <style>
+        .myname {
+            border-radius: 30px;
+            box-shadow: inset;
+            border-width: 4px;
+
+
+        }
+
+        .text-container {
+
+            border: 1px solid #ccc;
+
+            word-wrap: break-word;
+            /* Force text to wrap */
+            white-space: normal;
+            /* Ensure normal wrapping */
+            overflow-wrap: break-word;
+            /* Ensure long words break */
+        }
+    </style>
+
+</head>
+
+<body data-theme="light" class="font-nunito">
+
+    <div id="wrapper" class="theme-cyan">
+
+        <!-- Page Loader -->
+        <div class="page-loader-wrapper">
+            <div class="loader">
+                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
+                </div>
+                <p>Please wait...</p>
+            </div>
+        </div>
+
+
+
+        {% include 'navbar.html' %}
+
+        <!-- main left menu -->
+        {% include 'left.html' %}
+        <!-- rightbar icon div -->
+        {% include 'right.html' %}
+
+
+        <!-- mani page content body part -->
+
+        <div id="main-content">
+
+            <div class="container-fluid">
+                <div class="block-header">
+                    <div class="row">
+                        <div class="col-lg-10 col-md-6 col-sm-12">
+                            <h2>Add Redirect</h2>
+                            <ul class="breadcrumb">
+                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
+                                </li>
+                                <li class="breadcrumb-item">Dashboard</li>
+                                <li class="breadcrumb-item">Add Redirect</li>
+
+                            </ul>
+                        </div>
+
+
+
+
+
+
+
+                    </div>
+                </div>
+
+                <div class="row clearfix">
+                    <div class="col-lg-12">
+
+                        <div class="">
+                            <div class="header">
+                                <h2 style="display: inline-block;">Redirect Wizard</h2>
+
+                                <img src="/static/icons/re.png" style="height: 80px; width: 80px; border-radius: 5%;">
+
+
+                            </div>
+
+
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row clearfix " style="margin-top: 30px;">
+
+
+
+
+
+                </div>
+
+
+                <div class="row clearfix" style="margin-top: 30px;">
+                    <div class="col-lg-6 col-md-12">
+                        <form id="addr" method="post" action="">{% csrf_token %}
+                        <div class="">
+                            <div class="row clearfix">
+
+
+
+                       
+
+                                    <div class="col-lg-6 col-md-6 col-sm-12">
+                                        <div class="form-group">
+                                            <label for="text-input1">Select Domain</label>
+                                            <select name="domain" class="form-control show-tick" required>
+                                                <option>Domain</option>
+                                                <option value="{{domain}}">{{domain}}</option>
+                                                {% for i in subdomain %}
+                                                <option value="{{i.subdomain}}">{{i.subdomain}}</option>
+                                                {% endfor %}
+
+                                            </select>
+                                        </div>
+
+
+                                        <input type="text" name="maindomain" class="form-control" hidden value="{{domain}}" 
+                                        required>
+
+                                        <div class="form-group">
+                                            <label for="text-input1">Path</label>
+                                            <input type="text" name="path" class="form-control" value="/" placeholder="/"
+                                                required>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="text-input1">New Path</label>
+                                            <input type="text" name="newpath" class="form-control" value="/" placeholder="/"
+                                                required>
+                                        </div>
+
+
+
+
+                                        <div style="display: flex; justify-content: center; align-items: center;">
+                                            <button onclick="addredirec(event)"
+                                                class="btn btn-primary">Submit/Save</button>
+                                        </div>
+
+
+                                    </div>
+                             
+                                <div class="modal animated fadeIn show" id="pro1"
+                                    style="display: none; margin-top: 300px;">
+                                    <div class="modal-dialog modal-sm" role="document">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <p class="processing">Processing<span class="dots"></span></p>
+
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </form>
+                    </div>
+                    <div class="col-lg-6 col-md-12">
+                        <div class="">
+                            <div class="header">
+                                <h4>Redirection Info</h4>
+                            </div>
+                            <div class="body table-responsive social_media_table"
+                                style="max-height: 300px; overflow-y: auto;">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+
+                                            <th>Domain</th>
+                                            <th>Path</th>
+                                            <th>New Path</th>
+                                            <th>Delete</th>
+
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+
+                                      
+
+                                        {% for i in allredir %}
+                                        <tr>
+
+
+                                            <td>{{i.domain}}</td>
+
+                                  
+
+
+                                            <td>{{i.path}}</td>
+                                    
+                                            <td>{{i.newpath}}</td>
+
+                                            <td>
+
+                                                <button onclick="delredir(event,'{{i.domain}} ','{{i.path}} ','{{i.newpath}} ');"
+                                                    class="btn btn-danger"> Delete <i
+                                                        class="fa fa-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+            </div>
+
+        </div>
+
+  <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
+    <div class="modal-dialog modal-sm" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="title" id="defaultModalLabel">Status</h6>
+            </div>
+
+            <div class="modal-body">
+                <div class="col-md-12 col-sm-12">
+                    <div id="statusemail" style="text-align: center;" class="row clearfix">
+
+
+
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button  onclick="closeelol();"
+                        class="btn btn-danger">Close</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+function closeelol(){
+document.getElementById('eeee').style.display='none';
+}
+</script>
+        <script>
+
+       async function delredir(event,domain,path,newpath) {
+                event.preventDefault();  // Prevent the default form submission behavior
+                document.getElementById('pro1').style.display = "block";
+                // Get the form data
+          
+                const data = {
+                    domain:domain,
+                    path:path,
+                    newpath:newpath,
+
+                };
+      
+
+
+                try {
+                    // Make the fetch request to change the password
+                    const response = await fetch('/delredirectionnn/', {  // Replace with your actual API endpoint
+                        method: 'POST',
+                        body: JSON.stringify(data),
+                        headers: {
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                        }
+                    });
+                    const result = await response.json();
+            
+                    // Handle the server response
+                    if (response.ok && result.status === 'success') {
+                        document.getElementById('pro1').style.display = "none";
+                        location.reload(true);
+                    }
+
+                 
+                } catch (error) {
+
+                    document.getElementById('pro1').style.display = "none";
+                    location.reload(true);
+                }
+            }
+
+        </script>
+        <script>
+
+
+
+
+            async function addredirec(event) {
+                event.preventDefault();  // Prevent the default form submission behavior
+                document.getElementById('pro1').style.display = "block";
+                // Get the form data
+                const form = document.getElementById('addr');
+                const formData = new FormData(form);
+
+
+                try {
+                    // Make the fetch request to change the password
+                    const response = await fetch('/addredirectionnn/', {  // Replace with your actual API endpoint
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                        }
+                    });
+                    const result = await response.json();
+                    // Handle the server response
+                 
+                    if (response.ok && result.status == 'success') {
+                        document.getElementById('pro1').style.display = "none";
+                        location.reload(true);
+                    }
+                    else if (response.ok && result.status == 'c') {
+                      
+                        
+                        document.getElementById('pro1').style.display = "none";
+                       
+                        document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Reserved Keyword";
+
+                        
+                    }
+                    else if (response.ok && result.status == 'error') {
+                        
+                        document.getElementById('pro1').style.display = "none";
+                       
+                        document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Redirection Already Exist";
+
+                
+                    }
+                } catch (error) {
+              
+
+                    document.getElementById('pro1').style.display = "none";
+                    location.reload(true);
+                  
+                }
+            }
+
+        </script>
+
+
+
+
+
+
+
+
+
+
+
+
+        <!-- Javascript -->
+        <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+        <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+
+        <!-- page vendor js file -->
+        <script src="/static/assets/vendor/toastr/toastr.js"></script>
+        <script src="/static/assets/bundles/c3.bundle.js"></script>
+
+
+        <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
+        <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
+
+
+        <!-- page js file -->
+        <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+        <script src="/static/assets/bundles/chartjs.js"></script>
+        <script src="/static/assets/index2.js"></script>
+
+
+</body>
+
+</html>

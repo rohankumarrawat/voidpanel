@@ -1,0 +1,856 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>:: VoidPanel :: Firewall</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="VoidPanel Firewall ">
+    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+
+
+    <!-- VENDOR CSS -->
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+   
+    <!-- MAIN Project CSS file -->
+    <link rel="stylesheet" href="/static/assets/css/main.css">
+
+    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+    <style>
+        /* Basic styling for the p tag */
+        p.processing {
+            font-size: 18px;
+            font-weight: bold;
+
+        }
+
+        /* Animation for the dots */
+        .dots::after {
+            content: '';
+            display: inline-block;
+            width: 1em;
+            text-align: left;
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        /* Keyframes for the dots animation */
+        @keyframes dots {
+
+            0%,
+            100% {
+                content: '';
+            }
+
+            25% {
+                content: '.';
+            }
+
+            50% {
+                content: '..';
+            }
+
+            75% {
+                content: '...';
+            }
+        }
+    </style>
+    <style>
+        .myname {
+            border-radius: 30px;
+            box-shadow: inset;
+            border-width: 4px;
+
+
+        }
+
+        .text-container {
+
+            border: 1px solid #ccc;
+
+            word-wrap: break-word;
+            /* Force text to wrap */
+            white-space: normal;
+            /* Ensure normal wrapping */
+            overflow-wrap: break-word;
+            /* Ensure long words break */
+        }
+    </style>
+
+</head>
+
+<body data-theme="light" class="font-nunito">
+
+    <div id="wrapper" class="theme-cyan">
+
+        <!-- Page Loader -->
+        <div class="page-loader-wrapper">
+            <div class="loader">
+                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
+
+                </div>
+                <p>Please wait...</p>
+            </div>
+        </div>
+
+
+
+        {% include 'navbar.html' %}
+
+        <!-- main left menu -->
+        {% include 'left.html' %}
+        <!-- rightbar icon div -->
+        {% include 'right.html' %}
+
+
+        <!-- mani page content body part -->
+
+        <div id="main-content">
+
+            <div class="container-fluid">
+                <div class="block-header">
+                    <div class="row">
+                        <div class="col-lg-6 col-md-6 col-sm-12">
+                            <h2>CSF Firewall</h2>
+                            <ul class="breadcrumb">
+                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
+                                </li>
+                                <li class="breadcrumb-item">Dashboard</li>
+                                <li class="breadcrumb-item active">CSF Firewall</li>
+                            </ul>
+                        </div>
+                        
+                    </div>
+                </div>
+
+                <div class="row clearfix">
+                    <div class="col-lg-12">
+                        <div class="">
+                            
+                            <div class="tab-content">
+
+                             
+
+                                    <form  id="adddbform" method="post" action="">{% csrf_token %}
+                                        
+                                        
+                                            <div class="col-lg-12 col-md-12">
+                                                <div style="margin-left: 20px;" class="p-2 m-2">
+                                                    <form method="post" id="copyForm" action="">{% csrf_token %}
+                        
+                        
+                        {% if firewall.status %}
+                                                        <div class="form-check form-switch">
+                                                            <input class="form-check-input" type="checkbox" role="switch" checked onchange="install(event);" >
+                                                            <label class="form-check-label" for="flexSwitchCheckDefault"> Firewall Enabled</label>
+                                                          </div>
+                                                      
+                                               {% else %}
+                                               <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" role="switch" onchange="install(event);">
+                                                <label class="form-check-label" for="flexSwitchCheckDefault"> Firewall Disabled</label>
+                                              </div>
+
+                                               {%  endif %}
+                                                
+                                                 
+                         
+
+                                                            <p id="pro" style="display: none;" class="processing">Processing<span
+                                                                    class="dots"></span>
+                                                            </p>
+                                          
+                        
+                        
+                        
+                        
+                                                </div>
+                                                
+                                            </div>
+                                
+
+
+                                    </form>
+
+                                </div>
+
+                                
+                                   
+                            </div>
+                        </div>
+                    </div>
+
+
+                    {% if firewall.status %}
+    
+                    <div class="row clearfix">
+                        <div class="col-lg-12">
+                            <div class="">
+                                <div class="body">
+                                    <ul class="nav nav-tabs">
+                                        <li class="nav-item"><a class="nav-link active" data-toggle="tab"
+                                                href="#Settings">Quick Alllow</a></li>
+                                        <li class="nav-item"><a class="nav-link" data-toggle="tab"
+                                                href="#billings">Quick Deny</a></li>
+
+                                                <li class="nav-item"><a class="nav-link" data-toggle="tab"
+                                                    href="#billings1">Quick Ignore</a></li>
+                                                    <li class="nav-item"><a class="nav-link" data-toggle="tab"
+                                                        href="#billings2">Quick Unblock</a></li>
+
+                                                        <li class="nav-item"><a class="nav-link" data-toggle="tab"
+                                                            href="#billings3">Quick block</a></li>
+                                    </ul>
+                                </div>
+                                <div class="tab-content">
+    
+                                    <div class="tab-pane active" id="Settings">
+    
+    
+                                        <form  id="allow" method="post" action="">{% csrf_token %}
+                                            <div class="body">
+                                   
+                                                <p id="pro" style="display: none;" class="processing">Processing<span
+                                                    class="dots"></span>
+                                            </p>
+                                                <div class="row clearfix">
+                                                    <div class="col-lg-6 col-md-12">
+                                                        <div class="form-group">
+                                                            <input type="text" placeholder="ipaddress"  class="form-control" name="allow">
+                                                               
+                                                         
+                                                        </div>
+    
+    
+                                                    </div>
+    
+                                                </div>
+                                                <button onclick="allow23(event);" type="button" class="btn btn-primary">Update</button> 
+    
+                                            </div>
+    
+    
+                                        </form>
+    
+                                    </div>
+    
+                                    <div class="tab-pane" id="billings">
+    
+    
+    
+                                        <div class="body">
+                                    
+                                            <form  id="deny" method="post" action="">{% csrf_token %}
+                                                <div class="body">
+                                                    
+                                                    <p id="pro" style="display: none;" class="processing">Processing<span
+                                                        class="dots"></span>
+                                                </p>
+                                                    <div class="row clearfix">
+                                                        <div class="col-lg-6 col-md-12">
+                                                            <div class="form-group">
+                                                                <input class="form-control" name="allow" placeholder="Ip address"  type="text" required name="extetion">
+    
+    
+                                                             
+                            
+                                                        
+                                                                   
+                                                               
+                                                            </div>
+        
+        
+                                                        </div>
+        
+                                                    </div>
+                                                    <button onclick="deny(event);" type="button" class="btn btn-primary">Update</button> &nbsp;&nbsp;
+        
+                                                </div>
+        
+        
+                                            </form>
+                                           
+                                        </div>
+    
+                                    </div>
+
+                                    <div class="tab-pane" id="billings1">
+    
+    
+    
+                                        <div class="body">
+                                    
+                                            <form  id="ignore" method="post" action="">{% csrf_token %}
+                                                <div class="body">
+                                                    
+                                                    <p id="pro" style="display: none;" class="processing">Processing<span
+                                                        class="dots"></span>
+                                                </p>
+                                                    <div class="row clearfix">
+                                                        <div class="col-lg-6 col-md-12">
+                                                            <div class="form-group">
+                                                                <input class="form-control" name="allow" placeholder="Ip address"  type="text" required name="extetion">
+    
+    
+                                                             
+                            
+                                                        
+                                                                   
+                                                               
+                                                            </div>
+        
+        
+                                                        </div>
+        
+                                                    </div>
+                                                    <button onclick="ignore(event);" type="button" class="btn btn-primary">Update</button> &nbsp;&nbsp;
+        
+                                                </div>
+        
+        
+                                            </form>
+                                           
+                                        </div>
+    
+                                    </div>
+
+                                    <div class="tab-pane" id="billings2">
+    
+    
+    
+                                        <div class="body">
+                                    
+                                            <form  id="unblock" method="post" action="">{% csrf_token %}
+                                                <div class="body">
+                                                    
+                                                    <p id="pro" style="display: none;" class="processing">Processing<span
+                                                        class="dots"></span>
+                                                </p>
+                                                    <div class="row clearfix">
+                                                        <div class="col-lg-6 col-md-12">
+                                                            <div class="form-group">
+                                                                <input class="form-control" name="allow" placeholder="Ip address"  type="text" required name="extetion">
+    
+    
+                                                             
+                            
+                                                        
+                                                                   
+                                                               
+                                                            </div>
+        
+        
+                                                        </div>
+        
+                                                    </div>
+                                                    <button onclick="unblock(event);" type="button" class="btn btn-primary">Update</button> &nbsp;&nbsp;
+        
+                                                </div>
+        
+        
+                                            </form>
+                                           
+                                        </div>
+    
+                                    </div>
+    
+
+
+                                    <div class="tab-pane" id="billings3">
+    
+    
+    
+                                        <div class="body">
+                                    
+                                            <form  id="block" method="post" action="">{% csrf_token %}
+                                                <div class="body">
+                                                    
+                                                    <p id="pro" style="display: none;" class="processing">Processing<span
+                                                        class="dots"></span>
+                                                </p>
+                                                    <div class="row clearfix">
+                                                        <div class="col-lg-6 col-md-12">
+                                                            <div class="form-group">
+                                                                <input class="form-control" name="allow" placeholder="Ip address"  type="text" required name="extetion">
+    
+    
+                                                             
+                            
+                                                        
+                                                                   
+                                                               
+                                                            </div>
+        
+        
+                                                        </div>
+        
+                                                    </div>
+                                                    <button onclick="block(event);" type="button" class="btn btn-primary">Update</button> &nbsp;&nbsp;
+        
+                                                </div>
+        
+        
+                                            </form>
+                                           
+                                        </div>
+    
+                                    </div>
+    
+    
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% endif %}
+                
+            </div>
+            <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
+                <div class="modal-dialog modal-sm" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h6 class="title" id="defaultModalLabel">Status</h6>
+                        </div>
+
+                        <div class="modal-body">
+                            <div class="col-md-12 col-sm-12">
+                                <div id="statusemail" style="text-align: center;" class="row clearfix">
+
+
+
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button  onclick="closeelol();"
+                                    class="btn btn-danger">Close</button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+
+
+
+
+
+
+        </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+    <script>
+        function closeelol(){
+            document.getElementById('eeee').style.display='none';
+        }
+    </script>
+
+
+    <script>
+        async function ignore(event) {
+               // Prevent the default action (e.g., form submission)
+               if (event) {
+                   event.preventDefault();
+               }
+               
+               document.getElementById('pro').style.display='block';
+               const form = document.getElementById('ignore');
+               const formData = new FormData(form);
+    
+    
+    
+               try {
+                   // Fetch request to submit form data
+                   const response = await fetch('/ignoreip/', {
+                       method: 'POST',
+                       body: formData,
+                       headers: {
+                           'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                       }
+                   });
+    
+                   // Parse the JSON response
+                   const result = await response.json();
+    
+    
+                   // Handle response
+                   if (response.ok && result.status === 'success') {
+                       document.getElementById('pro').style.display='none';
+                  
+                       document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Ip  Ignored";
+
+           
+                   } else {
+                       document.getElementById('pro').style.display='none';
+                     
+                       document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Ip  Ignored";
+
+               
+    
+                      
+                   }
+               } catch (error) {
+                   document.getElementById('pro').style.display='none';
+              
+                   document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Ip  Ignored";
+
+    
+    
+                 
+               }
+           }
+    
+    
+        
+    </script>
+
+<script>
+    async function unblock(event) {
+           // Prevent the default action (e.g., form submission)
+           if (event) {
+               event.preventDefault();
+           }
+           
+           document.getElementById('pro').style.display='block';
+           const form = document.getElementById('unblock');
+           const formData = new FormData(form);
+
+
+
+           try {
+               // Fetch request to submit form data
+               const response = await fetch('/unblockip/', {
+                   method: 'POST',
+                   body: formData,
+                   headers: {
+                       'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                   }
+               });
+
+               // Parse the JSON response
+               const result = await response.json();
+
+
+               // Handle response
+               if (response.ok && result.status === 'success') {
+                   document.getElementById('pro').style.display='none';
+               
+                   document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Ip  Unblocked";
+
+       
+               } else {
+                   document.getElementById('pro').style.display='none';
+            
+                   document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Ip  Unblocked";
+
+           
+
+                  
+               }
+           } catch (error) {
+               document.getElementById('pro').style.display='none';
+           
+               document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Ip  Unblocked";
+
+
+
+             
+           }
+       }
+
+
+    
+</script>
+
+
+<script>
+    async function block(event) {
+           // Prevent the default action (e.g., form submission)
+           if (event) {
+               event.preventDefault();
+           }
+           
+           document.getElementById('pro').style.display='block';
+           const form = document.getElementById('block');
+           const formData = new FormData(form);
+
+
+
+           try {
+               // Fetch request to submit form data
+               const response = await fetch('/blockip/', {
+                   method: 'POST',
+                   body: formData,
+                   headers: {
+                       'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                   }
+               });
+
+               // Parse the JSON response
+               const result = await response.json();
+
+
+               // Handle response
+               if (response.ok && result.status === 'success') {
+                   document.getElementById('pro').style.display='none';
+              
+                   document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Ip  blocked";
+
+       
+               } else {
+                   document.getElementById('pro').style.display='none';
+     
+                   document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Ip  blocked";
+
+           
+
+                  
+               }
+           } catch (error) {
+               document.getElementById('pro').style.display='none';
+
+               document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Ip  blocked";
+
+
+
+             
+           }
+       }
+
+
+    
+</script>
+
+    <script>
+        async function deny(event) {
+               // Prevent the default action (e.g., form submission)
+               if (event) {
+                   event.preventDefault();
+               }
+               
+               document.getElementById('pro').style.display='block';
+               const form = document.getElementById('deny');
+               const formData = new FormData(form);
+    
+    
+    
+               try {
+                   // Fetch request to submit form data
+                   const response = await fetch('/denyip/', {
+                       method: 'POST',
+                       body: formData,
+                       headers: {
+                           'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                       }
+                   });
+    
+                   // Parse the JSON response
+                   const result = await response.json();
+    
+    
+                   // Handle response
+                   if (response.ok && result.status === 'success') {
+                       document.getElementById('pro').style.display='none';
+                    
+                       document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Ip  Denied";
+
+           
+                   } else {
+                       document.getElementById('pro').style.display='none';
+                    
+                       document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Ip  Denied";
+
+               
+    
+                      
+                   }
+               } catch (error) {
+                   document.getElementById('pro').style.display='none';
+              
+                   document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Ip  Denied";
+
+    
+    
+                 
+               }
+           }
+    
+    
+        
+    </script>
+
+    <script>
+         async function install(event) {
+                // Prevent the default action (e.g., form submission)
+                if (event) {
+                    event.preventDefault();
+                }
+                
+                document.getElementById('pro').style.display='block';
+                const form = document.getElementById('adddbform');
+                const formData = new FormData(form);
+
+
+
+                try {
+                    // Fetch request to submit form data
+                    const response = await fetch('/cpbrute/', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                        }
+                    });
+
+                    // Parse the JSON response
+                    const result = await response.json();
+
+
+                    // Handle response
+                    if (response.ok && result.status === 'success') {
+                        document.getElementById('pro').style.display='none';
+
+                        window.location.reload();
+                        
+                    } else {
+                        document.getElementById('pro').style.display='none';
+
+                        window.location.reload();
+
+                       
+                    }
+                } catch (error) {
+                    document.getElementById('pro').style.display='none';
+
+                    window.location.reload();
+
+                  
+                }
+            }
+
+
+         
+    </script>
+
+
+<script>
+    async function allow23(event) {
+           // Prevent the default action (e.g., form submission)
+       
+           if (event) {
+               event.preventDefault();
+           }
+           
+           document.getElementById('pro').style.display='block';
+           const form = document.getElementById('allow');
+           const formData = new FormData(form);
+
+
+
+           try {
+               // Fetch request to submit form data
+               const response = await fetch('/allowip/', {
+                   method: 'POST',
+                   body: formData,
+                   headers: {
+                       'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                   }
+               });
+
+               // Parse the JSON response
+               const result = await response.json();
+
+
+               // Handle response
+               if (response.ok && result.status === 'success') {
+                   document.getElementById('pro').style.display='none';
+              
+                   document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Ip Allowed";
+
+       
+               } else {
+                   document.getElementById('pro').style.display='none';
+      
+                   document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Ip Allowed";
+
+           
+
+                  
+               }
+           } catch (error) {
+               document.getElementById('pro').style.display='none';
+           
+               document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Ip Allowed";
+;
+
+
+             
+           }
+       }
+
+
+    
+</script>
+
+
+
+
+    <!-- Javascript -->
+    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+
+    <!-- page vendor js file -->
+    <script src="/static/assets/vendor/toastr/toastr.js"></script>
+    <script src="/static/assets/bundles/c3.bundle.js"></script>
+
+
+    <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
+    <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
+
+
+    <!-- page js file -->
+    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/chartjs.js"></script>
+    <script src="/static/assets/index2.js"></script>
+
+
+</body>
+
+</html>

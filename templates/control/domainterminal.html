@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>:: VoidPanel :: Run Command</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="VoidPanel Terminal ">
+    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+
+    <!-- VENDOR CSS -->
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
+
+    <!-- MAIN Project CSS file -->
+    <link rel="stylesheet" href="/static/assets/css/main.css">
+
+    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+   
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #command {
+            width: calc(100% - 100px); /* Full width minus button space */
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background-color: #333; /* Dark input field */
+            color: #ffffff;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff; /* Bootstrap primary color */
+            color: #ffffff;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3; /* Darker on hover */
+        }
+
+        #output {
+            background-color: #000; /* Black output area */
+            padding: 10px;
+            color: #ffffff;
+            border-radius: 5px;
+            margin-top: 20px;
+            white-space: pre-wrap; /* Preserve whitespace and line breaks */
+            overflow: auto; /* Allow scrolling for long outputs */
+            height: 300px; /* Fixed height */
+        }
+
+        #commandForm {
+            display: flex; /* Flexbox layout */
+            justify-content: space-between; /* Space between input and button */
+        }
+    </style>
+</head>
+
+<body data-theme="light" class="font-nunito">
+
+    <div id="wrapper" class="theme-cyan">
+
+        <!-- Page Loader -->
+        <div class="page-loader-wrapper">
+            <div class="loader">
+                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
+
+                </div>
+                <p>Please wait...</p>
+            </div>
+        </div>
+
+
+
+        {% include 'control/navbar.html' %}
+
+        <!-- main left menu -->
+        {% include 'control/left.html' %}
+        <!-- rightbar icon div -->
+        {% include 'control/right.html' %}
+
+
+        <!-- mani page content body part -->
+
+        <div id="main-content">
+
+            <div class="container-fluid">
+                <div class="block-header">
+                    <div class="row">
+                        <div class="col-lg-6 col-md-6 col-sm-12">
+                            <h2>Terminal</h2>
+                            <ul class="breadcrumb">
+                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
+                                </li>
+                                <li class="breadcrumb-item">Dashboard</li>
+                                <li class="breadcrumb-item active">Terminal</li>
+                            </ul>
+                        </div>
+
+                    </div>
+                    <div class="row">
+                        <div id="if" style="margin-top: 5%; display: block;" class="col-lg-12 col-md-12 col-sm-12">
+
+                                    <form id="commandForm">
+                                        <input type="text" id="command" placeholder="Enter command" required>
+                                        <button type="submit">Execute</button>
+                                    </form>
+                                    <pre id="output"></pre>
+                        </div>
+                    </div>
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+            </div>
+        </div>
+        <script>
+            $(document).ready(function() {
+                // Handle the form submission
+                $('#commandForm').on('submit', function(e) {
+                    e.preventDefault(); // Prevent default form submission
+        
+                    // Show loading message in the output area
+                    $('#output').text('Running......\n');
+        
+                    // Get form input values
+                    const command = $('#command').val();
+                    const domain = $('#detaildomain').val();
+                    const name = $('#detailname').val();
+                    const dir = $('#detaildir').val();
+        
+                    // Send AJAX POST request
+                    $.ajax({
+                        type: 'POST',
+                        url: '{% url "terminalname" %}', // Django URL for the terminal endpoint
+                        data: {
+                            'command': command,
+                            'domain': domain,
+                            'name': name,
+                            'dir': dir,
+                            'csrfmiddlewaretoken': '{{ csrf_token }}' // CSRF token for Django
+                        },
+                        success: function(data) {
+                            // Handle success response
+                            if (data.error) {
+                                // Display error message if present
+                                $('#output').text('Error:\n' + data.output);
+                            } else {
+                                // Display output if command executes successfully
+                                $('#output').text('Output:\n' + data.output);
+                            }
+                            // Clear input field after execution
+                            $('#command').val('');
+                            // Scroll to the bottom of the output area
+                            $('#output').scrollTop($('#output')[0].scrollHeight);
+                        },
+                        error: function() {
+                            // Handle AJAX errors
+                            $('#output').text('An error occurred.');
+                        }
+                    });
+                });
+            });
+        </script>
+        
+
+        <!-- Javascript -->
+        <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+        <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+
+        <!-- page vendor js file -->
+        <script src="/static/assets/vendor/toastr/toastr.js"></script>
+        <script src="/static/assets/bundles/c3.bundle.js"></script>
+
+
+        <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
+        <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
+
+
+        <!-- page js file -->
+        <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+        <script src="/static/assets/bundles/chartjs.js"></script>
+        <script src="/static/assets/index2.js"></script>
+
+
+</body>
+
+
+
+</html>

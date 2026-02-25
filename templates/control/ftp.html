@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>:: VoidPanel :: FTP</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="VoidPanel FTP ">
+    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+
+    <!-- VENDOR CSS -->
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
+
+
+    <!-- MAIN Project CSS file -->
+    <link rel="stylesheet" href="/static/assets/css/main.css">
+
+    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+    <style>
+        /* Basic styling for the p tag */
+        p.processing {
+            font-size: 18px;
+            font-weight: bold;
+
+        }
+
+        /* Animation for the dots */
+        .dots::after {
+            content: '';
+            display: inline-block;
+            width: 1em;
+            text-align: left;
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        /* Keyframes for the dots animation */
+        @keyframes dots {
+
+            0%,
+            100% {
+                content: '';
+            }
+
+            25% {
+                content: '.';
+            }
+
+            50% {
+                content: '..';
+            }
+
+            75% {
+                content: '...';
+            }
+        }
+    </style>
+    <style>
+        .myname {
+            border-radius: 30px;
+            box-shadow: inset;
+            border-width: 4px;
+
+
+        }
+
+        .text-container {
+
+            border: 1px solid #ccc;
+
+            word-wrap: break-word;
+            /* Force text to wrap */
+            white-space: normal;
+            /* Ensure normal wrapping */
+            overflow-wrap: break-word;
+            /* Ensure long words break */
+        }
+    </style>
+
+</head>
+
+<body data-theme="light" class="font-nunito">
+
+    <div id="wrapper" class="theme-cyan">
+
+        <!-- Page Loader -->
+        <div class="page-loader-wrapper">
+            <div class="loader">
+
+                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
+                </div>
+                <p>Please wait...</p>
+            </div>
+        </div>
+
+
+
+        {% include 'control/navbar.html' %}
+
+        <!-- main left menu -->
+        {% include 'control/left.html' %}
+        <!-- rightbar icon div -->
+        {% include 'control/right.html' %}
+
+
+        <!-- mani page content body part -->
+
+        <div id="main-content">
+
+            <div class="container-fluid">
+                <div class="block-header">
+                    <div class="row">
+                        <div class="col-lg-10 col-md-6 col-sm-12">
+                            <h2>Create Backup</h2>
+                            <ul class="breadcrumb">
+                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
+                                </li>
+                                <li class="breadcrumb-item">Dashboard</li>
+                                <li class="breadcrumb-item">Create FTP Account</li>
+
+                            </ul>
+                        </div>
+
+
+
+
+
+
+
+                    </div>
+                </div>
+
+                <div class="row clearfix">
+                    <div class="col-lg-12">
+
+                        <div class="">
+                            <div class="header">
+                                <h2 style="display: inline-block;">FTP Account</h2>
+
+                                <img src="/static/icons/ftp.png" style="height: 80px; width: 80px; border-radius: 5%;">
+
+
+                            </div>
+
+
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row clearfix " style="margin-top: 30px;">
+
+
+
+
+
+                </div>
+<script>
+    function removeSpacesAndSpecialChars(input) {
+                // Regular expression to remove any non-alphanumeric characters (including spaces)
+                const regex = /[^a-zA-Z0-9_-]/g;
+
+                // Replace any spaces or special characters with an empty string
+                input.value = input.value.replace(regex, '');
+            }
+
+            function removeSpacesAndSpecialChar(input) {
+                // Regular expression to remove any non-alphanumeric characters (including spaces)
+                const regex = /[^0-9]/g;
+
+                // Replace any spaces or special characters with an empty string
+                input.value = input.value.replace(regex, '');
+            }
+            function confirm(input) {
+                const password = document.getElementById('password').value;
+                const password1 = document.getElementById('password1').value;
+                const pri = document.getElementById('match');
+                if (password === password1) {
+                    pri.innerHTML = "Password Matched !";
+                    document.getElementById('addemailbtn').disabled = false;
+                } else {
+                    pri.innerHTML = 'Passwords do not match!';
+                    document.getElementById('addemailbtn').disabled = true;
+                }
+
+
+            }
+            function gen(){
+                // Define characters to include in the password
+                const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+~";
+
+                let password = "";
+
+                // Loop to generate 8 characters randomly
+                for (let i = 0; i < 10; i++) {
+                    const randomIndex = Math.floor(Math.random() * chars.length);
+                    password += chars[randomIndex];
+                }
+
+                passw = document.getElementById('password');
+                passw1 = document.getElementById('password1');
+                passw.value = password;
+                passw1.value = password;
+                passw.placeholder = password;
+                passw1.placeholder = password;
+  
+                document.getElementById('addemailbtn').disabled = false;
+            }
+                function genshow(input) {
+                const password = document.getElementById('password');
+                const password1 = document.getElementById('password1');
+                if (password.type === "password") {
+                    password.type = "text";
+                    password1.type = "text";
+                } else {
+                    password.type = "password";
+                    password1.type = "password";
+                }
+            }
+</script>
+
+                <div class="row clearfix" style="margin-top: 30px;">
+                    <div class="col-lg-4 col-md-12">
+                        <div style="margin-left: 20px;" class="p-2 m-2">
+                            <form id="ftpadd" method="post" action="">{% csrf_token %}
+                                <div class="input-group mb-3">
+                                   
+                                    <div class="input-group-append">
+                                        <span class="input-group-text" id="basic-addon2">{{dir}}_</span>
+                                    </div>
+                                    <input required type="text" id="textInput"
+                                    oninput="removeSpacesAndSpecialChars(this);" name="username"
+                                    class="form-control" placeholder="username" aria-label="Recipient's username"
+                                    aria-describedby="basic-addon2">
+                                </div>
+                                <div class="form-group">
+                                    <input required type="password" name="password" placeholder="Password" id="password"
+                                        class="form-control">
+
+                                    <input type="password" name="domain" value="{{domain}}" hidden class="form-control">
+
+                                </div>
+                                <div id="match" class="form-group">
+
+
+                                </div>
+                                <div class="form-group">
+                                    <input required  type="password" oninput="confirm(this);" name="password1"
+                                        placeholder="Confirm Password" id="password1" class="form-control">
+
+                                </div>
+                                <div class="row clearfix">
+                                    <div class="col-md-8 col-sm-12">
+                                        <div class="form-group">
+                                            <button  type="button" class="btn btn-secondary" onclick="gen();">Generate
+                                                Password</button>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 col-sm-12">
+                                        <div class="form-group">
+                                            <button type="button" class="btn btn-primary" onclick="genshow();"><i
+                                                    class="fa  icon-eye"> </i></button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="input-group mb-3">
+                                    <input required type="text" id="textInput"
+                                        oninput="removeSpacesAndSpecialChar(this);" name="storage"
+                                        class="form-control" placeholder="10" >
+                                    <div class="input-group-append">
+                                        <span class="input-group-text" id="basic-addon2">(In MB)</span>
+                                    </div>
+                                    
+                                </div>
+                                <p>0 for Unlimited</p>
+
+                                <div class="input-group mb-3">
+                                    <div class="input-group-append">
+                                        <span class="input-group-text" id="basic-addon2">/home/{{dir}}/</span>
+                                    </div>
+                                    <input required type="text" id="textInput"
+                                        name="path"
+                                        class="form-control" placeholder="10" >
+                                   
+                                    
+                                </div>
+                                
+
+                                <div class="modal-footer">
+                                    <button disabled id="addemailbtn" onclick="ftpadd(event);" class="btn btn-primary p-2 m-2">Add Account</button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                </div>
+
+                <div class="col-lg-8 col-md-12">
+                    <div class="">
+                        <div class="header">
+                            <h4>FTP Info</h4>
+                        </div>
+                        <div class="body table-responsive social_media_table"
+                            style="max-height: 300px; overflow-y: auto;">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+
+                                        <th>User</th>
+                                        <!-- <th> Storage Used</th> -->
+
+                                        <th>Change Storage</th>
+                                        <th>Change Password</th>
+                                        
+                                        <th>Delete Account</th>
+
+                                    </tr>
+                                </thead>
+                                <tbody>
+
+
+
+                                    {% for i in ftp %}
+                                    <tr>
+
+
+                                        <td>{{ i.username }}</td>
+
+                                        <!-- <td> <div id="progress" style="display: block;">
+                                            <div class="progress">
+                                                <div id="pbar" class="progress-bar progress-bar-success progress-bar-striped active"
+                                                    role="progressbar" aria-valuenow="{{i.storage}}" aria-valuemin="0" aria-valuemax="100"
+                                                    style="width: 5%">
+                    
+                                                </div>
+                    
+                                            </div>
+                                        </div></td> -->
+
+                                        <td> <button onclick="changestorage('{{i.username}}');"
+                                            class="btn btn-secondary"> Change Storage
+                                        </button></td>
+
+                                        <td>  <button onclick="changepassword('{{i.username}}');"
+                                            class="btn btn-secondary"> Change Password
+                                        </button></td>
+
+                                        <td>
+
+                                            <a href="/control/deleteftp/{{ i.username }}/"> <button
+                                                    class="btn btn-danger"> Delete Account
+                                                </button></a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+
+
+
+
+
+
+
+
+
+
+        </div>
+
+    </div>
+    
+    <div class="modal animated fadeIn show" id="changestorage" style="display: none; margin-top: 300px;">
+        <div class="modal-dialog modal-sm" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="title" id="defaultModalLabel">Change Storage</h6>
+                </div>
+                <form id="chstorage" method="post" action="">{% csrf_token %}
+                    <div class="modal-body">
+                        <div class="row clearfix">
+                            <div class="col-md-12 col-sm-12">
+                                <div class="form-group">
+                      
+                                  <p id="str"></p>
+                                    <input type="text" oninput="removeSpacesAndSpecialChar(this);" name="storage" id="myInput6" required class="form-control"
+                                        placeholder="Your  Storage In MB">
+
+                                        <input type="text" name="user" value="" id="accountnamestorage" required class="form-control"
+                                        hidden>
+
+                                    
+                                   
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button onclick="chstorage(event);" class="btn btn-success">Change</button>
+                        <button type="button" class="btn btn-danger" onclick="hidestorage();">CLOSE</button>
+                    </div>
+
+                    <div class="modal animated fadeIn show" id="pro1" style="display: none; margin-top: 300px;">
+                        <div class="modal-dialog modal-sm" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <p class="processing">Processing<span class="dots"></span></p>
+
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                    
+                </form>
+            </div>
+        </div>
+    </div>
+
+
+
+    <div class="modal animated fadeIn show" id="changepassword1" style="display: none; margin-top: 300px;">
+        <div class="modal-dialog modal-sm" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="title" id="defaultModalLabel">Change Password</h6>
+                </div>
+                <form id="changepassword" method="post" action="">{% csrf_token %}
+                    <div class="modal-body">
+                        <div class="row clearfix">
+                            <div class="col-md-12 col-sm-12">
+                                <div class="form-group">
+                      
+                                  <p id="str1"></p>
+                                    <input type="password" name="password" id="myInput6" required class="form-control"
+                                        placeholder="Your Password">
+
+                                        <input type="text" name="domain" id="accountnamepassword" required class="form-control"
+                                        hidden>
+
+                                   
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button onclick="chch(event);" class="btn btn-success">Change</button>
+                        <button type="button" class="btn btn-danger" onclick="hidepassword();">CLOSE</button>
+                    </div>
+                    <div class="modal animated fadeIn show" id="pro2" style="display: none; margin-top: 300px;">
+                        <div class="modal-dialog modal-sm" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <p class="processing">Processing<span class="dots"></span></p>
+
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                   
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
+        <div class="modal-dialog modal-sm" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="title" id="defaultModalLabel">Status</h6>
+                </div>
+
+                <div class="modal-body">
+                    <div class="col-md-12 col-sm-12">
+                        <div id="statusemail" style="text-align: center;" class="row clearfix">
+
+
+
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button  onclick="closeelol();"
+                            class="btn btn-danger">Close</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+<script>
+function closeelol(){
+    document.getElementById('eeee').style.display='none';
+}
+</script>
+
+    <script>
+
+        function changepassword(name){
+            
+            document.getElementById('changepassword1').style.display='block';
+            document.getElementById('str1').innerHTML='Change Password For '+name;
+            document.getElementById('accountnamepassword').value=name;
+        }
+
+        function hidepassword(){
+            
+            document.getElementById('changepassword1').style.display='none';
+        }
+        function hidestorage(){
+            
+            document.getElementById('changestorage').style.display='none';
+        }
+
+        function changestorage(name){
+            document.getElementById('changestorage').style.display='block';
+            document.getElementById('str').innerHTML='Change Storage For '+name;
+            document.getElementById('accountnamestorage').value=name;
+            
+            
+        }
+
+
+        async function ftpadd(event) {
+            event.preventDefault();  // Prevent the default form submission behavior
+
+
+            document.getElementById('pro2').style.display = "block";
+
+            // Get the form data
+            const form = document.getElementById('ftpadd');
+            const formData = new FormData(form);
+           
+
+
+
+            try {
+                // Make the fetch request to change the password
+                const response = await fetch('/control/ftpadd/', {  // Replace with your actual API endpoint
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                    }
+                });
+                const result = await response.json();
+
+                // Handle the server response
+                if (response.ok && result.status === 'success') {
+                    document.getElementById('pro2').style.display = "none";
+                    location.reload(true);
+                }
+                else if (response.ok && result.status === 'exceed') {
+                    document.getElementById('pro2').style.display = "none";
+                
+
+  document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Limit Exceeded";
+
+                    location.reload(true);
+                }
+                else if (response.ok && result.status === 'path') {
+                    document.getElementById('pro2').style.display = "none";
+            
+
+  document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Invalid Path";
+
+                    location.reload(true);
+                }
+                else if (response.ok && result.status === 'already') {
+                    document.getElementById('pro2').style.display = "none";
+                   
+
+  document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Already Exist Account";
+
+                    location.reload(true);
+                }
+
+
+            } catch (error) {
+
+                document.getElementById('pro1').style.display = "none";
+                location.reload(true);
+            }
+        }
+
+
+        async function chch(event) {
+            event.preventDefault();  // Prevent the default form submission behavior
+
+
+            document.getElementById('pro2').style.display = "block";
+
+            // Get the form data
+            const form = document.getElementById('changepassword');
+            const formData = new FormData(form);
+           
+
+
+
+            try {
+                // Make the fetch request to change the password
+                const response = await fetch('/control/chpasswordftp/', {  // Replace with your actual API endpoint
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                    }
+                });
+                const result = await response.json();
+
+                // Handle the server response
+                if (response.ok && result.status === 'success') {
+                    document.getElementById('pro2').style.display = "none";
+                    location.reload(true);
+                }
+                else if (response.ok && result.status === 'exceed') {
+                    document.getElementById('pro2').style.display = "none";
+                   
+
+  document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Limit Exceeded";
+
+                    location.reload(true);
+                }
+                else if (response.ok && result.status === 'path') {
+                    document.getElementById('pro2').style.display = "none";
+                
+
+  document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Invalid Path";
+
+                    location.reload(true);
+                }
+                else if (response.ok && result.status === 'already') {
+                    document.getElementById('pro2').style.display = "none";
+                    
+
+  document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Already Exist Account";
+
+                    location.reload(true);
+                }
+
+
+            } catch (error) {
+
+                document.getElementById('pro1').style.display = "none";
+                location.reload(true);
+            }
+        }
+
+
+
+
+
+
+
+
+
+        async function chstorage(event) {
+            event.preventDefault();  // Prevent the default form submission behavior
+
+
+            document.getElementById('pro1').style.display = "block";
+
+            // Get the form data
+            const form = document.getElementById('chstorage');
+            const formData = new FormData(form);
+           
+
+
+
+            try {
+                // Make the fetch request to change the password
+                const response = await fetch('/control/chstorageftp/', {  // Replace with your actual API endpoint
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                    }
+                });
+                const result = await response.json();
+
+                // Handle the server response
+                if (response.ok && result.status === 'success') {
+                    document.getElementById('pro1').style.display = "none";
+                    location.reload(true);
+                }
+                else if (response.ok && result.status === 'exceed') {
+                    document.getElementById('pro1').style.display = "none";
+                  
+
+  document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Limit Exceeded";
+
+                    location.reload(true);
+                }
+                else if (response.ok && result.status === 'path') {
+                    document.getElementById('pro1').style.display = "none";
+             
+
+  document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Invalid Path";
+
+                    location.reload(true);
+                }
+                else if (response.ok && result.status === 'already') {
+                    document.getElementById('pro1').style.display = "none";
+                  
+
+  document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Already Exist Account";
+
+                    location.reload(true);
+                }
+
+
+            } catch (error) {
+
+                document.getElementById('pro1').style.display = "none";
+                location.reload(true);
+            }
+        }
+
+    </script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <!-- Javascript -->
+    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+
+    <!-- page vendor js file -->
+    <script src="/static/assets/vendor/toastr/toastr.js"></script>
+    <script src="/static/assets/bundles/c3.bundle.js"></script>
+
+
+    <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
+    <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
+
+
+    <!-- page js file -->
+    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/chartjs.js"></script>
+    <script src="/static/assets/index2.js"></script>
+
+
+</body>
+
+</html>

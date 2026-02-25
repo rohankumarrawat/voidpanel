@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>:: VoidPanel :: Edit DNS</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="VoidPanel Edit DNS ">
+    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+
+    <!-- VENDOR CSS -->
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
+
+    <!-- MAIN Project CSS file -->
+    <link rel="stylesheet" href="/static/assets/css/main.css">
+
+    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+    <style>
+        .myname {
+            border-radius: 30px;
+            box-shadow: inset;
+            border-width: 4px;
+
+
+        }
+        .text-container {
+          
+            border: 1px solid #ccc;
+         
+            word-wrap: break-word; /* Force text to wrap */
+            white-space: normal; /* Ensure normal wrapping */
+            overflow-wrap: break-word; /* Ensure long words break */
+        }
+    </style>
+
+</head>
+
+<body data-theme="light" class="font-nunito">
+
+    <div id="wrapper" class="theme-cyan">
+
+        <!-- Page Loader -->
+        <div class="page-loader-wrapper">
+            <div class="loader">
+                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
+                </div>
+                <p>Please wait...</p>
+            </div>
+        </div>
+
+
+
+        {% include 'control/navbar.html' %}
+
+        <!-- main left menu -->
+        {% include 'control/left.html' %}
+        <!-- rightbar icon div -->
+        {% include 'control/right.html' %}
+
+
+        <!-- mani page content body part -->
+
+        <div id="main-content">
+
+            <div class="container-fluid">
+                <div class="block-header">
+                    <div class="row">
+                        <div class="col-lg-10 col-md-6 col-sm-12">
+                            <h2>Edit/Add DNS</h2>
+                            <ul class="breadcrumb">
+                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
+                                </li>
+                                <li class="breadcrumb-item">Dashboard</li>
+                                <li class="breadcrumb-item">Edit/Add DNS</li>
+
+                            </ul>
+                        </div>
+
+                        <div class="col-lg-2 col-md-6 col-sm-12">
+                          <button onclick="showadd();" class="btn btn-success"> Add 
+                                DNS <i class="fa icon-cloud-upload"></i></button>
+                            
+                        </div>
+
+
+                    </div>
+                </div>
+
+               
+                <div class="row clearfix">
+                    <div class="col-lg-12">
+                       
+                        <div class="card">
+                            <div class="header">
+                                <h2>Edit/Add DNS for </h2>
+
+                                <h2 class="p-2">{{domain}}</h2>
+                            </div>
+                            <div class="body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0 c_list">
+                                        <thead>
+                                            <tr>
+                                              
+                                                <th>Name</th>                                    
+                                                <th>TTL</th>                                    
+                                                <th>Class</th>
+                                                <th>Type</th>
+                                                <th>Data</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                            <tbody>
+                                                {% for i in data %}
+                                                
+                                            <tr>
+                                             
+                                                <td>
+                                                    
+                                            
+                                                    <p class="c_name">{{i.name}}</p>
+                                              
+
+                                                </td>
+                                                <td>
+                                                    <span class="phone"><i class="zmdi zmdi-phone m-r-10"></i>{{i.ttl}}</span>
+                                                </td>         
+                                                <td>
+                                                    <span class="phone"><i class="zmdi zmdi-phone m-r-10"></i>{{i.class}}</span>
+                                                </td>    
+                                                <td>
+                                                    <span class="phone"><i class="zmdi zmdi-phone m-r-10"></i>{{i.type}}</span>
+                                                </td>                              
+                                                <td>
+                                                
+                                                    {% if i.data|length > 30 %}
+                                                    <address><i class="zmdi zmdi-pin"></i>{{i.data|slice:":30" }}</address>
+                                                    {% else %}
+                                                    <address><i class="zmdi zmdi-pin"></i>{{i.data }}</address>
+                                                    {% endif %}
+                                                
+                                                </td>
+                                                <td>                                            
+                                              {% if i.name != 'default._domainkey' %}
+                                                  <a href="/control/deletedns/?domain={{domain}}&name={{ i.name }}&type={{ i.type }}&data={{ i.data }}&ttl={{i.ttl}}"> <button type="button" data-type="confirm" class="btn btn-danger js-sweetalert" title="Delete"><i class="fa fa-trash-o"></i></button></a> 
+                                                  {% endif %}
+                                                  <button  onclick="showme('{{i.data}}');" class="btn btn-success" ><i class="fa fa-eye"></i></button>
+                                              
+                                             
+                                                </td>
+                                            </tr>
+                                           {% endfor %}
+                                           
+                                           
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                   
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+            </div>
+
+        </div>
+
+        <div class="modal animated fadeIn show" id="dkmi" style="display: none; margin-top: 150px;">
+            <div class="modal-dialog modal-sm" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h6 class="title" id="defaultModalLabel">View </h6>
+                    </div>
+                    <form id="moveForm" method="post" action="">{% csrf_token %}
+                        <div class="modal-body">
+                            <div class="row clearfix">
+                                <div class="col-md-12 col-sm-12">
+                                    <div class="form-group">
+                                     
+                                       <div  id="dkmidata" class="text-container">
+
+                                       </div>
+                                       
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                     
+                            <button type="button" class="btn btn-secondary" onclick="hindedkmi();">CLOSE</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="modal animated fadeIn show" id="addrecord" style="display: none; margin-top: 150px;">
+            <div class="modal-dialog modal-sm" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h6 class="title" id="defaultModalLabel">Add Record</h6>
+                    </div>
+                    <form id="myfrom" method="post" action="">{% csrf_token %}
+                        <div class="modal-body">
+                            <div class="row clearfix">
+                                <div class="col-md-12 col-sm-12">
+                                    <div class="form-group">
+                                        <input type="text" name="name" placeholder="@"  class="form-control" required>
+                                        
+                                       
+                                        <br>
+                                        <input type="text" name="class"  placeholder="IN" value="IN"   class="form-control p-2"required>
+                                        <br>
+                                        <input type="text" name="type" placeholder="A" value="A"  class="form-control p-2" required>
+                                        <br>
+                                        <input type="text" name="data" placeholder="Data"   class="form-control p-2" required>
+                                        <br>
+                                        <input type="text" name="ttl" placeholder="86400"   class="form-control p-2"  >
+
+                                        <input type="text" name="domain" value="{{domain}}" hidden  class="form-control p-2" required>
+                                       
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button id="mymybutton" onclick="myfrom(event);" class="btn btn-primary">Add</button>
+                            <button type="button" class="btn btn-secondary" onclick="hk();">CLOSE</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+  <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
+    <div class="modal-dialog modal-sm" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="title" id="defaultModalLabel">Status</h6>
+            </div>
+
+            <div class="modal-body">
+                <div class="col-md-12 col-sm-12">
+                    <div id="statusemail" style="text-align: center;" class="row clearfix">
+
+
+
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button  onclick="closeelol();"
+                        class="btn btn-danger">Close</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+function closeelol(){
+document.getElementById('eeee').style.display='none';
+}
+</script>
+
+
+
+        <script>
+            function myfrom(event) {
+                event.preventDefault(); // Prevent form from submitting the traditional way
+        
+                // Get form data
+                const form = document.getElementById('myfrom');
+                const formData = new FormData(form);
+        
+                // Prepare the CSRF token (Django adds this to the page)
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        
+                // Use fetch to send data to Django view
+                fetch('/control/adddnsrecord/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': csrfToken  // Attach the CSRF token
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('eeee').style.display = "block";
+                        document.getElementById('statusemail').innerHTML = "Form submitted successfully!";
+                      
+                        location.reload(true); 
+                        
+                    } else {
+                    
+                        document.getElementById('eeee').style.display = "block";
+                        document.getElementById('statusemail').innerHTML = 'Error: ' + data.error;
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            }
+        
+            // Optional: Close modal function
+          
+        </script>
+
+<script>
+
+
+
+   
+    function showme(data11){
+ 
+
+        document.getElementById('dkmi').style.display="block";
+        document.getElementById('dkmidata').innerHTML=data11;
+        
+    }
+
+
+    function showadd(){
+ 
+
+ document.getElementById('addrecord').style.display="block";
+
+ 
+}
+
+function hk(){
+
+document.getElementById('addrecord').style.display="none";
+
+
+}
+    function hindedkmi(){
+
+document.getElementById('dkmi').style.display="none";
+document.getElementById('dkmidata').innerHTML="";
+
+}
+</script>
+
+
+
+        <!-- Javascript -->
+        <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+        <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+
+        <!-- page vendor js file -->
+        <script src="/static/assets/vendor/toastr/toastr.js"></script>
+        <script src="/static/assets/bundles/c3.bundle.js"></script>
+
+
+        <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
+        <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
+
+
+        <!-- page js file -->
+        <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+        <script src="/static/assets/bundles/chartjs.js"></script>
+        <script src="/static/assets/index2.js"></script>
+
+
+</body>
+
+</html>

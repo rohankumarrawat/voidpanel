@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>:: VoidPanel :: ListUsers</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="VoidPanel List Users ">
+    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+
+    <!-- VENDOR CSS -->
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
+
+    <!-- MAIN Project CSS file -->
+    <link rel="stylesheet" href="/static/assets/css/main.css">
+
+    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+    <style>
+        .myname {
+            border-radius: 30px;
+            box-shadow: inset;
+            border-width: 4px;
+
+
+        }
+
+        .text-container {
+
+            border: 1px solid #ccc;
+
+            word-wrap: break-word;
+            /* Force text to wrap */
+            white-space: normal;
+            /* Ensure normal wrapping */
+            overflow-wrap: break-word;
+            /* Ensure long words break */
+        }
+    </style>
+
+</head>
+
+<body data-theme="light" class="font-nunito">
+
+    <div id="wrapper" class="theme-cyan">
+
+        <!-- Page Loader -->
+        <div class="page-loader-wrapper">
+            <div class="loader">
+                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
+
+                </div>
+                <p>Please wait...</p>
+            </div>
+        </div>
+
+
+
+        {% include 'navbar.html' %}
+
+        <!-- main left menu -->
+        {% include 'left.html' %}
+        <!-- rightbar icon div -->
+        {% include 'right.html' %}
+
+
+        <!-- mani page content body part -->
+
+        <div id="main-content">
+
+            <div class="container-fluid">
+                <div class="block-header">
+                    <div class="row">
+                        <div class="col-lg-10 col-md-6 col-sm-12">
+                            <h2>Edit/Add Websites</h2>
+                            <ul class="breadcrumb">
+                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
+                                </li>
+                                <li class="breadcrumb-item">Dashboard</li>
+                                <li class="breadcrumb-item">Edit/Add Websites</li>
+
+                            </ul>
+                        </div>
+
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="row clearfix">
+                    <div class="col-lg-12">
+
+                        <div class="">
+                            <div class="header">
+                                <h2>Edit/Add Users </h2>
+
+                                <form class="navbar-form search-form" style="margin: 20px;">
+                                    <input id="searchInput" class="form-control" onkeyup="searchTable();"
+                                        placeholder="Search here..." type="text">
+                                    <button type="button" class="btn btn-default"><i
+                                            class="icon-magnifier"></i></button>
+                                </form>
+                            </div>
+
+                            <div class="body p-2">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0 c_list p-2">
+                                        <thead>
+                                            <tr>
+                                                <th>UserName</th>
+
+                                                <th>Primary Domain</th>
+                                                <th>Email</th>
+                                                <th>View</th>
+                                                <th> Package</th>
+                                                <th> Password</th>
+                                                <th>Suspend</th>
+                                                <th>Delete</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="domainTableBody">
+                                            {% for i in domain %}
+                                            <tr>
+
+                                                <td>
+
+                                                    <p class="c_name">{{i.username}}</p>
+                                                </td>
+
+                                                <td>
+
+                                                    <p class="c_name">{{i.domain}}</p>
+                                                </td>
+                                                <td>
+                                                    <span class="phone"><i
+                                                            class="zmdi zmdi-phone m-r-10"></i>{{i.email}}</span>
+                                                </td>
+                                                <td>
+                                                    <a target="_blank" href="/loginuser/?user={{i.username}}"><button
+                                                            class="btn btn-success">Login as User <i
+                                                                class="fa fa-eye"></i></button></a>
+                                                </td>
+
+                                                <td>
+                                                    <button onclick="chpackage('{{i.username}}');"
+                                                             class="btn btn-secondary">Change</button>
+                                                 </td>
+
+                                                <td>
+                                                   <button onclick="chpass('{{i.username}}');"
+                                                            class="btn btn-secondary">Change</button>
+                                                </td>
+                                                <td>
+
+
+                                              
+                                        
+
+                                              
+                                                    {% if i.status %}
+
+                                                    <button type="button" onclick="suspend('{{i.domain}}');"
+                                                        class="btn btn-warning js-sweetalert"
+                                                        title="Suspend">Suspend</i></button>
+                                                    {% else %}
+                                                    <a href="/unsuspend/{{i.domain}}/">
+                                                        <button type="button" data-type="confirm"
+                                                            class="btn btn-warning js-sweetalert"
+                                                            title="Suspend">Un-Suspend</i></button></a>
+                                                    {% endif %}
+
+                                                 
+                                                </td>
+
+                                                <td>
+
+                                              
+                                                    
+
+                                            
+
+
+
+                                                    <button type="button" onclick="terminate('{{i.domain}}');"
+                                                        class="btn btn-danger js-sweetalert" title="Delete">Terminate <i
+                                                            class="fa fa-trash-o"></i></button>
+                                                        
+
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+
+
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+            </div>
+
+        </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+        <div class="modal animated fadeIn show" id="chpass" style="display: none; margin-top: 300px;">
+            <div class="modal-dialog modal-sm" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h6 class="title" id="defaultModalLabel">Change Password</h6>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="col-md-12 col-sm-12">
+                            <div id="statusemail" style="text-align: center;" >
+                                <p >Change Password For</p>
+                                <strong style="margin-left: 10px;" class="title" id="domaindata"></strong>
+
+                                <form id="chpassform" method="post" action="">{% csrf_token %}
+                                    <input type="password" name="password" id="myInput" class="form-control" placeholder="Password" required="">
+                                
+                                <input type="text" hidden id="domaindata69" value="" required name="user">
+                               
+
+                            </form>
+
+
+                            </div>
+                        </div>
+                        <div style="margin-top: 10px;" class="modal-footer">
+                             <button onclick="chpassuser(event);" class="btn btn-danger">Confirm
+                                    Change</button>
+                            
+                            <button id="addemailbtn" onclick="closeterminate();" class="btn btn-success">Close</button>
+
+                        </div>
+
+
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+
+        <div class="modal animated fadeIn show" id="chpackage" style="display: none; margin-top: 300px;">
+            <div class="modal-dialog modal-sm" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h6 class="title" id="defaultModalLabel">Change Package(<strong style="margin-left: 10px;"  id="domaindata1"></strong>)</h6>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="col-lg-12 col-md-12 col-sm-12">
+                            <div id="statusemail" style="text-align: center;">
+                        
+                           
+
+
+                                <form id="chpackageform" method="post" action="">{% csrf_token %}
+                                    <select  name="package"  class="form-control"  required="">
+                                        {% for i in package %}
+                                        <option value="{{i.name}}">{{i.name}}</option>
+                                        {% endfor %}
+                                    </select>
+                                
+                                <input type="text" hidden id="domaindata68" value="" required name="user">
+                               
+
+                            </form>
+
+
+                            </div>
+                        </div>
+                        <div style="margin-top: 10px;" class="modal-footer">
+                         <button onclick="chpackageuser(event);" class="btn btn-danger">Confirm
+                                    Change</button>
+                           
+                            <button id="addemailbtn" onclick="closeterminate1();" class="btn btn-success">Close</button>
+
+                        </div>
+
+
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="modal animated fadeIn show" id="suspend34" style="display: none; margin-top: 300px;">
+            <div class="modal-dialog modal-sm" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h6 class="title" id="defaultModalLabel">Suspend</h6>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="col-md-12 col-sm-12">
+                            <div id="statusemail" style="text-align: center;" class="row clearfix">
+                                <p>Are You Sure you want to Suspend </p>
+                                <p id="domaindata134"></p>
+
+
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <a id="newone34"> <button class="btn btn-danger">Confirm Suspend</button>
+                            </a>
+                            <button id="addemailbtn" onclick="closesuspend34();" class="btn btn-success">Close</button>
+
+                        </div>
+
+
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="modal animated fadeIn show" id="terminate34" style="display: none; margin-top: 300px;">
+            <div class="modal-dialog modal-sm" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h6 class="title" id="defaultModalLabel">Terminate</h6>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="col-md-12 col-sm-12">
+                            <div id="statusemail" style="text-align: center;" class="row clearfix">
+                                <p>Are You Sure you want to terminate </p>
+                                <p id="domaindata3434"></p>
+
+
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <a id="rohan34" href="/terminate/{{domain}}"> <button class="btn btn-danger">Confirm
+                                    Terminate</button>
+                            </a>
+                            <button id="addemailbtn" onclick="closeterminate34();" class="btn btn-success">Close</button>
+
+                        </div>
+
+
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
+            <div class="modal-dialog modal-sm" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h6 class="title" id="defaultModalLabel">Status</h6>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="col-md-12 col-sm-12">
+                            <div id="statusemail" style="text-align: center;" class="row clearfix">
+
+
+
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button  onclick="closeelol();"
+                                class="btn btn-danger">Close</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+<script>
+    function closeelol(){
+        document.getElementById('eeee').style.display='none';
+    }
+</script>
+
+
+        <script>
+            function closeterminate34() {
+                document.getElementById('terminate34').style.display = "none"
+            }
+            function terminate(data) {
+                var anchor = document.getElementById('rohan34');
+
+                // Change the href attribute
+                anchor.href = '/terminate/' + data;
+                document.getElementById('domaindata3434').innerHTML = data;
+                document.getElementById('terminate34').style.display = "block"
+            }
+        </script>
+
+        <script>
+            function closesuspend34() {
+                document.getElementById('suspend34').style.display = "none"
+            }
+            function suspend(data) {
+                document.getElementById('domaindata134').innerHTML = data;
+                var anchor =document.getElementById('newone34');
+                anchor.href = "/suspend/"+data;
+                document.getElementById('suspend34').style.display = "block"
+            }
+        </script>
+       
+        <script>
+
+
+
+
+
+async function chpackageuser(event) {
+                // Prevent the default action (e.g., form submission)
+                if (event) {
+                    event.preventDefault();
+                }
+     
+                const form = document.getElementById('chpackageform');
+                const formData = new FormData(form);
+
+
+
+                try {
+                    // Fetch request to submit form data
+                    const response = await fetch('/chpackageuser/', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                        }
+                    });
+
+                    // Parse the JSON response
+                    const result = await response.json();
+
+
+                    // Handle response
+                    if (response.ok && result.status === 'success') {
+                   
+                
+                        document.getElementById('eeee').style.display = "block";
+                        
+                        document.getElementById('statusemail').innerHTML = "Package Updated!";
+                 
+                        document.getElementById('chpackage').style.display = "none"
+     
+                        
+                 
+                        
+                    } else {
+              
+                    
+                        document.getElementById('eeee').style.display = "block";
+                        document.getElementById('statusemail').innerHTML = "Package Updated!";
+       
+                            document.getElementById('chpackage').style.display = "none"
+                    
+
+                       
+                    }
+                } catch (error) {
+   
+             
+                    document.getElementById('eeee').style.display = "block";
+                    document.getElementById('statusemail').innerHTML = "Something Went Wrong";
+             
+
+                  
+                }
+            }
+            
+         async function chpassuser(event) {
+                // Prevent the default action (e.g., form submission)
+                if (event) {
+                    event.preventDefault();
+                }
+     
+                const form = document.getElementById('chpassform');
+                const formData = new FormData(form);
+
+
+
+                try {
+                    // Fetch request to submit form data
+                    const response = await fetch('/chpassuser/', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                        }
+                    });
+
+                    // Parse the JSON response
+                    const result = await response.json();
+
+
+                    // Handle response
+                    if (response.ok && result.status === 'success') {
+                   
+                      
+                        document.getElementById('eeee').style.display = "block";
+                        document.getElementById('statusemail').innerHTML = "Password Updated!";
+                         document.getElementById('chpass').style.display = "none"
+                 
+                        
+                    } else {
+              
+                  
+                        document.getElementById('eeee').style.display = "block";
+                        document.getElementById('statusemail').innerHTML = "Password Updated!";
+                         document.getElementById('chpass').style.display = "none"
+                    
+
+                       
+                    }
+                } catch (error) {
+   
+             
+                    document.getElementById('eeee').style.display = "block";
+                    document.getElementById('statusemail').innerHTML = "Something Went Wrong";
+             
+
+                  
+                }
+            }
+
+
+
+
+            function closeterminate() {
+                document.getElementById('chpass').style.display = "none"
+            }
+            function chpass(data) {
+                
+                document.getElementById('domaindata').innerHTML = data;
+                document.getElementById('domaindata69').value =data;
+                
+
+                document.getElementById('chpass').style.display = "block"
+            }
+        </script>
+
+<script>
+    function closeterminate1() {
+        document.getElementById('chpackage').style.display = "none"
+    }
+    function chpackage(data) {
+       
+        document.getElementById('domaindata1').innerHTML = data;
+        document.getElementById('domaindata68').value =data;
+        document.getElementById('chpackage').style.display = "block"
+    }
+</script>
+      
+
+
+
+
+
+
+        <script>
+            function searchTable() {
+                // Get the search query
+                const searchQuery = document.getElementById('searchInput').value.toLowerCase();
+
+                // Get all the rows in the table body
+                const rows = document.querySelectorAll('#domainTableBody tr');
+
+                // Loop through the rows
+                rows.forEach(row => {
+                    // Get the domain name from the first column (assuming domain is in the first <td>)
+                    const domainName = row.querySelector('.c_name').textContent.toLowerCase();
+
+                    // Check if the domain name includes the search query
+                    if (domainName.includes(searchQuery)) {
+                        row.style.display = ''; // Show the row
+                    } else {
+                        row.style.display = 'none'; // Hide the row
+                    }
+                });
+            }
+        </script>
+
+
+        <!-- Javascript -->
+        <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+        <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+
+        <!-- page vendor js file -->
+        <script src="/static/assets/vendor/toastr/toastr.js"></script>
+        <script src="/static/assets/bundles/c3.bundle.js"></script>
+
+
+        <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
+        <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
+
+
+        <!-- page js file -->
+        <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+        <script src="/static/assets/bundles/chartjs.js"></script>
+        <script src="/static/assets/index2.js"></script>
+
+
+</body>
+
+</html>

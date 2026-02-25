@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>:: VoidPanel :: SSL</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="VoidPanel SSL ">
+    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+
+    <!-- VENDOR CSS -->
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
+
+    <!-- MAIN Project CSS file -->
+    <link rel="stylesheet" href="/static/assets/css/main.css">
+
+    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+    <style>
+        /* Basic styling for the p tag */
+        p.processing {
+            font-size: 18px;
+            font-weight: bold;
+
+        }
+
+        /* Animation for the dots */
+        .dots::after {
+            content: '';
+            display: inline-block;
+            width: 1em;
+            text-align: left;
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        /* Keyframes for the dots animation */
+        @keyframes dots {
+
+            0%,
+            100% {
+                content: '';
+            }
+
+            25% {
+                content: '.';
+            }
+
+            50% {
+                content: '..';
+            }
+
+            75% {
+                content: '...';
+            }
+        }
+    </style>
+    <style>
+        .myname {
+            border-radius: 30px;
+            box-shadow: inset;
+            border-width: 4px;
+
+
+        }
+
+        .text-container {
+
+            border: 1px solid #ccc;
+
+            word-wrap: break-word;
+            /* Force text to wrap */
+            white-space: normal;
+            /* Ensure normal wrapping */
+            overflow-wrap: break-word;
+            /* Ensure long words break */
+        }
+    </style>
+
+</head>
+
+<body data-theme="light" class="font-nunito">
+
+    <div id="wrapper" class="theme-cyan">
+
+        <!-- Page Loader -->
+        <div class="page-loader-wrapper">
+            <div class="loader">
+                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
+
+                </div>
+                <p>Please wait...</p>
+            </div>
+        </div>
+
+
+
+        {% include 'navbar.html' %}
+
+        <!-- main left menu -->
+        {% include 'left.html' %}
+        <!-- rightbar icon div -->
+        {% include 'right.html' %}
+
+
+        <!-- mani page content body part -->
+
+        <div id="main-content">
+
+            <div class="container-fluid">
+                <div class="block-header">
+                    <div class="row">
+                        <div class="col-lg-10 col-md-6 col-sm-12">
+                            <h2>Edit/Add SSL</h2>
+                            <ul class="breadcrumb">
+                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
+                                </li>
+                                <li class="breadcrumb-item">Dashboard</li>
+                                <li class="breadcrumb-item">Edit/Add SSL</li>
+
+                            </ul>
+                        </div>
+
+
+
+
+
+
+
+                    </div>
+                </div>
+
+                <div class="row clearfix">
+                    <div class="col-lg-12">
+
+                        <div class="">
+                            <div class="header">
+                                <h2>SSL Wizard</h2>
+
+
+                            </div>
+
+
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row clearfix " style="margin-top: 30px;">
+
+
+                    <div class="col-lg-1 col-md-6 col-sm-12">
+                        <img src="/static/icons/ssl.png" style="height: 80px; width: 80px; border-radius: 5%;">
+
+                    </div>
+
+                    <div class="col-lg-1 col-md-6 col-sm-12">
+
+
+                    </div>
+                    <form id="sslform" method="post" action="">{% csrf_token %}
+                        <input type="text" name="domain" hidden value="{{domain}}">
+
+                    </form>
+
+
+
+
+                    <div class="col-lg-6 col-md-6 col-sm-12">
+                        <div class="form-group">
+                            <button style="margin-top: 20px;" onclick="runssl(event);" type="button"
+                                class="btn btn-primary"> Run AutoSSL for {{domain}}</button>
+                        </div>
+
+
+
+                    </div>
+                    <div class="modal animated fadeIn show" id="pro1" style="display: none; margin-top: 300px;">
+                        <div class="modal-dialog modal-sm" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <p class="processing">Processing<span class="dots"></span></p>
+
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+
+
+                </div>
+
+
+
+                <div class="row clearfix" style="margin-top: 30px;">
+                    <div class="col-lg-6 col-md-12">
+                        <div class="">
+                            <div class="header">
+                                <h4>SSL Logs</h4>
+                            </div>
+                            <div class="card">
+                                <div class="body table-responsive">
+                                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                        <table class="table  mb-0">
+
+                                            <tbody>
+                                                {% for i in logs %}
+                                                <tr>
+                                                    <td>
+                                                        {{i}}
+                                                    </td>
+
+
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6 col-md-12">
+                        <div class="">
+                            <div class="header">
+                                <h4>SSL Info</h4>
+                            </div>
+                            <div class="body table-responsive social_media_table"
+                                style="max-height: 300px; overflow-y: auto;">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+
+                                            <th>Domain</th>
+                                            <th>Status</th>
+
+                                            <th>Run SSL</th>
+
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+
+                                        <tr>
+
+
+                                            <td>{{main.domain}}</td>
+
+                                            {% if main.sslstatus %}
+
+
+                                            <td><img src="/static/icons/wrong.png"></td>
+                                            {% else %}
+                                            <td><img src="/static/icons/correct.png"></td>
+                                            {% endif %}
+
+                                            <td>
+
+                                                <button onclick="sslfor(event,'{{main.domain}}');"
+                                                    class="btn btn-success"> Click For SSL <i
+                                                        class="fa fa-edit"></i></button>
+                                            </td>
+                                        </tr>
+
+                                        {% for i in subdomain %}
+                                        <tr>
+
+
+                                            <td>{{i.subdomain}}</td>
+
+                                            {% if i.sslstatus %}
+
+
+                                            <td><img src="/static/icons/wrong.png"></td>
+                                            {% else %}
+                                            <td><img src="/static/icons/correct.png"></td>
+                                            {% endif %}
+
+                                            <td>
+
+                                                <button onclick="sslfor(event,'{{i.subdomain}} ');"
+                                                    class="btn btn-success"> Click For SSL <i
+                                                        class="fa fa-edit"></i></button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+            </div>
+
+        </div>
+
+  <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
+    <div class="modal-dialog modal-sm" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="title" id="defaultModalLabel">Status</h6>
+            </div>
+
+            <div class="modal-body">
+                <div class="col-md-12 col-sm-12">
+                    <div id="statusemail" style="text-align: center;" class="row clearfix">
+
+
+
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button  onclick="closeelol();"
+                        class="btn btn-danger">Close</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+function closeelol(){
+document.getElementById('eeee').style.display='none';
+}
+</script>
+        <script>
+
+            async function sslfor(event,my) {
+                event.preventDefault();  // Prevent the default form submission behavior
+                document.getElementById('pro1').style.display = "block";
+                // Get the form data
+                const data = {
+                    name: my,
+
+                };
+
+
+                try {
+                    // Make the fetch request to change the password
+                    const response = await fetch('/runsslfordomain1/', {  // Replace with your actual API endpoint
+                        method: 'POST',
+                        body: JSON.stringify(data),
+                        headers: {
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                        }
+                    });
+                    const result = await response.json();
+                    // Handle the server response
+                    if (response.ok && result.status === 'success') {
+                        document.getElementById('pro1').style.display = "none";
+                        location.reload(true);
+                    }
+                } catch (error) {
+
+                    document.getElementById('pro1').style.display = "none";
+                    location.reload(true);
+                }
+            }
+
+
+            async function runssl(event) {
+                event.preventDefault();  // Prevent the default form submission behavior
+                document.getElementById('pro1').style.display = "block";
+                // Get the form data
+                const form = document.getElementById('sslform');
+                const formData = new FormData(form);
+
+
+                try {
+                    // Make the fetch request to change the password
+                    const response = await fetch('/runsslfordomain/', {  // Replace with your actual API endpoint
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                        }
+                    });
+                    const result = await response.json();
+                    // Handle the server response
+                    if (response.ok && result.status === 'success') {
+                        document.getElementById('pro1').style.display = "none";
+                        location.reload(true);
+                    }
+                } catch (error) {
+
+                    document.getElementById('pro1').style.display = "none";
+                    location.reload(true);
+                }
+            }
+
+        </script>
+
+        <div class="modal animated fadeIn show" id="changepassword" style="display: none; margin-top: 300px;">
+            <div class="modal-dialog modal-sm" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h6 class="title" id="defaultModalLabel">Change Password</h6>
+                    </div>
+                    <form id="chpForm" method="post" action="">{% csrf_token %}
+                        <div class="modal-body">
+                            <div class="row clearfix">
+
+
+                                <div class="col-md-12 col-sm-12">
+
+                                    <div class="input-group mb-3">
+                                        <input required type="password" id="textInput" name="password"
+                                            class="form-control" placeholder="**********"
+                                            aria-label="Recipient's username" aria-describedby="basic-addon2" required>
+                                        <input id="dbusername" type="text" name="databaseuser" value="" hidden
+                                            class="form-control" required>
+
+                                    </div>
+
+                                    <div id="match" class="form-group">
+
+
+                                    </div>
+
+
+                                </div>
+
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button id="addemailbtn" onclick="chp(event);" style="display: block;"
+                                class="btn btn-primary">Change Password</button>
+                            <button type="button" class="btn btn-secondary" onclick="changepassword1();">CLOSE</button>
+
+                            </p>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+
+
+        <div class="modal animated fadeIn show" id="addpri" style="display: none; margin-top: 300px;">
+            <div class="modal-dialog modal-sm" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h6 class="title" id="defaultModalLabel">Add Permission to User</h6>
+                    </div>
+                    <form id="addpermissiontouser" method="post" action="">{% csrf_token %}
+                        <input id="databasename" type="text" name="databasename" value="" hidden class="form-control"
+                            required>
+                        <input id="databaseusername" type="text" name="databaseusername" value="" hidden
+                            class="form-control" required>
+                        <div class="modal-body">
+                            <div class="row clearfix">
+
+
+                                <div id="checkbox-container" class="col-md-12 col-sm-12">
+
+                                    <label class="control-inline fancy-checkbox">
+                                        <input type="checkbox" id="select-all">
+                                        <span>Select ALL</span>
+                                    </label>
+                                    <hr>
+                                    <br>
+
+                                    <label class="control-inline fancy-checkbox">
+                                        <input type="checkbox" name="select" value="SELECT" class="individual-checkbox">
+                                        <span>SELECT</span>
+                                    </label>
+
+                                    <label class="control-inline fancy-checkbox">
+                                        <input type="checkbox" name="insert" value="INSERT" class="individual-checkbox">
+                                        <span>INSERT</span>
+                                    </label>
+
+                                    <label class="control-inline fancy-checkbox">
+                                        <input type="checkbox" name="update" value="UPDATE" class="individual-checkbox">
+                                        <span>UPDATE</span>
+                                    </label>
+
+                                    <label class="control-inline fancy-checkbox">
+                                        <input type="checkbox" name="delete" value="DELETE" class="individual-checkbox">
+                                        <span>DELETE</span>
+                                    </label>
+
+                                    <label class="control-inline fancy-checkbox">
+                                        <input type="checkbox" name="execute" value="EXECUTE"
+                                            class="individual-checkbox">
+                                        <span>EXECUTE</span>
+                                    </label>
+
+                                    <label class="control-inline fancy-checkbox">
+                                        <input type="checkbox" name="create" value="CREATE" class="individual-checkbox">
+                                        <span>CREATE</span>
+                                    </label>
+
+                                    <label class="control-inline fancy-checkbox">
+                                        <input type="checkbox" name="drop" value="DROP" class="individual-checkbox">
+                                        <span>DROP</span>
+                                    </label>
+
+                                    <label class="control-inline fancy-checkbox">
+                                        <input type="checkbox" name="alter" value="ALTER" class="individual-checkbox">
+                                        <span>ALTER</span>
+                                    </label>
+
+
+
+
+                                    <div id="match" class="form-group">
+
+
+                                    </div>
+
+
+                                </div>
+
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button id="addemailbtn" onclick="addperm(event);" style="display: block;"
+                                class="btn btn-primary"> Add Permission</button>
+                            <button type="button" class="btn btn-secondary" onclick="rpri();">CLOSE</button>
+
+                            </p>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+
+        <script>
+            document.getElementById('select-all').addEventListener('change', function () {
+                const checkboxes = document.querySelectorAll('.individual-checkbox');
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = this.checked; // Set each checkbox's checked state to match the "Select ALL" checkbox
+                });
+            });
+
+
+            async function addperm(event) {
+                event.preventDefault();  // Prevent the default form submission behavior
+
+                // Get the form data
+                const form = document.getElementById('addpermissiontouser');
+                const formData = new FormData(form);
+
+                try {
+                    // Make the fetch request to change the password
+                    const response = await fetch('/addpermissiontouser/', {  // Replace with your actual API endpoint
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                        }
+                    });
+                    const result = await response.json();
+                    // Handle the server response
+                    if (response.ok && result.status === 'success') {
+                    
+                        document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Added successfully!";
+                        document.getElementById('addpri').style.display = "none";
+                    } else {
+                       
+                        document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Error Adding .";
+                        document.getElementById('addpri').style.display = "none";
+                    }
+                } catch (error) {
+
+                 
+                    document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "An error occurred.";
+                    document.getElementById('addpri').style.display = "none";
+                }
+            }
+
+            function showp() {
+                const selectElement = document.getElementById('dbSelect');
+                const dbname = selectElement.value;
+                const u = document.getElementById('dbSelect1');
+                const uname = u.value;
+
+                if (dbname !== "Select Database Name" && uname !== "Select User Name") {
+                    document.getElementById('addpri').style.display = "block";
+                    document.getElementById('databasename').value = dbname;
+                    document.getElementById('databaseusername').value = uname;
+
+
+
+
+
+                    // Perform delete operation (you can add your fetch request here to delete the database)
+                } else {
+          
+                    document.getElementById('eeee').style.display = "block";
+                             document.getElementById('statusemail').innerHTML = "Please select a valid database";
+                }
+
+
+
+
+            }
+
+            function rpri() {
+
+
+
+                document.getElementById('addpri').style.display = "none";
+
+
+
+
+
+
+            }
+        </script>
+
+
+
+
+
+
+        <!-- Javascript -->
+        <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+        <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+
+        <!-- page vendor js file -->
+        <script src="/static/assets/vendor/toastr/toastr.js"></script>
+        <script src="/static/assets/bundles/c3.bundle.js"></script>
+
+
+        <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
+        <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
+
+
+        <!-- page js file -->
+        <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+        <script src="/static/assets/bundles/chartjs.js"></script>
+        <script src="/static/assets/index2.js"></script>
+
+
+</body>
+
+</html>

@@ -1,0 +1,711 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>:: VoidPanel :: Service Status</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="VoidPanel Redirects ">
+    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+
+    <!-- VENDOR CSS -->
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
+    <style>
+        /* Basic styling for the p tag */
+        p.processing {
+            font-size: 18px;
+            font-weight: bold;
+
+        }
+
+        /* Animation for the dots */
+        .dots::after {
+            content: '';
+            display: inline-block;
+            width: 1em;
+            text-align: left;
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        /* Keyframes for the dots animation */
+        @keyframes dots {
+
+            0%,
+            100% {
+                content: '';
+            }
+
+            25% {
+                content: '.';
+            }
+
+            50% {
+                content: '..';
+            }
+
+            75% {
+                content: '...';
+            }
+        }
+    </style>
+
+    <!-- MAIN Project CSS file -->
+    <link rel="stylesheet" href="/static/assets/css/main.css">
+
+    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+
+    <style>
+        .myname {
+            border-radius: 30px;
+            box-shadow: inset;
+            border-width: 4px;
+
+
+        }
+
+        .text-container {
+
+            border: 1px solid #ccc;
+
+            word-wrap: break-word;
+            /* Force text to wrap */
+            white-space: normal;
+            /* Ensure normal wrapping */
+            overflow-wrap: break-word;
+            /* Ensure long words break */
+        }
+    </style>
+
+</head>
+
+<body onload="updateServerLoad()" data-theme="light" class="font-nunito">
+
+    <div id="wrapper" class="theme-cyan">
+
+        <!-- Page Loader -->
+        <div class="page-loader-wrapper">
+            <div class="loader">
+                <div class="m-t-30"><img src="/static/assets/images/logo-icon.svg" width="48" height="48" alt="Iconic">
+                </div>
+                <p>Please wait...</p>
+            </div>
+        </div>
+
+
+
+        {% include 'navbar.html' %}
+
+        <!-- main left menu -->
+        {% include 'left.html' %}
+        <!-- rightbar icon div -->
+        {% include 'right.html' %}
+
+
+        <!-- mani page content body part -->
+
+        <div id="main-content">
+
+            <div class="container-fluid">
+                <div class="block-header">
+                    <div class="row">
+                        <div class="col-lg-6 col-md-6 col-sm-12">
+                            <h2>Server Status</h2>
+                            <ul class="breadcrumb">
+                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
+                                </li>
+                                <li class="breadcrumb-item">Dashboard</li>
+                                <li class="breadcrumb-item active">Server status</li>
+                            </ul>
+                        </div>
+
+                    </div>
+                </div>
+
+
+                <div class="row clearfix" style="margin-top: 50px;">
+                    <div class="col-lg-9 col-md-12 col-sm-12">
+
+                        <div class="">
+                            <div class="header">
+                                <h2>Services</h2>
+                            </div>
+                            <div class="body card">
+                                <div class="table-responsive">
+                                    <table class="table mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>Service Name</th>
+                                                <th>Status</th>
+                                                <th>Restart</th>
+                                                <th>Start</th>
+                                                <th>Stop</th>
+
+
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>1</td>
+                                                <td><span>Nginx(Web Server)</span></td>
+                                                <td><span class="badge badge-success">Running</span></td>
+                                                <td onclick="install(event,'nginx');"><img src="/static/icons/power.png"
+                                                        width="40"></td>
+                                                <td onclick="install1(event,'nginx');"><img
+                                                        src="/static/icons/refresh.png" width="30"></td>
+                                                <td onclick="cannot();"><img src="/static/icons/shutdown.png"
+                                                        width="30"></td>
+
+
+                                            </tr>
+
+                                            <tr>
+                                                <td>2</td>
+                                                <td><span>MySQL</span></td>
+                                                {% if mysqlstatus %}
+                                                <td><span class="badge badge-success">Running</span></td>
+                                                {% else %}
+                                                <td><span class="badge badge-danger">Stopped</span></td>
+                                                {% endif %}
+                                                <td onclick="install(event,'mysql');"><img src="/static/icons/power.png"
+                                                        width="40"></td>
+                                                <td onclick="install1(event,'mysql');"><img
+                                                        src="/static/icons/refresh.png" width="30"></td>
+                                                <td onclick="install2(event,'mysql');"><img
+                                                        src="/static/icons/shutdown.png" width="30"></td>
+
+
+                                            </tr>
+
+                                            <tr>
+                                                <td>3</td>
+                                                <td><span>Dovecot</span></td>
+                                                {% if dovecotstatus %}
+                                                <td><span class="badge badge-success">Running</span></td>
+                                                {% else %}
+                                                <td><span class="badge badge-danger">Stopped</span></td>
+                                                {% endif %}
+                                                <td onclick="install(event,'dovecot');"><img
+                                                        src="/static/icons/power.png" width="40"></td>
+                                                <td onclick="install1(event,'dovecot');"><img
+                                                        src="/static/icons/refresh.png" width="30"></td>
+                                                <td onclick="install2(event,'dovecot');"><img
+                                                        src="/static/icons/shutdown.png" width="30"></td>
+
+
+                                            </tr>
+
+                                            <tr>
+                                                <td>4</td>
+                                                <td><span>Postfix</span></td>
+                                                {% if postfixstatus %}
+                                                <td><span class="badge badge-success">Running</span></td>
+                                                {% else %}
+                                                <td><span class="badge badge-danger">Stopped</span></td>
+                                                {% endif %}
+                                                <td onclick="install(event,'postfix');"><img
+                                                        src="/static/icons/power.png" width="40"></td>
+                                                <td onclick="install1(event,'postfix');"><img
+                                                        src="/static/icons/refresh.png" width="30"></td>
+                                                <td onclick="install2(event,'postfix');"><img
+                                                        src="/static/icons/shutdown.png" width="30"></td>
+
+
+                                            </tr>
+
+                                            <tr>
+                                                <td>5</td>
+                                                <td><span>DNS</span></td>
+                                                {% if dnsstatus %}
+                                                <td><span class="badge badge-success">Running</span></td>
+                                                {% else %}
+                                                <td><span class="badge badge-danger">Stopped</span></td>
+                                                {% endif %}
+                                                <td onclick="install(event,'bind9');"><img src="/static/icons/power.png"
+                                                        width="40"></td>
+                                                <td onclick="install1(event,'bind9');"><img
+                                                        src="/static/icons/refresh.png" width="30"></td>
+                                                <td onclick="install2(event,'bind9');"><img
+                                                        src="/static/icons/shutdown.png" width="30"></td>
+
+
+                                            </tr>
+
+                                            <tr>
+                                                <td>6</td>
+                                                <td><span>Firewall</span></td>
+                                                {% if firewallstatus %}
+                                                <td><span class="badge badge-success">Running</span></td>
+                                                {% else %}
+                                                <td><span class="badge badge-danger">Stopped</span></td>
+                                                {% endif %}
+
+                                                <td onclick="install(event,'csf');"><img src="/static/icons/power.png"
+                                                        width="40"></td>
+                                                <td onclick="install1(event,'csf');"><img
+                                                        src="/static/icons/refresh.png" width="30"></td>
+                                                <td onclick="install2(event,'csf');"><img
+                                                        src="/static/icons/shutdown.png" width="30"></td>
+
+
+                                            </tr>
+
+
+
+
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+
+
+
+
+
+                    </div>
+
+
+                    <div class="col-lg-3 col-md-12 col-sm-12" style="margin-top: 100px;">
+
+                        <div class="">
+
+                            <div class="body d-flex justify-content-start align-items-center p-1">
+                                <div class="mr-2">
+                                    <div style="display:inline;">
+                                        <div style="display:inline;width:90px;height:90px;"><input id="cpu-load"
+                                                type="text" class="knob" value="9" data-width="90" data-height="90"
+                                                data-thickness="0.1" data-fgcolor="#59c4bc" readonly="readonly"
+                                                style="width: 49px; height: 30px; position: absolute; vertical-align: middle; margin-top: 30px; margin-left: auto; border: 0px; background: none; font-style: normal; font-variant-caps: normal; font-weight: bold; font-stretch: normal; font-size: 18px; line-height: normal; font-family: Arial; font-size-adjust: none; font-kerning: auto; font-variant-alternates: normal; font-variant-ligatures: normal; font-variant-numeric: normal; font-variant-east-asian: normal; font-variant-position: normal; font-feature-settings: normal; font-optical-sizing: auto; font-variation-settings: normal; text-align: center; color: rgb(89, 196, 188); padding: 0px; appearance: none; margin-right: -69px; font-variant-emoji: normal;">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="ml-2">
+                                    <h6>Server Load</h6>
+
+                                    <p class="mb-0">Average <span id="cpu" class="font-12 text-muted">6.9%</span></p>
+                                </div>
+                            </div>
+                            <div class="body d-flex justify-content-start align-items-center p-2">
+                                <div class="mr-2">
+                                    <div style="display:inline;">
+                                        <div style="display:inline;width:90px;height:90px;"><input id="disk-load"
+                                                type="text" class="knob" value="65" data-width="90" data-height="90"
+                                                data-thickness="0.1" data-fgcolor="#59c4bc" readonly="readonly"
+                                                style="width: 49px; height: 30px; position: absolute; vertical-align: middle; margin-top: 30px; margin-left: auto; border: 0px; background: none; font-style: normal; font-variant-caps: normal; font-weight: bold; font-stretch: normal; font-size: 18px; line-height: normal; font-family: Arial; font-size-adjust: none; font-kerning: auto; font-variant-alternates: normal; font-variant-ligatures: normal; font-variant-numeric: normal; font-variant-east-asian: normal; font-variant-position: normal; font-feature-settings: normal; font-optical-sizing: auto; font-variation-settings: normal; text-align: center; color: rgb(89, 196, 188); padding: 0px; appearance: none; margin-right: -69px; font-variant-emoji: normal;">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="ml-2">
+                                    <h6>Disk Usage</h6>
+                                    <p class="mb-0">Average <span id="disk" class="font-12 text-muted">7.1%</span></p>
+                                </div>
+                            </div>
+                            <div class="body d-flex justify-content-start align-items-center p-1">
+                                <div class="mr-2">
+                                    <div style="display:inline;">
+                                        <div style="display:inline;width:90px;height:90px;"><input id="memory-load"
+                                                type="text" class="knob" value="65" data-width="90" data-height="90"
+                                                data-thickness="0.1" data-fgcolor="#59c4bc" readonly="readonly"
+                                                style="width: 49px; height: 30px; position: absolute; vertical-align: middle; margin-top: 30px; margin-left: auto; border: 0px; background: none; font-style: normal; font-variant-caps: normal; font-weight: bold; font-stretch: normal; font-size: 18px; line-height: normal; font-family: Arial; font-size-adjust: none; font-kerning: auto; font-variant-alternates: normal; font-variant-ligatures: normal; font-variant-numeric: normal; font-variant-east-asian: normal; font-variant-position: normal; font-feature-settings: normal; font-optical-sizing: auto; font-variation-settings: normal; text-align: center; color: rgb(89, 196, 188); padding: 0px; appearance: none; margin-right: -69px; font-variant-emoji: normal;">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="ml-2">
+                                    <h6>Ram Usage</h6>
+
+                                    <p class="mb-0">Average <span id="ram" class="font-12 text-muted">73.1%</span></p>
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="row clearfix">
+                    <div class="col-lg-3 col-md-12 col-sm-12">
+                        <div class="body d-flex justify-content-start align-items-center p-1">
+                            <div class="mr-2">
+                                <div style="display:inline;">
+                                    <div style="display:inline;width:90px;height:90px;"><input id="memory-load"
+                                            type="text" class="knob" value="{{domains}}" data-width="90"
+                                            data-height="90" data-thickness="0.1" data-fgcolor="#59c4bc"
+                                            readonly="readonly"
+                                            style="width: 49px; height: 30px; position: absolute; vertical-align: middle; margin-top: 30px; margin-left: auto; border: 0px; background: none; font-style: normal; font-variant-caps: normal; font-weight: bold; font-stretch: normal; font-size: 18px; line-height: normal; font-family: Arial; font-size-adjust: none; font-kerning: auto; font-variant-alternates: normal; font-variant-ligatures: normal; font-variant-numeric: normal; font-variant-east-asian: normal; font-variant-position: normal; font-feature-settings: normal; font-optical-sizing: auto; font-variation-settings: normal; text-align: center; color: rgb(89, 196, 188); padding: 0px; appearance: none; margin-right: -69px; font-variant-emoji: normal;">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="ml-2">
+                                <h6>Total Domains</h6>
+                                <p class="mb-0">Total <span id="ram" class="font-12 text-muted">{{domains}}</span></p>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <div class="col-lg-3 col-md-12 col-sm-12">
+                        <div class="body d-flex justify-content-start align-items-center p-1">
+                            <div class="mr-2">
+                                <div style="display:inline;">
+                                    <div style="display:inline;width:90px;height:90px;"><input id="memory-load"
+                                            type="text" class="knob" value="{{email}}" data-width="90" data-height="90"
+                                            data-thickness="0.1" data-fgcolor="#59c4bc" readonly="readonly"
+                                            style="width: 49px; height: 30px; position: absolute; vertical-align: middle; margin-top: 30px; margin-left: auto; border: 0px; background: none; font-style: normal; font-variant-caps: normal; font-weight: bold; font-stretch: normal; font-size: 18px; line-height: normal; font-family: Arial; font-size-adjust: none; font-kerning: auto; font-variant-alternates: normal; font-variant-ligatures: normal; font-variant-numeric: normal; font-variant-east-asian: normal; font-variant-position: normal; font-feature-settings: normal; font-optical-sizing: auto; font-variation-settings: normal; text-align: center; color: rgb(89, 196, 188); padding: 0px; appearance: none; margin-right: -69px; font-variant-emoji: normal;">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="ml-2">
+                                <h6>Total Emails</h6>
+                                <p class="mb-0">Total <span id="ram" class="font-12 text-muted">{{email}}</span></p>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <div class="col-lg-3 col-md-12 col-sm-12">
+                        <div class="body d-flex justify-content-start align-items-center p-1">
+                            <div class="mr-2">
+                                <div style="display:inline;">
+                                    <div style="display:inline;width:90px;height:90px;"><input id="memory-load"
+                                            type="text" class="knob" value="{{package}}" data-width="90"
+                                            data-height="90" data-thickness="0.1" data-fgcolor="#59c4bc"
+                                            readonly="readonly"
+                                            style="width: 49px; height: 30px; position: absolute; vertical-align: middle; margin-top: 30px; margin-left: auto; border: 0px; background: none; font-style: normal; font-variant-caps: normal; font-weight: bold; font-stretch: normal; font-size: 18px; line-height: normal; font-family: Arial; font-size-adjust: none; font-kerning: auto; font-variant-alternates: normal; font-variant-ligatures: normal; font-variant-numeric: normal; font-variant-east-asian: normal; font-variant-position: normal; font-feature-settings: normal; font-optical-sizing: auto; font-variation-settings: normal; text-align: center; color: rgb(89, 196, 188); padding: 0px; appearance: none; margin-right: -69px; font-variant-emoji: normal;">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="ml-2">
+                                <h6>Total Packages</h6>
+
+                                <p class="mb-0">Total <span id="ram" class="font-12 text-muted">{{package}}</span></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-3 col-md-12 col-sm-12">
+                        <div class="body d-flex justify-content-start align-items-center p-1">
+                            <div class="mr-2">
+                                <div style="display:inline;">
+                                    <div style="display:inline;width:90px;height:90px;"><input id="memory-load"
+                                            type="text" class="knob" value="{{databases}}" data-width="90"
+                                            data-height="90" data-thickness="0.1" data-fgcolor="#59c4bc"
+                                            readonly="readonly"
+                                            style="width: 49px; height: 30px; position: absolute; vertical-align: middle; margin-top: 30px; margin-left: auto; border: 0px; background: none; font-style: normal; font-variant-caps: normal; font-weight: bold; font-stretch: normal; font-size: 18px; line-height: normal; font-family: Arial; font-size-adjust: none; font-kerning: auto; font-variant-alternates: normal; font-variant-ligatures: normal; font-variant-numeric: normal; font-variant-east-asian: normal; font-variant-position: normal; font-feature-settings: normal; font-optical-sizing: auto; font-variation-settings: normal; text-align: center; color: rgb(89, 196, 188); padding: 0px; appearance: none; margin-right: -69px; font-variant-emoji: normal;">
+                                    </div>
+                                    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+
+                                </div>
+                            </div>
+                            <div class="ml-2">
+                                <h6>Total DataBases</h6>
+
+                                <p class="mb-0">Total <span id="ram" class="font-12 text-muted">{{databases}}</span></p>
+                            </div>
+                        </div>
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+            </div>
+
+
+
+
+
+
+
+        </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+    <div class="modal animated fadeIn show" id="pro2" style="display: none; margin-top: 300px;">
+        <div class="modal-dialog modal-sm" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <p class="processing">Processing<span class="dots"></span></p>
+
+                </div>
+
+            </div>
+        </div>
+    </div>
+    <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
+        <div class="modal-dialog modal-sm" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="title" id="defaultModalLabel">Status</h6>
+                </div>
+
+                <div class="modal-body">
+                    <div class="col-md-12 col-sm-12">
+                        <div id="statusemail" style="text-align: center;" class="row clearfix">
+
+
+
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button  onclick="closeelol();"
+                            class="btn btn-danger">Close</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+<script>
+function closeelol(){
+    document.getElementById('eeee').style.display='none';
+   
+}
+</script>
+
+
+    </div>
+
+    <script>
+        function cannot() {
+        
+            document.getElementById('eeee').style.display = "block";
+            document.getElementById('statusemail').innerHTML = "Cannot Stop Nginx Web Server";
+        }
+
+        async function install2(event, servi) {
+            // Prevent the default action (e.g., form submission)
+            if (event) {
+                event.preventDefault();
+            }
+            document.getElementById('pro2').style.display='block';
+
+            var data = {
+                'service': servi,  // Assuming 'servi' contains the name of the service you want to restart
+            };
+
+            try {
+                // Fetch request to submit form data
+                const response = await fetch("{% url 'stop_now' %}", {
+                    method: 'POST',
+                    body: JSON.stringify(data),
+                    headers: {
+                        'Content-Type': 'application/json',  // Ensure content is JSON
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                    }
+                });
+
+                // Parse the JSON response
+                const result = await response.json();
+
+                // Handle response based on the result
+                if (response.ok && result.status === 'success') {
+                    document.getElementById('pro2').style.display='none';
+                   
+                    document.getElementById('eeee').style.display = "block";
+                    document.getElementById('statusemail').innerHTML = 'Service ' + servi + ' Stopped successfully.';
+                    location.reload(true);
+
+                } else {
+       
+                    document.getElementById('pro2').style.display='none';
+                    document.getElementById('eeee').style.display = "block";
+                    document.getElementById('statusemail').innerHTML = 'Failed to stop service ' + servi;
+                    location.reload(true);
+
+                }
+            } catch (error) {
+                // Catch any errors from the fetch call itself (e.g., network errors)
+                document.getElementById('pro2').style.display='none';
+                document.getElementById('eeee').style.display = "block";
+                document.getElementById('statusemail').innerHTML = 'An error occurred while trying to start service ' + servi + '. Please try again later.';
+
+            }
+        }
+
+
+
+
+
+        async function install1(event, servi) {
+            // Prevent the default action (e.g., form submission)
+            if (event) {
+                event.preventDefault();
+            }
+            document.getElementById('pro2').style.display='block';
+
+            var data = {
+                'service': servi,  // Assuming 'servi' contains the name of the service you want to restart
+            };
+
+            try {
+                // Fetch request to submit form data
+                const response = await fetch("{% url 'start_now' %}", {
+                    method: 'POST',
+                    body: JSON.stringify(data),
+                    headers: {
+                        'Content-Type': 'application/json',  // Ensure content is JSON
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                    }
+                });
+
+                // Parse the JSON response
+                const result = await response.json();
+
+                // Handle response based on the result
+                if (response.ok && result.status === 'success') {
+                    document.getElementById('pro2').style.display='none';
+
+                    document.getElementById('eeee').style.display = "block";
+                    document.getElementById('statusemail').innerHTML ='Service ' + servi + ' started successfully.';
+                    location.reload(true);
+
+                } else {
+                    document.getElementById('pro2').style.display='none';
+              
+                    document.getElementById('eeee').style.display = "block";
+                    document.getElementById('statusemail').innerHTML = 'Failed to start service ' + servi;
+                    location.reload(true);
+
+                }
+            } catch (error) {
+                // Catch any errors from the fetch call itself (e.g., network errors)
+                document.getElementById('pro2').style.display='none';
+   
+                document.getElementById('eeee').style.display = "block";
+                document.getElementById('statusemail').innerHTML = 'An error occurred while trying to start service ' + servi + '. Please try again later.';
+
+            }
+        }
+    </script>
+
+    <script>
+        async function install(event, servi) {
+            // Prevent the default action (e.g., form submission)
+            if (event) {
+                event.preventDefault();
+            }
+            document.getElementById('pro2').style.display='block';
+
+            var data = {
+                'service': servi,  // Assuming 'servi' contains the name of the service you want to restart
+            };
+
+            try {
+                // Fetch request to submit form data
+                const response = await fetch("{% url 'restart_now' %}", {
+                    method: 'POST',
+                    body: JSON.stringify(data),
+                    headers: {
+                        'Content-Type': 'application/json',  // Ensure content is JSON
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                    }
+                });
+
+                // Parse the JSON response
+                const result = await response.json();
+
+                // Handle response based on the result
+                if (response.ok && result.status === 'success') {
+                    document.getElementById('pro2').style.display='none';
+                
+                    document.getElementById('eeee').style.display = "block";
+                    document.getElementById('statusemail').innerHTML = 'Service ' + servi + ' restarted successfully.';
+                } else {
+                    document.getElementById('pro2').style.display='none';
+            
+                    document.getElementById('eeee').style.display = "block";
+                    document.getElementById('statusemail').innerHTML = 'Failed to restart service ' + servi;
+                }
+            } catch (error) {
+                // Catch any errors from the fetch call itself (e.g., network errors)
+                document.getElementById('pro2').style.display='none';
+                document.getElementById('eeee').style.display = "block";
+                document.getElementById('statusemail').innerHTML ='An error occurred while trying to restart service ' + servi + '. Please try again later.';
+
+            }
+        }
+    </script>
+
+    <!-- Javascript -->
+    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+
+    <!-- page vendor js file -->
+    <script src="/static/assets/vendor/toastr/toastr.js"></script>
+    <script src="/static/assets/bundles/c3.bundle.js"></script>
+
+
+    <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
+    <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
+
+
+    <!-- page js file -->
+    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/chartjs.js"></script>
+    <script src="/static/assets/index2.js"></script>
+    <script>
+        function updateServerLoad() {
+            fetch('/server-load/')
+                .then(response => response.json())
+                .then(data => {
+
+                    document.getElementById('cpu-load').value = data.cpu + "%";
+                    document.getElementById('memory-load').value = data.memory + "%";
+                    document.getElementById('disk-load').value = data.disk + "%";
+                    document.getElementById('cpu').innerHTML = data.cpu + "%";
+                    document.getElementById('ram').innerHTML = data.memory + "%";
+                    document.getElementById('disk').innerHTML = data.disk + "%";
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        // Update server load every 5 seconds
+        setInterval(updateServerLoad, 2000);
+    </script>
+
+
+</body>
+
+</html>
