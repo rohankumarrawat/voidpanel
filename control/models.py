@@ -107,8 +107,8 @@ class pythonname(models.Model):
 class mernname(models.Model):
     domain = models.CharField(max_length=100)
     name = models.CharField(max_length=100)
-    main = models.CharField(max_length=100,default=None)
-    port = models.CharField(max_length=100,default=None)
+    main = models.CharField(max_length=100, null=True, blank=True)
+    port = models.CharField(max_length=100, null=True, blank=True)
    
     def __str__(self):
         return self.domain
@@ -138,7 +138,7 @@ class ftp(models.Model):
     status = models.BooleanField()
 
 class ftpaccount(models.Model):
-    main = models.CharField(max_length=150,default=None)
+    main = models.CharField(max_length=150, null=True, blank=True)
     username = models.CharField(max_length=150)
     password = models.CharField(max_length=150)
     storage = models.CharField(max_length=150)
