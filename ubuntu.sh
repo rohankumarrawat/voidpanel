@@ -101,14 +101,14 @@ panelsetup() {
     echo "from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.create_superuser('admin', 'admin@voidpanel.com', '$DJANGO_SUPERUSER_PASS') if not User.objects.filter(username='admin').exists() else None" | python manage.py shell
 
     status_msg "Configuring uWSGI Engine"
-    cat << EOF > "$PROJECT_DIR/voidpanel.ini"
+    cat << EOF > "$PROJECT_DIR/panel.ini"
 [uwsgi]
 chdir = $PROJECT_DIR
-module = voidpanel.wsgi:application
+module = panel.wsgi:application
 home = $VENV_DIR
 master = true
 processes = 4
-socket = $PROJECT_DIR/voidpanel.sock
+socket = $PROJECT_DIR/panel.sock
 chmod-socket = 666
 vacuum = true
 die-on-term = true
@@ -138,12 +138,12 @@ server {
     server_name $PUBLIC_IP;
 
     location /static/ {
-        alias $PROJECT_DIR/static/;
+        alias $PROJECT_DIR/staticfiles/;
     }
 
     location / {
         include uwsgi_params;
-        uwsgi_pass unix:$PROJECT_DIR/voidpanel.sock;
+        uwsgi_pass unix:$PROJECT_DIR/panel.sock;
         uwsgi_read_timeout 300s;
         uwsgi_send_timeout 300s;
     }
