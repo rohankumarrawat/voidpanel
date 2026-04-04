@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Email Accounts — {{ domain }} | VoidPanel</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="Manage email accounts for {{ domain }}">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/assets/css/main.css?v=2">
+
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body {
+            background: #070b14;
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+        }
+
+        /* ─── Page Layout ─── */
+        .email-page { padding: 30px 28px; max-width: 1200px; margin: 0 auto; }
+
+        /* ─── Page Header ─── */
+        .page-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 32px; flex-wrap: wrap; gap: 16px;
+        }
+        .page-header-left h1 {
+            font-size: 1.6rem; font-weight: 700; margin: 0 0 4px;
+            background: linear-gradient(135deg,#a78bfa,#6366f1);
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .page-header-left .breadcrumb-trail {
+            font-size: 0.8rem; color: #64748b;
+        }
+        .page-header-left .breadcrumb-trail a { color: #6366f1; text-decoration: none; }
+        .btn-add-email {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 11px 22px; border-radius: 12px; font-size: 0.88rem; font-weight: 600;
+            background: linear-gradient(135deg,#6366f1,#4f46e5); color: #fff; border: none; cursor: pointer;
+            box-shadow: 0 4px 14px rgba(99,102,241,0.35); transition: all 0.2s; text-decoration: none;
+        }
+        .btn-add-email:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,0.5); color:#fff; }
+
+        /* ─── Server Info Banner ─── */
+        .server-info-banner {
+            background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(22,33,58,0.7));
+            border: 1px solid rgba(99,102,241,0.2); border-radius: 16px;
+            padding: 20px 24px; margin-bottom: 28px;
+            display: flex; flex-wrap: wrap; gap: 16px; align-items: center;
+        }
+        .server-info-banner .sib-label {
+            font-size: 0.72rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px;
+        }
+        .server-info-banner .sib-value {
+            font-size: 0.9rem; color: #e2e8f0; font-weight: 500; font-family: 'Courier New', monospace;
+        }
+        .sib-chip {
+            background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px; padding: 12px 18px; flex: 1; min-width: 160px;
+        }
+        .sib-tag {
+            display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem;
+            padding: 3px 10px; border-radius: 20px; background: rgba(99,102,241,0.15);
+            border: 1px solid rgba(99,102,241,0.25); color: #a78bfa; font-weight: 600; margin-top: 6px;
+        }
+
+        /* ─── Empty State ─── */
+        .empty-state {
+            text-align: center; padding: 60px 20px;
+            background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.08); border-radius: 20px;
+        }
+        .empty-state i { font-size: 3rem; color: #334155; margin-bottom: 16px; display: block; }
+        .empty-state h3 { font-size: 1.2rem; color: #64748b; font-weight: 500; }
+        .empty-state p { font-size: 0.88rem; color: #475569; }
+
+        /* ─── Email Card ─── */
+        .email-card {
+            background: linear-gradient(135deg, rgba(22,33,58,0.95), rgba(10,14,26,0.95));
+            border: 1px solid rgba(255,255,255,0.07); border-radius: 18px;
+            margin-bottom: 20px; overflow: hidden;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .email-card:hover { border-color: rgba(99,102,241,0.3); box-shadow: 0 8px 30px rgba(0,0,0,0.4); }
+
+        .email-card-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 20px 24px; flex-wrap: wrap; gap: 14px;
+        }
+        .email-identity { display: flex; align-items: center; gap: 14px; }
+        .email-avatar {
+            width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+            background: linear-gradient(135deg,#6366f1,#a78bfa);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1rem; font-weight: 700; color: #fff; text-transform: uppercase;
+        }
+        .email-name {
+            font-size: 0.98rem; font-weight: 600; color: #e2e8f0; margin: 0;
+            font-family: 'Courier New', monospace;
+        }
+        .email-domain-badge {
+            font-size: 0.72rem; color: #6366f1; background: rgba(99,102,241,0.1);
+            border: 1px solid rgba(99,102,241,0.2); border-radius: 20px;
+            padding: 2px 10px; margin-top: 3px; display: inline-block;
+        }
+
+        .email-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .vp-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 16px; border-radius: 10px; font-size: 0.8rem; font-weight: 600;
+            border: 1px solid transparent; cursor: pointer; transition: all 0.18s; outline: none;
+            text-decoration: none;
+        }
+        .vp-btn-webmail {
+            background: linear-gradient(135deg,#0ea5e9,#0284c7); color: #fff;
+            box-shadow: 0 3px 10px rgba(14,165,233,0.3);
+        }
+        .vp-btn-webmail:hover { box-shadow: 0 5px 15px rgba(14,165,233,0.5); color:#fff; transform:translateY(-1px); }
+        .vp-btn-connect {
+            background: rgba(99,102,241,0.12); border-color: rgba(99,102,241,0.25); color: #a78bfa;
+        }
+        .vp-btn-connect:hover { background: rgba(99,102,241,0.22); color: #c4b5fd; }
+        .vp-btn-pass {
+            background: rgba(234,179,8,0.1); border-color: rgba(234,179,8,0.25); color: #fbbf24;
+        }
+        .vp-btn-pass:hover { background: rgba(234,179,8,0.2); color: #fde68a; }
+        .vp-btn-delete {
+            background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.25); color: #f87171;
+        }
+        .vp-btn-delete:hover { background: rgba(239,68,68,0.2); color: #fca5a5; }
+
+        /* ─── Stats Strip ─── */
+        .email-stats {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        .stat-cell {
+            padding: 14px 20px; text-align: center; border-right: 1px solid rgba(255,255,255,0.05);
+        }
+        .stat-cell:last-child { border-right: none; }
+        .stat-cell .stat-val {
+            font-size: 1.3rem; font-weight: 700; margin-bottom: 2px;
+        }
+        .stat-cell .stat-label { font-size: 0.72rem; color: #64748b; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+        .stat-sent { color: #22c55e; }
+        .stat-failed { color: #ef4444; }
+        .stat-queue { color: #f59e0b; }
+        .stat-inbox { color: #6366f1; }
+
+        /* ─── Overlay / Modal ─── */
+        .vp-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(6px);
+            z-index: 9999; display: none; align-items: center; justify-content: center;
+        }
+        .vp-modal {
+            background: linear-gradient(135deg, rgba(22,33,58,0.99), rgba(10,14,26,0.99));
+            border: 1px solid rgba(99,102,241,0.22); border-radius: 20px;
+            padding: 32px; max-width: 96vw;
+            box-shadow: 0 30px 70px rgba(0,0,0,0.7); animation: modalIn 0.2s ease;
+        }
+        @keyframes modalIn { from { opacity:0; transform:scale(0.93); } to { opacity:1; transform:scale(1); } }
+        .vp-modal h3 { font-size: 1.1rem; font-weight: 700; color: #fff; margin: 0 0 24px; display: flex; align-items: center; gap: 10px; }
+        .vp-modal h3 i { color: #6366f1; }
+        .vp-field-label {
+            font-size: 0.72rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;
+        }
+        .vp-input {
+            width: 100%; padding: 11px 14px; border-radius: 10px; margin-bottom: 16px;
+            background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
+            color: #fff; font-size: 0.9rem; outline: none; font-family: 'Inter', sans-serif;
+            transition: border 0.18s, box-shadow 0.18s;
+        }
+        .vp-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.18); }
+        .vp-input::placeholder { color: #475569; }
+        .vp-modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
+        .vp-btn-modal-primary {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 10px 22px; border-radius: 10px; font-size: 0.85rem; font-weight: 600;
+            background: linear-gradient(135deg,#6366f1,#4f46e5); color: #fff; border: none; cursor: pointer;
+            box-shadow: 0 4px 14px rgba(99,102,241,0.35); transition: all 0.2s;
+        }
+        .vp-btn-modal-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,0.5); }
+        .vp-btn-modal-ghost {
+            padding: 10px 20px; border-radius: 10px; font-size: 0.85rem; font-weight: 600;
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; cursor: pointer;
+            transition: all 0.18s;
+        }
+        .vp-btn-modal-ghost:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
+        /* ─── Connection Details Panel ─── */
+        .conn-section { margin-bottom: 20px; }
+        .conn-section-title {
+            font-size: 0.72rem; color: #6366f1; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.06em; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
+        }
+        .conn-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 9px 14px; border-radius: 8px; background: rgba(0,0,0,0.25);
+            border: 1px solid rgba(255,255,255,0.06); margin-bottom: 6px;
+        }
+        .conn-row-key { font-size: 0.8rem; color: #64748b; font-weight: 500; }
+        .conn-row-val {
+            font-size: 0.85rem; color: #e2e8f0; font-weight: 600;
+            font-family: 'Courier New', monospace; display: flex; align-items: center; gap: 8px;
+        }
+        .conn-badge {
+            font-size: 0.68rem; padding: 2px 8px; border-radius: 10px; font-weight: 700; font-family: 'Inter', sans-serif;
+        }
+        .conn-badge-tls { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+        .conn-badge-ssl { background: rgba(99,102,241,0.15); color: #a78bfa; border: 1px solid rgba(99,102,241,0.3); }
+        .conn-badge-plain { background: rgba(234,179,8,0.15); color: #fbbf24; border: 1px solid rgba(234,179,8,0.3); }
+        .copy-btn {
+            background: none; border: none; color: #475569; cursor: pointer; padding: 2px 5px;
+            border-radius: 5px; transition: color 0.15s;
+        }
+        .copy-btn:hover { color: #a78bfa; }
+
+        /* ─── Status Toast ─── */
+        .vp-toast {
+            position: fixed; bottom: 30px; right: 30px; z-index: 99999;
+            background: rgba(22,33,58,0.97); border: 1px solid rgba(99,102,241,0.3);
+            border-radius: 12px; padding: 14px 20px; font-size: 0.88rem; color: #e2e8f0;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: none;
+            animation: toastIn 0.25s ease;
+        }
+        @keyframes toastIn { from { opacity:0; transform:translateY(15px); } to { opacity:1; transform:translateY(0); } }
+
+        @media (max-width: 768px) {
+            .email-stats { grid-template-columns: repeat(2, 1fr); }
+            .email-card-header { padding: 16px; }
+        }
+        @media (max-width: 500px) {
+            .email-stats { grid-template-columns: repeat(2, 1fr); }
+            .email-actions { flex-direction: column; }
+            .vp-btn { justify-content: center; }
+        }
+    </style>
+</head>
+
+<body>
+{% include 'control/navbar.html' %}
+{% include 'control/left.html' %}
+{% include 'control/right.html' %}
+
+<div id="main-content">
+<div class="email-page">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1><i class="fa fa-envelope" style="font-size:1.2rem;"></i> Email Accounts</h1>
+            <div class="breadcrumb-trail">
+                <a href="/control/">Dashboard</a> / <a href="/control/listemail/{{ domain }}/">Email Wizard</a> / {{ domain }}
+            </div>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <a href="/control/email_analysis/{{ domain }}/" class="vp-btn vp-btn-connect" style="text-decoration:none;">
+                <i class="fa fa-bar-chart"></i> Analysis
+            </a>
+        </div>
+    </div>
+
+    <!-- Server Connection Info Banner -->
+    <div class="server-info-banner">
+        <div style="flex: 0 0 auto;">
+            <div class="sib-label">Mail Server</div>
+            <div class="sib-value">{{ server_hostname }}</div>
+            <span class="sib-tag"><i class="fa fa-check-circle"></i> Active</span>
+        </div>
+        <div class="sib-chip">
+            <div class="sib-label">SMTP (Outgoing)</div>
+            <div class="sib-value">{{ server_hostname }} &nbsp;·&nbsp; Port 587 (STARTTLS) / 465 (SSL)</div>
+        </div>
+        <div class="sib-chip">
+            <div class="sib-label">IMAP (Incoming)</div>
+            <div class="sib-value">{{ server_hostname }} &nbsp;·&nbsp; Port 993 (SSL) / 143 (STARTTLS)</div>
+        </div>
+        <div class="sib-chip">
+            <div class="sib-label">POP3 (Incoming)</div>
+            <div class="sib-value">{{ server_hostname }} &nbsp;·&nbsp; Port 995 (SSL) / 110 (Plain)</div>
+        </div>
+        <div style="flex: 0 0 auto; text-align:center;">
+            <div class="sib-label">Webmail</div>
+            <a href="{{ roundcube_url }}" target="_blank" class="vp-btn vp-btn-webmail" style="margin-top:2px;">
+                <i class="fa fa-globe"></i> Open Roundcube
+            </a>
+        </div>
+    </div>
+
+    <!-- Email Account List -->
+    {% if not allemail %}
+    <div class="empty-state">
+        <i class="fa fa-inbox"></i>
+        <h3>No email accounts yet</h3>
+        <p>Create your first email account to get started.</p>
+    </div>
+    {% endif %}
+
+    {% for i in allemail %}
+    <div class="email-card">
+        <div class="email-card-header">
+            <div class="email-identity">
+                <div class="email-avatar">{{ i.email|slice:":1" }}</div>
+                <div>
+                    <div class="email-name">{{ i.email }}</div>
+                    <span class="email-domain-badge">@{{ i.domain }}</span>
+                </div>
+            </div>
+            <div class="email-actions">
+                <a href="/control/roundcube_login/{{ i.email }}/" class="vp-btn vp-btn-webmail" title="Auto-login to Roundcube Webmail">
+                    <i class="fa fa-sign-in"></i> Webmail
+                </a>
+                <button class="vp-btn vp-btn-connect" onclick="showConnect('{{ i.email }}', '{{ i.domain }}')">
+                    <i class="fa fa-plug"></i> Connect
+                </button>
+                <button class="vp-btn vp-btn-pass" onclick="showChangePass('{{ i.email }}', '{{ i.domain }}')">
+                    <i class="fa fa-key"></i> Password
+                </button>
+                <a href="/deleteemai/{{ i.email }}" class="vp-btn vp-btn-delete"
+                   onclick="return confirm('Permanently delete {{ i.email }}? This cannot be undone.')">
+                    <i class="fa fa-trash"></i>
+                </a>
+            </div>
+        </div>
+
+        <!-- Stats Row -->
+        {% for x in emaildata %}{% if x.email == i.email %}
+        <div class="email-stats">
+            <div class="stat-cell">
+                <div class="stat-val stat-sent">{{ x.sent }}</div>
+                <div class="stat-label"><i class="fa fa-paper-plane-o"></i> Sent</div>
+            </div>
+            <div class="stat-cell">
+                <div class="stat-val stat-failed">{{ x.failed }}</div>
+                <div class="stat-label"><i class="fa fa-times-circle-o"></i> Failed</div>
+            </div>
+            <div class="stat-cell">
+                <div class="stat-val stat-queue">{{ x.queue }}</div>
+                <div class="stat-label"><i class="fa fa-clock-o"></i> Queued</div>
+            </div>
+            <div class="stat-cell">
+                <div class="stat-val stat-inbox">{{ x.total_emails_count }}</div>
+                <div class="stat-label"><i class="fa fa-inbox"></i> Inbox</div>
+            </div>
+        </div>
+        {% endif %}{% endfor %}
+    </div>
+    {% endfor %}
+
+</div><!-- .email-page -->
+</div><!-- #main-content -->
+
+
+<!-- ══════════════════════════════════════════════════════ -->
+<!-- CONNECT DETAILS MODAL                                  -->
+<!-- ══════════════════════════════════════════════════════ -->
+<div class="vp-overlay" id="connectModal">
+    <div class="vp-modal" style="width:520px;">
+        <h3><i class="fa fa-plug"></i> Email Client Setup &mdash; <span id="connectEmailTitle" style="color:#a78bfa; font-size:0.95rem;"></span></h3>
+
+        <!-- SMTP -->
+        <div class="conn-section">
+            <div class="conn-section-title"><i class="fa fa-paper-plane-o"></i> Outgoing Mail (SMTP)</div>
+            <div class="conn-row">
+                <span class="conn-row-key">Server</span>
+                <span class="conn-row-val" id="smtpServer">{{ server_hostname }}<button class="copy-btn" onclick="copyText('{{ server_hostname }}')" title="Copy"><i class="fa fa-copy"></i></button></span>
+            </div>
+            <div class="conn-row">
+                <span class="conn-row-key">Port</span>
+                <span class="conn-row-val">587 <span class="conn-badge conn-badge-tls">STARTTLS</span></span>
+            </div>
+            <div class="conn-row">
+                <span class="conn-row-key">Port (SSL)</span>
+                <span class="conn-row-val">465 <span class="conn-badge conn-badge-ssl">SSL/TLS</span></span>
+            </div>
+            <div class="conn-row">
+                <span class="conn-row-key">Username</span>
+                <span class="conn-row-val" id="smtpUser">—<button class="copy-btn" onclick="copyId('smtpUserVal')" title="Copy"><i class="fa fa-copy"></i></button></span>
+                <span id="smtpUserVal" style="display:none;"></span>
+            </div>
+            <div class="conn-row">
+                <span class="conn-row-key">Password</span>
+                <span class="conn-row-val">Your email password</span>
+            </div>
+            <div class="conn-row">
+                <span class="conn-row-key">Authentication</span>
+                <span class="conn-row-val">LOGIN / PLAIN <span class="conn-badge conn-badge-tls">Required</span></span>
+            </div>
+        </div>
+
+        <!-- IMAP -->
+        <div class="conn-section">
+            <div class="conn-section-title"><i class="fa fa-download"></i> Incoming Mail (IMAP — Recommended)</div>
+            <div class="conn-row">
+                <span class="conn-row-key">Server</span>
+                <span class="conn-row-val">{{ server_hostname }}<button class="copy-btn" onclick="copyText('{{ server_hostname }}')" title="Copy"><i class="fa fa-copy"></i></button></span>
+            </div>
+            <div class="conn-row">
+                <span class="conn-row-key">Port (SSL)</span>
+                <span class="conn-row-val">993 <span class="conn-badge conn-badge-ssl">SSL/TLS</span></span>
+            </div>
+            <div class="conn-row">
+                <span class="conn-row-key">Port (STARTTLS)</span>
+                <span class="conn-row-val">143 <span class="conn-badge conn-badge-tls">STARTTLS</span></span>
+            </div>
+            <div class="conn-row">
+                <span class="conn-row-key">Username</span>
+                <span class="conn-row-val" id="imapUser">—</span>
+            </div>
+            <div class="conn-row">
+                <span class="conn-row-key">Password</span>
+                <span class="conn-row-val">Your email password</span>
+            </div>
+        </div>
+
+        <!-- POP3 -->
+        <div class="conn-section">
+            <div class="conn-section-title"><i class="fa fa-inbox"></i> Incoming Mail (POP3)</div>
+            <div class="conn-row">
+                <span class="conn-row-key">Server</span>
+                <span class="conn-row-val">{{ server_hostname }}</span>
+            </div>
+            <div class="conn-row">
+                <span class="conn-row-key">Port (SSL)</span>
+                <span class="conn-row-val">995 <span class="conn-badge conn-badge-ssl">SSL/TLS</span></span>
+            </div>
+            <div class="conn-row">
+                <span class="conn-row-key">Port (Plain)</span>
+                <span class="conn-row-val">110 <span class="conn-badge conn-badge-plain">No Encryption</span></span>
+            </div>
+        </div>
+
+        <div class="vp-modal-footer">
+            <button class="vp-btn-modal-ghost" onclick="closeModal('connectModal')">Close</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════ -->
+<!-- CHANGE PASSWORD MODAL                                  -->
+<!-- ══════════════════════════════════════════════════════ -->
+<div class="vp-overlay" id="changePassModal">
+    <div class="vp-modal" style="width:420px;">
+        <h3><i class="fa fa-key"></i> Change Password</h3>
+        <div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); border-radius:10px; padding:12px 16px; margin-bottom:20px;">
+            <div style="font-size:0.75rem; color:#64748b; margin-bottom:3px;">Changing password for</div>
+            <div id="changePassEmail" style="font-size:0.95rem; color:#a78bfa; font-weight:600; font-family:'Courier New',monospace;"></div>
+        </div>
+        <form id="changePassForm">{% csrf_token %}
+            <input type="hidden" id="cpDomain" name="domain">
+            <input type="hidden" id="cpEmailName" name="emailname">
+            <div class="vp-field-label">New Password</div>
+            <div style="display:flex; gap:8px; margin-bottom:16px;">
+                <input type="password" id="cpPassword" name="password" class="vp-input" placeholder="Enter new password" style="margin-bottom:0; flex:1;" required>
+                <button type="button" onclick="cpGenPass()" class="vp-btn-modal-ghost" style="padding:11px 14px; flex-shrink:0;" title="Generate">
+                    <i class="fa fa-magic"></i>
+                </button>
+                <button type="button" onclick="cpTogglePass()" class="vp-btn-modal-ghost" style="padding:11px 14px; flex-shrink:0;" title="Show">
+                    <i class="fa fa-eye" id="cpEyeIcon"></i>
+                </button>
+            </div>
+            <div id="cpStatus" style="min-height:22px; font-size:0.82rem; margin-bottom:14px;"></div>
+            <div class="vp-modal-footer">
+                <div id="cpSpinner" style="display:none; color:#a8b2d1; font-size:0.85rem; align-items:center; gap:6px;">
+                    <i class="fa fa-circle-o-notch fa-spin"></i> Updating...
+                </div>
+                <button type="button" class="vp-btn-modal-ghost" onclick="closeModal('changePassModal')">Cancel</button>
+                <button type="submit" class="vp-btn-modal-primary" onclick="submitChangePass(event)">
+                    <i class="fa fa-check"></i> Update Password
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="vp-toast" id="toast"></div>
+
+
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+
+<script>
+    /* ─── Modal Helpers ─── */
+    function openModal(id)  { document.getElementById(id).style.display = 'flex'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    /* Close on backdrop click */
+    document.querySelectorAll('.vp-overlay').forEach(function(el) {
+        el.addEventListener('click', function(e) {
+            if (e.target === el) closeModal(el.id);
+        });
+    });
+
+    /* ─── Toast ─── */
+    function showToast(msg, isError) {
+        var t = document.getElementById('toast');
+        t.innerHTML = (isError ? '<i class="fa fa-times-circle" style="color:#ef4444;"></i> ' : '<i class="fa fa-check-circle" style="color:#22c55e;"></i> ') + msg;
+        t.style.display = 'block';
+        setTimeout(function() { t.style.display = 'none'; }, 3500);
+    }
+
+    /* ─── Copy to clipboard ─── */
+    function copyText(text) {
+        navigator.clipboard.writeText(text).then(function() { showToast('Copied to clipboard!'); });
+    }
+    function copyId(id) {
+        copyText(document.getElementById(id).textContent);
+    }
+
+    /* ─── Connect Modal ─── */
+    function showConnect(email, domain) {
+        document.getElementById('connectEmailTitle').textContent = email;
+        document.getElementById('smtpUser').innerHTML = email + ' <button class="copy-btn" onclick="copyText(\'' + email + '\')" title="Copy"><i class="fa fa-copy"></i></button>';
+        document.getElementById('imapUser').textContent = email;
+        document.getElementById('smtpUserVal').textContent = email;
+        openModal('connectModal');
+    }
+
+    /* ─── Change Password Modal ─── */
+    function showChangePass(email, domain) {
+        document.getElementById('changePassEmail').textContent = email;
+        document.getElementById('cpDomain').value = domain;
+        document.getElementById('cpEmailName').value = email;
+        document.getElementById('cpPassword').value = '';
+        document.getElementById('cpStatus').innerHTML = '';
+        document.getElementById('cpPassword').type = 'password';
+        document.getElementById('cpEyeIcon').className = 'fa fa-eye';
+        openModal('changePassModal');
+    }
+
+    function cpGenPass() {
+        var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_';
+        var pwd = '';
+        for (var i = 0; i < 16; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
+        document.getElementById('cpPassword').value = pwd;
+        document.getElementById('cpPassword').type = 'text';
+        document.getElementById('cpEyeIcon').className = 'fa fa-eye-slash';
+        document.getElementById('cpStatus').innerHTML = '<span style="color:#22c55e;"><i class="fa fa-check-circle"></i>&nbsp;Secure password generated</span>';
+    }
+
+    function cpTogglePass() {
+        var p = document.getElementById('cpPassword');
+        var ico = document.getElementById('cpEyeIcon');
+        if (p.type === 'password') {
+            p.type = 'text'; ico.className = 'fa fa-eye-slash';
+        } else {
+            p.type = 'password'; ico.className = 'fa fa-eye';
+        }
+    }
+
+    function submitChangePass(event) {
+        event.preventDefault();
+        var pwd = document.getElementById('cpPassword').value;
+        if (!pwd || pwd.length < 6) {
+            document.getElementById('cpStatus').innerHTML = '<span style="color:#ef4444;"><i class="fa fa-exclamation-circle"></i>&nbsp;Password must be at least 6 characters.</span>';
+            return;
+        }
+        var spinner = document.getElementById('cpSpinner');
+        spinner.style.display = 'flex';
+
+        var formData = new FormData(document.getElementById('changePassForm'));
+        fetch("{% url 'changeemailpassword' %}", {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            spinner.style.display = 'none';
+            if (data.status === 'success') {
+                closeModal('changePassModal');
+                showToast('Password updated successfully for ' + document.getElementById('cpEmailName').value);
+            } else {
+                document.getElementById('cpStatus').innerHTML = '<span style="color:#ef4444;"><i class="fa fa-times-circle"></i>&nbsp;Failed to update password. Please try again.</span>';
+            }
+        })
+        .catch(function() {
+            spinner.style.display = 'none';
+            document.getElementById('cpStatus').innerHTML = '<span style="color:#ef4444;"><i class="fa fa-times-circle"></i>&nbsp;Network error occurred.</span>';
+        });
+    }
+</script>
+
+</body>
+</html>

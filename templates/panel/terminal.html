@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>:: VoidPanel :: Terminal</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="VoidPanel Modern Terminal">
+    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+
+    <!-- VENDOR CSS -->
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    
+    <!-- MAIN Project CSS file -->
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+
+    <!-- XTERM CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+
+    <style>
+        /* Dark Glassmorphism Styling */
+        .glass-card {
+            background: rgba(25, 25, 25, 0.6) !important;
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 12px !important;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+            color: #ffffff !important;
+            padding: 20px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .glass-card h4, .glass-card h2, .glass-card li, .glass-card strong {
+            color: #ffffff !important;
+        }
+        
+        #terminal-container {
+            width: 100%;
+            height: 550px;
+            border-radius: 12px;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.8) !important; /* Xterm default is black, blending with glass */
+            padding: 15px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Loading Overlay */
+        #term-loader {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #00c6ff;
+            text-align: center;
+            z-index: 10;
+        }
+        
+        .status-dot {
+            height: 12px;
+            width: 12px;
+            background-color: #28a745;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            box-shadow: 0 0 10px #28a745;
+        }
+        .status-dot.disconnected {
+            background-color: #dc3545;
+            box-shadow: 0 0 10px #dc3545;
+        }
+    </style>
+</head>
+
+<body data-theme="dark" class="font-nunito">
+
+    <div id="wrapper" class="theme-cyan">
+        <div class="page-loader-wrapper">
+            <div class="loader">
+                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel"></div>
+                <p>Please wait...</p>
+            </div>
+        </div>
+
+        {% include 'navbar.html' %}
+        {% include 'left.html' %}
+        {% include 'right.html' %}
+
+        <div id="main-content">
+            <div class="container-fluid">
+                <div class="block-header">
+                    <div class="row align-items-center">
+                        <div class="col-lg-6 col-md-6 col-sm-12">
+                            <h2 style="color: #ffffff !important;">Server Terminal</h2>
+                            <ul class="breadcrumb">
+                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard" style="color: #ffffff !important;"></i></a></li>
+                                <li class="breadcrumb-item" style="color: #ffffff !important;">Dashboard</li>
+                                <li class="breadcrumb-item active" style="color: #ffffff !important;">Terminal</li>
+                            </ul>
+                        </div>
+                        <div class="col-lg-6 col-md-6 col-sm-12 text-right">
+                            <span style="color: white; font-weight: bold; margin-right: 15px;">
+                                <span id="conn-status" class="status-dot"></span> <span id="conn-text">Connected</span>
+                            </span>
+                            <button onclick="connectWebsocket()" class="btn btn-primary btn-sm" style="border-radius: 20px; background: linear-gradient(45deg, #007bff, #00c6ff); border: none;">
+                                <i class="fa fa-refresh"></i> Reconnect
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <!-- Terminal Wrapper -->
+                    <div class="col-lg-8 col-md-12 col-sm-12" style="position: relative;">
+                        <!-- Loader overlay -->
+                        <div id="term-loader">
+                            <i class="fa fa-circle-o-notch fa-spin fa-3x fa-fw mb-3"></i>
+                            <h5>Establishing secure SSH tunnel...</h5>
+                        </div>
+                        
+                        <!-- Real Xterm.js Container -->
+                        <div id="terminal-container"></div>
+                    </div>
+
+                    <!-- Server Specs Widget -->
+                    <div class="col-lg-4">
+                        <div class="card glass-card profile-header h-100">
+                            <div class="body">
+                                <div class="text-center mb-4">
+                                    <h4 class="mb-0"><strong>Server</strong> Information</h4>
+                                </div>
+                                <ul class="list-unstyled" style="line-height: 2.5;">
+                                    <li><i class="fa fa-server" style="color: #00c6ff; width: 25px;"></i> Hostname: <strong>{{hostname}}</strong></li>
+                                    <li><i class="fa fa-globe" style="color: #00c6ff; width: 25px;"></i> Server IP: <strong>{{ip}}</strong> </li>
+                                    <li><i class="fa fa-linux" style="color: #00c6ff; width: 25px;"></i> Operating System: <strong>{{os}}</strong></li>
+                                    <li><i class="fa fa-microchip" style="color: #00c6ff; width: 25px;"></i> Processor: <strong>{{cpu}}</strong></li>
+                                    <li><i class="fa fa-memory" style="color: #00c6ff; width: 25px;"></i> Memory (RAM): <strong>{{ram}}</strong> </li>
+                                    <li><i class="fa fa-hdd-o" style="color: #00c6ff; width: 25px;"></i> Disk Storage: <strong>{{storage}}</strong></li>
+                                    <li><i class="fa fa-shield" style="color: #00c6ff; width: 25px;"></i> Connection: <strong style="color: #28a745;">Encrypted WSS</strong></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Javascript -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+    <script src="/static/assets/vendor/toastr/toastr.js"></script>
+    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+
+    <!-- XTERM JS -->
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+
+    <script>
+        let term;
+        let fitAddon;
+        let socket;
+
+        // Initialize xterm on load
+        function initTerminal() {
+            // Clean container for reconnects
+            document.getElementById('terminal-container').innerHTML = '';
+            
+            term = new Terminal({
+                cursorBlink: true,
+                fontFamily: '"Fira Code", monospace',
+                fontSize: 14,
+                theme: {
+                    background: 'transparent',
+                    foreground: '#f8f8f2',
+                    cursor: '#00c6ff'
+                }
+            });
+            
+            fitAddon = new FitAddon.FitAddon();
+            term.loadAddon(fitAddon);
+            
+            term.open(document.getElementById('terminal-container'));
+            fitAddon.fit();
+            
+            // Connect to Django Channels WebSocket
+            connectWebsocket();
+
+            // Read from xterm, write to socket (JSON wrapped) - bound ONCE
+            term.onData(data => {
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({
+                        action: "input",
+                        data: data
+                    }));
+                }
+            });
+
+            // Handle window resize dynamically
+            window.addEventListener('resize', () => {
+                if(fitAddon && socket && socket.readyState === WebSocket.OPEN) {
+                    fitAddon.fit();
+                    const dim = fitAddon.proposeDimensions();
+                    if(dim) {
+                        socket.send(JSON.stringify({
+                            action: "resize",
+                            rows: dim.rows,
+                            cols: dim.cols
+                        }));
+                    }
+                }
+            });
+        }
+
+        function updateStatus(connected) {
+            const dot = document.getElementById('conn-status');
+            const txt = document.getElementById('conn-text');
+            if(connected) {
+                dot.classList.remove('disconnected');
+                txt.innerText = 'Connected';
+                $('#term-loader').hide();
+            } else {
+                dot.classList.add('disconnected');
+                txt.innerText = 'Disconnected';
+            }
+        }
+
+        function connectWebsocket() {
+            if(socket && socket.readyState !== WebSocket.CLOSED) {
+                socket.close(); // close existing if any
+            }
+            
+            $('#term-loader').show();
+            updateStatus(false);
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            socket = new WebSocket(protocol + '//' + window.location.host + '/ws/terminal/');
+
+            socket.onopen = () => {
+                updateStatus(true);
+                term.write('\x1b[36;1mConnected to VoidPanel Secure WebSocket Shell...\x1b[0m\r\n');
+                
+                // Immediately align size
+                fitAddon.fit();
+                const dim = fitAddon.proposeDimensions();
+                if(dim) {
+                     socket.send(JSON.stringify({
+                        action: "resize",
+                        rows: dim.rows,
+                        cols: dim.cols
+                    }));
+                }
+            };
+
+            socket.onerror = (e) => {
+                console.error("WebSocket Error:", e);
+                toastr.error("Secure connection failed. Trying to reconnect...");
+                updateStatus(false);
+            };
+
+            socket.onclose = () => {
+                updateStatus(false);
+                term.write('\r\n\x1b[31;1mConnection lost. Process terminated.\x1b[0m\r\n');
+            };
+
+            // Read from socket, write to xterm
+            socket.onmessage = (event) => {
+                term.write(event.data);
+            };
+        }
+
+        // Boot
+        document.addEventListener("DOMContentLoaded", initTerminal);
+    </script>
+</body>
+</html>

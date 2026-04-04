@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>:: VoidPanel :: List DNS</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="VoidPanel DNS Manager — Browse and edit DNS zones for all hosted domains.">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css"/>
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --glass-bg: rgba(255,255,255,0.07);
+            --glass-border: rgba(255,255,255,0.13);
+            --glass-shadow: 0 8px 32px rgba(0,0,0,0.28);
+            --accent: #7c3aed;
+            --accent-2: #2563eb;
+            --radius: 18px;
+            --subtext: #94a3b8;
+        }
+        body { font-family: 'Inter', sans-serif; }
+
+        /* ── Page hero ── */
+        .page-hero {
+            display:flex; align-items:center; gap:16px; padding:22px 0 8px;
+        }
+        .hero-icon {
+            width:52px; height:52px; border-radius:14px;
+            display:flex; align-items:center; justify-content:center;
+            background:linear-gradient(135deg,var(--accent),var(--accent-2));
+            font-size:22px; color:#fff; box-shadow:0 4px 16px rgba(124,58,237,.4);
+            flex-shrink:0;
+        }
+        .page-hero h2 { font-size:22px; font-weight:800; margin:0; color:#e2e8f0; }
+        .page-hero p  { font-size:13px; color:var(--subtext); margin:0; }
+
+        /* ── Glass card ── */
+        .glass-card {
+            background:var(--glass-bg); border:1px solid var(--glass-border);
+            border-radius:var(--radius); padding:28px;
+            backdrop-filter:blur(14px); box-shadow:var(--glass-shadow);
+            margin-bottom:28px; transition:transform .2s, box-shadow .2s;
+        }
+        .glass-card:hover { transform:translateY(-2px); box-shadow:0 12px 40px rgba(0,0,0,.35); }
+
+        /* ── Search bar ── */
+        .search-wrap {
+            display:flex; align-items:center; gap:12px; margin-bottom:24px;
+        }
+        .search-wrap input {
+            flex:1; padding:11px 18px; font-size:14px; font-weight:500;
+            background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14);
+            border-radius:12px; color:#e2e8f0; outline:none;
+            transition:border .2s, box-shadow .2s;
+        }
+        .search-wrap input:focus {
+            border-color:var(--accent); box-shadow:0 0 0 3px rgba(124,58,237,.2);
+        }
+        .search-wrap input::placeholder { color:#64748b; }
+        .search-wrap .search-icon {
+            width:42px; height:42px; border-radius:10px; flex-shrink:0;
+            background:linear-gradient(135deg,var(--accent),var(--accent-2));
+            display:flex; align-items:center; justify-content:center; color:#fff; font-size:15px;
+        }
+
+        /* ── Stats bar ── */
+        .stats-bar {
+            display:flex; gap:16px; margin-bottom:24px; flex-wrap:wrap;
+        }
+        .stat-pill {
+            display:inline-flex; align-items:center; gap:8px;
+            padding:8px 16px; border-radius:10px; font-size:13px; font-weight:600;
+            background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+            color:#94a3b8;
+        }
+        .stat-pill span { font-size:16px; font-weight:800; color:#e2e8f0; }
+
+        /* ── Domain table ── */
+        .dns-table { width:100%; border-collapse:separate; border-spacing:0 8px; }
+        .dns-table thead th {
+            font-size:11px; font-weight:700; letter-spacing:.8px; text-transform:uppercase;
+            color:var(--subtext); padding:4px 16px; border:none;
+        }
+        .dns-table tbody tr {
+            background:rgba(255,255,255,.05); cursor:default;
+            transition:background .18s, transform .15s;
+        }
+        .dns-table tbody tr:hover { background:rgba(124,58,237,.12); transform:translateX(4px); }
+        .dns-table tbody td {
+            padding:14px 16px; font-size:14px; font-weight:500; color:#e2e8f0;
+            border:none; vertical-align:middle;
+        }
+        .dns-table tbody td:first-child { border-radius:12px 0 0 12px; }
+        .dns-table tbody td:last-child  { border-radius:0 12px 12px 0; }
+
+        /* Domain name cell */
+        .domain-cell { display:flex; align-items:center; gap:12px; }
+        .domain-avatar {
+            width:36px; height:36px; border-radius:10px; flex-shrink:0;
+            display:flex; align-items:center; justify-content:center;
+            font-size:14px; font-weight:800; color:#fff;
+        }
+        .domain-name { font-weight:700; font-size:14px; color:#e2e8f0; }
+        .domain-email { font-size:12px; color:var(--subtext); margin-top:2px; }
+
+        /* Status indicator */
+        .status-dot {
+            display:inline-flex; align-items:center; gap:6px;
+            padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700;
+        }
+        .status-dot.active { background:rgba(22,163,74,.18); color:#4ade80; }
+        .status-dot::before {
+            content:''; width:6px; height:6px; border-radius:50%;
+            background:currentColor; animation:pulse 2s infinite;
+        }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+        /* Edit button */
+        .btn-edit {
+            display:inline-flex; align-items:center; gap:8px;
+            padding:9px 20px; font-size:13px; font-weight:700;
+            background:linear-gradient(135deg,var(--accent),var(--accent-2));
+            color:#fff; border:none; border-radius:10px; cursor:pointer;
+            text-decoration:none; transition:opacity .2s, transform .15s;
+        }
+        .btn-edit:hover { opacity:.85; transform:translateY(-1px); color:#fff; text-decoration:none; }
+        .btn-edit:active { transform:translateY(0); }
+
+        /* Empty state */
+        .empty-state {
+            text-align:center; padding:60px 20px; color:var(--subtext);
+        }
+        .empty-state i { font-size:48px; margin-bottom:16px; opacity:.3; }
+        .empty-state p { font-size:14px; }
+
+        /* Pagination count */
+        .table-footer {
+            display:flex; align-items:center; justify-content:space-between;
+            padding-top:16px; font-size:13px; color:var(--subtext); flex-wrap:wrap; gap:8px;
+        }
+
+        /* Color avatars */
+        .av-purple { background:linear-gradient(135deg,#7c3aed,#a855f7); }
+        .av-blue   { background:linear-gradient(135deg,#2563eb,#3b82f6); }
+        .av-teal   { background:linear-gradient(135deg,#0d9488,#14b8a6); }
+        .av-rose   { background:linear-gradient(135deg,#e11d48,#f43f5e); }
+        .av-amber  { background:linear-gradient(135deg,#d97706,#f59e0b); }
+        .av-green  { background:linear-gradient(135deg,#16a34a,#22c55e); }
+    </style>
+</head>
+
+<body data-theme="light" class="font-nunito">
+<div id="wrapper" class="theme-cyan">
+
+    <div class="page-loader-wrapper">
+        <div class="loader">
+            <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel"></div>
+            <p>Please wait...</p>
+        </div>
+    </div>
+
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
+
+    <div id="main-content">
+        <div class="container-fluid">
+
+            <!-- Hero -->
+            <div class="page-hero">
+                <div class="hero-icon"><i class="fa fa-server"></i></div>
+                <div>
+                    <h2>DNS Manager</h2>
+                    <p>Browse all hosted domains and edit their DNS zone records.</p>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-bar" style="margin-top:16px;">
+                <div class="stat-pill">
+                    <i class="fa fa-globe"></i>
+                    Total Domains: <span id="totalCount">{{ domain|length }}</span>
+                </div>
+                <div class="stat-pill">
+                    <i class="fa fa-search"></i>
+                    Showing: <span id="showingCount">{{ domain|length }}</span>
+                </div>
+            </div>
+
+            <!-- Main card -->
+            <div class="glass-card">
+                <!-- Search -->
+                <div class="search-wrap">
+                    <div class="search-icon"><i class="fa fa-search"></i></div>
+                    <input id="searchInput" type="text" placeholder="Search domain name or email…"
+                        oninput="filterTable()" autocomplete="off">
+                </div>
+
+                <!-- Table -->
+                <div class="table-responsive">
+                    <table class="dns-table">
+                        <thead>
+                            <tr>
+                                <th>Domain</th>
+                                <th>Email</th>
+                                <th>Status</th>
+                                <th style="text-align:right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="domainTableBody">
+                        {% for i in domain %}
+                        <tr data-domain="{{ i.domain }}" data-email="{{ i.email }}">
+                            <td>
+                                <div class="domain-cell">
+                                    <div class="domain-avatar av-{% cycle 'purple' 'blue' 'teal' 'rose' 'amber' 'green' %}">
+                                        {{ i.domain|slice:":1"|upper }}
+                                    </div>
+                                    <div>
+                                        <div class="domain-name">{{ i.domain }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td style="color:var(--subtext);">
+                                <i class="fa fa-envelope" style="margin-right:6px;font-size:12px;"></i>{{ i.email }}
+                            </td>
+                            <td>
+                                <span class="status-dot active">Active</span>
+                            </td>
+                            <td style="text-align:right;">
+                                <a class="btn-edit" href="/eadns/?domain={{ i.domain }}" id="edit-{{ forloop.counter }}">
+                                    <i class="fa fa-pencil"></i> Edit DNS
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4">
+                                <div class="empty-state">
+                                    <i class="fa fa-server"></i>
+                                    <p>No domains found. Add your first website to get started.</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Footer -->
+                <div class="table-footer">
+                    <span id="noResultsMsg" style="display:none; color:#f87171;">
+                        <i class="fa fa-exclamation-circle"></i> No matching domains found.
+                    </span>
+                    <span></span>
+                    <span>{{ domain|length }} domain{{ domain|length|pluralize }} total</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+function filterTable() {
+    const q = document.getElementById('searchInput').value.toLowerCase().trim();
+    const rows = document.querySelectorAll('#domainTableBody tr[data-domain]');
+    let visible = 0;
+
+    rows.forEach(row => {
+        const domain = (row.dataset.domain || '').toLowerCase();
+        const email  = (row.dataset.email  || '').toLowerCase();
+        const match  = domain.includes(q) || email.includes(q);
+        row.style.display = match ? '' : 'none';
+        if (match) visible++;
+    });
+
+    document.getElementById('showingCount').textContent = visible;
+    document.getElementById('noResultsMsg').style.display = (visible === 0 && q) ? '' : 'none';
+}
+</script>
+
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/vendor/toastr/toastr.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+</body>
+</html>

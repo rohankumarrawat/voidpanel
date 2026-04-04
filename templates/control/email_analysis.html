@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>:: VoidPanel :: Email Analysis</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+
+    <!-- VENDOR CSS -->
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
+
+    <!-- MAIN Project CSS file -->
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <style>
+        .card .header { padding: 20px 20px 0 20px; }
+        .chart-container { height: 300px; }
+    </style>
+</head>
+
+<body data-theme="light" class="font-nunito">
+    <div id="wrapper" class="theme-cyan">
+        {% include 'control/navbar.html' %}
+        {% include 'control/left.html' %}
+        {% include 'control/right.html' %}
+
+        <div id="main-content">
+            <div class="container-fluid">
+                <div class="block-header">
+                    <div class="row">
+                        <div class="col-lg-12">
+                            <h2>Email Analysis for {{ domain }}</h2>
+                            <ul class="breadcrumb">
+                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a></li>
+                                <li class="breadcrumb-item"><a href="/control/listemail/{{ domain }}/">Emails</a></li>
+                                <li class="breadcrumb-item active">Analysis</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row clearfix">
+                    <div class="col-lg-3 col-md-6">
+                        <div class="card text-center bg-info text-white">
+                            <div class="body">
+                                <h3>{{ totals.sent }}</h3>
+                                <span>Total Sent</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6">
+                        <div class="card text-center bg-danger text-white">
+                            <div class="body">
+                                <h3>{{ totals.failed }}</h3>
+                                <span>Total Failed</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6">
+                        <div class="card text-center bg-warning text-white">
+                            <div class="body">
+                                <h3>{{ totals.queue }}</h3>
+                                <span>In Queue</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6">
+                        <div class="card text-center bg-success text-white">
+                            <div class="body">
+                                <h3>{{ totals.received }}</h3>
+                                <span>Total Received</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row clearfix">
+                    <div class="col-lg-6 col-md-12">
+                        <div class="card">
+                            <div class="header">
+                                <h2>Sent vs Failed</h2>
+                            </div>
+                            <div class="body">
+                                <div id="chart-sent-failed" class="chart-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6 col-md-12">
+                        <div class="card">
+                            <div class="header">
+                                <h2>Overall Email Distribution</h2>
+                            </div>
+                            <div class="body">
+                                <div id="chart-overall" class="chart-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row clearfix">
+                    <div class="col-lg-12">
+                        <div class="card">
+                            <div class="header">
+                                <h2>Detailed Statistics</h2>
+                            </div>
+                            <div class="body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Email Address</th>
+                                                <th>Sent</th>
+                                                <th>Failed</th>
+                                                <th>Queue</th>
+                                                <th>Received</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for stat in email_stats %}
+                                            <tr>
+                                                <td>{{ stat.email }}</td>
+                                                <td><span class="badge badge-info">{{ stat.sent }}</span></td>
+                                                <td><span class="badge badge-danger">{{ stat.failed }}</span></td>
+                                                <td><span class="badge badge-warning">{{ stat.queue }}</span></td>
+                                                <td><span class="badge badge-success">{{ stat.received }}</span></td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Javascript -->
+    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/c3.bundle.js"></script>
+    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            // Sent vs Failed Gauge/Donut
+            var chart1 = c3.generate({
+                bindto: '#chart-sent-failed',
+                data: {
+                    columns: [
+                        ['Sent', {{ totals.sent }}],
+                        ['Failed', {{ totals.failed }}]
+                    ],
+                    type: 'donut',
+                    colors: {
+                        'Sent': '#17a2b8',
+                        'Failed': '#dc3545'
+                    }
+                },
+                donut: {
+                    title: "Delivery Status"
+                }
+            });
+
+            // Overall Distribution
+            var chart2 = c3.generate({
+                bindto: '#chart-overall',
+                data: {
+                    columns: [
+                        ['Sent', {{ totals.sent }}],
+                        ['Failed', {{ totals.failed }}],
+                        ['Queue', {{ totals.queue }}],
+                        ['Received', {{ totals.received }}]
+                    ],
+                    type: 'pie',
+                    colors: {
+                        'Sent': '#17a2b8',
+                        'Failed': '#dc3545',
+                        'Queue': '#ffc107',
+                        'Received': '#28a745'
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

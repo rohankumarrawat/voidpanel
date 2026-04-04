@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>:: VoidPanel :: {{ domain.domain }}</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <style>
+        :root {
+            --neon: #00e5ff;
+            --neon-purple: #a855f7;
+            --glass-bg: rgba(15,20,40,0.82);
+            --glass-border: rgba(0,229,255,0.15);
+            --text-dim: rgba(180,200,230,0.7);
+        }
+        body { font-family:'Inter',sans-serif; background:#080c1a !important; }
+
+        /* Header */
+        .page-header { padding:26px 0 20px; }
+        .page-header h2 { font-size:1.45rem; font-weight:700; color:#fff; margin-bottom:4px; }
+        .page-header .breadcrumb { background:transparent; padding:0; margin:0; }
+        .page-header .breadcrumb-item,
+        .page-header .breadcrumb-item a { font-size:.78rem; color:var(--text-dim); }
+        .page-header .breadcrumb-item.active { color:var(--neon); }
+        .page-header .breadcrumb-item+.breadcrumb-item::before { color:var(--text-dim); }
+
+        /* Domain hero card */
+        .hero-card {
+            background:var(--glass-bg);
+            border:1px solid var(--glass-border);
+            border-radius:18px;
+            padding:24px 28px;
+            display:flex; align-items:flex-start; gap:24px; flex-wrap:wrap;
+            margin-bottom:24px;
+            position:relative; overflow:hidden;
+        }
+        .hero-card::before {
+            content:''; position:absolute; inset:0;
+            background:linear-gradient(135deg,rgba(0,229,255,.04) 0%,transparent 60%);
+            pointer-events:none;
+        }
+        .hero-preview {
+            width:340px; flex-shrink:0; border-radius:12px; overflow:hidden;
+            border:1px solid rgba(0,229,255,.15); background:#0a0f22;
+        }
+        .hero-preview iframe,
+        .hero-preview img { width:100%; height:220px; object-fit:cover; display:block; border:none; }
+        .hero-info { flex:1; min-width:200px; }
+        .hero-domain {
+            font-size:1.4rem; font-weight:700; color:#fff; margin-bottom:6px;
+            display:flex; align-items:center; gap:10px;
+        }
+        .hero-domain a { color:var(--neon); text-decoration:none; font-size:.8rem; font-weight:500; }
+        .hero-meta { font-size:.8rem; color:var(--text-dim); margin-bottom:20px; }
+        .hero-status {
+            display:inline-flex; align-items:center; gap:6px;
+            padding:3px 12px; border-radius:999px; font-size:.72rem; font-weight:600;
+        }
+        .hero-status.active { background:rgba(34,197,94,.12); color:#22c55e; border:1px solid rgba(34,197,94,.2); }
+        .hero-status.suspended { background:rgba(245,158,11,.12); color:#f59e0b; border:1px solid rgba(245,158,11,.2); }
+        .hero-status .dot { width:7px; height:7px; border-radius:50%; background:currentColor; animation:ping 1.5s infinite; }
+        @keyframes ping { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+        /* Quick action row */
+        .quick-actions { display:flex; gap:10px; flex-wrap:wrap; }
+        .qa-btn {
+            display:inline-flex; align-items:center; gap:7px;
+            padding:8px 16px; border-radius:10px; font-size:.8rem; font-weight:500;
+            border:1px solid; cursor:pointer; transition:all .18s; text-decoration:none;
+            background:transparent;
+        }
+        .qa-btn.cyan   { color:var(--neon); border-color:rgba(0,229,255,.3); }
+        .qa-btn.cyan:hover { background:rgba(0,229,255,.1); }
+        .qa-btn.amber  { color:#f59e0b; border-color:rgba(245,158,11,.3); }
+        .qa-btn.amber:hover { background:rgba(245,158,11,.1); }
+        .qa-btn.red    { color:#ef4444; border-color:rgba(239,68,68,.3); }
+        .qa-btn.red:hover { background:rgba(239,68,68,.1); color:#ef4444; }
+        .qa-btn.purple { color:#a855f7; border-color:rgba(168,85,247,.3); }
+        .qa-btn.purple:hover { background:rgba(168,85,247,.1); }
+
+        /* Section heading */
+        .section-head {
+            font-size:.68rem; font-weight:600; letter-spacing:1.5px; text-transform:uppercase;
+            color:var(--neon); margin:28px 0 14px; display:flex; align-items:center; gap:8px;
+        }
+        .section-head::after { content:''; flex:1; height:1px; background:rgba(0,229,255,.1); }
+
+        /* Service cards grid */
+        .services-grid {
+            display:grid;
+            grid-template-columns:repeat(auto-fill, minmax(160px, 1fr));
+            gap:14px;
+            margin-bottom:6px;
+        }
+        .svc-card {
+            background:rgba(255,255,255,.03);
+            border:1px solid rgba(255,255,255,.07);
+            border-radius:14px;
+            padding:18px 16px;
+            display:flex; flex-direction:column; align-items:flex-start; gap:10px;
+            cursor:pointer; text-decoration:none;
+            transition:background .2s, border-color .2s, transform .15s;
+            position:relative; overflow:hidden;
+        }
+        .svc-card::before {
+            content:''; position:absolute; inset:0;
+            background:linear-gradient(135deg, var(--svc-color, rgba(0,229,255,.06)) 0%, transparent 70%);
+            opacity:0; transition:opacity .2s;
+        }
+        .svc-card:hover { background:rgba(255,255,255,.055); border-color:rgba(0,229,255,.2); transform:translateY(-2px); }
+        .svc-card:hover::before { opacity:1; }
+        .svc-card:active { transform:translateY(0); }
+
+        .svc-icon {
+            width:40px; height:40px; border-radius:10px;
+            display:flex; align-items:center; justify-content:center;
+        }
+        .svc-icon img { width:26px; height:26px; object-fit:contain; }
+        .svc-label { font-size:.7rem; color:var(--text-dim); }
+        .svc-name  { font-size:.88rem; font-weight:600; color:#e4eaf8; margin-top:-4px; }
+
+        .svc-card.danger { border-color:rgba(239,68,68,.15); }
+        .svc-card.danger:hover { border-color:rgba(239,68,68,.3); background:rgba(239,68,68,.06); }
+        .svc-card.warn  { border-color:rgba(245,158,11,.15); }
+        .svc-card.warn:hover  { border-color:rgba(245,158,11,.3); background:rgba(245,158,11,.06); }
+
+        /* ── Overlay modals ───────────────────────── */
+        .modal-overlay {
+            display:none; position:fixed; inset:0;
+            background:rgba(8,12,26,.88); backdrop-filter:blur(10px);
+            z-index:9999; align-items:center; justify-content:center;
+        }
+        .modal-overlay.show { display:flex; }
+        .modal-glass {
+            background:var(--glass-bg); border:1px solid var(--glass-border);
+            border-radius:20px; padding:32px 36px; width:100%; max-width:460px;
+            animation:popIn .22s ease;
+        }
+        @keyframes popIn { from{transform:scale(.92);opacity:0} to{transform:scale(1);opacity:1} }
+        .modal-head { display:flex; align-items:center; gap:12px; margin-bottom:22px; }
+        .modal-head-icon {
+            width:42px; height:42px; border-radius:10px;
+            display:flex; align-items:center; justify-content:center; font-size:1rem;
+        }
+        .modal-head-icon.cyan   { background:rgba(0,229,255,.15); color:var(--neon); border:1px solid rgba(0,229,255,.2); }
+        .modal-head-icon.purple { background:rgba(168,85,247,.15); color:#a855f7; border:1px solid rgba(168,85,247,.2); }
+        .modal-head-icon.amber  { background:rgba(245,158,11,.15); color:#f59e0b; border:1px solid rgba(245,158,11,.2); }
+        .modal-head-icon.red    { background:rgba(239,68,68,.15); color:#ef4444; border:1px solid rgba(239,68,68,.2); }
+        .modal-head-icon.green  { background:rgba(34,197,94,.15); color:#22c55e; border:1px solid rgba(34,197,94,.2); }
+        .modal-title { font-size:1rem; font-weight:600; color:#fff; }
+        .modal-sub   { font-size:.74rem; color:var(--text-dim); margin-top:2px; }
+
+        .modal-field { margin-bottom:14px; }
+        .modal-field label { display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:6px; font-weight:500; }
+        .modal-field input,
+        .modal-field select,
+        .modal-field textarea {
+            width:100%; background:rgba(0,229,255,.06); border:1px solid rgba(0,229,255,.18);
+            border-radius:9px; color:#e4eaf8; font-size:.86rem; padding:10px 14px;
+            outline:none; font-family:'Inter',sans-serif; transition:border-color .2s;
+            -webkit-appearance:none; appearance:none;
+        }
+        .modal-field input:focus,
+        .modal-field select:focus { border-color:var(--neon); box-shadow:0 0 0 3px rgba(0,229,255,.1); }
+        .modal-field select option { background:#10182e; }
+        .modal-prefix-group { display:flex; align-items:center; gap:0; }
+        .modal-prefix {
+            background:rgba(0,229,255,.1); border:1px solid rgba(0,229,255,.18);
+            border-right:none; border-radius:9px 0 0 9px;
+            padding:10px 12px; font-size:.84rem; color:var(--neon); white-space:nowrap;
+        }
+        .modal-prefix-group input { border-radius:0 9px 9px 0; }
+        .modal-prefix-group .suffix {
+            background:rgba(0,229,255,.1); border:1px solid rgba(0,229,255,.18);
+            border-left:none; border-radius:0 9px 9px 0;
+            padding:10px 12px; font-size:.84rem; color:var(--neon); white-space:nowrap;
+        }
+        .modal-prefix-group input.mid { border-radius:0; }
+
+        .match-hint { font-size:.72rem; margin-top:5px; display:flex; align-items:center; gap:5px; }
+        .match-hint.ok { color:#22c55e; }
+        .match-hint.fail { color:#ef4444; }
+
+        .modal-warn {
+            background:rgba(239,68,68,.07); border:1px solid rgba(239,68,68,.2);
+            border-radius:10px; padding:12px 16px; font-size:.8rem; color:#fca5a5;
+            margin-bottom:18px; display:flex; align-items:center; gap:9px; line-height:1.5;
+        }
+
+        .modal-footer-btns { display:flex; gap:10px; margin-top:20px; }
+        .btn-modal-cancel {
+            flex:1; padding:10px; border-radius:10px;
+            background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+            color:#e4eaf8; font-size:.84rem; cursor:pointer; transition:background .2s;
+        }
+        .btn-modal-cancel:hover { background:rgba(255,255,255,.12); }
+        .btn-modal-confirm {
+            flex:1; padding:10px; border-radius:10px; border:none;
+            font-size:.84rem; font-weight:600; cursor:pointer; color:#fff; transition:opacity .2s;
+        }
+        .btn-modal-confirm:hover { opacity:.82; }
+        .btn-modal-confirm.cyan   { background:linear-gradient(135deg,#00e5ff,#0ea5e9); }
+        .btn-modal-confirm.purple { background:linear-gradient(135deg,#a855f7,#8b5cf6); }
+        .btn-modal-confirm.amber  { background:linear-gradient(135deg,#f59e0b,#d97706); }
+        .btn-modal-confirm.red    { background:linear-gradient(135deg,#ef4444,#dc2626); }
+        .btn-modal-confirm.green  { background:linear-gradient(135deg,#22c55e,#16a34a); }
+        .btn-modal-confirm:disabled { opacity:.35; cursor:not-allowed; }
+
+        .gen-btn {
+            display:inline-flex; align-items:center; gap:6px;
+            background:rgba(0,229,255,.08); border:1px solid rgba(0,229,255,.22);
+            color:var(--neon); border-radius:8px; padding:7px 14px;
+            font-size:.76rem; cursor:pointer; transition:background .2s; margin-top:8px;
+        }
+        .gen-btn:hover { background:rgba(0,229,255,.15); }
+
+        /* Result overlay */
+        .result-overlay {
+            display:none; position:fixed; inset:0;
+            background:rgba(8,12,26,.88); backdrop-filter:blur(10px);
+            z-index:10000; align-items:center; justify-content:center;
+        }
+        .result-overlay.show { display:flex; }
+        .result-glass {
+            background:var(--glass-bg); border:1px solid var(--glass-border);
+            border-radius:20px; padding:36px 40px; text-align:center; max-width:340px;
+            animation:popIn .22s ease;
+        }
+        .result-icon { font-size:2.6rem; margin-bottom:14px; }
+        .result-msg  { font-size:.9rem; color:#e4eaf8; margin-bottom:20px; line-height:1.6; }
+        .btn-result-close {
+            background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+            color:#e4eaf8; border-radius:9px; padding:9px 28px;
+            font-size:.84rem; cursor:pointer; transition:background .2s;
+        }
+        .btn-result-close:hover { background:rgba(255,255,255,.12); }
+
+        /* processing spinner */
+        .spin-ring {
+            width:20px; height:20px; border:2px solid rgba(0,229,255,.2);
+            border-top-color:var(--neon); border-radius:50%;
+            animation:spin .7s linear infinite; display:none;
+        }
+        @keyframes spin { to{transform:rotate(360deg)} }
+    </style>
+</head>
+<body data-theme="light" class="font-nunito">
+<div id="wrapper" class="theme-cyan">
+
+    <!-- Page Loader -->
+    <div class="page-loader-wrapper">
+        <div class="loader">
+            <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel"></div>
+            <p>Please wait...</p>
+        </div>
+    </div>
+
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
+
+    <div id="main-content">
+        <div class="container-fluid">
+
+            <!-- Header -->
+            <div class="page-header">
+                <div>
+                    <h2>{{ domain.domain }}</h2>
+                    <ul class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="/panel/"><i class="fa fa-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="/listusers/">Users</a></li>
+                        <li class="breadcrumb-item active">{{ domain.domain }}</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- ── Hero Card ── -->
+            <div class="hero-card">
+                <div class="hero-preview">
+                    {% if status %}
+                    <iframe src="https://{{ domain.domain }}" scrolling="no"></iframe>
+                    {% else %}
+                    <img src="/static/icons/not.webp" alt="Site offline">
+                    {% endif %}
+                </div>
+                <div class="hero-info">
+                    <div class="hero-domain">
+                        {{ domain.domain }}
+                        <a href="http://{{ domain.domain }}" target="_blank"><i class="fa fa-external-link"></i> Visit</a>
+                    </div>
+                    <div class="hero-meta">
+                        {% if status %}
+                        <span class="hero-status active"><span class="dot"></span>Online</span>
+                        {% else %}
+                        <span class="hero-status suspended"><span class="dot"></span>Suspended / Offline</span>
+                        {% endif %}
+                        &nbsp;&nbsp;
+                        <span style="color:var(--text-dim);font-size:.78rem;">Directory: /home/{{ domain.dir }}</span>
+                    </div>
+                    <div class="quick-actions">
+                        <a href="/filemanager/?key=//home/{{ domain.dir }}" target="_blank" class="qa-btn cyan">
+                            <i class="fa fa-folder-open"></i> File Manager
+                        </a>
+                        <a href="/eadns/?domain={{ domain }}" class="qa-btn purple">
+                            <i class="fa fa-server"></i> DNS
+                        </a>
+                        <a href="/loginuser/?user={{ domain.username }}" target="_blank" class="qa-btn cyan" style="color:#22c55e;border-color:rgba(34,197,94,.3);">
+                            <i class="fa fa-sign-in"></i> Login as User
+                        </a>
+                        {% if not domain.userdomain %}
+                        {% if domain.status %}
+                        <button onclick="openModal('modal-suspend')" class="qa-btn amber">
+                            <i class="fa fa-pause"></i> Suspend
+                        </button>
+                        {% else %}
+                        <a href="/unsuspend/{{ domain.domain }}/" class="qa-btn cyan" style="color:#22c55e;border-color:rgba(34,197,94,.3);">
+                            <i class="fa fa-play"></i> Unsuspend
+                        </a>
+                        {% endif %}
+                        <button onclick="openModal('modal-terminate')" class="qa-btn red">
+                            <i class="fa fa-trash-o"></i> Terminate
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Security & Site tools ── -->
+            <div class="section-head"><i class="fa fa-shield"></i> Security & Site</div>
+            <div class="services-grid">
+                <a href="/runssl/{{ domain }}" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/ssl.png" alt="SSL"></div>
+                    <div><div class="svc-label">Security</div><div class="svc-name">SSL / HTTPS</div></div>
+                </a>
+                <a href="/eadns/?domain={{ domain }}" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/dns.png" alt="DNS"></div>
+                    <div><div class="svc-label">Edit / Add</div><div class="svc-name">DNS Records</div></div>
+                </a>
+                <a href="/addredirect/{{ domain }}" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/re.png" alt="Redirect"></div>
+                    <div><div class="svc-label">Website</div><div class="svc-name">Redirects</div></div>
+                </a>
+                <a href="/subdomain/{{ domain.domain }}" target="_blank" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/sub.png" alt="Subdomain"></div>
+                    <div><div class="svc-label">Domain</div><div class="svc-name">Subdomains</div></div>
+                </a>
+            </div>
+
+            <!-- ── Files & Tools ── -->
+            <div class="section-head"><i class="fa fa-hdd-o"></i> Files & Tools</div>
+            <div class="services-grid">
+                <a href="/filemanager/?key=//home/{{ domain.dir }}" target="_blank" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/file.png" alt="Files"></div>
+                    <div><div class="svc-label">File</div><div class="svc-name">Manager</div></div>
+                </a>
+                <a href="/backup/{{ domain }}" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/backup.svg" alt="Backup"></div>
+                    <div><div class="svc-label">BackUp</div><div class="svc-name">Wizard</div></div>
+                </a>
+                <a href="/cron/{{ domain }}" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/cron.svg" alt="Cron"></div>
+                    <div><div class="svc-label">Cron</div><div class="svc-name">Jobs</div></div>
+                </a>
+                <a href="/analytics/?domain={{ domain }}" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/analysis.png" alt="Analysis"></div>
+                    <div><div class="svc-label">Website</div><div class="svc-name">Analytics</div></div>
+                </a>
+            </div>
+
+            <!-- ── PHP ── -->
+            <div class="section-head"><i class="fa fa-code"></i> PHP</div>
+            <div class="services-grid">
+                <div onclick="openModal('modal-php')" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/php.svg" alt="PHP"></div>
+                    <div><div class="svc-label">PHP</div><div class="svc-name">Version Selector</div></div>
+                </div>
+                <a href="/phpini/{{ domain }}" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/phpini.svg" alt="PHP INI"></div>
+                    <div><div class="svc-label">PHP</div><div class="svc-name">INI Settings</div></div>
+                </a>
+                <a href="/python/{{ domain }}" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/python.png" alt="Python"></div>
+                    <div><div class="svc-label">Setup</div><div class="svc-name">Python App</div></div>
+                </a>
+                <a href="/mern/{{ domain }}" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/mern.png" alt="MERN"></div>
+                    <div><div class="svc-label">Setup</div><div class="svc-name">MERN Stack</div></div>
+                </a>
+            </div>
+
+            <!-- ── Database ── -->
+            <div class="section-head"><i class="fa fa-database"></i> Database</div>
+            <div class="services-grid">
+                <div onclick="openModal('modal-adddb')" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/mydb.svg" alt="MySQL"></div>
+                    <div><div class="svc-label">MySQL</div><div class="svc-name">Add Database</div></div>
+                </div>
+                <div onclick="openModal('modal-adddbuser')" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/myusers.svg" alt="DB Users"></div>
+                    <div><div class="svc-label">Database</div><div class="svc-name">Add DB User</div></div>
+                </div>
+                <a href="/dbconnect/{{ domain }}" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/mysql.svg" alt="Auto DB"></div>
+                    <div><div class="svc-label">Auto</div><div class="svc-name">DB Setup</div></div>
+                </a>
+            </div>
+
+            <!-- ── Email ── -->
+            <div class="section-head"><i class="fa fa-envelope"></i> Email</div>
+            <div class="services-grid">
+                <div onclick="openModal('modal-addemail')" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/email.png" alt="Email"></div>
+                    <div><div class="svc-label">Create</div><div class="svc-name">Email Account</div></div>
+                </div>
+                <a href="/listemail/{{ domain }}/" target="_blank" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/ec.png" alt="Email Connect"></div>
+                    <div><div class="svc-label">Connect</div><div class="svc-name">Email Client</div></div>
+                </a>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- ════════════════════════ Modals ════════════════════════ -->
+
+<!-- PHP Version -->
+<div class="modal-overlay" id="modal-php">
+    <div class="modal-glass">
+        <div class="modal-head">
+            <div class="modal-head-icon cyan"><i class="fa fa-code"></i></div>
+            <div><div class="modal-title">Change PHP Version</div><div class="modal-sub">Current: PHP {{ domain.php }}</div></div>
+        </div>
+        <form id="chphp">{% csrf_token %}
+            <div class="modal-field">
+                <label>Domain / Subdomain</label>
+                <select name="name" required>
+                    <option value="{{ domain }}">{{ domain }} (PHP {{ domain.php }})</option>
+                    {% for i in sub %}<option value="{{ i.subdomain }}">{{ i.subdomain }} (PHP {{ i.php }})</option>{% endfor %}
+                </select>
+            </div>
+            <div class="modal-field">
+                <label>PHP Version</label>
+                <select name="php" required>
+                    {% for i in phpversion %}<option value="{{ i.name }}">{{ i.name }}</option>{% endfor %}
+                </select>
+            </div>
+        </form>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-php')">Cancel</button>
+            <button class="btn-modal-confirm cyan" onclick="submitPhp()">
+                <i class="fa fa-check" style="margin-right:5px;"></i>Change PHP Version
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Database -->
+<div class="modal-overlay" id="modal-adddb">
+    <div class="modal-glass">
+        <div class="modal-head">
+            <div class="modal-head-icon cyan"><i class="fa fa-database"></i></div>
+            <div><div class="modal-title">Create Database</div><div class="modal-sub">MySQL database for {{ domain }}</div></div>
+        </div>
+        <form id="adddbform">{% csrf_token %}
+            <input type="hidden" name="front" value="{{ domain.dir }}_">
+            <div class="modal-field">
+                <label>Database Name</label>
+                <div class="modal-prefix-group">
+                    <span class="modal-prefix">{{ domain }}_</span>
+                    <input type="text" name="databasename" placeholder="mydb" required class="mid" oninput="removeSpecial(this)">
+                </div>
+            </div>
+        </form>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-adddb')">Cancel</button>
+            <button class="btn-modal-confirm cyan" onclick="submitAddDb()">
+                <i class="fa fa-plus" style="margin-right:5px;"></i>Create Database
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Database User -->
+<div class="modal-overlay" id="modal-adddbuser">
+    <div class="modal-glass">
+        <div class="modal-head">
+            <div class="modal-head-icon purple"><i class="fa fa-user-plus"></i></div>
+            <div><div class="modal-title">Add Database User</div><div class="modal-sub">New MySQL user for {{ domain }}</div></div>
+        </div>
+        <form id="adddbuser">{% csrf_token %}
+            <input type="hidden" name="domain" value="{{ domain.dir }}">
+            <div class="modal-field">
+                <label>Username</label>
+                <div class="modal-prefix-group">
+                    <span class="modal-prefix">{{ domain }}_</span>
+                    <input type="text" name="databaseuser" id="dbu-name" placeholder="dbuser" required class="mid" oninput="removeSpecial(this); checkDbPass();">
+                </div>
+            </div>
+            <div class="modal-field">
+                <label>Password</label>
+                <input type="password" name="password" id="dbu-pass" placeholder="Password" required oninput="checkDbPass()">
+            </div>
+            <div class="modal-field">
+                <label>Confirm Password</label>
+                <input type="password" name="password1" id="dbu-pass1" placeholder="Confirm password" required oninput="checkDbPass()">
+                <div class="match-hint" id="dbu-match"></div>
+            </div>
+            <button type="button" class="gen-btn" onclick="genDbPass()"><i class="fa fa-magic"></i> Generate Password</button>
+        </form>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-adddbuser')">Cancel</button>
+            <button class="btn-modal-confirm purple" id="dbu-btn" onclick="submitAddDbUser()" disabled>
+                <i class="fa fa-plus" style="margin-right:5px;"></i>Add User
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Email Account -->
+<div class="modal-overlay" id="modal-addemail">
+    <div class="modal-glass">
+        <div class="modal-head">
+            <div class="modal-head-icon green"><i class="fa fa-envelope"></i></div>
+            <div><div class="modal-title">Create Email Account</div><div class="modal-sub">New mailbox on {{ domain }}</div></div>
+        </div>
+        <form id="copyForm">{% csrf_token %}
+            <input type="hidden" name="domain" value="{{ domain }}">
+            <div class="modal-field">
+                <label>Email Address</label>
+                <div class="modal-prefix-group">
+                    <input type="text" name="username" id="em-user" placeholder="user" required class="mid" oninput="removeSpecial(this); checkEmailPass();">
+                    <span class="suffix">@{{ domain }}</span>
+                </div>
+            </div>
+            <div class="modal-field">
+                <label>Password</label>
+                <input type="password" name="password" id="em-pass" placeholder="Password" required oninput="checkEmailPass()">
+            </div>
+            <div class="modal-field">
+                <label>Confirm Password</label>
+                <input type="password" name="password1" id="em-pass1" placeholder="Confirm password" required oninput="checkEmailPass()">
+                <div class="match-hint" id="em-match"></div>
+            </div>
+            <button type="button" class="gen-btn" onclick="genEmailPass()"><i class="fa fa-magic"></i> Generate Password</button>
+        </form>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-addemail')">Cancel</button>
+            <button class="btn-modal-confirm green" id="em-btn" onclick="submitAddEmail()" disabled>
+                <i class="fa fa-plus" style="margin-right:5px;"></i>Create Email
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Suspend -->
+<div class="modal-overlay" id="modal-suspend">
+    <div class="modal-glass">
+        <div class="modal-head">
+            <div class="modal-head-icon amber"><i class="fa fa-pause-circle"></i></div>
+            <div><div class="modal-title">Suspend Account</div><div class="modal-sub">{{ domain.domain }}</div></div>
+        </div>
+        <div class="modal-warn"><i class="fa fa-exclamation-triangle"></i>The website will go offline and all services will be paused.</div>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-suspend')">Cancel</button>
+            <a href="/suspend/{{ domain }}" class="btn-modal-confirm amber" style="text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;">
+                <i class="fa fa-pause"></i>Confirm Suspend
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Terminate -->
+<div class="modal-overlay" id="modal-terminate">
+    <div class="modal-glass">
+        <div class="modal-head">
+            <div class="modal-head-icon red"><i class="fa fa-trash-o"></i></div>
+            <div><div class="modal-title">Terminate Account</div><div class="modal-sub">{{ domain.domain }}</div></div>
+        </div>
+        <div class="modal-warn"><i class="fa fa-exclamation-triangle"></i>This will permanently delete all files, databases, emails, and DNS records. This cannot be undone.</div>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-terminate')">Cancel</button>
+            <a href="/terminate/{{ domain }}" class="btn-modal-confirm red" style="text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;">
+                <i class="fa fa-trash-o"></i>Confirm Terminate
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Result overlay -->
+<div class="result-overlay" id="result-overlay">
+    <div class="result-glass">
+        <div class="result-icon" id="result-icon">✓</div>
+        <div class="result-msg" id="result-msg"></div>
+        <button class="btn-result-close" onclick="closeModal('result-overlay')">Close</button>
+    </div>
+</div>
+
+<script>
+    const CSRF = () => document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    function openModal(id)  { document.getElementById(id).classList.add('show'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+    function showResult(icon, color, msg) {
+        const el = document.getElementById('result-icon');
+        el.textContent = icon; el.style.color = color;
+        document.getElementById('result-msg').textContent = msg;
+        openModal('result-overlay');
+    }
+
+    /* ── Helpers ── */
+    function removeSpecial(el) { el.value = el.value.replace(/[^a-zA-Z0-9_-]/g,''); }
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*_+~';
+    function randomPw(len=12) { let p=''; for(let i=0;i<len;i++) p+=chars[Math.floor(Math.random()*chars.length)]; return p; }
+
+    /* ── Email pass ── */
+    function checkEmailPass() {
+        const p1=document.getElementById('em-pass').value, p2=document.getElementById('em-pass1').value;
+        const hint=document.getElementById('em-match'), btn=document.getElementById('em-btn');
+        if(!p2){hint.innerHTML='';btn.disabled=true;return;}
+        if(p1===p2){hint.innerHTML='<i class="fa fa-check-circle"></i> Match';hint.className='match-hint ok';btn.disabled=false;}
+        else{hint.innerHTML='<i class="fa fa-times-circle"></i> No match';hint.className='match-hint fail';btn.disabled=true;}
+    }
+    function genEmailPass() {
+        const pw=randomPw(); ['em-pass','em-pass1'].forEach(id=>{let el=document.getElementById(id);el.value=pw;el.type='text';});
+        checkEmailPass();
+    }
+
+    /* ── DB User pass ── */
+    function checkDbPass() {
+        const p1=document.getElementById('dbu-pass').value, p2=document.getElementById('dbu-pass1').value;
+        const hint=document.getElementById('dbu-match'), btn=document.getElementById('dbu-btn');
+        if(!p2){hint.innerHTML='';btn.disabled=true;return;}
+        if(p1===p2){hint.innerHTML='<i class="fa fa-check-circle"></i> Match';hint.className='match-hint ok';btn.disabled=false;}
+        else{hint.innerHTML='<i class="fa fa-times-circle"></i> No match';hint.className='match-hint fail';btn.disabled=true;}
+    }
+    function genDbPass() {
+        const pw=randomPw(); ['dbu-pass','dbu-pass1'].forEach(id=>{let el=document.getElementById(id);el.value=pw;el.type='text';});
+        checkDbPass();
+    }
+
+    /* ── Submit PHP version ── */
+    async function submitPhp() {
+        const form=document.getElementById('chphp'), fd=new FormData(form);
+        closeModal('modal-php');
+        try {
+            const r=await fetch('/changephpversion/',{method:'POST',body:fd,headers:{'X-CSRFToken':CSRF()}});
+            const d=await r.json();
+            showResult(d.status==='success'?'✓':'✕', d.status==='success'?'#22c55e':'#ef4444',
+                d.status==='success'?'PHP version changed successfully!':d.message||'Failed to change PHP version');
+        } catch(e){ showResult('✕','#ef4444','Network error. Please try again.'); }
+    }
+
+    /* ── Submit Add Database ── */
+    async function submitAddDb() {
+        const form=document.getElementById('adddbform'), fd=new FormData(form);
+        closeModal('modal-adddb');
+        try {
+            const r=await fetch('/adddatabase/',{method:'POST',body:fd,headers:{'X-CSRFToken':CSRF()}});
+            const d=await r.json();
+            showResult(d.status==='success'?'✓':'✕', d.status==='success'?'#22c55e':'#ef4444',
+                d.status==='success'?'Database created successfully!':d.message||'Error creating database');
+        } catch(e){ showResult('✕','#ef4444','Database may already exist.'); }
+    }
+
+    /* ── Submit Add DB User ── */
+    async function submitAddDbUser() {
+        const form=document.getElementById('adddbuser'), fd=new FormData(form);
+        closeModal('modal-adddbuser'); document.getElementById('dbu-btn').disabled=true;
+        try {
+            const r=await fetch('/adddatabaseuser/',{method:'POST',body:fd,headers:{'X-CSRFToken':CSRF()}});
+            const d=await r.json();
+            showResult(d.status==='success'?'✓':'✕', d.status==='success'?'#22c55e':'#ef4444',
+                d.status==='success'?'Database user created!':d.message||'Error creating user');
+        } catch(e){ showResult('✕','#ef4444','User may already exist.'); }
+    }
+
+    /* ── Submit Add Email ── */
+    async function submitAddEmail() {
+        const form=document.getElementById('copyForm'), fd=new FormData(form);
+        closeModal('modal-addemail'); document.getElementById('em-btn').disabled=true;
+        try {
+            const r=await fetch('/addemailaccount/',{method:'POST',body:fd,headers:{'X-CSRFToken':CSRF()}});
+            showResult(r.ok?'✓':'✕', r.ok?'#22c55e':'#ef4444', r.ok?'Email account created!':'Failed to create email.');
+        } catch(e){ showResult('✕','#ef4444','Email may already exist.'); }
+    }
+
+    /* Close overlays on background click */
+    document.querySelectorAll('.modal-overlay, .result-overlay').forEach(el => {
+        el.addEventListener('click', e => { if(e.target===el) el.classList.remove('show'); });
+    });
+</script>
+
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/vendor/toastr/toastr.js"></script>
+<script src="/static/assets/bundles/c3.bundle.js"></script>
+<script src="/static/assets/bundles/jvectormap.bundle.js"></script>
+<script src="/static/assets/bundles/knob.bundle.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+<script src="/static/assets/bundles/chartjs.js"></script>
+<script src="/static/assets/index2.js"></script>
+</body>
+</html>

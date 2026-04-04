@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>:: VoidPanel :: Users</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <style>
+        :root {
+            --neon: #00e5ff;
+            --neon-purple: #a855f7;
+            --glass-bg: rgba(15,20,40,0.82);
+            --glass-border: rgba(0,229,255,0.15);
+            --text-dim: rgba(180,200,230,0.7);
+            --row-hover: rgba(0,229,255,0.04);
+        }
+        body { font-family: 'Inter', sans-serif; background: #080c1a !important; }
+
+        /* Page header */
+        .page-header { padding: 28px 0 16px; }
+        .page-header h2 { font-size:1.5rem; font-weight:700; color:#fff; margin-bottom:4px; }
+        .page-header .breadcrumb { background:transparent; padding:0; margin:0; }
+        .page-header .breadcrumb-item, .page-header .breadcrumb-item a { font-size:.8rem; color:var(--text-dim); }
+        .page-header .breadcrumb-item.active { color:var(--neon); }
+        .page-header .breadcrumb-item+.breadcrumb-item::before { color:var(--text-dim); }
+
+        /* Stats row */
+        .stats-row { display:flex; gap:16px; margin-bottom:24px; flex-wrap:wrap; }
+        .stat-card {
+            flex:1; min-width:140px;
+            background:var(--glass-bg);
+            border:1px solid var(--glass-border);
+            border-radius:14px;
+            padding:18px 20px;
+            display:flex; align-items:center; gap:14px;
+        }
+        .stat-icon {
+            width:42px; height:42px; border-radius:10px;
+            display:flex; align-items:center; justify-content:center;
+            font-size:1.1rem;
+        }
+        .stat-icon.cyan   { background:rgba(0,229,255,.12); color:var(--neon); border:1px solid rgba(0,229,255,.2); }
+        .stat-icon.purple { background:rgba(168,85,247,.12); color:#a855f7; border:1px solid rgba(168,85,247,.2); }
+        .stat-icon.green  { background:rgba(34,197,94,.12); color:#22c55e; border:1px solid rgba(34,197,94,.2); }
+        .stat-icon.amber  { background:rgba(245,158,11,.12); color:#f59e0b; border:1px solid rgba(245,158,11,.2); }
+        .stat-val { font-size:1.5rem; font-weight:700; color:#fff; line-height:1; }
+        .stat-lbl { font-size:.72rem; color:var(--text-dim); margin-top:3px; }
+
+        /* Glass table card */
+        .glass-card {
+            background:var(--glass-bg);
+            border:1px solid var(--glass-border);
+            border-radius:18px;
+            overflow:hidden;
+        }
+        .card-toolbar {
+            display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;
+            padding:20px 24px;
+            border-bottom:1px solid rgba(0,229,255,.08);
+        }
+        .card-toolbar-title { font-size:1rem; font-weight:600; color:#fff; }
+        .search-wrap { position:relative; }
+        .search-wrap i { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:rgba(0,229,255,.45); font-size:.82rem; }
+        .search-wrap input {
+            background:rgba(0,229,255,.06); border:1px solid rgba(0,229,255,.2);
+            border-radius:10px; color:#e4eaf8; font-size:.84rem;
+            padding:8px 14px 8px 34px; outline:none; width:230px;
+            font-family:'Inter',sans-serif;
+            transition:border-color .2s, box-shadow .2s;
+        }
+        .search-wrap input::placeholder { color:rgba(150,170,210,.4); }
+        .search-wrap input:focus { border-color:var(--neon); box-shadow:0 0 0 3px rgba(0,229,255,.1); }
+
+        .btn-add {
+            display:inline-flex; align-items:center; gap:7px;
+            background:linear-gradient(135deg,#00e5ff,#a855f7);
+            color:#fff; border:none; border-radius:10px;
+            padding:8px 18px; font-size:.83rem; font-weight:600;
+            text-decoration:none; cursor:pointer; transition:opacity .2s;
+        }
+        .btn-add:hover { opacity:.85; color:#fff; }
+
+        /* Table */
+        .users-table { width:100%; border-collapse:collapse; }
+        .users-table thead th {
+            padding:12px 20px;
+            font-size:.72rem; font-weight:600; letter-spacing:1px; text-transform:uppercase;
+            color:var(--text-dim);
+            border-bottom:1px solid rgba(0,229,255,.08);
+            background:rgba(0,229,255,.03);
+        }
+        .users-table tbody tr {
+            border-bottom:1px solid rgba(255,255,255,.04);
+            transition:background .18s;
+        }
+        .users-table tbody tr:hover { background:var(--row-hover); }
+        .users-table tbody tr:last-child { border-bottom:none; }
+        .users-table td { padding:14px 20px; vertical-align:middle; }
+
+        /* User cell */
+        .user-cell { display:flex; align-items:center; gap:12px; }
+        .user-avatar {
+            width:36px; height:36px; border-radius:9px;
+            background:linear-gradient(135deg,rgba(0,229,255,.2),rgba(168,85,247,.2));
+            border:1px solid rgba(0,229,255,.2);
+            display:flex; align-items:center; justify-content:center;
+            font-size:.85rem; font-weight:700; color:var(--neon);
+            flex-shrink:0;
+        }
+        .user-name { font-size:.88rem; font-weight:600; color:#e4eaf8; }
+        .user-domain { font-size:.74rem; color:var(--text-dim); margin-top:1px; }
+
+        .email-cell { font-size:.82rem; color:var(--text-dim); }
+
+        /* Status badge */
+        .status-badge {
+            display:inline-flex; align-items:center; gap:5px;
+            padding:3px 10px; border-radius:999px; font-size:.72rem; font-weight:500;
+        }
+        .status-badge.active { background:rgba(34,197,94,.12); color:#22c55e; border:1px solid rgba(34,197,94,.2); }
+        .status-badge.suspended { background:rgba(245,158,11,.12); color:#f59e0b; border:1px solid rgba(245,158,11,.2); }
+        .status-badge .dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
+
+        /* Action buttons */
+        .action-wrap { display:flex; gap:7px; flex-wrap:wrap; }
+        .act-btn {
+            display:inline-flex; align-items:center; gap:5px;
+            padding:5px 11px; border-radius:8px; font-size:.74rem; font-weight:500;
+            border:1px solid; cursor:pointer; transition:all .18s; text-decoration:none;
+            background:transparent;
+        }
+        .act-btn.view  { color:#22c55e; border-color:rgba(34,197,94,.3); }
+        .act-btn.view:hover { background:rgba(34,197,94,.1); color:#22c55e; }
+        .act-btn.pkg   { color:var(--neon); border-color:rgba(0,229,255,.3); }
+        .act-btn.pkg:hover { background:rgba(0,229,255,.1); }
+        .act-btn.pass  { color:#a855f7; border-color:rgba(168,85,247,.3); }
+        .act-btn.pass:hover { background:rgba(168,85,247,.1); }
+        .act-btn.susp  { color:#f59e0b; border-color:rgba(245,158,11,.3); }
+        .act-btn.susp:hover { background:rgba(245,158,11,.1); }
+        .act-btn.del   { color:#ef4444; border-color:rgba(239,68,68,.3); }
+        .act-btn.del:hover { background:rgba(239,68,68,.1); color:#ef4444; }
+
+        /* Empty state */
+        .empty-state { text-align:center; padding:60px 20px; color:var(--text-dim); }
+        .empty-state i { font-size:2.5rem; color:rgba(0,229,255,.3); margin-bottom:14px; display:block; }
+        .empty-state p { font-size:.9rem; }
+
+        /* ── Overlay modals ───────────────────────── */
+        .modal-overlay {
+            display:none; position:fixed; inset:0;
+            background:rgba(8,12,26,.88); backdrop-filter:blur(10px);
+            z-index:9999; align-items:center; justify-content:center;
+        }
+        .modal-overlay.show { display:flex; }
+        .modal-glass {
+            background:var(--glass-bg); border:1px solid var(--glass-border);
+            border-radius:20px; padding:32px 36px; width:100%; max-width:420px;
+            animation:popIn .22s ease;
+        }
+        @keyframes popIn { from{transform:scale(.92);opacity:0} to{transform:scale(1);opacity:1} }
+        .modal-head { display:flex; align-items:center; gap:12px; margin-bottom:24px; }
+        .modal-head-icon {
+            width:40px; height:40px; border-radius:10px;
+            display:flex; align-items:center; justify-content:center; font-size:1rem;
+        }
+        .modal-head-icon.cyan   { background:rgba(0,229,255,.15); color:var(--neon); border:1px solid rgba(0,229,255,.2); }
+        .modal-head-icon.purple { background:rgba(168,85,247,.15); color:#a855f7; border:1px solid rgba(168,85,247,.2); }
+        .modal-head-icon.amber  { background:rgba(245,158,11,.15); color:#f59e0b; border:1px solid rgba(245,158,11,.2); }
+        .modal-head-icon.red    { background:rgba(239,68,68,.15); color:#ef4444; border:1px solid rgba(239,68,68,.2); }
+        .modal-title { font-size:1rem; font-weight:600; color:#fff; }
+        .modal-sub   { font-size:.76rem; color:var(--text-dim); margin-top:2px; }
+
+        .modal-field { margin-bottom:16px; }
+        .modal-field label { display:block; font-size:.76rem; color:var(--text-dim); margin-bottom:6px; font-weight:500; }
+        .modal-field input,
+        .modal-field select {
+            width:100%; background:rgba(0,229,255,.06); border:1px solid rgba(0,229,255,.2);
+            border-radius:9px; color:#e4eaf8; font-size:.86rem; padding:10px 14px;
+            outline:none; font-family:'Inter',sans-serif; transition:border-color .2s;
+            -webkit-appearance:none; appearance:none;
+        }
+        .modal-field input:focus,
+        .modal-field select:focus { border-color:var(--neon); box-shadow:0 0 0 3px rgba(0,229,255,.1); }
+        .modal-field select option { background:#10182e; }
+
+        .modal-warn {
+            background:rgba(239,68,68,.07); border:1px solid rgba(239,68,68,.2);
+            border-radius:10px; padding:12px 16px; font-size:.8rem; color:#fca5a5;
+            margin-bottom:20px; display:flex; align-items:center; gap:9px;
+        }
+        .modal-warn i { color:#ef4444; flex-shrink:0; }
+
+        .modal-footer-btns { display:flex; gap:10px; margin-top:22px; }
+        .btn-modal-cancel {
+            flex:1; padding:10px; border-radius:10px;
+            background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+            color:#e4eaf8; font-size:.84rem; cursor:pointer; transition:background .2s;
+        }
+        .btn-modal-cancel:hover { background:rgba(255,255,255,.1); }
+        .btn-modal-confirm {
+            flex:1; padding:10px; border-radius:10px; border:none;
+            font-size:.84rem; font-weight:600; cursor:pointer; color:#fff;
+            transition:opacity .2s;
+        }
+        .btn-modal-confirm:hover { opacity:.82; }
+        .btn-modal-confirm.cyan   { background:linear-gradient(135deg,#00e5ff,#0ea5e9); }
+        .btn-modal-confirm.purple { background:linear-gradient(135deg,#a855f7,#8b5cf6); }
+        .btn-modal-confirm.amber  { background:linear-gradient(135deg,#f59e0b,#d97706); }
+        .btn-modal-confirm.red    { background:linear-gradient(135deg,#ef4444,#dc2626); }
+
+        /* Result overlay */
+        .result-overlay {
+            display:none; position:fixed; inset:0;
+            background:rgba(8,12,26,.88); backdrop-filter:blur(10px);
+            z-index:10000; align-items:center; justify-content:center;
+        }
+        .result-overlay.show { display:flex; }
+        .result-glass {
+            background:var(--glass-bg); border:1px solid var(--glass-border);
+            border-radius:20px; padding:36px 40px; text-align:center; max-width:340px;
+            animation:popIn .22s ease;
+        }
+        .result-icon { font-size:2.6rem; margin-bottom:14px; }
+        .result-msg  { font-size:.9rem; color:#e4eaf8; margin-bottom:20px; line-height:1.6; }
+        .btn-result-close {
+            background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+            color:#e4eaf8; border-radius:9px; padding:9px 28px;
+            font-size:.84rem; cursor:pointer; transition:background .2s;
+        }
+        .btn-result-close:hover { background:rgba(255,255,255,.12); }
+    </style>
+</head>
+<body data-theme="light" class="font-nunito">
+<div id="wrapper" class="theme-cyan">
+
+    <!-- Page Loader -->
+    <div class="page-loader-wrapper">
+        <div class="loader">
+            <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel"></div>
+            <p>Please wait...</p>
+        </div>
+    </div>
+
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
+
+    <div id="main-content">
+        <div class="container-fluid">
+
+            <!-- Header -->
+            <div class="page-header">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <h2>User Management</h2>
+                        <ul class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="/panel/"><i class="fa fa-home"></i></a></li>
+                            <li class="breadcrumb-item">Dashboard</li>
+                            <li class="breadcrumb-item active">Users</li>
+                        </ul>
+                    </div>
+                    <a href="/adduser/" class="btn-add">
+                        <i class="fa fa-user-plus"></i> Add New User
+                    </a>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon cyan"><i class="fa fa-users"></i></div>
+                    <div>
+                        <div class="stat-val" id="totalCount">{{ domain|length }}</div>
+                        <div class="stat-lbl">Total Users</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green"><i class="fa fa-check-circle"></i></div>
+                    <div>
+                        <div class="stat-val" id="activeCount">—</div>
+                        <div class="stat-lbl">Active</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon amber"><i class="fa fa-pause-circle"></i></div>
+                    <div>
+                        <div class="stat-val" id="suspendedCount">—</div>
+                        <div class="stat-lbl">Suspended</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon purple"><i class="fa fa-cube"></i></div>
+                    <div>
+                        <div class="stat-val">{{ package|length }}</div>
+                        <div class="stat-lbl">Packages</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table card -->
+            <div class="glass-card">
+                <div class="card-toolbar">
+                    <div class="card-toolbar-title"><i class="fa fa-users" style="color:var(--neon);margin-right:8px;"></i>All Users</div>
+                    <div class="search-wrap">
+                        <i class="fa fa-search"></i>
+                        <input id="searchInput" onkeyup="searchTable();" placeholder="Search user or domain…" type="text">
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Email</th>
+                                <th>Status</th>
+                                <th>Quick Login</th>
+                                <th>Package</th>
+                                <th>Password</th>
+                                <th>Suspend</th>
+                                <th>Terminate</th>
+                            </tr>
+                        </thead>
+                        <tbody id="domainTableBody">
+                            {% for i in domain %}
+                            <tr data-status="{% if i.status %}active{% else %}suspended{% endif %}">
+                                <td>
+                                    <div class="user-cell">
+                                        <div class="user-avatar">{{ i.username|slice:":1"|upper }}</div>
+                                        <div>
+                                            <div class="user-name c_name">{{ i.username }}</div>
+                                            <div class="user-domain">{{ i.domain }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span class="email-cell">{{ i.email }}</span></td>
+                                <td>
+                                    {% if i.status %}
+                                    <span class="status-badge active"><span class="dot"></span>Active</span>
+                                    {% else %}
+                                    <span class="status-badge suspended"><span class="dot"></span>Suspended</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="/loginuser/?user={{ i.username }}" target="_blank" class="act-btn view">
+                                        <i class="fa fa-sign-in"></i> Login
+                                    </a>
+                                </td>
+                                <td>
+                                    <button onclick="openChpackage('{{ i.username }}');" class="act-btn pkg">
+                                        <i class="fa fa-cube"></i> Change
+                                    </button>
+                                </td>
+                                <td>
+                                    <button onclick="openChpass('{{ i.username }}');" class="act-btn pass">
+                                        <i class="fa fa-key"></i> Change
+                                    </button>
+                                </td>
+                                <td>
+                                    {% if i.status %}
+                                    <button onclick="openSuspend('{{ i.domain }}');" class="act-btn susp">
+                                        <i class="fa fa-pause"></i> Suspend
+                                    </button>
+                                    {% else %}
+                                    <a href="/unsuspend/{{ i.domain }}/" class="act-btn view">
+                                        <i class="fa fa-play"></i> Unsuspend
+                                    </a>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button onclick="openTerminate('{{ i.domain }}');" class="act-btn del">
+                                        <i class="fa fa-trash-o"></i> Delete
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="8">
+                                <div class="empty-state">
+                                    <i class="fa fa-users"></i>
+                                    <p>No users found. <a href="/adduser/" style="color:var(--neon);">Add your first user →</a></p>
+                                </div>
+                            </td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div><!-- /#wrapper -->
+
+<!-- ── Change Password Modal ── -->
+<div class="modal-overlay" id="modal-chpass">
+    <div class="modal-glass">
+        <div class="modal-head">
+            <div class="modal-head-icon purple"><i class="fa fa-key"></i></div>
+            <div>
+                <div class="modal-title">Change Password</div>
+                <div class="modal-sub">User: <strong id="chpass-username" style="color:#a855f7;"></strong></div>
+            </div>
+        </div>
+        <div class="modal-field">
+            <label>New Password</label>
+            <input type="password" id="chpass-input" placeholder="Enter new password" required>
+        </div>
+        <input type="hidden" id="chpass-user">
+        <form id="chpassform" style="display:none">{% csrf_token %}</form>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-chpass')">Cancel</button>
+            <button class="btn-modal-confirm purple" onclick="submitChpass()">
+                <i class="fa fa-check" style="margin-right:6px;"></i>Confirm Change
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Change Package Modal ── -->
+<div class="modal-overlay" id="modal-chpackage">
+    <div class="modal-glass">
+        <div class="modal-head">
+            <div class="modal-head-icon cyan"><i class="fa fa-cube"></i></div>
+            <div>
+                <div class="modal-title">Change Package</div>
+                <div class="modal-sub">User: <strong id="chpkg-username" style="color:var(--neon);"></strong></div>
+            </div>
+        </div>
+        <div class="modal-field">
+            <label>Select New Package</label>
+            <select id="chpkg-select" name="package">
+                {% for i in package %}
+                <option value="{{ i.name }}">{{ i.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <input type="hidden" id="chpkg-user">
+        <form id="chpackageform" style="display:none">{% csrf_token %}</form>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-chpackage')">Cancel</button>
+            <button class="btn-modal-confirm cyan" onclick="submitChpackage()">
+                <i class="fa fa-check" style="margin-right:6px;"></i>Update Package
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Suspend Modal ── -->
+<div class="modal-overlay" id="modal-suspend">
+    <div class="modal-glass">
+        <div class="modal-head">
+            <div class="modal-head-icon amber"><i class="fa fa-pause-circle"></i></div>
+            <div>
+                <div class="modal-title">Suspend Account</div>
+                <div class="modal-sub">This will disable the website immediately</div>
+            </div>
+        </div>
+        <div class="modal-warn">
+            <i class="fa fa-exclamation-triangle"></i>
+            Are you sure you want to suspend <strong id="susp-domain"></strong>? The site will go offline.
+        </div>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-suspend')">Cancel</button>
+            <a id="susp-link" href="#" class="btn-modal-confirm amber" style="text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;">
+                <i class="fa fa-pause"></i>Confirm Suspend
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- ── Terminate Modal ── -->
+<div class="modal-overlay" id="modal-terminate">
+    <div class="modal-glass">
+        <div class="modal-head">
+            <div class="modal-head-icon red"><i class="fa fa-trash-o"></i></div>
+            <div>
+                <div class="modal-title">Terminate Account</div>
+                <div class="modal-sub">This action is permanent and cannot be undone</div>
+            </div>
+        </div>
+        <div class="modal-warn">
+            <i class="fa fa-exclamation-triangle"></i>
+            Terminating <strong id="term-domain"></strong> will permanently delete all files, databases, emails, and DNS records.
+        </div>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-terminate')">Cancel</button>
+            <a id="term-link" href="#" class="btn-modal-confirm red" style="text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;">
+                <i class="fa fa-trash-o"></i>Confirm Terminate
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- ── Result Modal ── -->
+<div class="result-overlay" id="result-overlay">
+    <div class="result-glass">
+        <div class="result-icon" id="result-icon">✓</div>
+        <div class="result-msg" id="result-msg"></div>
+        <button class="btn-result-close" onclick="closeResult()">Close</button>
+    </div>
+</div>
+
+<script>
+    /* ── Stats calculation ── */
+    (function(){
+        const rows = document.querySelectorAll('#domainTableBody tr[data-status]');
+        let active = 0, suspended = 0;
+        rows.forEach(r => { r.dataset.status === 'active' ? active++ : suspended++; });
+        document.getElementById('activeCount').textContent = active;
+        document.getElementById('suspendedCount').textContent = suspended;
+    })();
+
+    /* ── Search ── */
+    function searchTable() {
+        const q = document.getElementById('searchInput').value.toLowerCase();
+        document.querySelectorAll('#domainTableBody tr[data-status]').forEach(row => {
+            row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
+    }
+
+    /* ── Modal helpers ── */
+    function openModal(id)  { document.getElementById(id).classList.add('show'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+    /* ── Open modals ── */
+    function openChpass(user) {
+        document.getElementById('chpass-username').textContent = user;
+        document.getElementById('chpass-user').value = user;
+        document.getElementById('chpass-input').value = '';
+        openModal('modal-chpass');
+    }
+    function openChpackage(user) {
+        document.getElementById('chpkg-username').textContent = user;
+        document.getElementById('chpkg-user').value = user;
+        openModal('modal-chpackage');
+    }
+    function openSuspend(domain) {
+        document.getElementById('susp-domain').textContent = domain;
+        document.getElementById('susp-link').href = '/suspend/' + domain;
+        openModal('modal-suspend');
+    }
+    function openTerminate(domain) {
+        document.getElementById('term-domain').textContent = domain;
+        document.getElementById('term-link').href = '/terminate/' + domain;
+        openModal('modal-terminate');
+    }
+
+    /* ── Result overlay ── */
+    function showResult(icon, iconClass, msg) {
+        const el = document.getElementById('result-icon');
+        el.textContent = icon; el.style.color = iconClass;
+        document.getElementById('result-msg').textContent = msg;
+        openModal('result-overlay');
+    }
+    function closeResult() { closeModal('result-overlay'); }
+
+    /* ── Submit change password ── */
+    async function submitChpass() {
+        const user = document.getElementById('chpass-user').value;
+        const pass = document.getElementById('chpass-input').value;
+        if (!pass) return;
+        closeModal('modal-chpass');
+        const csrf = document.querySelector('#chpassform [name=csrfmiddlewaretoken]').value;
+        const fd = new FormData();
+        fd.append('user', user); fd.append('password', pass);
+        try {
+            const res = await fetch('/chpassuser/', { method:'POST', body:fd, headers:{'X-CSRFToken':csrf} });
+            const data = await res.json();
+            if (data.status === 'success') showResult('✓', '#22c55e', 'Password updated successfully!');
+            else showResult('✕', '#ef4444', data.message || 'Failed to update password.');
+        } catch(e) {
+            showResult('✕', '#ef4444', 'Network error. Please try again.');
+        }
+    }
+
+    /* ── Submit change package ── */
+    async function submitChpackage() {
+        const user = document.getElementById('chpkg-user').value;
+        const pkg  = document.getElementById('chpkg-select').value;
+        closeModal('modal-chpackage');
+        const csrf = document.querySelector('#chpackageform [name=csrfmiddlewaretoken]').value;
+        const fd = new FormData();
+        fd.append('user', user); fd.append('package', pkg);
+        try {
+            const res = await fetch('/chpackageuser/', { method:'POST', body:fd, headers:{'X-CSRFToken':csrf} });
+            const data = await res.json();
+            if (data.status === 'success') showResult('✓', '#22c55e', `Package updated to "${pkg}" for ${user}.`);
+            else showResult('✕', '#ef4444', data.message || 'Failed to update package.');
+        } catch(e) {
+            showResult('✕', '#ef4444', 'Network error. Please try again.');
+        }
+    }
+
+    /* ── Close overlay on bg click ── */
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+        el.addEventListener('click', function(e){ if(e.target===this) this.classList.remove('show'); });
+    });
+    document.querySelector('.result-overlay')?.addEventListener('click', function(e){ if(e.target===this) this.classList.remove('show'); });
+</script>
+
+<!-- Javascript -->
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/vendor/toastr/toastr.js"></script>
+<script src="/static/assets/bundles/c3.bundle.js"></script>
+<script src="/static/assets/bundles/jvectormap.bundle.js"></script>
+<script src="/static/assets/bundles/knob.bundle.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+<script src="/static/assets/bundles/chartjs.js"></script>
+<script src="/static/assets/index2.js"></script>
+</body>
+</html>

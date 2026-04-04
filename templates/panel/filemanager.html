@@ -1,0 +1,829 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>:: VoidPanel :: File Manager</title>
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: #0a0e1a; color: #f1f5f9; min-height: 100vh; }
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: -1;
+            background:
+                radial-gradient(ellipse at 20% 20%, rgba(99,102,241,0.12) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(16,185,129,0.07) 0%, transparent 50%);
+        }
+
+        /* ── Layout ── */
+        .fm-layout { display: flex; min-height: 100vh; }
+        .fm-sidebar {
+            width: 240px; flex-shrink: 0;
+            background: rgba(15,23,42,0.85); border-right: 1px solid rgba(99,102,241,0.18);
+            backdrop-filter: blur(20px); padding: 20px 14px;
+            display: flex; flex-direction: column;
+        }
+        .fm-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+        /* ── Sidebar ── */
+        .sidebar-logo {
+            display: flex; align-items: center; gap: 10px;
+            text-decoration: none; color: #fff; font-size: 1rem; font-weight: 700; margin-bottom: 28px;
+        }
+        .sidebar-logo img { width: 30px; height: 30px; border-radius: 6px; }
+        .sidebar-section {
+            font-size: 0.65rem; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.08em; color: #475569; margin-bottom: 6px; padding: 0 8px;
+        }
+        .sidebar-nav a {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 12px; border-radius: 8px;
+            color: #94a3b8; text-decoration: none;
+            font-size: 0.83rem; transition: all 0.18s; margin-bottom: 2px;
+        }
+        .sidebar-nav a:hover, .sidebar-nav a.active {
+            background: rgba(99,102,241,0.15); color: #818cf8;
+        }
+        .sidebar-nav a i { width: 16px; text-align: center; flex-shrink: 0; }
+        .sidebar-divider { border: none; border-top: 1px solid rgba(255,255,255,0.05); margin: 14px 0; }
+
+        /* ── Toolbar ── */
+        .fm-toolbar {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+            padding: 14px 24px;
+            background: rgba(10,14,26,0.9);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            position: sticky; top: 0; z-index: 100;
+        }
+        .fm-toolbar-brand { font-weight: 700; font-size: 1rem; color: #fff; margin-right: 12px; display: flex; align-items: center; gap: 8px; }
+        .fm-toolbar-brand i { color: #6366f1; }
+        .fm-search {
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px; padding: 7px 14px; color: #fff; font-size: 0.84rem;
+            outline: none; width: 200px; margin-left: auto; font-family: 'Inter', sans-serif;
+        }
+        .fm-search:focus { border-color: #6366f1; }
+        .fm-search::placeholder { color: #64748b; }
+
+        /* ── Buttons ── */
+        .fm-btn {
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+            color: #cbd5e1; padding: 6px 12px; border-radius: 8px;
+            font-size: 0.8rem; font-weight: 500; cursor: pointer;
+            transition: all 0.18s; display: inline-flex; align-items: center; gap: 6px;
+            white-space: nowrap; text-decoration: none;
+        }
+        .fm-btn:hover { background: rgba(99,102,241,0.2); border-color: #6366f1; color: #fff; }
+        .fm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .fm-btn.primary { background: linear-gradient(135deg,#6366f1,#4f46e5); border-color: transparent; color: #fff; }
+        .fm-btn.danger  { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.3); color: #f87171; }
+        .fm-btn.success { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.3); color: #34d399; }
+        .fm-btn.trash   { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.3); color: #fbbf24; }
+
+        /* ── Breadcrumb ── */
+        .fm-breadcrumb {
+            padding: 10px 24px; background: rgba(10,14,26,0.6);
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            font-size: 0.8rem; color: #64748b;
+            display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+        }
+        .fm-breadcrumb a { color: #818cf8; text-decoration: none; }
+        .fm-breadcrumb a:hover { color: #a5b4fc; text-decoration: underline; }
+
+        /* ── Selection bar ── */
+        #sel-bar {
+            display: none; align-items: center; gap: 10px;
+            margin: 12px 24px 0; padding: 10px 16px;
+            background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2);
+            border-radius: 10px; font-size: 0.82rem; color: #818cf8;
+        }
+        #sel-bar.visible { display: flex; }
+        #sel-bar .sel-actions { display: flex; gap: 8px; margin-left: auto; }
+
+        /* ── File Panel ── */
+        .fm-panel {
+            margin: 16px 24px 24px;
+            background: linear-gradient(135deg,rgba(30,41,59,0.7),rgba(15,23,42,0.9));
+            backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 16px; overflow: hidden;
+        }
+
+        /* ── Table ── */
+        .fm-table { width: 100%; border-collapse: collapse; }
+        .fm-table th {
+            padding: 12px 16px; font-size: 0.72rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.05em; color: #475569;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            background: rgba(0,0,0,0.15); text-align: left;
+        }
+        .fm-table td { padding: 10px 16px; color: #cbd5e1; font-size: 0.87rem; vertical-align: middle; border-bottom: 1px solid rgba(255,255,255,0.03); }
+        .fm-table tr:last-child td { border-bottom: none; }
+        .fm-table tbody tr { transition: background 0.15s; cursor: pointer; }
+        .fm-table tbody tr:hover td { background: rgba(99,102,241,0.07); }
+        .fm-table tbody tr.selected td { background: rgba(99,102,241,0.12); }
+        .file-name { display: flex; align-items: center; gap: 10px; font-weight: 500; color: #e2e8f0; }
+        .file-icon {
+            width: 30px; height: 30px; border-radius: 7px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center; font-size: 0.9rem;
+        }
+        .icon-folder  { background: rgba(245,158,11,0.12); color: #f59e0b; }
+        .icon-image   { background: rgba(99,102,241,0.12); color: #818cf8; }
+        .icon-code    { background: rgba(16,185,129,0.12); color: #10b981; }
+        .icon-archive { background: rgba(239,68,68,0.12);  color: #ef4444; }
+        .icon-text    { background: rgba(148,163,184,0.08); color: #94a3b8; }
+        .icon-generic { background: rgba(99,102,241,0.07);  color: #6366f1; }
+        .perms { font-family: 'Courier New', monospace; font-size: 0.76rem; color: #64748b; background: rgba(255,255,255,0.04); padding: 2px 7px; border-radius: 4px; }
+        .size-badge { font-size: 0.78rem; color: #64748b; }
+        .type-badge { font-size: 0.72rem; padding: 2px 8px; border-radius: 20px; background: rgba(99,102,241,0.1); color: #818cf8; white-space: nowrap; }
+        input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: #6366f1; }
+
+        /* ── Right-click Context Menu ── */
+        #ctx-menu {
+            position: fixed; z-index: 9999; display: none; min-width: 205px;
+            background: rgba(10,14,26,0.98); border: 1px solid rgba(99,102,241,0.25);
+            border-radius: 10px; backdrop-filter: blur(24px);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.08);
+            padding: 5px; animation: ctxIn 0.12s ease;
+        }
+        @keyframes ctxIn { from { opacity:0; transform:scale(0.94) translateY(-4px); } to { opacity:1; transform:scale(1) translateY(0); } }
+        .ctx-label { padding: 5px 13px 3px; font-size: 0.69rem; color: #475569; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ctx-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 13px; border-radius: 6px;
+            font-size: 0.82rem; color: #e2e8f0; cursor: pointer;
+            transition: background 0.12s; white-space: nowrap;
+        }
+        .ctx-item:hover { background: rgba(99,102,241,0.18); color: #fff; }
+        .ctx-item i { width: 14px; text-align: center; color: #6366f1; font-size: 0.78rem; flex-shrink: 0; }
+        .ctx-sep { border: none; border-top: 1px solid rgba(255,255,255,0.05); margin: 4px 2px; }
+        .ctx-item.ctx-warn  { color: #fbbf24; }
+        .ctx-item.ctx-warn i { color: #f59e0b; }
+        .ctx-item.ctx-warn:hover { background: rgba(245,158,11,0.12); }
+        .ctx-item.ctx-danger { color: #f87171; }
+        .ctx-item.ctx-danger i { color: #ef4444; }
+        .ctx-item.ctx-danger:hover { background: rgba(239,68,68,0.12); }
+
+        /* ── Modals ── */
+        .fm-modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.65); backdrop-filter: blur(5px);
+            z-index: 8000; align-items: center; justify-content: center;
+        }
+        .fm-modal-overlay.open { display: flex; }
+        .fm-modal {
+            background: linear-gradient(135deg, rgba(22,33,58,0.99), rgba(10,14,26,0.99));
+            border: 1px solid rgba(99,102,241,0.2); border-radius: 16px;
+            padding: 28px 30px; width: 420px; max-width: 95vw;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.6);
+            animation: modalIn 0.22s ease;
+        }
+        @keyframes modalIn { from { opacity:0; transform:scale(0.94); } to { opacity:1; transform:scale(1); } }
+        .fm-modal h3 { margin: 0 0 6px; font-size: 1rem; color: #fff; display: flex; align-items: center; gap: 10px; }
+        .fm-modal h3 i { color: #6366f1; }
+        .fm-modal label { font-size: 0.79rem; color: #64748b; display: block; margin: 14px 0 6px; }
+        .fm-input {
+            width: 100%; padding: 10px 14px; border-radius: 8px;
+            background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
+            color: #fff; font-size: 0.88rem; outline: none; font-family: 'Courier New', monospace;
+        }
+        .fm-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+        .fm-modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+        .modal-msg { padding: 9px 12px; border-radius: 7px; font-size: 0.8rem; margin-top: 10px; display: none; }
+        .modal-msg.success { background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.2); }
+        .modal-msg.error   { background: rgba(239,68,68,0.12);  color: #ef4444; border: 1px solid rgba(239,68,68,0.2);  }
+
+        /* Upload drop zone */
+        .upload-zone {
+            border: 2px dashed rgba(99,102,241,0.35); border-radius: 10px;
+            padding: 28px; text-align: center; cursor: pointer;
+            transition: all 0.2s; background: rgba(99,102,241,0.04); margin-top: 14px;
+        }
+        .upload-zone:hover, .upload-zone.drag-over { border-color: #6366f1; background: rgba(99,102,241,0.1); }
+        .upload-zone i { font-size: 1.8rem; color: #6366f1; margin-bottom: 8px; display: block; }
+        .upload-zone p { color: #94a3b8; font-size: 0.84rem; margin: 0; }
+        #uploadProgress { height: 4px; background: rgba(255,255,255,0.06); border-radius: 4px; margin-top: 12px; display: none; }
+        #uploadProgressBar { height: 100%; background: linear-gradient(90deg,#6366f1,#10b981); border-radius: 4px; width: 0%; transition: width 0.3s; }
+
+        /* ── Toast ── */
+        #toast-stack { position: fixed; bottom: 24px; right: 24px; z-index: 10000; display: flex; flex-direction: column; gap: 8px; }
+        .toast {
+            min-width: 240px; padding: 12px 18px; border-radius: 10px;
+            font-size: 0.82rem; font-weight: 500; backdrop-filter: blur(20px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            animation: toastIn 0.25s ease; display: flex; align-items: center; gap: 10px;
+        }
+        @keyframes toastIn { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
+        .toast.success { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.25); color: #34d399; }
+        .toast.error   { background: rgba(239,68,68,0.15);  border: 1px solid rgba(239,68,68,0.25);  color: #f87171; }
+        .toast.info    { background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.25); color: #818cf8; }
+
+        /* ── Empty state ── */
+        .fm-empty { text-align: center; padding: 52px; color: #475569; }
+        .fm-empty i { font-size: 2.5rem; margin-bottom: 12px; display: block; opacity: 0.5; }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.3); border-radius: 3px; }
+
+        @media(max-width:768px){
+            .fm-sidebar { display: none; }
+            .fm-toolbar { padding: 10px; }
+            .fm-panel { margin: 10px; }
+            .fm-btn span { display: none; }
+        }
+    </style>
+</head>
+<body>
+{% csrf_token %}
+
+<div class="fm-layout">
+    <!-- ══ Sidebar ══ -->
+    <aside class="fm-sidebar">
+        <a href="/panel/" class="sidebar-logo">
+            <img src="/static/icons/fav.png" alt="VoidPanel">
+            VoidPanel
+        </a>
+        <div class="sidebar-section">Navigation</div>
+        <nav class="sidebar-nav">
+            <a href="/panel/"><i class="fa-solid fa-gauge"></i> Dashboard</a>
+            <a href="/filemanager/" class="active"><i class="fa-solid fa-folder-open"></i> File Manager</a>
+            <a href="/trash/"><i class="fa-solid fa-trash-can"></i> Recycle Bin</a>
+            {% if request.user.is_superuser %}
+            <a href="/terminal/"><i class="fa-solid fa-terminal"></i> Terminal</a>
+            {% endif %}
+        </nav>
+        {% if request.user.is_superuser %}
+        <hr class="sidebar-divider">
+        <div class="sidebar-section">Quick Jump</div>
+        <nav class="sidebar-nav">
+            <a href="/filemanager/?key=/var/www"><i class="fa-solid fa-globe"></i> /var/www</a>
+            <a href="/filemanager/?key=/home"><i class="fa-solid fa-house"></i> /home</a>
+            <a href="/filemanager/?key=/etc"><i class="fa-solid fa-gear"></i> /etc</a>
+            <a href="/filemanager/?key=/tmp"><i class="fa-solid fa-clock-rotate-left"></i> /tmp</a>
+        </nav>
+        {% else %}
+        <hr class="sidebar-divider">
+        <div class="sidebar-section">Home</div>
+        <nav class="sidebar-nav">
+            <a href="/filemanager/?key=/home/{{ request.user.username }}"><i class="fa-solid fa-house"></i> /home/{{ request.user.username }}</a>
+        </nav>
+        {% endif %}
+    </aside>
+
+    <!-- ══ Main ══ -->
+    <div class="fm-main">
+
+        <!-- Toolbar -->
+        <div class="fm-toolbar">
+            <div class="fm-toolbar-brand"><i class="fa-solid fa-folder-open"></i> File Manager</div>
+
+            <a href="/filemanager/?key=/" class="fm-btn"><i class="fa fa-home"></i><span>Home</span></a>
+            <a href="/filemanager/?key={{ last }}" class="fm-btn"><i class="fa fa-arrow-up"></i><span>Up</span></a>
+            <button onclick="goBack()" class="fm-btn"><i class="fa fa-arrow-left"></i></button>
+            <button onclick="goForward()" class="fm-btn"><i class="fa fa-arrow-right"></i></button>
+            <a href="/filemanager/?key={{ main_dir }}" class="fm-btn"><i class="fa fa-refresh"></i></a>
+
+            <div style="width:1px;height:24px;background:rgba(255,255,255,0.08);margin:0 4px;"></div>
+
+            <button onclick="openModal('modal-newfile')"   class="fm-btn"><i class="fa fa-file-o"></i><span>New File</span></button>
+            <button onclick="openModal('modal-newfolder')" class="fm-btn"><i class="fa fa-folder-o"></i><span>New Folder</span></button>
+            <button onclick="openModal('modal-upload')"    class="fm-btn success"><i class="fa fa-cloud-upload"></i><span>Upload</span></button>
+            <a href="/trash/" class="fm-btn trash"><i class="fa fa-trash"></i><span>Recycle Bin</span></a>
+
+            <input type="text" class="fm-search" id="searchdata" placeholder="Search files..." onkeyup="filterTable()">
+        </div>
+
+        <!-- Breadcrumb -->
+        <div class="fm-breadcrumb">
+            <a href="/filemanager/?key=/"><i class="fa fa-home"></i></a>
+            <span id="breadcrumb-segments"></span>
+            <script>
+            (function(){
+                const raw = "{{ main_dir|escapejs }}";
+                const parts = raw.replace(/\/+/g,'/').split('/').filter(Boolean);
+                let html='', built='';
+                parts.forEach(function(p){
+                    built += '/' + p;
+                    html += '<span style="color:#475569;margin:0 2px;">/</span><a href="/filemanager/?key='+encodeURIComponent(built)+'">'+p+'</a>';
+                });
+                document.getElementById('breadcrumb-segments').innerHTML = html;
+            })();
+            </script>
+        </div>
+
+        <!-- Selection Bar -->
+        <div id="sel-bar">
+            <i class="fa fa-check-circle"></i>
+            <span id="sel-count">0 items selected</span>
+            <div class="sel-actions">
+                <button class="fm-btn" onclick="batchCopy()"><i class="fa fa-copy"></i> Copy</button>
+                <button class="fm-btn" onclick="batchMove()"><i class="fa fa-scissors"></i> Move</button>
+                <button class="fm-btn" onclick="batchCompress()"><i class="fa fa-file-zip-o"></i> Compress</button>
+                <button class="fm-btn danger" onclick="batchDelete()"><i class="fa fa-trash"></i> Trash</button>
+                <button class="fm-btn danger" onclick="batchDeletePerm()"><i class="fa fa-skull-crossbones"></i> Delete</button>
+            </div>
+        </div>
+
+        <!-- File Table -->
+        <div class="fm-panel">
+            <table class="fm-table" id="fm-table">
+                <thead>
+                    <tr>
+                        <th style="width:40px;"><input type="checkbox" id="sel-all" onclick="toggleAll(this)"></th>
+                        <th>Name</th>
+                        <th>Size</th>
+                        <th>Permissions</th>
+                        <th>Type</th>
+                        <th style="width:60px;text-align:right;">⋮</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for key in items %}
+                    <tr data-name="{{ key.name }}" data-type="dir"
+                        oncontextmenu="showCtx(event,'{{ key.name }}','dir')"
+                        onclick="rowClick(event,this)">
+                        <td onclick="event.stopPropagation()">
+                            <input type="checkbox" class="row-check" value="{{ key.name }}" onchange="updateSel()">
+                        </td>
+                        <td ondblclick="navigate('{{ key.name }}')">
+                            <div class="file-name">
+                                <div class="file-icon icon-folder"><i class="fa-solid fa-folder"></i></div>
+                                {{ key.name }}
+                            </div>
+                        </td>
+                        <td><span class="size-badge">—</span></td>
+                        <td><span class="perms">{{ key.permissions }}</span></td>
+                        <td><span class="type-badge">Directory</span></td>
+                        <td style="text-align:right;" onclick="event.stopPropagation()">
+                            <button class="fm-btn" style="padding:4px 8px;font-size:0.72rem;" onclick="showCtxBtn(event,'{{ key.name }}','dir')">
+                                <i class="fa fa-ellipsis-v"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                    {% for key in files %}
+                    <tr data-name="{{ key.name }}" data-type="file"
+                        oncontextmenu="showCtx(event,'{{ key.name }}','file')"
+                        onclick="rowClick(event,this)">
+                        <td onclick="event.stopPropagation()">
+                            <input type="checkbox" class="row-check" value="{{ key.name }}" onchange="updateSel()">
+                        </td>
+                        <td>
+                            <div class="file-name">
+                                <div class="file-icon {% if 'image' in key.type %}icon-image{% elif key.name|slice:'-3:' == '.py' or key.name|slice:'-3:' == '.js' or key.name|slice:'-4:' == '.php' or key.name|slice:'-5:' == '.html' %}icon-code{% elif 'zip' in key.type or 'tar' in key.type or 'gzip' in key.type %}icon-archive{% elif 'text' in key.type %}icon-text{% else %}icon-generic{% endif %}">
+                                    <i class="fa-solid {% if 'image' in key.type %}fa-image{% elif 'zip' in key.type or 'tar' in key.type %}fa-file-zipper{% elif 'text' in key.type or 'html' in key.type %}fa-file-code{% elif 'pdf' in key.type %}fa-file-pdf{% else %}fa-file{% endif %}"></i>
+                                </div>
+                                {{ key.name }}
+                            </div>
+                        </td>
+                        <td><span class="size-badge">{{ key.size }} KB</span></td>
+                        <td><span class="perms">{{ key.permissions }}</span></td>
+                        <td><span class="type-badge" style="{% if 'text' in key.type %}background:rgba(16,185,129,0.1);color:#10b981;{% endif %}">{{ key.type|truncatechars:20 }}</span></td>
+                        <td style="text-align:right;" onclick="event.stopPropagation()">
+                            <button class="fm-btn" style="padding:4px 8px;font-size:0.72rem;" onclick="showCtxBtn(event,'{{ key.name }}','file')">
+                                <i class="fa fa-ellipsis-v"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                    {% if not items and not files %}
+                    <tr><td colspan="6">
+                        <div class="fm-empty">
+                            <i class="fa fa-folder-open-o"></i>
+                            <p>This directory is empty.</p>
+                        </div>
+                    </td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div><!-- /fm-main -->
+</div><!-- /fm-layout -->
+
+<!-- ══ Right-click Context Menu ══ -->
+<div id="ctx-menu">
+    <div class="ctx-label" id="ctx-filename"></div>
+    <div class="ctx-item" id="ctx-open"    onclick="ctxNavigate()"><i class="fa fa-folder-open"></i> Open / Navigate</div>
+    <div class="ctx-item" id="ctx-edit"    onclick="ctxEdit()">    <i class="fa fa-pencil"></i>      Edit File</div>
+    <div class="ctx-item" id="ctx-view"    onclick="ctxView()">    <i class="fa fa-eye"></i>         View</div>
+    <div class="ctx-item"                  onclick="ctxDownload()"><i class="fa fa-download"></i>     Download</div>
+    <hr class="ctx-sep">
+    <div class="ctx-item" onclick="ctxRename()">    <i class="fa fa-font"></i>       Rename</div>
+    <div class="ctx-item" onclick="ctxCopy()">      <i class="fa fa-copy"></i>       Copy To...</div>
+    <div class="ctx-item" onclick="ctxMove()">      <i class="fa fa-scissors"></i>   Move To...</div>
+    <div class="ctx-item" onclick="ctxCompress()">  <i class="fa fa-file-zip-o"></i> Compress</div>
+    <div class="ctx-item" id="ctx-extract" onclick="ctxExtract()"><i class="fa fa-expand"></i>   Extract</div>
+    <div class="ctx-item" onclick="ctxPermission()"><i class="fa fa-lock"></i>       Chmod</div>
+    <hr class="ctx-sep">
+    <div class="ctx-item ctx-warn"  onclick="ctxDelete()">       <i class="fa fa-trash"></i>         Move to Bin</div>
+    <div class="ctx-item ctx-danger" onclick="ctxDeletePermanent()"><i class="fa fa-times-circle"></i> Delete Permanently</div>
+</div>
+
+<!-- ══ Toast Container ══ -->
+<div id="toast-stack"></div>
+
+<!-- ══ Modals ══ -->
+<!-- New File -->
+<div class="fm-modal-overlay" id="modal-newfile">
+    <div class="fm-modal">
+        <h3><i class="fa fa-file-o"></i> Create New File</h3>
+        <label>File Name</label>
+        <input type="text" class="fm-input" id="inp-newfile" placeholder="e.g. index.php">
+        <div class="modal-msg" id="msg-newfile"></div>
+        <div class="fm-modal-footer">
+            <button onclick="closeModal('modal-newfile')" class="fm-btn">Cancel</button>
+            <button onclick="doCreateFile()" class="fm-btn primary"><i class="fa fa-plus"></i> Create</button>
+        </div>
+    </div>
+</div>
+
+<!-- New Folder -->
+<div class="fm-modal-overlay" id="modal-newfolder">
+    <div class="fm-modal">
+        <h3><i class="fa fa-folder-o"></i> Create New Folder</h3>
+        <label>Folder Name</label>
+        <input type="text" class="fm-input" id="inp-newfolder" placeholder="e.g. uploads">
+        <div class="modal-msg" id="msg-newfolder"></div>
+        <div class="fm-modal-footer">
+            <button onclick="closeModal('modal-newfolder')" class="fm-btn">Cancel</button>
+            <button onclick="doCreateFolder()" class="fm-btn primary"><i class="fa fa-plus"></i> Create</button>
+        </div>
+    </div>
+</div>
+
+<!-- Upload -->
+<div class="fm-modal-overlay" id="modal-upload">
+    <div class="fm-modal" style="width:480px;">
+        <h3><i class="fa fa-cloud-upload"></i> Upload Files</h3>
+        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('uploadInput').click()">
+            <i class="fa fa-cloud-upload"></i>
+            <p>Click to browse or drag &amp; drop files here</p>
+            <p id="uploadFileName" style="color:#818cf8;margin-top:6px;font-size:0.8rem;"></p>
+        </div>
+        <input type="file" id="uploadInput" multiple hidden>
+        <div id="uploadProgress"><div id="uploadProgressBar"></div></div>
+        <div class="fm-modal-footer">
+            <button onclick="closeModal('modal-upload')" class="fm-btn">Cancel</button>
+            <button onclick="doUpload()" id="btnUpload" class="fm-btn primary"><i class="fa fa-upload"></i> Upload</button>
+        </div>
+    </div>
+</div>
+
+<!-- Rename -->
+<div class="fm-modal-overlay" id="modal-rename">
+    <div class="fm-modal">
+        <h3><i class="fa fa-pencil"></i> Rename</h3>
+        <label>New Name</label>
+        <input type="text" class="fm-input" id="inp-rename" placeholder="New name">
+        <div class="modal-msg" id="msg-rename"></div>
+        <div class="fm-modal-footer">
+            <button onclick="closeModal('modal-rename')" class="fm-btn">Cancel</button>
+            <button onclick="doRename()" class="fm-btn primary"><i class="fa fa-check"></i> Rename</button>
+        </div>
+    </div>
+</div>
+
+<!-- Copy -->
+<div class="fm-modal-overlay" id="modal-copy">
+    <div class="fm-modal">
+        <h3><i class="fa fa-copy"></i> Copy To</h3>
+        <label>Destination Path</label>
+        <input type="text" class="fm-input" id="inp-copy" placeholder="/var/www/destination">
+        <div class="modal-msg" id="msg-copy"></div>
+        <div class="fm-modal-footer">
+            <button onclick="closeModal('modal-copy')" class="fm-btn">Cancel</button>
+            <button onclick="doCopy()" class="fm-btn primary"><i class="fa fa-copy"></i> Copy</button>
+        </div>
+    </div>
+</div>
+
+<!-- Move -->
+<div class="fm-modal-overlay" id="modal-move">
+    <div class="fm-modal">
+        <h3><i class="fa fa-scissors"></i> Move To</h3>
+        <label>Destination Path</label>
+        <input type="text" class="fm-input" id="inp-move" placeholder="/var/www/destination">
+        <div class="modal-msg" id="msg-move"></div>
+        <div class="fm-modal-footer">
+            <button onclick="closeModal('modal-move')" class="fm-btn">Cancel</button>
+            <button onclick="doMove()" class="fm-btn primary"><i class="fa fa-arrows"></i> Move</button>
+        </div>
+    </div>
+</div>
+
+<!-- Permissions -->
+<div class="fm-modal-overlay" id="modal-perm">
+    <div class="fm-modal">
+        <h3><i class="fa fa-lock"></i> Change Permissions</h3>
+        <p style="color:#64748b;font-size:0.79rem;margin-top:4px;">Common: 000, 400, 500, 644, 666, 700, 750, 755, 770, 777</p>
+        <label>Permission Code</label>
+        <input type="text" class="fm-input" id="inp-perm" placeholder="755" maxlength="4">
+        <div class="modal-msg" id="msg-perm"></div>
+        <div class="fm-modal-footer">
+            <button onclick="closeModal('modal-perm')" class="fm-btn">Cancel</button>
+            <button onclick="doPermission()" class="fm-btn primary"><i class="fa fa-check"></i> Apply</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const CURRENT_DIR = "{{ main_dir }}";
+const CSRF = document.querySelector('[name=csrfmiddlewaretoken]').value;
+let _ctx = null;
+let _ctxTargets = [];
+
+/* ── Toast ── */
+function toast(msg, type='info') {
+    const stack = document.getElementById('toast-stack');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    const icons = { success:'fa-circle-check', error:'fa-circle-xmark', info:'fa-circle-info' };
+    el.innerHTML = `<i class="fa-solid ${icons[type]||'fa-circle-info'}"></i> ${msg}`;
+    stack.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+}
+
+/* ── Modals ── */
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.fm-modal-overlay').forEach(o =>
+    o.addEventListener('click', e => { if(e.target === o) o.classList.remove('open'); })
+);
+
+function showMsg(id, msg, type) {
+    const el = document.getElementById(id);
+    el.textContent = msg; el.className = `modal-msg ${type}`; el.style.display = 'block';
+}
+
+function api(url, body, cb) {
+    fetch(url, { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF}, body:JSON.stringify(body) })
+        .then(r=>r.json()).then(cb)
+        .catch(e => toast('Network error', 'error'));
+}
+
+/* ── Navigation ── */
+function navigate(name) { window.location.href = `/filemanager/?key=${CURRENT_DIR}/${name}`; }
+function goBack()    { window.history.back(); }
+function goForward() { window.history.forward(); }
+
+/* ── Selection ── */
+function toggleAll(cb) {
+    document.querySelectorAll('.row-check').forEach(c => c.checked = cb.checked);
+    document.querySelectorAll('#fm-table tbody tr').forEach(r => r.classList.toggle('selected', cb.checked));
+    updateSel();
+}
+function rowClick(e, row) {
+    if(e.target.tagName === 'INPUT') return;
+    const cb = row.querySelector('.row-check');
+    cb.checked = !cb.checked;
+    row.classList.toggle('selected', cb.checked);
+    updateSel();
+}
+function updateSel() {
+    const checked = document.querySelectorAll('.row-check:checked');
+    document.getElementById('sel-count').textContent = `${checked.length} item(s) selected`;
+    document.getElementById('sel-bar').classList.toggle('visible', checked.length > 0);
+}
+function getSelected() {
+    return [...document.querySelectorAll('.row-check:checked')].map(c => c.value);
+}
+
+/* ── Search ── */
+function filterTable() {
+    const f = document.getElementById('searchdata').value.toUpperCase();
+    document.querySelectorAll('#fm-table tbody tr').forEach(tr => {
+        tr.style.display = (tr.innerText||tr.textContent).toUpperCase().includes(f) ? '' : 'none';
+    });
+}
+
+/* ── Context Menu ── */
+document.addEventListener('click',   () => document.getElementById('ctx-menu').style.display = 'none');
+document.addEventListener('scroll',  () => document.getElementById('ctx-menu').style.display = 'none', true);
+document.addEventListener('keydown', e => { if(e.key==='Escape') document.getElementById('ctx-menu').style.display='none'; });
+
+function showCtx(e, name, type) {
+    e.preventDefault(); e.stopPropagation();
+    _ctx = { name, type };
+    const menu = document.getElementById('ctx-menu');
+    document.getElementById('ctx-filename').textContent = name;
+    document.getElementById('ctx-open').style.display    = type==='dir'  ? 'flex' : 'none';
+    document.getElementById('ctx-edit').style.display    = type==='file' ? 'flex' : 'none';
+    document.getElementById('ctx-view').style.display    = type==='file' ? 'flex' : 'none';
+    document.getElementById('ctx-extract').style.display = (name.endsWith('.zip')||name.endsWith('.tar.gz')) ? 'flex' : 'none';
+    menu.style.display = 'block';
+    let x = e.clientX, y = e.clientY;
+    setTimeout(() => {
+        if(x + menu.offsetWidth  + 10 > window.innerWidth)  x = window.innerWidth  - menu.offsetWidth  - 10;
+        if(y + menu.offsetHeight + 10 > window.innerHeight)  y = window.innerHeight - menu.offsetHeight - 10;
+        menu.style.left = x+'px'; menu.style.top = y+'px';
+    }, 0);
+}
+function showCtxBtn(e, name, type) { e.preventDefault(); e.stopPropagation(); showCtx(e, name, type); }
+
+function ctxNavigate()  { if(_ctx) navigate(_ctx.name); }
+function ctxEdit()      { if(_ctx) window.open(`/editor_view${CURRENT_DIR}/${_ctx.name}`, '_blank'); }
+function ctxView()      { if(_ctx) window.open(`/view${CURRENT_DIR}/${_ctx.name}`, '_blank'); }
+function ctxDownload()  { if(_ctx) window.location.href = `/download/?key=${CURRENT_DIR}/${_ctx.name}`; }
+
+function ctxRename() {
+    if(!_ctx) return;
+    document.getElementById('inp-rename').value = _ctx.name;
+    _ctxTargets = [_ctx.name];
+    openModal('modal-rename');
+}
+function ctxCopy() {
+    if(!_ctx) return;
+    _ctxTargets = [_ctx.name];
+    document.getElementById('inp-copy').value = CURRENT_DIR;
+    openModal('modal-copy');
+}
+function ctxMove() {
+    if(!_ctx) return;
+    _ctxTargets = [_ctx.name];
+    document.getElementById('inp-move').value = CURRENT_DIR;
+    openModal('modal-move');
+}
+function ctxCompress() {
+    if(!_ctx) return;
+    toast('Compressing...','info');
+    api("{% url 'compressdata' %}", {selected:[_ctx.name],path:CURRENT_DIR}, d => {
+        toast(d.status==='success'?'Compressed!':d.message, d.status==='success'?'success':'error');
+        if(d.status==='success') setTimeout(()=>location.reload(),900);
+    });
+}
+function ctxExtract() {
+    if(!_ctx) return;
+    toast('Extracting...','info');
+    api("{% url 'extractdata' %}", {selected:[_ctx.name],path:CURRENT_DIR}, d => {
+        toast(d.status==='success'?'Extracted!':d.message, d.status==='success'?'success':'error');
+        if(d.status==='success') setTimeout(()=>location.reload(),900);
+    });
+}
+function ctxPermission() {
+    if(!_ctx) return;
+    _ctxTargets = [_ctx.name];
+    document.getElementById('inp-perm').value = '';
+    openModal('modal-perm');
+}
+function ctxDelete() {
+    if(!_ctx) return;
+    if(!confirm(`Move "${_ctx.name}" to Recycle Bin?`)) return;
+    api("{% url 'deletedata' %}", {selected:[_ctx.name],path:CURRENT_DIR}, d => {
+        toast(d.message, d.status==='success'?'success':'error');
+        if(d.status==='success') document.querySelector(`tr[data-name="${_ctx.name}"]`)?.remove();
+    });
+}
+function ctxDeletePermanent() {
+    if(!_ctx) return;
+    if(!confirm(`⚠️ PERMANENTLY delete "${_ctx.name}"? This CANNOT be undone.`)) return;
+    api("{% url 'ddeletedata' %}", {selected:[_ctx.name],path:CURRENT_DIR}, d => {
+        toast(d.message, d.status==='success'?'success':'error');
+        if(d.status==='success') document.querySelector(`tr[data-name="${_ctx.name}"]`)?.remove();
+    });
+}
+
+/* ── Batch Actions ── */
+function batchCopy() {
+    const sel = getSelected();
+    if(!sel.length){ toast('Select items first','error'); return; }
+    _ctxTargets = sel;
+    document.getElementById('inp-copy').value = CURRENT_DIR;
+    openModal('modal-copy');
+}
+function batchMove() {
+    const sel = getSelected();
+    if(!sel.length){ toast('Select items first','error'); return; }
+    _ctxTargets = sel;
+    document.getElementById('inp-move').value = CURRENT_DIR;
+    openModal('modal-move');
+}
+function batchCompress() {
+    const sel = getSelected();
+    if(!sel.length){ toast('Select items first','error'); return; }
+    toast('Compressing...','info');
+    api("{% url 'compressdata' %}", {selected:sel,path:CURRENT_DIR}, d => {
+        toast(d.status==='success'?'Compressed!':d.message, d.status==='success'?'success':'error');
+        if(d.status==='success') setTimeout(()=>location.reload(),900);
+    });
+}
+function batchDelete() {
+    const sel = getSelected();
+    if(!sel.length){ toast('Select items first','error'); return; }
+    if(!confirm(`Move ${sel.length} item(s) to Recycle Bin?`)) return;
+    api("{% url 'deletedata' %}", {selected:sel,path:CURRENT_DIR}, d => {
+        toast(d.message, d.status==='success'?'success':'error');
+        if(d.status==='success') { sel.forEach(n => document.querySelector(`tr[data-name="${n}"]`)?.remove()); updateSel(); }
+    });
+}
+function batchDeletePerm() {
+    const sel = getSelected();
+    if(!sel.length){ toast('Select items first','error'); return; }
+    if(!confirm(`⚠️ Permanently delete ${sel.length} item(s)?`)) return;
+    api("{% url 'ddeletedata' %}", {selected:sel,path:CURRENT_DIR}, d => {
+        toast(d.message, d.status==='success'?'success':'error');
+        if(d.status==='success') { sel.forEach(n => document.querySelector(`tr[data-name="${n}"]`)?.remove()); updateSel(); }
+    });
+}
+
+/* ── CRUD ── */
+function doCreateFile() {
+    const name = document.getElementById('inp-newfile').value.trim();
+    if(!name){ showMsg('msg-newfile','Enter a file name','error'); return; }
+    fetch("{% url 'create_file' %}", { method:'POST', headers:{'X-CSRFToken':CSRF},
+        body: new URLSearchParams({xfile:name, xfilepath:CURRENT_DIR})
+    }).then(r=>r.json()).then(d=>{
+        if(d.status==='success'){ toast('File created!','success'); closeModal('modal-newfile'); location.reload(); }
+        else showMsg('msg-newfile', d.message||'Error','error');
+    });
+}
+function doCreateFolder() {
+    const name = document.getElementById('inp-newfolder').value.trim();
+    if(!name){ showMsg('msg-newfolder','Enter a folder name','error'); return; }
+    fetch("{% url 'create_folder' %}", { method:'POST', headers:{'X-CSRFToken':CSRF},
+        body: new URLSearchParams({xfolder:name, xfolderpath:CURRENT_DIR})
+    }).then(r=>r.json()).then(d=>{
+        if(d.status==='success'){ toast('Folder created!','success'); closeModal('modal-newfolder'); location.reload(); }
+        else showMsg('msg-newfolder', d.message||'Error','error');
+    });
+}
+function doRename() {
+    const newName = document.getElementById('inp-rename').value.trim();
+    if(!newName){ showMsg('msg-rename','Enter a name','error'); return; }
+    const items = _ctxTargets.length ? _ctxTargets : getSelected();
+    api("{% url 'renamedata' %}", {selected:items,path:CURRENT_DIR,copy:newName}, d=>{
+        if(d.status==='success'){ toast('Renamed!','success'); closeModal('modal-rename'); location.reload(); }
+        else showMsg('msg-rename', d.message||'Error','error');
+    });
+}
+function doCopy() {
+    const dest = document.getElementById('inp-copy').value.trim();
+    if(!dest){ showMsg('msg-copy','Enter destination','error'); return; }
+    const items = _ctxTargets.length ? _ctxTargets : getSelected();
+    api("{% url 'copydata' %}", {selected:items,path:CURRENT_DIR,copy:dest}, d=>{
+        showMsg('msg-copy', d.message, d.status==='success'?'success':'error');
+        if(d.status==='success') setTimeout(()=>{ closeModal('modal-copy'); location.reload(); },900);
+    });
+}
+function doMove() {
+    const dest = document.getElementById('inp-move').value.trim();
+    if(!dest){ showMsg('msg-move','Enter destination','error'); return; }
+    const items = _ctxTargets.length ? _ctxTargets : getSelected();
+    api("{% url 'movedata' %}", {selected:items,path:CURRENT_DIR,copy:dest}, d=>{
+        showMsg('msg-move', d.message, d.status==='success'?'success':'error');
+        if(d.status==='success') setTimeout(()=>{ closeModal('modal-move'); location.reload(); },900);
+    });
+}
+function doPermission() {
+    const perm = document.getElementById('inp-perm').value.trim();
+    const valid = ['000','400','500','644','666','700','750','755','770','777'];
+    if(!valid.includes(perm)){ showMsg('msg-perm','Invalid code. Use: '+valid.join(', '),'error'); return; }
+    const items = _ctxTargets.length ? _ctxTargets : getSelected();
+    api("{% url 'permissiondata' %}", {selected:items,path:CURRENT_DIR,copy:perm}, d=>{
+        showMsg('msg-perm', d.message||'Done', d.status==='success'?'success':'error');
+        if(d.status==='success') setTimeout(()=>closeModal('modal-perm'),900);
+    });
+}
+
+/* ── Upload ── */
+const uploadInput = document.getElementById('uploadInput');
+const uploadZone  = document.getElementById('uploadZone');
+uploadInput.addEventListener('change', () => {
+    document.getElementById('uploadFileName').textContent =
+        [...uploadInput.files].map(f=>f.name).join(', ');
+});
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+    e.preventDefault(); uploadZone.classList.remove('drag-over');
+    uploadInput.files = e.dataTransfer.files;
+    document.getElementById('uploadFileName').textContent = [...uploadInput.files].map(f=>f.name).join(', ');
+});
+async function doUpload() {
+    if(!uploadInput.files.length){ toast('Select files first','error'); return; }
+    const btn = document.getElementById('btnUpload');
+    btn.disabled=true; btn.innerHTML='<i class="fa fa-spinner fa-spin"></i> Uploading...';
+    const prog = document.getElementById('uploadProgress');
+    const bar  = document.getElementById('uploadProgressBar');
+    prog.style.display='block'; bar.style.width='30%';
+    const fd = new FormData();
+    [...uploadInput.files].forEach(f=>fd.append('file',f));
+    fd.append('file_path', CURRENT_DIR);
+    try {
+        const r = await fetch("{% url 'upload_file' %}", {method:'POST',body:fd,headers:{'X-CSRFToken':CSRF}});
+        const d = await r.json();
+        bar.style.width='100%';
+        if(d.status==='success'){ toast(d.message,'success'); closeModal('modal-upload'); setTimeout(()=>location.reload(),600); }
+        else toast(d.message||'Upload failed','error');
+    } catch(e){ toast('Network error during upload','error'); }
+    finally { prog.style.display='none'; bar.style.width='0%'; btn.disabled=false; btn.innerHTML='<i class="fa fa-upload"></i> Upload'; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>:: VoidPanel :: Global Email Settings</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --glass-bg: rgba(255,255,255,0.07);
+            --glass-border: rgba(255,255,255,0.13);
+            --glass-shadow: 0 8px 32px rgba(0,0,0,0.28);
+            --accent: #7c3aed;
+            --accent-2: #2563eb;
+            --radius: 18px;
+            --text: #e2e8f0;
+            --subtext: #94a3b8;
+        }
+        body { font-family: 'Inter', sans-serif; }
+
+        .page-hero { display:flex; align-items:center; gap:16px; padding:22px 0 28px 0; }
+        .page-hero .hero-icon {
+            width:52px; height:52px; border-radius:14px;
+            display:flex; align-items:center; justify-content:center;
+            background:linear-gradient(135deg,var(--accent),var(--accent-2));
+            font-size:22px; color:#fff; box-shadow:0 4px 16px rgba(124,58,237,.4);
+        }
+        .page-hero h2 { font-size:22px; font-weight:800; margin:0; color:#e2e8f0; }
+        .page-hero p  { font-size:13px; color:var(--subtext); margin:0; }
+
+        .glass-card {
+            background:var(--glass-bg); border:1px solid var(--glass-border);
+            border-radius:var(--radius); padding:28px;
+            backdrop-filter:blur(14px); box-shadow:var(--glass-shadow);
+            margin-bottom:28px;
+        }
+        .glass-card h5 {
+            font-size:15px; font-weight:700; display:flex; align-items:center; gap:10px;
+            margin-bottom:22px; padding-bottom:14px; border-bottom:1px solid var(--glass-border);
+        }
+        
+        .config-row { display:flex; flex-direction:column; gap:8px; margin-bottom:18px; }
+        .config-row label { font-size:13px; font-weight:600; color:var(--text); margin:0; }
+        .config-row small { font-size:11px; color:var(--subtext); }
+        .db-input {
+            width:100%; padding:11px 16px; font-size:14px; font-weight:500;
+            background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14);
+            border-radius:10px; color:#e2e8f0; outline:none; transition:border .2s;
+        }
+        .db-input:focus { border-color:var(--accent); }
+
+        /* Custom Toggle Switch */
+        .toggle-switch {
+            position:relative; display:inline-block; width:44px; height:24px;
+        }
+        .toggle-switch input { opacity:0; width:0; height:0; }
+        .slider {
+            position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0;
+            background-color:rgba(255,255,255,0.15); transition:.4s; border-radius:34px;
+        }
+        .slider:before {
+            position:absolute; content:""; height:18px; width:18px; left:3px; bottom:3px;
+            background-color:white; transition:.4s; border-radius:50%;
+        }
+        input:checked + .slider { background-color:var(--accent); }
+        input:checked + .slider:before { transform:translateX(20px); }
+
+        .toggle-group { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; padding:12px; background:rgba(255,255,255,.03); border-radius:12px;}
+        .toggle-text h6 { margin:0; font-size:13px; font-weight:600; color:#e2e8f0; }
+        .toggle-text p { margin:0; font-size:11px; color:var(--subtext); }
+
+        .btn-glass {
+            padding:12px 24px; font-size:14px; font-weight:600;
+            background:linear-gradient(135deg,var(--accent),var(--accent-2));
+            color:#fff; border:none; border-radius:10px; cursor:pointer;
+            display:inline-flex; align-items:center; gap:8px; width:100%; justify-content:center;
+            transition:opacity .2s;
+        }
+        .btn-glass:hover { opacity:0.9; }
+    </style>
+</head>
+<body data-theme="light" class="font-nunito">
+<div id="wrapper" class="theme-cyan">
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
+
+    <div id="main-content">
+        <div class="container-fluid">
+            <div class="page-hero">
+                <div class="hero-icon"><i class="fa fa-cogs"></i></div>
+                <div>
+                    <h2>Email Configurations</h2>
+                    <p>Global limits, anti-spam constraints, and package metrics.</p>
+                </div>
+            </div>
+
+            <form id="emailConfigForm">{% csrf_token %}
+            <div class="row">
+                <!-- Metrics -->
+                <div class="col-lg-6">
+                    <div class="glass-card">
+                        <h5><i class="fa fa-sliders"></i> Quotas & Limits</h5>
+                        <div class="config-row">
+                            <label>Default Mailbox Quota (MB)</label>
+                            <input class="db-input" type="number" name="default_quota_mb" value="{{ config.default_quota_mb }}">
+                        </div>
+                        <div class="config-row">
+                            <label>Hourly Sending Limit</label>
+                            <input class="db-input" type="number" name="hourly_limit" value="{{ config.hourly_limit }}">
+                            <small>Max outgoing emails per hour per user (Anti-Spam)</small>
+                        </div>
+                        <div class="config-row">
+                            <label>Daily Sending Limit</label>
+                            <input class="db-input" type="number" name="daily_limit" value="{{ config.daily_limit }}">
+                        </div>
+                        <div class="config-row">
+                            <label>Max Attachment Size (MB)</label>
+                            <input class="db-input" type="number" name="max_attachment_size_mb" value="{{ config.max_attachment_size_mb }}">
+                        </div>
+                        <div class="config-row">
+                            <label>SMTP Concurrent Connections</label>
+                            <input class="db-input" type="number" name="max_concurrent_connections" value="{{ config.max_concurrent_connections }}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Security feature toggles -->
+                <div class="col-lg-6">
+                    <div class="glass-card">
+                        <h5><i class="fa fa-shield"></i> Protections & Features</h5>
+                        
+                        <div class="toggle-group">
+                            <div class="toggle-text">
+                                <h6>Enforce DKIM & SPF</h6>
+                                <p>Strictly reject incoming mail that fails SPF/DKIM.</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="enforce_dkim_spf" value="true" {% if config.enforce_dkim_spf %}checked{% endif %}>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="toggle-group">
+                            <div class="toggle-text">
+                                <h6>Anti-Spam Filter</h6>
+                                <p>Enable SpamAssassin aggressive scanning.</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="enable_antispam" value="true" {% if config.enable_antispam %}checked{% endif %}>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        
+                        <div class="config-row" style="margin-left:12px; margin-right:12px;">
+                            <label>Spam Score Threshold</label>
+                            <input class="db-input" type="number" step="0.1" name="spam_score_threshold" value="{{ config.spam_score_threshold }}">
+                        </div>
+
+                        <div class="toggle-group">
+                            <div class="toggle-text">
+                                <h6>Allow Catch-All</h6>
+                                <p>Let domains route unused aliases to an inbox.</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="catch_all_capability" value="true" {% if config.catch_all_capability %}checked{% endif %}>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="toggle-group">
+                            <div class="toggle-text">
+                                <h6>Allow Autoresponders</h6>
+                                <p>User vacation replies & automated bouncing.</p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="allow_autoresponders" value="true" {% if config.allow_autoresponders %}checked{% endif %}>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <button type="button" class="btn-glass" onclick="saveConfig()" style="margin-top:10px;">
+                            <i class="fa fa-save"></i> Save Global Configuration
+                        </button>
+                    </div>
+                </div>
+            </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/vendor/toastr/toastr.js"></script>
+<script>
+    async function saveConfig() {
+        const fd = new FormData(document.getElementById('emailConfigForm'));
+        try {
+            const r = await fetch('/emailconfig/', {method:'POST', body:fd});
+            const d = await r.json();
+            if(d.status === 'success') toastr.success('Email configurations updated securely!');
+            else toastr.error('Failed to update.');
+        } catch { toastr.error('Network Error.'); }
+    }
+</script>
+</body>
+</html>

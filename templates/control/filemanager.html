@@ -1,0 +1,818 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <title>:: VoidPanel :: File Manager</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f1f5f9; margin: 0; }
+
+        /* ── Toolbar ── */
+        .fm-toolbar {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 14px 24px;
+            background: rgba(15,23,42,0.95);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            position: sticky; top: 0; z-index: 100;
+        }
+        .fm-toolbar-brand { font-weight: 700; font-size: 1.1rem; color: #fff; margin-right: 16px; display: flex; align-items: center; gap: 8px; }
+        .fm-toolbar-brand i { color: #6366f1; }
+        .fm-search {
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px; padding: 7px 14px; color: #fff; font-size: 0.85rem;
+            outline: none; width: 220px; margin-left: auto;
+        }
+        .fm-search:focus { border-color: #6366f1; }
+        .fm-search::placeholder { color: #64748b; }
+
+        /* ── Action Buttons ── */
+        .fm-btn {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #cbd5e1; padding: 6px 12px; border-radius: 8px;
+            font-size: 0.8rem; font-weight: 500; cursor: pointer;
+            transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px;
+            white-space: nowrap;
+        }
+        .fm-btn:hover { background: rgba(99,102,241,0.2); border-color: #6366f1; color: #fff; }
+        .fm-btn.primary { background: linear-gradient(135deg,#6366f1,#4f46e5); border-color: transparent; color: #fff; }
+        .fm-btn.danger  { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.3); color: #f87171; }
+        .fm-btn.success { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.3); color: #34d399; }
+        .fm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* ── Breadcrumb bar ── */
+        .fm-breadcrumb {
+            padding: 10px 24px;
+            background: rgba(15,23,42,0.6);
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            font-size: 0.82rem; color: #64748b;
+            display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+        }
+        .fm-breadcrumb a { color: #818cf8; text-decoration: none; }
+        .fm-breadcrumb a:hover { color: #a5b4fc; }
+
+        /* ── Main glass panel ── */
+        .fm-panel {
+            margin: 20px 24px;
+            background: linear-gradient(135deg,rgba(30,41,59,0.7) 0%,rgba(15,23,42,0.9) 100%);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        /* ── Table ── */
+        .fm-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .fm-table th {
+            padding: 12px 16px; font-size: 0.78rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.5px; color: #64748b;
+            border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.15);
+        }
+        .fm-table td { padding: 11px 16px; color: #cbd5e1; font-size: 0.88rem; vertical-align: middle; border-bottom: 1px solid rgba(255,255,255,0.03); }
+        .fm-table tr:last-child td { border-bottom: none; }
+        .fm-table tbody tr:hover td { background: rgba(99,102,241,0.06); cursor: pointer; }
+        .fm-table .name-cell { display: flex; align-items: center; gap: 10px; font-weight: 500; color: #e2e8f0; }
+        .fm-table .name-cell:hover { color: #818cf8; }
+
+        /* File/folder SVG icons */
+        .fm-icon { width: 28px; height: 28px; flex-shrink: 0; }
+        .icon-folder { color: #f59e0b; }
+        .icon-file   { color: #6366f1; }
+        .icon-image  { color: #10b981; }
+        .icon-zip    { color: #f97316; }
+        .icon-code   { color: #38bdf8; }
+
+        .perm-badge {
+            font-family: monospace; font-size: 0.78rem;
+            background: rgba(0,0,0,0.25); color: #94a3b8;
+            padding: 2px 8px; border-radius: 6px;
+        }
+        .size-text { color: #64748b; font-size: 0.82rem; }
+
+        /* Row checkbox */
+        .fm-check { width: 16px; height: 16px; accent-color: #6366f1; cursor: pointer; }
+
+        /* ── Modals ── */
+        .fm-modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+            z-index: 1000; align-items: center; justify-content: center;
+        }
+        .fm-modal-overlay.open { display: flex; }
+        .fm-modal {
+            background: linear-gradient(135deg,rgba(30,41,59,0.98),rgba(15,23,42,0.99));
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px; padding: 28px 32px; width: 420px; max-width: 95vw;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+            animation: modalIn 0.22s ease;
+        }
+        @keyframes modalIn { from { opacity:0; transform:scale(0.94); } to { opacity:1; transform:scale(1); } }
+        .fm-modal h3 { margin: 0 0 18px; font-size: 1.1rem; color: #fff; display: flex; align-items: center; gap: 10px; }
+        .fm-modal h3 i { color: #6366f1; }
+        .fm-input {
+            width: 100%; padding: 11px 14px; border-radius: 9px;
+            background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1);
+            color: #fff; font-size: 0.9rem; outline: none; margin-bottom: 16px;
+            font-family: 'Courier New', monospace;
+        }
+        .fm-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.2); }
+        .fm-modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 6px; }
+
+        /* Upload drop zone */
+        .upload-zone {
+            border: 2px dashed rgba(99,102,241,0.4); border-radius: 12px;
+            padding: 30px; text-align: center; cursor: pointer;
+            transition: all 0.2s; margin-bottom: 16px;
+            background: rgba(99,102,241,0.05);
+        }
+        .upload-zone:hover, .upload-zone.drag-over { border-color: #6366f1; background: rgba(99,102,241,0.12); }
+        .upload-zone i { font-size: 2rem; color: #6366f1; margin-bottom: 10px; display: block; }
+        .upload-zone p { color: #94a3b8; font-size: 0.88rem; margin: 0; }
+        #uploadProgress { height: 4px; background: rgba(255,255,255,0.06); border-radius: 4px; margin-top: 12px; display: none; }
+        #uploadProgressBar { height: 100%; background: linear-gradient(90deg,#6366f1,#10b981); border-radius: 4px; width: 0%; transition: width 0.3s; }
+
+        /* ── Toast ── */
+        .vp-toast-container { position: fixed; bottom: 24px; left: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .vp-toast {
+            background: rgba(15,23,42,0.97); backdrop-filter: blur(12px);
+            border-left: 4px solid #6366f1; color: #fff;
+            padding: 14px 20px; border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+            display: flex; align-items: center; gap: 10px;
+            transform: translateX(-120%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+            min-width: 260px; max-width: 380px; font-size: 0.88rem;
+        }
+        .vp-toast.show { transform: translateX(0); }
+        .vp-toast.success { border-color: #10b981; }
+        .vp-toast.error   { border-color: #ef4444; }
+        .vp-toast.info    { border-color: #38bdf8; }
+
+        /* Empty state */
+        .fm-empty { text-align: center; padding: 48px; color: #475569; }
+        .fm-empty i { font-size: 2.5rem; margin-bottom: 12px; display: block; }
+
+        /* ── Right-click Context Menu ── */
+        #ctx-menu {
+            position: fixed; z-index: 9999;
+            display: none;
+            min-width: 200px;
+            background: rgba(10, 14, 26, 0.98);
+            border: 1px solid rgba(99,102,241,0.25);
+            border-radius: 10px;
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.1);
+            padding: 5px;
+            animation: ctxIn 0.12s ease;
+        }
+        @keyframes ctxIn { from { opacity:0; transform:scale(0.94) translateY(-4px); } to { opacity:1; transform:scale(1) translateY(0); } }
+        .ctx-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 13px; border-radius: 6px;
+            font-size: 0.82rem; color: #e2e8f0; cursor: pointer;
+            transition: background 0.12s; white-space: nowrap;
+        }
+        .ctx-item:hover { background: rgba(99,102,241,0.18); color: #fff; }
+        .ctx-item i { width: 14px; text-align: center; color: #6366f1; font-size: 0.78rem; flex-shrink: 0; }
+        .ctx-sep { border: none; border-top: 1px solid rgba(255,255,255,0.05); margin: 4px 2px; }
+        .ctx-item.ctx-danger { color: #f87171; }
+        .ctx-item.ctx-danger i { color: #ef4444; }
+        .ctx-item.ctx-danger:hover { background: rgba(239,68,68,0.15); }
+        .ctx-label { padding: 4px 13px 2px; font-size: 0.7rem; color: #475569; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+
+        @media(max-width:768px) {
+            .fm-toolbar { padding: 10px; }
+            .fm-panel { margin: 10px; }
+            .fm-btn span { display: none; }
+        }
+    </style>
+</head>
+
+<body>
+{% csrf_token %}
+<div id="wrapper">
+    {% include 'control/navbar.html' %}
+    {% include 'control/left.html' %}
+    {% include 'control/right.html' %}
+
+    <div id="main-content">
+
+    <!-- ══ Toolbar ══ -->
+    <div class="fm-toolbar">
+        <div class="fm-toolbar-brand"><i class="fa fa-folder-open"></i> File Manager</div>
+
+        <a href="/control/filemanager/?key=/home/{{current}}" class="fm-btn"><i class="fa fa-home"></i><span>Home</span></a>
+        <a href="/control/filemanager/?key={{last}}" class="fm-btn"><i class="fa fa-arrow-up"></i><span>Parent</span></a>
+        <button onclick="goBack()" class="fm-btn"><i class="fa fa-arrow-left"></i></button>
+        <button onclick="goForward()" class="fm-btn"><i class="fa fa-arrow-right"></i></button>
+        <a href="/control/filemanager/?key={{main_dir}}" class="fm-btn"><i class="fa fa-refresh"></i></a>
+
+        <div style="width:1px; height:24px; background:rgba(255,255,255,0.08); margin:0 4px;"></div>
+
+        <button onclick="openModal('addfile')"   class="fm-btn"><i class="fa fa-file-o"></i><span>New File</span></button>
+        <button onclick="openModal('addfolder')" class="fm-btn"><i class="fa fa-folder-o"></i><span>New Folder</span></button>
+        <button onclick="openModal('addupload')" class="fm-btn success"><i class="fa fa-cloud-upload"></i><span>Upload</span></button>
+
+        <div style="width:1px; height:24px; background:rgba(255,255,255,0.08); margin:0 4px;"></div>
+
+        <button onclick="viewcopy()"        class="fm-btn"><i class="fa fa-copy"></i><span>Copy</span></button>
+        <button onclick="viewmove()"        class="fm-btn"><i class="fa fa-arrows"></i><span>Move</span></button>
+        <button onclick="viewrename()"      class="fm-btn"><i class="fa fa-pencil"></i><span>Rename</span></button>
+        <button onclick="viewpermission()"  class="fm-btn"><i class="fa fa-lock"></i><span>Chmod</span></button>
+        <button onclick="compress(event)"   class="fm-btn"><i class="fa fa-file-zip-o"></i><span>Compress</span></button>
+        <button onclick="extract(event)"    class="fm-btn"><i class="fa fa-expand"></i><span>Extract</span></button>
+        <button onclick="deletedata()"      class="fm-btn danger"><i class="fa fa-trash"></i><span>Delete</span></button>
+
+        <input type="text" class="fm-search" id="searchdata" placeholder="&#xf002;  Search files..." onkeyup="filterTable()">
+    </div>
+
+    <!-- ══ Breadcrumb ══ -->
+    <div class="fm-breadcrumb">
+        <a href="/control/filemanager/?key=/home/{{current}}"><i class="fa fa-home"></i></a>
+        <i class="fa fa-chevron-right" style="font-size:0.7rem;"></i>
+        <span style="color:#94a3b8; font-family:monospace;">{{main_dir}}</span>
+    </div>
+
+    <!-- ══ File Table ══ -->
+    <div class="fm-panel">
+        <table class="fm-table" id="checkboxTable">
+            <thead>
+                <tr>
+                    <th style="width:40px;"><input type="checkbox" class="fm-check" id="selectAll" onclick="toggleCheckboxes(this)"></th>
+                    <th>Name</th>
+                    <th>Size</th>
+                    <th>Permissions</th>
+                    <th>Type</th>
+                    <th style="text-align:right; width:130px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Directories -->
+                {% for key in items %}
+                <tr id="row-{{key.name}}" data-name="{{key.name}}" data-type="dir"
+                    oncontextmenu="showCtx(event,'{{key.name}}','dir')">
+                    <td><input type="checkbox" class="fm-check checkbox-tick" value="{{key.name}}"></td>
+                    <td onclick='redir("{{key.name}}")'>
+                        <div class="name-cell">
+                            {% if key.name == 'public_html' %}
+                            <svg class="fm-icon icon-folder" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/><path d="M12 10l-4 4h3v4h2v-4h3z" fill="rgba(255,255,255,0.3)"/></svg>
+                            {% else %}
+                            <svg class="fm-icon icon-folder" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/></svg>
+                            {% endif %}
+                            {{key.name}}
+                        </div>
+                    </td>
+                    <td class="size-text">{{key.size}}</td>
+                    <td><span class="perm-badge">{{key.permissions}}</span></td>
+                    <td class="size-text">Directory</td>
+                    <td style="text-align:right;">
+                        <button onclick="mydel('{{key.name}}','/deletefile{{main_dir}}/{{key.name}}/')" class="fm-btn danger" style="padding:4px 10px; font-size:0.78rem;">
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+
+                <!-- Files -->
+                {% for key in files %}
+                <tr id="row-{{key.name}}" data-name="{{key.name}}" data-type="file"
+                    oncontextmenu="showCtx(event,'{{key.name}}','file')">
+                    <td><input type="checkbox" class="fm-check checkbox-tick" value="{{key.name}}"></td>
+                    <td>
+                        <div class="name-cell">
+                            {% if 'image' in key.type %}
+                            <svg class="fm-icon icon-image" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                            {% elif 'zip' in key.type or 'compress' in key.type %}
+                            <svg class="fm-icon icon-zip" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6 7v2.5L10.5 18 7 15.5V13l3.5-2.5L14 13zm-3.5 0l-1.5 1 1.5 1 1.5-1-1.5-1z"/></svg>
+                            {% elif 'text' in key.type or 'html' in key.type or 'css' in key.type or 'javascript' in key.type or 'json' in key.type %}
+                            <svg class="fm-icon icon-code" viewBox="0 0 24 24" fill="currentColor"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
+                            {% else %}
+                            <svg class="fm-icon icon-file" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>
+                            {% endif %}
+                            {{key.name}}
+                        </div>
+                    </td>
+                    <td class="size-text">{{key.size}}</td>
+                    <td><span class="perm-badge">{{key.permissions}}</span></td>
+                    <td class="size-text" style="max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{key.type}}</td>
+                    <td style="text-align:right;">
+                        <div style="display:flex; gap:4px; justify-content:flex-end;">
+                            {% if 'image' not in key.type and 'video' not in key.type and 'application/octet' not in key.type %}
+                            <a href="/editor_view{{main_dir}}/{{key.name}}" target="_blank" class="fm-btn" style="padding:4px 8px;"><i class="fa fa-edit"></i></a>
+                            {% endif %}
+                            <a href="/download/?key={{main_dir}}/{{key.name}}" class="fm-btn" style="padding:4px 8px;"><i class="fa fa-download"></i></a>
+                            <button onclick="mydel('{{key.name}}','/deletefile{{main_dir}}/{{key.name}}/')" class="fm-btn danger" style="padding:4px 8px;">
+                                <i class="fa fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                {% endfor %}
+
+                {% if not items and not files %}
+                <tr><td colspan="6">
+                    <div class="fm-empty">
+                        <i class="fa fa-folder-open-o"></i>
+                        This directory is empty.
+                    </div>
+                </td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    </div><!-- /main-content -->
+</div><!-- /wrapper -->
+
+<!-- ══════════════════════ MODALS ══════════════════════ -->
+
+<!-- New File -->
+<div class="fm-modal-overlay" id="modal-addfile">
+    <div class="fm-modal">
+        <h3><i class="fa fa-file-o"></i> Create New File</h3>
+        <input type="text" class="fm-input" id="inp-addfile" placeholder="filename.txt">
+        <input type="hidden" id="path-addfile" value="{{main_dir|cut:'///'|cut:'////'|cut:'//'}}">
+        <div class="fm-modal-footer">
+            <button onclick="closeModal('addfile')" class="fm-btn">Cancel</button>
+            <button onclick="sub()" class="fm-btn primary"><i class="fa fa-plus"></i> Create</button>
+        </div>
+    </div>
+</div>
+
+<!-- New Folder -->
+<div class="fm-modal-overlay" id="modal-addfolder">
+    <div class="fm-modal">
+        <h3><i class="fa fa-folder-o"></i> Create New Folder</h3>
+        <input type="text" class="fm-input" id="inp-addfolder" placeholder="folder-name">
+        <input type="hidden" id="path-addfolder" value="{{main_dir|cut:'///'|cut:'////'|cut:'//'}}">
+        <div class="fm-modal-footer">
+            <button onclick="closeModal('addfolder')" class="fm-btn">Cancel</button>
+            <button onclick="sub1()" class="fm-btn primary"><i class="fa fa-plus"></i> Create</button>
+        </div>
+    </div>
+</div>
+
+<!-- Upload -->
+<div class="fm-modal-overlay" id="modal-addupload">
+    <div class="fm-modal" style="width:500px;">
+        <h3><i class="fa fa-cloud-upload"></i> Upload Files</h3>
+        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('uploadInput').click()">
+            <i class="fa fa-cloud-upload"></i>
+            <p>Click to browse or drag &amp; drop files here</p>
+            <p id="uploadFileName" style="color:#818cf8; margin-top:6px;"></p>
+        </div>
+        <input type="file" id="uploadInput" multiple hidden>
+        <div id="uploadProgress"><div id="uploadProgressBar"></div></div>
+        <div class="fm-modal-footer">
+            <button onclick="closeModal('addupload')" class="fm-btn">Cancel</button>
+            <button onclick="doUpload()" id="btnUpload" class="fm-btn primary"><i class="fa fa-upload"></i> Upload</button>
+        </div>
+    </div>
+</div>
+
+<!-- Copy -->
+<div class="fm-modal-overlay" id="modal-addcopy">
+    <div class="fm-modal">
+        <h3><i class="fa fa-copy"></i> Copy To</h3>
+        <input type="text" class="fm-input" id="inp-addcopy" placeholder="/home/user/destination/" value="{{main_dir|cut:'///'|cut:'////'|cut:'//'}}">
+        <div class="fm-modal-footer">
+            <button onclick="closeModal('addcopy')" class="fm-btn">Cancel</button>
+            <button onclick="copy(event)" id="addcopybtn" class="fm-btn primary"><i class="fa fa-copy"></i> Copy</button>
+        </div>
+    </div>
+</div>
+
+<!-- Move -->
+<div class="fm-modal-overlay" id="modal-addmove">
+    <div class="fm-modal">
+        <h3><i class="fa fa-arrows"></i> Move To</h3>
+        <input type="text" class="fm-input" id="inp-addmove" placeholder="/home/user/destination/" value="{{main_dir|cut:'///'|cut:'////'|cut:'//'}}">
+        <div class="fm-modal-footer">
+            <button onclick="closeModal('addmove')" class="fm-btn">Cancel</button>
+            <button onclick="move(event)" id="mymybutton" class="fm-btn primary"><i class="fa fa-arrows"></i> Move</button>
+        </div>
+    </div>
+</div>
+
+<!-- Rename -->
+<div class="fm-modal-overlay" id="modal-addrename">
+    <div class="fm-modal">
+        <h3><i class="fa fa-pencil"></i> Rename</h3>
+        <input type="text" class="fm-input" id="inp-addrename" placeholder="new-name">
+        <div class="fm-modal-footer">
+            <button onclick="closeModal('addrename')" class="fm-btn">Cancel</button>
+            <button onclick="rename(event)" class="fm-btn primary"><i class="fa fa-check"></i> Rename</button>
+        </div>
+    </div>
+</div>
+
+<!-- Permission -->
+<div class="fm-modal-overlay" id="modal-addpermission">
+    <div class="fm-modal">
+        <h3><i class="fa fa-lock"></i> Change Permissions (chmod)</h3>
+        <p style="color:#64748b; font-size:0.82rem; margin-bottom:12px;">Options: 000, 400, 500, 644, 666, 700, 750, 755, 770, 777</p>
+        <input type="text" class="fm-input" id="inp-addpermission" placeholder="755" maxlength="4">
+        <div class="fm-modal-footer">
+            <button onclick="closeModal('addpermission')" class="fm-btn">Cancel</button>
+            <button onclick="permission(event)" class="fm-btn primary"><i class="fa fa-check"></i> Apply</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Right-click Context Menu ── -->
+<div id="ctx-menu">
+    <div class="ctx-label" id="ctx-filename" style="margin-bottom:2px;"></div>
+    <div class="ctx-item" id="ctx-open"    onclick="ctxOpen()">    <i class="fa fa-folder-open"></i> Open / Navigate</div>
+    <div class="ctx-item" id="ctx-edit"    onclick="ctxEdit()">    <i class="fa fa-pencil"></i>      Edit File</div>
+    <div class="ctx-item" id="ctx-view"    onclick="ctxView()">    <i class="fa fa-eye"></i>         View</div>
+    <div class="ctx-item"                  onclick="ctxDownload()"><i class="fa fa-download"></i>     Download</div>
+    <hr class="ctx-sep">
+    <div class="ctx-item" onclick="ctxRename()">    <i class="fa fa-font"></i>          Rename</div>
+    <div class="ctx-item" onclick="ctxCopy()">      <i class="fa fa-copy"></i>          Copy To...</div>
+    <div class="ctx-item" onclick="ctxMove()">      <i class="fa fa-arrows"></i>        Move To...</div>
+    <div class="ctx-item" onclick="ctxCompress()">  <i class="fa fa-file-zip-o"></i>    Compress</div>
+    <div class="ctx-item" id="ctx-extract" onclick="ctxExtract()"><i class="fa fa-expand"></i>       Extract</div>
+    <div class="ctx-item" onclick="ctxPermission()"><i class="fa fa-lock"></i>          Chmod</div>
+    <hr class="ctx-sep">
+    <div class="ctx-item ctx-danger" onclick="ctxDelete()"><i class="fa fa-trash"></i> Delete</div>
+</div>
+
+<!-- Toast Container -->
+<div class="vp-toast-container" id="toastContainer"></div>
+
+<!-- ══════════════════════ SCRIPTS ══════════════════════ -->
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+
+<script>
+const CSRF = document.querySelector('[name=csrfmiddlewaretoken]').value;
+const CUR_PATH = "{{main_dir|cut:'///'|cut:'////'|cut:'//'}}";
+
+// ── Helpers ──────────────────────────────────────────────
+function showToast(msg, type='info') {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = `vp-toast ${type}`;
+    const icons = { success:'check-circle', error:'exclamation-circle', info:'info-circle' };
+    t.innerHTML = `<i class="fa fa-${icons[type]||'info-circle'}"></i><span>${msg}</span>`;
+    c.appendChild(t);
+    setTimeout(() => t.classList.add('show'), 10);
+    setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 3500);
+}
+
+function openModal(id)  { document.getElementById('modal-'+id).classList.add('open'); }
+function closeModal(id) { document.getElementById('modal-'+id).classList.remove('open'); }
+
+// Close modal on overlay click
+document.querySelectorAll('.fm-modal-overlay').forEach(el => {
+    el.addEventListener('click', e => { if(e.target === el) el.classList.remove('open'); });
+});
+
+function getChecked() {
+    return Array.from(document.querySelectorAll('#checkboxTable .checkbox-tick:checked')).map(c => c.value);
+}
+function toggleCheckboxes(cb) {
+    document.querySelectorAll('#checkboxTable .checkbox-tick').forEach(c => c.checked = cb.checked);
+}
+
+function goBack()    { window.history.back(); }
+function goForward() { window.history.forward(); }
+
+function redir(name) {
+    window.location.href = "/control/filemanager/?key=" + CUR_PATH + "/" + name;
+}
+
+// ── Context Menu ─────────────────────────────────────────
+let _ctx = null; // { name, type }
+
+function showCtx(e, name, type) {
+    e.preventDefault(); e.stopPropagation();
+    _ctx = { name, type };
+    const menu = document.getElementById('ctx-menu');
+    document.getElementById('ctx-filename').textContent = name;
+    // Show/hide context-aware items
+    document.getElementById('ctx-open').style.display    = type === 'dir'  ? 'flex' : 'none';
+    document.getElementById('ctx-edit').style.display    = type === 'file' ? 'flex' : 'none';
+    document.getElementById('ctx-view').style.display    = type === 'file' ? 'flex' : 'none';
+    document.getElementById('ctx-extract').style.display = (name.endsWith('.zip') || name.endsWith('.tar.gz')) ? 'flex' : 'none';
+    menu.style.display = 'block';
+    // Smart boundary detection
+    let x = e.clientX, y = e.clientY;
+    setTimeout(() => { // wait for paint to get real menu height
+        if (x + menu.offsetWidth  + 10 > window.innerWidth)  x = window.innerWidth  - menu.offsetWidth  - 10;
+        if (y + menu.offsetHeight + 10 > window.innerHeight) y = window.innerHeight - menu.offsetHeight - 10;
+        menu.style.left = x + 'px';
+        menu.style.top  = y + 'px';
+    }, 0);
+}
+
+document.addEventListener('click',   () => document.getElementById('ctx-menu').style.display = 'none');
+document.addEventListener('scroll',  () => document.getElementById('ctx-menu').style.display = 'none', true);
+document.addEventListener('keydown', e => { if(e.key === 'Escape') document.getElementById('ctx-menu').style.display = 'none'; });
+
+function ctxOpen()    { if(_ctx) redir(_ctx.name); }
+function ctxEdit()    { if(_ctx) window.open(`/editor_view{{main_dir}}/${_ctx.name}`, '_blank'); }
+function ctxView()    { if(_ctx) window.open(`/view{{main_dir}}/${_ctx.name}`, '_blank'); }
+function ctxDownload(){ if(_ctx) window.location.href = `/download/?key={{main_dir}}/${_ctx.name}`; }
+
+function ctxRename() {
+    if(!_ctx) return;
+    document.getElementById('inp-addrename').value = _ctx.name;
+    openModal('addrename');
+}
+function ctxCopy() {
+    if(!_ctx) return;
+    document.getElementById('inp-addcopy').value = CUR_PATH;
+    openModal('addcopy');
+    // Override copy() to use _ctx as the selection source
+    // We temporarily check the row
+    document.querySelectorAll('.checkbox-tick').forEach(c => c.checked = (c.value === _ctx.name));
+}
+function ctxMove() {
+    if(!_ctx) return;
+    document.getElementById('inp-addmove').value = CUR_PATH;
+    openModal('addmove');
+    document.querySelectorAll('.checkbox-tick').forEach(c => c.checked = (c.value === _ctx.name));
+}
+function ctxCompress() {
+    if(!_ctx) return;
+    showToast('Compressing...', 'info');
+    fetch("{% url 'compressdata' %}", {
+        method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+        body: JSON.stringify({ selected: [_ctx.name], path: CUR_PATH })
+    }).then(r=>r.json()).then(d=>{
+        if(d.status==='success') { showToast('Compressed!','success'); setTimeout(()=>location.reload(),800); }
+        else showToast(d.message||'Compress failed','error');
+    });
+}
+function ctxExtract() {
+    if(!_ctx) return;
+    showToast('Extracting...', 'info');
+    fetch("{% url 'extractdata' %}", {
+        method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},
+        body: JSON.stringify({ selected: [_ctx.name], path: CUR_PATH })
+    }).then(r=>r.json()).then(d=>{
+        if(d.status==='success') { showToast('Extracted!','success'); setTimeout(()=>location.reload(),800); }
+        else showToast(d.message||'Extraction failed','error');
+    });
+}
+function ctxPermission() {
+    if(!_ctx) return;
+    document.querySelectorAll('.checkbox-tick').forEach(c => c.checked = (c.value === _ctx.name));
+    openModal('addpermission');
+}
+function ctxDelete() {
+    if(!_ctx) return;
+    if(!confirm(`Delete "${_ctx.name}"?`)) return;
+    fetch(`/deletefile{{main_dir}}/${_ctx.name}/`, {
+        method:'POST', headers:{'X-CSRFToken':CSRF},
+        body: new URLSearchParams({'csrfmiddlewaretoken':CSRF})
+    }).then(r=>r.json()).then(d=>{
+        if(d.status==='success') { showToast('Deleted','success'); document.getElementById('row-'+_ctx.name)?.remove(); }
+        else showToast(d.message||'Delete failed','error');
+    });
+}
+
+// ── Search ───────────────────────────────────────────────
+function filterTable() {
+    const filter = document.getElementById('searchdata').value.toUpperCase();
+    document.querySelectorAll('#checkboxTable tbody tr').forEach(tr => {
+        const txt = tr.innerText || tr.textContent;
+        tr.style.display = txt.toUpperCase().includes(filter) ? '' : 'none';
+    });
+}
+
+// ── New File ─────────────────────────────────────────────
+function sub() {
+    const name = document.getElementById('inp-addfile').value.trim();
+    const path = document.getElementById('path-addfile').value;
+    if(!name) { showToast('Enter a file name', 'error'); return; }
+    const fd = new FormData();
+    fd.append('xfile', name);
+    fd.append('xfilepath', path);
+    fetch("{% url 'create_file' %}", { method:'POST', body:fd, headers:{'X-CSRFToken':CSRF} })
+        .then(r=>r.json()).then(d=>{
+            if(d.status==='success') { showToast('File created!','success'); closeModal('addfile'); setTimeout(()=>location.reload(),600); }
+            else if(d.status==='already') { showToast('File already exists','error'); }
+            else { showToast(d.message||'Error creating file','error'); }
+        }).catch(()=>showToast('Network error','error'));
+}
+
+// ── New Folder ───────────────────────────────────────────
+function sub1() {
+    const name = document.getElementById('inp-addfolder').value.trim();
+    const path = document.getElementById('path-addfolder').value;
+    if(!name) { showToast('Enter a folder name', 'error'); return; }
+    const fd = new FormData();
+    fd.append('xfolder', name);
+    fd.append('xfolderpath', path);
+    fetch("{% url 'create_folder' %}", { method:'POST', body:fd, headers:{'X-CSRFToken':CSRF} })
+        .then(r=>r.json()).then(d=>{
+            if(d.status==='success') { showToast('Folder created!','success'); closeModal('addfolder'); setTimeout(()=>location.reload(),600); }
+            else if(d.status==='already') { showToast('Folder already exists','error'); }
+            else { showToast(d.message||'Error creating folder','error'); }
+        }).catch(()=>showToast('Network error','error'));
+}
+
+// ── Upload ───────────────────────────────────────────────
+const uploadInput = document.getElementById('uploadInput');
+const uploadZone  = document.getElementById('uploadZone');
+
+uploadInput.addEventListener('change', () => {
+    const files = Array.from(uploadInput.files).map(f=>f.name).join(', ');
+    document.getElementById('uploadFileName').textContent = files || '';
+});
+
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+    e.preventDefault(); uploadZone.classList.remove('drag-over');
+    uploadInput.files = e.dataTransfer.files;
+    const files = Array.from(uploadInput.files).map(f=>f.name).join(', ');
+    document.getElementById('uploadFileName').textContent = files;
+});
+
+async function doUpload() {
+    if(!uploadInput.files.length) { showToast('Select files first','error'); return; }
+    const btn = document.getElementById('btnUpload');
+    btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading...';
+    const prog = document.getElementById('uploadProgress');
+    const bar  = document.getElementById('uploadProgressBar');
+    prog.style.display = 'block'; bar.style.width = '30%';
+
+    const fd = new FormData();
+    Array.from(uploadInput.files).forEach(f=>fd.append('file', f));
+    fd.append('file_path', CUR_PATH);
+
+    try {
+        const r = await fetch("{% url 'upload_file' %}", { method:'POST', body:fd, headers:{'X-CSRFToken':CSRF} });
+        const d = await r.json();
+        bar.style.width = '100%';
+        if(d.status==='success') { showToast(d.message,'success'); closeModal('addupload'); setTimeout(()=>location.reload(),600); }
+        else { showToast(d.message||'Upload failed','error'); }
+    } catch(e) { showToast('Network error during upload','error'); }
+    finally { prog.style.display='none'; bar.style.width='0%'; btn.disabled=false; btn.innerHTML='<i class="fa fa-upload"></i> Upload'; }
+}
+
+// ── Single Delete ─────────────────────────────────────────
+function mydel(name, path) {
+    if(!confirm(`Delete "${name}"?`)) return;
+    $.ajax({ url:path, type:'POST', data:{'csrfmiddlewaretoken':CSRF},
+        success: r => {
+            if(r.status==='success') {
+                showToast('Deleted successfully','success');
+                const row = document.getElementById('row-'+name);
+                if(row) row.remove(); else location.reload();
+            } else { showToast('Error deleting','error'); }
+        }, error: () => showToast('Error deleting file','error')
+    });
+}
+
+// ── Bulk Delete ───────────────────────────────────────────
+function deletedata() {
+    const sel = getChecked();
+    if(!sel.length) { showToast('Select at least one item','error'); return; }
+    if(!confirm(`Delete ${sel.length} item(s)?`)) return;
+    fetch("{% url 'ddeletedata' %}", { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF}, body: JSON.stringify({selected:sel, path:CUR_PATH}) })
+        .then(r=>r.json()).then(d=>{
+            if(d.status==='success') { showToast('Deleted successfully','success'); setTimeout(()=>location.reload(),600); }
+            else showToast(d.message||'Error deleting','error');
+        }).catch(()=>showToast('Network error','error'));
+}
+
+// ── Copy ──────────────────────────────────────────────────
+function viewcopy() {
+    const sel = getChecked();
+    if(!sel.length) { showToast('Select files/folders to copy','error'); return; }
+    openModal('addcopy');
+}
+function copy(event) {
+    if(event) event.preventDefault();
+    const sel = getChecked(); const dest = document.getElementById('inp-addcopy').value;
+    if(!sel.length) { showToast('Select items first','error'); return; }
+    const btn = document.getElementById('addcopybtn');
+    btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Copying...';
+    fetch("{% url 'copydata' %}", { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF}, body:JSON.stringify({selected:sel,path:CUR_PATH,copy:dest}) })
+        .then(r=>r.json()).then(d=>{
+            closeModal('addcopy');
+            if(d.status==='success') showToast('Copied successfully!','success');
+            else if(d.status==='already') showToast('Some files already exist at destination','info');
+            else if(d.status==='Overload') showToast('Disk quota exceeded!','error');
+            else if(d.status==='invalid') showToast('Invalid destination path. Use /home/user/folder','error');
+            else showToast(d.message||'Copy failed','error');
+        }).catch(()=>showToast('Network error','error'))
+        .finally(()=>{ btn.disabled=false; btn.innerHTML='<i class="fa fa-copy"></i> Copy'; });
+}
+
+// ── Move ──────────────────────────────────────────────────
+function viewmove() {
+    const sel = getChecked();
+    if(!sel.length) { showToast('Select files/folders to move','error'); return; }
+    openModal('addmove');
+}
+function move(event) {
+    if(event) event.preventDefault();
+    const sel = getChecked(); const dest = document.getElementById('inp-addmove').value;
+    if(!sel.length) { showToast('Select items first','error'); return; }
+    const btn = document.getElementById('mymybutton');
+    btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Moving...';
+    fetch("{% url 'movedata' %}", { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF}, body:JSON.stringify({selected:sel,path:CUR_PATH,copy:dest}) })
+        .then(r=>r.json()).then(d=>{
+            closeModal('addmove');
+            if(d.status==='success') showToast('Moved successfully!','success');
+            else if(d.status==='invalid') showToast('Destination not found','error');
+            else if(d.status==='Overload') showToast('Disk quota exceeded!','error');
+            else showToast(d.message||'Move failed','error');
+        }).catch(()=>showToast('Network error','error'))
+        .finally(()=>{ btn.disabled=false; btn.innerHTML='<i class="fa fa-arrows"></i> Move'; });
+}
+
+// ── Rename ────────────────────────────────────────────────
+function viewrename() {
+    const sel = getChecked();
+    if(sel.length !== 1) { showToast('Select exactly one item to rename','error'); return; }
+    document.getElementById('inp-addrename').value = sel[0];
+    openModal('addrename');
+}
+function rename(event) {
+    if(event) event.preventDefault();
+    const sel = getChecked(); const newName = document.getElementById('inp-addrename').value.trim();
+    if(!newName) { showToast('Enter a new name','error'); return; }
+    fetch("{% url 'renamedata' %}", { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF}, body:JSON.stringify({selected:sel,path:CUR_PATH,copy:newName}) })
+        .then(r=>r.json()).then(d=>{
+            closeModal('addrename');
+            if(d.status==='success') { showToast('Renamed!','success'); setTimeout(()=>location.reload(),600); }
+            else showToast(d.message||'Rename failed','error');
+        }).catch(()=>showToast('Network error','error'));
+}
+
+// ── Permissions ───────────────────────────────────────────
+function viewpermission() {
+    const sel = getChecked();
+    if(!sel.length) { showToast('Select items to change permissions','error'); return; }
+    openModal('addpermission');
+}
+function permission(event) {
+    if(event) event.preventDefault();
+    const sel = getChecked(); const per = document.getElementById('inp-addpermission').value.trim();
+    const valid = ["000","400","500","644","666","700","750","755","770","777"];
+    if(!valid.includes(per)) { showToast('Invalid permission. Use one of: '+valid.join(', '),'error'); return; }
+    fetch("{% url 'permissiondata' %}", { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF}, body:JSON.stringify({selected:sel,path:CUR_PATH,copy:per}) })
+        .then(r=>r.json()).then(d=>{
+            closeModal('addpermission');
+            showToast('Permissions updated to '+per,'success');
+        }).catch(()=>showToast('Network error','error'));
+}
+
+// ── Compress ──────────────────────────────────────────────
+function compress(event) {
+    if(event) event.preventDefault();
+    const sel = getChecked();
+    if(!sel.length) { showToast('Select items to compress','error'); return; }
+    showToast('Compressing...','info');
+    fetch("{% url 'compressdata' %}", { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF}, body:JSON.stringify({selected:sel,path:CUR_PATH}) })
+        .then(r=>r.json()).then(d=>{
+            if(d.status==='success') { showToast('Compressed successfully!','success'); setTimeout(()=>location.reload(),800); }
+            else if(d.status==='Overload') showToast('Disk quota exceeded!','error');
+            else showToast(d.message||'Compression failed','error');
+        }).catch(()=>showToast('Network error','error'));
+}
+
+// ── Extract ───────────────────────────────────────────────
+function extract(event) {
+    if(event) event.preventDefault();
+    const sel = getChecked();
+    if(sel.length !== 1) { showToast('Select exactly one ZIP file to extract','error'); return; }
+    showToast('Extracting archive...','info');
+    fetch("{% url 'extractdata' %}", { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF}, body:JSON.stringify({selected:sel,path:CUR_PATH}) })
+        .then(r=>r.json()).then(d=>{
+            if(d.status==='success') { showToast('Extracted successfully!','success'); setTimeout(()=>location.reload(),800); }
+            else if(d.status==='Overload') showToast('Disk quota exceeded!','error');
+            else showToast(d.message||'Extraction failed. Use a ZIP file.','error');
+        }).catch(()=>showToast('Network error','error'));
+}
+
+// ── Prevent spaces in filename inputs ────────────────────
+['inp-addfile','inp-addfolder','inp-addrename','inp-addpermission'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) {
+        el.addEventListener('keydown', e => { if(e.key===' ') e.preventDefault(); });
+        el.addEventListener('input', () => { el.value = el.value.replace(/\s+/g,''); });
+    }
+});
+</script>
+</body>
+</html>

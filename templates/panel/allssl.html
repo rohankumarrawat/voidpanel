@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>:: VoidPanel :: Full SSL</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="VoidPanel Full SSL ">
+    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+
+    <!-- VENDOR CSS -->
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
+
+    <!-- MAIN Project CSS file -->
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+
+    <style>
+        .glass-card {
+            background: rgba(25, 25, 25, 0.6) !important;
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 12px !important;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+            color: #ffffff !important;
+        }
+
+        .glass-card h4, .glass-card h2, .glass-card h6, .glass-card p, .glass-card label, .glass-card span, .glass-card th, .glass-card td {
+            color: #ffffff !important;
+        }
+
+        .table-transparent {
+            background-color: transparent !important;
+        }
+
+        .table-transparent tbody tr:hover {
+            background-color: rgba(255, 255, 255, 0.05) !important;
+        }
+        
+        /* Modern full-screen blur scanner */
+        #pro1 {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 10, 10, 0.85);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            z-index: 9999;
+            color: #fff;
+            text-align: center;
+        }
+        .scanner-box {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .scanner-ring {
+            width: 80px; height: 80px;
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top: 4px solid #00f2fe;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+
+<body data-theme="dark" class="font-nunito">
+
+    <div id="wrapper" class="theme-cyan">
+
+        <div class="page-loader-wrapper">
+            <div class="loader">
+                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel"></div>
+                <p>Please wait...</p>
+            </div>
+        </div>
+
+        {% include 'navbar.html' %}
+        {% include 'left.html' %}
+        {% include 'right.html' %}
+
+        <!-- PROCESSING OVERLAY -->
+        <div id="pro1">
+            <div class="scanner-box">
+                <div class="scanner-ring"></div>
+                <h4 style="color: #ffffff !important; letter-spacing: 2px;">Processing SSL Configuration...</h4>
+                <p style="color: rgba(255,255,255,0.6) !important;">This runs in the background. You can navigate away safely.</p>
+            </div>
+        </div>
+
+        <div id="main-content">
+            <div class="container-fluid">
+                <div class="block-header">
+                    <div class="row">
+                        <div class="col-lg-10 col-md-6 col-sm-12">
+                            <h2 style="color: #ffffff !important;">Auto SSL Manager</h2>
+                            <ul class="breadcrumb">
+                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard" style="color: #ffffff !important;"></i></a></li>
+                                <li class="breadcrumb-item" style="color: #ffffff !important;">Dashboard</li>
+                                <li class="breadcrumb-item active" style="color: #ffffff !important;">Auto SSL</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row clearfix" style="margin-top: 20px;">
+                    <!-- LEFT COLUMN: Actions & Info -->
+                    <div class="col-lg-4 col-md-12">
+                        <div class="card glass-card">
+                            <div class="body text-center">
+                                <img src="/static/icons/ssl.png" style="height: 100px; width: 100px; border-radius: 15%; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+                                <h4>Auto SSL</h4>
+                                <p style="color: rgba(255,255,255,0.7) !important;">Automatically secure all pending domains using Let's Encrypt. The operation will run securely in the background.</p>
+                                
+                                <form id="sslform">{% csrf_token %}</form>
+                                <button onclick="runssl(event);" class="btn btn-primary btn-block" style="border-radius: 30px; font-weight: bold; background: linear-gradient(45deg, #007bff, #00c6ff); border: none; padding: 10px 0;">
+                                    <i class="fa fa-lock"></i> Run AutoSSL for All
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="card glass-card" style="margin-top: 20px;">
+                            <div class="header">
+                                <h2>SSL Logs</h2>
+                            </div>
+                            <div class="body">
+                                <div style="max-height: 200px; overflow-y: auto; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px;">
+                                    {% for i in logs %}
+                                        <div style="font-family: monospace; font-size: 13px; color: #4CAF50; border-bottom: 1px solid rgba(255,255,255,0.05); padding: 5px 0;">
+                                            > {{ i }}
+                                        </div>
+                                    {% empty %}
+                                        <div style="color: rgba(255,255,255,0.5); font-style: italic;">No recent SSL logs.</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT COLUMN: Domain List Table -->
+                    <div class="col-lg-8 col-md-12">
+                        <div class="card glass-card">
+                            <div class="header">
+                                <h2>Domains Status</h2>
+                            </div>
+                            <div class="body table-responsive">
+                                <table class="table table-transparent table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th style="border-top: none; border-bottom: 2px solid rgba(255,255,255,0.1);">Domain Name</th>
+                                            <th style="border-top: none; border-bottom: 2px solid rgba(255,255,255,0.1);">SSL Status</th>
+                                            <th style="border-top: none; border-bottom: 2px solid rgba(255,255,255,0.1);">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for i in domain %}
+                                        <tr>
+                                            <td style="vertical-align: middle; border-color: rgba(255,255,255,0.05);"><strong>{{ i.domain }}</strong></td>
+                                            <td style="vertical-align: middle; border-color: rgba(255,255,255,0.05);">
+                                                {% if i.sslstatus %}
+                                                    <span class="badge badge-success" style="padding: 8px 12px; border-radius: 20px; background: rgba(40,167,69,0.2) !important; color: #4cf27b !important; border: 1px solid rgba(40,167,69,0.5);"><i class="fa fa-check"></i> Secured</span>
+                                                {% else %}
+                                                    <span class="badge badge-danger" style="padding: 8px 12px; border-radius: 20px; background: rgba(220,53,69,0.2) !important; color: #ff6b6b !important; border: 1px solid rgba(220,53,69,0.5);"><i class="fa fa-times"></i> Unsecured</span>
+                                                {% endif %}
+                                            </td>
+                                            <td style="vertical-align: middle; border-color: rgba(255,255,255,0.05);">
+                                                <button onclick="sslfor(event, '{{ i.domain }}');" class="btn btn-sm btn-outline-info" style="border-radius: 20px; transition: all 0.3s;">
+                                                    Issue Cert <i class="fa fa-bolt"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Success Modal (Reused) -->
+        <div class="modal fade" id="successModal" tabindex="-1" role="dialog" aria-hidden="true">
+            <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
+                <div class="modal-content glass-card" style="border: 1px solid rgba(40,167,69,0.5) !important;">
+                    <div class="modal-body text-center" style="padding: 30px;">
+                        <div style="font-size: 50px; color: #4cf27b; margin-bottom: 15px;"><i class="fa fa-check-circle"></i></div>
+                        <h5 style="color: #fff !important; margin-bottom: 10px;">Process Started</h5>
+                        <p id="successMessage" style="color: rgba(255,255,255,0.7) !important; font-size: 14px;">The SSL certificates are being processed in the background.</p>
+                        <button type="button" class="btn btn-success mt-3" style="border-radius: 20px; padding: 5px 25px;" data-dismiss="modal" onclick="location.reload();">OK</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- JS Logic -->
+        <script>
+            // Single Domain SSL
+            async function sslfor(event, domainName) {
+                event.preventDefault();
+                document.getElementById('pro1').style.display = "block";
+                
+                try {
+                    const response = await fetch('/runsslforall1/', {
+                        method: 'POST',
+                        body: JSON.stringify({ name: domainName }),
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                        }
+                    });
+                    const result = await response.json();
+                    
+                    document.getElementById('pro1').style.display = "none";
+                    if (response.ok && result.status === 'success') {
+                        document.getElementById('successMessage').innerText = "SSL generation initiated for " + domainName + ". It may take a couple minutes to complete.";
+                        $('#successModal').modal('show');
+                    } else {
+                        alert("Error: " + (result.message || "Request failed"));
+                    }
+                } catch (error) {
+                    document.getElementById('pro1').style.display = "none";
+                    alert("Network error occurred.");
+                }
+            }
+
+            // Run All SSL
+            async function runssl(event) {
+                event.preventDefault();
+                document.getElementById('pro1').style.display = "block";
+                
+                try {
+                    const response = await fetch('/runsslforall/', {
+                        method: 'POST',
+                        body: new FormData(document.getElementById('sslform')),
+                        headers: {
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                        }
+                    });
+                    const result = await response.json();
+                    
+                    document.getElementById('pro1').style.display = "none";
+                    if (response.ok && result.status === 'success') {
+                        document.getElementById('successMessage').innerText = "Background generation initiated for all unsecured domains.";
+                        $('#successModal').modal('show');
+                    } else {
+                        alert("Error: " + (result.message || "Request failed"));
+                    }
+                } catch (error) {
+                    document.getElementById('pro1').style.display = "none";
+                    alert("Network error occurred.");
+                }
+            }
+        </script>
+
+        <!-- Javascript -->
+        <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+        <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+        <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+
+    </div>
+</body>
+</html>

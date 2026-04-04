@@ -1,0 +1,543 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <title>:: VoidPanel :: DNS Manager</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="VoidPanel DNS Zone Editor">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+
+    <style>
+        .dns-container {
+            --bg-card: rgba(15, 23, 42, 0.85);
+            --border: rgba(99, 102, 241, 0.2);
+            --border-light: rgba(255,255,255,0.07);
+            --accent: #6366f1;
+            --accent-hover: #818cf8;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #475569;
+            --radius: 12px;
+            --radius-sm: 8px;
+            font-family: 'Inter', sans-serif;
+            color: var(--text-primary);
+            padding: 25px 5px;
+            margin-top: 10px;
+        }
+        .dns-container * { box-sizing: border-box; }
+
+        /* Page Header */
+        .dns-container .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; background: transparent; padding: 10px 0; box-shadow: none; border: none; }
+        .dns-container .page-title { display: flex; align-items: center; gap: 15px; }
+        .dns-container .page-title .icon { width: 44px; height: 44px; border-radius: 10px; background: rgba(99,102,241,0.12); color: var(--accent-hover); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+        .dns-container .page-title h1 { font-size: 1.25rem; font-weight: 700; margin:0; color:var(--text-primary); }
+        .dns-container .page-title p { font-size: 0.8rem; color: var(--text-muted); margin: 2px 0 0 0; }
+
+        /* Glass Card */
+        .glass-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius); padding: 24px; backdrop-filter: blur(20px); margin-bottom: 24px; }
+        .glass-card h3 { font-size: 1rem; margin: 0 0 20px 0; color: var(--text-primary); font-weight: 600; display: flex; align-items: center; gap: 10px; }
+
+        /* DNS Table */
+        .dns-table { width: 100%; border-collapse: separate; border-spacing: 0 6px; }
+        .dns-table th { padding: 10px 14px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border-light); }
+        .dns-table td { padding: 14px; background: rgba(255,255,255,0.03); font-size: 0.83rem; vertical-align: middle; border-top: 1px solid transparent; border-bottom: 1px solid transparent; transition: background 0.18s; }
+        .dns-table tbody tr:hover td { background: rgba(99,102,241,0.05); }
+        .dns-table td:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+        .dns-table td:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; text-align: right; }
+
+        /* Type badge */
+        .type-badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px; }
+        .type-A     { background: rgba(99,102,241,0.15); color: #818cf8; }
+        .type-AAAA  { background: rgba(139,92,246,0.15); color: #a78bfa; }
+        .type-CNAME { background: rgba(16,185,129,0.15); color: #34d399; }
+        .type-MX    { background: rgba(245,158,11,0.15); color: #fbbf24; }
+        .type-TXT   { background: rgba(236,72,153,0.15); color: #f472b6; }
+        .type-NS    { background: rgba(59,130,246,0.15); color: #60a5fa; }
+        .type-SOA   { background: rgba(107,114,128,0.15); color: #9ca3af; }
+        .type-SRV   { background: rgba(239,68,68,0.15); color: #f87171; }
+        .type-other { background: rgba(255,255,255,0.07); color: var(--text-muted); }
+
+        .data-cell { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; color: var(--text-secondary); font-family: 'Courier New', monospace; font-size: 0.78rem; }
+        .data-cell:hover { color: var(--text-primary); }
+
+        /* Buttons */
+        .btn-add { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: var(--radius-sm); background: linear-gradient(135deg, var(--accent), var(--accent-hover)); color: white; border: none; font-size: 0.83rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .btn-add:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-del { background: rgba(239,68,68,0.12); color: var(--danger); border: 1px solid rgba(239,68,68,0.25); border-radius: 6px; padding: 5px 10px; font-size: 0.78rem; cursor: pointer; transition: all 0.18s; display: inline-flex; align-items: center; gap: 5px; }
+        .btn-del:hover { background: rgba(239,68,68,0.22); }
+        .btn-del:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-view { background: rgba(99,102,241,0.12); color: var(--accent-hover); border: 1px solid rgba(99,102,241,0.2); border-radius: 6px; padding: 5px 10px; font-size: 0.78rem; cursor: pointer; transition: all 0.18s; display: inline-flex; align-items: center; gap: 5px; }
+        .btn-view:hover { background: rgba(99,102,241,0.22); }
+
+        /* Form */
+        .dns-field { margin-bottom: 14px; }
+        .dns-field label { display: block; font-size: 0.8rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
+        .dns-field input, .dns-field select {
+            width: 100%; padding: 9px 12px; border-radius: var(--radius-sm);
+            background: rgba(0,0,0,0.25) !important; border: 1px solid var(--border-light) !important;
+            color: var(--text-primary) !important; font-size: 0.83rem; font-family: 'Inter', sans-serif;
+            transition: border-color 0.2s; outline: none; appearance: none;
+        }
+        .dns-field input:focus, .dns-field select:focus { border-color: var(--accent) !important; }
+        .dns-field select option { background: #0f172a; color: #f1f5f9; }
+        .btn-submit { width: 100%; padding: 11px; border-radius: var(--radius-sm); background: linear-gradient(135deg, var(--accent), var(--accent-hover)); color: white; border: none; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-submit:hover { opacity: 0.9; }
+        .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* Alert error box */
+        .dns-alert { padding: 14px 18px; border-radius: var(--radius-sm); background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: var(--danger); font-size: 0.85rem; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+
+        /* Toast */
+        #toast-stack { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+        .toast-msg { min-width: 260px; padding: 14px 20px; border-radius: var(--radius-sm); font-size: 0.83rem; font-weight: 500; backdrop-filter: blur(20px); box-shadow: 0 10px 40px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 12px; animation: toastIn 0.3s cubic-bezier(0.16,1,0.3,1); background: rgba(15,23,42,0.95); border: 1px solid var(--border-light); color: white; }
+        .toast-msg.success { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.3); color: var(--success); }
+        .toast-msg.error   { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.3); color: var(--danger); }
+        @keyframes toastIn { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
+
+        /* Modal */
+        .modal-overlay { display:none; position:fixed; inset:0; background:rgba(8,12,26,0.88); backdrop-filter:blur(10px); z-index:10000; align-items:center; justify-content:center; }
+        .modal-overlay.show { display:flex; }
+        .modal-glass { background:var(--bg-card); border:1px solid var(--border-light); border-radius:20px; padding:30px 32px; width:100%; max-width:480px; animation:popIn 0.22s ease; }
+        @keyframes popIn { from{transform:scale(0.92);opacity:0;} to{transform:scale(1);opacity:1;} }
+        .modal-glass h3 { font-size:1.1rem; font-weight:700; color:var(--text-primary); margin:0 0 20px 0; display:flex; align-items:center; gap:10px; }
+        .modal-glass .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        .modal-glass .form-grid .span-full { grid-column: 1 / -1; }
+        .modal-footer-btns { display:flex; gap:10px; margin-top:18px; }
+        .btn-cancel { flex:1; padding:10px; border-radius:var(--radius-sm); border:1px solid var(--border-light); background:rgba(255,255,255,0.05); color:#fff; cursor:pointer; font-size:0.85rem; transition:background 0.2s; }
+        .btn-cancel:hover { background:rgba(255,255,255,0.1); }
+
+        /* View modal */
+        .view-modal-glass { background:var(--bg-card); border:1px solid var(--border-light); border-radius:16px; padding:24px; width:100%; max-width:560px; animation:popIn 0.22s ease; }
+        .view-modal-glass pre { background:rgba(0,0,0,0.3); padding:14px; border-radius:8px; color:#a5f3fc; font-size:0.8rem; word-break:break-all; white-space:pre-wrap; margin:0; max-height:200px; overflow-y:auto; }
+
+        /* Empty state */
+        .empty-state { text-align:center; padding:40px; color:var(--text-muted); }
+        .empty-state i { font-size:2.5rem; opacity:0.3; margin-bottom:12px; display:block; }
+    </style>
+</head>
+
+<body data-theme="light" class="font-nunito">
+<div id="wrapper" class="theme-cyan">
+
+    <div class="page-loader-wrapper">
+        <div class="loader">
+            <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel"></div>
+            <p>Please wait...</p>
+        </div>
+    </div>
+
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
+
+    <div id="main-content">
+        <div class="container-fluid">
+            <div class="dns-container">
+
+                <div class="page-header">
+                    <div class="page-title">
+                        <div class="icon"><i class="fa-solid fa-server"></i></div>
+                        <div>
+                            <h1>DNS Zone Editor</h1>
+                            <p>Managing zone records for <strong style="color:var(--accent-hover);">{{ domain }}</strong></p>
+                        </div>
+                    </div>
+                    <button class="btn-add" onclick="openAddModal()">
+                        <i class="fa-solid fa-plus"></i> Add DNS Record
+                    </button>
+                </div>
+
+                {% if error %}
+                <div class="dns-alert">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    {{ error }}
+                </div>
+                {% endif %}
+
+                <div class="glass-card">
+                    <h3><i class="fa-solid fa-list-ul" style="color:var(--accent);"></i> Zone Records</h3>
+                    <div style="overflow-x:auto;">
+                        <table class="dns-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>TTL</th>
+                                    <th>Type</th>
+                                    <th>Value</th>
+                                    <th style="text-align:right;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for i in data %}
+                                <tr>
+                                    <td style="font-weight:600; color:#fff;">{{ i.name }}</td>
+                                    <td style="color:var(--text-muted); font-family:monospace;">{{ i.ttl|default:"86400" }}</td>
+                                    <td>
+                                        <span class="type-badge type-{{ i.type }}">{{ i.type }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="data-cell" onclick="openViewModal('{{ i.data|escapejs }}')" title="{{ i.data }}">
+                                            {{ i.data|truncatechars:45 }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div style="display:inline-flex; gap:6px; align-items:center;">
+                                            <button class="btn-view" onclick="openViewModal('{{ i.data|escapejs }}')">
+                                                <i class="fa-solid fa-eye"></i>
+                                            </button>
+                                            {% if i.name != 'default._domainkey' and i.type != 'SOA' %}
+                                            <button class="btn-view" onclick="openEditModal('{{ i.name|escapejs }}', '{{ i.type|escapejs }}', '{{ i.data|escapejs }}', '{{ i.ttl|escapejs }}')" style="color:#f59e0b; border-color:rgba(245,158,11,0.3); background:rgba(245,158,11,0.1);">
+                                                <i class="fa-solid fa-pen"></i> Edit
+                                            </button>
+                                            <button class="btn-del" onclick="confirmDelete('{{ i.name|escapejs }}', '{{ i.type|escapejs }}', '{{ i.data|escapejs }}', '{{ i.ttl|escapejs }}')">
+                                                <i class="fa-solid fa-trash-can"></i> Delete
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="5">
+                                    <div class="empty-state">
+                                        <i class="fa-solid fa-database"></i>
+                                        No DNS records found in zone file. Add your first record above.
+                                    </div>
+                                </td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="toast-stack"></div>
+
+<!-- ADD RECORD MODAL -->
+<div class="modal-overlay" id="modal-add">
+    <div class="modal-glass">
+        <h3><i class="fa-solid fa-circle-plus" style="color:var(--success);"></i> Add DNS Record</h3>
+        <form id="form-add-record" onsubmit="submitAddRecord(event)">
+            <div class="form-grid">
+                <div class="dns-field">
+                    <label>Record Name</label>
+                    <input type="text" id="inp-name" name="name" placeholder="@ or subdomain" required>
+                </div>
+                <div class="dns-field">
+                    <label>Record Type</label>
+                    <select id="inp-type" name="type" required>
+                        <option value="">— Select Type —</option>
+                        <option value="A">A (IPv4 Address)</option>
+                        <option value="AAAA">AAAA (IPv6 Address)</option>
+                        <option value="CNAME">CNAME (Alias)</option>
+                        <option value="MX">MX (Mail Exchange)</option>
+                        <option value="TXT">TXT (Text)</option>
+                        <option value="NS">NS (Name Server)</option>
+                        <option value="SRV">SRV (Service)</option>
+                        <option value="CAA">CAA (Certification Authority)</option>
+                        <option value="PTR">PTR (Pointer)</option>
+                    </select>
+                </div>
+                <div class="dns-field span-full">
+                    <label>Value / Data</label>
+                    <input type="text" id="inp-data" name="data" placeholder="e.g. 192.0.2.1 or mail.example.com." required>
+                </div>
+                <div class="dns-field">
+                    <label>TTL (seconds)</label>
+                    <input type="text" id="inp-ttl" name="ttl" placeholder="86400" value="86400">
+                </div>
+                <div class="dns-field">
+                    <label>Class</label>
+                    <select name="class">
+                        <option value="IN" selected>IN (Internet)</option>
+                    </select>
+                </div>
+                <input type="hidden" name="domain" value="{{ domain }}">
+            </div>
+            <div class="modal-footer-btns">
+                <button type="button" class="btn-cancel" onclick="closeAddModal()">Cancel</button>
+                <button type="submit" class="btn-submit" id="btn-add-submit">
+                    <i class="fa-solid fa-check"></i> Create Record
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- EDIT RECORD MODAL -->
+<div class="modal-overlay" id="modal-edit">
+    <div class="modal-glass">
+        <h3><i class="fa-solid fa-pen" style="color:var(--warning);"></i> Edit DNS Record</h3>
+        <form id="form-edit-record" onsubmit="submitEditRecord(event)">
+            <input type="hidden" id="edit-old-name" name="old_name">
+            <input type="hidden" id="edit-old-type" name="old_type">
+            <input type="hidden" id="edit-old-data" name="old_data">
+            <input type="hidden" name="domain" value="{{ domain }}">
+            <div class="form-grid">
+                <div class="dns-field">
+                    <label>Record Name</label>
+                    <input type="text" id="edit-inp-name" name="name" required>
+                </div>
+                <div class="dns-field">
+                    <label>Record Type</label>
+                    <select id="edit-inp-type" name="type" required>
+                        <option value="A">A (IPv4 Address)</option>
+                        <option value="AAAA">AAAA (IPv6 Address)</option>
+                        <option value="CNAME">CNAME (Alias)</option>
+                        <option value="MX">MX (Mail Exchange)</option>
+                        <option value="TXT">TXT (Text)</option>
+                        <option value="NS">NS (Name Server)</option>
+                        <option value="SRV">SRV (Service)</option>
+                        <option value="CAA">CAA (Certification Authority)</option>
+                        <option value="PTR">PTR (Pointer)</option>
+                    </select>
+                </div>
+                <div class="dns-field span-full">
+                    <label>Value / Data</label>
+                    <input type="text" id="edit-inp-data" name="data" required>
+                </div>
+                <div class="dns-field">
+                    <label>TTL (seconds)</label>
+                    <input type="text" id="edit-inp-ttl" name="ttl" value="86400">
+                </div>
+                <div class="dns-field">
+                    <label>Class</label>
+                    <select name="class">
+                        <option value="IN" selected>IN (Internet)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer-btns">
+                <button type="button" class="btn-cancel" onclick="closeEditModal()">Cancel</button>
+                <button type="submit" class="btn-submit" id="btn-edit-submit" style="background: linear-gradient(135deg, #f59e0b, #fbbf24);">
+                    <i class="fa-solid fa-check"></i> Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- VIEW RECORD MODAL -->
+<div class="modal-overlay" id="modal-view">
+    <div class="view-modal-glass">
+        <h3 style="color:var(--text-primary); font-size:1rem; margin:0 0 14px 0;"><i class="fa-solid fa-eye" style="color:var(--accent);"></i> Full Record Value</h3>
+        <pre id="view-data-content"></pre>
+        <div style="margin-top:16px; text-align:right;">
+            <button class="btn-cancel" style="max-width:120px;" onclick="closeViewModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div class="modal-overlay" id="modal-delete">
+    <div class="modal-glass" style="max-width:380px; text-align:center;">
+        <i class="fa-solid fa-triangle-exclamation" style="font-size:2.5rem; color:var(--danger); margin-bottom:14px;"></i>
+        <h3 style="justify-content:center; font-size:1.1rem;">Confirm Deletion</h3>
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:8px;">You are about to permanently delete:</p>
+        <div style="background:rgba(0,0,0,0.2); padding:10px 14px; border-radius:8px; margin-bottom:20px; text-align:left;">
+            <span style="font-size:0.8rem; color:var(--text-secondary);">Name: <strong id="del-name" style="color:#fff;"></strong></span><br>
+            <span style="font-size:0.8rem; color:var(--text-secondary);">Type: <strong id="del-type" style="color:#fff;"></strong></span>
+        </div>
+        <div class="modal-footer-btns">
+            <button class="btn-cancel" onclick="closeDeleteModal()">Abort</button>
+            <button id="btn-confirm-del" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:none; background:var(--danger); color:#fff; font-weight:600; cursor:pointer; font-size:0.85rem;" onclick="executeDelete()">
+                <i class="fa-solid fa-trash-can"></i> Delete Record
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const CSRF_TOKEN = "{{ csrf_token }}";
+    const DOMAIN     = "{{ domain }}";
+    let pendingDelete = null;
+
+    // Toast System
+    function toast(msg, type='info') {
+        const stack = document.getElementById('toast-stack');
+        const el = document.createElement('div');
+        el.className = `toast-msg ${type}`;
+        const icon = type === 'success' ? 'fa-circle-check' : type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-info';
+        el.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${msg}</span>`;
+        stack.appendChild(el);
+        setTimeout(() => el.remove(), 4500);
+    }
+
+    // ADD RECORD MODAL
+    function openAddModal() {
+        document.getElementById('modal-add').classList.add('show');
+    }
+    function closeAddModal() {
+        document.getElementById('modal-add').classList.remove('show');
+        document.getElementById('form-add-record').reset();
+        const btn = document.getElementById('btn-add-submit');
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Create Record';
+        btn.disabled = false;
+    }
+
+    async function submitAddRecord(e) {
+        e.preventDefault();
+        const form = e.target;
+        const btn = document.getElementById('btn-add-submit');
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Processing...';
+        btn.disabled = true;
+
+        try {
+            const resp = await fetch('/adddnsrecord/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': CSRF_TOKEN, 'X-Requested-With': 'XMLHttpRequest' },
+                body: new FormData(form)
+            });
+            const data = await resp.json();
+            if (resp.ok && data.success) {
+                toast(data.message || 'Record added successfully.', 'success');
+                closeAddModal();
+                setTimeout(() => location.reload(), 900);
+            } else {
+                toast(data.error || 'Failed to add record.', 'error');
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Create Record';
+                btn.disabled = false;
+            }
+        } catch(err) {
+            toast('Network error. Please retry.', 'error');
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Create Record';
+            btn.disabled = false;
+        }
+    }
+
+    // EDIT RECORD MODAL
+    function openEditModal(name, type, data, ttl) {
+        document.getElementById('edit-old-name').value = name;
+        document.getElementById('edit-old-type').value = type;
+        document.getElementById('edit-old-data').value = data;
+        
+        document.getElementById('edit-inp-name').value = name;
+        document.getElementById('edit-inp-type').value = type;
+        document.getElementById('edit-inp-data').value = data;
+        document.getElementById('edit-inp-ttl').value = ttl || '86400';
+        
+        document.getElementById('modal-edit').classList.add('show');
+    }
+    function closeEditModal() {
+        document.getElementById('modal-edit').classList.remove('show');
+        const btn = document.getElementById('btn-edit-submit');
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Save Changes';
+        btn.disabled = false;
+    }
+
+    async function submitEditRecord(e) {
+        e.preventDefault();
+        const form = e.target;
+        const btn = document.getElementById('btn-edit-submit');
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...';
+        btn.disabled = true;
+
+        try {
+            const resp = await fetch('/editdnsrecord/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': CSRF_TOKEN, 'X-Requested-With': 'XMLHttpRequest' },
+                body: new FormData(form)
+            });
+            const data = await resp.json();
+            if (resp.ok && data.success) {
+                toast(data.message || 'Record updated.', 'success');
+                closeEditModal();
+                setTimeout(() => location.reload(), 900);
+            } else {
+                toast(data.error || 'Failed to edit record.', 'error');
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Save Changes';
+                btn.disabled = false;
+            }
+        } catch(err) {
+            toast('Network error saving changes.', 'error');
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Save Changes';
+            btn.disabled = false;
+        }
+    }
+
+    // VIEW MODAL
+    function openViewModal(data) {
+        document.getElementById('view-data-content').textContent = data;
+        document.getElementById('modal-view').classList.add('show');
+    }
+    function closeViewModal() {
+        document.getElementById('modal-view').classList.remove('show');
+    }
+
+    // DELETE MODAL
+    function confirmDelete(name, type, data, ttl) {
+        pendingDelete = { name, type, data, ttl };
+        document.getElementById('del-name').textContent = name;
+        document.getElementById('del-type').textContent = type;
+        document.getElementById('modal-delete').classList.add('show');
+    }
+    function closeDeleteModal() {
+        pendingDelete = null;
+        document.getElementById('modal-delete').classList.remove('show');
+        const btn = document.getElementById('btn-confirm-del');
+        btn.innerHTML = '<i class="fa-solid fa-trash-can"></i> Delete Record';
+        btn.disabled = false;
+    }
+
+    async function executeDelete() {
+        if (!pendingDelete) return;
+        const btn = document.getElementById('btn-confirm-del');
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Deleting...';
+        btn.disabled = true;
+
+        const formData = new FormData();
+        formData.append('domain', DOMAIN);
+        formData.append('name',   pendingDelete.name);
+        formData.append('type',   pendingDelete.type);
+        formData.append('data',   pendingDelete.data);
+        formData.append('ttl',    pendingDelete.ttl);
+
+        try {
+            const resp = await fetch('/deletedns/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': CSRF_TOKEN, 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData
+            });
+            const data = await resp.json();
+            if (resp.ok && data.status === 'success') {
+                toast(data.message, 'success');
+                closeDeleteModal();
+                setTimeout(() => location.reload(), 900);
+            } else {
+                toast(data.message || 'Failed to delete record.', 'error');
+                closeDeleteModal();
+            }
+        } catch(err) {
+            toast('Network error during deletion.', 'error');
+            closeDeleteModal();
+        }
+    }
+
+    // Close modals on overlay click
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+        el.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.remove('show');
+                pendingDelete = null;
+            }
+        });
+    });
+</script>
+
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+</body>
+</html>

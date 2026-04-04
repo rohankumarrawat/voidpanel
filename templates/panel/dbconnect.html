@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>:: VoidPanel :: Database Manager</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="VoidPanel Database Manager — Manage databases and users for {{ domain }}.">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css"/>
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --glass-bg: rgba(255,255,255,0.07);
+            --glass-border: rgba(255,255,255,0.13);
+            --glass-shadow: 0 8px 32px rgba(0,0,0,0.28);
+            --accent: #7c3aed;
+            --accent-2: #2563eb;
+            --radius: 18px;
+            --text: #e2e8f0;
+            --subtext: #94a3b8;
+        }
+        body { font-family: 'Inter', sans-serif; }
+
+        /* ── Toast ── */
+        #toast-stack { position:fixed; top:22px; right:22px; z-index:9999; display:flex; flex-direction:column; gap:10px; }
+        .vp-toast {
+            min-width:300px; padding:14px 20px; border-radius:12px;
+            font-size:14px; font-weight:500; color:#fff;
+            display:flex; align-items:center; gap:10px;
+            backdrop-filter:blur(16px); animation:toastIn .3s ease;
+            box-shadow:0 8px 24px rgba(0,0,0,0.3);
+        }
+        .vp-toast.success { background:rgba(22,163,74,0.85); border-left:4px solid #4ade80; }
+        .vp-toast.error   { background:rgba(220,38,38,0.85); border-left:4px solid #f87171; }
+        .vp-toast.info    { background:rgba(37,99,235,0.85); border-left:4px solid #60a5fa; }
+        @keyframes toastIn { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
+
+        /* ── Glass ── */
+        .glass-card {
+            background:var(--glass-bg); border:1px solid var(--glass-border);
+            border-radius:var(--radius); padding:28px;
+            backdrop-filter:blur(14px); box-shadow:var(--glass-shadow);
+            margin-bottom:28px; transition:transform .2s, box-shadow .2s;
+        }
+        .glass-card:hover { transform:translateY(-2px); box-shadow:0 12px 40px rgba(0,0,0,.35); }
+        .glass-card h5 {
+            font-size:15px; font-weight:700; letter-spacing:.4px;
+            display:flex; align-items:center; gap:10px;
+            margin-bottom:22px; padding-bottom:14px;
+            border-bottom:1px solid var(--glass-border);
+        }
+        .glass-card h5 i { font-size:18px; color:var(--accent); }
+
+        /* ── Domain badge ── */
+        .domain-hero {
+            display:flex; align-items:center; gap:16px; padding:22px 0 8px 0;
+        }
+        .domain-hero .hero-icon {
+            width:52px; height:52px; border-radius:14px;
+            display:flex; align-items:center; justify-content:center;
+            background:linear-gradient(135deg,var(--accent),var(--accent-2));
+            font-size:22px; color:#fff; box-shadow:0 4px 16px rgba(124,58,237,.4);
+        }
+        .domain-hero h2 { font-size:22px; font-weight:800; margin:0; color:#e2e8f0; }
+        .domain-hero p  { font-size:13px; color:var(--subtext); margin:0; }
+        .domain-pill {
+            display:inline-flex; align-items:center; gap:6px;
+            padding:4px 14px; background:rgba(124,58,237,.18);
+            border:1px solid rgba(124,58,237,.35); border-radius:20px;
+            font-size:12px; font-weight:700; color:#a78bfa; margin-top:6px;
+        }
+
+        /* ── DB Input ── */
+        .db-input {
+            width:100%; padding:11px 16px; font-size:14px; font-weight:500;
+            background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14);
+            border-radius:10px; color:#e2e8f0; outline:none;
+            transition:border .2s, box-shadow .2s; margin-bottom:14px;
+        }
+        .db-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(124,58,237,.2); }
+        .db-input::placeholder { color:#64748b; }
+        .prefix-group { display:flex; align-items:center; gap:0; margin-bottom:14px; }
+        .prefix-badge {
+            padding:11px 14px; background:rgba(124,58,237,.25);
+            border:1px solid rgba(124,58,237,.4); border-right:none;
+            border-radius:10px 0 0 10px; font-size:13px; font-weight:600; color:#a78bfa;
+        }
+        .prefix-group .db-input { border-radius:0 10px 10px 0; margin-bottom:0; }
+
+        /* ── Buttons ── */
+        .btn-glass-primary {
+            padding:11px 22px; font-size:14px; font-weight:600;
+            background:linear-gradient(135deg,var(--accent),var(--accent-2));
+            color:#fff; border:none; border-radius:10px; cursor:pointer;
+            display:inline-flex; align-items:center; gap:8px;
+            transition:opacity .2s, transform .1s; width:100%; justify-content:center;
+        }
+        .btn-glass-primary:hover { opacity:.88; transform:translateY(-1px); }
+        .btn-glass-primary.loading { opacity:.6; pointer-events:none; }
+        .btn-glass-secondary {
+            padding:8px 16px; font-size:13px; font-weight:600;
+            background:rgba(255,255,255,.08); color:#e2e8f0;
+            border:1px solid rgba(255,255,255,.14); border-radius:8px; cursor:pointer;
+            display:inline-flex; align-items:center; gap:6px; transition:background .2s;
+        }
+        .btn-glass-secondary:hover { background:rgba(255,255,255,.14); }
+        .btn-danger-sm {
+            padding:6px 14px; font-size:12px; font-weight:600;
+            background:rgba(220,38,38,.16); color:#f87171;
+            border:1px solid rgba(220,38,38,.35); border-radius:8px; cursor:pointer;
+            display:inline-flex; align-items:center; gap:5px; transition:background .2s;
+        }
+        .btn-danger-sm:hover { background:rgba(220,38,38,.3); }
+        .btn-success-sm {
+            padding:6px 14px; font-size:12px; font-weight:600;
+            background:rgba(22,163,74,.15); color:#4ade80;
+            border:1px solid rgba(22,163,74,.3); border-radius:8px; cursor:pointer;
+            display:inline-flex; align-items:center; gap:5px; transition:background .2s;
+        }
+        .btn-success-sm:hover { background:rgba(22,163,74,.28); }
+
+        /* ── Connect bar ── */
+        .connect-bar {
+            display:flex; align-items:center; gap:12px;
+            padding:20px 28px; background:var(--glass-bg);
+            border:1px solid var(--glass-border); border-radius:var(--radius);
+            backdrop-filter:blur(14px); margin-bottom:28px; flex-wrap:wrap;
+        }
+        .connect-bar img { height:48px; width:48px; border-radius:10px; }
+        .connect-bar select {
+            flex:1; min-width:160px; padding:10px 14px; font-size:14px;
+            background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14);
+            border-radius:10px; color:#e2e8f0; outline:none;
+        }
+        .connect-bar select option { background:#1e1b4b; }
+
+        /* ── Table ── */
+        .db-table { width:100%; border-collapse:separate; border-spacing:0 6px; }
+        .db-table thead th {
+            font-size:11px; font-weight:700; letter-spacing:.8px; text-transform:uppercase;
+            color:var(--subtext); padding:6px 14px; border:none;
+        }
+        .db-table tbody tr {
+            background:rgba(255,255,255,.05); border-radius:10px; transition:background .18s;
+        }
+        .db-table tbody tr:hover { background:rgba(124,58,237,.12); }
+        .db-table tbody td {
+            padding:12px 14px; font-size:13px; font-weight:500; color:#e2e8f0;
+            border:none; vertical-align:middle;
+        }
+        .db-table tbody td:first-child { border-radius:10px 0 0 10px; }
+        .db-table tbody td:last-child  { border-radius:0 10px 10px 0; }
+        .db-badge {
+            display:inline-flex; align-items:center; gap:6px;
+            padding:3px 10px; font-size:11px; font-weight:700;
+            background:rgba(124,58,237,.18); color:#a78bfa;
+            border-radius:20px; letter-spacing:.3px;
+        }
+        .user-badge {
+            display:inline-flex; align-items:center; gap:6px;
+            padding:3px 10px; font-size:11px; font-weight:700;
+            background:rgba(37,99,235,.15); color:#7dd3fc;
+            border-radius:20px; letter-spacing:.3px;
+        }
+
+        /* ── Modals ── */
+        .vp-overlay {
+            position:fixed; inset:0; background:rgba(0,0,0,.6);
+            z-index:5000; display:none; align-items:center; justify-content:center;
+        }
+        .vp-overlay.active { display:flex; }
+        .vp-modal {
+            background:#1e1b4b; border:1px solid rgba(124,58,237,.35);
+            border-radius:20px; padding:32px; width:100%; max-width:500px;
+            box-shadow:0 20px 60px rgba(0,0,0,.5); animation:modalIn .25s ease;
+        }
+        @keyframes modalIn { from{opacity:0;transform:scale(.96)} to{opacity:1;transform:scale(1)} }
+        .vp-modal h6 { font-size:16px; font-weight:700; margin-bottom:18px; color:#e2e8f0; }
+        .perm-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:18px; }
+        .perm-chip {
+            padding:8px 6px; text-align:center; font-size:12px; font-weight:700;
+            border:1px solid rgba(255,255,255,.12); border-radius:8px;
+            background:rgba(255,255,255,.05); color:#94a3b8; cursor:pointer;
+            transition:all .18s; user-select:none;
+        }
+        .perm-chip.active { background:rgba(124,58,237,.3); border-color:var(--accent); color:#c4b5fd; }
+        .perm-all { display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:#94a3b8; cursor:pointer; margin-bottom:12px; }
+        .perm-all input { accent-color:var(--accent); width:16px; height:16px; }
+        .modal-footer-btns { display:flex; gap:10px; justify-content:flex-end; }
+
+        /* Password strength */
+        .pass-strength { height:4px; border-radius:2px; margin-bottom:8px; transition:all .3s; background:#334155; }
+        .pass-strength.weak   { background:linear-gradient(90deg,#dc2626 30%,#334155 30%); }
+        .pass-strength.medium { background:linear-gradient(90deg,#d97706 60%,#334155 60%); }
+        .pass-strength.strong { background:linear-gradient(90deg,#16a34a 100%,#334155 100%); }
+    </style>
+</head>
+
+<body data-theme="light" class="font-nunito">
+<div id="toast-stack"></div>
+
+<div id="wrapper" class="theme-cyan">
+    <div class="page-loader-wrapper">
+        <div class="loader">
+            <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel"></div>
+            <p>Please wait...</p>
+        </div>
+    </div>
+
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
+
+    <div id="main-content">
+        <div class="container-fluid">
+
+            <!-- Hero -->
+            <div class="domain-hero">
+                <div class="hero-icon"><i class="fa fa-database"></i></div>
+                <div>
+                    <h2>Database Manager</h2>
+                    <span class="domain-pill"><i class="fa fa-globe"></i> {{ domain }}</span>
+                </div>
+            </div>
+
+            <!-- ── Connect bar ── -->
+            <div class="connect-bar" style="margin-top:20px;">
+                <img src="/static/icons/mydb.svg" alt="DB">
+                <select id="dbSelect">
+                    <option>Select Database</option>
+                    {% for i in database %}<option value="{{ i }}">{{ i }}</option>{% endfor %}
+                </select>
+                <select id="userSelect">
+                    <option>Select User</option>
+                    {% for i in users %}
+                    {% if i != 'newuser' and i != 'roundcube' and i != 'roundcubeuser' %}
+                    <option value="{{ i }}">{{ i }}</option>
+                    {% endif %}{% endfor %}
+                </select>
+                <button class="btn-glass-primary" onclick="openPermModal()" style="width:auto; padding:10px 22px;">
+                    <i class="fa fa-link"></i> Grant Permissions
+                </button>
+            </div>
+
+            <!-- ── Lists ── -->
+            <div class="row">
+                <!-- DB List -->
+                <div class="col-lg-6 col-md-12">
+                    <div class="glass-card">
+                        <h5><i class="fa fa-th-list"></i> Databases</h5>
+                        <div class="table-responsive" style="max-height:340px; overflow-y:auto;">
+                            <table class="db-table">
+                                <thead><tr><th>Name</th><th>Domain</th><th>Action</th></tr></thead>
+                                <tbody>
+                                {% for i in database %}
+                                <tr>
+                                    <td><span class="db-badge"><i class="fa fa-circle" style="font-size:7px;"></i>{{ i }}</span></td>
+                                    <td style="color:var(--subtext);">{{ domain }}</td>
+                                    <td>
+                                        <button class="btn-danger-sm" onclick="deleteDB('{{ domain }}','{{ i }}',this)">
+                                            <i class="fa fa-trash"></i> Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="3" style="text-align:center;color:var(--subtext);padding:30px;">No databases yet.</td></tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- User List -->
+                <div class="col-lg-6 col-md-12">
+                    <div class="glass-card">
+                        <h5><i class="fa fa-users"></i> Database Users</h5>
+                        <div class="table-responsive" style="max-height:340px; overflow-y:auto;">
+                            <table class="db-table">
+                                <thead><tr><th>Username</th><th>Domain</th><th>Actions</th></tr></thead>
+                                <tbody>
+                                {% for i in users %}
+                                {% if i != 'newuser' and i != 'roundcube' and i != 'roundcubeuser' %}
+                                <tr>
+                                    <td><span class="user-badge"><i class="fa fa-user" style="font-size:9px;"></i>{{ i }}</span></td>
+                                    <td style="color:var(--subtext);">{{ domain }}</td>
+                                    <td style="display:flex; gap:6px; flex-wrap:wrap;">
+                                        <button class="btn-success-sm" onclick="openChpModal('{{ i }}')">
+                                            <i class="fa fa-key"></i> Password
+                                        </button>
+                                        <button class="btn-danger-sm" onclick="deleteUser('{{ domain }}','{{ i }}',this)">
+                                            <i class="fa fa-trash"></i> Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% empty %}
+                                <tr><td colspan="3" style="text-align:center;color:var(--subtext);padding:30px;">No users yet.</td></tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ Permission Modal ══ -->
+<div class="vp-overlay" id="permOverlay">
+    <div class="vp-modal">
+        <form id="permForm">{% csrf_token %}
+        <input type="hidden" id="permDbName" name="databasename">
+        <input type="hidden" id="permUserName" name="databaseusername">
+        <h6><i class="fa fa-shield" style="color:var(--accent);margin-right:8px;"></i> Grant Permissions</h6>
+        <label class="perm-all">
+            <input type="checkbox" id="selectAllPerms" onchange="toggleAllPerms(this)"> Select All
+        </label>
+        <div class="perm-grid">
+            <div class="perm-chip" data-perm="SELECT" onclick="togglePerm(this)">SELECT</div>
+            <div class="perm-chip" data-perm="INSERT" onclick="togglePerm(this)">INSERT</div>
+            <div class="perm-chip" data-perm="UPDATE" onclick="togglePerm(this)">UPDATE</div>
+            <div class="perm-chip" data-perm="DELETE" onclick="togglePerm(this)">DELETE</div>
+            <div class="perm-chip" data-perm="EXECUTE" onclick="togglePerm(this)">EXECUTE</div>
+            <div class="perm-chip" data-perm="CREATE" onclick="togglePerm(this)">CREATE</div>
+            <div class="perm-chip" data-perm="DROP" onclick="togglePerm(this)">DROP</div>
+            <div class="perm-chip" data-perm="ALTER" onclick="togglePerm(this)">ALTER</div>
+        </div>
+        <div class="modal-footer-btns">
+            <button type="button" class="btn-glass-secondary" onclick="closePermModal()">Cancel</button>
+            <button type="button" class="btn-glass-primary" onclick="grantPerms()" style="width:auto;">
+                <i class="fa fa-check"></i> Grant
+            </button>
+        </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══ Change Password Modal ══ -->
+<div class="vp-overlay" id="chpOverlay">
+    <div class="vp-modal">
+        <form id="chpForm">{% csrf_token %}
+        <input type="hidden" id="chpUsername" name="databaseuser">
+        <h6><i class="fa fa-key" style="color:var(--accent);margin-right:8px;"></i> Change User Password</h6>
+        <input class="db-input" type="password" name="password" id="chpPw" placeholder="New Password" required>
+        <div class="modal-footer-btns">
+            <button type="button" class="btn-glass-secondary" onclick="closeChpModal()">Cancel</button>
+            <button type="button" class="btn-glass-primary" onclick="changePass()" style="width:auto;">
+                <i class="fa fa-save"></i> Update
+            </button>
+        </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function toast(msg, type='info') {
+    const s=document.getElementById('toast-stack');
+    const t=document.createElement('div'); t.className=`vp-toast ${type}`;
+    const icon=type==='success'?'check-circle':type==='error'?'times-circle':'info-circle';
+    t.innerHTML=`<i class="fa fa-${icon}"></i><span>${msg}</span>`;
+    s.appendChild(t);
+    setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .4s'; setTimeout(()=>t.remove(),400); },3500);
+}
+function csrf() { return document.querySelector('[name=csrfmiddlewaretoken]').value; }
+
+async function deleteDB(domain, db, btn) {
+    if (!confirm(`Delete database "${db}"? This cannot be undone.`)) return;
+    btn.disabled=true; btn.innerHTML='<i class="fa fa-spinner fa-spin"></i>';
+    try {
+        const fd=new FormData(); fd.append('csrfmiddlewaretoken',csrf());
+        const r=await fetch(`/dbreomve/${domain}/${db}/`,{method:'POST',body:fd,headers:{'X-CSRFToken':csrf()}});
+        const d=await r.json();
+        if (d.status==='success') { toast('Database deleted.','success'); btn.closest('tr').style.opacity='.3'; setTimeout(()=>btn.closest('tr').remove(),500); }
+        else { toast(d.message||'Delete failed.','error'); btn.disabled=false; btn.innerHTML='<i class="fa fa-trash"></i> Delete'; }
+    } catch { toast('Network error.','error'); btn.disabled=false; btn.innerHTML='<i class="fa fa-trash"></i> Delete'; }
+}
+
+async function deleteUser(domain, usr, btn) {
+    if (!confirm(`Delete user "${usr}"?`)) return;
+    btn.disabled=true; btn.innerHTML='<i class="fa fa-spinner fa-spin"></i>';
+    try {
+        const fd=new FormData(); fd.append('csrfmiddlewaretoken',csrf());
+        const r=await fetch(`/dbuserremove/${domain}/${usr}/`,{method:'POST',body:fd,headers:{'X-CSRFToken':csrf()}});
+        const d=await r.json();
+        if (d.status==='success') { toast('User deleted.','success'); btn.closest('tr').style.opacity='.3'; setTimeout(()=>btn.closest('tr').remove(),500); }
+        else { toast(d.message||'Delete failed.','error'); btn.disabled=false; btn.innerHTML='<i class="fa fa-trash"></i> Delete'; }
+    } catch { toast('Network error.','error'); btn.disabled=false; btn.innerHTML='<i class="fa fa-trash"></i> Delete'; }
+}
+
+function openPermModal() {
+    const db=document.getElementById('dbSelect').value;
+    const usr=document.getElementById('userSelect').value;
+    if (db.startsWith('Select')||usr.startsWith('Select')) { toast('Select a database AND a user first.','error'); return; }
+    document.getElementById('permDbName').value=db;
+    document.getElementById('permUserName').value=usr;
+    document.getElementById('permOverlay').classList.add('active');
+}
+function closePermModal() { document.getElementById('permOverlay').classList.remove('active'); }
+function togglePerm(el) { el.classList.toggle('active'); }
+function toggleAllPerms(cb) { document.querySelectorAll('.perm-chip').forEach(c=>cb.checked?c.classList.add('active'):c.classList.remove('active')); }
+async function grantPerms() {
+    const fd=new FormData(document.getElementById('permForm'));
+    document.querySelectorAll('.perm-chip.active').forEach(c=>fd.append(c.dataset.perm.toLowerCase(),c.dataset.perm));
+    try {
+        const r=await fetch('/addpermissiontouser/',{method:'POST',body:fd,headers:{'X-CSRFToken':csrf()}});
+        const d=await r.json();
+        if (d.status==='success') { toast('Permissions granted!','success'); closePermModal(); }
+        else { toast(d.message||'Failed.','error'); }
+    } catch { toast('Network error.','error'); }
+}
+
+function openChpModal(usr) { document.getElementById('chpUsername').value=usr; document.getElementById('chpOverlay').classList.add('active'); }
+function closeChpModal() { document.getElementById('chpOverlay').classList.remove('active'); }
+async function changePass() {
+    const fd=new FormData(document.getElementById('chpForm'));
+    try {
+        const r=await fetch('/changepasswordforuser/',{method:'POST',body:fd,headers:{'X-CSRFToken':csrf()}});
+        const d=await r.json();
+        if (d.status==='success') { toast('Password updated!','success'); closeChpModal(); }
+        else { toast(d.message||'Failed.','error'); }
+    } catch { toast('Network error.','error'); }
+}
+
+document.getElementById('permOverlay').addEventListener('click',function(e){if(e.target===this)closePermModal();});
+document.getElementById('chpOverlay').addEventListener('click',function(e){if(e.target===this)closeChpModal();});
+</script>
+
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/vendor/toastr/toastr.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+</body>
+</html>

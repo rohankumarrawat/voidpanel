@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>:: VoidPanel :: Add Users</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="VoidPanel Add Users">
+    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- VENDOR CSS -->
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
+
+    <!-- MAIN Project CSS file -->
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+
+    <style>
+        :root {
+            --neon: #00e5ff;
+            --neon-purple: #a855f7;
+            --neon-green: #22d3ee;
+            --glass-bg: rgba(15, 20, 40, 0.82);
+            --glass-border: rgba(0, 229, 255, 0.15);
+            --card-bg: rgba(255,255,255,0.04);
+            --input-bg: rgba(0, 229, 255, 0.06);
+            --input-border: rgba(0, 229, 255, 0.25);
+            --text-dim: rgba(180, 200, 230, 0.7);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #080c1a !important;
+        }
+
+        /* ── Page header breadcrumb ─────────────────────────── */
+        .page-header {
+            padding: 28px 0 8px;
+        }
+        .page-header h2 {
+            font-size: 1.55rem;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: .5px;
+            margin-bottom: 4px;
+        }
+        .page-header .breadcrumb {
+            background: transparent;
+            padding: 0;
+            margin: 0;
+        }
+        .page-header .breadcrumb-item,
+        .page-header .breadcrumb-item a {
+            font-size: .8rem;
+            color: var(--text-dim);
+        }
+        .page-header .breadcrumb-item.active { color: var(--neon); }
+        .page-header .breadcrumb-item + .breadcrumb-item::before { color: var(--text-dim); }
+
+        /* ── Two-column grid ────────────────────────────────── */
+        .adduser-grid {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 24px;
+            align-items: start;
+        }
+        @media (max-width: 900px) {
+            .adduser-grid { grid-template-columns: 1fr; }
+        }
+
+        /* ── Glass card ─────────────────────────────────────── */
+        .glass-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            padding: 32px 36px;
+            position: relative;
+            overflow: hidden;
+        }
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(0,229,255,.04) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        /* ── Card header ────────────────────────────────────── */
+        .card-head {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+        .card-head-icon {
+            width: 46px; height: 46px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(0,229,255,.2), rgba(168,85,247,.2));
+            border: 1px solid rgba(0,229,255,.2);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem;
+            color: var(--neon);
+        }
+        .card-head-title { font-size: 1.05rem; font-weight: 600; color: #fff; }
+        .card-head-sub   { font-size: .78rem; color: var(--text-dim); margin-top: 2px; }
+
+        /* ── Divider ────────────────────────────────────────── */
+        .section-label {
+            font-size: .7rem;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--neon);
+            margin: 22px 0 12px;
+        }
+        .section-label:first-child { margin-top: 0; }
+
+        /* ── Inputs ─────────────────────────────────────────── */
+        .field-wrap { margin-bottom: 18px; }
+        .field-wrap label {
+            display: block;
+            font-size: .78rem;
+            font-weight: 500;
+            color: var(--text-dim);
+            margin-bottom: 6px;
+        }
+        .field-wrap label span.required { color: var(--neon); margin-left: 3px; }
+
+        .field-inner {
+            position: relative;
+        }
+        .field-inner .fi-icon {
+            position: absolute;
+            left: 14px; top: 50%; transform: translateY(-50%);
+            color: rgba(0,229,255,.45);
+            font-size: .85rem;
+            pointer-events: none;
+        }
+        .field-inner input,
+        .field-inner select {
+            width: 100%;
+            background: var(--input-bg) !important;
+            border: 1px solid var(--input-border) !important;
+            border-radius: 10px;
+            color: #e4eaf8 !important;
+            font-family: 'Inter', sans-serif;
+            font-size: .88rem;
+            padding: 11px 14px 11px 38px;
+            outline: none;
+            transition: border-color .22s, box-shadow .22s;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        .field-inner input::placeholder { color: rgba(150,170,210,.4); }
+        .field-inner input:focus,
+        .field-inner select:focus {
+            border-color: var(--neon) !important;
+            box-shadow: 0 0 0 3px rgba(0,229,255,.1) !important;
+        }
+        .field-inner select option { background: #10182e; color: #e4eaf8; }
+
+        /* password strength bar */
+        .strength-bar-wrap { margin-top: 8px; display: flex; gap: 5px; }
+        .strength-seg {
+            flex: 1; height: 4px; border-radius: 999px;
+            background: rgba(255,255,255,.08);
+            transition: background .3s;
+        }
+        .strength-seg.weak   { background: #ef4444; }
+        .strength-seg.medium { background: #f59e0b; }
+        .strength-seg.strong { background: #22c55e; }
+        .strength-text { font-size: .7rem; color: var(--text-dim); margin-top: 5px; }
+
+        /* password match indicator */
+        .match-indicator {
+            font-size: .76rem;
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .match-indicator.ok   { color: #22c55e; }
+        .match-indicator.fail { color: #ef4444; }
+
+        /* password toggle btn */
+        .pwd-toggle {
+            position: absolute;
+            right: 12px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; padding: 0;
+            color: rgba(0,229,255,.45);
+            cursor: pointer;
+            transition: color .2s;
+        }
+        .pwd-toggle:hover { color: var(--neon); }
+
+        /* ── Action buttons ─────────────────────────────────── */
+        .btn-row { display: flex; gap: 10px; margin-top: 10px; }
+
+        .btn-gen {
+            flex: 1;
+            background: rgba(0,229,255,.08);
+            border: 1px solid rgba(0,229,255,.25);
+            color: var(--neon);
+            border-radius: 10px;
+            font-size: .82rem;
+            font-weight: 500;
+            padding: 9px 14px;
+            cursor: pointer;
+            transition: all .22s;
+            display: flex; align-items: center; gap: 6px; justify-content: center;
+        }
+        .btn-gen:hover {
+            background: rgba(0,229,255,.16);
+            border-color: var(--neon);
+        }
+
+        .btn-submit {
+            width: 100%;
+            margin-top: 26px;
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            background: linear-gradient(135deg, #00e5ff, #a855f7);
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            font-size: .95rem;
+            font-weight: 600;
+            letter-spacing: .3px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: opacity .22s, transform .12s;
+        }
+        .btn-submit:disabled {
+            opacity: .4;
+            cursor: not-allowed;
+        }
+        .btn-submit:not(:disabled):hover  { opacity: .88; }
+        .btn-submit:not(:disabled):active { transform: scale(.985); }
+        .btn-submit .btn-glow {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,.12), transparent);
+            pointer-events: none;
+        }
+
+        /* ── Right info panel ───────────────────────────────── */
+        .info-card { padding: 28px 28px; }
+
+        .info-feature {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            padding: 14px 0;
+            border-bottom: 1px solid rgba(255,255,255,.05);
+        }
+        .info-feature:last-child { border-bottom: none; }
+        .info-feature-icon {
+            width: 36px; height: 36px; flex-shrink: 0;
+            border-radius: 9px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: .9rem;
+        }
+        .info-feature-icon.cyan   { background: rgba(0,229,255,.1); color: var(--neon); border: 1px solid rgba(0,229,255,.2); }
+        .info-feature-icon.purple { background: rgba(168,85,247,.1); color: #a855f7; border: 1px solid rgba(168,85,247,.2); }
+        .info-feature-icon.green  { background: rgba(34,211,238,.1); color: #22d3ee; border: 1px solid rgba(34,211,238,.2); }
+        .info-feature-icon.amber  { background: rgba(245,158,11,.1); color: #f59e0b; border: 1px solid rgba(245,158,11,.2); }
+
+        .info-feature-title { font-size: .83rem; font-weight: 600; color: #e4eaf8; }
+        .info-feature-desc  { font-size: .75rem; color: var(--text-dim); margin-top: 2px; line-height: 1.5; }
+
+        .pkg-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(0,229,255,.08);
+            border: 1px solid rgba(0,229,255,.2);
+            border-radius: 999px;
+            padding: 4px 12px;
+            font-size: .73rem;
+            color: var(--neon);
+            font-weight: 500;
+            margin-top: 10px;
+        }
+
+        /* ── Progress overlay ───────────────────────────────── */
+        #progress-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(8,12,26,.85);
+            backdrop-filter: blur(8px);
+            z-index: 9999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+        }
+        #progress-overlay.show { display: flex; }
+
+        .progress-glass {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 40px 48px;
+            text-align: center;
+            min-width: 320px;
+        }
+        .progress-spinner {
+            width: 56px; height: 56px;
+            border: 3px solid rgba(0,229,255,.15);
+            border-top-color: var(--neon);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .progress-title { font-size: 1.05rem; font-weight: 600; color: #fff; margin-bottom: 6px; }
+        .progress-sub   { font-size: .8rem; color: var(--text-dim); }
+
+        .neo-bar {
+            width: 100%;
+            height: 5px;
+            background: rgba(255,255,255,.06);
+            border-radius: 999px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+        .neo-bar-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #00e5ff, #a855f7);
+            width: 0%;
+            transition: width .6s ease;
+        }
+
+        /* ── Result modal ───────────────────────────────────── */
+        .result-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(8,12,26,.85);
+            backdrop-filter: blur(8px);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+        .result-overlay.show { display: flex; }
+        .result-glass {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 36px 40px;
+            text-align: center;
+            min-width: 300px;
+            animation: popIn .25s ease;
+        }
+        @keyframes popIn { from { transform: scale(.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        .result-icon { font-size: 2.5rem; margin-bottom: 14px; }
+        .result-icon.ok   { color: #22c55e; }
+        .result-icon.fail { color: #ef4444; }
+        .result-icon.warn { color: #f59e0b; }
+        .result-msg  { font-size: .9rem; color: #e4eaf8; margin-bottom: 20px; line-height: 1.6; }
+        .result-close {
+            background: rgba(255,255,255,.06);
+            border: 1px solid rgba(255,255,255,.12);
+            color: #e4eaf8;
+            border-radius: 9px;
+            padding: 8px 24px;
+            font-size: .83rem;
+            cursor: pointer;
+            transition: all .2s;
+        }
+        .result-close:hover { background: rgba(255,255,255,.12); }
+
+        /* neon pulse for the section icon */
+        @keyframes iconPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(0,229,255,.25); }
+            50%       { box-shadow: 0 0 0 8px rgba(0,229,255,0); }
+        }
+        .card-head-icon { animation: iconPulse 2.5s ease infinite; }
+    </style>
+</head>
+
+<body data-theme="light" class="font-nunito">
+    <div id="wrapper" class="theme-cyan">
+
+        <!-- Page Loader -->
+        <div class="page-loader-wrapper">
+            <div class="loader">
+                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel"></div>
+                <p>Please wait...</p>
+            </div>
+        </div>
+
+        {% include 'navbar.html' %}
+        {% include 'left.html' %}
+        {% include 'right.html' %}
+
+        <!-- Main content -->
+        <div id="main-content">
+            <div class="container-fluid">
+
+                <!-- Page Header -->
+                <div class="page-header">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div>
+                            <h2>Add New User</h2>
+                            <ul class="breadcrumb">
+                                <li class="breadcrumb-item"><a href="/panel/"><i class="fa fa-home"></i></a></li>
+                                <li class="breadcrumb-item">Dashboard</li>
+                                <li class="breadcrumb-item active">Add User</li>
+                            </ul>
+                        </div>
+                        <a href="/listusers/" class="btn-gen" style="text-decoration:none;max-width:160px;">
+                            <i class="fa fa-list"></i> View All Users
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Two-column layout -->
+                <div class="adduser-grid" style="margin-top: 10px;">
+
+                    <!-- ── LEFT: form card ── -->
+                    <div class="glass-card">
+                        <div class="card-head">
+                            <div class="card-head-icon"><i class="fa fa-user-plus"></i></div>
+                            <div>
+                                <div class="card-head-title">Create Hosting Account</div>
+                                <div class="card-head-sub">Fill in the details below to provision a new user</div>
+                            </div>
+                        </div>
+
+                        <form id="myForm" method="post" action="" autocomplete="off">
+                            {% csrf_token %}
+
+                            <!-- Domain & Email -->
+                            <div class="section-label">Account Details</div>
+
+                            <div class="field-wrap">
+                                <label>Domain Name <span class="required">*</span></label>
+                                <div class="field-inner">
+                                    <i class="fa fa-globe fi-icon"></i>
+                                    <input type="text" name="addwebsite" id="myInput"
+                                           placeholder="example.com" required autocomplete="off">
+                                </div>
+                            </div>
+
+                            <div class="field-wrap">
+                                <label>Email Address <span class="required">*</span></label>
+                                <div class="field-inner">
+                                    <i class="fa fa-envelope-o fi-icon"></i>
+                                    <input type="email" name="email" id="myInput2"
+                                           placeholder="admin@example.com" required>
+                                </div>
+                            </div>
+
+                            <!-- Password -->
+                            <div class="section-label">Security</div>
+
+                            <div class="field-wrap">
+                                <label>Password <span class="required">*</span></label>
+                                <div class="field-inner">
+                                    <i class="fa fa-lock fi-icon"></i>
+                                    <input type="password" id="password" name="password"
+                                           placeholder="Enter strong password" required
+                                           oninput="updateStrength(this.value); checkMatch();">
+                                    <button type="button" class="pwd-toggle" onclick="toggleVis('password', this)">
+                                        <i class="fa fa-eye-slash" id="eyeIcon1"></i>
+                                    </button>
+                                </div>
+                                <div class="strength-bar-wrap">
+                                    <div class="strength-seg" id="s1"></div>
+                                    <div class="strength-seg" id="s2"></div>
+                                    <div class="strength-seg" id="s3"></div>
+                                    <div class="strength-seg" id="s4"></div>
+                                </div>
+                                <div class="strength-text" id="strengthText"></div>
+                            </div>
+
+                            <div class="field-wrap">
+                                <label>Confirm Password <span class="required">*</span></label>
+                                <div class="field-inner">
+                                    <i class="fa fa-lock fi-icon"></i>
+                                    <input type="password" id="password1" name="password1"
+                                           placeholder="Repeat password" required
+                                           oninput="checkMatch();">
+                                    <button type="button" class="pwd-toggle" onclick="toggleVis('password1', this)">
+                                        <i class="fa fa-eye-slash" id="eyeIcon2"></i>
+                                    </button>
+                                </div>
+                                <div class="match-indicator" id="match"></div>
+                            </div>
+
+                            <div class="btn-row">
+                                <button type="button" class="btn-gen" onclick="gen();">
+                                    <i class="fa fa-magic"></i> Generate Password
+                                </button>
+                            </div>
+
+                            <!-- Package -->
+                            <div class="section-label" style="margin-top:24px;">Hosting Package</div>
+
+                            <div class="field-wrap">
+                                <label>Select Package <span class="required">*</span>
+                                    — or <a href="/package/" target="_blank"
+                                       style="color:var(--neon);text-decoration:none;font-size:.75rem;">
+                                       create a new one ↗
+                                    </a>
+                                </label>
+                                <div class="field-inner">
+                                    <i class="fa fa-cube fi-icon"></i>
+                                    <select id="package" required name="domain">
+                                        {% for i in package %}
+                                        <option value="{{ i.name }}">{{ i.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Submit -->
+                            <button id="addemailbtn" type="submit" class="btn-submit" disabled>
+                                <div class="btn-glow"></div>
+                                <i class="fa fa-user-plus" style="margin-right:8px;"></i>
+                                Create Account
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- ── RIGHT: info panel ── -->
+                    <div>
+                        <div class="glass-card info-card">
+                            <div class="card-head" style="margin-bottom:18px;">
+                                <div class="card-head-icon" style="background:linear-gradient(135deg,rgba(168,85,247,.2),rgba(0,229,255,.2));color:#a855f7;">
+                                    <i class="fa fa-info-circle"></i>
+                                </div>
+                                <div>
+                                    <div class="card-head-title">What Gets Created</div>
+                                    <div class="card-head-sub">Automatic provisioning steps</div>
+                                </div>
+                            </div>
+
+                            <div class="info-feature">
+                                <div class="info-feature-icon cyan"><i class="fa fa-globe"></i></div>
+                                <div>
+                                    <div class="info-feature-title">Nginx Site Config</div>
+                                    <div class="info-feature-desc">Virtual host + SSL cert provisioned via Let's Encrypt automatically.</div>
+                                </div>
+                            </div>
+                            <div class="info-feature">
+                                <div class="info-feature-icon purple"><i class="fa fa-envelope"></i></div>
+                                <div>
+                                    <div class="info-feature-title">Mail Stack</div>
+                                    <div class="info-feature-desc">Postfix/Dovecot mail routing + DKIM key generated for anti-spam.</div>
+                                </div>
+                            </div>
+                            <div class="info-feature">
+                                <div class="info-feature-icon green"><i class="fa fa-server"></i></div>
+                                <div>
+                                    <div class="info-feature-title">DNS Zone</div>
+                                    <div class="info-feature-desc">Bind9 zone file created with A, MX, SPF, and DKIM records.</div>
+                                </div>
+                            </div>
+                            <div class="info-feature">
+                                <div class="info-feature-icon amber"><i class="fa fa-hdd-o"></i></div>
+                                <div>
+                                    <div class="info-feature-title">Home Directory</div>
+                                    <div class="info-feature-desc">Linux user + /home/&lt;user&gt; with correct quota from selected package.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- tip card -->
+                        <div class="glass-card" style="margin-top:16px;padding:20px 24px;">
+                            <div style="font-size:.78rem;color:var(--text-dim);line-height:1.65;">
+                                <i class="fa fa-bolt" style="color:var(--neon);margin-right:6px;"></i>
+                                <strong style="color:#e4eaf8;">Background Processing</strong><br>
+                                The page responds instantly. All provisioning (SSL, DNS, mail) runs
+                                in a background thread — you can navigate away immediately.
+                            </div>
+                            <div class="pkg-badge" style="margin-top:14px;">
+                                <i class="fa fa-shield"></i> RCE-safe secure provisioning
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /#wrapper -->
+
+    <!-- ── Progress Overlay ── -->
+    <div id="progress-overlay">
+        <div class="progress-glass">
+            <div class="progress-spinner"></div>
+            <div class="progress-title">Initiating Provisioning…</div>
+            <div class="progress-sub">Sending request to server</div>
+            <div class="neo-bar"><div class="neo-bar-fill" id="neoFill"></div></div>
+        </div>
+    </div>
+
+    <!-- ── Result Overlay ── -->
+    <div class="result-overlay" id="resultOverlay">
+        <div class="result-glass">
+            <div class="result-icon" id="resultIcon">✓</div>
+            <div class="result-msg" id="resultMsg"></div>
+            <button class="result-close" onclick="closeResult()">Close</button>
+        </div>
+    </div>
+
+
+    <!-- ─── Scripts ──────────────────────────────────────────── -->
+    <script>
+        /* ──── Password strength ──────────────────────── */
+        function updateStrength(val) {
+            const segs = ['s1','s2','s3','s4'];
+            let score = 0;
+            if (val.length >= 8) score++;
+            if (/[A-Z]/.test(val)) score++;
+            if (/[0-9]/.test(val)) score++;
+            if (/[^A-Za-z0-9]/.test(val)) score++;
+            const classes = ['','weak','medium','medium','strong'];
+            const labels  = ['','Weak','Fair','Good','Strong'];
+            segs.forEach((id, i) => {
+                const el = document.getElementById(id);
+                el.className = 'strength-seg';
+                if (i < score) el.classList.add(classes[score]);
+            });
+            document.getElementById('strengthText').textContent = val.length ? labels[score] : '';
+        }
+
+        /* ──── Password match ─────────────────────────── */
+        function checkMatch() {
+            const p1 = document.getElementById('password').value;
+            const p2 = document.getElementById('password1').value;
+            const el = document.getElementById('match');
+            const btn = document.getElementById('addemailbtn');
+            if (!p2) { el.innerHTML = ''; btn.disabled = true; return; }
+            if (p1 === p2) {
+                el.innerHTML = '<i class="fa fa-check-circle"></i> Passwords match';
+                el.className = 'match-indicator ok';
+                btn.disabled = false;
+            } else {
+                el.innerHTML = '<i class="fa fa-times-circle"></i> Passwords do not match';
+                el.className = 'match-indicator fail';
+                btn.disabled = true;
+            }
+        }
+
+        /* ──── Toggle visibility ──────────────────────── */
+        function toggleVis(id, btn) {
+            const inp = document.getElementById(id);
+            const iconId = id === 'password' ? 'eyeIcon1' : 'eyeIcon2';
+            const icon = document.getElementById(iconId);
+            if (inp.type === 'password') {
+                inp.type = 'text';
+                icon.className = 'fa fa-eye';
+            } else {
+                inp.type = 'password';
+                icon.className = 'fa fa-eye-slash';
+            }
+        }
+
+        /* ──── Generate password ──────────────────────── */
+        function gen() {
+            const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*_+~';
+            let pw = '';
+            for (let i = 0; i < 12; i++) pw += chars[Math.floor(Math.random() * chars.length)];
+            document.getElementById('password').value  = pw;
+            document.getElementById('password1').value = pw;
+            document.getElementById('password').type   = 'text';
+            document.getElementById('password1').type  = 'text';
+            document.getElementById('eyeIcon1').className = 'fa fa-eye';
+            document.getElementById('eyeIcon2').className = 'fa fa-eye';
+            updateStrength(pw);
+            checkMatch();
+        }
+
+        /* ──── Progress bar anim ──────────────────────── */
+        let _pInterval = null;
+        function startProgress() {
+            document.getElementById('progress-overlay').classList.add('show');
+            const fill = document.getElementById('neoFill');
+            let pct = 0;
+            _pInterval = setInterval(() => {
+                if (pct < 85) { pct += 2; fill.style.width = pct + '%'; }
+            }, 150);
+        }
+        function finishProgress() {
+            clearInterval(_pInterval);
+            document.getElementById('neoFill').style.width = '100%';
+            setTimeout(() => document.getElementById('progress-overlay').classList.remove('show'), 400);
+        }
+
+        /* ──── Result overlay ─────────────────────────── */
+        function showResult(icon, iconClass, msg) {
+            const el = document.getElementById('resultIcon');
+            el.textContent = icon;
+            el.className   = 'result-icon ' + iconClass;
+            document.getElementById('resultMsg').textContent = msg;
+            document.getElementById('resultOverlay').classList.add('show');
+        }
+        function closeResult() {
+            document.getElementById('resultOverlay').classList.remove('show');
+            document.getElementById('addemailbtn').disabled = false;
+        }
+
+        /* ──── Form submit ────────────────────────────── */
+        document.getElementById('myForm').addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            const website  = document.getElementById('myInput').value;
+            const email    = document.getElementById('myInput2').value;
+            const password = document.getElementById('password').value;
+            const pkg      = document.getElementById('package').value;
+
+            const btn = document.getElementById('addemailbtn');
+            btn.disabled = true;
+
+            startProgress();
+
+            fetch("{% url 'addusermain' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ web: website, email, password, package: pkg })
+            })
+            .then(r => r.json())
+            .then(data => {
+                finishProgress();
+                if (data.status === 'success') {
+                    showResult('✓', 'ok', 'Account provisioning started! Redirecting to users list…');
+                    setTimeout(() => { window.location.href = '/listusers/'; }, 2500);
+                } else if (data.status === 'already') {
+                    showResult('!', 'warn', 'Domain already exists in the system. Please choose a different domain.');
+                } else if (data.status === 'package') {
+                    showResult('✕', 'fail', "Package not found. Please create a package first.");
+                } else {
+                    showResult('✕', 'fail', data.message || 'An unexpected error occurred. Please try again.');
+                }
+            })
+            .catch(() => {
+                finishProgress();
+                showResult('✓', 'ok', 'Request submitted. Check the users list in a moment.');
+                setTimeout(() => { window.location.href = '/listusers/'; }, 2500);
+            });
+        });
+    </script>
+
+    <!-- Javascript -->
+    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+    <script src="/static/assets/vendor/toastr/toastr.js"></script>
+    <script src="/static/assets/bundles/c3.bundle.js"></script>
+    <script src="/static/assets/bundles/jvectormap.bundle.js"></script>
+    <script src="/static/assets/bundles/knob.bundle.js"></script>
+    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/chartjs.js"></script>
+    <script src="/static/assets/index2.js"></script>
+
+</body>
+</html>

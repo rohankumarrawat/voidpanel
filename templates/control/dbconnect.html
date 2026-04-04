@@ -1,0 +1,554 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <title>:: VoidPanel :: Database Manager</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="VoidPanel MySQL Database Manager">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+
+        /* ── Override old theme body ── */
+        body { font-family: 'Inter', sans-serif !important; background-color: #0f172a !important; color: #f1f5f9 !important; }
+        #main-content { background: transparent !important; }
+        .block-header h2 { color: #f1f5f9 !important; }
+        .breadcrumb-item, .breadcrumb-item a { color: #94a3b8 !important; }
+
+        /* ── Glass Panel ── */
+        .vp-glass {
+            background: linear-gradient(135deg, rgba(30,41,59,0.75), rgba(15,23,42,0.92));
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+        .vp-glass-header {
+            padding: 18px 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        }
+        .vp-glass-header h5 {
+            margin: 0; font-size: 0.95rem; font-weight: 600; color: #f1f5f9;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .vp-glass-header h5 i { color: #6366f1; }
+        .vp-glass-body { padding: 20px 24px; }
+
+        /* ── Stats Row ── */
+        .db-stat-card {
+            background: rgba(99,102,241,0.08);
+            border: 1px solid rgba(99,102,241,0.2);
+            border-radius: 12px; padding: 18px 22px;
+            display: flex; align-items: center; gap: 16px;
+        }
+        .db-stat-icon {
+            width: 46px; height: 46px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0;
+        }
+        .db-stat-icon.blue   { background: rgba(99,102,241,0.15); color: #818cf8; }
+        .db-stat-icon.green  { background: rgba(16,185,129,0.12); color: #34d399; }
+        .db-stat-icon.orange { background: rgba(245,158,11,0.12); color: #fbbf24; }
+        .db-stat-label { font-size: 0.75rem; color: #64748b; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+        .db-stat-value { font-size: 1.4rem; font-weight: 700; color: #f1f5f9; line-height: 1.2; margin-top: 2px; }
+
+        /* ── Wizard Connect Bar ── */
+        .db-wizard {
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+            padding: 20px 24px;
+        }
+        .db-wizard label { font-size: 0.78rem; color: #64748b; display: block; margin-bottom: 5px; font-weight: 500; }
+        .db-wizard .field { flex: 1; min-width: 180px; }
+        .vp-select {
+            width: 100%; padding: 10px 14px; border-radius: 9px;
+            background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1);
+            color: #f1f5f9; font-size: 0.87rem; outline: none; font-family: 'Inter', sans-serif;
+            appearance: none; cursor: pointer;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%2364748b'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 12px center;
+        }
+        .vp-select:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+        .vp-select option { background: #1e293b; color: #f1f5f9; }
+
+        /* ── Buttons ── */
+        .vp-btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 9px 18px; border-radius: 9px; font-size: 0.85rem; font-weight: 500;
+            cursor: pointer; border: 1px solid transparent; transition: all 0.2s;
+            font-family: 'Inter', sans-serif; white-space: nowrap; text-decoration: none;
+        }
+        .vp-btn-primary { background: linear-gradient(135deg,#6366f1,#4f46e5); color: #fff; }
+        .vp-btn-primary:hover { background: linear-gradient(135deg,#818cf8,#6366f1); transform: translateY(-1px); box-shadow: 0 4px 15px rgba(99,102,241,0.4); }
+        .vp-btn-success { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.3); color: #34d399; }
+        .vp-btn-success:hover { background: rgba(16,185,129,0.25); }
+        .vp-btn-danger  { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.3); color: #f87171; }
+        .vp-btn-danger:hover { background: rgba(239,68,68,0.22); }
+        .vp-btn-ghost   { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); color: #94a3b8; }
+        .vp-btn-ghost:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+        /* ── Table ── */
+        .vp-table { width: 100%; border-collapse: collapse; }
+        .vp-table thead tr { background: rgba(0,0,0,0.12); }
+        .vp-table th {
+            padding: 11px 16px; font-size: 0.72rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.05em; color: #475569;
+            border-bottom: 1px solid rgba(255,255,255,0.05); text-align: left;
+        }
+        .vp-table td { padding: 13px 16px; font-size: 0.87rem; color: #cbd5e1; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+        .vp-table tbody tr:last-child td { border-bottom: none; }
+        .vp-table tbody tr:hover td { background: rgba(99,102,241,0.06); }
+
+        .db-name-cell { display: flex; align-items: center; gap: 10px; font-weight: 500; color: #e2e8f0; }
+        .db-icon { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; }
+        .db-icon.db  { background: rgba(99,102,241,0.15); color: #818cf8; }
+        .db-icon.usr { background: rgba(16,185,129,0.12); color: #34d399; }
+        .domain-badge { font-size: 0.75rem; background: rgba(99,102,241,0.1); color: #818cf8; padding: 2px 10px; border-radius: 20px; }
+
+        /* ── Quota Bar ── */
+        .quota-bar-wrap { background: rgba(0,0,0,0.2); border-radius: 6px; height: 6px; margin-top: 6px; overflow: hidden; }
+        .quota-bar { height: 100%; border-radius: 6px; background: linear-gradient(90deg,#6366f1,#10b981); transition: width 0.6s ease; }
+
+        /* ── Modals ── */
+        .vp-modal-overlay {
+            display: none; position: fixed; inset: 0; z-index: 9000;
+            background: rgba(0,0,0,0.65); backdrop-filter: blur(5px);
+            align-items: center; justify-content: center;
+        }
+        .vp-modal-overlay.open { display: flex; }
+        .vp-modal {
+            background: linear-gradient(135deg, rgba(22,33,58,0.99), rgba(10,14,26,0.99));
+            border: 1px solid rgba(99,102,241,0.22); border-radius: 16px;
+            padding: 28px 30px; width: 480px; max-width: 96vw;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.6); animation: mIn 0.2s ease;
+        }
+        @keyframes mIn { from { opacity:0; transform:scale(0.94); } to { opacity:1; transform:scale(1); } }
+        .vp-modal h4 { margin: 0 0 18px; font-size: 1rem; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 10px; }
+        .vp-modal h4 i { color: #6366f1; }
+        .vp-modal label { font-size: 0.79rem; color: #64748b; display: block; margin-bottom: 6px; font-weight: 500; }
+        .vp-input {
+            width: 100%; padding: 10px 14px; border-radius: 8px;
+            background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
+            color: #fff; font-size: 0.88rem; outline: none; font-family: 'Inter', sans-serif;
+            margin-bottom: 14px;
+        }
+        .vp-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+        .vp-modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+        .modal-msg { padding: 9px 12px; border-radius: 7px; font-size: 0.8rem; margin-top: 4px; display: none; }
+        .modal-msg.success { background: rgba(16,185,129,0.12); color: #34d399; border: 1px solid rgba(16,185,129,0.25); }
+        .modal-msg.error   { background: rgba(239,68,68,0.12);  color: #f87171; border: 1px solid rgba(239,68,68,0.25);  }
+
+        /* Privilege checkboxes */
+        .priv-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(120px,1fr)); gap: 8px; margin: 12px 0; }
+        .priv-chip {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 12px; border-radius: 8px; cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.2);
+            font-size: 0.8rem; color: #94a3b8; transition: all 0.15s; user-select: none;
+        }
+        .priv-chip input[type="checkbox"] { accent-color: #6366f1; width: 14px; height: 14px; cursor: pointer; }
+        .priv-chip:hover { border-color: #6366f1; color: #fff; background: rgba(99,102,241,0.1); }
+        .priv-chip:has(input:checked) { border-color: #6366f1; color: #818cf8; background: rgba(99,102,241,0.15); }
+
+        /* ── Toast ── */
+        #toast-stack { position: fixed; bottom: 24px; right: 24px; z-index: 10000; display: flex; flex-direction: column; gap: 8px; }
+        .toast-item {
+            min-width: 240px; padding: 12px 18px; border-radius: 10px;
+            font-size: 0.83rem; font-weight: 500; backdrop-filter: blur(20px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            animation: tIn 0.25s ease; display: flex; align-items: center; gap: 10px;
+        }
+        @keyframes tIn { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
+        .toast-item.success { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); color: #34d399; }
+        .toast-item.error   { background: rgba(239,68,68,0.15);  border: 1px solid rgba(239,68,68,0.3);  color: #f87171; }
+        .toast-item.info    { background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3); color: #818cf8; }
+
+        /* ── Empty state ── */
+        .vp-empty { text-align: center; padding: 36px; color: #475569; }
+        .vp-empty i { font-size: 2rem; margin-bottom: 10px; display: block; }
+    </style>
+</head>
+
+<body data-theme="dark">
+{% csrf_token %}
+<div id="wrapper">
+    {% include 'control/navbar.html' %}
+    {% include 'control/left.html' %}
+    {% include 'control/right.html' %}
+
+    <div id="main-content">
+        <div class="container-fluid">
+
+            <!-- Breadcrumb -->
+            <div class="block-header">
+                <div class="row align-items-center">
+                    <div class="col-12">
+                        <h2 style="color:#f1f5f9; font-size:1.35rem; font-weight:700; display:flex; align-items:center; gap:10px;">
+                            <i class="fa-solid fa-database" style="color:#6366f1;"></i>
+                            MySQL Database Manager
+                        </h2>
+                        <ul class="breadcrumb" style="background:transparent; padding:0; margin:4px 0 0;">
+                            <li class="breadcrumb-item"><a href="/"><i class="fa fa-home"></i></a></li>
+                            <li class="breadcrumb-item">Dashboard</li>
+                            <li class="breadcrumb-item active">{{ domain }} — Databases</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Stats Row ── -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <div class="db-stat-card">
+                        <div class="db-stat-icon blue"><i class="fa-solid fa-database"></i></div>
+                        <div>
+                            <div class="db-stat-label">Databases Created</div>
+                            <div class="db-stat-value">{{ database|length }}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="db-stat-card">
+                        <div class="db-stat-icon green"><i class="fa-solid fa-users"></i></div>
+                        <div>
+                            <div class="db-stat-label">DB Users Created</div>
+                            <div class="db-stat-value">{{ users|length }}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="db-stat-card">
+                        <div class="db-stat-icon orange"><i class="fa-solid fa-layer-group"></i></div>
+                        <div>
+                            <div class="db-stat-label">DB Quota</div>
+                            <div class="db-stat-value">{{ useddatabase }} / {{ totaldb }}</div>
+                            {% if totaldb != '∞' %}
+                            <div class="quota-bar-wrap">
+                                <div class="quota-bar" style="width:{% widthratio useddatabase totaldb 100 %}%;"></div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Wizard: Connect DB to User ── -->
+            <div class="vp-glass mb-4">
+                <div class="vp-glass-header">
+                    <h5><i class="fa-solid fa-link"></i> Connect Database to User</h5>
+                    <span style="font-size:0.78rem; color:#64748b;">Select a database and a user, then assign privileges</span>
+                </div>
+                <div class="db-wizard">
+                    <div class="field">
+                        <label>Database</label>
+                        <select class="vp-select" id="dbSelect">
+                            <option value="">— Select Database —</option>
+                            {% for i in database %}
+                            <option value="{{ i }}">{{ i }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>DB User</label>
+                        <select class="vp-select" id="dbSelect1">
+                            <option value="">— Select User —</option>
+                            {% for i in users %}
+                            <option value="{{ i }}">{{ i }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div style="padding-top:22px;">
+                        <button onclick="openConnectModal()" class="vp-btn vp-btn-primary">
+                            <i class="fa-solid fa-link"></i> Assign Privileges
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Tables Row ── -->
+            <div class="row g-3">
+                <!-- Database List -->
+                <div class="col-lg-6">
+                    <div class="vp-glass h-100">
+                        <div class="vp-glass-header">
+                            <h5><i class="fa-solid fa-database"></i> Databases</h5>
+                            <a href="/fulldbwizard/{{ domain }}/" class="vp-btn vp-btn-primary" style="padding:7px 14px; font-size:0.8rem;">
+                                <i class="fa-solid fa-plus"></i> Create Database
+                            </a>
+                        </div>
+                        <div style="overflow-x:auto;">
+                            <table class="vp-table">
+                                <thead>
+                                    <tr>
+                                        <th>Database Name</th>
+                                        <th>Domain</th>
+                                        <th style="text-align:right;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for i in database %}
+                                    <tr>
+                                        <td>
+                                            <div class="db-name-cell">
+                                                <div class="db-icon db"><i class="fa-solid fa-database"></i></div>
+                                                {{ i }}
+                                            </div>
+                                        </td>
+                                        <td><span class="domain-badge">{{ domain }}</span></td>
+                                        <td style="text-align:right;">
+                                            <button onclick="confirmDeleteDB('{{ i }}', '{{ domain }}')" class="vp-btn vp-btn-danger" style="padding:5px 12px; font-size:0.78rem;">
+                                                <i class="fa-solid fa-trash"></i> Delete
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td colspan="3">
+                                        <div class="vp-empty">
+                                            <i class="fa-solid fa-database"></i>
+                                            No databases yet. Create your first one.
+                                        </div>
+                                    </td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DB Users List -->
+                <div class="col-lg-6">
+                    <div class="vp-glass h-100">
+                        <div class="vp-glass-header">
+                            <h5><i class="fa-solid fa-users"></i> Database Users</h5>
+                            <a href="/fulldbwizard/{{ domain }}/" class="vp-btn vp-btn-success" style="padding:7px 14px; font-size:0.8rem;">
+                                <i class="fa-solid fa-user-plus"></i> Create User
+                            </a>
+                        </div>
+                        <div style="overflow-x:auto;">
+                            <table class="vp-table">
+                                <thead>
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Domain</th>
+                                        <th style="text-align:right;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for i in users %}
+                                    <tr>
+                                        <td>
+                                            <div class="db-name-cell">
+                                                <div class="db-icon usr"><i class="fa-solid fa-user"></i></div>
+                                                {{ i }}
+                                            </div>
+                                        </td>
+                                        <td><span class="domain-badge">{{ domain }}</span></td>
+                                        <td style="text-align:right;">
+                                            <div style="display:flex; gap:6px; justify-content:flex-end;">
+                                                <button onclick="openChgPass('{{ i }}')" class="vp-btn vp-btn-success" style="padding:5px 10px; font-size:0.78rem;">
+                                                    <i class="fa-solid fa-key"></i>
+                                                </button>
+                                                <button onclick="confirmDeleteUser('{{ i }}', '{{ domain }}')" class="vp-btn vp-btn-danger" style="padding:5px 10px; font-size:0.78rem;">
+                                                    <i class="fa-solid fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td colspan="3">
+                                        <div class="vp-empty">
+                                            <i class="fa-solid fa-user"></i>
+                                            No DB users yet. Create your first one.
+                                        </div>
+                                    </td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /container-fluid -->
+    </div><!-- /main-content -->
+</div><!-- /wrapper -->
+
+<!-- ══ Modal: Assign Privileges ══ -->
+<div class="vp-modal-overlay" id="modal-priv">
+    <div class="vp-modal" style="width:520px;">
+        <h4><i class="fa-solid fa-shield-halved"></i> Assign Database Privileges</h4>
+        <form id="privForm">
+            {% csrf_token %}
+            <input type="hidden" id="pf-dbname" name="databasename">
+            <input type="hidden" id="pf-dbuser" name="databaseusername">
+
+            <div style="display:flex; gap:12px; margin-bottom:14px;">
+                <div style="flex:1;">
+                    <label>Database</label>
+                    <div id="priv-db-label" style="font-size:0.88rem; font-weight:600; color:#818cf8; padding:8px 0;"></div>
+                </div>
+                <div style="flex:1;">
+                    <label>User</label>
+                    <div id="priv-user-label" style="font-size:0.88rem; font-weight:600; color:#34d399; padding:8px 0;"></div>
+                </div>
+            </div>
+
+            <label>Select Privileges</label>
+            <div style="margin-bottom:10px;">
+                <label class="priv-chip" style="display:inline-flex; width:auto; cursor:pointer;">
+                    <input type="checkbox" id="sel-all-priv"> Select All
+                </label>
+            </div>
+            <div class="priv-grid">
+                {% for priv in "SELECT,INSERT,UPDATE,DELETE,CREATE,DROP,ALTER,EXECUTE,INDEX,REFERENCES"|split:"," %}
+                <label class="priv-chip">
+                    <input type="checkbox" name="priv" value="{{ priv }}" class="individual-checkbox"> {{ priv }}
+                </label>
+                {% endfor %}
+            </div>
+            <div class="modal-msg" id="msg-priv"></div>
+            <div class="vp-modal-footer">
+                <button type="button" onclick="closeModal('modal-priv')" class="vp-btn vp-btn-ghost">Cancel</button>
+                <button type="button" onclick="doAssignPriv()" class="vp-btn vp-btn-primary"><i class="fa-solid fa-check"></i> Apply Privileges</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══ Modal: Change DB User Password ══ -->
+<div class="vp-modal-overlay" id="modal-chgpass">
+    <div class="vp-modal">
+        <h4><i class="fa-solid fa-key"></i> Change DB User Password</h4>
+        <form id="chpForm">
+            {% csrf_token %}
+            <input type="hidden" name="databaseuser" id="dbusername">
+            <label>DB Username</label>
+            <div id="chp-user-display" style="font-size:0.88rem; font-weight:600; color:#34d399; margin-bottom:14px; padding:8px 12px; background:rgba(16,185,129,0.08); border-radius:8px; border:1px solid rgba(16,185,129,0.2);"></div>
+            <label>New Password</label>
+            <input type="password" name="password" class="vp-input" id="chp-password" placeholder="Enter strong password" autocomplete="new-password">
+            <div class="modal-msg" id="msg-chp"></div>
+            <div class="vp-modal-footer">
+                <button type="button" onclick="closeModal('modal-chgpass')" class="vp-btn vp-btn-ghost">Cancel</button>
+                <button type="button" onclick="doChangePass()" class="vp-btn vp-btn-primary"><i class="fa-solid fa-save"></i> Update Password</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══ Toast ══ -->
+<div id="toast-stack"></div>
+
+<!-- ══ Scripts ══ -->
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+
+<script>
+const CSRF = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+/* ── Toast ── */
+function toast(msg, type='info') {
+    const stack = document.getElementById('toast-stack');
+    const el = document.createElement('div');
+    el.className = `toast-item ${type}`;
+    const icons = { success:'fa-circle-check', error:'fa-circle-xmark', info:'fa-circle-info' };
+    el.innerHTML = `<i class="fa-solid ${icons[type]||'fa-circle-info'}"></i> ${msg}`;
+    stack.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+}
+
+/* ── Modal ── */
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.vp-modal-overlay').forEach(o =>
+    o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); })
+);
+function showMsg(id, msg, type) {
+    const el = document.getElementById(id);
+    el.textContent = msg; el.className = `modal-msg ${type}`; el.style.display = 'block';
+}
+
+/* ── Connect DB to User Wizard ── */
+function openConnectModal() {
+    const db   = document.getElementById('dbSelect').value;
+    const usr  = document.getElementById('dbSelect1').value;
+    if(!db || !usr) { toast('Please select both a database and a user', 'error'); return; }
+    document.getElementById('pf-dbname').value   = db;
+    document.getElementById('pf-dbuser').value   = usr;
+    document.getElementById('priv-db-label').textContent   = db;
+    document.getElementById('priv-user-label').textContent = usr;
+    // Reset checkboxes
+    document.querySelectorAll('.individual-checkbox').forEach(c => c.checked = false);
+    document.getElementById('sel-all-priv').checked = false;
+    openModal('modal-priv');
+}
+
+/* Select-all for privileges */
+document.getElementById('sel-all-priv').addEventListener('change', function() {
+    document.querySelectorAll('.individual-checkbox').forEach(c => c.checked = this.checked);
+});
+document.querySelectorAll('.individual-checkbox').forEach(c => {
+    c.addEventListener('change', () => {
+        const all = document.querySelectorAll('.individual-checkbox');
+        const chk = document.querySelectorAll('.individual-checkbox:checked');
+        document.getElementById('sel-all-priv').checked = all.length === chk.length;
+    });
+});
+
+async function doAssignPriv() {
+    const form = document.getElementById('privForm');
+    const fd   = new FormData(form);
+    const privs = [...document.querySelectorAll('.individual-checkbox:checked')].map(c => c.value);
+    if(!privs.length) { showMsg('msg-priv','Select at least one privilege','error'); return; }
+    privs.forEach(p => fd.append('select', p)); // reuse field name backend expects
+    try {
+        const r = await fetch('/addpermissiontouser/', { method:'POST', body:fd, headers:{'X-CSRFToken':CSRF} });
+        const d = await r.json();
+        closeModal('modal-priv');
+        toast(d.status==='success' ? 'Privileges assigned successfully!' : d.message||'Error assigning privileges',
+              d.status==='success' ? 'success' : 'error');
+    } catch(e) { toast('Network error','error'); }
+}
+
+/* ── Change Password ── */
+function openChgPass(username) {
+    document.getElementById('dbusername').value         = username;
+    document.getElementById('chp-user-display').textContent = username;
+    document.getElementById('chp-password').value       = '';
+    document.getElementById('msg-chp').style.display    = 'none';
+    openModal('modal-chgpass');
+}
+
+async function doChangePass() {
+    const form = document.getElementById('chpForm');
+    const fd   = new FormData(form);
+    const pw   = document.getElementById('chp-password').value;
+    if(!pw || pw.length < 6) { showMsg('msg-chp','Password must be at least 6 characters','error'); return; }
+    try {
+        const r = await fetch('/changepasswordforuser/', { method:'POST', body:fd, headers:{'X-CSRFToken':CSRF} });
+        const d = await r.json();
+        closeModal('modal-chgpass');
+        toast(d.status==='success' ? 'Password changed successfully!' : 'Error changing password',
+              d.status==='success' ? 'success' : 'error');
+    } catch(e) { toast('Network error','error'); }
+}
+
+/* ── Delete Confirmations ── */
+function confirmDeleteDB(name, domain) {
+    if(!confirm(`Delete database "${name}"?\n\nThis will permanently remove all data!`)) return;
+    toast(`Deleting database ${name}...`, 'info');
+    window.location.href = `/dbreomve/${domain}/${name}/`;
+}
+function confirmDeleteUser(name, domain) {
+    if(!confirm(`Delete DB user "${name}"?`)) return;
+    toast(`Deleting user ${name}...`, 'info');
+    window.location.href = `/dbuserremove/${domain}/${name}/`;
+}
+</script>
+</body>
+</html>

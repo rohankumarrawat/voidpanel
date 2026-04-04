@@ -1,0 +1,334 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <title>:: VoidPanel :: Cron Manager</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f1f5f9; }
+        
+        .vp-glass-panel {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .vp-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .vp-panel-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #fff;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .vp-form-group { margin-bottom: 16px; }
+        .vp-form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #94a3b8;
+        }
+        
+        .vp-input {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.2) !important;
+            border: 1px solid rgba(255,255,255,0.1) !important;
+            color: #fff !important;
+            font-family: 'Courier New', Courier, monospace;
+            transition: all 0.2s;
+        }
+        .vp-input:focus {
+            border-color: #6366f1 !important;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important;
+            outline: none;
+        }
+
+        /* Buttons */
+        .vp-btn-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+            cursor: pointer;
+            width: 100%;
+        }
+        .vp-btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(99, 102, 241, 0.35); }
+        .vp-btn-danger {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .vp-btn-danger:hover { background: rgba(239, 68, 68, 0.25); }
+
+        /* Tables */
+        .vp-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; }
+        .vp-table th {
+            color: #94a3b8;
+            font-weight: 500;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .vp-table td {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 14px 16px;
+            color: #e2e8f0;
+            vertical-align: middle;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+        }
+        .vp-table tr td:first-child { border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
+        .vp-table tr td:last-child { border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
+        .vp-table tr:hover td { background: rgba(255, 255, 255, 0.04); }
+
+        /* Toasts */
+        .vp-toast-container { position: fixed; bottom: 24px; left: 24px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; }
+        .vp-toast {
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(12px);
+            border-left: 4px solid #6366f1;
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transform: translateX(-120%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .vp-toast.show { transform: translateX(0); }
+        .vp-toast.success { border-color: #10b981; }
+        .vp-toast.error { border-color: #ef4444; }
+
+        /* Helper List */
+        .cron-helper {
+            font-family: monospace;
+            color: #94a3b8;
+            background: rgba(0,0,0,0.2);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            margin-bottom: 8px;
+        }
+        .cron-helper span { color: #f59e0b; font-weight: bold; }
+    </style>
+</head>
+
+<body>
+    {% csrf_token %}
+    <div id="wrapper">
+        {% include 'control/navbar.html' %}
+        {% include 'control/left.html' %}
+        {% include 'control/right.html' %}
+
+        <div id="main-content">
+            <div class="container-fluid" style="padding: 24px;">
+                
+                <div class="row">
+                    <!-- Create Cron Section -->
+                    <div class="col-lg-4">
+                        <div class="vp-glass-panel">
+                            <div class="vp-panel-header">
+                                <h2 class="vp-panel-title">
+                                    <i class="fa fa-clock-o" style="color: #6366f1;"></i> Add Cron Job
+                                </h2>
+                            </div>
+                            
+                            <form id="cronAddForm" onsubmit="submitCron(event)">
+                                <div class="vp-form-group">
+                                    <label>Cron Time Configuration</label>
+                                    <input type="text" id="cronTime" name="time" class="vp-input" placeholder="* * * * *" required>
+                                </div>
+                                <div class="vp-form-group">
+                                    <label>Absolute Command Path</label>
+                                    <input type="text" id="cronPath" name="path" class="vp-input" placeholder="/usr/bin/php /home/user/script.php" required>
+                                </div>
+                                <button type="submit" id="btnSubmitCron" class="vp-btn-primary" style="margin-top: 10px;">
+                                    <i class="fa fa-plus"></i> Deploy Cronjob
+                                </button>
+                            </form>
+
+                            <hr style="border-color: rgba(255,255,255,0.05); margin: 24px 0;">
+                            
+                            <!-- Cheat Sheet Module -->
+                            <h5 style="color: #fff; font-size: 0.95rem; margin-bottom: 12px;"><i class="fa fa-book"></i> Syntax Cheat Sheet</h5>
+                            <div class="cron-helper"><span>*</span> * * * * &rarr; Every minute</div>
+                            <div class="cron-helper"><span>30</span> * * * * &rarr; Every 30th minute</div>
+                            <div class="cron-helper">* <span>2</span> * * * &rarr; Run at 2 AM daily</div>
+                            <div class="cron-helper">* * <span>1</span> * * &rarr; Run on 1st of month</div>
+                        </div>
+                    </div>
+
+                    <!-- Existing Crons Table Section -->
+                    <div class="col-lg-8">
+                        <div class="vp-glass-panel">
+                            <div class="vp-panel-header">
+                                <h2 class="vp-panel-title">
+                                    <i class="fa fa-list" style="color: #10b981;"></i> Active Scheduled Jobs
+                                </h2>
+                            </div>
+                            
+                            <div style="overflow-x: auto;">
+                                <table class="vp-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 150px;">Timing</th>
+                                            <th>Execute Path</th>
+                                            <th style="width: 100px; text-align: right;">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for i in crondata %}
+                                        <tr>
+                                            <td style="color: #f59e0b;">{{ i.duratioin }}</td>
+                                            <td style="word-break: break-all;">{{ i.path }}</td>
+                                            <td style="text-align: right;">
+                                                <button onclick="deleteCron(event, '{{ i.id }}')" class="vp-btn-danger">
+                                                    <i class="fa fa-trash"></i> Drop
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="3" style="text-align: center; color: #94a3b8; padding: 30px;">
+                                                No cronjobs are currently active for this domain.
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="vp-toast-container" id="toastContainer"></div>
+
+    <script>
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const currentDomain = "{{ domain.domain|default:domain }}";
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `vp-toast ${type}`;
+            const icon = type === 'success' ? 'check-circle' : 'exclamation-circle';
+            toast.innerHTML = `<i class="fa fa-${icon}"></i> <span>${message}</span>`;
+            container.appendChild(toast);
+            
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        async function submitCron(event) {
+            event.preventDefault();
+            const btn = document.getElementById('btnSubmitCron');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i> Securing...';
+            btn.disabled = true;
+
+            const formData = new FormData(event.target);
+
+            try {
+                // Route correlates to control/urls.py (e.g. /control/cron/domain.com/)
+                const response = await fetch(`/control/cron/${currentDomain}`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-CSRFToken': csrfToken }
+                });
+                
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    showToast(result.message, 'success');
+                    setTimeout(() => location.reload(), 800);
+                } else {
+                    showToast(result.message || 'Error configuring cron tab.', 'error');
+                }
+            } catch (err) {
+                showToast('Network error while saving cron job.', 'error');
+            } finally {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
+        }
+
+        async function deleteCron(event, targetId) {
+            event.preventDefault();
+            const btn = event.currentTarget;
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(`/control/deletecron/${targetId}/`, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken }
+                });
+                
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    showToast(result.message, 'success');
+                    setTimeout(() => location.reload(), 800);
+                } else {
+                    showToast(result.message || 'Error purging command schedule.', 'error');
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                showToast('Network error while deleting.', 'error');
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

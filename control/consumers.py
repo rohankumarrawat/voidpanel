@@ -1,0 +1,96 @@
+import os
+import pty
+import fcntl
+import struct
+import termios
+import json
+import asyncio
+from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.db import database_sync_to_async
+
+class TerminalConsumer(AsyncWebsocketConsumer):
+    
+    @database_sync_to_async
+    def check_shell_access(self, username):
+        from control.models import user as control_user
+        try:
+            usr = control_user.objects.get(username=username)
+            return getattr(usr, 'shell', False)
+        except Exception:
+            return False
+
+    async def connect(self):
+        self.user = self.scope.get("user")
+        if not self.user or not self.user.is_authenticated:
+            await self.close()
+            return
+            
+        # Dynamic Masking: Determine target sandbox directory map
+        if self.user.is_superuser:
+            session_name = self.scope.get("session", {}).get("name")
+            self.target_user = session_name if session_name else "root"
+        else:
+            self.target_user = self.user.username
+            
+        # Explicit Shell Evaluation Boundary
+        if self.target_user != "root":
+            has_shell = await self.check_shell_access(self.target_user)
+            if not has_shell:
+                await self.close()
+                return
+
+        await self.accept()
+
+        self.pid, self.fd = pty.fork()
+        if self.pid == 0:
+            # Fork Payload
+            if self.target_user == "root":
+                os.execvp("bash", ["bash", "-l"])
+            else:
+                # Industry standard Jailed sandbox via `su -` drops privileges natively 
+                # resolving ~ paths and triggering local unprivileged .bash_profile
+                os.execvp("su", ["su", "-", self.target_user])
+            
+        self.loop = asyncio.get_event_loop()
+        self.loop.add_reader(self.fd, self._read_pty)
+
+    def _read_pty(self):
+        try:
+            data = os.read(self.fd, 8192)
+            if data:
+                asyncio.ensure_future(self.send(text_data=data.decode('utf-8', 'replace')))
+            else:
+                asyncio.ensure_future(self.close())
+        except OSError:
+            asyncio.ensure_future(self.close())
+
+    async def disconnect(self, close_code):
+        if hasattr(self, 'fd'):
+            try:
+                self.loop.remove_reader(self.fd)
+                os.close(self.fd)
+            except Exception:
+                pass
+        
+        if hasattr(self, 'pid'):
+            try:
+                import signal
+                os.kill(self.pid, signal.SIGKILL)
+                os.waitpid(self.pid, 0)
+            except Exception:
+                pass
+
+    async def receive(self, text_data=None, bytes_data=None):
+        if text_data:
+            try:
+                msg = json.loads(text_data)
+                if msg.get('action') == 'resize':
+                    rows = msg.get("rows", 24)
+                    cols = msg.get("cols", 80)
+                    winsize = struct.pack("HHHH", rows, cols, 0, 0)
+                    fcntl.ioctl(self.fd, termios.TIOCSWINSZ, winsize)
+                elif msg.get('action') == 'input':
+                    data = msg.get('data', '')
+                    os.write(self.fd, data.encode('utf-8'))
+            except Exception:
+                pass

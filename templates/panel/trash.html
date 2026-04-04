@@ -1,0 +1,252 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>:: VoidPanel :: Recycle Bin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-base: #0a0e1a;
+            --bg-card: rgba(15, 23, 42, 0.85);
+            --border: rgba(99, 102, 241, 0.2);
+            --border-light: rgba(255,255,255,0.07);
+            --accent: #6366f1;
+            --accent-hover: #818cf8;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #475569;
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-base); color: var(--text-primary); min-height: 100vh; }
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: -1;
+            background: radial-gradient(ellipse at 20% 20%, rgba(239,68,68,0.1) 0%, transparent 50%),
+                        radial-gradient(ellipse at 80% 80%, rgba(99,102,241,0.08) 0%, transparent 50%);
+        }
+        .layout { display: flex; min-height: 100vh; }
+        .sidebar {
+            width: 240px; flex-shrink: 0;
+            background: var(--bg-card); border-right: 1px solid var(--border);
+            backdrop-filter: blur(20px); padding: 24px 16px;
+        }
+        .sidebar-logo {
+            display: flex; align-items: center; gap: 10px;
+            text-decoration: none; color: var(--text-primary);
+            font-size: 1.1rem; font-weight: 700; margin-bottom: 32px;
+        }
+        .sidebar-logo img { width: 32px; }
+        .sidebar-nav a {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 12px; border-radius: var(--radius-sm);
+            color: var(--text-secondary); text-decoration: none;
+            font-size: 0.875rem; transition: all 0.2s; margin-bottom: 2px;
+        }
+        .sidebar-nav a:hover, .sidebar-nav a.active {
+            background: rgba(99,102,241,0.12); color: var(--accent-hover);
+        }
+        .main { flex: 1; padding: 32px; }
+        .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 16px; }
+        .page-title { display: flex; align-items: center; gap: 12px; }
+        .page-title .icon { width: 44px; height: 44px; border-radius: 10px;
+            background: rgba(239,68,68,0.12); color: var(--danger);
+            display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+        .page-title h1 { font-size: 1.25rem; font-weight: 700; }
+        .page-title p { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+
+        .btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 16px; border-radius: var(--radius-sm);
+            font-size: 0.82rem; font-weight: 500; cursor: pointer;
+            border: 1px solid transparent; transition: all 0.2s; text-decoration: none;
+        }
+        .btn-ghost { background: transparent; border-color: var(--border); color: var(--text-secondary); }
+        .btn-ghost:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
+        .btn-danger { background: rgba(239,68,68,0.12); color: var(--danger); border-color: rgba(239,68,68,0.25); }
+        .btn-danger:hover { background: rgba(239,68,68,0.22); }
+        .btn-success { background: rgba(16,185,129,0.12); color: var(--success); border-color: rgba(16,185,129,0.25); }
+        .btn-success:hover { background: rgba(16,185,129,0.22); }
+
+        .table-wrap {
+            background: var(--bg-card); border: 1px solid var(--border-light);
+            border-radius: var(--radius); backdrop-filter: blur(20px); overflow: hidden;
+        }
+        table { width: 100%; border-collapse: collapse; }
+        thead tr { background: rgba(239,68,68,0.05); border-bottom: 1px solid var(--border-light); }
+        thead th {
+            padding: 12px 16px; text-align: left; font-size: 0.72rem;
+            font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted);
+        }
+        tbody tr { border-bottom: 1px solid var(--border-light); transition: background 0.15s; }
+        tbody tr:last-child { border-bottom: none; }
+        tbody tr:hover { background: rgba(239,68,68,0.04); }
+        td { padding: 12px 16px; font-size: 0.85rem; color: var(--text-primary); vertical-align: middle; }
+        .file-icon-wrap { display: flex; align-items: center; gap: 10px; }
+        .file-ico { width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+        .ico-dir  { background: rgba(245,158,11,0.12); color: var(--warning); }
+        .ico-file { background: rgba(239,68,68,0.1); color: var(--danger); }
+        .orig-path { font-size: 0.75rem; color: var(--text-muted); font-family: monospace; }
+        .del-at { font-size: 0.78rem; color: var(--text-secondary); }
+
+        .empty-state { text-align: center; padding: 72px 20px; color: var(--text-muted); }
+        .empty-state i { font-size: 3.5rem; display: block; margin-bottom: 18px; opacity: 0.3; }
+        .empty-state h3 { font-size: 1rem; margin-bottom: 6px; color: var(--text-secondary); }
+        .empty-state p { font-size: 0.85rem; }
+
+        /* Toast */
+        #toast-stack { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+        .toast {
+            min-width: 240px; padding: 12px 18px; border-radius: var(--radius-sm);
+            font-size: 0.82rem; font-weight: 500; backdrop-filter: blur(20px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 10px;
+            animation: toastIn 0.25s ease;
+        }
+        .toast.success { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.25); color: var(--success); }
+        .toast.error   { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.25); color: var(--danger); }
+        @keyframes toastIn { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
+        ::-webkit-scrollbar { width:6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.3); border-radius: 3px; }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <aside class="sidebar">
+        <a href="/panel/" class="sidebar-logo">
+            <img src="/static/icons/fav.png" alt="VoidPanel"> VoidPanel
+        </a>
+        <nav class="sidebar-nav">
+            <a href="/panel/"><i class="fa-solid fa-gauge"></i> Dashboard</a>
+            <a href="/filemanager/"><i class="fa-solid fa-folder-open"></i> File Manager</a>
+            <a href="/trash/" class="active"><i class="fa-solid fa-trash-can"></i> Recycle Bin</a>
+            {% if request.user.is_superuser %}
+            <a href="/terminal/"><i class="fa-solid fa-terminal"></i> Terminal</a>
+            {% endif %}
+        </nav>
+    </aside>
+
+    <div class="main">
+        <div class="page-header">
+            <div class="page-title">
+                <div class="icon"><i class="fa-solid fa-trash-can"></i></div>
+                <div>
+                    <h1>Recycle Bin</h1>
+                    <p>{{ items|length }} item{{ items|length|pluralize }} in trash</p>
+                </div>
+            </div>
+            <div style="display:flex;gap:10px;">
+                <a href="/filemanager/" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Back to Files</a>
+                {% if items %}
+                <button class="btn btn-danger" onclick="emptyAll()"><i class="fa-solid fa-fire"></i> Empty Bin</button>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            {% if items %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Original Path</th>
+                        <th>Deleted At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr id="row-{{ forloop.counter }}">
+                        <td>
+                            <div class="file-icon-wrap">
+                                <div class="file-ico {% if item.is_dir %}ico-dir{% else %}ico-file{% endif %}">
+                                    <i class="fa-solid {% if item.is_dir %}fa-folder{% else %}fa-file{% endif %}"></i>
+                                </div>
+                                <span>{{ item.item_name }}</span>
+                            </div>
+                        </td>
+                        <td><span class="orig-path">{{ item.original_path }}</span></td>
+                        <td><span class="del-at">{{ item.deleted_at|slice:":19"|default:"—" }}</span></td>
+                        <td>
+                            <div style="display:flex;gap:8px;">
+                                <button class="btn btn-success" onclick="restore('{{ item.trash_name }}', this)">
+                                    <i class="fa-solid fa-rotate-left"></i> Restore
+                                </button>
+                                <button class="btn btn-danger" onclick="permDelete('{{ item.trash_name }}', this)">
+                                    <i class="fa-solid fa-skull-crossbones"></i> Delete
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <i class="fa-solid fa-trash-can"></i>
+                <h3>Recycle Bin is Empty</h3>
+                <p>Deleted files will appear here before permanent removal.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div id="toast-stack"></div>
+
+<script>
+const CSRF = "{{ csrf_token }}";
+
+function toast(msg, type='info') {
+    const stack = document.getElementById('toast-stack');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.innerHTML = `<i class="fa-solid ${type==='success'?'fa-circle-check':'fa-circle-xmark'}"></i> ${msg}`;
+    stack.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+}
+
+function api(url, body, cb) {
+    fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify(body)
+    }).then(r => r.json()).then(cb).catch(e => toast('Network error: ' + e, 'error'));
+}
+
+function restore(trashName, btn) {
+    btn.disabled = true; btn.textContent = 'Restoring…';
+    api("{% url 'trash_restore' %}", { trash_name: trashName }, d => {
+        toast(d.message, d.status === 'success' ? 'success' : 'error');
+        if(d.status === 'success') btn.closest('tr').remove();
+        else { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> Restore'; }
+    });
+}
+
+function permDelete(trashName, btn) {
+    if(!confirm('Permanently delete this item? This CANNOT be undone.')) return;
+    btn.disabled = true; btn.textContent = 'Deleting…';
+    api("{% url 'trash_empty' %}", { trash_name: trashName }, d => {
+        toast(d.message, d.status === 'success' ? 'success' : 'error');
+        if(d.status === 'success') btn.closest('tr').remove();
+        else { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-skull-crossbones"></i> Delete'; }
+    });
+}
+
+function emptyAll() {
+    if(!confirm('⚠️ Permanently delete ALL items in the Recycle Bin? This CANNOT be undone.')) return;
+    api("{% url 'trash_empty' %}", {}, d => {
+        toast(d.message, d.status === 'success' ? 'success' : 'error');
+        if(d.status === 'success') setTimeout(() => location.reload(), 1000);
+    });
+}
+</script>
+</body>
+</html>

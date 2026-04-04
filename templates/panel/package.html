@@ -1,0 +1,413 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <title>:: VoidPanel :: Package Management</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <!-- VENDOR CSS -->
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+
+    <style>
+        .pkg-container {
+            --bg-card: rgba(15, 23, 42, 0.85);
+            --border: rgba(99, 102, 241, 0.2);
+            --border-light: rgba(255,255,255,0.07);
+            --accent: #6366f1;
+            --accent-hover: #818cf8;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #475569;
+            --radius: 12px;
+            --radius-sm: 8px;
+            font-family: 'Inter', sans-serif;
+            color: var(--text-primary);
+            padding: 25px 5px;
+            margin-top: 10px;
+        }
+
+        .pkg-container * { box-sizing: border-box; }
+
+        .pkg-container .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 35px; background: transparent; padding: 10px 0; box-shadow: none; border: none; }
+        .pkg-container .page-title { display: flex; align-items: center; gap: 15px; }
+        .pkg-container .page-title .icon {
+            width: 44px; height: 44px; border-radius: 10px;
+            background: rgba(99,102,241,0.12); color: var(--accent-hover);
+            display: flex; align-items: center; justify-content: center; font-size: 1.2rem;
+        }
+        .pkg-container .page-title h1 { font-size: 1.25rem; font-weight: 700; margin:0; color:var(--text-primary); }
+        .pkg-container .page-title p { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; margin-bottom: 0; }
+
+        .pkg-grid { display: grid; grid-template-columns: minmax(350px, 1fr) 1fr; gap: 24px; }
+        @media (max-width: 900px) { .pkg-grid { grid-template-columns: 1fr; } }
+
+        .glass-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius);
+            padding: 24px;
+            backdrop-filter: blur(20px);
+        }
+
+        .glass-card h3 { font-size: 1.1rem; margin-bottom: 20px; color: var(--text-primary); font-weight: 600; display: flex; align-items: center; gap: 10px; margin-top:0; }
+
+        /* Form elements */
+        .pkg-field { margin-bottom: 18px; }
+        .pkg-field label { display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 8px; color: var(--text-secondary); }
+        .pkg-input-group { position: relative; display: flex; align-items: stretch; }
+        
+        .pkg-input-group input[type="text"] {
+            flex: 1; padding: 10px 14px; border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+            background: rgba(0,0,0,0.2) !important; border: 1px solid var(--border-light) !important;
+            color: var(--text-primary) !important; font-size: 0.85rem; font-family: 'Inter', sans-serif;
+            transition: all 0.2s; outline: none; height: auto;
+        }
+        .pkg-input-group input[type="text"]:focus { border-color: var(--accent) !important; background: rgba(0,0,0,0.3) !important; z-index: 2; }
+        .pkg-input-group input[type="text"][readonly] { color: var(--success) !important; opacity: 1; font-weight: 600; }
+
+        .btn-unlimited {
+            background: rgba(16,185,129,0.1); color: var(--success); border: 1px solid rgba(16,185,129,0.3); border-left: none;
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 0 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; justify-content: center; gap: 6px;
+        }
+        .btn-unlimited.active { background: rgba(16,185,129,0.25); border-color: var(--success); box-shadow: inset 0 0 5px rgba(0,0,0,0.2); }
+        .btn-unlimited:hover { background: rgba(16,185,129,0.2); }
+
+        .btn-modern {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 12px 20px; border-radius: var(--radius-sm); width: 100%;
+            font-size: 0.85rem; font-weight: 600; cursor: pointer;
+            border: 1px solid transparent; transition: all 0.2s; margin-top: 10px;
+        }
+        .btn-modern.primary { background: linear-gradient(135deg, var(--accent), var(--accent-hover)); color: white; box-shadow: 0 4px 15px rgba(99,102,241,0.2); }
+        .btn-modern.primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-modern:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+
+        /* Fancy Table */
+        .pkg-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+        .pkg-table th { padding: 12px 16px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border-light); }
+        .pkg-table td { padding: 16px; background: rgba(255,255,255,0.03); font-size: 0.85rem; vertical-align: middle; }
+        .pkg-table tbody tr { transition: transform 0.2s; }
+        .pkg-table tbody tr:hover { transform: translateX(2px); background: rgba(255,255,255,0.05); }
+        .pkg-table td:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); font-weight: 600; color: #fff; }
+        .pkg-table td:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; text-align: right; }
+
+        .val-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; background: rgba(255,255,255,0.1); color: var(--text-secondary); margin-bottom: 4px; }
+        .val-badge.unlimited { background: rgba(16,185,129,0.15); color: var(--success); }
+
+        .btn-del {
+            background: rgba(239,68,68,0.15); color: var(--danger); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; padding: 6px 12px; font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn-del:hover { background: rgba(239,68,68,0.25); }
+        .btn-del:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Toast Notifications */
+        #toast-stack { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+        .toast-msg {
+            min-width: 260px; padding: 14px 20px; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 500;
+            backdrop-filter: blur(20px); box-shadow: 0 10px 40px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 12px;
+            animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; background: rgba(15, 23, 42, 0.95); color: white; border: 1px solid var(--border-light);
+        }
+        .toast-msg.success { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.3); color: var(--success); }
+        .toast-msg.error { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.3); color: var(--danger); }
+        @keyframes toastSlideIn { from { opacity: 0; transform: translateX(50px); } to { opacity: 1; transform: translateX(0); } }
+
+        /* Modal specific */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(8,12,26,0.88); backdrop-filter: blur(10px); z-index: 10000; align-items: center; justify-content: center; }
+        .modal-overlay.show { display: flex; }
+        .modal-glass { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 20px; padding: 32px 36px; width: 100%; max-width: 420px; animation: popIn 0.22s ease; }
+        @keyframes popIn { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    </style>
+</head>
+
+<body data-theme="light" class="font-nunito">
+<div id="wrapper" class="theme-cyan">
+
+    <!-- Page Loader -->
+    <div class="page-loader-wrapper">
+        <div class="loader">
+            <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel"></div>
+            <p>Please wait...</p>
+        </div>
+    </div>
+
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
+
+    <div id="main-content">
+        <div class="container-fluid">
+            <div class="pkg-container">
+                
+                <div class="page-header">
+                    <div class="page-title">
+                        <div class="icon"><i class="fa-solid fa-cube"></i></div>
+                        <div>
+                            <h1>Package Management</h1>
+                            <p>Design rigid hosting tiers safely and seamlessly.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pkg-grid">
+                    <!-- ADD PACKAGE CARD -->
+                    <div class="glass-card">
+                        <h3><i class="fa-solid fa-folder-plus"></i> Architect New Package</h3>
+                        <form id="add-package-form" onsubmit="submitPackage(event)">
+                            <div class="pkg-field">
+                                <label>Package Identifier</label>
+                                <div class="pkg-input-group">
+                                    <input type="text" id="pkg-name" name="package" placeholder="e.g. Gold Tier" required style="border-radius: var(--radius-sm)">
+                                </div>
+                            </div>
+                            
+                            <div class="pkg-field">
+                                <label>Disk Storage Base (MB)</label>
+                                <div class="pkg-input-group">
+                                    <input type="text" id="pkg-storage" name="storage" placeholder="1000" class="num-only" required>
+                                    <button type="button" class="btn-unlimited" onclick="toggleUnlimited('pkg-storage', this)"><i class="fa-solid fa-infinity"></i> Unlimited</button>
+                                </div>
+                            </div>
+
+                            <div class="pkg-field">
+                                <label>Premium Bandwidth Limit (MB)</label>
+                                <div class="pkg-input-group">
+                                    <input type="text" id="pkg-bandwidth" name="bandwidth" placeholder="5000" class="num-only" required>
+                                    <button type="button" class="btn-unlimited" onclick="toggleUnlimited('pkg-bandwidth', this)"><i class="fa-solid fa-infinity"></i> Unlimited</button>
+                                </div>
+                            </div>
+
+                            <div class="pkg-field">
+                                <label>Maximum Subdomains</label>
+                                <div class="pkg-input-group">
+                                    <input type="text" id="pkg-subdomain" name="subdomain" placeholder="5" class="num-only" required>
+                                    <button type="button" class="btn-unlimited" onclick="toggleUnlimited('pkg-subdomain', this)"><i class="fa-solid fa-infinity"></i> Unlimited</button>
+                                </div>
+                            </div>
+
+                            <div class="pkg-field">
+                                <label>FTP Accounts Provision</label>
+                                <div class="pkg-input-group">
+                                    <input type="text" id="pkg-ftp" name="ftp" placeholder="2" class="num-only" required>
+                                    <button type="button" class="btn-unlimited" onclick="toggleUnlimited('pkg-ftp', this)"><i class="fa-solid fa-infinity"></i> Unlimited</button>
+                                </div>
+                            </div>
+
+                            <div class="pkg-field">
+                                <label>Total Hosted Databases</label>
+                                <div class="pkg-input-group">
+                                    <input type="text" id="pkg-db" name="database" placeholder="3" class="num-only" required>
+                                    <button type="button" class="btn-unlimited" onclick="toggleUnlimited('pkg-db', this)"><i class="fa-solid fa-infinity"></i> Unlimited</button>
+                                </div>
+                            </div>
+
+                            <div class="pkg-field">
+                                <label>Email Boxes Capacity</label>
+                                <div class="pkg-input-group">
+                                    <input type="text" id="pkg-email" name="email" placeholder="5" class="num-only" required>
+                                    <button type="button" class="btn-unlimited" onclick="toggleUnlimited('pkg-email', this)"><i class="fa-solid fa-infinity"></i> Unlimited</button>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn-modern primary" id="btn-submit">
+                                <i class="fa-solid fa-check"></i> Initialize Package
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- LIST PACKAGES CARD -->
+                    <div class="glass-card" style="align-self: flex-start;">
+                        <h3><i class="fa-solid fa-cubes-stacked"></i> Unified Packaging Deployments</h3>
+                        <div style="overflow-x: auto;">
+                            <table class="pkg-table">
+                                <thead>
+                                    <tr>
+                                        <th>Identifier</th>
+                                        <th>Config Summary</th>
+                                        <th style="text-align: right;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for p in packages %}
+                                    <tr>
+                                        <td><i class="fa-solid fa-cube" style="color:var(--accent); margin-right:8px;"></i>{{ p.name }}</td>
+                                        <td>
+                                            {% if p.storage == '0' %}<span class="val-badge unlimited">Disk: ∞</span>{% else %}<span class="val-badge">Disk: {{p.storage}}MB</span>{% endif %}
+                                            {% if p.bandwidth == '0' %}<span class="val-badge unlimited">BW: ∞</span>{% else %}<span class="val-badge">BW: {{p.bandwidth}}MB</span>{% endif %}
+                                            {% if p.databases_allowed == '0' %}<span class="val-badge unlimited">DBs: ∞</span>{% else %}<span class="val-badge">DBs: {{p.databases_allowed}}</span>{% endif %}
+                                        </td>
+                                        <td>
+                                            <button type="button" class="btn-del" onclick="confirmDelete('{{ p.name }}')">
+                                                <i class="fa-solid fa-trash-can"></i> Obliterate
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 30px;">Architecture empty. Build your first tier.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div> <!-- end pkg-container -->
+        </div> 
+    </div>
+
+</div> <!-- wrapper -->
+
+<div id="toast-stack"></div>
+
+<!-- DELETE MODAL -->
+<div class="modal-overlay" id="modal-delete">
+    <div class="modal-glass" style="max-width:360px; text-align:center;">
+        <i class="fa-solid fa-triangle-exclamation" style="font-size:3rem; color:var(--danger); margin-bottom:16px;"></i>
+        <h3 style="color:#fff; font-size:1.2rem; margin-bottom:10px;">Verify Destruction</h3>
+        <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:24px;">Are you certain you want to purge "<strong id="del-pkg-target" style="color:#fff;"></strong>"? This tier structure cannot be resurrected.</p>
+        <div style="display:flex; gap:12px;">
+            <button style="flex:1; padding:10px; border-radius:var(--radius-sm); border:1px solid var(--border-light); background:rgba(255,255,255,0.05); color:#fff; cursor:pointer;" onclick="closeDelete()">Abort</button>
+            <button id="btn-confirm-del" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:none; background:var(--danger); color:#fff; font-weight:600; cursor:pointer;" onclick="executeDelete()">Erase Entity</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const CSRF_TOKEN = "{{ csrf_token }}";
+    let pendingDeletion = null;
+
+    function toast(msg, type='info') {
+        const stack = document.getElementById('toast-stack');
+        const el = document.createElement('div');
+        el.className = `toast-msg ${type}`;
+        el.innerHTML = `<i class="fa-solid ${type==='success'?'fa-circle-check':'fa-triangle-exclamation'}"></i> <span>${msg}</span>`;
+        stack.appendChild(el);
+        setTimeout(() => el.remove(), 4500);
+    }
+
+    // Replace Non-digits
+    document.querySelectorAll('.num-only').forEach(inp => {
+        inp.addEventListener('input', function() {
+            if (this.value !== 'unlimited') {
+                this.value = this.value.replace(/\D/g, '');
+            }
+        });
+    });
+
+    function toggleUnlimited(inputId, btn) {
+        const inp = document.getElementById(inputId);
+        if (inp.value === 'unlimited') {
+            inp.value = '';
+            inp.removeAttribute('readonly');
+            btn.classList.remove('active');
+            btn.innerHTML = '<i class="fa-solid fa-infinity"></i> Unlimited';
+        } else {
+            inp.value = 'unlimited';
+            inp.setAttribute('readonly', 'true');
+            btn.classList.add('active');
+            btn.innerHTML = '<i class="fa-solid fa-lock"></i> Locked';
+        }
+    }
+
+    async function submitPackage(e) {
+        e.preventDefault();
+        const form = e.target;
+        const btn = document.getElementById('btn-submit');
+        const defaultHtml = btn.innerHTML;
+        
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Processing...';
+        btn.disabled = true;
+
+        const formData = new FormData(form);
+        
+        try {
+            const resp = await fetch('/package/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': CSRF_TOKEN, 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData
+            });
+            const data = await resp.json();
+            
+            if (resp.ok && data.status === 'success') {
+                toast(data.message, 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                toast(data.message || 'Error executing generation structure', 'error');
+                btn.innerHTML = defaultHtml;
+                btn.disabled = false;
+            }
+        } catch(err) {
+            toast('Catastrophic network dropout', 'error');
+            btn.innerHTML = defaultHtml;
+            btn.disabled = false;
+        }
+    }
+
+    function confirmDelete(pkgName) {
+        pendingDeletion = pkgName;
+        document.getElementById('del-pkg-target').textContent = pkgName;
+        document.getElementById('modal-delete').classList.add('show');
+    }
+
+    function closeDelete() {
+        pendingDeletion = null;
+        document.getElementById('modal-delete').classList.remove('show');
+        const btn = document.getElementById('btn-confirm-del');
+        btn.innerHTML = 'Erase Entity';
+        btn.disabled = false;
+    }
+
+    async function executeDelete() {
+        if (!pendingDeletion) return;
+        const btn = document.getElementById('btn-confirm-del');
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Erasing...';
+        btn.disabled = true;
+
+        const url = `/delpackage/${encodeURIComponent(pendingDeletion)}/`;
+        
+        try {
+            const resp = await fetch(url, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': CSRF_TOKEN, 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const data = await resp.json();
+            
+            if (resp.ok && data.status === 'success') {
+                toast(data.message, 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                toast(data.message || 'Permission denied or structural failure.', 'error');
+                closeDelete();
+            }
+        } catch(err) {
+            toast('Network termination error.', 'error');
+            closeDelete();
+        }
+    }
+
+    // Flash Django fallback messages if they exist via POST reload
+    {% if messages %}
+        {% for msg in messages %}
+            {% if msg.tags == 'success' %}toast("{{ msg }}", "success");
+            {% else %}toast("{{ msg }}", "error");{% endif %}
+        {% endfor %}
+    {% endif %}
+
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+        el.addEventListener('click', function(e){ if(e.target===this) closeDelete(); });
+    });
+</script>
+
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+</body>
+</html>
