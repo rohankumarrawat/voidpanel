@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='mernname',
             name='port',
-            field=models.CharField(default=None, max_length=100),
+            field=models.CharField(max_length=100, null=True, blank=True),
         ),
     ]
