@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-)ryl+4_-ki=ggc^9fw0zppc&&9cg(4muy2g0euh-)+#5cd)7f^
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['*', '94.136.184.183', 'localhost']
 
 # Application definition
 
@@ -145,14 +145,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
-# STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 STATICFILES_DIRS = [
     BASE_DIR / "static",
-    "/var/www/panel/static/",
 ]
 CSRF_TRUSTED_ORIGINS = [
-    'https://changetoip:8082',
+    'https://94.136.184.183:8082',
+    'http://94.136.184.183:8080',
 ]
 
 # Optional: Additional static file storage settings
