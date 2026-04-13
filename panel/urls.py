@@ -115,6 +115,7 @@ urlpatterns = [
            path('update/', views.update, name='update'),
            path('maincron/', views.maincron, name='maincron'),
            path('chpass/', views.chpass, name='chpass'),
+           path('copysite/', views.copysite, name='copysite'),
             path('download_zip_backup/<str:filename>/<str:user>/', views.download_zip_backup, name='download_zip_backup'),
              path('runsslforall/', views.runsslforall, name='runsslforall'),
              path('runsslforall1/', views.runsslforall1, name='runsslforall1'),
@@ -173,7 +174,11 @@ urlpatterns = [
     path('api/unsuspend-account/', views.unsuspend_account, name='unsuspend_account'),
     path('api/terminate-account/', views.terminate_account, name='terminate_account'),
        path('analytics/', views.analytics, name='analytics'),
-        
+       path('webserver/', views.webserver_manager, name='webserver_manager'),
+       path('api/switch-webserver/', views.api_switch_webserver, name='api_switch_webserver'),
+       path('ols-admin/', views.ols_admin_proxy, name='ols_admin_proxy'),
+       path('api/site-config/get/', views.api_get_site_config, name='api_get_site_config'),
+       path('api/site-config/save/', views.api_save_site_config, name='api_save_site_config'),
 
     
 

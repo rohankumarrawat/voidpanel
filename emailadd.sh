@@ -13,9 +13,10 @@ DOMAIN=$(echo "$1" | cut -f2 -d@);
 PASSWD=$2;
 SYS_USER=${3:-vmail}
 
-if [ "$SYS_USER" == "vmail" ]; then
-    BASEDIR="/var/mail/vhosts/$DOMAIN/$USERNAME"
-    FILEDIR="/var/mail/vhosts"
+# Always store mail under the user's home directory
+if [ "$SYS_USER" != "vmail" ] && [ -d "/home/$SYS_USER" ]; then
+    BASEDIR="/home/$SYS_USER/mail/$DOMAIN/$USERNAME"
+    FILEDIR="/home/$SYS_USER/mail"
 else
     BASEDIR="/home/$SYS_USER/mail/$DOMAIN/$USERNAME"
     FILEDIR="/home/$SYS_USER/mail"

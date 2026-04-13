@@ -12,21 +12,43 @@ Usage:
 import logging
 import logging.handlers
 import os
+import sys
+from pathlib import Path
 
-LOG_DIR  = '/var/log/voidpanel'
-LOG_FILE = os.path.join(LOG_DIR, 'panel.log')
+
+def _resolve_log_dir() -> str:
+    """
+    Resolve the log directory for this environment.
+
+    - Linux / WSL2 running as root   →  /var/log/voidpanel  (production path)
+    - macOS, native Windows, or any  →  <project_root>/logs/ (dev fallback)
+      Linux without write access to
+      /var/log/
+
+    Catches both PermissionError and the broader OSError so that any
+    platform-specific failure (e.g. Windows interpreting the path as a
+    Windows drive path) falls back cleanly instead of crashing Django startup.
+    """
+    fallback = str(Path(__file__).resolve().parent.parent / 'logs')
+
+    # On native Windows the POSIX path /var/log/voidpanel is meaningless.
+    # Skip it entirely to avoid accidentally creating C:\var\log\voidpanel.
+    if sys.platform == 'win32':
+        return fallback
+
+    primary = '/var/log/voidpanel'
+    try:
+        os.makedirs(primary, exist_ok=True)
+        return primary
+    except (PermissionError, OSError):
+        # Local development, macOS, or Linux without /var/log write access.
+        return fallback
+
+
+LOG_DIR   = _resolve_log_dir()
+os.makedirs(LOG_DIR, exist_ok=True)
+LOG_FILE  = os.path.join(LOG_DIR, 'panel.log')
 ERROR_LOG = os.path.join(LOG_DIR, 'error.log')
-
-# Create log directory if it doesn't exist
-try:
-    os.makedirs(LOG_DIR, exist_ok=True)
-except PermissionError:
-    # Fallback for local development (like on your Mac)
-    from pathlib import Path
-    LOG_DIR = os.path.join(Path(__file__).resolve().parent.parent, 'logs')
-    os.makedirs(LOG_DIR, exist_ok=True)
-    LOG_FILE = os.path.join(LOG_DIR, 'panel.log')
-    ERROR_LOG = os.path.join(LOG_DIR, 'error.log')
 
 
 def _build_handler(path: str, level: int) -> logging.Handler:
@@ -55,13 +77,13 @@ def _configure_root() -> None:
     # All logs → panel.log
     try:
         root.addHandler(_build_handler(LOG_FILE, logging.DEBUG))
-    except PermissionError:
-        pass  # Running locally without /var/log/voidpanel
+    except (PermissionError, OSError):
+        pass  # Running locally without write access to log dir
 
     # Errors only → error.log
     try:
         root.addHandler(_build_handler(ERROR_LOG, logging.ERROR))
-    except PermissionError:
+    except (PermissionError, OSError):
         pass
 
     # Console (only if DEBUG env is set)

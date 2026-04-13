@@ -2,12 +2,31 @@
 import subprocess
 import socket
 import os
+import sys
 import mimetypes
 import stat
 import random
+import re
+import shlex
 import requests
 import mysql.connector
 from mysql.connector import Error
+from voidplatform import get_platform
+from voidplatform.config import paths
+
+
+def _validate_sql_identifier(name):
+    """Validate a SQL identifier (database name, username) to prevent injection."""
+    if not name or not re.match(r'^[a-zA-Z0-9_]+$', name):
+        raise ValueError(f'Invalid SQL identifier: {name!r}')
+    return name
+
+
+_ALLOWED_MYSQL_PRIVILEGES = frozenset({
+    'ALL PRIVILEGES', 'SELECT', 'INSERT', 'UPDATE', 'DELETE',
+    'CREATE', 'DROP', 'ALTER', 'INDEX', 'REFERENCES', 'EXECUTE',
+    'CREATE TEMPORARY TABLES', 'LOCK TABLES', 'TRIGGER',
+})
 
 def is_website_live(url):
     try:
@@ -52,7 +71,7 @@ def get_random_port(excluded_ports=None):
 def get_server_ip():
     """Get the server's IP address."""
     try:
-        response = requests.get('https://api.ipify.org')
+        response = requests.get('https://api.ipify.org', timeout=1.5)
         public_ip = response.text
         return public_ip
     except Exception as e:
@@ -61,9 +80,18 @@ def get_server_ip():
     
 
 def run_command(command, check=True):
-    """Run a shell command and optionally check for errors."""
-    print(f"Running command: {command}")
+    """Run a shell command and optionally check for errors.
+
+    SECURITY: Only pass *trusted* commands — never embed unsanitised user input.
+    For user-supplied arguments, use run_command_safe() or shlex.quote().
+    """
     result = subprocess.run(command, shell=True, check=check, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return result
+
+
+def run_command_safe(args, check=True):
+    """Run a command as a list (no shell) to avoid injection."""
+    result = subprocess.run(args, check=check, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     return result
 
 import subprocess
@@ -71,21 +99,30 @@ import sys
 
 def change_hostname(new_hostname):
     try:
-        # Change the hostname
-        subprocess.run(['sudo', 'hostnamectl', 'set-hostname', new_hostname], check=True)
+        # Validate hostname: only allow safe characters
+        import re
+        if not re.match(r'^[a-zA-Z0-9._-]{1,253}$', new_hostname):
+            print(f'Invalid hostname: {new_hostname!r}. Only alphanumeric, dots, underscores and hyphens allowed.')
+            return
 
-        # Update /etc/hosts file
-        with open('/etc/hosts', 'r') as file:
+        # Change the hostname (platform-aware)
+        if sys.platform == 'win32':
+            subprocess.run(['powershell', '-Command', f'Rename-Computer -NewName "{new_hostname}" -Force'], check=True)
+        else:
+            subprocess.run(['sudo', 'hostnamectl', 'set-hostname', new_hostname], check=True)
+
+        # Update hosts file
+        hosts_file = paths.HOSTS_FILE
+        with open(hosts_file, 'r') as file:
             lines = file.readlines()
 
-        with open('/var/www/panel/panel/settings.py', 'a+') as file:
+        settings_path = os.path.join(paths.PANEL_ROOT, 'panel', 'settings.py')
+        with open(settings_path, 'a+') as file:
             file.write('\n')
             file.write(f'CSRF_TRUSTED_ORIGINS.append("https://{new_hostname}:8082")')
 
-
-        with open('/etc/hosts', 'w') as file:
+        with open(hosts_file, 'w') as file:
             for line in lines:
-                # Replace the old hostname with the new one
                 if '127.0.1.1' in line:
                     file.write(f'127.0.1.1\t{new_hostname}\n')
                 else:
@@ -100,45 +137,24 @@ def change_hostname(new_hostname):
         print(f'An error occurred: {e}')
    
 def hostnamessl(hostname,email,xx):
-        run_command(f"certbot --nginx --non-interactive --agree-tos --email {email} -d {hostname} ")  
+        plat = get_platform()
+        get_platform().ssl.provision(hostname, email=email)
         old_hostname=socket.gethostname()
-        sed_command = f"sed -i 's/{old_hostname}/{hostname}/g' /etc/nginx/sites-available/panel"
-        run_command(sed_command)
-        sed_command = f"sed -i 's/{old_hostname}/{hostname}/g' /etc/nginx/sites-available/phpmyadmin"
-        run_command(sed_command)
-        sed_command = f"sed -i 's/{old_hostname}/{hostname}/g' /etc/nginx/sites-available/roundcube"
-        run_command(sed_command) 
-        if xx==0:
-            sed_command = f"sed -i 's|/etc/nginx/dummy.crt|/etc/letsencrypt/live/{hostname}/fullchain.pem|g' /etc/nginx/sites-available/panel"
-            run_command(sed_command)
-            sed_command = f"sed -i 's|/etc/nginx/dummy.key|/etc/letsencrypt/live/{hostname}/privkey.pem|g' /etc/nginx/sites-available/panel"
-            run_command(sed_command)
-
-            sed_command = f"sed -i 's|/etc/nginx/dummy.crt|/etc/letsencrypt/live/{hostname}/fullchain.pem|g' /etc/nginx/sites-available/phpmyadmin"
-            run_command(sed_command)
-            sed_command = f"sed -i 's|/etc/nginx/dummy.key|/etc/letsencrypt/live/{hostname}/privkey.pem|g' /etc/nginx/sites-available/phpmyadmin"
-            run_command(sed_command)
-
-            sed_command = f"sed -i 's|/etc/nginx/dummy.crt|/etc/letsencrypt/live/{hostname}/fullchain.pem|g' /etc/nginx/sites-available/roundcube"
-            run_command(sed_command)
-            sed_command = f"sed -i 's|/etc/nginx/dummy.key|/etc/letsencrypt/live/{hostname}/privkey.pem|g' /etc/nginx/sites-available/roundcube"
-            run_command(sed_command)
-        else:
-            sed_command = f"sed -i 's|/etc/letsencrypt/live/{old_hostname}/fullchain.pem|/etc/letsencrypt/live/{hostname}/fullchain.pem|g' /etc/nginx/sites-available/panel"
-            run_command(sed_command)
-            sed_command = f"sed -i 's|/etc/letsencrypt/live/{old_hostname}/privkey.pem|/etc/letsencrypt/live/{hostname}/privkey.pem|g' /etc/nginx/sites-available/panel"
-            run_command(sed_command)
-
-            sed_command = f"sed -i 's|/etc/letsencrypt/live/{old_hostname}/fullchain.pem|/etc/letsencrypt/live/{hostname}/fullchain.pem|g' /etc/nginx/sites-available/phpmyadmin"
-            run_command(sed_command)
-            sed_command = f"sed -i 's|/etc/letsencrypt/live/{old_hostname}/privkey.pem|/etc/letsencrypt/live/{hostname}/privkey.pem|g' /etc/nginx/sites-available/phpmyadmin"
-            run_command(sed_command)
-
-            sed_command = f"sed -i 's|/etc/letsencrypt/live/{old_hostname}/fullchain.pem|/etc/letsencrypt/live/{hostname}/fullchain.pem|g' /etc/nginx/sites-available/roundcube"
-            run_command(sed_command)
-            sed_command = f"sed -i 's|/etc/letsencrypt/live/{old_hostname}/privkey.pem|/etc/letsencrypt/live/{hostname}/privkey.pem|g' /etc/nginx/sites-available/roundcube"
-            run_command(sed_command)
-        run_command("sudo systemctl reload nginx")
+        sites_dir = paths.NGINX_SITES_AVAILABLE
+        for site in ['panel', 'phpmyadmin', 'roundcube']:
+            site_path = os.path.join(sites_dir, site)
+            if os.path.exists(site_path):
+                with open(site_path, 'r') as f:
+                    content = f.read()
+                content = content.replace(old_hostname, hostname)
+                content = content.replace(paths.SSL_DUMMY_CERT, f'{paths.LETSENCRYPT_LIVE}/{hostname}/fullchain.pem')
+                content = content.replace(paths.SSL_DUMMY_KEY, f'{paths.LETSENCRYPT_LIVE}/{hostname}/privkey.pem')
+                if old_hostname:
+                    content = content.replace(f'{paths.LETSENCRYPT_LIVE}/{old_hostname}/fullchain.pem', f'{paths.LETSENCRYPT_LIVE}/{hostname}/fullchain.pem')
+                    content = content.replace(f'{paths.LETSENCRYPT_LIVE}/{old_hostname}/privkey.pem', f'{paths.LETSENCRYPT_LIVE}/{hostname}/privkey.pem')
+                with open(site_path, 'w') as f:
+                    f.write(content)
+        plat.services.reload('nginx')
         import time
         time.sleep(2)
 
@@ -185,7 +201,37 @@ def get_file_info(directory):
         # others=others.sort()
     
     except PermissionError:
-        print(f"Permission denied for directory: {directory}")
+        print(f"Permission denied for directory: {directory}. Attempting sudo fallback...")
+        try:
+            import json, subprocess
+            py_code = """
+import sys, os, stat, mimetypes, json
+d = sys.argv[1]
+try:
+    files=[]; dirs=[]; others=[]
+    for i in os.listdir(d):
+        p = os.path.join(d, i)
+        try:
+            m = stat.filemode(os.stat(p).st_mode)
+            if os.path.isfile(p):
+                t = mimetypes.guess_type(p)[0] or 'Unknown'
+                files.append({'name': i, 'size': os.path.getsize(p)//1024, 'type': t, 'permissions': m})
+            elif os.path.isdir(p):
+                dirs.append({'name': i, 'size': '-', 'type': 'Directory', 'permissions': m})
+            else:
+                others.append({'name': i, 'permissions': m})
+        except Exception:
+            pass
+    print(json.dumps({'files': files, 'directories': dirs, 'others': others}))
+except Exception as e:
+    print(json.dumps({'error': str(e)}))
+"""
+            out = subprocess.run(['sudo', 'python3', '-c', py_code, directory], capture_output=True, text=True, check=True)
+            data = json.loads(out.stdout)
+            if 'error' not in data:
+                return data
+        except Exception as e:
+            print(f"Sudo fallback listdir failed: {e}")
     except OSError as e:
         print(f"Error accessing directory {directory}: {e}")
 
@@ -222,7 +268,12 @@ def extract_zip_with_error_handling(zip_filename, extract_to_folder):
         if not os.path.exists(extract_to_folder):
             os.makedirs(extract_to_folder)
 
+        abs_dest = os.path.realpath(extract_to_folder)
         with zipfile.ZipFile(zip_filename, 'r') as zip_ref:
+            for member in zip_ref.infolist():
+                member_path = os.path.realpath(os.path.join(extract_to_folder, member.filename))
+                if not member_path.startswith(abs_dest + os.sep) and member_path != abs_dest:
+                    raise ValueError(f'Zip entry would escape target directory: {member.filename}')
             zip_ref.extractall(extract_to_folder)
 
 
@@ -244,7 +295,7 @@ def generate_ssl_certificates(domain, ssl_dir,logs):
 
     try:
         # Run OpenSSL command to generate the certificates
-        subprocess.run(openssl_command, check=True)
+        get_platform().ssl.generate_self_signed(domain, cert_path, key_path)
         
         f.write("\n")
         f.write(f"SSL certificate and key generated for {domain} at {ssl_dir}")
@@ -261,7 +312,12 @@ def generate_ssl_certificates(domain, ssl_dir,logs):
 
 
 def create_nginx_ssl_conf(file_path, domain, root_dir, cert_path, key_path):
-    # Nginx configuration content with SSL support
+    # Build PHP FastCGI directive based on platform
+    if sys.platform == 'win32':
+        php_fastcgi = f"fastcgi_pass 127.0.0.1:{paths.PHP_CGI_PORT};"
+    else:
+        php_fastcgi = f"fastcgi_pass unix:{paths.PHP_FPM_SOCK.format(version='8.3')};"
+
     nginx_ssl_conf = f"""
 server {{
     listen 443 ssl;
@@ -278,9 +334,9 @@ server {{
 
     root {root_dir};
     index index.php index.html index.htm;
-   location ~ \.php$ {{
+   location ~ \\.php$ {{
         include snippets/fastcgi-php.conf;
-        fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;
+        {php_fastcgi}
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
         include fastcgi_params;
          fastcgi_read_timeout 300;
@@ -292,26 +348,26 @@ server {{
     alias /usr/share/phpmyadmin;  # This should point to your phpMyAdmin installation
     index index.php;
 
-    location ~ ^/phpmyadmin/(.+\.php)$ {{
-        fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;
+    location ~ ^/phpmyadmin/(.+\\.php)$ {{
+        {php_fastcgi}
         fastcgi_index index.php;
         include fastcgi_params;
         fastcgi_param SCRIPT_FILENAME /usr/share/phpmyadmin/$1;  # Ensure this is correct
     }}
 
-    location ~ ^/phpmyadmin/(.+\.(gif|jpe?g|png|ico|css|js))$ {{
+    location ~ ^/phpmyadmin/(.+\\.(gif|jpe?g|png|ico|css|js))$ {{
         alias /usr/share/phpmyadmin/$1;  # This serves static assets
     }}
 }}
 
-     location ~ /\.ht {{
+     location ~ /\\.ht {{
         deny all;
     }}
      proxy_read_timeout 300;
     proxy_connect_timeout 300;
     proxy_send_timeout 300;
-    
-   
+
+
 }}
 
 
@@ -322,16 +378,15 @@ server {{
     # Redirect all HTTP traffic to HTTPS
     return 301 https://$host$request_uri;
 
-  
+
 
 }}
 """
 
     try:
-        # Write the configuration to the specified file path
         with open(file_path, 'w') as f:
             f.write(nginx_ssl_conf)
-            run_command('sudo systemctl restart nginx')
+            get_platform().services.restart('nginx')
         print(f"Nginx SSL configuration file created at: {file_path}")
     except OSError as e:
         print(f"Error creating Nginx configuration file: {e}")
@@ -358,19 +413,24 @@ server {{
 def generate_dkim_keys(domain, key_dir):
     """Generate DKIM keys for a domain and save them to the specified directory."""
     os.makedirs(key_dir, exist_ok=True)
-    
-    # Paths for the private and public DKIM keys
+
     private_key_path = os.path.join(key_dir, 'default.private')
     public_key_path = os.path.join(key_dir, 'default.txt')
 
-    # Generate DKIM keys using opendkim-genkey command
-    subprocess.run([
-        'opendkim-genkey', '-t', '-s', 'default', '-d', domain, '-b', '2048', '-r', '-v'
-    ], check=True)
-    
-    # Move generated keys to the specified directory
-    os.rename('default.private', private_key_path)
-    os.rename('default.txt', public_key_path)
+    if sys.platform == 'win32':
+        # On Windows use openssl to generate DKIM RSA key pair
+        subprocess.run([
+            'openssl', 'genrsa', '-out', private_key_path, '2048'
+        ], check=True)
+        subprocess.run([
+            'openssl', 'rsa', '-in', private_key_path, '-pubout', '-out', public_key_path
+        ], check=True)
+    else:
+        subprocess.run([
+            'opendkim-genkey', '-t', '-s', 'default', '-d', domain, '-b', '2048', '-r', '-v'
+        ], check=True)
+        os.rename('default.private', private_key_path)
+        os.rename('default.txt', public_key_path)
 
     print(f"DKIM keys generated for {domain}.")
     return private_key_path, public_key_path
@@ -466,12 +526,13 @@ def create_bind_records(domain, key_dir, zone_file_path):
         for chunk in dkim_record_lines:
             zone_file.write(chunk)
      
-    with open('/etc/bind/named.conf','a') as f:
+    with open(paths.BIND_CONF, 'a') as f:
         f.write("\n")
         f.write(f'zone "{domain}" ')
         f.write("{\n")
         f.write("type master; \n")
-        f.write(f'file "/etc/bind/db.{domain}"; \n')
+        zone_db = os.path.join(paths.BIND_ZONE_DIR, f'db.{domain}')
+        f.write(f'file "{zone_db}"; \n')
         f.write("};\n")
     
 
@@ -500,6 +561,11 @@ def create_bind_recordsforsubdomain(name, zone_file_path):
 def configure_opendkim(domain, key_dir):
     """Configure OpenDKIM for the domain."""
     try:
+        if sys.platform == 'win32':
+            # On Windows, DKIM is handled by hMailServer — no opendkim config
+            print(f"Skipping OpenDKIM config on Windows (handled by mail server) for {domain}.")
+            return
+
         # Update OpenDKIM configuration
         with open('/etc/opendkim.conf', 'a') as f:
             f.write(f"\nDomain          {domain}\n")
@@ -514,15 +580,15 @@ def configure_opendkim(domain, key_dir):
             f.write(f"Canonicalization    relaxed/simple\n")
 
         # Update KeyTable
-        with open('/etc/opendkim/KeyTable', 'a') as f:
+        with open(paths.OPENDKIM_KEYTABLE, 'a') as f:
             f.write(f"default._domainkey.{domain} {domain}:default:{os.path.join(key_dir, 'default.private')}\n")
-        
+
         # Update SigningTable
-        with open('/etc/opendkim/SigningTable', 'a') as f:
+        with open(paths.OPENDKIM_SIGNINGTABLE, 'a') as f:
             f.write(f"*@{domain} default._domainkey.{domain}\n")
 
         # Update TrustedHosts
-        with open('/etc/opendkim/TrustedHosts', 'a') as f:
+        with open(paths.OPENDKIM_TRUSTEDHOSTS, 'a') as f:
             f.write(f"127.0.0.1\n")
             f.write(f"localhost\n")
             f.write(f"*.{domain}\n")
@@ -534,7 +600,7 @@ def configure_opendkim(domain, key_dir):
 
 
 
-BIND_ZONE_PATH = "/etc/bind/zones/"
+BIND_ZONE_PATH = paths.BIND_ZONE_DIR + os.sep
 ZONE_FILE = "example.com.zone"  # Replace with your zone file
 
 # import re
@@ -742,27 +808,21 @@ def parse_dns_zone_file(DNS_FILE):
 def create_database_and_table(db_name,password):
     connection = None
     try:
-        # Establish a connection to MySQL server
+        _validate_sql_identifier(db_name)
         connection = mysql.connector.connect(
-            host="localhost",  # Replace with your host
+            host="localhost",
             user="newuser", 
-             password=password # Replace with your MySQL username
-        # Replace with your MySQL password
+            password=password
         )
-        print(connection)
         if connection.is_connected():
             cursor = connection.cursor()
-            
-
-            # Create a new database
-            cursor.execute(f"CREATE DATABASE IF NOT EXISTS {db_name}")
-            # Return True for successful creation
+            cursor.execute(f"CREATE DATABASE IF NOT EXISTS `{db_name}`")
             return True
         else:
             return False
 
-
-    except Error as e:
+    except (Error, ValueError) as e:
+        print(f"Error: {e}")
         return False
 
 
@@ -770,24 +830,19 @@ def create_database_and_table(db_name,password):
 def create_mysql_user(username,password,passw):
     connection = None
     try:
-        # Establish a connection to MySQL server
+        _validate_sql_identifier(username)
         connection = mysql.connector.connect(
-            host="localhost",  # Replace with your host
-            user="newuser",  # Replace with your MySQL admin username
-            password=passw # Replace with your MySQL admin password
+            host="localhost",
+            user="newuser",
+            password=passw
         )
 
         if connection.is_connected():
             cursor = connection.cursor()
-
-
-            create_user_query = f"CREATE USER '{username}'@'localhost' IDENTIFIED BY '{password}';"
-            cursor.execute(create_user_query)
-
-
+            cursor.execute("CREATE USER %s@'localhost' IDENTIFIED BY %s", (username, password))
             return True
 
-    except Error as e:
+    except (Error, ValueError) as e:
         print(f"Error: {e}")
         return False
 
@@ -914,22 +969,20 @@ from mysql.connector import Error
 def remove_database(db_name, passw):
     connection = None
     try:
-        # Establish a connection to MySQL server
+        _validate_sql_identifier(db_name)
         connection = mysql.connector.connect(
             host="localhost",  
-            user="newuser",  # Replace with your MySQL admin username
-            password=passw  # Replace with your MySQL admin password
+            user="newuser",
+            password=passw
         )
 
         if connection.is_connected():
             cursor = connection.cursor()
-            # Drop the database
-            cursor.execute(f"DROP DATABASE IF EXISTS {db_name};")
-            connection.commit()  # Commit the change
-            print(f"Database '{db_name}' has been removed.")
+            cursor.execute(f"DROP DATABASE IF EXISTS `{db_name}`")
+            connection.commit()
             return True
 
-    except Error as e:
+    except (Error, ValueError) as e:
         print(f"Error: {e}")
         return False
     finally:
@@ -940,23 +993,20 @@ def remove_database(db_name, passw):
 def delete_mysql_user(username, passw):
     connection = None
     try:
-        # Establish a connection to MySQL server
+        _validate_sql_identifier(username)
         connection = mysql.connector.connect(
             host="localhost",  
-            user="newuser",  # Replace with your MySQL admin username
-            password=passw  # Replace with your MySQL admin password
+            user="newuser",
+            password=passw
         )
 
         if connection.is_connected():
             cursor = connection.cursor()
-            # Drop the user
-            delete_user_query = f"DROP USER IF EXISTS '{username}'@'localhost';"
-            cursor.execute(delete_user_query)
-            connection.commit()  # Commit the change
-            print(f"User '{username}' has been removed.")
+            cursor.execute("DROP USER IF EXISTS %s@'localhost'", (username,))
+            connection.commit()
             return True
 
-    except Error as e:
+    except (Error, ValueError) as e:
         print(f"Error: {e}")
         return False
     finally:
@@ -972,23 +1022,20 @@ from mysql.connector import Error
 def change_mysql_user_password(username, new_password, passw):
     connection = None
     try:
-        # Establish a connection to MySQL server
+        _validate_sql_identifier(username)
         connection = mysql.connector.connect(
             host="localhost",  
-            user="newuser",  # Replace with your MySQL admin username
-            password=passw  # Replace with your MySQL admin password
+            user="newuser",
+            password=passw
         )
 
         if connection.is_connected():
             cursor = connection.cursor()
-            # Change the user's password
-            change_password_query = f"ALTER USER '{username}'@'localhost' IDENTIFIED BY '{new_password}';"
-            cursor.execute(change_password_query)
-            connection.commit()  # Commit the change
-            print(f"Password for user '{username}' has been changed.")
+            cursor.execute("ALTER USER %s@'localhost' IDENTIFIED BY %s", (username, new_password))
+            connection.commit()
             return True
 
-    except Error as e:
+    except (Error, ValueError) as e:
         print(f"Error: {e}")
         return False
     finally:
@@ -1003,24 +1050,27 @@ def change_mysql_user_password(username, new_password, passw):
 def grant_mysql_user_privileges(username, database, privileges, admin_password):
     connection = None
     try:
-        # Establish a connection to the MySQL server
+        _validate_sql_identifier(username)
+        _validate_sql_identifier(database)
+        # Validate each privilege against the allowlist
+        for priv in privileges:
+            if priv.upper().strip() not in _ALLOWED_MYSQL_PRIVILEGES:
+                raise ValueError(f'Invalid MySQL privilege: {priv!r}')
         connection = mysql.connector.connect(
             host="localhost",  
-            user="newuser",  # Replace with your MySQL admin username
-            password=admin_password  # Replace with your MySQL admin password
+            user="newuser",
+            password=admin_password
         )
 
         if connection.is_connected():
             cursor = connection.cursor()
-            # Construct the GRANT statement for the specified database
-            privileges_string = ', '.join(privileges)
-            grant_privileges_query = f"GRANT {privileges_string} ON `{database}`.* TO '{username}'@'localhost';"
-            cursor.execute(grant_privileges_query)
-            connection.commit()  # Commit the change
-           
+            privileges_string = ', '.join(p.upper().strip() for p in privileges)
+            grant_privileges_query = f"GRANT {privileges_string} ON `{database}`.* TO %s@'localhost'"
+            cursor.execute(grant_privileges_query, (username,))
+            connection.commit()
             return True
 
-    except Error as e:
+    except (Error, ValueError) as e:
         print(f"Error: {e}")
         return False
     finally:
@@ -1077,7 +1127,10 @@ def zip_multiple_locations_backup_user(main_directory, locations, zip_filename,c
                 else:
                     # If it's a file, add it directly
                     zipf.write(location, arcname=os.path.basename(location))
-    run_command(f'sudo chown {current}:{current} {zip_filepath}')
+    if sys.platform != 'win32':
+        run_command(f'sudo chown {current}:{current} {zip_filepath}')
+    else:
+        run_command(f'icacls "{zip_filepath}" /grant {current}:F')
                 
 
 
@@ -1114,14 +1167,21 @@ import os
 
 def get_php_versions():
     versions = []
-    
-    # Check common installation paths for PHP versions
-    for php_bin in ['/usr/bin/php5', '/usr/bin/php7.0', '/usr/bin/php7.1', '/usr/bin/php7.2', 
-                    '/usr/bin/php7.3', '/usr/bin/php7.4', '/usr/bin/php8.0', '/usr/bin/php8.1', 
-                    '/usr/bin/php8.2', '/usr/bin/php8.3', '/usr/bin/php8.4']:
-        if os.path.exists(php_bin):
-            versions.append(php_bin)
-    
+    if sys.platform == 'win32':
+        # On Windows, check for PHP versions under C:\VoidPanel\php\
+        php_base = getattr(paths, 'PHP_DIR', os.path.join(os.environ.get('VOIDPANEL_BASE', r'C:\VoidPanel'), 'php'))
+        if os.path.isdir(php_base):
+            for entry in os.listdir(php_base):
+                php_exe = os.path.join(php_base, entry, 'php.exe')
+                if os.path.exists(php_exe):
+                    versions.append(php_exe)
+    else:
+        for php_bin in ['/usr/bin/php5', '/usr/bin/php7.0', '/usr/bin/php7.1', '/usr/bin/php7.2',
+                        '/usr/bin/php7.3', '/usr/bin/php7.4', '/usr/bin/php8.0', '/usr/bin/php8.1',
+                        '/usr/bin/php8.2', '/usr/bin/php8.3', '/usr/bin/php8.4']:
+            if os.path.exists(php_bin):
+                versions.append(php_bin)
+
     return versions
 
 def get_php_version(php_bin):
@@ -1162,36 +1222,33 @@ def get_php_extensions(php_bin):
 
 def get_service_status(service_name):
     try:
-        # Fetch the service status using systemctl
-        status = subprocess.check_output([ 'sudo' ,'systemctl', 'is-active', service_name], stderr=subprocess.STDOUT).decode('utf-8').strip()
-        return status
-    except :
+        plat = get_platform()
+        if plat.services.is_active(service_name):
+            return 'active'
+        return 'inactive'
+    except Exception:
         return False
-
-    
 
 
 def restart_service(service_name):
     try:
-        # Restart the service using systemctl
-        subprocess.run(['sudo', 'systemctl', 'restart', service_name], check=True)
-        return True
-    except :
+        result = get_platform().services.restart(service_name)
+        return result.success
+    except Exception:
         return False
+
 def start_service(service_name):
     try:
-        # Restart the service using systemctl
-        subprocess.run(['sudo', 'systemctl', 'start', service_name], check=True)
-        return True
-    except :
+        result = get_platform().services.start(service_name)
+        return result.success
+    except Exception:
         return False
-    
+
 def stop_service(service_name):
     try:
-        # Restart the service using systemctl
-        subprocess.run(['sudo', 'systemctl', 'stop', service_name], check=True)
-        return True
-    except :
+        result = get_platform().services.stop(service_name)
+        return result.success
+    except Exception:
         return False
 
 
@@ -1211,4 +1268,142 @@ def get_directory_size_in_mb(directory='.'):
     return size_in_mb
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Site Cloner — cross-platform, handles React/SPA sites
+# ─────────────────────────────────────────────────────────────────────────────
 
+def clone_website(target_url, destination_dir):
+    """
+    Clone an external website (including React/SPA) into destination_dir.
+    Works on both Linux and Windows (pure Python, no external binaries).
+
+    Steps:
+      1. Fetch the root HTML page.
+      2. Parse all <script>, <link>, <img>, <source>, <video>, <audio> tags.
+      3. Download every discovered asset and rewrite src/href to relative paths.
+      4. Also recursively discovers JS chunk imports for React split-code apps.
+
+    Returns: (True, "Success message") | (False, "Error message")
+    """
+    try:
+        from urllib.parse import urlparse, urljoin
+        import re as _re
+        import os as _os
+        import hashlib
+
+        HEADERS = {
+            'User-Agent': (
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                'AppleWebKit/537.36 (KHTML, like Gecko) '
+                'Chrome/123.0.0.0 Safari/537.36'
+            ),
+            'Accept-Language': 'en-US,en;q=0.9',
+        }
+
+        _os.makedirs(destination_dir, exist_ok=True)
+        parsed_root = urlparse(target_url)
+        base_url = f"{parsed_root.scheme}://{parsed_root.netloc}"
+
+        downloaded = set()
+
+        def _safe_filename(url_path):
+            path = url_path.lstrip('/')
+            if not path or path.endswith('/'):
+                path = path + 'index.html'
+            if '?' in path:
+                base_p, qs = path.split('?', 1)
+                path = base_p + '_' + hashlib.md5(qs.encode()).hexdigest()[:8]
+            return path
+
+        def _download_asset(asset_url):
+            if asset_url in downloaded:
+                return None
+            downloaded.add(asset_url)
+            try:
+                resp = requests.get(asset_url, headers=HEADERS, timeout=15,
+                                    allow_redirects=True, stream=True)
+                if resp.status_code != 200:
+                    return None
+                rel_path = _safe_filename(urlparse(asset_url).path)
+                local_path = _os.path.join(destination_dir, rel_path)
+                _os.makedirs(_os.path.dirname(local_path), exist_ok=True)
+                with open(local_path, 'wb') as f:
+                    for chunk in resp.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                return rel_path
+            except Exception:
+                return None
+
+        def _discover_js_chunk_imports(js_content):
+            # Match React code-split chunk paths inside JS bundles
+            chunk_pattern = _re.findall(
+                r'["\']([^"\']*?static/[^"\']*?\.(?:js|css|woff2?|ttf|eot|png|jpg|jpeg|svg|gif|webp|ico)[^"\']*)["\']',
+                js_content
+            )
+            return chunk_pattern
+
+        # Fetch root HTML
+        root_resp = requests.get(target_url, headers=HEADERS, timeout=20, allow_redirects=True)
+        if root_resp.status_code != 200:
+            return False, f"Failed to fetch {target_url} (HTTP {root_resp.status_code})"
+
+        html_content = root_resp.text
+        downloaded.add(target_url)
+
+        # Discover assets from HTML
+        asset_tags = _re.findall(
+            r'(?:src|href|data-src|srcset)\s*=\s*["\']([^"\']+)["\']',
+            html_content
+        )
+        css_urls = _re.findall(r'url\(["\']?([^"\')\s]+)["\']?\)', html_content)
+        all_refs = asset_tags + css_urls
+
+        assets_to_download = []
+        for ref in all_refs:
+            if ref.startswith('data:') or ref.startswith('#') or ref.startswith('mailto:'):
+                continue
+            full_url = urljoin(base_url, ref) if not ref.startswith('http') else ref
+            if urlparse(full_url).netloc == parsed_root.netloc or not ref.startswith('http'):
+                assets_to_download.append(full_url)
+
+        url_to_local = {}
+        js_contents_to_scan = []
+
+        for asset_url in assets_to_download:
+            local_path = _download_asset(asset_url)
+            if local_path:
+                url_to_local[asset_url] = local_path
+                if asset_url.endswith('.js'):
+                    try:
+                        with open(_os.path.join(destination_dir, local_path), 'r',
+                                  encoding='utf-8', errors='ignore') as jf:
+                            js_contents_to_scan.append((asset_url, jf.read()))
+                    except Exception:
+                        pass
+
+        # Scan JS bundles for React chunks
+        for js_url, js_text in js_contents_to_scan:
+            js_base = f"{urlparse(js_url).scheme}://{urlparse(js_url).netloc}"
+            for chunk_ref in _discover_js_chunk_imports(js_text):
+                full_chunk = urljoin(js_base, chunk_ref) if not chunk_ref.startswith('http') else chunk_ref
+                lp = _download_asset(full_chunk)
+                if lp:
+                    url_to_local[full_chunk] = lp
+
+        # Rewrite HTML to use local paths
+        rewritten_html = html_content
+        for orig_url, local_rel in url_to_local.items():
+            orig_path = urlparse(orig_url).path
+            rewritten_html = rewritten_html.replace(orig_url, local_rel)
+            if orig_path and orig_path != '/':
+                rewritten_html = rewritten_html.replace(orig_path, local_rel)
+
+        index_path = _os.path.join(destination_dir, 'index.html')
+        with open(index_path, 'w', encoding='utf-8') as f:
+            f.write(rewritten_html)
+
+        total = len(downloaded)
+        return True, f"Site cloned successfully! {total} assets downloaded to {destination_dir}"
+
+    except Exception as e:
+        return False, f"Clone failed: {str(e)}"

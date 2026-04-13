@@ -348,6 +348,13 @@
                     <div class="svc-icon"><img src="/static/icons/re.png" alt="Redirect"></div>
                     <div><div class="svc-label">Website</div><div class="svc-name">Redirects</div></div>
                 </a>
+                <a href="javascript:void(0);" onclick="openSiteConfigEditor('{{domain.domain}}');" class="svc-card" style="border:1px solid rgba(99,102,241,0.3); background: rgba(99,102,241,0.05);">
+                    <div class="svc-icon" style="color:#818cf8; font-size:1.6rem; display:flex; align-items:center; justify-content:center;"><i class="fa fa-code"></i></div>
+                    <div>
+                        <div class="svc-label" style="color:var(--muted);">Advanced</div>
+                        <div class="svc-name" style="color:#e2e8f0; display:flex; align-items:center; gap:6px;">Web Server Config <span style="font-size:0.6rem; background:rgba(239,68,68,0.15); color:#ef4444; padding:2px 6px; border-radius:10px; border:1px solid rgba(239,68,68,0.2);">LIVE</span></div>
+                    </div>
+                </a>
                 <a href="/subdomain/{{ domain.domain }}" target="_blank" class="svc-card">
                     <div class="svc-icon"><img src="/static/icons/sub.png" alt="Subdomain"></div>
                     <div><div class="svc-label">Domain</div><div class="svc-name">Subdomains</div></div>
@@ -373,6 +380,12 @@
                     <div class="svc-icon"><img src="/static/icons/analysis.png" alt="Analysis"></div>
                     <div><div class="svc-label">Website</div><div class="svc-name">Analytics</div></div>
                 </a>
+                <div onclick="openModal('modal-copysite')" class="svc-card">
+                    <div class="svc-icon" style="background:rgba(168,85,247,.15);">
+                        <i class="fa fa-clone" style="font-size:1.3rem;color:#a855f7;"></i>
+                    </div>
+                    <div><div class="svc-label">Copy</div><div class="svc-name">Site Cloner</div></div>
+                </div>
             </div>
 
             <!-- ── PHP ── -->
@@ -595,6 +608,41 @@
     </div>
 </div>
 
+<!-- Site Cloner -->
+<div class="modal-overlay" id="modal-copysite">
+    <div class="modal-glass" style="max-width:540px;">
+        <div class="modal-head">
+            <div class="modal-head-icon purple"><i class="fa fa-clone"></i></div>
+            <div>
+                <div class="modal-title">Site Cloner</div>
+                <div class="modal-sub">Download & clone any website (including React / SPA) into your hosting directory</div>
+            </div>
+        </div>
+        <form id="form-copysite">
+            {% csrf_token %}
+            <div class="modal-field">
+                <label>Target Website URL</label>
+                <input type="url" id="cs-url" name="target_url" placeholder="https://example.com" required>
+            </div>
+            <div class="modal-field">
+                <label>Destination Path <span style="color:var(--text-muted);font-size:.7rem;">(optional — leave blank for public_html/&lt;site-name&gt;)</span></label>
+                <input type="text" id="cs-dest" name="destination" placeholder="/home/user/public_html/my-clone">
+            </div>
+            <div style="font-size:.76rem;color:var(--text-dim);background:rgba(168,85,247,.07);border:1px solid rgba(168,85,247,.2);border-radius:8px;padding:10px 14px;margin-bottom:4px;">
+                <i class="fa fa-info-circle" style="color:#a855f7;"></i>
+                &nbsp;Cloning runs in the background. Check the File Manager once complete. React / SPA websites (with JS chunk bundles) are fully supported.
+            </div>
+        </form>
+        <div class="modal-footer-btns" style="margin-top:16px;">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-copysite')">Cancel</button>
+            <button class="btn-modal-confirm purple" id="cs-btn" onclick="submitCopySite()">
+                <span id="cs-btn-text"><i class="fa fa-clone" style="margin-right:5px;"></i>Start Cloning</span>
+                <span class="spin-ring" id="cs-spin" style="display:none;"></span>
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Result overlay -->
 <div class="result-overlay" id="result-overlay">
     <div class="result-glass">
@@ -694,11 +742,131 @@
         } catch(e){ showResult('✕','#ef4444','Email may already exist.'); }
     }
 
+    /* ── Submit Site Cloner ── */
+    async function submitCopySite() {
+        const url = document.getElementById('cs-url').value.trim();
+        if (!url) { showResult('⚠', '#f59e0b', 'Please enter a target URL.'); return; }
+        const btn = document.getElementById('cs-btn');
+        const spin = document.getElementById('cs-spin');
+        const btnText = document.getElementById('cs-btn-text');
+        btn.disabled = true;
+        btnText.style.display = 'none';
+        spin.style.display = 'inline-block';
+        const form = document.getElementById('form-copysite');
+        const fd = new FormData(form);
+        try {
+            const r = await fetch('/copysite/', {method:'POST', body:fd, headers:{'X-CSRFToken':CSRF()}});
+            const d = await r.json();
+            closeModal('modal-copysite');
+            if (d.status === 'success') {
+                showResult('🚀', '#a855f7', `Cloning started in the background!\nFiles will appear in:\n${d.destination}`);
+            } else {
+                showResult('✕', '#ef4444', d.message || 'Clone failed. Please try again.');
+            }
+        } catch(e) {
+            closeModal('modal-copysite');
+            showResult('✕', '#ef4444', 'Network error. Please try again.');
+        } finally {
+            btn.disabled = false;
+            btnText.style.display = 'inline';
+            spin.style.display = 'none';
+        }
+    }
+
+    /* ── Site Config Modal ── */
+    let scCurrentDomain = '';
+    async function openSiteConfigEditor(domain) {
+        scCurrentDomain = domain;
+        document.getElementById('sc-domain-label').textContent = domain;
+        document.getElementById('sc-error-box').style.display = 'none';
+        document.getElementById('sc-textarea').value = 'Loading config...';
+        openModal('modal-siteconfig');
+        try {
+            const res = await fetch(`/api/site-config/get/?domain=${domain}`);
+            const data = await res.json();
+            if (data.status === 'success') {
+                document.getElementById('sc-textarea').value = data.config;
+                document.getElementById('sc-engine-label').textContent = (data.engine || '').toUpperCase();
+            } else {
+                document.getElementById('sc-textarea').value = `Error loading config: ${data.message}`;
+            }
+        } catch(e) {
+            document.getElementById('sc-textarea').value = 'Network error fetching configuration.';
+        }
+    }
+
+    async function submitSiteConfig() {
+        const text = document.getElementById('sc-textarea').value;
+        const errBox = document.getElementById('sc-error-box');
+        errBox.style.display = 'none';
+
+        const btn = document.getElementById('sc-btn');
+        const spin = document.getElementById('sc-spin');
+        const btnText = document.getElementById('sc-btn-text');
+        btn.disabled = true;
+        btnText.textContent = 'Testing & Saving...';
+        spin.style.display = 'inline-block';
+
+        try {
+            const res = await fetch('/api/site-config/save/', {
+                method: 'POST',
+                body: JSON.stringify({ domain: scCurrentDomain, config: text }),
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const d = await res.json();
+            if (d.status === 'success') {
+                closeModal('modal-siteconfig');
+                showResult('✅', '#22c55e', 'Configuration saved & web server reloaded successfully!');
+            } else {
+                errBox.style.display = 'block';
+                errBox.textContent = `Syntax Error. Reverted to previous config:\n\n${d.message}`;
+            }
+        } catch(e) {
+            errBox.style.display = 'block';
+            errBox.textContent = 'Network or internal error.';
+        } finally {
+            btn.disabled = false;
+            btnText.textContent = 'Save & Reload Server';
+            spin.style.display = 'none';
+        }
+    }
+
     /* Close overlays on background click */
     document.querySelectorAll('.modal-overlay, .result-overlay').forEach(el => {
         el.addEventListener('click', e => { if(e.target===el) el.classList.remove('show'); });
     });
 </script>
+
+<!-- ── Site Config Modal HTML ── -->
+<div id="modal-siteconfig" class="modal-overlay">
+    <div class="modal-glass" style="max-width: 800px; width: 95%;">
+        <div class="modal-head">
+            <div class="modal-head-icon" style="background:rgba(99,102,241,0.15); color:#818cf8;"><i class="fa fa-code"></i></div>
+            <div>
+                <div class="modal-title">Web Server Config Editor</div>
+                <div class="modal-sub">
+                    Editing <strong id="sc-domain-label" style="color:#fde68a;">domain</strong>
+                    <span id="sc-engine-label" style="background:rgba(255,255,255,0.1); padding:2px 8px; border-radius:4px; font-size:0.75rem; margin-left:8px;"></span>
+                </div>
+            </div>
+        </div>
+        
+        <div id="sc-error-box" style="display:none; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; padding:12px; border-radius:8px; margin-bottom:16px; font-family:monospace; font-size:0.8rem; white-space:pre-wrap; max-height:150px; overflow-y:auto;">
+        </div>
+
+        <div style="position:relative; margin-top:10px;">
+            <textarea id="sc-textarea" spellcheck="false" style="width:100%; height:400px; background:#0f172a; color:#e2e8f0; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:16px; font-family:monospace; font-size:0.85rem; line-height:1.5; outline:none; resize:vertical;"></textarea>
+        </div>
+
+        <div class="modal-footer-btns">
+            <button type="button" class="btn-modal-cancel" onclick="closeModal('modal-siteconfig')">Cancel</button>
+            <button type="button" class="btn-modal-confirm" style="background:linear-gradient(135deg, #6366f1, #8b5cf6);" id="sc-btn" onclick="submitSiteConfig()">
+                <i id="sc-spin" class="fa fa-circle-notch fa-spin" style="display:none; margin-right:6px;"></i>
+                <span id="sc-btn-text">Save & Reload Server</span>
+            </button>
+        </div>
+    </div>
+</div>
 
 <script src="/static/assets/bundles/libscripts.bundle.js"></script>
 <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>

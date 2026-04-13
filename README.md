@@ -60,29 +60,149 @@ Void Panel is a **next-generation AI-based web hosting control panel** designed 
 
 ## 📥 Installation
 
-### Prerequisites
+VoidPanel runs on **Linux (Ubuntu 22.04+)** and **Windows 10/11 (via WSL2)**.
+Choose the guide for your operating system below.
+
+---
+
+### 🐧 Linux Installation (Ubuntu 22.04+)
+
+#### Prerequisites
 - **Operating System:** Ubuntu 22.04 or higher
 - **Internet Connection:** Required for package downloads
-- **Disk Space:** Minimum 5GB free space
+- **Disk Space:** Minimum 10GB free space
 - **RAM:** Minimum 2GB (4GB recommended)
-- **User Permissions:** sudo access required
+- **User Permissions:** Root / sudo access required
 
-### Quick Installation
+#### Quick Installation
 
-#### Method 1: Standard Installation
+##### Method 1: One-line installer
+```bash
 curl -fsSL https://voidpanel.com/op/install.sh | bash
+```
 
-#### Method 2: Installation with Sudo Privileges
+##### Method 2: With sudo
+```bash
 sudo su
 curl -fsSL https://voidpanel.com/op/install.sh | bash
+```
 
-#### Method 3: Manual Installation
+##### Method 3: Manual
+```bash
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y curl wget gnupg2 git python3 python3-pip
 git clone https://github.com/rohankumarrawat/voidpanel.git
 cd voidpanel
 pip3 install -r requirements.txt
 bash install.sh
+```
+
+---
+
+### 🪟 Windows Installation (WSL2 — Windows 10/11)
+
+VoidPanel on Windows runs inside **WSL2 (Windows Subsystem for Linux)** with
+Ubuntu 22.04. All services — nginx, postfix, dovecot, bind9, vsftpd, php-fpm,
+mysql — run inside the Linux subsystem, giving you **100% feature parity** with
+a native Linux installation. No services are emulated or missing.
+
+#### Windows Prerequisites
+| Requirement | Minimum |
+|-------------|---------|
+| Windows version | Windows 10 **Build 19041** (May 2020 Update) or Windows 11 |
+| Virtualization | Hyper-V / SVM enabled in BIOS (check: Task Manager → Performance → CPU → Virtualization: Enabled) |
+| RAM | 4 GB (2 GB minimum, 4 GB strongly recommended for WSL2) |
+| Disk space | 15 GB free |
+| Internet | Required (downloads ~2 GB) |
+
+#### Windows Quick Installation
+
+1. **Clone or download** this repository to your Windows machine.
+2. **Double-click `install.bat`** — it automatically requests Administrator rights.
+3. The installer will:
+   - Enable WSL2 and the Virtual Machine Platform Windows feature
+   - Install Ubuntu 22.04 inside WSL2 with systemd enabled
+   - Run the full VoidPanel Linux installation inside Ubuntu (~15–30 min)
+   - Set up Windows port forwarding for all panel ports
+   - Register a startup task to keep port forwarding correct after reboots
+4. If a **reboot is required** after enabling WSL2 (Step 3), reboot your PC and
+   run `install.bat` again — it resumes safely from where it left off.
+5. Find your credentials in **`VoidPanel-Access.txt`** on your Desktop.
+6. Open your browser and go to **`http://localhost:8080`**.
+
+#### How It Works (Architecture)
+
+```
+  Windows Host
+  ┌──────────────────────────────────────────────────────────┐
+  │  Browser → localhost:8080                                │
+  │       ↓                                                  │
+  │  netsh portproxy  (TCP port forwarding)                  │
+  │       ↓                                                  │
+  │  WSL2 Virtual Network Adapter  (172.x.x.x, new each boot)│
+  │       ↓                                                  │
+  │  ┌───────────────────────────────────────────────────┐   │
+  │  │  Ubuntu 22.04  (systemd enabled)                  │   │
+  │  │  ┌──────────┐ ┌──────────┐ ┌───────────────────┐ │   │
+  │  │  │  nginx   │ │  mysql   │ │  postfix/dovecot  │ │   │
+  │  │  │  uWSGI   │ │  redis   │ │  bind9 / vsftpd   │ │   │
+  │  │  │  php-fpm │ │  celery  │ │  opendkim / csf   │ │   │
+  │  │  └──────────┘ └──────────┘ └───────────────────┘ │   │
+  │  └───────────────────────────────────────────────────┘   │
+  └──────────────────────────────────────────────────────────┘
+```
+
+- **Port forwarding** is maintained automatically. A Task Scheduler job
+  (`VoidPanel WSL2 Port Forward`) runs at every Windows startup to refresh the
+  `netsh portproxy` rules because WSL2's internal IP changes on each reboot.
+- **Systemd** is enabled in WSL2 so all services start automatically when WSL2
+  wakes up — no manual `service start` commands needed.
+
+#### Opening a Shell in Your VoidPanel Environment
+```powershell
+wsl -d Ubuntu-22.04
+```
+This gives you a root shell inside the Ubuntu instance where VoidPanel runs —
+identical to SSHing into a Linux server.
+
+#### Manual Port Forwarding Refresh
+If the panel becomes unreachable after a reboot, open **Administrator PowerShell** and run:
+```powershell
+powershell -ExecutionPolicy Bypass -File "C:\ProgramData\VoidPanel\windows-startup.ps1"
+```
+Port forwarding log: `C:\ProgramData\VoidPanel\startup.log`
+
+#### Windows Limitations
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Web panel (8080 / 8082) | ✅ Full support | |
+| phpMyAdmin (8090 / 8092) | ✅ Full support | |
+| Roundcube webmail (9000 / 9002) | ✅ Full support | |
+| Email SMTP / IMAP / POP3 | ✅ Full support | TCP portproxy |
+| DNS TCP (port 53) | ✅ Full support | TCP portproxy |
+| Web terminal (SSH-in-browser) | ✅ Full support | Requires WSL2 |
+| FTP active mode (port 21/22) | ✅ Full support | |
+| SSL / Let's Encrypt | ✅ Full support | Needs public IP + domain |
+| **DNS UDP (port 53)** | ⚠️ Use WSL2 IP | `netsh portproxy` is TCP-only |
+| **FTP passive (40000–50000)** | ⚠️ Use WSL2 IP | Too many ports for portproxy |
+
+For DNS UDP and FTP passive, point clients directly at the WSL2 IP (shown in
+`VoidPanel-Access.txt` — it also changes on reboot, so use a DNS hostname).
+
+#### Developer Note (Native Windows, No WSL2)
+
+If you are contributing to VoidPanel UI code on a Windows machine without WSL2,
+you can run just the Django frontend using Daphne (no `uWSGI` required):
+
+```bash
+pip install django channels daphne djangorestframework psutil pexpect requests
+python manage.py migrate
+daphne -b 0.0.0.0 -p 8080 panel.asgi:application
+```
+
+Service management features (nginx config, email, DNS, etc.) will return errors
+without a Linux environment — this mode is for UI-only development only.
 
 ---
 
@@ -150,16 +270,22 @@ Complete documentation is available at https://voidpanel.com/docs
 
 ## 📖 Project Structure
 
+```
 voidpanel/
 ├── panel/                  # Django project settings
-├── control/               # Control panel app
-├── chatting/              # AI chat application
-├── templates/             # HTML templates
-├── static/                # CSS, JS, images
-├── manage.py              # Django management script
-├── db.sqlite3             # Database (SQLite)
-├── install.sh             # Installation script
-└── README.md              # This file
+├── control/                # Control panel app
+├── chatting/               # AI chat application
+├── templates/              # HTML templates
+├── static/                 # CSS, JS, images
+├── manage.py               # Django management script
+├── db.sqlite3              # Database (SQLite)
+├── install.sh              # Linux installation script
+├── install.bat             # Windows installer launcher (double-click)
+├── install-windows.ps1     # Windows/WSL2 full installer (PowerShell)
+├── windows-startup.ps1     # WSL2 port-forwarding refresh (runs at boot)
+├── ubuntu.sh               # Linux service provisioning script
+└── README.md               # This file
+```
 
 ---
 

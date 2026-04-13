@@ -1,6 +1,7 @@
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render,redirect
 import json
+import sys
 import requests
 from django.contrib.auth.decorators import login_required
 from control.models import pythonname,mernname,user,domain,subdomainname,cron,package,allemail,redir,ftpaccount,ftp,phpversion
@@ -8,13 +9,32 @@ from function import get_server_ip,is_website_live,get_database_users_with_filte
 from django.views.decorators.csrf import csrf_exempt
 import os
 import subprocess
+from voidplatform import get_platform
+from voidplatform.config import paths
+
+
+def _resolve_mail_domain_dir(domain_name):
+    """Return the mail directory for a domain: /home/<owner>/mail/<domain>/.
+    Falls back to /var/mail/vhosts/<domain>/ only if no owner exists."""
+    try:
+        owner = user.objects.filter(domain=domain_name).first()
+        if owner:
+            return os.path.join(paths.HOME_BASE, owner.username, 'mail', domain_name)
+    except Exception:
+        pass
+    return os.path.join(paths.MAIL_VHOSTS, domain_name)
+
+
+def _resolve_maildir(domain_name, email_prefix):
+    """Return the maildir path for a specific email account."""
+    return os.path.join(_resolve_mail_domain_dir(domain_name), email_prefix)
 
 
 # except:
 #      adminpassword="adminpassword"
 
 
-def get_user_dashboard_context(current, adminpassword="adminpassword"):
+def get_user_dashboard_context(current, adminpassword=""):
     d = {}
     try:
         u = user.objects.get(username=current)
@@ -32,7 +52,7 @@ def get_user_dashboard_context(current, adminpassword="adminpassword"):
     # SSL status check for sidebar domain badge
     try:
         import os
-        cert_path = f'/etc/letsencrypt/live/{u.domain}/fullchain.pem'
+        cert_path = os.path.join(paths.LETSENCRYPT_LIVE, u.domain, 'fullchain.pem')
         d['primarydomainstatus'] = os.path.exists(cert_path)
     except:
         d['primarydomainstatus'] = False
@@ -41,7 +61,7 @@ def get_user_dashboard_context(current, adminpassword="adminpassword"):
 
     d['avaiablestorage'] = int(hp.storage)
     try:
-        d['remainingstorage'] = int(get_directory_size_in_mb(f'/home/{current}'))
+        d['remainingstorage'] = int(get_directory_size_in_mb(os.path.join(paths.HOME_BASE, str(current))))
     except:
         d['remainingstorage'] = 0
     if d['avaiablestorage'] == 0:
@@ -96,6 +116,8 @@ def chstorageftp(request):
                 usewe=user.objects.get(username=request.session['name'])
                 curren=request.session['name']
                 dddd=usewe.domain
+             else:
+                return JsonResponse({'status': 'error', 'error': 'Unauthorized'}, status=403)
                   
              
         if request.method == 'POST':
@@ -103,8 +125,12 @@ def chstorageftp(request):
             name = request.POST.get('user')
             name=name.lower()
             storage = request.POST.get('storage')
-            print(name,storage)
-            run_command(f'sudo setquota -u {name} {storage} {storage} 0 0 /')
+            # Ownership check: ensure the FTP account belongs to the current user
+            ftp_obj = ftpaccount.objects.filter(username=name).first()
+            if ftp_obj and not request.user.is_superuser:
+                if ftp_obj.main != str(curren):
+                    return JsonResponse({'status': 'error', 'error': 'Unauthorized'}, status=403)
+            get_platform().users.set_quota(name, int(storage), int(storage)) if sys.platform != 'win32' else None
             try:
                  re=ftpaccount.objects.get(username=name)
                  re.storage=storage
@@ -125,14 +151,20 @@ def chpasswordftp(request):
                 usewe=user.objects.get(username=request.session['name'])
                 curren=request.session['name']
                 dddd=usewe.domain
+             else:
+                return JsonResponse({'status': 'error', 'error': 'Unauthorized'}, status=403)
                   
              
         if request.method == 'POST':
             # Extract data from the POST request
             name = request.POST.get('domain')
             name=name.lower()
+            # Ownership check: ensure this user belongs to the current user's domain
+            if not request.user.is_superuser:
+                if name != str(curren) and not ftpaccount.objects.filter(username=name, main=str(curren)).exists():
+                    return JsonResponse({'status': 'error', 'error': 'Unauthorized'}, status=403)
             password = request.POST.get('password')
-            run_command(f"echo '{name}:{password}' | sudo chpasswd")
+            get_platform().users.change_password(name, password)
             return JsonResponse({'status': 'success', 'error': 'Invalid request method'})
             
 
@@ -178,7 +210,7 @@ def ftpadd(request):
            
             if path[0]!="/":
                  path="/"+path
-            path="/home/"+curren+path
+            path=os.path.join(paths.HOME_BASE, str(curren)) + path
             fullname=domainname+'_'+name
 
             try:
@@ -196,19 +228,22 @@ def ftpadd(request):
                      if cretee >= rere:
                           return JsonResponse({'status': 'exceed', 'error': 'Invalid request method'})
             try:
-                run_command(f'mkdir -p {path}')
+                os.makedirs(path, exist_ok=True)
                 try:
-                    run_command(f'sudo useradd -m -s /usr/sbin/nologin {fullname} && sudo passwd -u {fullname} && echo "{fullname}:{password}" | sudo chpasswd')
+                    plat = get_platform()
+                    plat.users.create_user(fullname, password, shell=paths.NOLOGIN_SHELL)
                 except:
                      pass
                 try:
-                    run_command(f'sudo setquota -u {fullname} {storage} {storage} 0 0 /')
+                    if sys.platform != 'win32':
+                        get_platform().users.set_quota(fullname, int(storage), int(storage))
                 except:
                      pass
-                run_command(f'sudo chown {fullname}:{fullname} {path}')
-                with open('/etc/vsftpd.userlist','a') as f:
+                if sys.platform != 'win32':
+                    run_command(f'sudo chown {fullname}:{fullname} {path}')
+                with open(paths.VSFTPD_USERLIST, 'a') as f:
                      f.write(f"\n {fullname}")
-                run_command("sudo systemctl restart vsftpd")
+                get_platform().services.restart('vsftpd')
                 import base64
                 text_bytes = password.encode('utf-8')
                 encoded_text = base64.b64encode(text_bytes)
@@ -233,7 +268,7 @@ def ftp122(request,data):
     else:
         current=request.user
     try:
-        with open('/etc/dontdelete.txt','r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE,'r') as f:
             adminpassword=f.read()
             adminpassword=adminpassword.strip()
     except Exception:
@@ -278,7 +313,7 @@ def deleteftp(request,data):
                     
                     dd=ftpaccount.objects.get(username=data)
                     dd.delete()
-                    run_command(f'sudo deluser {data}')
+                    get_platform().users.delete_user(data)
                     domain32=user.objects.get(username=current).domain
                     return redirect(f"/control/ftp/{domain32}")
                 except:
@@ -293,7 +328,7 @@ def pma_login(request, data):
     from django.http import HttpResponse, JsonResponse
     from control.pma_sso import create_temp_pma_user
     try:
-        with open('/etc/dontdelete.txt', 'r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
             adminpassword = f.read().strip()
     except Exception:
         adminpassword = ''
@@ -351,7 +386,7 @@ def pma_login(request, data):
 @login_required(login_url='/')
 def dbconnect(request, data):
     try:
-        with open('/etc/dontdelete.txt', 'r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
             adminpassword = f.read().strip()
     except Exception:
         adminpassword = ''
@@ -386,7 +421,7 @@ def dbconnect(request, data):
 @login_required(login_url='/')
 def addredirect(request,data):
     try:
-        with open('/etc/dontdelete.txt','r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE,'r') as f:
             adminpassword=f.read()
             adminpassword=adminpassword.strip()
     except Exception:
@@ -428,7 +463,7 @@ def addredirect(request,data):
 @login_required(login_url='/')
 def subdomain(request,data):
     try:
-        with open('/etc/dontdelete.txt','r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE,'r') as f:
             adminpassword=f.read()
             adminpassword=adminpassword.strip()
     except Exception:
@@ -498,7 +533,7 @@ def phpini(request, data):
     try:
         domain_obj = domain.objects.get(domain=data)
         d['domain'] = data
-        file_path = f'/home/{domain_obj.dir}/public_html/php.ini'
+        file_path = os.path.join(paths.HOME_BASE, domain_obj.dir, 'public_html', 'php.ini')
 
         DEFAULT_INI = "; Modern VoidPanel PHP Profile\nmemory_limit = 128M\nupload_max_filesize = 64M\npost_max_size = 64M\nmax_execution_time = 30\nmax_input_time = 60\ndisplay_errors = Off\n"
 
@@ -507,7 +542,8 @@ def phpini(request, data):
             with open(file_path, 'w') as f:
                 f.write(DEFAULT_INI)
             import subprocess
-            subprocess.run(["sudo", "chown", f"{domain_obj.dir}:{domain_obj.dir}", file_path])
+            if sys.platform != 'win32':
+                subprocess.run(["sudo", "chown", f"{domain_obj.dir}:{domain_obj.dir}", file_path])
 
         values_dict = {}
         with open(file_path, 'r') as file:
@@ -561,7 +597,7 @@ def phpini(request, data):
 def listemail(request,data):
     # data=data.lower()
     try:
-        with open('/etc/dontdelete.txt','r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE,'r') as f:
             adminpassword=f.read()
             adminpassword=adminpassword.strip()
     except Exception:
@@ -582,22 +618,26 @@ def listemail(request,data):
                d['allemail']=allemail.objects.filter(domain=data).all()
                for i in allemail.objects.filter(domain=data).all():
                    usernameemail=i.email.split("@")[0]
-                   maildir_path = f"/var/mail/vhosts/{i.domain}/{usernameemail}" 
+                   maildir_path = _resolve_maildir(i.domain, usernameemail)
                    new_dir = os.path.join(maildir_path, "new")
                    cur_dir = os.path.join(maildir_path, "cur")
                    new_emails_count = len(os.listdir(new_dir)) if os.path.exists(new_dir) else 0
                    cur_emails_count = len(os.listdir(cur_dir)) if os.path.exists(cur_dir) else 0
                    total_emails_count = new_emails_count + cur_emails_count
-                   command=f'grep "from=<{i.email}>" /var/log/mail.log'
-                   result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                   command = f"grep -E 'status=bounced|status=deferred' /var/log/mail.log | grep '{i.email}'"
-                   result2 = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                   failed_emails = result2.stdout.splitlines()
-                   sent_emails = result.stdout.splitlines()
-                   command = "postqueue -p"
-                   result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                   queue_lines = result.stdout.splitlines()
-                   filtered_emails = [line for line in queue_lines if i.email in line]
+                   if sys.platform != 'win32':
+                       result = subprocess.run(['grep', f'from=<{i.email}>', '/var/log/mail.log'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                       _bounce_out = subprocess.run(['grep', '-E', 'status=bounced|status=deferred', '/var/log/mail.log'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                       result2 = subprocess.run(['grep', i.email], input=_bounce_out.stdout, capture_output=True, text=True)
+                       failed_emails = result2.stdout.splitlines()
+                       sent_emails = result.stdout.splitlines()
+                       command = "postqueue -p"
+                       result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                       queue_lines = result.stdout.splitlines()
+                       filtered_emails = [line for line in queue_lines if i.email in line]
+                   else:
+                       sent_emails = []
+                       failed_emails = []
+                       filtered_emails = []
                    totalemail=len(sent_emails)+len(failed_emails)+len(filtered_emails)
                    try:
                     sendp=(len(sent_emails)/totalemail)*100
@@ -658,7 +698,7 @@ def listemail(request,data):
 @login_required(login_url='/')
 def email_analysis(request, data):
     try:
-        with open('/etc/dontdelete.txt', 'r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
             adminpassword = f.read().strip()
     except Exception:
         adminpassword = ''
@@ -682,7 +722,7 @@ def email_analysis(request, data):
             
             for i in emails:
                 usernameemail = i.email.split("@")[0]
-                maildir_path = f"/var/mail/vhosts/{i.domain}/{usernameemail}" 
+                maildir_path = _resolve_maildir(i.domain, usernameemail)
                 new_dir = os.path.join(maildir_path, "new")
                 cur_dir = os.path.join(maildir_path, "cur")
                 
@@ -690,17 +730,24 @@ def email_analysis(request, data):
                 cur_emails = len(os.listdir(cur_dir)) if os.path.exists(cur_dir) else 0
                 received_count = new_emails + cur_emails
                 
-                # Sent stats
-                cmd_sent = f'grep "from=<{i.email}>" /var/log/mail.log | wc -l'
-                sent_count = int(subprocess.check_output(cmd_sent, shell=True).decode().strip())
-                
-                # Failed stats
-                cmd_failed = f"grep -E 'status=bounced|status=deferred' /var/log/mail.log | grep '{i.email}' | wc -l"
-                failed_count = int(subprocess.check_output(cmd_failed, shell=True).decode().strip())
-                
-                # Queue stats
-                cmd_queue = f"postqueue -p | grep '{i.email}' | wc -l"
-                queue_count = int(subprocess.check_output(cmd_queue, shell=True).decode().strip())
+                if sys.platform != 'win32':
+                    # Sent stats — no shell=True, email not interpolated into shell string
+                    _sent_raw = subprocess.run(['grep', f'from=<{i.email}>', '/var/log/mail.log'], capture_output=True, text=True)
+                    sent_count = len(_sent_raw.stdout.splitlines())
+
+                    # Failed stats
+                    _all_fail = subprocess.run(['grep', '-E', 'status=bounced|status=deferred', '/var/log/mail.log'], capture_output=True, text=True)
+                    _fail_filtered = subprocess.run(['grep', i.email], input=_all_fail.stdout, capture_output=True, text=True)
+                    failed_count = len(_fail_filtered.stdout.splitlines())
+
+                    # Queue stats
+                    _queue_raw = subprocess.run(['postqueue', '-p'], capture_output=True, text=True)
+                    _queue_filtered = subprocess.run(['grep', i.email], input=_queue_raw.stdout, capture_output=True, text=True)
+                    queue_count = len(_queue_filtered.stdout.splitlines())
+                else:
+                    sent_count = 0
+                    failed_count = 0
+                    queue_count = 0
                 
                 total_sent += sent_count
                 total_failed += failed_count
@@ -727,7 +774,7 @@ def email_analysis(request, data):
             # Basic context for sidebar/navbar
             d['ipaddress'] = get_server_ip()
             d['avaiablestorage'] = int(safe_get_package(user.objects.get(username=current).hosting_package).storage)
-            d['remainingstorage'] = int(get_directory_size_in_mb(f'/home/{current}'))
+            d['remainingstorage'] = int(get_directory_size_in_mb(os.path.join(paths.HOME_BASE, str(current))))
             d['usedemail'] = len(emails)
             d['totalemail'] = safe_get_package(user.objects.get(username=current).hosting_package).email_accounts
             
@@ -746,7 +793,7 @@ def email_analysis(request, data):
 @login_required(login_url='/')
 def backup(request,data):
     try:
-        with open('/etc/dontdelete.txt','r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE,'r') as f:
             adminpassword=f.read()
             adminpassword=adminpassword.strip()
     except Exception:
@@ -774,7 +821,7 @@ def backup(request,data):
                     d['domain']=data
                     import glob
                     folder={}
-                    directory="/home/"+lold.dir
+                    directory=os.path.join(paths.HOME_BASE, lold.dir)
                     
                     zip_files = glob.glob(os.path.join(directory, "*.zip"))
                     
@@ -802,17 +849,17 @@ def backup(request,data):
 @login_required(login_url='/')
 def index(request):
     try:
-        with open('/etc/dontdelete.txt','r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE,'r') as f:
             adminpassword=f.read()
             adminpassword=adminpassword.strip()
     except:
-          adminpassword="adminpassword"
+          adminpassword = ''
     if request.user.is_superuser:
         current=request.session['name']
     else:
         current=request.user
     d={}
-    
+
 
     d.update(get_user_dashboard_context(current, adminpassword))
     return render(request, 'control/index.html', d)
@@ -820,10 +867,10 @@ def index(request):
 @login_required(login_url='/')
 def eadns(request):
     try:
-        with open('/etc/dontdelete.txt','r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE,'r') as f:
             adminpassword=f.read().strip()
     except:
-        adminpassword="adminpassword"
+        adminpassword = ''
     if request.user.is_superuser:
         current=request.session['name']
     else:
@@ -835,7 +882,7 @@ def eadns(request):
     try:
         current_domain=domain.objects.get(domain=domainname)
         d['domain']=current_domain
-        pat=f"/etc/bind/db.{current_domain}"
+        pat=os.path.join(paths.BIND_ZONE_DIR, f"db.{current_domain}")
         data12=parse_dns_zone_file(pat)
         d['data']=data12[2:]
     except:
@@ -870,11 +917,11 @@ def adddnsrecord(request):
             data = request.POST.get('data')
             if dddd==domainname:
                 if name and record_class and record_type and data and domainname:
-                    pat=f"/etc/bind/db.{domainname}"
+                    pat=os.path.join(paths.BIND_ZONE_DIR, f"db.{domainname}")
                     with open(pat, 'a') as zone_file:
                         zone_file.write(f"\n; {record_type} Record for {domainname}\n")
                         zone_file.write(f"{name} {ttl} {record_class} {record_type} {data}\n")
-                    run_command("sudo systemctl restart bind9")
+                    get_platform().services.restart('bind9')
                         
                     return JsonResponse({'success': True})
                 else:
@@ -901,7 +948,7 @@ def deletedns(request):
         return JsonResponse({'success': False, 'error': 'Missing required fields'})
 
     deleted = False
-    pat = f"/etc/bind/db.{domain}"
+    pat = os.path.join(paths.BIND_ZONE_DIR, f"db.{domain}")
     
     try:
         usewe = user.objects.get(username=request.user)
@@ -927,7 +974,7 @@ def deletedns(request):
                         file.write(line)
 
             if deleted:
-                run_command("sudo systemctl restart bind9")
+                get_platform().services.restart('bind9')
                 return JsonResponse({'success': True})
             else:
                 return JsonResponse({'success': False, 'error': 'Record not found'})
@@ -965,7 +1012,7 @@ def editdnsrecord(request):
     if not re.match(r'^[a-zA-Z0-9@._\-\*]+$', name):
         return JsonResponse({'success': False, 'error': 'Invalid new record name.'})
 
-    pat = f"/etc/bind/db.{domain}"
+    pat = os.path.join(paths.BIND_ZONE_DIR, f"db.{domain}")
     
     try:
         usewe = user.objects.get(username=request.user)
@@ -1003,7 +1050,7 @@ def editdnsrecord(request):
             if edited:
                 with open(pat, 'w') as file:
                     file.writelines(new_lines)
-                run_command("sudo systemctl restart bind9")
+                get_platform().services.restart('bind9')
                 return JsonResponse({'success': True, 'message': 'DNS record updated successfully.'})
             else:
                 return JsonResponse({'success': False, 'error': 'Original record not found.'})
@@ -1017,7 +1064,7 @@ def editdnsrecord(request):
 @login_required(login_url='/')
 def runssl(request,data):
     try:
-        with open('/etc/dontdelete.txt','r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE,'r') as f:
             adminpassword=f.read()
             adminpassword=adminpassword.strip()
     except Exception:
@@ -1041,7 +1088,7 @@ def runssl(request,data):
                
                     d['main']=lold
                     logs=[]
-                    path='/home/'+lold.dir+"/logs/ssl.txt"
+                    path=os.path.join(paths.HOME_BASE, lold.dir, 'logs', 'ssl.txt')
                     with open(path,'r') as f:
                          dd=f.readlines()
                          for i in dd:
@@ -1076,47 +1123,32 @@ def _background_run_ssl(domain_or_subdomain, is_subdomain=False):
         lold = domain.objects.get(domain=item.domain)
         email = lold.email
         target = item.subdomain
-        command = [
-            "sudo", "certbot", "--nginx",
-            "-d", target,
-            "--non-interactive", "--agree-tos",
-            "--email", f'{email}',
-            "--redirect", "--no-eff-email"
-        ]
     else:
         lold = domain.objects.get(domain=domain_or_subdomain)
         email = lold.email
         target = lold.domain
-        command = [
-            "sudo", "certbot", "--nginx",
-            "-d", target, "-d", f'www.{target}',
-            "--non-interactive", "--agree-tos",
-            "--email", f'{email}',
-            "--redirect", "--no-eff-email"
-        ]
 
-    path = f'/home/{lold.dir}/logs/ssl.txt'
+    path = os.path.join(paths.HOME_BASE, lold.dir, 'logs', 'ssl.txt')
     with open(path, 'a+') as f:
         f.write(f"\n[AutoSSL] Started SSL generation for {target}...")
 
     try:
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        get_platform().ssl.provision(target, email=email)
         with open(path, 'a+') as f:
             f.write(f"\n[AutoSSL] SUCCESS: AutoSSL Completed for {target}")
-            
+
         if is_subdomain:
             item.sslstatus = True
             item.save()
         else:
             lold.sslstatus = True
             lold.save()
-            
+
     except Exception as e:
         with open(path, 'a+') as f:
             f.write(f"\n[AutoSSL] ERROR: Failed for {target}")
             f.write(f"\n{str(e)}")
 
-@csrf_exempt
 @login_required(login_url='/')
 def runsslfordoamin(request):
     if request.user.is_superuser:
@@ -1143,7 +1175,6 @@ def runsslfordoamin(request):
         
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
-@csrf_exempt
 @login_required(login_url='/')
 def runsslfordoamin1(request):
     if request.user.is_superuser:
@@ -1174,7 +1205,7 @@ def runsslfordoamin1(request):
 @login_required(login_url='/')
 def cronn(request,data):
     try:
-        with open('/etc/dontdelete.txt','r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE,'r') as f:
             adminpassword=f.read()
             adminpassword=adminpassword.strip()
     except Exception:
@@ -1198,13 +1229,17 @@ def cronn(request,data):
                 path_val = request.POST.get('path', '').replace('\n', '').replace('\r', '').strip()
                 
                 # Secure memory buffer injection (Bypasses shell evaluation)
-                result = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
-                current_crons = result.stdout if result.returncode == 0 else ""
-                
-                new_cron = f"{time_val} {path_val}\n"
-                combined = new_cron + current_crons
-                
-                subprocess.run(["crontab", "-"], input=combined, text=True)
+                if sys.platform != 'win32':
+                    result = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+                    current_crons = result.stdout if result.returncode == 0 else ""
+
+                    new_cron = f"{time_val} {path_val}\n"
+                    combined = new_cron + current_crons
+
+                    subprocess.run(["crontab", "-"], input=combined, text=True)
+                else:
+                    from voidplatform.windows.cron import add_cron as _add_cron
+                    _add_cron(time_val, path_val)
                 cron.objects.create(domain=data, path=path_val, duratioin=time_val)
                 return JsonResponse({'success': True, 'message': 'Cronjob successfully protected & created.'})
 
@@ -1232,13 +1267,17 @@ def deletecron(request,data):
 
         if domainname == user.objects.get(username=current).domain:
             import subprocess
-            result = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
-            current_crons = result.stdout if result.returncode == 0 else ""
-            
-            # Subprocess memory filtering
-            filtered_crons = "\n".join([line for line in current_crons.split('\n') if xxxx.path not in line]) + "\n"
-            
-            subprocess.run(["crontab", "-"], input=filtered_crons, text=True)
+            if sys.platform != 'win32':
+                result = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+                current_crons = result.stdout if result.returncode == 0 else ""
+
+                # Subprocess memory filtering
+                filtered_crons = "\n".join([line for line in current_crons.split('\n') if xxxx.path not in line]) + "\n"
+
+                subprocess.run(["crontab", "-"], input=filtered_crons, text=True)
+            else:
+                from voidplatform.windows.cron import delete_cron as _delete_cron
+                _delete_cron(xxxx.path)
             xxxx.delete()
             return JsonResponse({'success': True, 'message': 'Cronjob deleted safely.'})
         else:
@@ -1246,7 +1285,7 @@ def deletecron(request,data):
     except:
         return JsonResponse({'success': False, 'message': 'Cronjob not found.'})
         
-@csrf_exempt
+@login_required(login_url='/')
 def backupdata(request):
     if request.user.is_superuser:
         current=request.session['name']
@@ -1262,25 +1301,25 @@ def backupdata(request):
       
         # Enforce quota strictly for non-admins
         if not request.user.is_superuser:
-            currentstorage=get_directory_size_in_mb(f'/home/{current}')
+            currentstorage=get_directory_size_in_mb(os.path.join(paths.HOME_BASE, str(current)))
             packagecc=safe_get_package(user.objects.get(username=current).hosting_package).storage
             if int(packagecc) != 0:
                 if (int(currentstorage) > int(packagecc)):
                     return JsonResponse({'status': 'exceed', 'message': 'Storage Quota Limit Reached.'})
 
         namm=domain.objects.get(domain=name)
-        main_directory = '/home/'+namm.dir
-        front='/home/'+namm.dir
-        mail="/var/mail/vhosts/"+namm.domain
-        open1='/etc/opendkim/keys/'+namm.domain
-        lets='/etc/letsencrypt/live/'+namm.domain
+        main_directory = os.path.join(paths.HOME_BASE, namm.dir)
+        front=os.path.join(paths.HOME_BASE, namm.dir)
+        mail=_resolve_mail_domain_dir(namm.domain)
+        open1=os.path.join(paths.OPENDKIM_KEY_DIR, namm.domain) if paths.OPENDKIM_KEY_DIR else ''
+        lets=os.path.join(paths.LETSENCRYPT_LIVE, namm.domain)
         
         import datetime
         import threading
         
         zip_filename = "backup_"+namm.domain+"_"+str(datetime.datetime.today().strftime('%Y%m%d_%H%M%S'))
         zip_filename=zip_filename.replace(" ", "_").replace(":", "-")
-        locations = [front,mail,open1,lets]
+        locations = [l for l in [front, mail, open1, lets] if l]
         
         # Deploy non-blocking thread to handle Zipping
         t = threading.Thread(target=zip_multiple_locations_backup_user, args=(main_directory, locations, zip_filename, current))
@@ -1298,7 +1337,7 @@ def filemanager(request):
     else:
         current = request.user
 
-    file_path = request.GET.get('key', f'/home/{current}')
+    file_path = request.GET.get('key', os.path.join(paths.HOME_BASE, str(current)))
     # Normalize double-slashes
     while '//' in file_path:
         file_path = file_path.replace('//', '/')
@@ -1307,7 +1346,7 @@ def filemanager(request):
 
     # Security: restrict non-admins strictly to their home dir
     if not request.user.is_superuser:
-        home = f'/home/{current}'
+        home = os.path.join(paths.HOME_BASE, str(current))
         if not file_path.startswith(home):
             return redirect(f'/control/filemanager/?key={home}')
 
@@ -1343,7 +1382,7 @@ def upload_files(request,file_path):
 
            d={}
            packagecc=safe_get_package(user.objects.get(username=current).hosting_package).storage
-           currentstorage=get_directory_size_in_mb(f'/home/{current}')
+           currentstorage=get_directory_size_in_mb(os.path.join(paths.HOME_BASE, str(current)))
            d['lolo']=False
            if int(packagecc) != 0:
 
@@ -1411,7 +1450,7 @@ def setpython(request, data):
         return redirect('/')
 
     try:
-        with open('/etc/dontdelete.txt', 'r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
             adminpassword = f.read().strip()
     except:
         adminpassword = ""
@@ -1450,7 +1489,7 @@ def createpython(request, data):
             return HttpResponse("Unauthorized.", status=403)
 
     try:
-        with open('/etc/dontdelete.txt', 'r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
             adminpassword = f.read().strip()
     except:
         adminpassword = ""
@@ -1477,7 +1516,7 @@ def setmern(request, data):
         return redirect('/')
 
     try:
-        with open('/etc/dontdelete.txt', 'r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
             adminpassword = f.read().strip()
     except:
         adminpassword = ""
@@ -1516,7 +1555,7 @@ def createmern(request, data):
             return HttpResponse("Unauthorized.", status=403)
 
     try:
-        with open('/etc/dontdelete.txt', 'r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
             adminpassword = f.read().strip()
     except:
         adminpassword = ""
@@ -1625,7 +1664,7 @@ def analytics_control(request, data):
             return HttpResponse("Unauthorized.", status=403)
 
     try:
-        with open('/etc/dontdelete.txt', 'r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
             adminpassword = f.read().strip()
     except Exception:
         adminpassword = ''
@@ -1652,7 +1691,7 @@ def analytics_control(request, data):
     import os
     from function import get_directory_size_in_mb, is_website_live, parse_dns_zone_file
     try:
-        disk_used = get_directory_size_in_mb(f'/home/{d["homedir"]}')
+        disk_used = get_directory_size_in_mb(os.path.join(paths.HOME_BASE, d["homedir"]))
     except Exception:
         disk_used = 0
     d['disk_used'] = int(disk_used)
@@ -1663,7 +1702,7 @@ def analytics_control(request, data):
     d['live'] = is_website_live(f'http://{data}')
 
     # SSL
-    d['ssl_active'] = os.path.exists(f'/etc/letsencrypt/live/{data}/fullchain.pem')
+    d['ssl_active'] = os.path.exists(os.path.join(paths.LETSENCRYPT_LIVE, data, 'fullchain.pem'))
 
     # PHP
     d['php_version'] = dom_obj.php if dom_obj and hasattr(dom_obj, 'php') else 'N/A'
@@ -1681,7 +1720,7 @@ def analytics_control(request, data):
 
     # DNS
     try:
-        dns_records = parse_dns_zone_file(f'/etc/bind/db.{data}')
+        dns_records = parse_dns_zone_file(os.path.join(paths.BIND_ZONE_DIR, f'db.{data}'))
         d['dns_records'] = [r for r in dns_records if r.get('type') in ('A','MX','CNAME','TXT','NS','AAAA')]
         d['dns_count'] = len(d['dns_records'])
     except Exception:
@@ -1697,4 +1736,63 @@ def analytics_control(request, data):
         d['db_count'] = 0
 
     return render(request, 'control/analytics.html', d)
+
+
+# ─── Raw WebServer Config Editor APIs (User Facing) ──────────────────────────
+import json
+
+@login_required(login_url='/login')
+def user_api_get_site_config(request):
+    try:
+        if request.user.is_superuser:
+            user_obj = user.objects.get(username=request.session.get('name'))
+        else:
+            user_obj = user.objects.get(username=request.user)
+        domain_name = user_obj.domain
+    except Exception:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+        
+    from voidplatform.linux.web import get_active_engine_manager, get_active_engine
+    mgr = get_active_engine_manager()
+    conf_text = mgr.read_site_config(domain_name)
+    engine = get_active_engine()
+    
+    return JsonResponse({
+        'status': 'success',
+        'config': conf_text,
+        'engine': engine
+    })
+
+@login_required(login_url='/login')
+@csrf_exempt
+def user_api_save_site_config(request):
+    try:
+        if request.user.is_superuser:
+            user_obj = user.objects.get(username=request.session.get('name'))
+        else:
+            user_obj = user.objects.get(username=request.user)
+        domain_name = user_obj.domain
+    except Exception:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+         
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Invalid method'}, status=405)
+        
+    try:
+        data = json.loads(request.body)
+        config_text = data.get('config')
+    except Exception:
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
+        
+    if not config_text:
+        return JsonResponse({'status': 'error', 'message': 'Missing config text'}, status=400)
+        
+    from voidplatform.linux.web import get_active_engine_manager
+    mgr = get_active_engine_manager()
+    
+    result = mgr.write_and_test_site_config(domain_name, config_text)
+    if result.success:
+        return JsonResponse({'status': 'success', 'message': 'Configuration updated and web server reloaded.'})
+    else:
+        return JsonResponse({'status': 'error', 'message': result.error}, status=400)
 

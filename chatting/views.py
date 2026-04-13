@@ -13,9 +13,7 @@ def is_cancel_flag_set():
     return cache.get('cancel_loop', False)
 from django.http import JsonResponse
 from chatting.models import message as messagekaro
-from huggingface_hub import InferenceClient
-import os
-client = InferenceClient(api_key=os.getenv("HUGGINGFACE_API_KEY", ""))
+from chatting.knowledge import search_knowledge, KNOWLEDGE_BASE
 from django.http import StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 import requests
@@ -234,42 +232,58 @@ def chatmessage(request):
                     current=False
             
                def generate_data():
-                inside_code_block=False
-                messages.append({"role": "user", "content": message})
-                stream = client.chat.completions.create(model="Qwen/Qwen2.5-Coder-32B-Instruct",messages=messages,max_tokens=1000,stream=True)
-                datatoshow=""
-                tosave=""
-                for chunk in stream:
-                            if is_cancel_flag_set():
-                                 break
-                      
-                            content = chunk.choices[0].delta.content
-                            datatoshow+=content
-                            ds=content.strip()
-                            if ds == "`":
-                                  content=content.replace('`',"")
+                results = search_knowledge(message)
+                tosave = ""
 
-                            if "Alibaba" or "alibaba" in content:
-                                  
-                                  content=content.replace("Alibaba","Voidpanel")
-                                  content=content.replace("alibaba","Voidpanel")
-          
-                            if content.isspace():
-                                  countnu=content.count(' ')
-                                  
-                                  yield "&nbsp;"*countnu
-                                  tosave+="&nbsp;"*countnu
-                            if '\n' in content:
-                                  yield content+"<br>"
-                                  tosave+=content+"<br>"
-                                 
-                            else:
-                                yield content
-                                tosave+=content
-                          
-                messages.append({"role": "assistant", "content": datatoshow})
+                if results:
+                    # Show the top 3 matching help articles
+                    shown = results[:3]
+                    intro = f"I found <b>{len(shown)}</b> help topic{'s' if len(shown) > 1 else ''} for your question:<br><br>"
+                    yield intro
+                    tosave += intro
+
+                    for i, entry in enumerate(shown, 1):
+                        header = f"<b>{i}. {entry['title']}</b><br>"
+                        yield header
+                        tosave += header
+
+                        body = entry['answer'] + "<br><br>"
+                        yield body
+                        tosave += body
+
+                        if is_cancel_flag_set():
+                            break
+
+                    if len(results) > 3:
+                        more = f"<i>...and {len(results) - 3} more related topic(s). Try a more specific question to narrow down.</i><br>"
+                        yield more
+                        tosave += more
+                else:
+                    # No match — show available topics
+                    no_match = (
+                        "I couldn't find a specific answer for that. Here are the topics I can help with:<br><br>"
+                    )
+                    yield no_match
+                    tosave += no_match
+
+                    topics = sorted(set(e['title'] for e in KNOWLEDGE_BASE))
+                    for t in topics:
+                        line = f"• {t}<br>"
+                        yield line
+                        tosave += line
+
+                    hint = "<br><i>Try asking about any of these topics!</i><br>"
+                    yield hint
+                    tosave += hint
+
                 if request.user.is_authenticated:
-                    wef=messagekaro.objects.create(user=request.user,toai=message,name=request.session.get('current'),fromai=tosave)
+                    messagekaro.objects.create(
+                        user=request.user,
+                        toai=message,
+                        name=request.session.get('current'),
+                        fromai=tosave,
+                    )
+
                response = StreamingHttpResponse(
                             generate_data(),
                             content_type="text/html"

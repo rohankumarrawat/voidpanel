@@ -12,12 +12,29 @@ Flower monitoring (optional):
 import os
 import shutil
 import subprocess
+import sys
 
 from celery import shared_task
 
 from panel.logger import get_logger
+from voidplatform import get_platform
+from voidplatform.config import paths
 
 logger = get_logger(__name__)
+
+
+def _resolve_mail_domain_dir(domain_name, username=None):
+    """Return mail dir for a domain: /home/<owner>/mail/<domain>/."""
+    if username:
+        return os.path.join(paths.HOME_BASE, username, 'mail', domain_name)
+    try:
+        from control.models import user
+        owner = user.objects.filter(domain=domain_name).first()
+        if owner:
+            return os.path.join(paths.HOME_BASE, owner.username, 'mail', domain_name)
+    except Exception:
+        pass
+    return os.path.join(paths.MAIL_VHOSTS, domain_name)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -41,7 +58,7 @@ def _run(cmd: list[str], *, timeout: int = 30) -> subprocess.CompletedProcess:
 def _reload(service: str) -> None:
     """Zero-downtime service reload (never restart)."""
     try:
-        _run(['sudo', 'systemctl', 'reload', service], timeout=15)
+        get_platform().services.reload(service)
     except Exception as exc:
         logger.error('Failed to reload %s: %s', service, exc)
 
@@ -80,7 +97,7 @@ def provision_user_task(self, domain12: str, domainname: str, email: str,
             generate_ssl_certificates, create_nginx_ssl_conf,
             generate_dkim_keys, create_bind_records, configure_opendkim,
         )
-        file_path = f'/etc/nginx/sites-available/{domain12}.conf'
+        file_path = os.path.join(paths.NGINX_SITES_AVAILABLE, f'{domain12}.conf')
         root_dir  = path + '/public_html'
         cert_path, key_path = generate_ssl_certificates(domain12, path + '/ssl', path + '/logs')
 
@@ -89,8 +106,8 @@ def provision_user_task(self, domain12: str, domainname: str, email: str,
         else:
             raise RuntimeError(f'Cannot generate OpenSSL for domain {domain12}')
 
-        key_dir        = f'/etc/opendkim/keys/{domain12}'
-        zone_file_path = f'/etc/bind/db.{domain12}'
+        key_dir        = os.path.join(paths.OPENDKIM_KEY_DIR, domain12) if paths.OPENDKIM_KEY_DIR else os.path.join(paths.PANEL_ROOT, 'dkim', domain12)
+        zone_file_path = os.path.join(paths.BIND_ZONE_DIR, f'db.{domain12}')
         private_key_path, public_key_path = generate_dkim_keys(domain12, key_dir)
 
         if private_key_path and public_key_path:
@@ -105,17 +122,13 @@ def provision_user_task(self, domain12: str, domainname: str, email: str,
             user.objects.create(domain=domain12, email=email, username=domainname, hosting_package=package12)
             User.objects.create_user(username=domainname, email=email, password=password)
 
-        # Create Unix user — parameterised (no shell injection)
-        _run(['sudo', 'useradd', '-m', '-s', '/usr/sbin/nologin', domainname])
+        # Create system user — platform-aware
+        plat = get_platform()
+        plat.users.create_user(domainname, password, shell=paths.NOLOGIN_SHELL)
 
-        passwd_proc = subprocess.Popen(
-            ['sudo', 'chpasswd'],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, encoding='utf-8',
-        )
-        passwd_proc.communicate(input=f'{domainname}:{password}\n')
-
-        _run(['sudo', 'chown', f'{domainname}:{domainname}', f'/home/{domainname}'])
+        home_dir = os.path.join(paths.HOME_BASE, domainname)
+        if sys.platform != 'win32':
+            _run(['sudo', 'chown', f'{domainname}:{domainname}', home_dir])
 
         # Apply disk quota
         try:
@@ -140,9 +153,9 @@ def provision_user_task(self, domain12: str, domainname: str, email: str,
         # Filesystem rollback
         for path_to_remove in [
             path,
-            f'/etc/nginx/sites-enabled/{domain12}.conf',
-            f'/etc/nginx/sites-available/{domain12}.conf',
-            f'/var/mail/vhosts/{domain12}',
+            os.path.join(paths.NGINX_SITES_ENABLED, f'{domain12}.conf'),
+            os.path.join(paths.NGINX_SITES_AVAILABLE, f'{domain12}.conf'),
+            os.path.join(path, 'mail', domain12),
         ]:
             try:
                 if os.path.isdir(path_to_remove):
@@ -152,8 +165,8 @@ def provision_user_task(self, domain12: str, domainname: str, email: str,
             except Exception:
                 pass
 
-        # Unix user rollback
-        _run(['sudo', 'userdel', '-r', domainname])
+        # System user rollback
+        get_platform().users.delete_user(domainname)
 
         raise  # Re-raise so Celery marks the task as FAILED
 
@@ -182,13 +195,13 @@ def terminate_user_task(self, domain_str: str, mainusername: str, subdomains: li
 
     # Home directory
     try:
-        shutil.rmtree(f'/home/{mainusername}', ignore_errors=True)
+        shutil.rmtree(os.path.join(paths.HOME_BASE, mainusername), ignore_errors=True)
     except Exception as e:
         logger.warning('[terminate] home dir: %s', e)
 
     # Nginx configs (main + subdomains)
-    for conf in [f'/etc/nginx/sites-enabled/{domain_str}.conf'] + \
-                [f'/etc/nginx/sites-enabled/{s}.conf' for s in subdomains]:
+    for conf in [os.path.join(paths.NGINX_SITES_ENABLED, f'{domain_str}.conf')] + \
+                [os.path.join(paths.NGINX_SITES_ENABLED, f'{s}.conf') for s in subdomains]:
         try:
             os.remove(conf)
         except FileNotFoundError:
@@ -197,29 +210,31 @@ def terminate_user_task(self, domain_str: str, mainusername: str, subdomains: li
             logger.warning('[terminate] nginx conf %s: %s', conf, e)
 
     # DNS zone
-    for path in [f'/etc/bind/db.{domain_str}']:
+    for p in [os.path.join(paths.BIND_ZONE_DIR, f'db.{domain_str}')]:
         try:
-            os.remove(path)
+            os.remove(p)
         except Exception:
             pass
     try:
         from panel.views import remove_zone_from_file
-        remove_zone_from_file('/etc/bind/named.conf', domain_str)
+        remove_zone_from_file(paths.BIND_CONF, domain_str)
     except Exception:
         pass
 
     # DKIM keys
-    for kpath in [f'/etc/opendkim/keys/{domain_str}'] + \
-                 [f'/etc/opendkim/keys/{s}' for s in subdomains]:
-        shutil.rmtree(kpath, ignore_errors=True)
+    opendkim_keys = paths.OPENDKIM_KEY_DIR
+    if opendkim_keys:
+        for kpath in [os.path.join(opendkim_keys, domain_str)] + \
+                     [os.path.join(opendkim_keys, s) for s in subdomains]:
+            shutil.rmtree(kpath, ignore_errors=True)
 
     # SSL certs
-    for spath in [f'/etc/letsencrypt/live/{domain_str}'] + \
-                 [f'/etc/letsencrypt/live/{s}' for s in subdomains]:
+    for spath in [os.path.join(paths.LETSENCRYPT_LIVE, domain_str)] + \
+                 [os.path.join(paths.LETSENCRYPT_LIVE, s) for s in subdomains]:
         shutil.rmtree(spath, ignore_errors=True)
 
     # Mail data
-    shutil.rmtree(f'/var/mail/vhosts/{domain_str}', ignore_errors=True)
+    shutil.rmtree(_resolve_mail_domain_dir(domain_str, username=domainname), ignore_errors=True)
 
     # Service reloads
     for svc in ('bind9', 'nginx', 'postfix', 'dovecot'):
@@ -228,15 +243,16 @@ def terminate_user_task(self, domain_str: str, mainusername: str, subdomains: li
     # FTP accounts
     try:
         ft = ftpaccount.objects.filter(main=mainusername)
+        plat = get_platform()
         for acct in ft:
-            _run(['sudo', 'deluser', acct.main])
+            plat.users.delete_user(acct.main)
         ft.delete()
     except Exception as e:
         logger.warning('[terminate] FTP cleanup: %s', e)
 
-    # Linux user
+    # System user
     try:
-        _run(['sudo', 'userdel', '-r', mainusername])
+        get_platform().users.delete_user(mainusername)
     except Exception as e:
         logger.warning('[terminate] userdel: %s', e)
 
@@ -245,7 +261,9 @@ def terminate_user_task(self, domain_str: str, mainusername: str, subdomains: li
         df = pythonname.objects.get(domain=domain_str)
         svc_name = df.name
         df.delete()
-        os.remove(f'/etc/systemd/system/{svc_name}.service')
+        svc_path = os.path.join(paths.SYSTEMD_DIR, f'{svc_name}.service') if paths.SYSTEMD_DIR else ''
+        if svc_path and os.path.exists(svc_path):
+            os.remove(svc_path)
     except Exception:
         pass
 
@@ -286,32 +304,36 @@ def add_website_task(self, domain12: str, email: str, domainname: str, path: str
 
     try:
         # Create directories
-        for d in [path, f'{path}/public_html', f'{path}/ssl', f'{path}/logs', f'/var/mail/vhosts/{domain12}']:
+        for d in [path, f'{path}/public_html', f'{path}/ssl', f'{path}/logs', os.path.join(path, 'mail', domain12)]:
             os.makedirs(d, exist_ok=True)
 
         # Copy default voidpanel index
-        _run(['sudo', 'cp', '-r', '/var/www/panel/voidpanel/.', f'{path}/public_html/'])
+        _run(['sudo', 'cp', '-r', os.path.join(paths.PANEL_ROOT, 'voidpanel', '.'), f'{path}/public_html/'])
 
         # Write PHP INI
         with open(inipath, 'w', encoding='utf-8') as f:
             f.write(php_ini_content)
 
         # Nginx & SSL
-        file_path = f'/etc/nginx/sites-available/{domain12}.conf'
+        file_path = os.path.join(paths.NGINX_SITES_AVAILABLE, f'{domain12}.conf')
         root_dir = f'{path}/public_html'
         cert_path, key_path = generate_ssl_certificates(domain12, f'{path}/ssl', f'{path}/logs')
-        
+
         if cert_path and key_path:
             create_nginx_ssl_conf(file_path, domain12, root_dir, cert_path, key_path)
             # Link to sites-enabled
-            if not os.path.exists(f'/etc/nginx/sites-enabled/{domain12}.conf'):
-                os.symlink(file_path, f'/etc/nginx/sites-enabled/{domain12}.conf')
+            enabled_path = os.path.join(paths.NGINX_SITES_ENABLED, f'{domain12}.conf')
+            if not os.path.exists(enabled_path):
+                if sys.platform == 'win32':
+                    shutil.copy2(file_path, enabled_path)
+                else:
+                    os.symlink(file_path, enabled_path)
         else:
             raise RuntimeError(f'SSL generation failed for {domain12}')
 
         # DKIM & DNS
-        key_dir = f'/etc/opendkim/keys/{domain12}'
-        zone_file_path = f'/etc/bind/db.{domain12}'
+        key_dir = os.path.join(paths.OPENDKIM_KEY_DIR, domain12) if paths.OPENDKIM_KEY_DIR else os.path.join(paths.PANEL_ROOT, 'dkim', domain12)
+        zone_file_path = os.path.join(paths.BIND_ZONE_DIR, f'db.{domain12}')
         os.makedirs(key_dir, exist_ok=True)
         private_key, public_key = generate_dkim_keys(domain12, key_dir)
 
@@ -337,7 +359,9 @@ def add_website_task(self, domain12: str, email: str, domainname: str, path: str
         domain.objects.filter(domain=domain12).delete()
         if os.path.exists(path):
             shutil.rmtree(path)
-        for p in [f'/etc/nginx/sites-enabled/{domain12}.conf', f'/etc/nginx/sites-available/{domain12}.conf', f'/var/mail/vhosts/{domain12}']:
+        for p in [os.path.join(paths.NGINX_SITES_ENABLED, f'{domain12}.conf'),
+                  os.path.join(paths.NGINX_SITES_AVAILABLE, f'{domain12}.conf'),
+                  os.path.join(path, 'mail', domain12)]:
             if os.path.islink(p) or os.path.isfile(p):
                 os.remove(p)
             elif os.path.isdir(p):
@@ -371,12 +395,16 @@ def update_hostname_task(self, new_hostname: str, email: str, is_first_time: boo
         old_hostname = socket.gethostname()
         
         # 1. Update system hostname
-        _run(['sudo', 'hostnamectl', 'set-hostname', new_hostname])
-        
-        # 2. Update /etc/hosts safely
-        with open('/etc/hosts', 'r') as file:
+        if sys.platform == 'win32':
+            _run(['powershell', '-Command', f'Rename-Computer -NewName "{new_hostname}" -Force'])
+        else:
+            _run(['sudo', 'hostnamectl', 'set-hostname', new_hostname])
+
+        # 2. Update hosts file safely
+        hosts_file = paths.HOSTS_FILE
+        with open(hosts_file, 'r') as file:
             hosts_lines = file.readlines()
-        with open('/etc/hosts', 'w') as file:
+        with open(hosts_file, 'w') as file:
             for line in hosts_lines:
                 if '127.0.1.1' in line:
                     file.write(f'127.0.1.1\t{new_hostname}\n')
@@ -384,20 +412,23 @@ def update_hostname_task(self, new_hostname: str, email: str, is_first_time: boo
                     file.write(line)
 
         # 3. Update Django CSRF settings
-        settings_path = '/var/www/panel/panel/settings.py'
+        settings_path = os.path.join(paths.PANEL_ROOT, 'panel', 'settings.py')
         if os.path.exists(settings_path):
             with open(settings_path, 'a+') as file:
                 file.write(f'\nCSRF_TRUSTED_ORIGINS.append("https://{new_hostname}:8082")\n')
 
-        # 4. Generate SSL with certbot securely
-        _run([
-            'sudo', 'certbot', '--nginx', '--non-interactive', '--agree-tos',
-            '--email', email, '-d', new_hostname
-        ])
+        # 4. Generate SSL (platform-aware)
+        if sys.platform != 'win32':
+            _run([
+                'sudo', 'certbot', '--nginx', '--non-interactive', '--agree-tos',
+                '--email', email, '-d', new_hostname
+            ])
+        else:
+            get_platform().ssl.provision(new_hostname, email=email)
         
         # 5. Rewrite Nginx Configurations securely instead of using raw 'sed'
         for conf_file in ['panel', 'phpmyadmin', 'roundcube']:
-            conf_path = f'/etc/nginx/sites-available/{conf_file}'
+            conf_path = os.path.join(paths.NGINX_SITES_AVAILABLE, conf_file)
             if not os.path.exists(conf_path):
                 continue
                 
@@ -407,18 +438,18 @@ def update_hostname_task(self, new_hostname: str, email: str, is_first_time: boo
             content = content.replace(old_hostname, new_hostname)
 
             if is_first_time:
-                content = content.replace('/etc/nginx/dummy.crt', f'/etc/letsencrypt/live/{new_hostname}/fullchain.pem')
-                content = content.replace('/etc/nginx/dummy.key', f'/etc/letsencrypt/live/{new_hostname}/privkey.pem')
+                content = content.replace(paths.SSL_DUMMY_CERT, f'{paths.LETSENCRYPT_LIVE}/{new_hostname}/fullchain.pem')
+                content = content.replace(paths.SSL_DUMMY_KEY, f'{paths.LETSENCRYPT_LIVE}/{new_hostname}/privkey.pem')
             else:
-                content = content.replace(f'/etc/letsencrypt/live/{old_hostname}/fullchain.pem', f'/etc/letsencrypt/live/{new_hostname}/fullchain.pem')
-                content = content.replace(f'/etc/letsencrypt/live/{old_hostname}/privkey.pem', f'/etc/letsencrypt/live/{new_hostname}/privkey.pem')
+                content = content.replace(f'{paths.LETSENCRYPT_LIVE}/{old_hostname}/fullchain.pem', f'{paths.LETSENCRYPT_LIVE}/{new_hostname}/fullchain.pem')
+                content = content.replace(f'{paths.LETSENCRYPT_LIVE}/{old_hostname}/privkey.pem', f'{paths.LETSENCRYPT_LIVE}/{new_hostname}/privkey.pem')
 
             with open(conf_path, 'w') as f:
                 f.write(content)
 
         # 6. Service Reloads
         _reload('nginx')
-        _run(['sudo', 'systemctl', 'restart', 'uwsgi'])
+        get_platform().services.restart('uwsgi')
         time.sleep(2)
         
         logger.info('Hostname update SUCCESS: %s', new_hostname)
@@ -464,17 +495,13 @@ def convert_website_task(self, domain_name: str, package_name: str, sto: str):
             fddf.userdomain = True
             fddf.save()
             
-        # 2. Create Unix user — parameterised (no shell injection)
-        _run(['sudo', 'useradd', '-m', '-s', '/usr/sbin/nologin', dir_name])
-        
-        passwd_proc = subprocess.Popen(
-            ['sudo', 'chpasswd'],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, encoding='utf-8',
-        )
-        passwd_proc.communicate(input=f'{dir_name}:{password}\n')
-        
-        _run(['sudo', 'chown', f'{dir_name}:{dir_name}', f'/home/{dir_name}'])
+        # 2. Create system user — platform-aware
+        plat = get_platform()
+        plat.users.create_user(dir_name, password, shell=paths.NOLOGIN_SHELL)
+
+        home_dir = os.path.join(paths.HOME_BASE, dir_name)
+        if sys.platform != 'win32':
+            _run(['sudo', 'chown', f'{dir_name}:{dir_name}', home_dir])
         
         # 3. Disk quota
         try:
@@ -506,18 +533,19 @@ def run_ssl_task(self, domain_name: str, email: str):
     from control.models import domain
     
     logger.info('Auto SSL task started for domain: %s', domain_name)
-    path = '/var/log/ssl.txt'
-    
-    command = [
-        "sudo", "certbot", "--nginx",
-        "-d", domain_name, "-d", f'www.{domain_name}',
-        "--non-interactive", "--agree-tos",
-        "--email", email, "--redirect", "--no-eff-email"
-    ]
+    path = os.path.join(paths.LOG_DIR, 'ssl.txt') if os.path.isdir(paths.LOG_DIR) else '/var/log/ssl.txt'
     
     try:
-        # Run certbot securely
-        _run(command, timeout=120)  # certbot can take a while to complete ACME challenge
+        # Run SSL provisioning (platform-aware)
+        if sys.platform != 'win32':
+            _run([
+                "sudo", "certbot", "--nginx",
+                "-d", domain_name, "-d", f'www.{domain_name}',
+                "--non-interactive", "--agree-tos",
+                "--email", email, "--redirect", "--no-eff-email"
+            ], timeout=120)
+        else:
+            get_platform().ssl.provision(domain_name, email=email)
         
         # Log success
         with open(path, 'a+', encoding='utf-8') as f:

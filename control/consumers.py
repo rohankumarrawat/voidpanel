@@ -1,12 +1,24 @@
 import os
-import pty
-import fcntl
+import sys
 import struct
-import termios
 import json
 import asyncio
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
+
+# pty, fcntl, and termios are POSIX-only (Linux/macOS/WSL2).
+# On native Windows these modules do not exist, causing a ModuleNotFoundError
+# at import time that crashes Django startup entirely.
+# Guard them so the panel can at least start on Windows (e.g. for UI dev).
+# In production, VoidPanel runs inside WSL2 Ubuntu where these work normally.
+_POSIX_PTY = False
+try:
+    import pty
+    import fcntl
+    import termios
+    _POSIX_PTY = True
+except ImportError:
+    pass  # Native Windows — terminal WebSocket will send an informative error
 
 class TerminalConsumer(AsyncWebsocketConsumer):
     
@@ -24,7 +36,22 @@ class TerminalConsumer(AsyncWebsocketConsumer):
         if not self.user or not self.user.is_authenticated:
             await self.close()
             return
-            
+
+        # On native Windows, pty is unavailable. WSL2 is the supported path.
+        if not _POSIX_PTY:
+            await self.accept()
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': (
+                    'The web terminal requires a POSIX environment (Linux / WSL2). '
+                    'On Windows, run VoidPanel inside WSL2 (Ubuntu-22.04) where this '
+                    'feature works exactly as on Linux. '
+                    'Start WSL2 shell: wsl -d Ubuntu-22.04'
+                )
+            }))
+            await self.close()
+            return
+
         # Dynamic Masking: Determine target sandbox directory map
         if self.user.is_superuser:
             session_name = self.scope.get("session", {}).get("name")
@@ -88,7 +115,8 @@ class TerminalConsumer(AsyncWebsocketConsumer):
                     rows = msg.get("rows", 24)
                     cols = msg.get("cols", 80)
                     winsize = struct.pack("HHHH", rows, cols, 0, 0)
-                    fcntl.ioctl(self.fd, termios.TIOCSWINSZ, winsize)
+                    if _POSIX_PTY and hasattr(self, 'fd'):
+                        fcntl.ioctl(self.fd, termios.TIOCSWINSZ, winsize)
                 elif msg.get('action') == 'input':
                     data = msg.get('data', '')
                     os.write(self.fd, data.encode('utf-8'))

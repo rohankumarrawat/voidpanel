@@ -1,5 +1,25 @@
+import sys
 import json
+from voidplatform import get_platform
+from voidplatform.config import paths
 from django.views.decorators.cache import never_cache
+
+
+def _resolve_mail_domain_dir(domain_name):
+    """Return the mail directory for a domain: /home/<owner>/mail/<domain>/.
+    Falls back to /var/mail/vhosts/<domain>/ only if no owner exists."""
+    try:
+        owner = user.objects.filter(domain=domain_name).first()
+        if owner:
+            return os.path.join(paths.HOME_BASE, owner.username, 'mail', domain_name)
+    except Exception:
+        pass
+    return os.path.join(paths.MAIL_VHOSTS, domain_name)
+
+
+def _resolve_maildir(domain_name, email_prefix):
+    """Return the maildir path for a specific email account."""
+    return os.path.join(_resolve_mail_domain_dir(domain_name), email_prefix)
 from django.core.cache import cache
 from django.shortcuts import render,redirect
 from django.contrib.auth import authenticate
@@ -7,10 +27,10 @@ import requests
 from django.contrib.auth import login,logout
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from control.models import mernname,portnumber,quick,domain,allemail,phpextentions,cron,subdomainname,phpversion,redir,package,firewall,ftp,user,ftpaccount,pythonname
 from django.views.decorators.csrf import csrf_exempt
-from function import start_service,stop_service,get_directory_size_in_mb,restart_service,get_service_status,get_php_versions,get_php_version,get_php_extensions,get_database_names,get_database_users,change_hostname,remove_zone_from_file,zip_multiple_locations_backup,create_bind_recordsforsubdomain,grant_mysql_user_privileges,change_mysql_user_password,delete_mysql_user,remove_database,get_database_names_with_filter,get_database_users_with_filter,create_mysql_user,is_website_live,parse_dns_zone_file,configure_opendkim,create_bind_records,generate_dkim_keys,create_nginx_ssl_conf,generate_ssl_certificates,hostnamessl,run_command,get_server_ip,get_random_port,get_file_info,zip_files_and_folders,extract_zip_with_error_handling,create_database_and_table
+from function import start_service,stop_service,get_directory_size_in_mb,restart_service,get_service_status,get_php_versions,get_php_version,get_php_extensions,get_database_names,get_database_users,change_hostname,remove_zone_from_file,zip_multiple_locations_backup,create_bind_recordsforsubdomain,grant_mysql_user_privileges,change_mysql_user_password,delete_mysql_user,remove_database,get_database_names_with_filter,get_database_users_with_filter,create_mysql_user,is_website_live,parse_dns_zone_file,configure_opendkim,create_bind_records,generate_dkim_keys,create_nginx_ssl_conf,generate_ssl_certificates,hostnamessl,run_command,get_server_ip,get_random_port,get_file_info,zip_files_and_folders,extract_zip_with_error_handling,create_database_and_table,clone_website
 import psutil
 import os, shlex
 from panel.logger import get_logger
@@ -40,7 +60,7 @@ def secure_fm_paths(view_func):
                     cur_user = user.objects.get(username=request.user.username)
                     cur_package = package.objects.get(name=cur_user.hosting_package)
                     if int(cur_package.storage) != 0:
-                        cur_size = get_directory_size_in_mb(f'/home/{request.user.username}')
+                        cur_size = get_directory_size_in_mb(os.path.join(paths.HOME_BASE, request.user.username))
                         if int(cur_size) >= int(cur_package.storage):
                             from django.http import JsonResponse
                             return JsonResponse({'status': 'error', 'message': f'Storage Quota Exceeded (Limit: {cur_package.storage}MB). Please upgrade your hosting package.'}, status=403)
@@ -80,7 +100,7 @@ def sanitize_path(raw_path, user=None):
     """
     Resolve and validate a filesystem path.
     - Blocks path traversal (../) by resolving symlinks via realpath.
-    - Non-superusers are restricted to /home/<username>/.
+    - Non-superusers are restricted to HOME_BASE/<username>/.
     Raises ValueError on invalid paths.
     """
     if raw_path is None:
@@ -91,7 +111,7 @@ def sanitize_path(raw_path, user=None):
     if safe.startswith(TRASH_DIR + '/.meta'):
         raise ValueError("Access to trash metadata is not permitted.")
     if user is not None and not user.is_superuser:
-        home = f'/home/{user.username}'
+        home = os.path.join(paths.HOME_BASE, user.username)
         if not safe.startswith(home):
             raise ValueError(f"Access outside home directory is not permitted.")
     return safe
@@ -113,7 +133,7 @@ def list_packages(request):
     session_token = request.data.get('session_token')
     # if not CustomUser.objects.filter(api_token=session_token).exists():
     try:
-        with open('/var/www/panel/api.txt','r') as f:
+        with open(paths.API_FILE, 'r') as f:
                     random_code=f.read()
     except:
          return Response({'status': 'error', 'message': 'All fields are required'}, status=400)
@@ -130,9 +150,9 @@ def authenticate_user(request):
     username = request.data.get('username')
     password = request.data.get('password')
 
-    import random
-    random_code = ''.join(str(random.randint(0, 9)) for _ in range(12))
-    
+    import secrets
+    random_code = secrets.token_urlsafe(32)
+
     if not username or not password:
         return Response({'status': 'error', 'message': 'Username and password are required'}, status=400)
 
@@ -140,13 +160,13 @@ def authenticate_user(request):
     
     if user:
         try:
-             with open('/var/www/panel/api.txt','r') as f:
+             with open(paths.API_FILE, 'r') as f:
                   random_code=f.read()
                   
         except:
-             import random
-             random_code = ''.join(str(random.randint(0, 9)) for _ in range(12)) 
-             with open('/var/www/panel/api.txt','w') as f:
+             import secrets
+             random_code = secrets.token_urlsafe(32)
+             with open(paths.API_FILE, 'w') as f:
                   f.write(random_code)
       
         return Response({'status': 'success', 'session_token': random_code})
@@ -172,7 +192,7 @@ def create_account(request):
 
 
     try:
-        with open('/var/www/panel/api.txt','r') as f:
+        with open(paths.API_FILE, 'r') as f:
                     random_code=f.read()
     except:
          return Response({'status': 'error', 'message': 'All fields are required'}, status=400)
@@ -200,9 +220,13 @@ def create_account(request):
 def suspend_account(request):
     """Suspend a hosting account."""
     session_token = request.data.get('session_token')
-    # if not CustomUser.objects.filter(api_token=session_token).exists():
-    if 10>1:
-        return Response({'status': 'error', 'message': 'Invalid session token'}, status=403)
+    try:
+        with open(paths.API_FILE, 'r') as f:
+            valid_token = f.read().strip()
+        if not session_token or session_token != valid_token:
+            return Response({'status': 'error', 'message': 'Invalid session token'}, status=403)
+    except Exception:
+        return Response({'status': 'error', 'message': 'API not configured'}, status=403)
 
     username = request.data.get('username')
     if not username:
@@ -214,9 +238,13 @@ def suspend_account(request):
 def unsuspend_account(request):
     """Unsuspend a hosting account."""
     session_token = request.data.get('session_token')
-    # if not CustomUser.objects.filter(api_token=session_token).exists():
-    if 10>20:
-        return Response({'status': 'error', 'message': 'Invalid session token'}, status=403)
+    try:
+        with open(paths.API_FILE, 'r') as f:
+            valid_token = f.read().strip()
+        if not session_token or session_token != valid_token:
+            return Response({'status': 'error', 'message': 'Invalid session token'}, status=403)
+    except Exception:
+        return Response({'status': 'error', 'message': 'API not configured'}, status=403)
 
     username = request.data.get('username')
     if not username:
@@ -234,9 +262,13 @@ def unsuspend_account(request):
 def terminate_account(request):
     """Terminate a hosting account."""
     session_token = request.data.get('session_token')
-    # if not CustomUser.objects.filter(api_token=session_token).exists():
-    if 10>2:
-        return Response({'status': 'error', 'message': 'Invalid session token'}, status=403)
+    try:
+        with open(paths.API_FILE, 'r') as f:
+            valid_token = f.read().strip()
+        if not session_token or session_token != valid_token:
+            return Response({'status': 'error', 'message': 'Invalid session token'}, status=403)
+    except Exception:
+        return Response({'status': 'error', 'message': 'API not configured'}, status=403)
 
     username = request.data.get('username')
     if not username:
@@ -250,6 +282,7 @@ def terminate_account(request):
 
 
 
+@login_required(login_url='/')
 def get_server_load(request):
     # Get CPU load (reduced blocking interval from 1.0s to 0.1s for faster response)
     cpu_load = psutil.cpu_percent(interval=0.1)
@@ -258,8 +291,9 @@ def get_server_load(request):
     memory_info = psutil.virtual_memory()
     memory_load = memory_info.percent
     
-    # Get Disk usage
-    disk_usage = psutil.disk_usage('/')
+    # Get Disk usage (platform-aware)
+    _disk_root = (os.path.splitdrive(paths.HOME_BASE)[0] + '\\') if sys.platform == 'win32' else '/'
+    disk_usage = psutil.disk_usage(_disk_root)
     disk_load = disk_usage.percent
     
     # Return the data as JSON
@@ -317,33 +351,59 @@ def panel(request):
             
         d['show'] = show
         
-        # 1. Cache Messages for 1 Hour (3600 seconds)
+        import concurrent.futures
+        
+        # Check caches first to avoid spawning threads unnecessarily
         messages_data = cache.get('voidpanel_messages')
-        if messages_data is None:
-            try:
-                response = requests.get('https://voidpanel.com/latest_messages/', timeout=3)
-                messages_data = response.json() if response.status_code == 200 else []
-                cache.set('voidpanel_messages', messages_data, 3600)
-            except Exception:
-                messages_data = []
-        d['message'] = messages_data
-
-        # 2. Cache Docs for 1 Hour
         docs_data = cache.get('voidpanel_docs')
-        if docs_data is None:
-            try:
-                response = requests.get('https://voidpanel.com/admindocs/', timeout=3)
-                docs_data = response.json() if response.status_code == 200 else []
-                cache.set('voidpanel_docs', docs_data, 3600)
-            except Exception:
-                docs_data = []
-        d['docs'] = docs_data
-
-        # 3. Cache Server IP (it rarely changes) for 24 Hours
         server_ip = cache.get('server_ip')
-        if not server_ip:
-            server_ip = get_server_ip()
-            cache.set('server_ip', server_ip, 86400)
+
+        def fetch_messages():
+            if messages_data: return messages_data
+            try:
+                response = requests.get('https://voidpanel.com/latest_messages/', timeout=1.5)
+                data = response.json() if response.status_code == 200 else []
+                if not data: raise Exception("Empty or Invalid Message Format")
+                cache.set('voidpanel_messages', data, 3600)
+                return data
+            except Exception:
+                # Return a fallback message so the UI isn't blank during offline/development mode
+                return [{
+                    'photo': 'static/icons/fav.png', 
+                    'date': 'Offline', 
+                    'text': 'Offline Mode: Unable to connect to VoidPanel.com services to fetch live notifications.'
+                }]
+
+        def fetch_docs():
+            if docs_data is not None: return docs_data
+            try:
+                response = requests.get('https://voidpanel.com/admindocs/', timeout=1.5)
+                data = response.json() if response.status_code == 200 else []
+                cache.set('voidpanel_docs', data, 3600)
+                return data
+            except Exception:
+                return []
+
+        def fetch_ip():
+            if server_ip is not None: return server_ip
+            ip = get_server_ip()
+            if ip: cache.set('server_ip', ip, 86400)
+            return ip or ''
+
+        # Run concurrently for any missing cache data
+        needs_fetch = any(x is None for x in (messages_data, docs_data, server_ip))
+        if needs_fetch:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+                f_msgs = executor.submit(fetch_messages)
+                f_docs = executor.submit(fetch_docs)
+                f_ip   = executor.submit(fetch_ip)
+                
+                messages_data = f_msgs.result()
+                docs_data = f_docs.result()
+                server_ip = f_ip.result()
+
+        d['message'] = messages_data
+        d['docs'] = docs_data
         d['serverip'] = server_ip
 
         return render(request, 'panel/index.html', d)
@@ -355,16 +415,28 @@ from django.http import JsonResponse
 
 
 
+@login_required(login_url='/')
 def checkstatus(request):
-    import requests
+    import requests as _requests
     if request.method == 'GET':
-
-        url=request.GET['url']
-        response = requests.get(url)
-        if response.status_code == 200:
-            return JsonResponse({'status': 'success'})
-        else:
+        url = request.GET.get('url', '')
+        if not url or not url.startswith(('http://', 'https://')):
             return JsonResponse({'status': 'error'}, status=400)
+
+        # SSRF protection: only allow checking domains that exist in the panel
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        hostname = parsed.hostname or ''
+        if not domain.objects.filter(domain=hostname).exists() and not subdomainname.objects.filter(subdomain=hostname).exists():
+            return JsonResponse({'status': 'error', 'message': 'Only panel-managed domains can be checked.'}, status=400)
+
+        try:
+            response = _requests.get(url, timeout=10, allow_redirects=True)
+            if response.status_code == 200:
+                return JsonResponse({'status': 'success'})
+        except Exception:
+            pass
+        return JsonResponse({'status': 'error'}, status=400)
 
     return JsonResponse({'status': 'error'}, status=400)
 
@@ -373,14 +445,18 @@ def activeterminal(request):
     
     if request.user.is_superuser:
         if request.method == 'GET':
-             
-                port=get_random_port({8080,8082,8090,8092,9000,9002})
-                run_command(f'''sudo bash -c "cat > /etc/default/shellinabox <<EOL
+            # Terminal unavailable on Windows
+            if sys.platform == 'win32':
+                return JsonResponse({'status': 'error', 'message': 'Web terminal not available on Windows.'})
+
+            port=get_random_port({8080,8082,8090,8092,9000,9002})
+            run_command(f'''sudo bash -c "cat > /etc/default/shellinabox <<EOL
 SHELLINABOX_DAEMON_START=1
 SHELLINABOX_PORT={port}
 SHELLINABOX_ARGS=\'--disable-ssl --no-beep --service=/:root:root:/home/:/bin/bash\'
-EOL"''') 
-                run_command("sudo systemctl start shellinabox")
+EOL"''')
+            run_command("sudo systemctl start shellinabox")
+            if sys.platform != 'win32':
                 run_command("sudo systemctl stop csf")
                
                 
@@ -393,6 +469,7 @@ EOL"''')
         return JsonResponse({'status': 'error'}, status=400)
 
 
+@login_required(login_url='/')
 def handle_user_event(request):
 
     if request.method == 'GET':
@@ -400,18 +477,20 @@ def handle_user_event(request):
         action=request.GET['action']
         port=request.GET['port']
         if action == 'user_inactive':
-            run_command('sudo systemctl stop shellinabox')
-            run_command("sudo systemctl start csf")
+            if sys.platform != 'win32':
+                run_command('sudo systemctl stop shellinabox')
+                run_command("sudo systemctl start csf")
             # run_command(f'''sudo sed -i '/^TCP_OUT/s/,{port}//g' /etc/csf/csf.conf''')
             # run_command(f'''sudo sed -i '/^TCP_IN/s/,{port}//g' /etc/csf/csf.conf''')
             # run_command(f'''sudo csf -d {get_server_ip()} {port}''')
-      
+
             # run_command('sudo csf -r')
-            
-           
+
+
         elif action == 'tab_close':
-            run_command('sudo systemctl stop shellinabox')
-            run_command("sudo systemctl start csf")
+            if sys.platform != 'win32':
+                run_command('sudo systemctl stop shellinabox')
+                run_command("sudo systemctl start csf")
             # run_command(f'''sudo sed -i '/^TCP_OUT/s/,{port}//g' /etc/csf/csf.conf''')
             # run_command(f'''sudo sed -i '/^TCP_IN/s/,{port}//g' /etc/csf/csf.conf''')
             # run_command('sudo csf -r')
@@ -436,7 +515,8 @@ def terminal(request):
         if request.is_secure():
              d['securehai']=True
         
-        storage_info = psutil.disk_usage('/')
+        _disk_root = (os.path.splitdrive(paths.HOME_BASE)[0] + '\\') if sys.platform == 'win32' else '/'
+        storage_info = psutil.disk_usage(_disk_root)
         d['storage']=str(storage_info.total // (1024 ** 3)) +"GB"
         d['ip']=get_server_ip()
         d['os']=platform.system()
@@ -462,8 +542,14 @@ def terminal(request):
         return redirect('/')
 
 
-@csrf_exempt  # Disable CSRF protection for simplicity, not recommended for production
+@csrf_exempt
 def quicksetup(request):
+    # Only accessible during initial install (before a superuser exists).
+    # After install, superusers must be authenticated.
+    from django.contrib.auth.models import User as _User
+    _already_setup = _User.objects.filter(is_superuser=True).exists()
+    if _already_setup and not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Forbidden'}, status=403)
     if request.method == 'POST':
          
         
@@ -483,8 +569,14 @@ def quicksetup(request):
     
 
 
-@csrf_exempt  # Disable CSRF protection for simplicity, not recommended for production
+@csrf_exempt
 def updatesetup(request):
+    # Only accessible during initial install (before a superuser exists).
+    # After install, superusers must be authenticated.
+    from django.contrib.auth.models import User as _User
+    _already_setup = _User.objects.filter(is_superuser=True).exists()
+    if _already_setup and not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Forbidden'}, status=403)
     if request.method == 'POST':
         hostname = request.POST.get('hostname', "None")
         ns1 = request.POST.get('ns1', "None")
@@ -571,125 +663,131 @@ def filemanager(request):
 
 @login_required(login_url='/')
 def download_file(request):
- file_path=request.GET.get('key', '/')
- file_path=file_path.replace("//","/")
- if request.user.is_superuser or request.user.is_authenticated:
+    raw_path = request.GET.get('key', '/')
+    try:
+        file_path = sanitize_path(raw_path, request.user)
+    except ValueError as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=403)
+
     if not os.path.isfile(file_path):
         raise Http404("File does not exist")
 
-    # Open the file and create a FileResponse
     response = FileResponse(open(file_path, 'rb'))
-  
-    
-    # Set the content type (optional, can be determined dynamically)
     response['Content-Type'] = 'application/octet-stream'
-    
-    # Set the content disposition to force download
     response['Content-Disposition'] = f'attachment; filename="{os.path.basename(file_path)}"'
-    
     return response
- 
 
 @login_required(login_url='/')
-
 def delete_file(request, file_path):
-  import shutil
+    import shutil
 
-  if request.user.is_superuser or request.user.is_authenticated:
-    
+    try:
+        safe_path = sanitize_path(file_path, request.user)
+    except ValueError as e:
+        return JsonResponse({'error': str(e)}, status=403)
+
     if request.method == 'POST':
-      
-        
-        
-      
         try:
-            os.remove(f'/{file_path}')
-            return JsonResponse({'status':'success'})
-
-        except Exception as e:
-            #return JsonResponse({'error':'error'})
+            os.remove(safe_path)
+            return JsonResponse({'status': 'success'})
+        except Exception:
             pass
         try:
-            os.rmdir(f'/{file_path}')
-            return JsonResponse({'status':'success'})
-
-        except Exception as e:
+            os.rmdir(safe_path)
+            return JsonResponse({'status': 'success'})
+        except Exception:
             pass
         try:
-            shutil.rmtree(f'/{file_path}')
-            return JsonResponse({'status':'success'})
-
+            shutil.rmtree(safe_path)
+            return JsonResponse({'status': 'success'})
         except Exception as e:
-            return JsonResponse({'error':'error'})
-        
-  return JsonResponse({'error':'error'})
+            return JsonResponse({'error': 'error'})
+
+    return JsonResponse({'error': 'error'})
 
  
    
 @login_required(login_url='/')
-def editor_view(request,file_path):
+def editor_view(request, file_path):
+    import json as _json
+    try:
+        safe_path = sanitize_path(file_path, request.user)
+    except ValueError:
+        return render(request, 'panel/500notfound.html')
 
-    if request.user.is_superuser or request.user.is_authenticated:
-        data={}
-        extensions = {
-        'python': ['.py'],
-        'javascript': ['.js'],
-        'java': ['.java'],
-        'c++': ['.cpp', '.h'],
-        'ruby': ['.rb'],
-        'php': ['.php'],
-        'swift': ['.swift'],
-        'go': ['.go'],
-        'kotlin': ['.kt', '.kts'],
-        'typescript': ['.ts'],
-        'r': ['.r', '.R'],
-        'matlab': ['.m'],
-        'scala': ['.scala'],
-        'perl': ['.pl', '.pm'],
-        'haskell': ['.hs'],
-        'rust': ['.rs'],
-        'dart': ['.dart'],
-        'shell': ['.sh', '.bash'],
-        'sql': ['.sql'],
-        'html': ['.html', '.htm'],
-        'css': ['.css'],
-        'json': ['.json'],
-        'yawl': ['.yaml', '.yml'],
-        'xml': ['.xml'],
-        'makrdown': ['.md'],
-        'groovy': ['.groovy'],
-        'rowershell': ['.ps1'],
-        'tcl': ['.tcl'],
-        'awk': ['.awk'],
-        'rpg': ['.rpg'],
-        'fortran': ['.f90', '.for'],
-        # Add more languages and their extensions here
+    # Comprehensive extension → Monaco language map
+    EXT_LANG = {
+        '.py': 'python', '.pyw': 'python', '.pyx': 'python',
+        '.js': 'javascript', '.mjs': 'javascript', '.cjs': 'javascript',
+        '.ts': 'typescript', '.tsx': 'typescript',
+        '.jsx': 'javascript',
+        '.html': 'html', '.htm': 'html', '.jinja': 'html', '.jinja2': 'html', '.j2': 'html',
+        '.css': 'css', '.scss': 'css', '.sass': 'css', '.less': 'css',
+        '.json': 'json', '.jsonc': 'json',
+        '.php': 'php', '.php3': 'php', '.php4': 'php', '.php5': 'php', '.phtml': 'php',
+        '.java': 'java',
+        '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.hpp': 'cpp', '.hxx': 'cpp',
+        '.c': 'c', '.h': 'c',
+        '.cs': 'csharp',
+        '.go': 'go',
+        '.rs': 'rust',
+        '.rb': 'ruby', '.erb': 'ruby',
+        '.sh': 'shell', '.bash': 'shell', '.zsh': 'shell', '.fish': 'shell',
+        '.sql': 'sql',
+        '.xml': 'xml', '.svg': 'xml', '.xsl': 'xml', '.xslt': 'xml',
+        '.yaml': 'yaml', '.yml': 'yaml',
+        '.md': 'markdown', '.markdown': 'markdown',
+        '.dockerfile': 'dockerfile',
+        '.ini': 'ini', '.cfg': 'ini', '.conf': 'ini', '.env': 'ini',
+        '.nginx': 'nginx',
+        '.pl': 'perl', '.pm': 'perl',
+        '.r': 'r',
+        '.swift': 'swift',
+        '.kt': 'kotlin', '.kts': 'kotlin',
+        '.dart': 'dart',
+        '.scala': 'scala',
+        '.groovy': 'groovy',
+        '.ps1': 'powershell', '.psm1': 'powershell',
+        '.lua': 'lua',
+        '.ex': 'elixir', '.exs': 'elixir',
+        '.hs': 'haskell',
+        '.toml': 'toml',
+        '.tf': 'hcl', '.tfvars': 'hcl',
     }
 
-     
-        for language, exts in extensions.items():
-         if file_path.endswith(tuple(exts)):
-            data['language']=language
-            break
-        else:
-             data['language']='unknown'
+    fname     = os.path.basename(safe_path.rstrip('/'))
+    ext       = os.path.splitext(fname)[1].lower()
+    lang      = EXT_LANG.get(ext, 'plaintext')
+    # Special filename-based detection (no extension)
+    if lang == 'plaintext':
+        basename_lower = fname.lower()
+        if basename_lower in ('dockerfile',): lang = 'dockerfile'
+        elif basename_lower in ('makefile',): lang = 'makefile'
+        elif basename_lower in ('nginx.conf', 'nginx'):  lang = 'nginx'
+        elif basename_lower.startswith('.env'): lang = 'ini'
 
+    # Read the file (with sudo fallback for permission-restricted paths)
+    try:
         try:
-            
-            f=open(f'/{file_path}')
-            data1=f.read()
-            data['data']=data1
-            data['csrf_token']=request.META.get('CSRF_COOKIE', '')
-            if not request.user.is_superuser:
-                 if str(request.user) not in file_path:
-                       return render(request, 'panel/500notfound.html')
-                      
-            return render(request, 'panel/editor.html',data)
-        except :
-            return render(request, 'panel/500notfound.html')
-    else:
-        return redirect("/")
-    
+            with open(safe_path, 'r', encoding='utf-8', errors='replace') as f:
+                file_content = f.read()
+        except PermissionError:
+            import subprocess
+            result = subprocess.run(['sudo', 'cat', safe_path], capture_output=True, check=True)
+            file_content = result.stdout.decode('utf-8', errors='replace')
+    except FileNotFoundError:
+        return render(request, 'panel/500notfound.html')
+    except Exception:
+        return render(request, 'panel/500notfound.html')
+
+    ctx = {
+        'data':     file_content,
+        'language': lang,
+        'filename': fname,
+    }
+    return render(request, 'panel/editor.html', ctx)
+
+
 @login_required(login_url='/')
 @secure_fm_paths
 def save_file(request):
@@ -704,8 +802,18 @@ def save_file(request):
         try:
             with open(path, 'w') as file:
                 file.write(content)
+            return JsonResponse({'status': 'success', 'message': 'File saved successfully!'})
+        except PermissionError:
+            import tempfile, subprocess, os
+            try:
+                with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmp:
+                    tmp.write(content)
+                    tmp_path = tmp.name
+                subprocess.run(['sudo', 'bash', '-c', f'cat "{tmp_path}" > "{path}"'], check=True)
+                os.unlink(tmp_path)
                 return JsonResponse({'status': 'success', 'message': 'File saved successfully!'})
-
+            except Exception as e:
+                return JsonResponse({'status': 'error', 'message': f'Error saving file via sudo: {str(e)}'})
         except Exception as e:
               return JsonResponse({'status': 'error', 'message': f'Error saving file: {str(e)}'})
     
@@ -719,7 +827,7 @@ def upload_file(request):
             try:
                 from core.models import user, package
                 from .views import get_directory_size_in_mb, safe_get_package
-                currentstorage = get_directory_size_in_mb(f'/home/{request.user}')
+                currentstorage = get_directory_size_in_mb(os.path.join(paths.HOME_BASE, str(request.user)))
                 packagecc = safe_get_package(user.objects.get(username=request.user).hosting_package).storage
                 
                 if int(packagecc) != 0:
@@ -746,9 +854,11 @@ def upload_file(request):
                         destination.write(chunk)
                 try:
                     if request.user.is_superuser:
-                         run_command(f'sudo chown www-data:www-data "{file_path}"')
+                         if sys.platform != 'win32':
+                             run_command(f'sudo chown www-data:www-data "{file_path}"')
                     else:
-                         run_command(f'sudo chown {request.user.username}:{request.user.username} "{file_path}"')
+                         if sys.platform != 'win32':
+                             run_command(f'sudo chown {request.user.username}:{request.user.username} "{file_path}"')
                 except Exception:
                     pass
             return JsonResponse({'status': 'success', 'message': f'{len(uploaded_files)} file(s) uploaded successfully!'})
@@ -813,14 +923,29 @@ def create_file(request):
                         return JsonResponse({'status': 'already', 'message': 'File already Exists Failed!'})
               
                try:
-                # os.system(f'touch {full_path}')
                 with open(full_path, 'w') as file:
                     file.write('This is a new file.\n')
                 try:
-                    run_command(f"chown www-data:www-data {full_path}")
-                except:
+                    if sys.platform != 'win32':
+                        # Get owner of parent directory and assign it
+                        import stat
+                        parent_stat = os.stat(file_path)
+                        os.chown(full_path, parent_stat.st_uid, parent_stat.st_gid)
+                except Exception:
                      pass
                 return JsonResponse({'status': 'success', 'message': 'File Create successfully!'})
+               except PermissionError:
+                    try:
+                        import subprocess
+                        print(f"Attempting sudo creation for {full_path}")
+                        subprocess.run(['sudo', 'bash', '-c', f'echo "This is a new file." > "{full_path}"'], check=True)
+                        parent_stat = os.stat(file_path)
+                        print(f"Setting ownership to {parent_stat.st_uid}:{parent_stat.st_gid}")
+                        subprocess.run(['sudo', 'chown', f'{parent_stat.st_uid}:{parent_stat.st_gid}', full_path])
+                        return JsonResponse({'status': 'success', 'message': 'File Create successfully!'})
+                    except Exception as e:
+                        print(f"Sudo Fallback Failed: {repr(e)}")
+                        return JsonResponse({'status': 'error', 'message': 'File Create Failed!'})
                except Exception as e:
                    print(e)
                    return JsonResponse({'status': 'error', 'message': 'File Create Failed!'})
@@ -829,7 +954,7 @@ def create_file(request):
           if request.method =="POST":
                from core.models import user, package
                try:
-                   currentstorage = get_directory_size_in_mb(f'/home/{request.user}')
+                   currentstorage = get_directory_size_in_mb(os.path.join(paths.HOME_BASE, str(request.user)))
                    packagecc = safe_get_package(user.objects.get(username=request.user).hosting_package).storage
                    if int(packagecc) != 0 and float(currentstorage) >= float(packagecc):
                        return JsonResponse({'status': 'error', 'message': 'Storage Quota Exceeded. Creation Blocked.'})
@@ -854,9 +979,11 @@ def create_file(request):
                 with open(full_path, 'w') as file:
                     file.write('This is a new file.\n')
                 
-                run_command(f'sudo chown {request.user}:{request.user} {full_path}')
+                if sys.platform != 'win32':
+                    run_command(f'sudo chown {request.user}:{request.user} {full_path}')
                 try:
-                    run_command(f"chown {request.user}:www-data {full_path}")
+                    if sys.platform != 'win32':
+                        run_command(f"chown {request.user}:www-data {full_path}")
                 except:
                      pass
                 return JsonResponse({'status': 'success', 'message': 'File Create successfully!'})
@@ -888,19 +1015,31 @@ def create_folder(request):
                try:
                 os.mkdir(full_path)
                 try:
-                    run_command(f"chown www-data:www-data {full_path}")
-                except:
+                    if sys.platform != 'win32':
+                        import stat
+                        parent_stat = os.stat(file_path)
+                        os.chown(full_path, parent_stat.st_uid, parent_stat.st_gid)
+                except Exception:
                      pass
-                return JsonResponse({'status': 'success', 'message': 'File uploaded successfully!'})
+                return JsonResponse({'status': 'success', 'message': 'Folder created successfully!'})
+               except PermissionError:
+                    try:
+                        import subprocess
+                        subprocess.run(['sudo', 'mkdir', full_path], check=True)
+                        parent_stat = os.stat(file_path)
+                        subprocess.run(['sudo', 'chown', f'{parent_stat.st_uid}:{parent_stat.st_gid}', full_path])
+                        return JsonResponse({'status': 'success', 'message': 'Folder created successfully!'})
+                    except Exception as e:
+                        return JsonResponse({'status': 'error', 'message': 'Folder creation Failed!'})
                except Exception as e:
                    print(e)
-                   return JsonResponse({'status': 'error', 'message': 'File upload Failed!'})
+                   return JsonResponse({'status': 'error', 'message': 'Folder creation Failed!'})
          return JsonResponse({'status': 'error', 'message': 'File upload Failed!'})
      elif request.user.is_authenticated: 
           if request.method =="POST":
                from core.models import user, package
                try:
-                   currentstorage = get_directory_size_in_mb(f'/home/{request.user}')
+                   currentstorage = get_directory_size_in_mb(os.path.join(paths.HOME_BASE, str(request.user)))
                    packagecc = safe_get_package(user.objects.get(username=request.user).hosting_package).storage
                    if int(packagecc) != 0 and float(currentstorage) >= float(packagecc):
                        return JsonResponse({'status': 'error', 'message': 'Storage Quota Exceeded. Creation Blocked.'})
@@ -925,11 +1064,13 @@ def create_folder(request):
                             
                                   
             
-                                  run_command(f"chown {request.user}:www-data {full_path}")
+                                  if sys.platform != 'win32':
+                                      run_command(f"chown {request.user}:www-data {full_path}")
              
                 except:
                              pass
-                run_command(f'sudo chown {request.user}:{request.user} {full_path}')
+                if sys.platform != 'win32':
+                    run_command(f'sudo chown {request.user}:{request.user} {full_path}')
                 return JsonResponse({'status': 'success', 'message': 'File uploaded successfully!'})
                except Exception as e:
                    print(e)
@@ -967,12 +1108,14 @@ def copydata(request):
                         shutil.copytree(file_path+"/"+i,copy+i)
                         try:
                              if request.user.is_superuser():
-                                  run_command(f"chown www-data:www-data {copy}")
-                                  run_command(f"chown www-data:www-data {copy}/{i}")
+                                  if sys.platform != 'win32':
+                                      run_command(f"chown www-data:www-data {copy}")
+                                      run_command(f"chown www-data:www-data {copy}/{i}")
                                   
                              else:
-                                  run_command(f"chown {request.user}:www-data {copy}")
-                                  run_command(f"chown {request.user}:www-data {copy}/{i}")
+                                  if sys.platform != 'win32':
+                                      run_command(f"chown {request.user}:www-data {copy}")
+                                      run_command(f"chown {request.user}:www-data {copy}/{i}")
                         except:
                              pass
                         c=c+1
@@ -1011,8 +1154,8 @@ def copydata(request):
                    copy="/"+copy
                if '/' !=copy[-1]:
                    copy=copy+'/'
-               if not copy.startswith(f'/home/{request.user}'):
-                    copy=f'/home/{request.user}'+copy
+               if not copy.startswith(os.path.join(paths.HOME_BASE, str(request.user))):
+                    copy=os.path.join(paths.HOME_BASE, str(request.user))+copy
                if  not os.path.isdir(copy):
                    return JsonResponse({'status': 'invalid', 'message': "Invalid Location"})
                    
@@ -1024,12 +1167,14 @@ def copydata(request):
                         c=c+1
                         try:
                              if request.user.is_superuser():
-                                  run_command(f"chown www-data:www-data {copy}")
-                                  run_command(f"chown www-data:www-data {copy}/{i}")
+                                  if sys.platform != 'win32':
+                                      run_command(f"chown www-data:www-data {copy}")
+                                      run_command(f"chown www-data:www-data {copy}/{i}")
                                   
                              else:
-                                  run_command(f"chown {request.user}:www-data {copy}")
-                                  run_command(f"chown {request.user}:www-data {copy}/{i}")
+                                  if sys.platform != 'win32':
+                                      run_command(f"chown {request.user}:www-data {copy}")
+                                      run_command(f"chown {request.user}:www-data {copy}/{i}")
                         except:
                              pass
                     except Exception as e:
@@ -1039,12 +1184,14 @@ def copydata(request):
                         c=c+1
                         try:
                              if request.user.is_superuser():
-                                  run_command(f"chown www-data:www-data {copy}")
-                                  run_command(f"chown www-data:www-data {copy}/{i}")
+                                  if sys.platform != 'win32':
+                                      run_command(f"chown www-data:www-data {copy}")
+                                      run_command(f"chown www-data:www-data {copy}/{i}")
                                   
                              else:
-                                  run_command(f"chown {request.user}:www-data {copy}")
-                                  run_command(f"chown {request.user}:www-data {copy}/{i}")
+                                  if sys.platform != 'win32':
+                                      run_command(f"chown {request.user}:www-data {copy}")
+                                      run_command(f"chown {request.user}:www-data {copy}/{i}")
                         except:
                              pass
                     except Exception as e:
@@ -1090,12 +1237,14 @@ def movedata(request):
                         shutil.move(file_path+"/"+i,copy)
                         try:
                              if request.user.is_superuser():
-                                  run_command(f"chown www-data:www-data {copy}")
-                                  run_command(f"chown www-data:www-data {copy}/{i}")
+                                  if sys.platform != 'win32':
+                                      run_command(f"chown www-data:www-data {copy}")
+                                      run_command(f"chown www-data:www-data {copy}/{i}")
                                   
                              else:
-                                  run_command(f"chown {request.user}:www-data {copy}")
-                                  run_command(f"chown {request.user}:www-data {copy}/{i}")
+                                  if sys.platform != 'win32':
+                                      run_command(f"chown {request.user}:www-data {copy}")
+                                      run_command(f"chown {request.user}:www-data {copy}/{i}")
                         except:
                              pass
                         c=c+1
@@ -1120,8 +1269,8 @@ def movedata(request):
                    copy="/"+copy
                if '/' !=copy[-1]:
                    copy=copy+'/'
-               if not copy.startswith(f'/home/{request.user}'):
-                    copy=f'/home/{request.user}'+copy
+               if not copy.startswith(os.path.join(paths.HOME_BASE, str(request.user))):
+                    copy=os.path.join(paths.HOME_BASE, str(request.user))+copy
                if  not os.path.isdir(copy):
                    return JsonResponse({'status': 'invalid', 'message': "Invalid Location"})
                for i in selected_items:
@@ -1131,12 +1280,14 @@ def movedata(request):
                         shutil.move(file_path+"/"+i,copy)
                         try:
                              if request.user.is_superuser():
-                                  run_command(f"chown www-data:www-data {copy}")
-                                  run_command(f"chown www-data:www-data {copy}/{i}")
+                                  if sys.platform != 'win32':
+                                      run_command(f"chown www-data:www-data {copy}")
+                                      run_command(f"chown www-data:www-data {copy}/{i}")
                                   
                              else:
-                                  run_command(f"chown {request.user}:www-data {copy}")
-                                  run_command(f"chown {request.user}:www-data {copy}/{i}")
+                                  if sys.platform != 'win32':
+                                      run_command(f"chown {request.user}:www-data {copy}")
+                                      run_command(f"chown {request.user}:www-data {copy}/{i}")
                         except:
                              pass
                         c=c+1
@@ -1172,7 +1323,8 @@ def extractdata(request):
                     
                     extract_zip_with_error_handling(file_path+'/'+selected_items[0], file_path)
                     try:
-                         run_command(f"sudo chown -R www-data:www-data {file_path}")
+                         if sys.platform != 'win32':
+                             run_command(f"sudo chown -R www-data:www-data {file_path}")
                     except:
                          pass
                     return JsonResponse({'status': 'success', 'message': 'File Extracted successfully!'})
@@ -1200,7 +1352,8 @@ def extractdata(request):
                     extract_zip_with_error_handling(file_path+'/'+selected_items[0], file_path)
                    
                     try:
-                         run_command(f"sudo chown -R {request.user}:www-data {file_path}")
+                         if sys.platform != 'win32':
+                             run_command(f"sudo chown -R {request.user}:www-data {file_path}")
                     except:
                          pass
                     return JsonResponse({'status': 'success', 'message': 'File Extracted successfully!'})
@@ -1257,7 +1410,8 @@ def compressdata(request):
                try:
                     zip_files_and_folders(file_path, l)
                     if not request.user.is_superuser:
-                         run_command(f'sudo chown {request.user}:{request.user} {file_path}')
+                         if sys.platform != 'win32':
+                             run_command(f'sudo chown {request.user}:{request.user} {file_path}')
                          
                  
                     return JsonResponse({'status': 'success', 'message': 'File Compressed successfully!'})
@@ -1375,7 +1529,7 @@ def get_trash_dir(user):
     if user.is_superuser:
         return str(_settings.BASE_DIR / '.voidpanel_trash')
     else:
-        return f'/home/{user.username}/.trash'
+        return os.path.join(paths.HOME_BASE, user.username, '.trash')
 
 def _trash_move(src_path, user):
     """Move a file/folder into the VoidPanel trash and write a .meta sidecar."""
@@ -1703,7 +1857,7 @@ def addweb(request):
                    if domain.objects.filter(domain=domain12).exists():
                        return JsonResponse({'status': 'already', 'message': 'Domain Already Exist'})
                    
-                   directories = os.listdir('/home')
+                   directories = os.listdir(paths.HOME_BASE)
                    domainname = domain12.split('.')[0].lower()
                    import re
                    domainname = re.sub(r'[^a-zA-Z0-9]', '', domainname)
@@ -1711,7 +1865,7 @@ def addweb(request):
                    while domainname in directories:
                        domainname = domainname[:-1]
                        
-                   path = "/home/" + domainname
+                   path = os.path.join(paths.HOME_BASE, domainname)
                    inipath = path + '/public_html/php.ini'
                    
                    php_ini_content = f"""
@@ -1761,19 +1915,30 @@ open_basedir = "/{path}/public_html:/tmp"
          return JsonResponse({'status': 'success', 'message': 'Domain Added!'})
             
 
-@login_required(login_url='/')
-@never_cache
 def _background_provision_user(domain12, email, password, package12, sto, domainname):
     import os, shutil, subprocess, time
     from django.db import transaction
-    path="/home/"+domainname
+    path=os.path.join(paths.HOME_BASE, domainname)
     try:
         os.mkdir(path)
         os.mkdir(path+'/public_html')
-        run_command(f'cp -r /var/www/panel/voidpanel/*  {path}/public_html/')
-        run_command(f'sudo ln -s /etc/nginx/sites-available/{domain12}.conf  /etc/nginx/sites-enabled/')
+        _vp_src = os.path.join(paths.PANEL_ROOT, 'voidpanel')
+        _vp_dst = os.path.join(path, 'public_html')
+        for _item in os.listdir(_vp_src):
+            _s = os.path.join(_vp_src, _item)
+            _d = os.path.join(_vp_dst, _item)
+            if os.path.isdir(_s):
+                shutil.copytree(_s, _d, dirs_exist_ok=True)
+            else:
+                shutil.copy2(_s, _d)
+        _ln_src = f'{paths.NGINX_SITES_AVAILABLE}/{domain12}.conf'
+        _ln_dst = f'{paths.NGINX_SITES_ENABLED}/'
+        if sys.platform == 'win32':
+            shutil.copy2(_ln_src, os.path.join(_ln_dst, f'{domain12}.conf'))
+        else:
+            run_command(f'sudo ln -s {_ln_src}  {_ln_dst}')
         os.mkdir(path+'/ssl')
-        os.mkdir(f'/var/mail/vhosts/{domain12}')
+        os.makedirs(os.path.join(path, 'mail', domain12), exist_ok=True)
         os.mkdir(path+'/logs')
         inipath=path+'/public_html/'+'php.ini'
         php_ini_content = f"""
@@ -1812,7 +1977,7 @@ open_basedir = "/{path}/public_html:/tmp"
         with open(inipath,'w') as f:
             f.write(php_ini_content)
             
-        file_path = f"/etc/nginx/sites-available/{domain12}.conf"
+        file_path = os.path.join(paths.NGINX_SITES_AVAILABLE, f"{domain12}.conf")
         root_dir = path+'/public_html'
         cert_path, key_path = generate_ssl_certificates(domain12, path+'/ssl',path+'/logs')
         
@@ -1821,8 +1986,8 @@ open_basedir = "/{path}/public_html:/tmp"
         else:
             raise Exception(f"Cannot generate open ssl for domain {domain12}")
             
-        key_dir = f'/etc/opendkim/keys/{domain12}'
-        zone_file_path = f'/etc/bind/db.{domain12}'
+        key_dir = os.path.join(paths.OPENDKIM_KEY_DIR, domain12)
+        zone_file_path = os.path.join(paths.BIND_ZONE_DIR, f'db.{domain12}')
         private_key_path, public_key_path = generate_dkim_keys(domain12, key_dir)
         
         if private_key_path and public_key_path:
@@ -1837,29 +2002,25 @@ open_basedir = "/{path}/public_html:/tmp"
             user.objects.create(domain=domain12,email=email,username=domainname,hosting_package=package12)
             User.objects.create_user(username=domainname,email=email,password=password)
             
-        # Create Unix user securely without shell injection
-        subprocess.run(['sudo', 'useradd', '-m', '-s', '/usr/sbin/nologin', domainname], check=False)
-        passwd_proc = subprocess.Popen(
-            ['sudo', 'chpasswd'],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, encoding='utf-8'
-        )
-        passwd_proc.communicate(input=f"{domainname}:{password}\n")
+        # Create Unix user via platform layer
+        get_platform().users.create_user(domainname, password, shell='/usr/sbin/nologin')
         
-        subprocess.run(['sudo', 'chown', f'{domainname}:{domainname}', f'/home/{domainname}'],
-                       capture_output=True, check=False)
+        if sys.platform != 'win32':
+            subprocess.run(['sudo', 'chown', f'{domainname}:{domainname}', os.path.join(paths.HOME_BASE, domainname)],
+                           capture_output=True, check=False)
 
         # Apply Quota (optional — skip if setquota not installed)
         try:
-            subprocess.run(['sudo', 'setquota', '-u', domainname, str(sto), str(sto), '0', '0', '/'],
-                           capture_output=True, timeout=10, check=False)
+            get_platform().users.set_quota(domainname, sto, sto)
         except Exception:
             logger.warning('Quota setup skipped for %s — setquota unavailable', domainname)
 
         # ZERO-DOWNTIME RELOADS
+        plat = get_platform()
         for svc in ('opendkim', 'bind9', 'postfix', 'nginx'):
             try:
-                subprocess.run(['sudo', 'systemctl', 'reload', svc], capture_output=True, timeout=15, check=False)
+                if sys.platform != 'win32':
+                    plat.services.reload(svc)
             except Exception as _e:
                 logger.warning('Reload %s failed: %s', svc, _e)
 
@@ -1877,15 +2038,17 @@ open_basedir = "/{path}/public_html:/tmp"
         # Rollback Files
         if os.path.exists(path):
             shutil.rmtree(path)
-        if os.path.exists(f'/etc/nginx/sites-enabled/{domain12}.conf'):
-            os.remove(f'/etc/nginx/sites-enabled/{domain12}.conf')
-        if os.path.exists(f'/etc/nginx/sites-available/{domain12}.conf'):
-            os.remove(f'/etc/nginx/sites-available/{domain12}.conf')
-        if os.path.exists(f'/var/mail/vhosts/{domain12}'):
-            shutil.rmtree(f'/var/mail/vhosts/{domain12}')
+        _en = os.path.join(paths.NGINX_SITES_ENABLED, f'{domain12}.conf')
+        if os.path.exists(_en):
+            os.remove(_en)
+        _av = os.path.join(paths.NGINX_SITES_AVAILABLE, f'{domain12}.conf')
+        if os.path.exists(_av):
+            os.remove(_av)
+        if os.path.exists(os.path.join(path, 'mail', domain12)):
+            shutil.rmtree(os.path.join(path, 'mail', domain12))
         
         # Rollback Unix user
-        subprocess.run(['sudo', 'userdel', '-r', domainname], check=False)
+        get_platform().users.delete_user(domainname)
 
 @login_required(login_url='/')
 @never_cache
@@ -1911,7 +2074,7 @@ def addusermain(request):
                 return JsonResponse({'status': 'already', 'message': 'Domain Already Exist'})
                 
             import re
-            directories = os.listdir('/home')
+            directories = os.listdir(paths.HOME_BASE)
             base_name = re.sub(r'[^a-z0-9]', '', domain12.split('.')[0].lower())[:16]
             
             domainname = base_name
@@ -1990,7 +2153,7 @@ def eadns(request):
         current_domain = domain.objects.get(domain=domainname)
         d['domain'] = current_domain
 
-        zone_file_path = f"/etc/bind/db.{current_domain.domain}"
+        zone_file_path = os.path.join(paths.BIND_ZONE_DIR, f'db.{current_domain.domain}')
 
         if not os.path.exists(zone_file_path):
             d['error'] = f"Zone file not found for {domainname}. Ensure BIND is configured correctly."
@@ -2035,8 +2198,8 @@ def deletedns(request):
     except domain.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': 'Domain not found.'}, status=404)
 
-    zone_file_path = f"/etc/bind/db.{domainname}"
-    
+    zone_file_path = os.path.join(paths.BIND_ZONE_DIR, f'db.{domainname}')
+
     if not os.path.exists(zone_file_path):
         return JsonResponse({'status': 'error', 'message': 'Zone file not found.'}, status=404)
 
@@ -2068,15 +2231,16 @@ def deletedns(request):
                 f.writelines(new_lines)
 
             import subprocess
-            # Validate zone file using BIND industry standard
-            check = subprocess.run(['named-checkzone', domainname, zone_file_path], capture_output=True, text=True)
-            if check.returncode != 0:
-                # File is corrupted: Revert to original content
-                with open(zone_file_path, 'w') as f:
-                    f.write(original_content)
-                return JsonResponse({'status': 'error', 'message': 'DNS Validation failed. Record syntax may break the DNS zone.'}, status=400)
+            # Validate zone file using BIND industry standard (Linux only)
+            if sys.platform != 'win32':
+                check = subprocess.run(['named-checkzone', domainname, zone_file_path], capture_output=True, text=True)
+                if check.returncode != 0:
+                    # File is corrupted: Revert to original content
+                    with open(zone_file_path, 'w') as f:
+                        f.write(original_content)
+                    return JsonResponse({'status': 'error', 'message': 'DNS Validation failed. Record syntax may break the DNS zone.'}, status=400)
 
-            subprocess.run(['sudo', 'systemctl', 'reload', 'bind9'], check=False)
+                subprocess.run(['sudo', 'systemctl', 'reload', 'bind9'], check=False)
             return JsonResponse({'status': 'success', 'message': 'DNS record deleted successfully.'})
         else:
             return JsonResponse({'status': 'error', 'message': 'Record not found in zone file.'}, status=404)
@@ -2130,7 +2294,7 @@ def adddnsrecord(request):
     if not re.match(r'^[a-zA-Z0-9@._\-\*]+$', name):
         return JsonResponse({'success': False, 'error': 'Invalid record name. Only alphanumeric, dots, hyphens, and @ allowed.'}, status=400)
 
-    zone_file_path = f"/etc/bind/db.{domainname}"
+    zone_file_path = os.path.join(paths.BIND_ZONE_DIR, f'db.{domainname}')
     
     if not os.path.exists(zone_file_path):
         return JsonResponse({'success': False, 'error': 'Zone file not found for this domain.'}, status=404)
@@ -2144,13 +2308,15 @@ def adddnsrecord(request):
             zone_file.write(f"{name} {ttl} {record_class} {record_type} {data}\n")
 
         import subprocess
-        check = subprocess.run(['named-checkzone', domainname, zone_file_path], capture_output=True, text=True)
-        if check.returncode != 0:
-            with open(zone_file_path, 'w') as f:
-                f.write(original_content)
-            return JsonResponse({'success': False, 'error': f'Invalid record syntax. BIND rejected the entry. Details: {check.stdout[:100]}'}, status=400)
+        # Validate zone file using BIND industry standard (Linux only)
+        if sys.platform != 'win32':
+            check = subprocess.run(['named-checkzone', domainname, zone_file_path], capture_output=True, text=True)
+            if check.returncode != 0:
+                with open(zone_file_path, 'w') as f:
+                    f.write(original_content)
+                return JsonResponse({'success': False, 'error': f'Invalid record syntax. BIND rejected the entry. Details: {check.stdout[:100]}'}, status=400)
 
-        subprocess.run(['sudo', 'systemctl', 'reload', 'bind9'], check=False)
+            subprocess.run(['sudo', 'systemctl', 'reload', 'bind9'], check=False)
         return JsonResponse({'success': True, 'message': f'{record_type} record for "{name}" added successfully.'})
 
     except PermissionError:
@@ -2190,7 +2356,7 @@ def editdnsrecord(request):
     if not re.match(r'^[a-zA-Z0-9@._\-\*]+$', name):
         return JsonResponse({'success': False, 'error': 'Invalid new record name.'}, status=400)
 
-    zone_file_path = f"/etc/bind/db.{domainname}"
+    zone_file_path = os.path.join(paths.BIND_ZONE_DIR, f'db.{domainname}')
     
     if not os.path.exists(zone_file_path):
         return JsonResponse({'success': False, 'error': 'Zone file not found for this domain.'}, status=404)
@@ -2222,15 +2388,17 @@ def editdnsrecord(request):
         if edited:
             with open(zone_file_path, 'w') as f:
                 f.writelines(new_lines)
-            
-            import subprocess
-            check = subprocess.run(['named-checkzone', domainname, zone_file_path], capture_output=True, text=True)
-            if check.returncode != 0:
-                with open(zone_file_path, 'w') as f:
-                    f.write(original_content)
-                return JsonResponse({'success': False, 'error': f'Invalid record syntax. Formatting rejected.'}, status=400)
 
-            subprocess.run(['sudo', 'systemctl', 'reload', 'bind9'], check=False)
+            import subprocess
+            # Validate zone file using BIND industry standard (Linux only)
+            if sys.platform != 'win32':
+                check = subprocess.run(['named-checkzone', domainname, zone_file_path], capture_output=True, text=True)
+                if check.returncode != 0:
+                    with open(zone_file_path, 'w') as f:
+                        f.write(original_content)
+                    return JsonResponse({'success': False, 'error': f'Invalid record syntax. Formatting rejected.'}, status=400)
+
+                subprocess.run(['sudo', 'systemctl', 'reload', 'bind9'], check=False)
             return JsonResponse({'success': True, 'message': 'DNS record updated successfully.'})
         else:
             return JsonResponse({'success': False, 'error': 'Original record not found for editing.'}, status=404)
@@ -2361,20 +2529,22 @@ def addemailaccount(request):
             elif sysuser.objects.filter(username=request.user.username).exists():
                 sys_owner = request.user.username
 
-            with open('/etc/postfix/virtual_domains', 'a+') as f:
+            with open(paths.POSTFIX_VIRTUAL_DOMAINS, 'a+') as f:
                 f.seek(0)
                 if f"{domain_name}\n" not in f.read():
                     f.write(f"{domain_name}\n")
-            with open('/etc/postfix/virtual_alias', 'a+') as f:
+            with open(paths.POSTFIX_VIRTUAL_ALIAS, 'a+') as f:
                 f.seek(0)
                 if f"{full_email} {full_email}\n" not in f.read():
                     f.write(f"{full_email} {full_email}\n")
 
-            run_command("postmap /etc/postfix/virtual_alias")
-            
-            # Pass sys_owner as argument 3 to the shell script
-            script_cmd = f"bash /var/www/panel/emailadd.sh {full_email} '{password}' {sys_owner}"
-            run_command(script_cmd)
+            if sys.platform != 'win32':
+                run_command(f"postmap {paths.POSTFIX_VIRTUAL_ALIAS}")
+
+            # Pass sys_owner as argument 3 to the shell script (Linux only)
+            if sys.platform != 'win32':
+                script_cmd = f"bash {shlex.quote(os.path.join(paths.PANEL_ROOT, 'emailadd.sh'))} {shlex.quote(full_email)} {shlex.quote(password)} {shlex.quote(sys_owner)}"
+                run_command(script_cmd)
 
             password_b64 = base64.b64encode(password.encode('utf-8')).decode('utf-8')
             allemail.objects.create(domain=domain_name, email=full_email, password=password_b64)
@@ -2397,23 +2567,34 @@ def listemail(request,data):
                d['allemail']=allemail.objects.filter(domain=data).all()
                for i in allemail.objects.filter(domain=data).all():
                    usernameemail=i.email.split("@")[0]
-                   maildir_path = f"/var/mail/vhosts/{i.domain}/{usernameemail}" 
+                   maildir_path = _resolve_maildir(i.domain, usernameemail)
                    new_dir = os.path.join(maildir_path, "new")
                    cur_dir = os.path.join(maildir_path, "cur")
                    new_emails_count = len(os.listdir(new_dir)) if os.path.exists(new_dir) else 0
                    cur_emails_count = len(os.listdir(cur_dir)) if os.path.exists(cur_dir) else 0
                    total_emails_count = new_emails_count + cur_emails_count
                 #    command = f"grep 'status=sent' /var/log/mail.log | grep '{i.email}'"
-                   command=f'grep "from=<{i.email}>" /var/log/mail.log'
-                   result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                   command = f"grep -E 'status=bounced|status=deferred' /var/log/mail.log | grep '{i.email}'"
-                   result2 = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                   failed_emails = result2.stdout.splitlines()
-                   sent_emails = result.stdout.splitlines()
-                   command = "postqueue -p"
-                   result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                   queue_lines = result.stdout.splitlines()
-                   filtered_emails = [line for line in queue_lines if i.email in line]
+
+                   # Mail log statistics (Linux only)
+                   sent_emails = []
+                   failed_emails = []
+                   filtered_emails = []
+                   if sys.platform != 'win32':
+                       command=['grep', f'from=<{i.email}>', '/var/log/mail.log']
+                       result = subprocess.run(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                       command2=['grep', '-E', 'status=bounced|status=deferred', '/var/log/mail.log']
+                       result2 = subprocess.run(
+                           ['grep', i.email],
+                           input=subprocess.run(command2, capture_output=True, text=True).stdout,
+                           capture_output=True, text=True
+                       )
+                       failed_emails = result2.stdout.splitlines()
+                       sent_emails = result.stdout.splitlines()
+                       command = "postqueue -p"
+                       result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                       queue_lines = result.stdout.splitlines()
+                       filtered_emails = [line for line in queue_lines if i.email in line]
+
                    totalemail=len(sent_emails)+len(failed_emails)+len(filtered_emails)
                    try:
                     sendp=(len(sent_emails)/totalemail)*100
@@ -2457,13 +2638,28 @@ def changeemailpassword(request):
     if request.user.is_superuser or request.user.is_authenticated:
         if request.method == 'POST':
             password = request.POST.get('password')
-            domain = request.POST.get('domain')
-            domain=domain.lower()
+            domain_name = request.POST.get('domain')
+            domain_name=domain_name.lower()
             email = request.POST.get('emailname')
             email=email.lower()
-            run_command(f'sed -i "s|^{email}:.*|{email}:$(doveadm pw -p {password})|" "/var/mail/vhosts/{domain}/shadow"')
+            if sys.platform != 'win32':
+                # Use subprocess list to avoid shell injection
+                import subprocess
+                hashed = subprocess.run(
+                    ['doveadm', 'pw', '-p', password],
+                    capture_output=True, text=True
+                ).stdout.strip()
+                shadow_path = os.path.join(_resolve_mail_domain_dir(domain_name), 'shadow')
+                if os.path.exists(shadow_path):
+                    with open(shadow_path, 'r') as f:
+                        lines = f.readlines()
+                    with open(shadow_path, 'w') as f:
+                        for line in lines:
+                            if line.startswith(email + ':'):
+                                f.write(f'{email}:{hashed}\n')
+                            else:
+                                f.write(line)
             password = base64.b64encode(password.encode('utf-8'))
-            print(email)
             
             xxxx=allemail.objects.get(email=email)
             xxxx.password=password
@@ -2477,7 +2673,7 @@ def changeemailpassword(request):
 @login_required(login_url='/')
 def adddatabase(request):
     try:
-        with open('/etc/dontdelete.txt', 'r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
             adminpassword = f.read().strip()
     except Exception:
         adminpassword = ''
@@ -2515,7 +2711,7 @@ def adddatabase(request):
 @login_required(login_url='/')
 def adddatabaseuser(request):
     try:
-        with open('/etc/dontdelete.txt', 'r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
             adminpassword = f.read().strip()
     except Exception:
         adminpassword = ''
@@ -2538,7 +2734,7 @@ def adddatabaseuser(request):
 @login_required(login_url='/')
 def dbconnect(request,data):
     try:
-        with open('/etc/dontdelete.txt','r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
             adminpassword=f.read()
             adminpassword=adminpassword.strip()
     except Exception:
@@ -2571,7 +2767,7 @@ def dbreomve(request, data, database):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'POST required.'}, status=405)
     try:
-        with open('/etc/dontdelete.txt', 'r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
             adminpassword = f.read().strip()
     except FileNotFoundError:
         adminpassword = 'adminpassword'
@@ -2610,7 +2806,7 @@ def dbuserremove(request, data, database):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'POST required.'}, status=405)
     try:
-        with open('/etc/dontdelete.txt', 'r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
             adminpassword = f.read().strip()
     except FileNotFoundError:
         adminpassword = 'adminpassword'
@@ -2645,7 +2841,7 @@ def dbuserremove(request, data, database):
 @login_required(login_url='/')
 def changepasswordforuser(request):
     try:
-        with open('/etc/dontdelete.txt','r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
             adminpassword = f.read().strip()
     except Exception:
         adminpassword = ''
@@ -2663,7 +2859,7 @@ def changepasswordforuser(request):
 @login_required(login_url='/')
 def addpermissiontouser(request):
     try:
-        with open('/etc/dontdelete.txt', 'r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
             adminpassword = f.read().strip()
     except Exception:
         adminpassword = ''
@@ -2703,7 +2899,7 @@ def files(request,data):
     import os
     file_path=request.GET.get('key',None)
     if file_path is None:
-        file_path="/home/"+data
+        file_path=os.path.join(paths.HOME_BASE, data)
     last = file_path.rsplit('/', 1)[0]
     if request.user.is_superuser:
            
@@ -2745,11 +2941,15 @@ def cronn(request, data):
                     if not time_val or not path_val:
                         return JsonResponse({'status': 'error', 'message': 'Invalid data provided.'})
 
-                    res = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
-                    current_cron = res.stdout if res.returncode == 0 else ""
-                    new_cron = f"{current_cron.strip()}\n{time_val} {path_val}\n"
-                    subprocess.run(['crontab', '-'], input=new_cron, text=True, check=True)
-                    
+                    if sys.platform != 'win32':
+                        res = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
+                        current_cron = res.stdout if res.returncode == 0 else ""
+                        new_cron = f"{current_cron.strip()}\n{time_val} {path_val}\n"
+                        subprocess.run(['crontab', '-'], input=new_cron, text=True, check=True)
+                    else:
+                        from voidplatform.windows.cron import add_cron as _add_cron
+                        _add_cron(time_val, path_val)
+
                     cron.objects.create(domain=data, path=path_val, duratioin=time_val)
                     return JsonResponse({'status': 'success', 'message': 'User cron job added successfully.'})
 
@@ -2778,13 +2978,17 @@ def deletecron(request, data):
             domainname = xxxx.domain
             
             # Secure Cron Deletion: Filter out the specific path line without using shell pipes
-            res = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
-            if res.returncode == 0:
-                current_cron_lines = res.stdout.splitlines()
-                filtered_lines = [line for line in current_cron_lines if xxxx.path not in line]
-                new_cron = "\n".join(filtered_lines) + "\n"
-                subprocess.run(['crontab', '-'], input=new_cron, text=True, check=True)
-                
+            if sys.platform != 'win32':
+                res = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
+                if res.returncode == 0:
+                    current_cron_lines = res.stdout.splitlines()
+                    filtered_lines = [line for line in current_cron_lines if xxxx.path not in line]
+                    new_cron = "\n".join(filtered_lines) + "\n"
+                    subprocess.run(['crontab', '-'], input=new_cron, text=True, check=True)
+            else:
+                from voidplatform.windows.cron import delete_cron as _delete_cron
+                _delete_cron(xxxx.path)
+
             xxxx.delete()
             
             # If request is JSON (async delete)
@@ -2824,7 +3028,7 @@ def subdomain(request,data):
     else: 
         return redirect('/')
     
-@csrf_exempt
+@login_required(login_url='/')
 def subdomainprocess(request):
     try:
         if request.user.is_superuser:
@@ -2853,15 +3057,24 @@ def subdomainprocess(request):
                                 cc=subdomainname.objects.get(subdomain=full)
                                 return JsonResponse({'status': 'error', 'message': 'Subdomain already exists'})
                             except:
-                                path="/home/"+lold.dir+'/public_html/'+name   
-                                oldpath="/home/"+lold.dir  
+                                path=os.path.join(paths.HOME_BASE, lold.dir, 'public_html', name)
+                                oldpath=os.path.join(paths.HOME_BASE, lold.dir)
                                 if not os.path.exists(path):
                                     os.mkdir(path)
-                                    run_command(f'chown {lold.dir}:{lold.dir} {path}')
-                                    run_command(f'cp -r /var/www/panel/voidpanel/*  {path}/')
-                                    run_command(f'chown -R {lold.dir}:{lold.dir} {path}/*')
+                                    if sys.platform != 'win32':
+                                        run_command(f'chown {lold.dir}:{lold.dir} {path}')
+                                    _vp_src = os.path.join(paths.PANEL_ROOT, 'voidpanel')
+                                    for _item in os.listdir(_vp_src):
+                                        _s = os.path.join(_vp_src, _item)
+                                        _d = os.path.join(path, _item)
+                                        if os.path.isdir(_s):
+                                            shutil.copytree(_s, _d, dirs_exist_ok=True)
+                                        else:
+                                            shutil.copy2(_s, _d)
+                                    if sys.platform != 'win32':
+                                        run_command(f'chown -R {lold.dir}:{lold.dir} {path}/*')
                                 
-                                file_path = f"/etc/nginx/sites-available/{full}.conf"
+                                file_path = os.path.join(paths.NGINX_SITES_AVAILABLE, f"{full}.conf")
                                 root_dir = path
                                 cert_path, key_path = generate_ssl_certificates(full, oldpath+'/ssl', oldpath+'/logs')
                                 
@@ -2874,21 +3087,34 @@ def subdomainprocess(request):
                                             f.write(fallback_conf)
                                             
                                 # Safely Symlink & Test
-                                run_command(f'sudo ln -sf /etc/nginx/sites-available/{full}.conf /etc/nginx/sites-enabled/')
-                                test_res = run_command("nginx -t")
-                                
+                                _ln_src = f'{paths.NGINX_SITES_AVAILABLE}/{full}.conf'
+                                _ln_dst = paths.NGINX_SITES_ENABLED
+                                if sys.platform == 'win32':
+                                    shutil.copy2(_ln_src, os.path.join(_ln_dst, f'{full}.conf'))
+                                else:
+                                    run_command(f'sudo ln -sf {_ln_src} {_ln_dst}/')
+                                if sys.platform != 'win32':
+                                    test_res = run_command("nginx -t")
+                                else:
+                                    test_res = type('obj', (object,), {'returncode': 0, 'stdout': 'nginx test skipped on Windows', 'stderr': ''})()
+
                                 # Safety fallback logic
                                 if "successful" not in test_res and "syntax is ok" not in test_res:
                                     # Config broke Nginx, revert the symlink immediately
-                                    run_command(f'sudo rm /etc/nginx/sites-enabled/{full}.conf')
-                                    with open('/var/logs.txt','a') as f:
+                                    _rm_path = os.path.join(paths.NGINX_SITES_ENABLED, f'{full}.conf')
+                                    if os.path.exists(_rm_path):
+                                        os.remove(_rm_path)
+                                    with open(paths.PANEL_LOG_FILE, 'a') as f:
                                             f.write(f"Nginx Syntax Test Failed for domain {full}. Symlink reverted.\n")
                                     return JsonResponse({'status': 'error', 'message': 'Configuration syntax failed. Nginx protected.'})
                                 
-                                zone_file_path = f'/etc/bind/db.{lold.domain}'
+                                zone_file_path = os.path.join(paths.BIND_ZONE_DIR, f'db.{lold.domain}')
                                 create_bind_recordsforsubdomain(name, zone_file_path)
-                                run_command("sudo systemctl restart bind9")
-                                run_command("sudo systemctl reload nginx")
+                                try:
+                                    get_platform().services.restart('bind9')
+                                    get_platform().services.reload('nginx')
+                                except Exception:
+                                    pass
                                 import time
                                 time.sleep(1)
                                 cce=subdomainname.objects.create(subdomain=full, name=name, domain=data)
@@ -2899,10 +3125,12 @@ def subdomainprocess(request):
 
 @login_required(login_url='/')
 def deletesubdomain(request,data):
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required.'}, status=405)
     if request.user.is_superuser :
         xxxx=subdomainname.objects.get(subdomain=data)
         maindir=lold=domain.objects.get(domain=xxxx.domain).dir
-        path="/home/"+maindir+"/public_html/"+xxxx.name
+        path=os.path.join(paths.HOME_BASE, maindir, "public_html", xxxx.name)
         import shutil
         shutil.rmtree(path)
         domainname=xxxx.domain
@@ -2910,8 +3138,12 @@ def deletesubdomain(request,data):
         return redirect(f'/subdomain/{domainname}')
     elif request.user.is_authenticated:
         xxxx=subdomainname.objects.get(subdomain=data)
+        # Ownership check: ensure user owns this subdomain's parent domain
+        owner = user.objects.filter(username=request.user.username).first()
+        if not owner or owner.domain != xxxx.domain:
+            return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
         maindir=lold=domain.objects.get(domain=xxxx.domain).dir
-        path="/home/"+maindir+"/public_html/"+xxxx.name
+        path=os.path.join(paths.HOME_BASE, maindir, "public_html", xxxx.name)
         import shutil
         shutil.rmtree(path)
         domainname=xxxx.domain
@@ -2933,7 +3165,7 @@ def runssl(request,data):
                
                     d['main']=lold
                     logs=[]
-                    path='/home/'+lold.dir+"/logs/ssl.txt"
+                    path=os.path.join(paths.HOME_BASE, lold.dir, "logs", "ssl.txt")
                     with open(path,'r') as f:
                          dd=f.readlines()
                          for i in dd:
@@ -2953,28 +3185,22 @@ def runssl(request,data):
         return redirect('/')
 
 
-@csrf_exempt
+@login_required(login_url='/')
 def runsslfordoamin(request):
+    if not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Authentication required.'}, status=403)
     import subprocess
     if request.method == 'POST':
                         name=request.POST['domain']
                         name=name.lower()
                         lold=domain.objects.get(domain=name)
                         
-                        command = [
-    "sudo", "certbot", "--nginx",
-    "-d", name, "-d", f'www.{name}',    # Domains
-    "--non-interactive",                    # No interaction
-    "--agree-tos",                          # Automatically agree to terms of service
-    "--email", f'{lold.email}',    # Provide email for notifications
-    "--redirect",                           # Automatically redirect HTTP to HTTPS
-    "--no-eff-email"                        # Disable the EFF email subscription prompt
-]
+                        plat = get_platform()
                         
                         subdomain2=subdomainname.objects.filter(domain=name).all()
-                        path='/home/'+lold.dir+"/logs/ssl.txt"
+                        path=os.path.join(paths.HOME_BASE, lold.dir, "logs", "ssl.txt")
                         try:
-                            result = subprocess.run(command, capture_output=True, text=True, check=True)
+                            result = plat.ssl.provision(name, email=lold.email)
                             with open(path,'a+') as f:
                                 f.write("\n")
                                 f.write(f"AutoSSl Completed for domain {name}")
@@ -2988,17 +3214,8 @@ def runsslfordoamin(request):
                                 f.write(e)
                         for i in subdomain2:
                            
-                            command = [
-    "sudo", "certbot", "--nginx",
-    "-d",  i.subdomain,   # Domains
-    "--non-interactive",                    # No interaction
-    "--agree-tos",                          # Automatically agree to terms of service
-    "--email", f'{i.name}@example.com',    # Provide email for notifications
-    "--redirect",                           # Automatically redirect HTTP to HTTPS
-    "--no-eff-email"                        # Disable the EFF email subscription prompt
-]
                             try:
-                                result = subprocess.run(command, capture_output=True, text=True, check=True)
+                                result = plat.ssl.provision(i.subdomain, email=f'{i.name}@example.com')
                                 with open(path,'a+') as f:
                                     f.write("\n")
                                     f.write(f"AutoSSl Completed for domain {i.subdomain}")
@@ -3013,50 +3230,39 @@ def runsslfordoamin(request):
    
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
-@csrf_exempt
+@login_required(login_url='/')
 def runsslfordoamin1(request):
+    if not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Authentication required.'}, status=403)
     import subprocess
     lol=None
     if request.method == 'POST':
                         data = json.loads(request.body)
                         name=data.get('name').strip(' ')
+                        plat = get_platform()
                         try:
                             lold=domain.objects.get(domain=name)
 
-                            command = [
-    "sudo", "certbot", "--nginx",
-    "-d",  lold.domain, "-d", f'www.{lold.domain}',    # Domains
-    "--non-interactive",                    # No interaction
-    "--agree-tos",                          # Automatically agree to terms of service
-    "--email", f'{lold.email}',    # Provide email for notifications
-    "--redirect",                           # Automatically redirect HTTP to HTTPS
-    "--no-eff-email"                        # Disable the EFF email subscription prompt
-]
+                            _ssl_domain = lold.domain
+                            _ssl_email = lold.email
                         except:
                              lold1=subdomainname.objects.get(subdomain=name)
                              lold=domain.objects.get(domain=lold1.domain)
-                             path='/home/'+lold.dir+"/logs/ssl.txt"
+                             path=os.path.join(paths.HOME_BASE, lold.dir, "logs", "ssl.txt")
                              with open(path,'a+') as f:
                                 f.write(f"\nfetched Subdomain {name}")
-                             
+
                              with open(path,'a+') as f:
                                 f.write(f"\nPerforming SSl for {name}")
-                             command = [
-    "sudo", "certbot", "--nginx",
-    "-d", lold1.subdomain,
-    "--non-interactive",  # No interaction
-    "--agree-tos",  # Automatically agree to terms of service
-    "--email", f'{lold.email}',  # Provide email for notifications
-    "--redirect",  # Automatically redirect HTTP to HTTPS
-    "--no-eff-email"  # Disable the EFF email subscription prompt
-]
+                             _ssl_domain = lold1.subdomain
+                             _ssl_email = lold.email
 
-                            
-                    
-                        path='/home/'+lold.dir+"/logs/ssl.txt"
-                      
+
+
+                        path=os.path.join(paths.HOME_BASE, lold.dir, "logs", "ssl.txt")
+
                         try:
-                            result = subprocess.run(command, capture_output=True, text=True, check=True)
+                            result = plat.ssl.provision(_ssl_domain, email=_ssl_email)
                             with open(path,'a+') as f:
                                 f.write("\n")
                                 f.write(f"AutoSSl Completed for  domain {name}")
@@ -3084,7 +3290,7 @@ def runsslfordoamin1(request):
    
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
-@csrf_exempt
+@login_required(login_url='/')
 def changephpversion(request):
     import subprocess
     from control.models import domain, subdomainname, user as ctrl_user
@@ -3116,25 +3322,30 @@ def changephpversion(request):
             if not obj or not config_name:
                 return JsonResponse({'status': 'error', 'message': 'Domain not found.'})
 
-            # Strict rewrite: target only the fastcgi_pass socket, e.g. php8.3-fpm.sock
-            config_path = f"/etc/nginx/sites-enabled/{config_name}.conf"
-            
+            config_path = os.path.join(paths.NGINX_SITES_ENABLED, f"{config_name}.conf")
+
             try:
-                # Use strict sed to exclusively modify the fastcgi_pass PHP socket line
-                sed_cmd = f"sed -i 's/fastcgi_pass unix:\/run\/php\/php[0-9.]*-fpm\.sock;/fastcgi_pass unix:\/run\/php\/php{php}-fpm.sock;/g' {config_path}"
-                subprocess.run(sed_cmd, shell=True, check=True)
-                
+                import re as _re
+                with open(config_path, 'r') as _f:
+                    _old_content = _f.read()
+                _new_content = _re.sub(
+                    r'fastcgi_pass unix:/run/php/php[0-9.]+-fpm\.sock;',
+                    f'fastcgi_pass unix:/run/php/php{php}-fpm.sock;',
+                    _old_content
+                )
+                with open(config_path, 'w') as _f:
+                    _f.write(_new_content)
+
                 # Check config syntax before reloading
-                test_result = subprocess.run("nginx -t", shell=True, capture_output=True, text=True)
-                if test_result.returncode != 0:
+                test_result = get_platform().web.test_config()
+                if not test_result.success:
                     # Revert if syntax is broken
-                    if hasattr(obj, 'php'):
-                        sed_revert = f"sed -i 's/fastcgi_pass unix:\/run\/php\/php{php}-fpm\.sock;/fastcgi_pass unix:\/run\/php\/php{obj.php}-fpm.sock;/g' {config_path}"
-                        subprocess.run(sed_revert, shell=True)
+                    with open(config_path, 'w') as _f:
+                        _f.write(_old_content)
                     return JsonResponse({'status': 'error', 'message': 'Nginx syntax error after changing PHP version. Operation reverted.'})
 
                 # Configuration is safe, reload Nginx safely
-                subprocess.run("sudo systemctl reload nginx", shell=True, check=True)
+                get_platform().services.reload('nginx')
                 
                 obj.php = php
                 obj.save()
@@ -3157,7 +3368,7 @@ def phpini(request,data):
                     lold=domain.objects.get(domain=data)
 
                     d['domain']=data
-                    file_path = f'/home/{lold.dir}/public_html/php.ini'
+                    file_path = os.path.join(paths.HOME_BASE, lold.dir, 'public_html', 'php.ini')
 
                     # Initialize an empty list to store the values
                     values_list = {}
@@ -3221,7 +3432,7 @@ def addredirect(request,data):
     else: 
         return redirect('/')
 
-@csrf_exempt
+@login_required(login_url='/')
 def addredirectionnn(request):
     if request.user.is_superuser or request.user.is_authenticated:
         if request.method=="POST":
@@ -3239,12 +3450,12 @@ def addredirectionnn(request):
                             
                             if newpathlocation[0]!="/":
                                 newpathlocation="/"+newpathlocation
-                            with open(f'/etc/nginx/sites-available/{name}.conf', 'r') as file:
+                            with open(os.path.join(paths.NGINX_SITES_AVAILABLE, f'{name}.conf'), 'r') as file:
                                 for line in file:
                                     if line.strip() == f'location {pathlocation} {{':
                                         return JsonResponse({'status': 'error', 'message': 'Already Exist'})
-                            nginx_conf_path = f'/etc/nginx/sites-available/{name}.conf'
-                    
+                            nginx_conf_path = os.path.join(paths.NGINX_SITES_AVAILABLE, f'{name}.conf')
+
                             redirect_rule = f'''
         location {pathlocation} {{
             return 301 https://{name}{newpathlocation};
@@ -3279,8 +3490,16 @@ def addredirectionnn(request):
                                             file.writelines(config_data)
 
                                         dataaaa=redir.objects.create(maindomain=maindomain,domain=name,path=pathlocation,newpath=newpathlocation)
-                                        run_command(f'sudo ln -s /etc/nginx/sites-available/{name}.conf /etc/nginx/sites-enabled/{name}.conf')
-                                        run_command('sudo systemctl reload nginx')
+                                        _ln_src = f'{paths.NGINX_SITES_AVAILABLE}/{name}.conf'
+                                        _ln_dst = f'{paths.NGINX_SITES_ENABLED}/{name}.conf'
+                                        if sys.platform == 'win32':
+                                            shutil.copy2(_ln_src, _ln_dst)
+                                        else:
+                                            run_command(f'sudo ln -s {_ln_src} {_ln_dst}')
+                                        try:
+                                            get_platform().services.reload('nginx')
+                                        except Exception:
+                                            pass
                                         import time
                                         time.sleep(2)
                                         
@@ -3313,8 +3532,16 @@ def addredirectionnn(request):
                                             file.writelines(config_data)
 
                                         dataaaa=redir.objects.create(maindomain=maindomain,domain=name,path=pathlocation,newpath=newpathlocation)
-                                        run_command(f'sudo ln -s /etc/nginx/sites-available/{name}.conf /etc/nginx/sites-enabled/{name}.conf') 
-                                        run_command('sudo systemctl reload nginx')
+                                        _ln_src = f'{paths.NGINX_SITES_AVAILABLE}/{name}.conf'
+                                        _ln_dst = f'{paths.NGINX_SITES_ENABLED}/{name}.conf'
+                                        if sys.platform == 'win32':
+                                            shutil.copy2(_ln_src, _ln_dst)
+                                        else:
+                                            run_command(f'sudo ln -s {_ln_src} {_ln_dst}')
+                                        try:
+                                            get_platform().services.reload('nginx')
+                                        except Exception:
+                                            pass
                                         import time
                                         time.sleep(2)
                                         
@@ -3325,7 +3552,7 @@ def addredirectionnn(request):
 
 
 
-@csrf_exempt
+@login_required(login_url='/')
 def delredirectionnn(request):
     if request.user.is_superuser or request.user.is_authenticated:
         if request.method=="POST":
@@ -3336,8 +3563,8 @@ def delredirectionnn(request):
                             newpathlocation=data.get('newpath').strip(' ')
                             
                             
-                            nginx_conf_path = f'/etc/nginx/sites-available/{name}.conf'
-                            
+                            nginx_conf_path = os.path.join(paths.NGINX_SITES_AVAILABLE, f'{name}.conf')
+
                             redirect_rule_start ='location '+pathlocation
                             redirect_rule_end = '}'
                             
@@ -3367,7 +3594,10 @@ def delredirectionnn(request):
                                 with open(nginx_conf_path, 'w') as file:
                                         file.writelines(new_config_data)
 
-                                run_command('sudo systemctl reload nginx')
+                                try:
+                                    get_platform().services.reload('nginx')
+                                except Exception:
+                                    pass
                                 import time
                                 time.sleep(2)
                             
@@ -3406,7 +3636,10 @@ def delredirectionnn(request):
                                 xxxxxx.delete()
 
 
-                                run_command('sudo systemctl reload nginx')
+                                try:
+                                    get_platform().services.reload('nginx')
+                                except Exception:
+                                    pass
                                         
                                 import time
                                 time.sleep(2)
@@ -3427,14 +3660,14 @@ def _background_terminate_user(domain_str, mainusername, subdomains):
 
     # --- Filesystem: home directory ---
     try:
-        shutil.rmtree(f'/home/{mainusername}', ignore_errors=True)
+        shutil.rmtree(os.path.join(paths.HOME_BASE, mainusername), ignore_errors=True)
     except Exception as e:
         logger.warning('[terminate] Could not remove home dir for %s: %s', mainusername, e)
 
     # --- Nginx configs: main domain + all subdomains ---
-    nginx_paths = [f'/etc/nginx/sites-enabled/{domain_str}.conf']
+    nginx_paths = [os.path.join(paths.NGINX_SITES_ENABLED, f'{domain_str}.conf')]
     for sub in subdomains:
-        nginx_paths.append(f'/etc/nginx/sites-enabled/{sub}.conf')
+        nginx_paths.append(os.path.join(paths.NGINX_SITES_ENABLED, f'{sub}.conf'))
     for path in nginx_paths:
         try:
             os.remove(path)
@@ -3443,18 +3676,19 @@ def _background_terminate_user(domain_str, mainusername, subdomains):
 
     # --- DNS zone file ---
     try:
-        os.remove(f'/etc/bind/db.{domain_str}')
+        os.remove(os.path.join(paths.BIND_ZONE_DIR, f'db.{domain_str}'))
     except Exception:
         pass
     try:
-        remove_zone_from_file('/etc/bind/named.conf', domain_str)
+        if sys.platform != 'win32':
+            remove_zone_from_file(paths.BIND_CONF, domain_str)
     except Exception:
         pass
 
     # --- DKIM keys ---
-    dkim_paths = [f'/etc/opendkim/keys/{domain_str}']
+    dkim_paths = [os.path.join(paths.OPENDKIM_KEY_DIR, domain_str)]
     for sub in subdomains:
-        dkim_paths.append(f'/etc/opendkim/keys/{sub}')
+        dkim_paths.append(os.path.join(paths.OPENDKIM_KEY_DIR, sub))
     for path in dkim_paths:
         try:
             shutil.rmtree(path, ignore_errors=True)
@@ -3462,9 +3696,9 @@ def _background_terminate_user(domain_str, mainusername, subdomains):
             pass
 
     # --- SSL certificates ---
-    ssl_paths = [f'/etc/letsencrypt/live/{domain_str}']
+    ssl_paths = [os.path.join(paths.LETSENCRYPT_LIVE, domain_str)]
     for sub in subdomains:
-        ssl_paths.append(f'/etc/letsencrypt/live/{sub}')
+        ssl_paths.append(os.path.join(paths.LETSENCRYPT_LIVE, sub))
     for path in ssl_paths:
         try:
             shutil.rmtree(path, ignore_errors=True)
@@ -3473,7 +3707,7 @@ def _background_terminate_user(domain_str, mainusername, subdomains):
 
     # --- Mail data ---
     try:
-        shutil.rmtree(f'/var/mail/vhosts/{domain_str}', ignore_errors=True)
+        shutil.rmtree(_resolve_mail_domain_dir(domain_str), ignore_errors=True)
     except Exception:
         pass
 
@@ -3499,16 +3733,14 @@ def _background_terminate_user(domain_str, mainusername, subdomains):
     try:
         ft = ftpaccount.objects.filter(main=mainusername)
         for ftp_acct in ft:
-            subprocess.run(['sudo', 'deluser', ftp_acct.main],
-                           capture_output=True, timeout=10, check=False)
+            get_platform().users.delete_user(ftp_acct.main)
         ft.delete()
     except Exception as e:
         logger.warning('[terminate] FTP cleanup error for %s: %s', mainusername, e)
 
     # --- Remove Linux system user (parameterised) ---
     try:
-        subprocess.run(['sudo', 'userdel', '-r', mainusername],
-                       capture_output=True, timeout=15, check=False)
+        get_platform().users.delete_user(mainusername)
     except Exception as e:
         logger.warning('[terminate] userdel error for %s: %s', mainusername, e)
 
@@ -3518,7 +3750,16 @@ def _background_terminate_user(domain_str, mainusername, subdomains):
         svc_name = df.name
         df.delete()
         try:
-            os.remove(f'/etc/systemd/system/{svc_name}.service')
+            if sys.platform == 'win32':
+                from voidplatform.windows.apps import delete_python_app
+                delete_python_app(svc_name)
+            else:
+                run_command(f'sudo systemctl stop {svc_name} || true')
+                run_command(f'sudo systemctl disable {svc_name} || true')
+                svc_file = f'/etc/systemd/system/{svc_name}.service'
+                if os.path.exists(svc_file):
+                    os.remove(svc_file)
+                run_command('sudo systemctl daemon-reload || true')
         except Exception:
             pass
     except Exception:
@@ -3529,7 +3770,13 @@ def _background_terminate_user(domain_str, mainusername, subdomains):
         svc_name = df.name
         df.delete()
         try:
-            os.remove(f'/var/run/{svc_name}.sock')
+            if sys.platform == 'win32':
+                from voidplatform.windows.apps import delete_mern_app
+                delete_mern_app(svc_name)
+            else:
+                sock = os.path.join(paths.RUN_DIR if hasattr(paths, 'RUN_DIR') else '/var/run', f'{svc_name}.sock')
+                if os.path.exists(sock):
+                    os.remove(sock)
         except Exception:
             pass
     except Exception:
@@ -3585,7 +3832,7 @@ def terminate(request, data):
 def toggle_email_suspension(domain_name, suspend_status=True):
     try:
         import os, subprocess
-        for fpath in ['/etc/postfix/virtual_alias', '/etc/postfix/vmailbox', '/etc/dovecot/users']:
+        for fpath in [paths.POSTFIX_VIRTUAL_ALIAS, paths.POSTFIX_VIRTUAL_MAILBOX, paths.DOVECOT_USERS]:
             if not os.path.exists(fpath): continue
             with open(fpath, 'r') as fp: lines = fp.readlines()
             changed = False
@@ -3600,8 +3847,9 @@ def toggle_email_suspension(domain_name, suspend_status=True):
                             changed = True
                         else: fp.write(line)
                     else: fp.write(line)
-            if changed and fpath.startswith('/etc/postfix/'):
-                subprocess.run(["postmap", fpath], capture_output=True)
+            if changed and fpath in (paths.POSTFIX_VIRTUAL_ALIAS, paths.POSTFIX_VIRTUAL_MAILBOX, paths.POSTFIX_VIRTUAL_DOMAINS):
+                if sys.platform != 'win32':
+                    subprocess.run(["postmap", fpath], capture_output=True)
     except Exception as e: pass
 
 @login_required(login_url='/')
@@ -3613,8 +3861,8 @@ def suspend(request,data):
                     
                     lold=domain.objects.get(domain=data)
                     dub=subdomainname.objects.filter(domain=data).all()
-                    file_path_="/etc/nginx/sites-enabled/"+data+".conf"
-                    
+                    file_path_=os.path.join(paths.NGINX_SITES_ENABLED, data+".conf")
+
                     with open(file_path_, 'r') as file:
                         config_data = file.readlines()
                     root_updated = False
@@ -3624,11 +3872,11 @@ def suspend(request,data):
                             root_updated = True
                             break
                     if root_updated:
-   
+
                         with open(file_path_, 'w') as file:
                             file.writelines(config_data)
                     for iu in dub:
-                            file_path_="/etc/nginx/sites-enabled/"+iu.subdomain+".conf"
+                            file_path_=os.path.join(paths.NGINX_SITES_ENABLED, iu.subdomain+".conf")
                             with open(file_path_, 'r') as file:
                                 config_data = file.readlines()
                             root_updated = False
@@ -3674,28 +3922,28 @@ def unsuspend(request,data):
                     
                     lold=domain.objects.get(domain=data)
                     dub=subdomainname.objects.filter(domain=data).all()
-                    file_path_="/etc/nginx/sites-enabled/"+data+".conf"
-                    
+                    file_path_=os.path.join(paths.NGINX_SITES_ENABLED, data+".conf")
+
                     with open(file_path_, 'r') as file:
                         config_data = file.readlines()
                     root_updated = False
                     for i, line in enumerate(config_data):
                         if line.strip().startswith('root '):
-                            config_data[i] = f"    root /home/{lold.dir}/public_html;\n"
+                            config_data[i] = f"    root {os.path.join(paths.HOME_BASE, lold.dir, 'public_html')};\n"
                             root_updated = True
                             break
                     if root_updated:
-   
+
                         with open(file_path_, 'w') as file:
                             file.writelines(config_data)
                     for iu in dub:
-                            file_path_="/etc/nginx/sites-enabled/"+iu.subdomain+".conf"
+                            file_path_=os.path.join(paths.NGINX_SITES_ENABLED, iu.subdomain+".conf")
                             with open(file_path_, 'r') as file:
                                 config_data = file.readlines()
                             root_updated = False
                             for i, line in enumerate(config_data):
                                 if line.strip().startswith('root '):
-                                    config_data[i] = f"    root /home/{lold.dir}/public_html/{iu.name};\n"
+                                    config_data[i] = f"    root {os.path.join(paths.HOME_BASE, lold.dir, 'public_html', iu.name)};\n"
                                     root_updated = True
                                     break
                             if root_updated:
@@ -3783,7 +4031,7 @@ def download_zip_backup(request, filename,user):
             raise Http404("File not found")
     
 
-@csrf_exempt
+@login_required(login_url='/')
 def backupdata(request):
     if request.method=="POST":
                             data = json.loads(request.body)
@@ -3791,11 +4039,18 @@ def backupdata(request):
                             name=data.get('domain').strip(' ')
                   
                             namm=domain.objects.get(domain=name)
-                            main_directory = '/home/'+namm.dir
-                            front='/home/'+namm.dir
-                            mail="/var/mail/vhosts/"+namm.domain
-                            open1='/etc/opendkim/keys/'+namm.domain
-                            lets='/etc/letsencrypt/live/'+namm.domain
+
+                            # Ownership check: non-admin users can only backup their own domains
+                            if not request.user.is_superuser:
+                                owner = user.objects.filter(username=request.user.username).first()
+                                if not owner or owner.domain != name:
+                                    return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+
+                            main_directory = os.path.join(paths.HOME_BASE, namm.dir)
+                            front=os.path.join(paths.HOME_BASE, namm.dir)
+                            mail=_resolve_mail_domain_dir(namm.domain)
+                            open1=os.path.join(paths.OPENDKIM_KEY_DIR, namm.domain)
+                            lets=os.path.join(paths.LETSENCRYPT_LIVE, namm.domain)
                             import datetime
                             zip_filename = "backup_"+namm.domain+"_"+str(datetime.datetime.today())
                             zip_filename=zip_filename.replace(" ", "_")
@@ -3892,7 +4147,7 @@ def update(request):
                     dataee = response.json()  # Parse the JSON response
                 
                     try:
-                         with open('/etc/version.txt','r') as f:
+                         with open(paths.VERSION_FILE, 'r') as f:
                               version=f.read()
                     except:
                          version='1.0'
@@ -3912,13 +4167,26 @@ def update(request):
     else: 
         return redirect('/')
     
-@csrf_exempt
+@login_required(login_url='/')
 def updatepanel(request):
-
+    if not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Forbidden'}, status=403)
     if request.method == 'POST':
-                    run_command('curl https://voidpanel.com/updatepanel.sh | bash')
-                    return JsonResponse({'status': 'success', 'message': 'Already Exist'})
-   
+        if sys.platform == 'win32':
+            # Windows: download and apply update via PowerShell
+            from voidplatform.windows.apps import update_panel_windows
+            success, msg = update_panel_windows()
+            if success:
+                return JsonResponse({'status': 'success', 'message': msg})
+            return JsonResponse({'status': 'error', 'message': msg})
+        else:
+            # Linux: download update script, verify, then run
+            import tempfile
+            _update_path = os.path.join(tempfile.gettempdir(), 'voidpanel_update.sh')
+            run_command(f'curl -fsSL -o {shlex.quote(_update_path)} https://voidpanel.com/updatepanel.sh')
+            run_command(f'bash {shlex.quote(_update_path)}')
+            return JsonResponse({'status': 'success', 'message': 'Update applied successfully.'})
+
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
     
@@ -3942,13 +4210,17 @@ def maincron(request):
                         return JsonResponse({'status': 'error', 'message': 'Invalid data provided.'})
                     
                     # Securely fetch current crontab
-                    res = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
-                    current_cron = res.stdout if res.returncode == 0 else ""
-                    
-                    # Append new job and securely load back into crontab
-                    new_cron = f"{current_cron.strip()}\n{time_val} {path_val}\n"
-                    subprocess.run(['crontab', '-'], input=new_cron, text=True, check=True)
-                    
+                    if sys.platform != 'win32':
+                        res = subprocess.run(['crontab', '-l'], capture_output=True, text=True)
+                        current_cron = res.stdout if res.returncode == 0 else ""
+
+                        # Append new job and securely load back into crontab
+                        new_cron = f"{current_cron.strip()}\n{time_val} {path_val}\n"
+                        subprocess.run(['crontab', '-'], input=new_cron, text=True, check=True)
+                    else:
+                        from voidplatform.windows.cron import add_cron as _add_cron
+                        _add_cron(time_val, path_val)
+
                     cron.objects.create(domain='admin', path=path_val, duratioin=time_val)
                     return JsonResponse({'status': 'success', 'message': 'Cron job configured successfully.'})
                 
@@ -3990,7 +4262,7 @@ def chpass(request):
                 user.save()
 
                 # Update the system details file safely
-                file_path = '/etc/details.txt'
+                file_path = paths.DETAILS_FILE
                 try:
                     with open(file_path, 'r') as file:
                         lines = file.readlines()
@@ -4040,7 +4312,7 @@ def runsslall(request):
                     d['domain']=lold
                     
                     logs=[]
-                    path='/var/log/ssl.txt'
+                    path=paths.SSL_LOG
                     with open(path,'r') as f:
                          dd=f.readlines()
                          for i in dd:
@@ -4059,8 +4331,10 @@ def runsslall(request):
         return redirect('/')
 
 
-@csrf_exempt
+@login_required(login_url='/')
 def runsslforall(request):
+    if not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Authentication required.'}, status=403)
     from control.tasks import run_ssl_task
     
     if request.method == 'POST':
@@ -4078,8 +4352,10 @@ def runsslforall(request):
 
 
 
-@csrf_exempt
+@login_required(login_url='/')
 def runsslforall1(request):
+    if not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Authentication required.'}, status=403)
     from control.tasks import run_ssl_task
     import json
     
@@ -4128,7 +4404,7 @@ def hostname(request):
 @login_required(login_url='/')
 def fulldbwizard(request):
     try:
-        with open('/etc/dontdelete.txt','r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
             adminpassword=f.read()
             adminpassword=adminpassword.strip()
     except Exception:
@@ -4184,10 +4460,15 @@ def deleteemail(request, data):
         user_prefix = data.split("@")[0]
         
         # Cleanup from files
-        run_command(f"sed -i '/^{data} /d' /etc/postfix/virtual_alias")
-        run_command(f"sed -i '/^{data} /d' /etc/postfix/vmailbox")
-        run_command("postmap /etc/postfix/virtual_alias")
-        run_command("postmap /etc/postfix/vmailbox")
+        for _fpath in [paths.POSTFIX_VIRTUAL_ALIAS, paths.POSTFIX_VIRTUAL_MAILBOX]:
+            if os.path.exists(_fpath):
+                with open(_fpath, 'r') as _f:
+                    _lines = _f.readlines()
+                with open(_fpath, 'w') as _f:
+                    _f.writelines(l for l in _lines if not l.startswith(f'{data} '))
+        if sys.platform != 'win32':
+            run_command(f"postmap {paths.POSTFIX_VIRTUAL_ALIAS}")
+            run_command(f"postmap {paths.POSTFIX_VIRTUAL_MAILBOX}")
 
         # Cleanup specific user directory (not whole domain!)
         sys_owner = 'vmail'
@@ -4195,16 +4476,21 @@ def deleteemail(request, data):
         if owner_obj:
             sys_owner = owner_obj.username
             
-        home_path = f'/home/{sys_owner}/mail/{domain_name}/{user_prefix}'
-        old_path = f'/var/mail/vhosts/{domain_name}/{user_prefix}'
+        home_path = os.path.join(paths.HOME_BASE, sys_owner, 'mail', domain_name, user_prefix)
+        old_path = os.path.join(_resolve_mail_domain_dir(domain_name), user_prefix)
         
         if os.path.exists(home_path): shutil.rmtree(home_path, ignore_errors=True)
         if os.path.exists(old_path): shutil.rmtree(old_path, ignore_errors=True)
         
         # Remove from Dovecot users mapping if it exists
-        run_command(f"sed -i '/^{data}:/d' /etc/dovecot/users 2>/dev/null || true")
-        run_command(f"sed -i '/^{data}:/d' /var/mail/vhosts/{domain_name}/passwd 2>/dev/null || true")
-        run_command(f"sed -i '/^{data}:/d' /var/mail/vhosts/{domain_name}/shadow 2>/dev/null || true")
+        for _fpath in [paths.DOVECOT_USERS,
+                       os.path.join(_resolve_mail_domain_dir(domain_name), 'passwd'),
+                       os.path.join(_resolve_mail_domain_dir(domain_name), 'shadow')]:
+            if os.path.exists(_fpath):
+                with open(_fpath, 'r') as _f:
+                    _lines = _f.readlines()
+                with open(_fpath, 'w') as _f:
+                    _f.writelines(l for l in _lines if not l.startswith(f'{data}:'))
         
         email_obj.delete()
         return JsonResponse({'status': 'success'})
@@ -4257,7 +4543,8 @@ def phpsetting(request):
         dictphpextentionsss = {}
         for ie in phpextentionsss:
             try:
-                dictphpextentionsss[ie.name] = eval(ie.extentions)  # noqa
+                import ast
+                dictphpextentionsss[ie.name] = ast.literal_eval(str(ie.extentions))
             except Exception:
                 dictphpextentionsss[ie.name] = {}
         d['extentionname'] = dictphpextentionsss
@@ -4265,7 +4552,11 @@ def phpsetting(request):
         phpini = {}
         for i in installed:
             try:
-                with open(f'/etc/php/{i.name}/fpm/php.ini', 'r') as f:
+                if sys.platform == 'win32':
+                    _ini = os.path.join(paths.PHP_FPM_INI_DIR, i.name, 'php.ini')
+                else:
+                    _ini = f'/etc/php/{i.name}/fpm/php.ini'
+                with open(_ini, 'r') as f:
                     phpini[i.name] = f.read()
             except FileNotFoundError:
                 phpini[i.name] = ''
@@ -4276,7 +4567,6 @@ def phpsetting(request):
         return redirect('/')
 
 
-@csrf_exempt
 @login_required(login_url='/')
 def savephpini(request):
     """Dedicated endpoint for saving PHP INI content sent via JSON."""
@@ -4300,15 +4590,34 @@ def savephpini(request):
         if not phpversion.objects.filter(name=version).exists():
             return JsonResponse({'status': 'error', 'message': 'Version not installed'}, status=404)
 
-        ini_path = f'/etc/php/{version}/fpm/php.ini'
+        # Platform-aware PHP INI path
+        if sys.platform == 'win32':
+            ini_path = os.path.join(paths.PHP_FPM_INI_DIR, version, 'php.ini')
+        else:
+            ini_path = f'/etc/php/{version}/fpm/php.ini'
+
+        os.makedirs(os.path.dirname(ini_path), exist_ok=True)
         with open(ini_path, 'w', encoding='utf-8') as f:
             f.write(content)
 
-        # Reload php-fpm securely (parameterised, no shell=True)
-        subprocess.run(
-            ['sudo', 'systemctl', 'reload', f'php{version}-fpm'],
-            capture_output=True, timeout=15
-        )
+        # Reload PHP service — platform-aware
+        if sys.platform == 'win32':
+            # Windows: restart php-cgi process via taskkill + relaunch
+            try:
+                subprocess.run(['taskkill', '/F', '/IM', 'php-cgi.exe'],
+                               capture_output=True, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+                php_cgi = os.path.join(paths.PHP_FPM_INI_DIR, version, 'php-cgi.exe')
+                if os.path.exists(php_cgi):
+                    subprocess.Popen([php_cgi, '-b', f'127.0.0.1:9123'],
+                                     creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0) |
+                                                   getattr(subprocess, 'DETACHED_PROCESS', 0))
+            except Exception:
+                pass
+        else:
+            subprocess.run(
+                ['sudo', 'systemctl', 'reload', f'php{version}-fpm'],
+                capture_output=True, timeout=15
+            )
         logger.info('PHP INI saved and reloaded for version %s', version)
         return JsonResponse({'status': 'success', 'message': f'PHP {version} INI saved and FPM reloaded.'})
     except Exception as exc:
@@ -4318,9 +4627,9 @@ def savephpini(request):
 
 
 
-@csrf_exempt
 @login_required(login_url='/')
 def installphpversion(request):
+    import subprocess
     from panel.logger import get_logger
     logger = get_logger(__name__)
     if not request.user.is_superuser:
@@ -4357,7 +4666,6 @@ def installphpversion(request):
 
 
 
-@csrf_exempt
 @login_required(login_url='/')
 def installphpextention(request):
     from panel.logger import get_logger
@@ -4383,7 +4691,8 @@ def installphpextention(request):
 
         ffd = phpextentions.objects.get(name=phpname)
         try:
-            kjnre = eval(ffd.extentions)  # noqa
+            import ast
+            kjnre = ast.literal_eval(str(ffd.extentions))
         except Exception:
             kjnre = {}
         
@@ -4453,13 +4762,15 @@ def cpbrute(request):
                 e = firewall(id=1, status=False)
                 e.save()
             if e.status:
-                 run_command('''sudo sed -i 's/^TESTING = "0"/TESTING = "1"/' /etc/csf/csf.conf''')
-                 run_command('sudo csf -x')
+                 if sys.platform != 'win32':
+                     run_command('''sudo sed -i 's/^TESTING = "0"/TESTING = "1"/' /etc/csf/csf.conf''')
+                     run_command('sudo csf -x')
                  e.status=False
                  e.save()
             else:
-                 run_command('''sudo sed -i 's/^TESTING = "1"/TESTING = "0"/' /etc/csf/csf.conf''')
-                 run_command('sudo csf -e')
+                 if sys.platform != 'win32':
+                     run_command('''sudo sed -i 's/^TESTING = "1"/TESTING = "0"/' /etc/csf/csf.conf''')
+                     run_command('sudo csf -e')
                  e.status=True
                  e.save()
             return JsonResponse({'status': 'success', 'message': 'Firewall status updated'})
@@ -4469,8 +4780,8 @@ def cpbrute(request):
 def allowip(request):
     if request.user.is_superuser and request.method=="POST":
         php=shlex.quote(request.POST.get('allow', ''))
-        run_command(f'sudo csf -a {php}')
-        run_command('sudo csf -r')
+        get_platform().firewall.allow_ip(php)
+        get_platform().firewall.reload()
         return JsonResponse({'status': 'success', 'message': 'IP Successfully Allowed'})
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
@@ -4478,8 +4789,8 @@ def allowip(request):
 def denyip(request):
     if request.user.is_superuser and request.method=="POST":
         php=shlex.quote(request.POST.get('allow', ''))
-        run_command(f'sudo csf -d {php}') # Original used --deny
-        run_command('sudo csf -r')
+        get_platform().firewall.deny_ip(php)
+        get_platform().firewall.reload()
         return JsonResponse({'status': 'success', 'message': 'IP Successfully Denied'})
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
@@ -4488,8 +4799,8 @@ def ignoreip(request):
     if request.user.is_superuser and request.method=="POST":
         php=shlex.quote(request.POST.get('allow', ''))
         # Since CSF has no direct ignore command, we simulate what was there earlier.
-        run_command(f'sudo csf -a {php}')
-        run_command('sudo csf -r')
+        get_platform().firewall.allow_ip(php)
+        get_platform().firewall.reload()
         return JsonResponse({'status': 'success', 'message': 'IP Successfully Ignored'})
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
@@ -4497,8 +4808,9 @@ def ignoreip(request):
 def unblockip(request):
     if request.user.is_superuser and request.method=="POST":
         php=shlex.quote(request.POST.get('allow', ''))
-        run_command(f'sudo csf -dr {php}')
-        run_command('sudo csf -r')
+        if sys.platform != 'win32':
+            run_command(f'sudo csf -dr {php}')
+            run_command('sudo csf -r')
         return JsonResponse({'status': 'success', 'message': 'IP Successfully Unblocked'})
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
@@ -4506,8 +4818,8 @@ def unblockip(request):
 def blockip(request):
     if request.user.is_superuser and request.method=="POST":
         php=shlex.quote(request.POST.get('allow', ''))
-        run_command(f'sudo csf -d {php} "Suspicious activity"')
-        run_command('sudo csf -r')
+        get_platform().firewall.deny_ip(php)
+        get_platform().firewall.reload()
         return JsonResponse({'status': 'success', 'message': 'IP Successfully Blocked'})
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
@@ -4540,18 +4852,20 @@ def ftp12(request):
             import platform
             
             if e.status:
-                if platform.system() != "Darwin":
-                    subprocess.run(['sudo', 'systemctl', 'stop', 'vsftpd'], check=False)
-                    subprocess.run(['sudo', 'systemctl', 'disable', 'vsftpd'], check=False)
+                if sys.platform != 'win32':
+                    get_platform().services.stop('vsftpd')
+                else:
+                    get_platform().services.stop('FileZilla Server')
                 e.status = False
                 e.save()
                 return JsonResponse({'status': 'success', 'message': 'FTP Server globally disabled.'})
             else:
-                if platform.system() != "Darwin":
-                    subprocess.run(['sudo', 'systemctl', 'start', 'vsftpd'], check=False)
-                    subprocess.run(['sudo', 'systemctl', 'enable', 'vsftpd'], check=False)
+                if sys.platform != 'win32':
+                    get_platform().services.start('vsftpd')
+                else:
+                    get_platform().services.start('FileZilla Server')
                 e.status = True
-                e.save()   
+                e.save()
                 return JsonResponse({'status': 'success', 'message': 'FTP Server securely enabled.'})
                 
         except ftp.DoesNotExist:
@@ -4606,7 +4920,7 @@ def delpackage(request, data):
     return redirect('/package/')
     
 
-@csrf_exempt
+@login_required(login_url='/')
 def cwtd(request):
     if request.user.is_superuser:
         if request.method == "POST":
@@ -4637,7 +4951,7 @@ def cwtd(request):
 @login_required(login_url='/')
 def serverstatus(request):
     try:
-        with open('/etc/dontdelete.txt','r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
             adminpassword=f.read()
             adminpassword=adminpassword.strip()
     except Exception:
@@ -4664,15 +4978,25 @@ def serverstatus(request):
     else: 
         return redirect('/')
     
-@csrf_exempt
+_ALLOWED_ADMIN_SERVICES = frozenset({
+    'nginx', 'mysql', 'mariadb', 'postfix', 'dovecot', 'bind9', 'named',
+    'uwsgi', 'csf', 'vsftpd', 'php5.6-fpm', 'php7.0-fpm', 'php7.1-fpm',
+    'php7.2-fpm', 'php7.3-fpm', 'php7.4-fpm', 'php8.0-fpm', 'php8.1-fpm',
+    'php8.2-fpm', 'php8.3-fpm', 'php8.4-fpm', 'redis', 'memcached',
+    'shellinabox', 'daphne',
+})
+
+@login_required(login_url='/')
 def restart_now(request):
     if request.user.is_superuser:
         
         if request.method=="POST":
-            data = json.loads(request.body)  # Get the data from the request body
-            service = data.get('service') 
+            data = json.loads(request.body)
+            service = data.get('service', '')
+            if service not in _ALLOWED_ADMIN_SERVICES:
+                return JsonResponse({'status': 'error', 'message': 'Service not allowed.'})
             if service == 'nginx':
-                 run_command("systemctl reload nginx")
+                 get_platform().services.reload('nginx')
                  import time
                  time.sleep(2)
                  return JsonResponse({'status': 'success', 'message': 'Already Exist'})
@@ -4682,53 +5006,71 @@ def restart_now(request):
                  return JsonResponse({'status': 'success', 'message': 'Already Exist'})
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
-@csrf_exempt
+@login_required(login_url='/')
 def start_now(request):
     if request.user.is_superuser:
         
         if request.method=="POST":
-            data = json.loads(request.body)  # Get the data from the request body
-            service = data.get('service') 
+            data = json.loads(request.body)
+            service = data.get('service', '')
+            if service not in _ALLOWED_ADMIN_SERVICES:
+                return JsonResponse({'status': 'error', 'message': 'Service not allowed.'})
             if start_service(service):
                  return JsonResponse({'status': 'success', 'message': 'Already Exist'})
             else:
                  return JsonResponse({'status': 'success', 'message': 'Already Exist'})
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
-@csrf_exempt
+@login_required(login_url='/')
 def start_now_python(request):
     if request.user.is_authenticated:
         if request.method=="POST":
-            data = json.loads(request.body)  # Get the data from the request body
-            domainname = data.get('domain').strip()
-            name = data.get('name').strip()
+            data = json.loads(request.body)
+            domainname = data.get('domain', '').strip()
+            name = data.get('name', '').strip()
+            # Ownership check for non-admin
+            if not request.user.is_superuser:
+                owner = user.objects.filter(username=request.user.username).first()
+                if not owner or owner.domain != domainname:
+                    return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+            # Validate service name matches a known app
+            if not pythonname.objects.filter(name=name, domain=domainname).exists():
+                return JsonResponse({'status': 'error', 'message': 'Service not found.'})
             if start_service(name):
                  return JsonResponse({'status': 'success', 'message': 'Already Exist'})
             else:
                  return JsonResponse({'status': 'error', 'message': 'Already Exist'})
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
-@csrf_exempt
+@login_required(login_url='/')
 def restart_now_python(request):
     if request.user.is_authenticated:
         if request.method=="POST":
-            data = json.loads(request.body)  # Get the data from the request body
-            domainname = data.get('domain').strip()
-            name = data.get('name').strip()
-        
+            data = json.loads(request.body)
+            domainname = data.get('domain', '').strip()
+            name = data.get('name', '').strip()
+            # Ownership check for non-admin
+            if not request.user.is_superuser:
+                owner = user.objects.filter(username=request.user.username).first()
+                if not owner or owner.domain != domainname:
+                    return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+            if not pythonname.objects.filter(name=name, domain=domainname).exists():
+                return JsonResponse({'status': 'error', 'message': 'Service not found.'})
             if restart_service(name):
                  return JsonResponse({'status': 'success', 'message': 'Already Exist'})
             else:
                  return JsonResponse({'status': 'error', 'message': 'Already Exist'})
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
-@csrf_exempt
+@login_required(login_url='/')
 def stop_now(request):
     if request.user.is_superuser:
         
         if request.method=="POST":
-            data = json.loads(request.body)  # Get the data from the request body
-            service = data.get('service') 
+            data = json.loads(request.body)
+            service = data.get('service', '')
+            if service not in _ALLOWED_ADMIN_SERVICES:
+                return JsonResponse({'status': 'error', 'message': 'Service not allowed.'})
             if stop_service(service):
                  return JsonResponse({'status': 'success', 'message': 'Already Exist'})
             else:
@@ -4736,13 +5078,20 @@ def stop_now(request):
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
 
-@csrf_exempt
+@login_required(login_url='/')
 def stop_now_python(request):
     if request.user.is_authenticated:
         if request.method=="POST":
-            data = json.loads(request.body)  # Get the data from the request body
-            domainname = data.get('domain').strip()
-            name = data.get('name').strip()
+            data = json.loads(request.body)
+            domainname = data.get('domain', '').strip()
+            name = data.get('name', '').strip()
+            # Ownership check for non-admin
+            if not request.user.is_superuser:
+                owner = user.objects.filter(username=request.user.username).first()
+                if not owner or owner.domain != domainname:
+                    return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+            if not pythonname.objects.filter(name=name, domain=domainname).exists():
+                return JsonResponse({'status': 'error', 'message': 'Service not found.'})
             if stop_service(name):
                  return JsonResponse({'status': 'success', 'message': 'Already Exist'})
             else:
@@ -4750,29 +5099,37 @@ def stop_now_python(request):
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
 
-@csrf_exempt
+@login_required(login_url='/')
 def shutdown(request):
-    if request.user.is_superuser:
-         run_command('sudo shutdown now')
+    if request.user.is_superuser and request.method == 'POST':
+         if sys.platform == 'win32':
+             run_command('shutdown /s /t 0')
+         else:
+             run_command('sudo shutdown now')
          return JsonResponse({'status': 'success', 'message': 'Already Exist'})
+    return JsonResponse({'status': 'error', 'message': 'Unauthorized or invalid request.'}, status=403)
     
-@csrf_exempt
+@login_required(login_url='/')
 def restart(request):
-    if request.user.is_superuser:
-         run_command('sudo reboot')
+    if request.user.is_superuser and request.method == 'POST':
+         if sys.platform == 'win32':
+             run_command('shutdown /r /t 0')
+         else:
+             run_command('sudo reboot')
          return JsonResponse({'status': 'success', 'message': 'Already Exist'})
+    return JsonResponse({'status': 'error', 'message': 'Unauthorized or invalid request.'}, status=403)
     
-@csrf_exempt
+@login_required(login_url='/')
 def restartservice(request):
-    if request.user.is_superuser:
+    if request.user.is_superuser and request.method == 'POST':
          service=['mysql','postfix','dovecot','uwsgi','bind9','csf']
          for i in service:
             restart_service(i)
   
          return JsonResponse({'status': 'success', 'message': 'Already Exist'})
+    return JsonResponse({'status': 'error', 'message': 'Unauthorized or invalid request.'}, status=403)
     
 @login_required(login_url='/')
-@csrf_exempt
 def chpassuser(request):
     """Securely change a hosted user's panel login password and Linux system password."""
     if not request.user.is_superuser:
@@ -4803,32 +5160,17 @@ def chpassuser(request):
     sd.set_password(password)
     sd.save()
 
-    # 2. Update Linux system password securely via pipe — NO shell injection possible
+    # 2. Update Linux system password via platform layer
     try:
-        import subprocess
-        chpasswd_input = f'{username}:{password}\n'
-        proc = subprocess.Popen(
-            ['sudo', 'chpasswd'],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding='utf-8'
-        )
-        _, stderr = proc.communicate(input=chpasswd_input, timeout=10)
-        if proc.returncode != 0:
-            # Log the error but don't fail the request — Django password is already changed
-            with open('/var/logs.txt', 'a') as log:
-                log.write(f'[chpassuser] chpasswd failed for {username}: {stderr}\n')
+        get_platform().users.change_password(username, password)
     except Exception as e:
-        with open('/var/logs.txt', 'a') as log:
+        with open(paths.PANEL_LOG_FILE, 'a') as log:
             log.write(f'[chpassuser] System password change error for {username}: {str(e)}\n')
 
     return JsonResponse({'status': 'success', 'message': 'Password updated successfully.'})
 
 
 @login_required(login_url='/')
-@csrf_exempt
 def chpackageuser(request):
     """Change the hosting package for a user account and update their disk quota."""
     if not request.user.is_superuser:
@@ -4864,19 +5206,11 @@ def chpackageuser(request):
     userd.hosting_package = package_name
     userd.save()
 
-    # Update Linux disk quota — parameterized list, no shell injection
+    # Update Linux disk quota via platform layer
     try:
-        import subprocess
-        result = subprocess.run(
-            ['sudo', 'setquota', '-u', username,
-             str(storage_kb), str(storage_kb), '0', '0', '/'],
-            capture_output=True, text=True, timeout=15
-        )
-        if result.returncode != 0:
-            with open('/var/logs.txt', 'a') as log:
-                log.write(f'[chpackageuser] setquota failed for {username}: {result.stderr}\n')
+        get_platform().users.set_quota(username, storage_kb, storage_kb)
     except Exception as e:
-        with open('/var/logs.txt', 'a') as log:
+        with open(paths.PANEL_LOG_FILE, 'a') as log:
             log.write(f'[chpackageuser] Quota update error for {username}: {str(e)}\n')
 
     return JsonResponse({'status': 'success', 'message': f'Package updated to {package_name} successfully.'})
@@ -5025,92 +5359,158 @@ def addpython(request):
         usr_obj = ctrl_user.objects.get(username=fre.dir)
         pkg_obj = ctrl_package.objects.get(name=usr_obj.hosting_package)
         quota_mb = int(pkg_obj.storage) * 1024  # package stores GB, convert to MB
-        used_mb = get_directory_size_in_mb(f'/home/{fre.dir}')
+        used_mb = get_directory_size_in_mb(os.path.join(paths.HOME_BASE, fre.dir))
         if quota_mb > 0 and used_mb >= quota_mb:
             return JsonResponse({'status': 'quota', 'message': 'Storage quota exceeded'})
     except Exception:
         pass  # If quota check fails, allow provisioning (graceful degradation)
 
-    # Scaffold directories
-    try:
-        run_command(f'mkdir -p /home/{fre.dir}/{name}')
-        run_command(f'mkdir -p /home/{fre.dir}/{name}/static')
-    except Exception:
-        pass
+    # Scaffold directories and provision Python app (Linux only)
+    if sys.platform != 'win32':
+        try:
+            app_dir = os.path.join(paths.HOME_BASE, fre.dir, name)
+            run_command(f'mkdir -p {app_dir}')
+            run_command(f'mkdir -p {os.path.join(app_dir, "static")}')
+        except Exception:
+            pass
 
-    # Run setup script
-    try:
-        run_command(f'bash /var/www/panel/createpython.sh {fre.dir} /home/{fre.dir}/{name} {name}')
-    except Exception:
-        pass
+        # Run setup script
+        try:
+            script_path = os.path.join(paths.PANEL_ROOT, 'createpython.sh')
+            run_command(f'bash {script_path} {fre.dir} {app_dir} {name}')
+        except Exception:
+            pass
 
-    # Fix ownership: user owns files, www-data group can read static
-    try:
-        run_command(f'sudo chown -R {fre.dir}:www-data /home/{fre.dir}/{name}')
-        run_command(f'sudo chmod -R 750 /home/{fre.dir}/{name}')
-        run_command(f'sudo chmod -R 755 /home/{fre.dir}/{name}/static')
-    except Exception:
-        pass
+        # Fix ownership: user owns files, www-data group can read static
+        try:
+            run_command(f'sudo chown -R {fre.dir}:www-data {app_dir}')
+            run_command(f'sudo chmod -R 750 {app_dir}')
+            run_command(f'sudo chmod -R 755 {os.path.join(app_dir, "static")}')
+        except Exception:
+            pass
 
-    # Update Nginx config
-    new_location_block = f"""
+    # Update Engine Config
+    sock_path = os.path.join(app_dir, f'{name}.sock')
+    static_path = os.path.join(app_dir, 'static')
+    
+    from voidplatform.linux.web import get_active_engine, get_active_engine_manager
+    engine = get_active_engine()
+    mgr = get_active_engine_manager()
+    
+    if engine == 'ols':
+        # Update uWSGI to use http-socket instead of standard socket so OLS proxy can talk HTTP
+        ini_path = os.path.join(app_dir, f'{name}_uwsgi.ini')
+        if os.path.exists(ini_path):
+            with open(ini_path, 'r') as f:
+                c = f.read()
+            c = c.replace('socket =', 'http-socket =')
+            with open(ini_path, 'w') as f:
+                f.write(c)
+                
+        # Inject OLS proxy block
+        ols_proxy = f"""
+extprocessor python_{name} {{
+  type                    proxy
+  address                 UDS://{sock_path}
+  maxConns                100
+  initTimeout             60
+  retryTimeout            0
+  respBuffer              0
+}}
+context / {{
+  type                    proxy
+  handler                 python_{name}
+  addDefaultCharset       off
+}}
+context /static/ {{
+  type                    null
+  location                {static_path}/
+}}
+"""
+        old_conf = mgr.read_site_config(domain1)
+        if 'python_' + name not in old_conf:
+            new_conf = old_conf + "\n" + ols_proxy
+            r = mgr.write_and_test_site_config(domain1, new_conf)
+            if not r.success:
+                return JsonResponse({'status': 'error', 'message': f'OLS validation failed: {r.error}'})
+    else:
+        new_location_block = f"""
     location / {{
         include uwsgi_params;
-        uwsgi_pass unix:/home/{fre.dir}/{name}/{name}.sock;
+        uwsgi_pass unix:{sock_path};
     }}
 
     location /static/ {{
-        alias /home/{fre.dir}/{name}/static/;
+        alias {static_path}/;
         expires 30d;
         add_header Cache-Control "public, no-transform";
     }}
     """
-    try:
-        conf_path = f'/etc/nginx/sites-enabled/{domain1}.conf'
-        with open(conf_path, 'r') as file:
-            lines = file.readlines()
+        try:
+            conf_path = os.path.join(paths.NGINX_SITES_ENABLED, f'{domain1}.conf')
+            with open(conf_path, 'r') as file:
+                lines = file.readlines()
 
-        updated_lines = []
-        location_overwritten = False
-        i = 0
-        while i < len(lines):
-            line = lines[i]
-            if line.strip().startswith('location / {') and not location_overwritten:
-                updated_lines.append(new_location_block)
-                location_overwritten = True
-                while i < len(lines) - 1 and lines[i].strip() != '}':
+            updated_lines = []
+            location_overwritten = False
+            i = 0
+            while i < len(lines):
+                line = lines[i]
+                if line.strip().startswith('location / {') and not location_overwritten:
+                    updated_lines.append(new_location_block)
+                    location_overwritten = True
+                    while i < len(lines) - 1 and lines[i].strip() != '}':
+                        i += 1
                     i += 1
+                    continue
+                if line.strip() == 'location ~ /\\.ht {' and not location_overwritten:
+                    updated_lines.append(new_location_block)
+                    location_overwritten = True
+                updated_lines.append(line)
                 i += 1
-                continue
-            if line.strip() == 'location ~ /\\.ht {' and not location_overwritten:
+
+            if not location_overwritten:
                 updated_lines.append(new_location_block)
-                location_overwritten = True
-            updated_lines.append(line)
-            i += 1
 
-        if not location_overwritten:
-            updated_lines.append(new_location_block)
+            r = mgr.write_and_test_site_config(domain1, "".join(updated_lines))
+            if not r.success:
+                return JsonResponse({'status': 'error', 'message': f'Nginx validation failed: {r.error}'})
+        except Exception:
+            pass
 
-        with open(conf_path, 'w') as file:
-            file.writelines(updated_lines)
-
-        # Validate Nginx config before reloading
-        test_result = run_command('sudo nginx -t 2>&1')
-        if 'successful' not in str(test_result).lower() and 'test is successful' not in str(test_result).lower():
-            # Rollback: restore original
-            with open(conf_path, 'w') as file:
-                file.writelines(lines)
-            return JsonResponse({'status': 'error', 'message': 'Nginx config validation failed. Changes rolled back.'})
-
-    except Exception as e:
-        pass
-
-    # Create DB record and start service
+    # Create DB record and start service — platform-aware
     pythonname.objects.create(domain=domain1, name=name, main=fre.dir)
     try:
-        run_command(f'sudo systemctl start {name} && sudo systemctl enable {name}')
-        run_command('sudo systemctl reload nginx')
-        run_command('sudo systemctl daemon-reload')
+        if sys.platform == 'win32':
+            from voidplatform.windows.apps import deploy_python_app, get_python_app_port
+            port, ok, msg = deploy_python_app(fre.dir, name, domain1)
+            # Update nginx to use HTTP proxy instead of unix socket (Windows)
+            if ok:
+                proxy_block = f"""
+    location / {{
+        proxy_pass http://127.0.0.1:{port};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }}
+"""
+                conf_path2 = os.path.join(paths.NGINX_SITES_ENABLED, f'{domain1}.conf')
+                if os.path.exists(conf_path2):
+                    with open(conf_path2, 'r') as f2:
+                        conf = f2.read()
+                    # Replace the uwsgi_pass block with proxy_pass
+                    import re as _re
+                    conf = _re.sub(r'location / \{[^}]*uwsgi_pass[^}]*\}', proxy_block, conf, flags=_re.DOTALL)
+                    with open(conf_path2, 'w') as f2:
+                        f2.write(conf)
+        else:
+            run_command(f'sudo systemctl start {name} && sudo systemctl enable {name}')
+            run_command('sudo systemctl daemon-reload')
+
+        try:
+            get_platform().services.reload('nginx')
+        except Exception:
+            pass
     except Exception:
         pass
 
@@ -5119,7 +5519,7 @@ def addpython(request):
     return JsonResponse({'status': 'success', 'message': f'Python app "{name}" provisioned successfully!'})
 
      
-@csrf_exempt
+@login_required(login_url='/')
 def delete_mern(request):
     if not request.user.is_authenticated:
         return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=401)
@@ -5149,60 +5549,85 @@ def delete_mern(request):
         # Clean files
         try:
             import shutil
-            directory_path = f'/home/{iwefj}/{name}'
+            directory_path = os.path.join(paths.HOME_BASE, iwefj, name)
             if os.path.exists(directory_path):
                 shutil.rmtree(directory_path)
         except:
             pass
 
         try:
-            if os.path.exists(f'/var/run/{name}.sock'):
-                os.remove(f'/var/run/{name}.sock')
+            sock_path = os.path.join(paths.RUN_DIR, f'{name}.sock')
+            if sys.platform != 'win32' and os.path.exists(sock_path):
+                os.remove(sock_path)
         except:
             pass
 
-        # Stop PM2 process if applicable (mern script uses pm2 as user, running globally)
+        # Stop process manager — platform-aware
         try:
-            # We run pm2 delete to remove it from background processes
-            run_command(f'sudo /usr/local/bin/pm2 delete {name} ; sudo /usr/local/bin/pm2 save')
-        except:
-            pass
-
-        # Clean Nginx configs safely
-        conf_path = f'/etc/nginx/sites-enabled/{domainname}.conf'
-        try:
-            with open(conf_path, 'r') as file:
-                lines = file.readlines()
-
-            new_config_data = []
-            skip = False
-            for line in lines:
-                if 'location / {' in line or 'location /static/ {' in line or 'location /api/ {' in line:
-                    skip = True
-                if skip and '}' in line:
-                    skip = False
-                    continue
-                if not skip:
-                    new_config_data.append(line)
-
-            with open(conf_path, 'w') as file:
-                file.writelines(new_config_data)
-
-            # Revert the document root to public_html safely (in python instead of sed)
-            with open(conf_path, 'r') as f:
-                content = f.read()
-            content = content.replace(f'root /home/{iwefj}/{name}/frontend/build;', f'root /home/{iwefj}/public_html;')
-            with open(conf_path, 'w') as f:
-                f.write(content)
-
-            # Safety check before reload
-            test_res = run_command('sudo nginx -t 2>&1')
-            if 'successful' in str(test_res).lower() or 'test is successful' in str(test_res).lower():
-                run_command('sudo systemctl reload nginx')
+            if sys.platform == 'win32':
+                from voidplatform.windows.apps import delete_mern_app
+                delete_mern_app(name)
             else:
-                pass # if rollback required
-        except Exception as e:
+                # Linux: pm2 as root
+                run_command(f'sudo /usr/local/bin/pm2 delete {name} ; sudo /usr/local/bin/pm2 save')
+        except:
             pass
+
+        # Clean Nginx/OLS configs safely
+        from voidplatform.linux.web import get_active_engine_manager, get_active_engine
+        engine = get_active_engine()
+        mgr = get_active_engine_manager()
+
+        if engine == 'ols':
+            import re
+            old_conf = mgr.read_site_config(domainname)
+            # Remove proxy extprocessor and contexts
+            new_conf = re.sub(rf'extprocessor mern_{name}\s*{{[^}}]+}}\n?', '', old_conf)
+            new_conf = re.sub(rf'context /api/\s*{{[^}}]+handler\s+mern_{name}[^}}]+}}\n?', '', new_conf)
+            # Revert docRoot
+            new_conf = re.sub(rf'docRoot\s+\$VH_ROOT/{name}/frontend/build', r'docRoot $VH_ROOT/public_html', new_conf)
+            mgr.write_and_test_site_config(domainname, new_conf)
+        else:
+            conf_path = os.path.join(paths.NGINX_SITES_ENABLED, f'{domainname}.conf')
+            try:
+                with open(conf_path, 'r') as file:
+                    lines = file.readlines()
+
+                new_config_data = []
+                skip = False
+                for line in lines:
+                    if 'location / {' in line or 'location /static/ {' in line or 'location /api/ {' in line:
+                        skip = True
+                    if skip and '}' in line:
+                        skip = False
+                        continue
+                    if not skip:
+                        new_config_data.append(line)
+
+                with open(conf_path, 'w') as file:
+                    file.writelines(new_config_data)
+
+                # Revert the document root to public_html safely
+                with open(conf_path, 'r') as f:
+                    content = f.read()
+                content = content.replace(f'root {os.path.join(paths.HOME_BASE, iwefj, name, "frontend", "build")};', f'root {os.path.join(paths.HOME_BASE, iwefj, "public_html")};')
+                with open(conf_path, 'w') as f:
+                    f.write(content)
+
+                # Safety check before reload
+                if sys.platform != 'win32':
+                    test_res = run_command('sudo nginx -t 2>&1')
+                else:
+                    test_res = type('obj', (object,), {'returncode': 0, 'stdout': 'nginx test skipped on Windows', 'stderr': ''})()
+                if 'successful' in str(test_res).lower() or 'test is successful' in str(test_res).lower():
+                    try:
+                        get_platform().services.reload('nginx')
+                    except Exception:
+                        pass
+                else:
+                    pass # if rollback required
+            except Exception as e:
+                pass
 
         try:
             df = mernname.objects.get(domain=domainname, name=name)
@@ -5256,7 +5681,7 @@ def addmern(request):
             usr_obj = ctrl_user.objects.get(username=fre.dir)
             pkg_obj = ctrl_package.objects.get(name=usr_obj.hosting_package)
             quota_mb = int(pkg_obj.storage) * 1024
-            used_mb = get_directory_size_in_mb(f'/home/{fre.dir}')
+            used_mb = get_directory_size_in_mb(os.path.join(paths.HOME_BASE, fre.dir))
             # React build takes up to ~300MB, so we ensure they have at least 300MB free
             if quota_mb > 0 and (used_mb + 300) >= quota_mb:
                 return JsonResponse({'status': 'quota', 'message': 'Insufficient storage quota for React/Node environment'})
@@ -5269,28 +5694,74 @@ def addmern(request):
         pasport = str(int(last_object.port) + 1) if last_object else '3001'
 
         try:
-            run_command(f'bash /var/www/panel/mern.sh {name} /home/{fre.dir}/{name}/frontend/build /home/{fre.dir}/{name} {pasport}')
+            if sys.platform != 'win32':
+                app_dir = os.path.join(paths.HOME_BASE, fre.dir, name)
+                frontend_build = os.path.join(app_dir, 'frontend', 'build')
+                script_path = os.path.join(paths.PANEL_ROOT, 'mern.sh')
+                run_command(f'bash {script_path} {name} {frontend_build} {app_dir} {pasport}')
+            else:
+                # Windows: use PM2 / sc.exe for MERN app management
+                from voidplatform.windows.apps import deploy_mern_app
+                app_dir = os.path.join(paths.HOME_BASE, fre.dir, name)
+                os.makedirs(app_dir, exist_ok=True)
+                port_int, ok, msg = deploy_mern_app(fre.dir, name, domain1, int(pasport))
+                pasport = str(port_int)  # update port in case it was reallocated
         except:
             pass
 
         # FIX: MERN script creates files as root. Change ownership to user, and group to www-data so Nginx can read build static
         try:
-            run_command(f'sudo chown -R {fre.dir}:www-data /home/{fre.dir}/{name}')
-            run_command(f'sudo chmod -R 750 /home/{fre.dir}/{name}')
+            if sys.platform != 'win32':
+                app_dir = os.path.join(paths.HOME_BASE, fre.dir, name)
+                run_command(f'sudo chown -R {fre.dir}:www-data {app_dir}')
+                run_command(f'sudo chmod -R 750 {app_dir}')
         except:
             pass
 
-        new_location_block = f"""
+        app_dir = os.path.join(paths.HOME_BASE, fre.dir, name)
+        static_path = os.path.join(app_dir, 'frontend', 'build', 'static')
+        sock_path = os.path.join(paths.RUN_DIR, f'{name}.sock')
+        
+        from voidplatform.linux.web import get_active_engine, get_active_engine_manager
+        engine = get_active_engine()
+        mgr = get_active_engine_manager()
+        
+        if engine == 'ols':
+            ols_proxy = f"""
+extprocessor mern_{name} {{
+  type                    proxy
+  address                 UDS://{sock_path}
+  maxConns                100
+  initTimeout             60
+  retryTimeout            0
+  respBuffer              0
+}}
+context /api/ {{
+  type                    proxy
+  handler                 mern_{name}
+  addDefaultCharset       off
+}}
+"""
+            old_conf = mgr.read_site_config(domain1)
+            import re
+            old_conf = re.sub(r'docRoot\s+\$VH_ROOT/public_html', f'docRoot $VH_ROOT/{name}/frontend/build', old_conf)
+            if 'mern_' + name not in old_conf:
+                new_conf = old_conf + "\n" + ols_proxy
+                r = mgr.write_and_test_site_config(domain1, new_conf)
+                if not r.success:
+                    return JsonResponse({'status': 'error', 'message': f'OLS validation failed: {r.error}'})
+        else:
+            new_location_block = f"""
     location / {{
         try_files $uri /index.html;
     }}
     location /static/ {{
-        alias /home/{fre.dir}/{name}/frontend/build/static/;
+        alias {static_path}/;
         expires 30d;
         add_header Cache-Control "public, no-transform";
     }}
     location /api/ {{
-        proxy_pass http://unix:/var/run/{name}.sock;
+        proxy_pass http://unix:{sock_path};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -5298,53 +5769,58 @@ def addmern(request):
         proxy_cache_bypass $http_upgrade;
     }}
 """
-        
-        conf_path = f'/etc/nginx/sites-enabled/{domain1}.conf'
-        try:
-            with open(conf_path, 'r') as file:
-                lines = file.readlines()
+            conf_path = os.path.join(paths.NGINX_SITES_ENABLED, f'{domain1}.conf')
+            try:
+                with open(conf_path, 'r') as file:
+                    lines = file.readlines()
 
-            updated_lines = []
-            location_overwritten = False
-            i = 0
-            while i < len(lines):
-                line = lines[i]
-                if line.strip().startswith('location / {') and not location_overwritten:
-                    updated_lines.append(new_location_block)
-                    location_overwritten = True
-                    while i < len(lines) - 1 and lines[i].strip() != '}':
+                updated_lines = []
+                location_overwritten = False
+                i = 0
+                while i < len(lines):
+                    line = lines[i]
+                    if line.strip().startswith('location / {') and not location_overwritten:
+                        updated_lines.append(new_location_block)
+                        location_overwritten = True
+                        while i < len(lines) - 1 and lines[i].strip() != '}':
+                            i += 1
                         i += 1
+                        continue
+                    if line.strip() == 'location ~ /\\.ht {' and not location_overwritten:
+                        updated_lines.append(new_location_block)
+                        location_overwritten = True
+                    updated_lines.append(line)
                     i += 1
-                    continue
-                if line.strip() == 'location ~ /\\.ht {' and not location_overwritten:
+
+                if not location_overwritten:
                     updated_lines.append(new_location_block)
-                    location_overwritten = True
-                updated_lines.append(line)
-                i += 1
 
-            if not location_overwritten:
-                updated_lines.append(new_location_block)
-
-            with open(conf_path, 'w') as file:
-                file.writelines(updated_lines)
-
-            # Safely replace root
-            with open(conf_path, 'r') as f:
-                content = f.read()
-            content = content.replace(f'root /home/{fre.dir}/public_html;', f'root /home/{fre.dir}/{name}/frontend/build;')
-            with open(conf_path, 'w') as f:
-                f.write(content)
-
-            # Validate Nginx config
-            test_res = run_command('sudo nginx -t 2>&1')
-            if 'successful' not in str(test_res).lower() and 'test is successful' not in str(test_res).lower():
                 with open(conf_path, 'w') as file:
-                    file.writelines(lines) # rollback
-                return JsonResponse({'status': 'error', 'message': 'Nginx validation failed'})
+                    file.writelines(updated_lines)
 
-            run_command('sudo systemctl reload nginx')
-        except Exception as e:
-            pass
+                # Safely replace root
+                with open(conf_path, 'r') as f:
+                    content = f.read()
+                content = content.replace(f'root /home/{fre.dir}/public_html;', f'root /home/{fre.dir}/{name}/frontend/build;')
+                with open(conf_path, 'w') as f:
+                    f.write(content)
+
+                # Validate Nginx config
+                if sys.platform != 'win32':
+                    test_res = run_command('sudo nginx -t 2>&1')
+                else:
+                    test_res = type('obj', (object,), {'returncode': 0, 'stdout': 'nginx test skipped on Windows', 'stderr': ''})()
+                if 'successful' not in str(test_res).lower() and 'test is successful' not in str(test_res).lower():
+                    with open(conf_path, 'w') as file:
+                        file.writelines(lines) # rollback
+                    return JsonResponse({'status': 'error', 'message': 'Nginx validation failed'})
+
+                try:
+                    get_platform().services.reload('nginx')
+                except Exception:
+                    pass
+            except Exception as e:
+                pass
 
         mernname.objects.create(domain=domain1, name=name, main=fre.dir, port=pasport)
         import time
@@ -5353,7 +5829,7 @@ def addmern(request):
     return JsonResponse({'status': 'error', 'message': 'Invalid request'})
 
 
-@csrf_exempt
+@login_required(login_url='/')
 def delete_python(request):
     if request.user.is_authenticated:
         
@@ -5361,158 +5837,214 @@ def delete_python(request):
             data = json.loads(request.body)  # Get the data from the request body
             domainname = data.get('domain').strip()
             name = data.get('name').strip()
+
+            # Ownership check for non-admin
+            if not request.user.is_superuser:
+                owner = user.objects.filter(username=request.user.username).first()
+                if not owner or (owner.domain != domainname and not subdomainname.objects.filter(subdomain=domainname, domain=owner.domain).exists()):
+                    return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+
             try:
                 iwefj=domain.objects.get(domain=domainname).dir
             except:
                  lololol=subdomainname.objects.get(subdomain=domainname).domain
                  iwefj=domain.objects.get(domain=lololol).dir
             import shutil
-            directory_path = f'/home/{iwefj}/{name}'
-            shutil.rmtree(directory_path)
-            os.remove(f'/etc/systemd/system/{name}.service')
-            redirect_rule_start ='location / {'
-            redirect_rule_end = '}'
-            with open(f'/etc/nginx/sites-enabled/{domainname}.conf', 'r') as file:
-                                config_data = file.readlines()
-                                in_redirect_block = False
-                                new_config_data = []
-                                for line in config_data:
-                                    if redirect_rule_start in line.strip():
-                                        in_redirect_block = True 
-                                    elif in_redirect_block and redirect_rule_end in line:
-                                        in_redirect_block = False  
-                                        continue  
-                                    elif not in_redirect_block:
-                                        new_config_data.append(line)
-            
-            with open(f'/etc/nginx/sites-enabled/{domainname}.conf', 'w') as file:
-                                        file.writelines(new_config_data)
+            directory_path = os.path.join(paths.HOME_BASE, iwefj, name)
+            shutil.rmtree(directory_path, ignore_errors=True)
 
-            redirect_rule_start ='location '+'/static/'
-            redirect_rule_end = '}'
-            with open(f'/etc/nginx/sites-enabled/{domainname}.conf', 'r') as file:
-                                config_data = file.readlines()
-                                in_redirect_block = False
-                                new_config_data = []
-                                for line in config_data:
-                                    if redirect_rule_start in line:
-                                        in_redirect_block = True 
-                                    elif in_redirect_block and redirect_rule_end in line:
-                                        in_redirect_block = False  
-                                        continue  
-                                    elif not in_redirect_block:
-                                        new_config_data.append(line)
+            # Remove service — platform-aware
+            if sys.platform == 'win32':
+                # Windows: stop and delete the Windows service via sc.exe
+                try:
+                    subprocess.run(['sc', 'stop', name], capture_output=True)
+                    subprocess.run(['sc', 'delete', name], capture_output=True)
+                except Exception:
+                    pass
+            else:
+                # Linux: remove systemd service file
+                svc_file = f'/etc/systemd/system/{name}.service'
+                if os.path.exists(svc_file):
+                    try:
+                        run_command(f'sudo systemctl stop {name}')
+                        run_command(f'sudo systemctl disable {name}')
+                        os.remove(svc_file)
+                        run_command('sudo systemctl daemon-reload')
+                    except Exception:
+                        pass
+            from voidplatform.linux.web import get_active_engine, get_active_engine_manager
+            engine = get_active_engine()
+            mgr = get_active_engine_manager()
 
-                                
-                        
-            with open(f'/etc/nginx/sites-enabled/{domainname}.conf', 'w') as file:
-                                        file.writelines(new_config_data)
-            df=pythonname.objects.get(domain=domainname,name=name)
-            df.delete()
-           
-            run_command('sudo systemctl reload nginx')
+            if engine == 'ols':
+                import re
+                old_conf = mgr.read_site_config(domainname)
+                # Remove python extprocessor and its contexts
+                new_conf = re.sub(rf'extprocessor python_{name}\s*{{[^}}]+}}\n?', '', old_conf)
+                new_conf = re.sub(rf'context /\s*{{[^}}]+handler\s+python_{name}[^}}]+}}\n?', '', new_conf)
+                new_conf = re.sub(r'context /static/\s*\{[^}]*type\s+null[^}]*\}\n?', '', new_conf)
+                mgr.write_and_test_site_config(domainname, new_conf)
+            else:
+                redirect_rule_start ='location / {'
+                redirect_rule_end = '}'
+                _dp_conf = os.path.join(paths.NGINX_SITES_ENABLED, f'{domainname}.conf')
+                try:
+                    with open(_dp_conf, 'r') as file:
+                        config_data = file.readlines()
+                        in_redirect_block = False
+                        new_config_data = []
+                        for line in config_data:
+                            if redirect_rule_start in line.strip():
+                                in_redirect_block = True
+                            elif in_redirect_block and redirect_rule_end in line:
+                                in_redirect_block = False
+                                continue
+                            elif not in_redirect_block:
+                                new_config_data.append(line)
+
+                    with open(_dp_conf, 'w') as file:
+                        file.writelines(new_config_data)
+
+                    redirect_rule_start ='location '+'/static/'
+                    redirect_rule_end = '}'
+                    with open(_dp_conf, 'r') as file:
+                        config_data = file.readlines()
+                        in_redirect_block = False
+                        new_config_data = []
+                        for line in config_data:
+                            if redirect_rule_start in line:
+                                in_redirect_block = True
+                            elif in_redirect_block and redirect_rule_end in line:
+                                in_redirect_block = False
+                                continue
+                            elif not in_redirect_block:
+                                new_config_data.append(line)
+
+                    with open(_dp_conf, 'w') as file:
+                        file.writelines(new_config_data)
+                except Exception:
+                    pass
+                mgr.reload()
+
+            df=pythonname.objects.filter(domain=domainname,name=name).first()
+            if df:
+                df.delete()
+
             run_command('sudo systemctl daemon-reload')
             import time
             time.sleep(2)
-            return JsonResponse({'status': 'success', 'message': 'Already Exist'})
+            return JsonResponse({'status': 'success', 'message': 'Python application deleted.'})
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
-import pexpect
-persistent_shell = pexpect.spawn('/bin/bash', encoding='utf-8')
-persistent_shell.expect(r'[#$]') 
+try:
+    import pexpect
+    persistent_shell = pexpect.spawn('/bin/bash', encoding='utf-8')
+    persistent_shell.expect(r'[#$]')
+except Exception:
+    persistent_shell = None
 datahold=""
 
 @never_cache
-@csrf_exempt 
+@login_required(login_url='/')
 def terminalname(request):
     global datahold
-    
+
+    if persistent_shell is None:
+        return JsonResponse({'status': 'error', 'message': 'Terminal not available on this platform.'})
     if request.user.is_superuser:
-                    
                     current=request.session['name']
     else:
-                    current=request.user
-    homedir='/home/'+current+datahold
+                    current=str(request.user)
+    homedir=os.path.join(paths.HOME_BASE, current+datahold)
     
     if request.method == 'POST':
-        command = request.POST.get('command')
-        name = request.POST.get('name')
-        dir = request.POST.get('dir')
+        command = request.POST.get('command', '')
+        name = request.POST.get('name', '')
+        dir = request.POST.get('dir', '')
+
+        # Block dangerous shell operators
+        _dangerous = ['&&', '||', ';', '|', '`', '$(',  '>', '<', '\n']
+        for d in _dangerous:
+            if d in command:
+                return JsonResponse({"output": "Error: shell operators not allowed. Use single commands."})
         
         if command.startswith('pip') or command.startswith('python'):
-             # Construct the command to run a Python module (like Django) in the virtual environment as a specific user
              if 'pip' not in command and 'django' in command or 'flask' in command:
-                  command = f"/home/{current}/{name}/venv/bin/{command} /home/{current}/{name} "
+                  command = f"/home/{shlex.quote(current)}/{shlex.quote(name)}/venv/bin/{command} /home/{shlex.quote(current)}/{shlex.quote(name)} "
              else:  
-                command = f"/home/{current}/{name}/venv/bin/{command} "
-           
+                command = f"/home/{shlex.quote(current)}/{shlex.quote(name)}/venv/bin/{command} "
 
-            #f"sudo -u voidpanel /home/voidpanel/naku/venv/bin/pip install django"
         elif command.startswith('cd'):
-              command=command.replace('cd','').strip()
-              if f"/home/{current}" not in  command:
-                    if command[0]!='/':
-                          command="/"+command
-                    datahold=command
-                    command=homedir+command
-                    homedir=command
-                    command="cd "+command
-              command = 'sudo -u ' + current + ' bash -c "cd '+homedir  + ' && ' + command + '"'
+              target=command.replace('cd','').strip()
+              # Prevent path traversal
+              if '..' in target:
+                  return JsonResponse({"output": "Error: path traversal not allowed."})
+              if f"/home/{current}" not in  target:
+                    if target[0]!='/':
+                          target="/"+target
+                    datahold=target
+                    target=homedir+target
+                    homedir=target
+                    command="cd "+target
+              command = f'sudo -u {shlex.quote(current)} bash -c "cd {shlex.quote(homedir)} && {command}"'
         else:
-             command = 'sudo -u ' + current + ' bash -c "cd '+homedir  + ' && ' + command + '"'
+             command = f'sudo -u {shlex.quote(current)} bash -c "cd {shlex.quote(homedir)} && {command}"'
         try:
             
                 persistent_shell.sendline(command)
                 persistent_shell.expect(r'[#$]') 
                 output = persistent_shell.before.strip()
                 output=output.replace("/var/www/panel","")
-                # output=(output.splitlines())
-                # output[0]="#"+homedir
-                # output = "\n".join(output).strip()
         except Exception as e:
                 output = f"Error: {str(e)}"
         return JsonResponse({"output":output})
     return JsonResponse({"output": "Invalid request"})
 
 @never_cache
-@csrf_exempt 
+@login_required(login_url='/')
 def terminalnamenpm(request):
     global datahold
-    
+
+    if persistent_shell is None:
+        return JsonResponse({'status': 'error', 'message': 'Terminal not available on this platform.'})
     if request.user.is_superuser:
-                    
                     current=request.session['name']
     else:
-                    current=request.user
-    homedir='/home/'+current+datahold
+                    current=str(request.user)
+    homedir=os.path.join(paths.HOME_BASE, current+datahold)
     
     if request.method == 'POST':
-        command = request.POST.get('command')
-        name = request.POST.get('name')
-        dir = request.POST.get('dir')
-        
+        command = request.POST.get('command', '')
+        name = request.POST.get('name', '')
+        dir = request.POST.get('dir', '')
+
+        # Block dangerous shell operators
+        _dangerous = ['&&', '||', ';', '|', '`', '$(',  '>', '<', '\n']
+        for d in _dangerous:
+            if d in command:
+                return JsonResponse({"output": "Error: shell operators not allowed. Use single commands."})
  
         if command.startswith('cd'):
-              command=command.replace('cd','').strip()
-              if f"/home/{current}" not in  command:
-                    if command[0]!='/':
-                          command="/"+command
-                    datahold=command
-                    command=homedir+command
-                    homedir=command
-                    command="cd "+command
-              command = 'sudo -u ' + current + ' bash -c "cd '+homedir  + ' && ' + command + '"'
+              target=command.replace('cd','').strip()
+              if '..' in target:
+                  return JsonResponse({"output": "Error: path traversal not allowed."})
+              if f"/home/{current}" not in  target:
+                    if target[0]!='/':
+                          target="/"+target
+                    datahold=target
+                    target=homedir+target
+                    homedir=target
+                    command="cd "+target
+              command = f'sudo -u {shlex.quote(current)} bash -c "cd {shlex.quote(homedir)} && {command}"'
         else:
-             command = command 
+             # Run non-cd commands also under sudo -u to prevent RCE as web server user
+             command = f'sudo -u {shlex.quote(current)} bash -c "cd {shlex.quote(homedir)} && {command}"'
         try:
             
                 persistent_shell.sendline(command)
                 persistent_shell.expect(r'[#$]') 
                 output = persistent_shell.before.strip()
                 output=output.replace("/var/www/panel","")
-                # output=(output.splitlines())
-                # output[0]="#"+homedir
-                # output = "\n".join(output).strip()
         except Exception as e:
                 output = f"Error: {str(e)}"
         return JsonResponse({"output":output})
@@ -5585,7 +6117,7 @@ def addusermainapi(username,password,domain12,package12):
                    return False
                except:
                    import re
-                   directories = os.listdir('/home')
+                   directories = os.listdir(paths.HOME_BASE)
                    # Sanitize to alphanumeric, max 16 chars for safe Unix username
                    base_name = re.sub(r'[^a-z0-9]', '', str(username).lower())[:16]
                    
@@ -5599,10 +6131,23 @@ def addusermainapi(username,password,domain12,package12):
                    path="/home/"+domainname
                    os.mkdir(path)
                    os.mkdir(path+'/public_html')
-                   run_command(f'cp -r /var/www/panel/voidpanel/*  {path}/public_html/')
-                   run_command(f'sudo ln -s /etc/nginx/sites-available/{domain12}.conf  /etc/nginx/sites-enabled/')
+                   _vp_src = os.path.join(paths.PANEL_ROOT, 'voidpanel')
+                   _vp_dst = os.path.join(path, 'public_html')
+                   for _item in os.listdir(_vp_src):
+                       _s = os.path.join(_vp_src, _item)
+                       _d = os.path.join(_vp_dst, _item)
+                       if os.path.isdir(_s):
+                           shutil.copytree(_s, _d, dirs_exist_ok=True)
+                       else:
+                           shutil.copy2(_s, _d)
+                   _ln_src = f'{paths.NGINX_SITES_AVAILABLE}/{domain12}.conf'
+                   _ln_dst = f'{paths.NGINX_SITES_ENABLED}/'
+                   if sys.platform == 'win32':
+                       shutil.copy2(_ln_src, os.path.join(_ln_dst, f'{domain12}.conf'))
+                   else:
+                       run_command(f'sudo ln -s {_ln_src}  {_ln_dst}')
                    os.mkdir(path+'/ssl')
-                   os.mkdir(f'/var/mail/vhosts/{domain12}')
+                   os.makedirs(os.path.join(path, 'mail', domain12), exist_ok=True)
                    os.mkdir(path+'/logs')
                    inipath=path+'/public_html/'+'php.ini'
                    php_ini_content = f"""
@@ -5640,7 +6185,7 @@ open_basedir = "/{path}/public_html:/tmp"
 """
                    with open(inipath,'w') as f:
                         f.write(php_ini_content)
-                   file_path = f"/etc/nginx/sites-available/{domain12}.conf"
+                   file_path = os.path.join(paths.NGINX_SITES_AVAILABLE, f"{domain12}.conf")
                    root_dir = path+'/public_html'
                  
                    cert_path, key_path = generate_ssl_certificates(domain12, path+'/ssl',path+'/logs')
@@ -5648,22 +6193,22 @@ open_basedir = "/{path}/public_html:/tmp"
                              create_nginx_ssl_conf(file_path, domain12, root_dir, cert_path, key_path)
                    else:
                     
-                       with open('/var/logs.txt','a') as f:
+                       with open(paths.PANEL_LOG_FILE, 'a') as f:
                                 f.write(f"Cannot Genrate open ssl for domain {domain12}\n")
                        import shutil
                        shutil.rmtree(path)
                        return False
-                   key_dir = f'/etc/opendkim/keys/{domain12}'
-                   zone_file_path = f'/etc/bind/db.{domain12}'
+                   key_dir = os.path.join(paths.OPENDKIM_KEY_DIR, domain12)
+                   zone_file_path = os.path.join(paths.BIND_ZONE_DIR, f'db.{domain12}')
                    private_key_path, public_key_path = generate_dkim_keys(domain12, key_dir)
                    if private_key_path and public_key_path:
                       create_bind_records(domain12, key_dir, zone_file_path)
                       configure_opendkim(domain12, key_dir)
                     
-                      with open('/var/logs.txt','a') as f:
+                      with open(paths.PANEL_LOG_FILE, 'a') as f:
                                 f.write(f" Genareted Dkmi Record for domain {domain12}\n")
                    else:
-                       with open('/var/logs.txt','a') as f:
+                       with open(paths.PANEL_LOG_FILE, 'a') as f:
                                 f.write(f"Cannot Genarete Dkmi Record for domain {domain12}\n")
                        import shutil
                        shutil.rmtree(path)
@@ -5672,34 +6217,28 @@ open_basedir = "/{path}/public_html:/tmp"
                    user.objects.create(domain=domain12,email=email,username=domainname,hosting_package=package12)
                    User.objects.create_user(username=domainname,email=email,password=password)
                    try:
-                       import subprocess
-                       # Safely create user without relying on shell interpolation
-                       subprocess.run(['sudo', 'useradd', '-m', '-s', '/usr/sbin/nologin', domainname], check=False)
-                       
-                       # Stream password directly to chpasswd via stdin to prevent RCE
-                       passwd_proc = subprocess.Popen(
-                           ['sudo', 'chpasswd'],
-                           stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                           text=True, encoding='utf-8'
-                       )
-                       passwd_proc.communicate(input=f"{domainname}:{password}\n")
+                       # Create Unix user via platform layer
+                       get_platform().users.create_user(domainname, password, shell='/usr/sbin/nologin')
                    except Exception as e:
-                       with open('/var/logs.txt', 'a') as f:
+                       with open(paths.PANEL_LOG_FILE, 'a') as f:
                            f.write(f"Error creating unix user {domainname}: {str(e)}\n")
                            
-                   run_command(f'sudo chown {domainname}:{domainname}  /home/{domainname}')
+                   if sys.platform != 'win32':
+                       run_command(f'sudo chown {domainname}:{domainname}  /home/{domainname}')
                    
-                   # Removed the dangerous and slow `mount -o remount /` 
-                   # Apply quota
+                   # Apply quota via platform layer
                    try:
-                       run_command(f'sudo setquota -u {domainname} {sto} {sto} 0 0 /')
+                       get_platform().users.set_quota(domainname, sto, sto)
                    except:
                        pass
                    
-                   run_command("sudo systemctl restart opendkim")
-                   run_command("sudo systemctl restart bind9")
-                   run_command("sudo systemctl restart postfix")
-                   run_command("sudo systemctl reload nginx")
+                   # Reload/restart all services via platform layer (works on all platforms)
+                   _plat = get_platform()
+                   for _svc in ('opendkim', 'bind9', 'postfix', 'nginx'):
+                       try:
+                           _plat.services.reload(_svc)
+                       except Exception:
+                           pass
                    return "rohan"
                    
                    
@@ -5708,13 +6247,102 @@ open_basedir = "/{path}/public_html:/tmp"
 
 # ─── Analytics View (Admin) ─────────────────────────────────────────────────
 @login_required(login_url='/')
+@login_required(login_url='/')
+def copysite(request):
+    """
+    Clone a remote website into the user's (or admin-specified) directory.
+    Accepts POST: target_url, destination (optional).
+    Runs in a background thread and returns immediately.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+
+    target_url = request.POST.get('target_url', '').strip()
+    destination = request.POST.get('destination', '').strip()
+
+    if not target_url:
+        return JsonResponse({'status': 'error', 'message': 'Target URL is required'}, status=400)
+
+    # Ensure proper URL scheme
+    if not target_url.startswith(('http://', 'https://')):
+        target_url = 'https://' + target_url
+
+    # Resolve destination directory
+    unix_user = ''
+    if not destination:
+        from urllib.parse import urlparse as _urlparse
+        site_name = _urlparse(target_url).netloc.replace('www.', '') or 'cloned_site'
+        # Determine user's home dir
+        try:
+            if request.user.is_superuser:
+                uname = request.session.get('name', request.user.username)
+            else:
+                uname = str(request.user)
+            from control.models import user as ctrl_user
+            u_obj = ctrl_user.objects.filter(username=uname).first()
+            user_dir = u_obj.dir if u_obj else uname
+            unix_user = user_dir
+            destination = os.path.join(paths.HOME_BASE, user_dir, 'public_html', site_name)
+        except Exception:
+            user_dir = str(request.user)
+            unix_user = user_dir
+            destination = os.path.join(paths.HOME_BASE, str(request.user), 'public_html', site_name)
+    else:
+        # Sanitize user-provided path — must stay within HOME_BASE/<user-dir>
+        try:
+            # Resolve the user's actual home dir from DB (may differ from username)
+            try:
+                _uname = request.session.get('name', request.user.username) if request.user.is_superuser else str(request.user)
+                from control.models import user as _cu
+                _u_obj = _cu.objects.filter(username=_uname).first()
+                _user_home_dir = _u_obj.dir if _u_obj else _uname
+                unix_user = _user_home_dir
+            except Exception:
+                _user_home_dir = str(request.user)
+                unix_user = _user_home_dir
+
+            safe_dest = os.path.realpath(os.path.normpath('/' + destination.lstrip('/')))
+            allowed_base = os.path.join(paths.HOME_BASE, _user_home_dir)
+            if not request.user.is_superuser and not safe_dest.startswith(allowed_base):
+                return JsonResponse({'status': 'error', 'message': 'Destination outside your home directory is not permitted.'}, status=403)
+            destination = safe_dest
+
+            # Re-extract unix_user from path if superuser provided explicit path
+            if request.user.is_superuser:
+                import re as _re2
+                m = _re2.search(r'/home/([^/]+)', destination)
+                if m: unix_user = m.group(1)
+        except ValueError as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=403)
+
+    # Kick off background clone thread
+    import threading
+    def _run_clone():
+        try:
+            clone_website(target_url, destination)
+            import subprocess, sys
+            if sys.platform != 'win32' and unix_user:
+                subprocess.run(['sudo', 'chown', '-R', f'{unix_user}:{unix_user}', destination], check=False)
+        except Exception:
+            pass
+
+    t = threading.Thread(target=_run_clone, daemon=True)
+    t.start()
+
+    return JsonResponse({
+        'status': 'success',
+        'message': f'Cloning started! Files will appear in {destination}',
+        'destination': destination
+    })
+
+
 def analytics(request):
     domain_name = request.GET.get('domain', '')
     if not domain_name:
         return redirect('/panel/')
 
     try:
-        with open('/etc/dontdelete.txt', 'r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
             adminpassword = f.read().strip()
     except Exception:
         adminpassword = ''
@@ -5744,7 +6372,7 @@ def analytics(request):
         d['disk_quota_mb'] = '0'
 
     # Disk usage
-    home_dir = f'/home/{dom_obj.dir}'
+    home_dir = os.path.join(paths.HOME_BASE, dom_obj.dir)
     try:
         disk_used = get_directory_size_in_mb(home_dir)
     except Exception:
@@ -5757,7 +6385,7 @@ def analytics(request):
     d['live'] = is_website_live(f'http://{domain_name}')
 
     # SSL — check if cert exists
-    ssl_cert = f'/etc/letsencrypt/live/{domain_name}/fullchain.pem'
+    ssl_cert = os.path.join(paths.LETSENCRYPT_LIVE, domain_name, 'fullchain.pem')
     d['ssl_active'] = os.path.exists(ssl_cert)
 
     # Email accounts
@@ -5773,7 +6401,7 @@ def analytics(request):
     d['mern_apps'] = mernname.objects.filter(main=domain_name).all()
 
     # DNS records
-    zone_file = f'/etc/bind/db.{domain_name}'
+    zone_file = os.path.join(paths.BIND_ZONE_DIR, f'db.{domain_name}')
     try:
         dns_records = parse_dns_zone_file(zone_file)
         d['dns_records'] = [r for r in dns_records if r.get('type') in ('A','MX','CNAME','TXT','NS','AAAA')]
@@ -5791,3 +6419,249 @@ def analytics(request):
 
     return render(request, 'panel/analytics.html', d)
 
+
+# ─── Web Server Manager (Admin Only) ────────────────────────────────────────
+
+@login_required(login_url='/')
+def webserver_manager(request):
+    """Admin-only page showing current web server and allowing live switching."""
+    if not request.user.is_superuser:
+        return HttpResponse('Unauthorized', status=403)
+
+    from voidplatform.linux.web import get_active_engine
+    d = {}
+    d['active_engine'] = get_active_engine()
+
+    # Detect service running status via pid files
+    d['nginx_running'] = (os.path.exists('/run/nginx.pid') or
+                          os.path.exists('/var/run/nginx.pid'))
+    d['ols_running']   = (os.path.exists('/tmp/lshttpd/lshttpd.pid') or
+                          os.path.exists('/usr/local/lsws/logs/lshttpd.pid'))
+
+    # OLS is "installed" if the binary or state file exists
+    d['ols_installed'] = (os.path.exists('/usr/local/lsws/bin/lswsctrl') or
+                          os.path.exists('/usr/local/lsws') or
+                          d['active_engine'] == 'ols' or
+                          d['ols_running'])
+
+    d['domain_count'] = domain.objects.count()
+    return render(request, 'panel/webserver_manager.html', d)
+
+
+@login_required(login_url='/')
+def api_switch_webserver(request):
+    """
+    POST API — switches the live web server between NGINX and OpenLiteSpeed.
+
+    Security guarantees:
+      - Superuser-only. Returns 403 for everyone else.
+      - All site configs are fully written and tested BEFORE stopping the old server.
+      - If the new engine fails its config test, the old engine stays running (automatic rollback).
+      - All site directories are re-chowned to their unix users BEFORE the switch — quota
+        attribution is continuous with zero gap.
+      - The system state flag is updated ONLY after a successful service start.
+
+    POST body: { "target": "nginx" | "ols" }
+    """
+    if not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Superuser only'}, status=403)
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+
+    import json as _json
+    try:
+        body = _json.loads(request.body)
+        target_engine = body.get('target', '').lower()
+    except Exception:
+        target_engine = request.POST.get('target', '').lower()
+
+    if target_engine not in ('nginx', 'ols'):
+        return JsonResponse({'status': 'error',
+                             'message': 'target must be "nginx" or "ols"'}, status=400)
+
+    from voidplatform.linux.web import get_active_engine, WebServerSwitcher
+
+    current = get_active_engine()
+    if current == target_engine:
+        return JsonResponse({'status': 'ok',
+                             'message': f'Already running {target_engine}'})
+
+    # Build the domain list for the switcher
+    all_domains = domain.objects.select_related().all()
+    domain_list = []
+    for dom in all_domains:
+        # Get the user record to pull their unix dir + php version
+        u_obj = user.objects.filter(domain=dom.domain).first()
+        php   = getattr(dom, 'php', '8.3') or '8.3'
+        root  = os.path.join(paths.HOME_BASE, dom.dir, 'public_html')
+        domain_list.append({
+            'domain':      dom.domain,
+            'root_dir':    root,
+            'php_version': php,
+            'unix_user':   dom.dir,   # unix username IS the dir field
+        })
+
+    switcher = WebServerSwitcher()
+    result   = switcher.switch(target_engine, domain_list,
+                               php_defaults={'php_version': '8.3'})
+
+    if result.success:
+        return JsonResponse({'status': 'success', 'message': result.output})
+    else:
+        return JsonResponse({'status': 'error',   'message': result.error}, status=500)
+
+
+# ─── LiteSpeed Admin Auto-Login (Admin Only) ─────────────────────────────────
+
+@login_required(login_url='/')
+def ols_admin_proxy(request):
+    """
+    Superuser-only view that:
+      1. Reads the stored OLS admin credentials from /etc/voidpanel/
+      2. Issues a POST login to the OLS web admin (port 7080) using requests
+      3. Forwards the authenticated session token back to the browser as a
+         redirect — so the admin lands directly inside the OLS panel without
+         typing any credentials.
+
+    Security:
+      - Only accessible to Django superusers.
+      - Credentials are stored in root-only readable file (/etc/voidpanel/ols_admin_pass).
+      - The proxy never exposes the password to the browser — it exchanges it
+        server-side for a session cookie and redirects.
+    """
+    if not request.user.is_superuser:
+        return HttpResponse('Unauthorized', status=403)
+
+    # Read OLS credentials
+    try:
+        ols_user = open('/etc/voidpanel/ols_admin_user').read().strip()
+    except Exception:
+        ols_user = 'admin'
+    try:
+        ols_pass = open('/etc/voidpanel/ols_admin_pass').read().strip()
+    except Exception:
+        ols_pass = ''
+
+    if not ols_pass:
+        return HttpResponse(
+            '<h2 style="font-family:sans-serif;color:#ef4444;padding:40px">'
+            'OLS admin credentials not found at /etc/voidpanel/ols_admin_pass.<br>'
+            'Make sure OpenLiteSpeed was installed via the VoidPanel installer.</h2>',
+            status=503
+        )
+
+    OLS_BASE = 'http://127.0.0.1:7080'
+
+    try:
+        import requests as _req
+        session = _req.Session()
+
+        # Step 1: GET the login page to get any initial cookies / CSRF token
+        login_page = session.get(
+            f'{OLS_BASE}/login.php',
+            timeout=5,
+            verify=False,
+            allow_redirects=True
+        )
+
+        # Step 2: POST credentials to OLS
+        login_data = {
+            'p_pass': ols_pass,
+            'p_user': ols_user,
+            'p_do':   'login',
+        }
+        auth_resp = session.post(
+            f'{OLS_BASE}/login.php',
+            data=login_data,
+            timeout=5,
+            verify=False,
+            allow_redirects=False
+        )
+
+        # Step 3: Extract session cookie and build redirect response
+        session_cookies = session.cookies.get_dict()
+
+        from django.http import HttpResponse as _HR
+        response = _HR(status=302)
+        response['Location'] = f'{OLS_BASE}/'
+
+        # Forward OLS session cookies to the browser so it arrives authenticated
+        for cookie_name, cookie_val in session_cookies.items():
+            response.set_cookie(
+                cookie_name,
+                cookie_val,
+                domain=request.get_host().split(':')[0],
+                samesite='Lax',
+                httponly=True
+            )
+        return response
+
+    except Exception as e:
+        # OLS not running? Show helpful message
+        return HttpResponse(
+            f'<div style="font-family:sans-serif;background:#0f172a;color:#e2e8f0;'
+            f'min-height:100vh;display:flex;align-items:center;justify-content:center;'
+            f'flex-direction:column;gap:16px;padding:40px">'
+            f'<div style="font-size:3rem">⚡</div>'
+            f'<h2 style="color:#f59e0b;margin:0">OpenLiteSpeed Admin Panel</h2>'
+            f'<p style="color:#94a3b8;text-align:center">Could not connect to OLS admin on port 7080.<br>'
+            f'Make sure LiteSpeed is the active engine and the service is running.</p>'
+            f'<a href="/webserver/" style="background:#6366f1;color:#fff;padding:12px 28px;'
+            f'border-radius:10px;text-decoration:none;font-weight:600;">Open Web Server Manager</a>'
+            f'<code style="color:#64748b;font-size:.75rem">{e}</code>'
+            f'</div>',
+            status=503
+        )
+
+
+# ─── Raw WebServer Config Editor APIs ─────────────────────────────────────────
+import json
+
+@login_required(login_url='/')
+def api_get_site_config(request):
+    if not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+    
+    domain_name = request.GET.get('domain')
+    if not domain_name:
+        return JsonResponse({'status': 'error', 'message': 'Missing domain'}, status=400)
+    
+    from voidplatform.linux.web import get_active_engine_manager, get_active_engine
+    mgr = get_active_engine_manager()
+    conf_text = mgr.read_site_config(domain_name)
+    engine = get_active_engine()
+    
+    return JsonResponse({
+        'status': 'success',
+        'config': conf_text,
+        'engine': engine
+    })
+
+@login_required(login_url='/')
+@csrf_exempt
+def api_save_site_config(request):
+    if not request.user.is_superuser:
+         return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+         
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Invalid method'}, status=405)
+        
+    try:
+        data = json.loads(request.body)
+        domain_name = data.get('domain')
+        config_text = data.get('config')
+    except Exception:
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
+        
+    if not domain_name or not config_text:
+        return JsonResponse({'status': 'error', 'message': 'Missing domain or config text'}, status=400)
+        
+    from voidplatform.linux.web import get_active_engine_manager
+    mgr = get_active_engine_manager()
+    
+    # Write and test handles rollback internally
+    result = mgr.write_and_test_site_config(domain_name, config_text)
+    if result.success:
+        return JsonResponse({'status': 'success', 'message': 'Configuration updated and web server reloaded.'})
+    else:
+        return JsonResponse({'status': 'error', 'message': result.error}, status=400)

@@ -28,8 +28,12 @@ done
 
 # 3. Standardize Email Storage
 status_msg "Checking Email Storage Integrity"
-chown -R vmail:vmail /var/mail/vhosts
-chmod -R 775 /var/mail/vhosts
+for user_dir in /home/*; do
+    if [ -d "$user_dir/mail" ]; then
+        chown -R vmail:vmail "$user_dir/mail"
+        chmod -R 775 "$user_dir/mail"
+    fi
+done
 
 # 4. Map Postfix Files
 status_msg "Regenerating Postfix Maps"

@@ -20,12 +20,39 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-)ryl+4_-ki=ggc^9fw0zppc&&9cg(4muy2g0euh-)+#5cd)7f^'
+import os as _os
+
+# Load SECRET_KEY from environment; fall back to file; generate fresh key as last resort.
+def _load_secret_key():
+    _env_key = _os.environ.get('DJANGO_SECRET_KEY', '').strip()
+    if _env_key:
+        return _env_key
+    _key_file = _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), '.secret_key')
+    if _os.path.exists(_key_file):
+        with open(_key_file, 'r') as _f:
+            _stored = _f.read().strip()
+        if _stored:
+            return _stored
+    from django.core.management.utils import get_random_secret_key
+    _fresh = get_random_secret_key()
+    try:
+        with open(_key_file, 'w') as _f:
+            _f.write(_fresh)
+        _os.chmod(_key_file, 0o600)
+    except Exception:
+        pass
+    return _fresh
+
+SECRET_KEY = _load_secret_key()
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = _os.environ.get('DJANGO_DEBUG', '').strip().lower() in ('1', 'true', 'yes')
 
-ALLOWED_HOSTS = ['*', '94.136.184.183', 'localhost']
+# Accept the server's own hostname/IP; '*' is replaced by the actual host at setup time.
+# Additional hostnames are appended by change_hostname() at install time.
+# Operators can restrict this via DJANGO_ALLOWED_HOSTS env var (comma-separated).
+_hosts_env = _os.environ.get('DJANGO_ALLOWED_HOSTS', '').strip()
+ALLOWED_HOSTS = [h.strip() for h in _hosts_env.split(',') if h.strip()] if _hosts_env else ['*']
 
 # Application definition
 
@@ -42,7 +69,20 @@ INSTALLED_APPS = [
     'chatting',
     'channels',
 ]
-X_FRAME_OPTIONS = 'ALLOWALL'
+# Allow iframes only from same origin (needed for file manager, terminal embeds)
+X_FRAME_OPTIONS = 'SAMEORIGIN'
+
+# ── Cookie & transport security ───────────────────────────────────────────────
+SESSION_COOKIE_HTTPONLY = True   # JS cannot read session cookie
+CSRF_COOKIE_HTTPONLY    = False  # Django needs JS to read CSRF cookie (for AJAX)
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE    = 'Lax'
+# Set SECURE cookies only when not in debug mode AND running over HTTPS
+_HTTPS_ENABLED = _os.environ.get('VOIDPANEL_HTTPS', '').strip().lower() in ('1', 'true', 'yes')
+if not DEBUG:
+    SESSION_COOKIE_SECURE = _HTTPS_ENABLED
+    CSRF_COOKIE_SECURE    = _HTTPS_ENABLED
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -75,11 +115,23 @@ TEMPLATES = [
 WSGI_APPLICATION = 'panel.wsgi.application'
 ASGI_APPLICATION = 'panel.asgi.application'
 
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',
-    },
-}
+try:
+    import channels_redis  # noqa: F401 — verify it is installed
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                'hosts': [('127.0.0.1', 6379)],
+            },
+        },
+    }
+except ImportError:
+    # Fall back to in-memory layer during initial install (before pip install completes)
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        },
+    }
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
@@ -90,13 +142,13 @@ DATABASES = {
     }
 }
 
-FILE_UPLOAD_MAX_MEMORY_SIZE = 314572800  # 300MB in bytes
+FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB in bytes
 
 # Maximum size of file upload handlers in memory before writing to disk
-DATA_UPLOAD_MAX_MEMORY_SIZE = 314572800  # 300MB in bytes
+DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB in bytes
 
 # Adjust the number of fields Django can handle for large form submissions if needed
-DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000 
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000 
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -132,28 +184,20 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = 'static/'
-
-
-
-# settings.py
-
-import os
-from pathlib import Path
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-# Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+
+
+STATIC_ROOT = _os.path.join(BASE_DIR, 'staticfiles')
 
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
-CSRF_TRUSTED_ORIGINS = [
-    'https://94.136.184.183:8082',
-    'http://94.136.184.183:8080',
-]
+
+# CSRF trusted origins — populated dynamically by change_hostname() at install.
+# Operators can override via DJANGO_CSRF_ORIGINS env var (comma-separated).
+_csrf_env = _os.environ.get('DJANGO_CSRF_ORIGINS', '').strip()
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_env.split(',') if o.strip()] if _csrf_env else []
 
 # Optional: Additional static file storage settings
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'

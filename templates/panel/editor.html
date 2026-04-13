@@ -3,188 +3,786 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VoidPanel Editor</title>
-
-    <!-- Include Monaco Editor from CDN -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-  
-    <script src="https://unpkg.com/monaco-editor@latest/min/vs/loader.js"></script>
+    <title>Void Editor — {{ request.path|cut:'/editor_view/' }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://unpkg.com/monaco-editor@0.44.0/min/vs/loader.js"></script>
 
     <style>
-        /* Ensure the body and html take full height */
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+        :root {
+            --bg-base:      #0a0e1a;
+            --bg-sidebar:   #0d1117;
+            --bg-toolbar:   rgba(13,17,23,0.97);
+            --bg-tab:       rgba(22,33,58,0.6);
+            --bg-tab-act:   rgba(99,102,241,0.12);
+            --accent:       #6366f1;
+            --accent-2:     #818cf8;
+            --green:        #10b981;
+            --red:          #ef4444;
+            --yellow:       #f59e0b;
+            --text-dim:     #475569;
+            --text-mid:     #64748b;
+            --text-main:    #cbd5e1;
+            --text-bright:  #e2e8f0;
+            --border:       rgba(255,255,255,0.06);
+            --border-accent:rgba(99,102,241,0.3);
+            --radius:       8px;
+            --font-ui:      'Inter', sans-serif;
+            --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
+        }
+
         html, body {
             height: 100%;
-            margin: 0;
-            padding: 0;
+            background: var(--bg-base);
+            color: var(--text-main);
+            font-family: var(--font-ui);
+            overflow: hidden;
         }
 
-        /* Make the container take full height */
-        #container {
-            width: 100%;
-            height: 100vh; /* Full viewport height */
-            box-sizing: border-box;
-        }
-    </style>
-    <style>
-        /* Basic styling for the p tag */
-        p.processing {
-            font-size: 18px;
-            font-weight: bold;
-
+        /* ── Layout ── */
+        .ve-layout {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
         }
 
-        /* Animation for the dots */
-        .dots::after {
-            content: '';
-            display: inline-block;
-            width: 1em;
-            text-align: left;
-            animation: dots 1.5s steps(4, end) infinite;
+        /* ── Titlebar ── */
+        .ve-titlebar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 20px;
+            height: 44px;
+            background: var(--bg-toolbar);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            user-select: none;
+        }
+        .ve-logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            font-size: 0.88rem;
+            color: var(--text-bright);
+            text-decoration: none;
+            flex-shrink: 0;
+        }
+        .ve-logo-icon {
+            width: 22px;
+            height: 22px;
+            background: linear-gradient(135deg,#6366f1,#8b5cf6);
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            color: #fff;
+        }
+        .ve-logo-text { color: var(--accent-2); }
+
+        .ve-divider { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+
+        /* Breadcrumb */
+        .ve-breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.78rem;
+            color: var(--text-mid);
+            flex: 1;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        .ve-breadcrumb span { color: var(--text-dim); }
+        .ve-breadcrumb .file-name {
+            color: var(--text-bright);
+            font-weight: 600;
+        }
+        .ve-breadcrumb i { font-size: 0.65rem; color: var(--text-dim); }
+
+        /* Titlebar actions */
+        .ve-titlebar-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .ve-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 14px;
+            border-radius: var(--radius);
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.18s;
+            font-family: var(--font-ui);
+            white-space: nowrap;
+        }
+        .ve-btn-ghost {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+        }
+        .ve-btn-ghost:hover { background: rgba(255,255,255,0.1); color: var(--text-bright); }
+
+        .ve-btn-save {
+            background: linear-gradient(135deg,#6366f1,#4f46e5);
+            color: #fff;
+            box-shadow: 0 2px 12px rgba(99,102,241,0.35);
+        }
+        .ve-btn-save:hover { box-shadow: 0 4px 20px rgba(99,102,241,0.5); transform: translateY(-1px); }
+        .ve-btn-save:active { transform: translateY(0); }
+        .ve-btn-save.saving { opacity: 0.7; cursor: not-allowed; }
+
+        /* kbd shortcut badge */
+        .kbd {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-size: 0.65rem;
+            font-family: var(--font-mono);
+            color: var(--text-mid);
         }
 
-        /* Keyframes for the dots animation */
-        @keyframes dots {
+        /* ── Tab bar ── */
+        .ve-tabbar {
+            display: flex;
+            align-items: stretch;
+            background: var(--bg-sidebar);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            overflow-x: auto;
+        }
+        .ve-tabbar::-webkit-scrollbar { height: 3px; }
+        .ve-tabbar::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.4); }
 
-            0%,
-            100% {
-                content: '';
-            }
+        .ve-tab {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 16px;
+            height: 36px;
+            font-size: 0.79rem;
+            color: var(--text-mid);
+            border-right: 1px solid var(--border);
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+            border-bottom: 2px solid transparent;
+            flex-shrink: 0;
+        }
+        .ve-tab.active {
+            background: var(--bg-tab-act);
+            color: var(--text-bright);
+            border-bottom-color: var(--accent);
+        }
+        .ve-tab i { font-size: 0.72rem; }
 
-            25% {
-                content: '.';
-            }
+        /* Language dot */
+        .lang-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
 
-            50% {
-                content: '..';
-            }
+        /* ── Toolbar (actions bar) ── */
+        .ve-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 16px;
+            background: rgba(10,14,26,0.7);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .ve-tool-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.74rem;
+            color: var(--text-mid);
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            font-family: var(--font-ui);
+            transition: all 0.15s;
+        }
+        .ve-tool-btn:hover { background: rgba(255,255,255,0.07); color: var(--text-bright); }
+        .ve-tool-sep { width: 1px; height: 16px; background: var(--border); margin: 0 4px; }
 
-            75% {
-                content: '...';
-            }
+        /* Language selector */
+        .ve-lang-select {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .ve-select {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-main);
+            font-size: 0.76rem;
+            padding: 4px 8px;
+            font-family: var(--font-ui);
+            cursor: pointer;
+            outline: none;
+        }
+        .ve-select:focus { border-color: var(--accent); }
+
+        /* ── Main content ── */
+        .ve-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* ── Editor area ── */
+        #editor-container {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* ── Status bar ── */
+        .ve-statusbar {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 0 16px;
+            height: 26px;
+            background: var(--accent);
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.85);
+            flex-shrink: 0;
+            user-select: none;
+        }
+        .ve-statusbar .status-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .ve-statusbar .status-item i { font-size: 0.65rem; }
+        .ve-statusbar .status-right {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        /* ── Toast ── */
+        #toast-stack {
+            position: fixed;
+            bottom: 40px;
+            right: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .toast {
+            min-width: 260px;
+            padding: 12px 18px;
+            border-radius: 10px;
+            font-size: 0.82rem;
+            font-weight: 500;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            animation: toastIn 0.25s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        @keyframes toastIn { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
+        .toast.success { background: rgba(16,185,129,0.18); border: 1px solid rgba(16,185,129,0.3); color: #34d399; }
+        .toast.error   { background: rgba(239,68,68,0.18);  border: 1px solid rgba(239,68,68,0.3);  color: #f87171; }
+        .toast.info    { background: rgba(99,102,241,0.18); border: 1px solid rgba(99,102,241,0.3); color: #818cf8; }
+
+        /* ── Find bar ── */
+        #find-bar {
+            display: none;
+            position: absolute;
+            top: 8px;
+            right: 16px;
+            z-index: 100;
+            background: rgba(13,17,23,0.97);
+            border: 1px solid var(--border-accent);
+            border-radius: 10px;
+            padding: 10px 14px;
+            min-width: 280px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+            gap: 8px;
+            flex-direction: column;
+        }
+        #find-bar.open { display: flex; }
+        .find-row { display: flex; align-items: center; gap: 6px; }
+        .find-input {
+            flex: 1;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-bright);
+            font-size: 0.8rem;
+            padding: 5px 10px;
+            font-family: var(--font-mono);
+            outline: none;
+        }
+        .find-input:focus { border-color: var(--accent); }
+
+        /* ── Minimap toggle ── */
+        .toggle-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 9px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            color: var(--text-mid);
+            background: transparent;
+            transition: all 0.15s;
+            font-family: var(--font-ui);
+        }
+        .toggle-chip.on { background: rgba(99,102,241,0.15); border-color: var(--border-accent); color: var(--accent-2); }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.3); border-radius: 3px; }
+
+        @media(max-width:768px){
+            .ve-tab-label, .kbd, .ve-tool-btn span { display: none; }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg bg-body-tertiary  bg-dark border-bottom border-body" data-bs-theme="dark">
-        <div class="container-fluid">
-          <a class="navbar-brand" href="#">File: {{ request.path|cut:'/editor_view/' }}</a>
-          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-          </button>
-          <div class="collapse navbar-collapse" id="navbarSupportedContent">
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-            
-            
-            </ul>
-            <form class="d-flex" role="search">
-             
-              <button class="btn btn-success me-2" onclick="saveFile(event)">Save</button>
-           
-            </form>
-          </div>
+{% csrf_token %}
+
+<div class="ve-layout">
+
+    <!-- ══ Titlebar ══ -->
+    <div class="ve-titlebar">
+        <a href="/filemanager/" class="ve-logo" title="Back to File Manager">
+            <div class="ve-logo-icon"><i class="fa-solid fa-code"></i></div>
+            <span>Void <span class="ve-logo-text">Editor</span></span>
+        </a>
+
+        <div class="ve-divider"></div>
+
+        <!-- Breadcrumb -->
+        <div class="ve-breadcrumb" id="breadcrumb-bar">
+            <i class="fa-solid fa-server"></i>
         </div>
-      </nav>
-      <div id="saved" class="alert alert-success" style="display: none;">
-        <strong>Success!</strong> Saved 
-      </div>
-      <div id="error" class="alert alert-danger" style="display: none;">
-        <strong>Danger!</strong> Error Saving Files
-      </div>
-      <div class="modal animated fadeIn show" id="pro1" style="display: none; margin-top: 300px;">
-        <div class="modal-dialog modal-sm" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <p class="processing">Processing<span class="dots"></span></p>
 
+        <div class="ve-titlebar-actions">
+            <button class="ve-btn ve-btn-ghost" onclick="toggleWordWrap()" title="Toggle Word Wrap">
+                <i class="fa-solid fa-align-left"></i>
+                <span>Wrap</span>
+            </button>
+            <button class="ve-btn ve-btn-ghost" onclick="formatDocument()" title="Format / Beautify">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                <span>Format</span>
+            </button>
+            <div class="ve-divider"></div>
+            <button class="ve-btn ve-btn-ghost" onclick="copyAll()" title="Copy all content">
+                <i class="fa-solid fa-copy"></i>
+                <span>Copy All</span>
+            </button>
+            <button class="ve-btn ve-btn-save" id="save-btn" onclick="saveFile()" title="Save (Ctrl+S)">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span>Save</span>
+                <span class="kbd">Ctrl+S</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ══ Tab bar ══ -->
+    <div class="ve-tabbar">
+        <div class="ve-tab active" id="current-tab">
+            <span class="lang-dot" id="lang-dot" style="background:#818cf8"></span>
+            <i class="fa-solid fa-file-code" id="tab-icon"></i>
+            <span class="ve-tab-label" id="tab-filename">file</span>
+            <span id="modified-dot" style="display:none;color:#f59e0b;font-size:0.9rem;">●</span>
+        </div>
+    </div>
+
+    <!-- ══ Toolbar ══ -->
+    <div class="ve-toolbar">
+        <button class="ve-tool-btn" onclick="triggerFind()" title="Find (Ctrl+F)">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <span>Find</span>
+        </button>
+        <button class="ve-tool-btn" onclick="triggerReplace()" title="Replace">
+            <i class="fa-solid fa-right-left"></i>
+            <span>Replace</span>
+        </button>
+        <div class="ve-tool-sep"></div>
+        <button class="ve-tool-btn" onclick="undoAction()" title="Undo (Ctrl+Z)">
+            <i class="fa-solid fa-rotate-left"></i>
+            <span>Undo</span>
+        </button>
+        <button class="ve-tool-btn" onclick="redoAction()" title="Redo (Ctrl+Y)">
+            <i class="fa-solid fa-rotate-right"></i>
+            <span>Redo</span>
+        </button>
+        <div class="ve-tool-sep"></div>
+        <button class="ve-tool-btn" onclick="toggleMinimap()" id="minimap-btn" title="Toggle Minimap">
+            <i class="fa-solid fa-map"></i>
+            <span>Minimap</span>
+        </button>
+        <button class="ve-tool-btn" onclick="toggleFold()" title="Fold All">
+            <i class="fa-solid fa-compress"></i>
+            <span>Fold All</span>
+        </button>
+
+        <div class="ve-lang-select">
+            <i class="fa-solid fa-code" style="color:var(--text-dim);font-size:0.72rem;"></i>
+            <select class="ve-select" id="lang-selector" onchange="changeLanguage(this.value)" title="Change syntax language">
+                <option value="plaintext">Plain Text</option>
+                <option value="html">HTML</option>
+                <option value="css">CSS</option>
+                <option value="javascript">JavaScript</option>
+                <option value="typescript">TypeScript</option>
+                <option value="json">JSON</option>
+                <option value="python">Python</option>
+                <option value="php">PHP</option>
+                <option value="java">Java</option>
+                <option value="cpp">C++</option>
+                <option value="c">C</option>
+                <option value="csharp">C#</option>
+                <option value="go">Go</option>
+                <option value="rust">Rust</option>
+                <option value="ruby">Ruby</option>
+                <option value="shell">Shell/Bash</option>
+                <option value="sql">SQL</option>
+                <option value="xml">XML</option>
+                <option value="yaml">YAML</option>
+                <option value="markdown">Markdown</option>
+                <option value="dockerfile">Dockerfile</option>
+                <option value="ini">INI / Config</option>
+                <option value="nginx">Nginx</option>
+                <option value="perl">Perl</option>
+                <option value="r">R</option>
+                <option value="swift">Swift</option>
+                <option value="kotlin">Kotlin</option>
+                <option value="dart">Dart</option>
+                <option value="scala">Scala</option>
+            </select>
+            <select class="ve-select" id="theme-selector" onchange="changeTheme(this.value)" title="Change editor theme">
+                <option value="vs-dark">Dark</option>
+                <option value="hc-black">High Contrast</option>
+                <option value="vs">Light</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- ══ Main ══ -->
+    <div class="ve-content">
+        <div id="editor-container">
+            <!-- Find bar overlay -->
+            <div id="find-bar">
+                <div class="find-row">
+                    <i class="fa-solid fa-magnifying-glass" style="color:var(--text-dim);font-size:0.75rem;"></i>
+                    <input type="text" class="find-input" id="find-input" placeholder="Find...">
+                    <button class="ve-tool-btn" onclick="doFind(1)"><i class="fa-solid fa-chevron-down"></i></button>
+                    <button class="ve-tool-btn" onclick="doFind(-1)"><i class="fa-solid fa-chevron-up"></i></button>
+                    <button class="ve-tool-btn" onclick="closeFindBar()"><i class="fa-solid fa-xmark"></i></button>
                 </div>
-
             </div>
         </div>
     </div>
-    <div id="container"></div>
 
+    <!-- ══ Status bar ══ -->
+    <div class="ve-statusbar">
+        <div class="status-item">
+            <i class="fa-solid fa-code-branch"></i>
+            <span>VoidPanel</span>
+        </div>
+        <div class="status-item">
+            <i class="fa-solid fa-circle" id="status-dot" style="color:#10b981;"></i>
+            <span id="status-text">Ready</span>
+        </div>
+        <div class="status-right">
+            <div class="status-item" id="cursor-pos">Ln 1, Col 1</div>
+            <div class="status-item" id="sel-info"></div>
+            <div class="status-item"><span id="status-lang">—</span></div>
+            <div class="status-item">UTF-8</div>
+            <div class="status-item"><i class="fa-solid fa-indent"></i> Spaces: 4</div>
+        </div>
+    </div>
+</div>
 
-    <!-- <script>
-  
-      
+<!-- ══ Toast stack ══ -->
+<div id="toast-stack"></div>
 
-        var editorData = "{{ data|escapejs }}";
-        var editorLanguage = "{{ language }}";
-        require.config({ paths: { 'vs': 'https://unpkg.com/monaco-editor@latest/min/vs' }});
-        require(['vs/editor/editor.main'], function() {
-            
-            var editor = monaco.editor.create(document.getElementById('container'), {
-                value: editorData,
-                language: editorLanguage
-            });
+{{ data|json_script:"editor-data" }}
 
-            window.saveFile = function() {
-              
-                var content = editor.getValue();
-                var path="{{ request.path|cut:'/editor_view/' }}";
-               
-               
-              
-                fetch('/save/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': '{{ csrf_token }}'
-                    },
-                    body: JSON.stringify({ content: content ,path:path})
-                }).then(response => response.json())
-                  .then(data => alert('File saved successfully!'))
-                  
-            }
-        });
-    </script> -->
-    <script>
-      var editorData = "{{ data|escapejs }}";
-      var editorLanguage = "{{ language }}";
-  
-      require.config({ paths: { 'vs': 'https://unpkg.com/monaco-editor@latest/min/vs' } });
-      require(['vs/editor/editor.main'], function() {
-          var editor = monaco.editor.create(document.getElementById('container'), {
-              value: editorData,
-              language: editorLanguage
-          });
-  
-          window.saveFile = function(event) {
-              // Prevent default behavior (e.g., form submission)
-              if (event) {
-                  event.preventDefault();
-              }
-              document.getElementById('pro1').style.display="block";
-                
-              var content = editor.getValue();
-              var path = "{{ request.path|cut:'/editor_view/' }}";
-  
-              fetch('/save/', {
-                  method: 'POST',
-                  headers: {
-                      'Content-Type': 'application/json',
-                      'X-CSRFToken': '{{ csrf_token }}'
-                  },
-                  body: JSON.stringify({ content: content, path: path })
-              })
-              .then(response => response.json())
-              .then(data => {
-                if (data.status === 'success') {
-                    document.getElementById('pro1').style.display="none";
-                    document.getElementById('saved').style.display='block';
-                } else {
-                    document.getElementById('pro1').style.display="none";
-                    document.getElementById('error').style.display='block';
+<script>
+/* ── Config ── */
+const FILE_PATH  = "{{ request.path|cut:'/editor_view/' }}";
+const CSRF_TOKEN = document.querySelector('[name=csrfmiddlewaretoken]').value;
+const RAW_DATA   = JSON.parse(document.getElementById('editor-data').textContent);
+let   LANG       = "{{ language }}";
 
-                }
-            })
-            .catch(error => {
-                console.error('Error saving file:', error);
-                document.getElementById('error').style.display='block';
-            });
-          };
-      });
-  </script>
-  
+/* ── Helpers ── */
+function toast(msg, type='info', dur=3500) {
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    const icons = { success:'fa-circle-check', error:'fa-circle-xmark', info:'fa-circle-info' };
+    el.innerHTML = `<i class="fa-solid ${icons[type]||'fa-circle-info'}"></i> ${msg}`;
+    document.getElementById('toast-stack').appendChild(el);
+    setTimeout(() => el.remove(), dur);
+}
+
+function setStatus(text, color='#10b981') {
+    document.getElementById('status-text').textContent = text;
+    document.getElementById('status-dot').style.color = color;
+}
+
+/* ── Breadcrumb ── */
+(function buildBreadcrumb() {
+    const raw    = FILE_PATH.replace(/^\//, '').replace(/\/$/, '');
+    const parts  = raw.split('/');
+    const bar    = document.getElementById('breadcrumb-bar');
+    let   built  = '';
+    let   html   = '<i class="fa-solid fa-server"></i> ';
+    parts.forEach((p, i) => {
+        built += '/' + p;
+        if (i === parts.length - 1) {
+            html += `<i class="fa-solid fa-chevron-right"></i><span class="file-name">${p}</span>`;
+        } else {
+            html += `<i class="fa-solid fa-chevron-right"></i>${p}`;
+        }
+    });
+    bar.innerHTML = html;
+    document.getElementById('tab-filename').textContent = parts[parts.length - 1];
+})();
+
+/* ── Language detection ── */
+const EXT_MAP = {
+    py:'python',js:'javascript',ts:'typescript',html:'html',htm:'html',
+    css:'css',json:'json',php:'php',java:'java',cpp:'cpp',c:'c',
+    cs:'csharp',go:'go',rs:'rust',rb:'ruby',sh:'shell',bash:'shell',
+    sql:'sql',xml:'xml',yaml:'yaml',yml:'yaml',md:'markdown',
+    txt:'plaintext',ini:'ini',conf:'ini',cfg:'ini',env:'ini',
+    Dockerfile:'dockerfile',dockerfile:'dockerfile',
+    nginx:'nginx',pl:'perl',r:'r',swift:'swift',kt:'kotlin',dart:'dart',scala:'scala'
+};
+const LANG_COLORS = {
+    python:'#3b82f6',javascript:'#f59e0b',typescript:'#3b82f6',html:'#ef4444',
+    css:'#06b6d4',json:'#a3e635',php:'#7c3aed',java:'#f97316',cpp:'#6366f1',
+    shell:'#10b981',sql:'#ec4899',markdown:'#94a3b8',rust:'#f59e0b',
+    go:'#00add8',ruby:'#e11d48',default:'#818cf8'
+};
+
+function detectLang() {
+    const fname = FILE_PATH.replace(/\/$/, '').split('/').pop() || '';
+    const ext   = fname.includes('.') ? fname.split('.').pop() : fname;
+    return EXT_MAP[ext] || EXT_MAP[fname] || LANG || 'plaintext';
+}
+
+function updateLangUI(lang) {
+    const color = LANG_COLORS[lang] || LANG_COLORS.default;
+    document.getElementById('lang-dot').style.background = color;
+    document.getElementById('status-lang').textContent   = lang.toUpperCase();
+    // set tab icon
+    const iconMap = { html:'fa-html5',css:'fa-css3-alt',javascript:'fa-js',python:'fa-python',php:'fa-php',java:'fa-java',shell:'fa-terminal',markdown:'fa-markdown',sql:'fa-database' };
+    const brand   = iconMap[lang];
+    const tabIcon = document.getElementById('tab-icon');
+    tabIcon.className = brand ? `fa-brands ${brand}` : 'fa-solid fa-file-code';
+
+    const sel = document.getElementById('lang-selector');
+    if ([...sel.options].some(o => o.value === lang)) sel.value = lang;
+    else sel.value = 'plaintext';
+}
+
+/* ── Minimap state ── */
+let minimapOn = true;
+let wordWrap  = 'off';
+let editor    = null;
+let _modified = false;
+
+function markModified(v) {
+    _modified = v;
+    document.getElementById('modified-dot').style.display = v ? 'inline' : 'none';
+}
+
+/* ── Monaco init ── */
+require.config({ paths: { vs: 'https://unpkg.com/monaco-editor@0.44.0/min/vs' } });
+require(['vs/editor/editor.main'], function () {
+    const detectedLang = detectLang();
+    LANG = detectedLang;
+    updateLangUI(LANG);
+
+    editor = monaco.editor.create(document.getElementById('editor-container'), {
+        value:         RAW_DATA,
+        language:      LANG,
+        theme:         'vs-dark',
+        fontSize:      14,
+        fontFamily:    'JetBrains Mono, Fira Code, Consolas, monospace',
+        fontLigatures: true,
+        lineHeight:    22,
+        wordWrap:      'off',
+        minimap:       { enabled: true },
+        scrollBeyondLastLine: false,
+        automaticLayout:      true,
+        padding:       { top: 12, bottom: 12 },
+        cursorBlinking:'smooth',
+        cursorSmoothCaretAnimation: 'on',
+        smoothScrolling: true,
+        suggest:       { showWords: true },
+        formatOnPaste: true,
+        tabSize:       4,
+        renderWhitespace: 'selection',
+        bracketPairColorization: { enabled: true },
+        guides:        { bracketPairs: true, indentation: true },
+    });
+
+    /* Cursor position update */
+    editor.onDidChangeCursorPosition(function (e) {
+        const pos = e.position;
+        document.getElementById('cursor-pos').textContent = `Ln ${pos.lineNumber}, Col ${pos.column}`;
+    });
+
+    /* Selection info */
+    editor.onDidChangeCursorSelection(function (e) {
+        const sel = editor.getSelection();
+        const len = editor.getModel().getValueInRange(sel).length;
+        document.getElementById('sel-info').textContent = len > 0 ? `(${len} selected)` : '';
+    });
+
+    /* Dirty tracking */
+    editor.onDidChangeModelContent(function () {
+        markModified(true);
+        setStatus('Unsaved changes', '#f59e0b');
+    });
+
+    /* Ctrl+S save */
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, function () {
+        saveFile();
+    });
+
+    /* Ctrl+/ comment shortcut already built in */
+
+    setStatus('Ready');
+});
+
+/* ── Actions ── */
+function saveFile() {
+    if (!editor) return;
+    const btn = document.getElementById('save-btn');
+    btn.classList.add('saving');
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Saving…</span>';
+    setStatus('Saving…', '#6366f1');
+
+    fetch('/save/', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+        body:    JSON.stringify({ content: editor.getValue(), path: FILE_PATH })
+    })
+    .then(r => r.json())
+    .then(d => {
+        btn.classList.remove('saving');
+        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> <span>Save</span> <span class="kbd">Ctrl+S</span>';
+        if (d.status === 'success') {
+            toast('File saved successfully', 'success');
+            setStatus('Saved', '#10b981');
+            markModified(false);
+        } else {
+            toast('Error: ' + (d.message || 'Save failed'), 'error');
+            setStatus('Save error', '#ef4444');
+        }
+    })
+    .catch(() => {
+        btn.classList.remove('saving');
+        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> <span>Save</span> <span class="kbd">Ctrl+S</span>';
+        toast('Network error while saving', 'error');
+        setStatus('Error', '#ef4444');
+    });
+}
+
+function changeLanguage(lang) {
+    if (!editor) return;
+    LANG = lang;
+    monaco.editor.setModelLanguage(editor.getModel(), lang);
+    updateLangUI(lang);
+    toast(`Language: ${lang.toUpperCase()}`, 'info', 2000);
+}
+
+function changeTheme(theme) {
+    if (!editor) return;
+    monaco.editor.setTheme(theme);
+    toast(`Theme: ${theme}`, 'info', 2000);
+}
+
+function toggleMinimap() {
+    if (!editor) return;
+    minimapOn = !minimapOn;
+    editor.updateOptions({ minimap: { enabled: minimapOn } });
+    document.getElementById('minimap-btn').style.color = minimapOn ? 'var(--accent-2)' : 'var(--text-mid)';
+}
+
+function toggleWordWrap() {
+    if (!editor) return;
+    wordWrap = wordWrap === 'off' ? 'on' : 'off';
+    editor.updateOptions({ wordWrap });
+    toast(`Word wrap: ${wordWrap}`, 'info', 1800);
+}
+
+function formatDocument() {
+    if (!editor) return;
+    editor.getAction('editor.action.formatDocument')?.run().then(() => {
+        toast('Document formatted', 'success', 2000);
+    });
+}
+
+function undoAction() { editor?.trigger('keyboard','undo',{}); }
+function redoAction() { editor?.trigger('keyboard','redo',{}); }
+
+function toggleFold() {
+    if (!editor) return;
+    editor.getAction('editor.foldAll')?.run();
+}
+
+function copyAll() {
+    if (!editor) return;
+    navigator.clipboard.writeText(editor.getValue()).then(() => toast('Copied to clipboard', 'success', 2000));
+}
+
+/* ── Find bar ── */
+function triggerFind() {
+    editor?.getAction('actions.find')?.run();
+}
+function triggerReplace() {
+    editor?.getAction('editor.action.startFindReplaceAction')?.run();
+}
+function closeFindBar() {
+    document.getElementById('find-bar').classList.remove('open');
+}
+
+/* ── Keyboard guard (browser back etc) ── */
+window.addEventListener('beforeunload', function (e) {
+    if (_modified) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Leave?';
+    }
+});
+</script>
 </body>
 </html>

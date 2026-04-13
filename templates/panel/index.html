@@ -675,357 +675,8 @@ async function rservice(event) {
 
         <!--  -->
 
-        {% if show %}
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-            }
 
-            .popup {
-                display: none;
-                /* Initially hidden */
-                position: fixed;
-                left: 0;
-                top: 0;
-                width: 100%;
-                height: 100%;
-                justify-content: center;
-                align-items: center;
 
-            }
-
-
-            #popup.hidden {
-                opacity: 0;
-                visibility: hidden;
-            }
-
-            .popup-content {
-
-                color: white;
-
-
-                padding: 20px;
-                border-radius: 5px;
-                width: 400px;
-                text-align: center;
-                justify-content: center;
-
-            }
-
-
-            /* Style for the spinner */
-            .input-container {
-                position: relative;
-                /* display: inline-block; */
-            }
-
-            /* Style for the input field */
-            .form-control {
-                padding-right: 50px;
-                /* Space for the spinner */
-            }
-
-            /* Style for the spinner */
-            .spinner {
-                border: 4px solid rgba(0, 0, 0, 0.1);
-                /* Light border */
-                border-left: 4px solid #3498db;
-                /* Blue color for the spinning part */
-                border-radius: 50%;
-                /* Make it a circle */
-                width: 20px;
-                height: 20px;
-                position: absolute;
-                right: 7px;
-                top: 35%;
-                transform: translateY(-50%);
-                animation: spin 1s linear infinite;
-                /* Animation for spinning effect */
-                display: none;
-                /* Hidden by default */
-            }
-
-
-            /* Animation for spinning */
-            @keyframes spin {
-                0% {
-                    transform: rotate(0deg);
-                }
-
-                100% {
-                    transform: rotate(360deg);
-                }
-            }
-        </style>
-
-        <script>
-            window.onload = function () {
-                // Display the popup automatically when the page loads
-                document.getElementById('popup').style.display = 'flex';
-            };
-
-            
-
-
-
-        </script>
-        
-
-        <div id="popup" class="popup">
-
-            <div class="body popup-content ">
-
-                <div class=" card modal-sm" style="border-radius: 20px; border: solid rgb(89, 196, 188) ;">
-
-            
-                    <div class=" header">
-                        <h2>Quick Setup</h2>
-                    </div>
-
-                    <form id="myForm" method="post" action="">
-                        <div class="body">
-
-                            <div class="form-group">
-                                <input type="text" value="skip" hidden>
-                                <label for="phone" style="display: block;" class="control-label">Hostname</label>
-
-                                <div class="input-container">
-                                    <input type="text" id="hostname" name="hostname" class="form-control"
-                                        placeholder="Hostname">
-                                    <div id="spinner" class="spinner"></div>
-                                    <div id="status" class="status-icon"></div>
-                                </div>
-
-                                <span class="help-block">server.domain.com</span>
-
-                            </div>
-                            <div class="form-group">
-                                <label for="phone" class="control-label">Nameserver1</label>
-                                <input type="text" id="phone" placeholder="Nameserver" name="ns1" class="form-control">
-                                <span class="help-block">ns1.domain.com</span>
-                            </div>
-                            <div class="form-group">
-                                <label for="phone" class="control-label">Nameserver2</label>
-                                <input type="text" id="phone" placeholder="Nameserver" name="ns2" class="form-control">
-                                <span class="help-block">ns2.domain.com</span>
-                            </div>
-                            <div class="form-group">
-                                <label for="phone" class="control-label">Email</label>
-                                <input type="email" placeholder="Email" name="email" id="phone" class="form-control">
-                                <span class="help-block">email@domain.com</span>
-
-                            </div>
-
-
-
-
-
-
-
-
-                            <div class="form-group" style="display: flex; justify-content:space-around;"
-                                class="row clearfix">
-                                <button type="button" onclick="submitForm()" id="skipform"
-                                    class="btn btn-primary">Skip</button>
-                                <button type="button" disabled id="updateform" class="btn btn-secondary">Update</button>
-                            </div>
-                            <div id="pbar" style="display: none;">
-                                <div id="progress" class="form-group progress">
-                                    <div id="p-bar"
-                                        class="progress-bar progress-bar-success progress-bar-striped active"
-                                        role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"
-                                        style="width: 0%">
-                                    </div>
-                                </div>
-                            </div>
-
-
-                        </div>
-                    </form>
-
-                    
-                </div>
-                
-            </div>
-            
-
-        </div>
-        
-    </div>
-
-    
-
-    </div>
-
-    
-
-
-
-    </div>
-
-   
-
-
-
-
-    <script>
-        function submitForm() {
-            const formData = new FormData(document.getElementById('myForm'));
-
-            fetch('/quicksetup/', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken') // Include CSRF token
-                }
-            })
-                .then(response => response.json())
-                .then(data => {
-                    const div = document.getElementById('popup');
-                    div.classList.add('hidden');
-
-                })
-                .catch(error => {
-                    document.getElementById('response').textContent = 'Error: ' + error.message;
-                });
-        }
-
-        // Function to get the CSRF token from the cookies
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-            }
-            return cookieValue;
-        }
-
-
-        function updateForm() {
-            const loadingBar = document.getElementById('pbar');
-            loadingBar.style.display = 'block';
-            let width = 0;
-            const progressBar = document.getElementById('p-bar');
-            const updateWidth = () => {
-                if (width >= 100) {
-                    clearInterval(interval); // Stop the interval when reaching 100%
-                } else {
-                    width++;
-                    progressBar.style.width = width + '%';
-                    progressBar.setAttribute('aria-valuenow', width);
-                    // Optional: Display percentage inside the bar
-                }
-            };
-            const formData = new FormData(document.getElementById('myForm'));
-            setInterval(updateWidth, 100);
-
-            fetch('/updatesetup/', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': GetCookie('csrftoken') // Include CSRF token
-                }
-            })
-                .then(response => response.json())
-                .then(data => {
-                    loadingBar.style.display = 'none';
-                    const div = document.getElementById('popup');
-                    div.classList.add('hidden');
-                    window.location.href = "/";
-
-                })
-                .catch(error => {
-                    loadingBar.style.display = 'none';
-                    document.getElementById('response').textContent = 'Error: ' + error.message;
-                    window.location.href = "/";
-                });
-        }
-
-        // Function to get the CSRF token from the cookies
-        function GetCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-            }
-            return cookieValue;
-        }
-    </script>
-    <script>
-
-        async function getPublicIP() {
-            try {
-                const response = await fetch('https://api.ipify.org?format=json');
-                const data = await response.json();
-                return data.ip;
-            } catch (error) {
-                console.error('Error fetching IP address:', error);
-                return '400'; // Return error code for demonstration
-            }
-        }
-        async function resolveHostname(hostname) {
-            try {
-      
-                var urlf="https://dns.google/resolve?name="+hostname+"&type=A";
-            
-            const response = await fetch(urlf);
-            const data = await response.json();
-                if (data.Answer) {
-                    return data.Answer[0].data; // Return the first IP address from the response
-                } else {
-
-                    return null;
-                }
-            } catch (error) {
-
-                return null;
-            }
-        }
-        // Async function to handle input changes
-        async function handleInputChange() {
-            const spinner = document.getElementById('spinner');
-            const statusIcon = document.getElementById('status');
-            const expectedIP = await resolveHostname(document.getElementById('hostname').value);
-            spinner.style.display = 'block'; // Show the spinner
-            statusIcon.style.display = 'none'; // Hide the status icon initially
-
-            const ip = await getPublicIP(); // Await the IP fetch
-
-
-            if ("{{serverip}} "== expectedIP) {
-                statusIcon.textContent = '✔'; // Set checkmark if IP matches
-                statusIcon.style.color = 'green'; // Optional: change color for checkmark
-                var xc = document.getElementById('updateform');
-                xc.onclick = updateForm;
-                xc.disabled = false;
-
-            } else {
-                statusIcon.textContent = '✖'; // Set cross if IP does not match
-                statusIcon.style.color = 'red'; // Optional: change color for cross
-
-            }
-
-            spinner.style.display = 'none'; // Hide the spinner
-            statusIcon.style.display = 'block'; // Show the status icon
-        }
-
-        // Add event listener to the input field
-        document.getElementById('hostname').addEventListener('input', handleInputChange);
-    </script>
-    {% endif %}
     <!-- Javascript -->
     <script src="/static/assets/bundles/libscripts.bundle.js"></script>
     <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
@@ -1065,6 +716,466 @@ async function rservice(event) {
         setInterval(updateServerLoad, 5000);
     </script>
 
+
+
+        {% if show %}
+        <style>
+            /* ── Quick Setup Overlay ─────────────────────────────────── */
+            :root {
+                --qs-cyan:   #00e5ff;
+                --qs-cyan-g: rgba(0,229,255,0.12);
+                --qs-bg:     rgba(6,10,22,0.97);
+                --qs-card:   rgba(12,18,38,0.98);
+                --qs-border: rgba(0,229,255,0.15);
+                --qs-soft:   rgba(255,255,255,0.06);
+                --qs-dim:    rgba(180,200,230,0.6);
+                --qs-muted:  rgba(180,200,230,0.3);
+            }
+
+            #popup {
+                display: none !important;
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                background: rgba(4, 7, 18, 0.96) !important;
+                backdrop-filter: blur(20px) !important;
+                -webkit-backdrop-filter: blur(20px) !important;
+                z-index: 999999 !important;
+                align-items: center !important;
+                justify-content: center !important;
+                padding: 20px !important;
+                font-family: 'Inter', 'Nunito', Arial, sans-serif !important;
+                margin: 0 !important;
+                overflow: hidden !important;
+            }
+            #popup.qs-active {
+                display: flex !important;
+            }
+            #popup.hidden { display: none !important; }
+
+            .qs-card {
+                background: var(--qs-card);
+                border: 1px solid var(--qs-border);
+                border-radius: 22px;
+                width: 100%; max-width: 520px;
+                box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,229,255,0.08);
+                overflow: hidden;
+                animation: qs-pop 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+            }
+            @keyframes qs-pop {
+                from { opacity:0; transform: scale(0.88) translateY(20px); }
+                to   { opacity:1; transform: scale(1) translateY(0); }
+            }
+
+            /* Header */
+            .qs-header {
+                padding: 28px 32px 20px;
+                border-bottom: 1px solid var(--qs-soft);
+                background: linear-gradient(135deg, rgba(0,229,255,0.05) 0%, transparent 70%);
+                position: relative;
+            }
+            .qs-header-top {
+                display: flex; align-items: center; gap: 14px; margin-bottom: 16px;
+            }
+            .qs-icon {
+                width: 46px; height: 46px;
+                background: linear-gradient(135deg, var(--qs-cyan), #0ea5e9);
+                border-radius: 12px;
+                display: flex; align-items: center; justify-content: center;
+                font-size: 1.1rem; color: #06090f;
+                box-shadow: 0 0 20px rgba(0,229,255,0.3);
+                flex-shrink: 0;
+            }
+            .qs-title-block h2 {
+                font-size: 1.25rem; font-weight: 800;
+                color: #e4eaf8; margin: 0 0 3px;
+                letter-spacing: -0.3px;
+            }
+            .qs-title-block p {
+                font-size: 0.8rem; color: var(--qs-dim); margin: 0;
+            }
+
+            /* Step bar */
+            .qs-steps {
+                display: flex; gap: 6px; align-items: center;
+            }
+            .qs-step {
+                flex: 1; height: 3px; border-radius: 3px;
+                background: var(--qs-soft);
+                transition: background 0.4s;
+            }
+            .qs-step.done { background: var(--qs-cyan); }
+            .qs-step.active { background: linear-gradient(90deg, var(--qs-cyan), #0ea5e9); }
+
+            /* Body */
+            .qs-body { padding: 28px 32px; }
+
+            .qs-field { margin-bottom: 20px; }
+            .qs-label {
+                display: flex; align-items: center; gap: 7px;
+                font-size: 0.76rem; font-weight: 600;
+                color: var(--qs-dim);
+                text-transform: uppercase; letter-spacing: 0.8px;
+                margin-bottom: 8px;
+            }
+            .qs-label i { color: var(--qs-cyan); font-size: 0.75rem; }
+            .qs-hint {
+                font-size: 0.72rem; color: var(--qs-muted);
+                margin-top: 5px; display: flex; align-items: center; gap: 5px;
+            }
+
+            .qs-input-wrap { position: relative; display: flex; align-items: center; }
+            .qs-input {
+                width: 100%;
+                background: rgba(255,255,255,0.04);
+                border: 1px solid var(--qs-soft);
+                border-radius: 11px;
+                padding: 11px 44px 11px 14px;
+                font-size: 0.9rem; color: #e4eaf8;
+                font-family: inherit;
+                outline: none;
+                transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+            }
+            .qs-input::placeholder { color: var(--qs-muted); }
+            .qs-input:focus {
+                border-color: var(--qs-cyan);
+                background: var(--qs-cyan-g);
+                box-shadow: 0 0 0 3px rgba(0,229,255,0.1);
+            }
+            .qs-input-status {
+                position: absolute; right: 12px;
+                font-size: 1rem; pointer-events: none;
+            }
+            .qs-spinning {
+                position: absolute; right: 12px;
+                width: 16px; height: 16px;
+                border: 2px solid rgba(0,229,255,0.2);
+                border-top-color: var(--qs-cyan);
+                border-radius: 50%;
+                animation: qs-spin 0.7s linear infinite;
+                display: none;
+            }
+            @keyframes qs-spin { to { transform: rotate(360deg); } }
+
+            /* DNS status banner */
+            .dns-banner {
+                padding: 10px 14px; border-radius: 9px;
+                font-size: 0.8rem; margin-top: 8px;
+                display: none; align-items: center; gap: 8px;
+            }
+            .dns-banner.ok {
+                display: flex;
+                background: rgba(34,197,94,0.08);
+                border: 1px solid rgba(34,197,94,0.2);
+                color: #86efac;
+            }
+            .dns-banner.fail {
+                display: flex;
+                background: rgba(248,81,73,0.08);
+                border: 1px solid rgba(248,81,73,0.2);
+                color: #fca5a5;
+            }
+
+            /* Progress bar */
+            .qs-progress-wrap {
+                display: none; margin-top: 4px;
+            }
+            .qs-progress-track {
+                height: 5px; background: var(--qs-soft);
+                border-radius: 5px; overflow: hidden;
+            }
+            .qs-progress-fill {
+                height: 100%; width: 0%;
+                background: linear-gradient(90deg, var(--qs-cyan), #0ea5e9);
+                border-radius: 5px;
+                transition: width 0.1s linear;
+            }
+            .qs-progress-label {
+                font-size: 0.74rem; color: var(--qs-dim);
+                margin-top: 8px; text-align: center;
+            }
+
+            /* Footer */
+            .qs-footer {
+                padding: 18px 32px 24px;
+                border-top: 1px solid var(--qs-soft);
+                display: flex; gap: 10px; align-items: center;
+            }
+            .qs-btn {
+                flex: 1; padding: 12px 20px;
+                border-radius: 10px; font-size: 0.88rem;
+                font-weight: 600; font-family: inherit;
+                cursor: pointer; display: flex;
+                align-items: center; justify-content: center; gap: 7px;
+                transition: all 0.2s;
+            }
+            .qs-btn-skip {
+                background: rgba(255,255,255,0.05);
+                border: 1px solid var(--qs-soft);
+                color: var(--qs-dim);
+            }
+            .qs-btn-skip:hover { background: rgba(255,255,255,0.1); color: #e4eaf8; }
+            .qs-btn-save {
+                background: linear-gradient(135deg, var(--qs-cyan), #0ea5e9);
+                border: none; color: #060a14; font-weight: 700;
+                box-shadow: 0 4px 20px rgba(0,229,255,0.3);
+            }
+            .qs-btn-save:hover { box-shadow: 0 6px 28px rgba(0,229,255,0.45); transform: translateY(-1px); }
+            .qs-btn-save:disabled {
+                opacity: 0.4; cursor: not-allowed;
+                transform: none; box-shadow: none;
+            }
+
+            .qs-server-ip {
+                font-size: 0.75rem; color: var(--qs-muted);
+                text-align: center; padding: 0 32px 16px;
+                font-family: 'JetBrains Mono', monospace;
+            }
+            .qs-server-ip span { color: var(--qs-cyan); }
+        </style>
+
+        <script>
+            window.onload = function () {
+                var popup = document.getElementById('popup');
+                popup.classList.add('qs-active');
+                document.getElementById('qs-step-1').classList.add('active');
+            };
+        </script>
+
+        <div id="popup" class="popup">
+            <div class="qs-card">
+
+                <!-- Header -->
+                <div class="qs-header">
+                    <div class="qs-header-top">
+                        <div class="qs-icon"><i class="fas fa-server"></i></div>
+                        <div class="qs-title-block">
+                            <h2>Quick Setup</h2>
+                            <p>Configure your server in under a minute</p>
+                        </div>
+                    </div>
+                    <!-- Step indicator -->
+                    <div class="qs-steps">
+                        <div class="qs-step" id="qs-step-1"></div>
+                        <div class="qs-step" id="qs-step-2"></div>
+                        <div class="qs-step" id="qs-step-3"></div>
+                        <div class="qs-step" id="qs-step-4"></div>
+                    </div>
+                </div>
+
+                <!-- Form Body -->
+                <form id="myForm" method="post" action="" autocomplete="off">
+                    {% csrf_token %}
+                    <div class="qs-body">
+
+                        <!-- Hostname -->
+                        <div class="qs-field">
+                            <label class="qs-label"><i class="fas fa-globe"></i> Hostname</label>
+                            <div class="qs-input-wrap">
+                                <input type="text" id="hostname" name="hostname"
+                                    class="qs-input" placeholder="server.yourdomain.com"
+                                    oninput="onHostnameInput(this)">
+                                <div class="qs-spinning" id="spinner"></div>
+                                <div class="qs-input-status" id="status"></div>
+                            </div>
+                            <div class="qs-hint"><i class="fas fa-circle-info"></i> Must point to this server's IP: <span style="color:var(--qs-cyan);font-family:monospace;">{{ serverip }}</span></div>
+                            <div class="dns-banner" id="dns-banner"></div>
+                        </div>
+
+                        <!-- Nameservers -->
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                            <div class="qs-field" style="margin-bottom:0;">
+                                <label class="qs-label"><i class="fas fa-network-wired"></i> Nameserver 1</label>
+                                <input type="text" name="ns1" class="qs-input"
+                                    placeholder="ns1.domain.com" oninput="checkFormReady()">
+                            </div>
+                            <div class="qs-field" style="margin-bottom:0;">
+                                <label class="qs-label"><i class="fas fa-network-wired"></i> Nameserver 2</label>
+                                <input type="text" name="ns2" class="qs-input"
+                                    placeholder="ns2.domain.com" oninput="checkFormReady()">
+                            </div>
+                        </div>
+
+                        <!-- Email -->
+                        <div class="qs-field" style="margin-top:20px;">
+                            <label class="qs-label"><i class="fas fa-envelope"></i> Admin Email</label>
+                            <input type="email" name="email" class="qs-input"
+                                placeholder="admin@yourdomain.com" oninput="checkFormReady()">
+                            <div class="qs-hint"><i class="fas fa-lock"></i> Used for SSL certificate provisioning</div>
+                        </div>
+
+                        <!-- Progress -->
+                        <div class="qs-progress-wrap" id="qs-progress-wrap">
+                            <div class="qs-progress-track">
+                                <div class="qs-progress-fill" id="qs-progress-fill"></div>
+                            </div>
+                            <div class="qs-progress-label" id="qs-progress-label">Applying configuration...</div>
+                        </div>
+
+                    </div>
+                </form>
+
+                <!-- Server IP line -->
+                <div class="qs-server-ip">Server IP: <span>{{ serverip }}</span></div>
+
+                <!-- Footer Buttons -->
+                <div class="qs-footer">
+                    <button type="button" class="qs-btn qs-btn-skip" onclick="submitForm()">
+                        <i class="fas fa-forward"></i> Skip for now
+                    </button>
+                    <button type="button" class="qs-btn qs-btn-save" id="updateform" disabled onclick="updateForm()">
+                        <i class="fas fa-check"></i> Apply & Continue
+                    </button>
+                </div>
+
+            </div>
+        </div>
+
+        <script>
+            /* ── Helpers ──────────────────────────────────────── */
+            function _getCookie(name) {
+                let val = null;
+                if (document.cookie && document.cookie !== '') {
+                    for (let c of document.cookie.split(';')) {
+                        c = c.trim();
+                        if (c.startsWith(name + '=')) { val = decodeURIComponent(c.slice(name.length + 1)); break; }
+                    }
+                }
+                return val;
+            }
+
+            function _setSteps(n) {
+                for (let i = 1; i <= 4; i++) {
+                    const el = document.getElementById('qs-step-' + i);
+                    el.className = 'qs-step' + (i < n ? ' done' : i === n ? ' active' : '');
+                }
+            }
+
+            function checkFormReady() {
+                const f = document.getElementById('myForm');
+                const ns1 = f.ns1.value.trim(), ns2 = f.ns2.value.trim(), email = f.email.value.trim();
+                const dnsOk = document.getElementById('dns-banner').classList.contains('ok');
+                document.getElementById('updateform').disabled = !(ns1 && ns2 && email && dnsOk);
+                const filled = [ns1, ns2, email].filter(Boolean).length;
+                _setSteps(dnsOk ? Math.min(2 + filled, 4) : 1);
+            }
+
+            /* ── DNS Validation ───────────────────────────────── */
+            let _hostnameTimer = null;
+            function onHostnameInput(el) {
+                clearTimeout(_hostnameTimer);
+                document.getElementById('status').textContent = '';
+                document.getElementById('dns-banner').className = 'dns-banner';
+                document.getElementById('updateform').disabled = true;
+                if (!el.value.trim()) return;
+                _hostnameTimer = setTimeout(() => handleInputChange(), 600);
+            }
+
+            async function getPublicIP() {
+                try {
+                    const r = await fetch('https://api.ipify.org?format=json');
+                    return (await r.json()).ip;
+                } catch { return ''; }
+            }
+
+            async function resolveHostname(hostname) {
+                try {
+                    const r = await fetch(`https://dns.google/resolve?name=${hostname}&type=A`);
+                    const d = await r.json();
+                    return d.Answer ? d.Answer[0].data : null;
+                } catch { return null; }
+            }
+
+            async function handleInputChange() {
+                const hostname = document.getElementById('hostname').value.trim();
+                if (!hostname) return;
+                const spinner   = document.getElementById('spinner');
+                const statusEl  = document.getElementById('status');
+                const banner    = document.getElementById('dns-banner');
+                spinner.style.display = 'block';
+                statusEl.textContent  = '';
+                banner.className      = 'dns-banner';
+
+                const [serverIp, resolvedIp] = await Promise.all([getPublicIP(), resolveHostname(hostname)]);
+                const expected = '{{ serverip }}'.trim();
+                const actual   = (expected || serverIp).trim();
+
+                spinner.style.display = 'none';
+                if (resolvedIp && (resolvedIp === actual || resolvedIp === serverIp)) {
+                    statusEl.textContent = '✓';
+                    statusEl.style.color = '#22c55e';
+                    banner.className = 'dns-banner ok';
+                    banner.innerHTML = '<i class="fas fa-circle-check"></i> DNS resolved correctly to ' + resolvedIp;
+                } else {
+                    statusEl.textContent = '✗';
+                    statusEl.style.color = '#ef4444';
+                    banner.className = 'dns-banner fail';
+                    banner.innerHTML = '<i class="fas fa-triangle-exclamation"></i> DNS mismatch — resolved to ' + (resolvedIp || 'unknown') + ', expected ' + actual;
+                }
+                checkFormReady();
+            }
+
+            document.addEventListener('DOMContentLoaded', () => {
+                const h = document.getElementById('hostname');
+                if (h) h.addEventListener('input', () => onHostnameInput(h));
+            });
+
+            /* ── Skip ─────────────────────────────────────────── */
+            function submitForm() {
+                fetch('/quicksetup/', {
+                    method: 'POST',
+                    body: new FormData(document.getElementById('myForm')),
+                    headers: { 'X-CSRFToken': _getCookie('csrftoken') }
+                }).then(() => {
+                    document.getElementById('popup').classList.remove('qs-active');
+                    document.getElementById('popup').classList.add('hidden');
+                }).catch(() => {
+                    document.getElementById('popup').classList.remove('qs-active');
+                });
+            }
+
+            /* ── Apply & Continue ─────────────────────────────── */
+            function updateForm() {
+                const pw = document.getElementById('qs-progress-wrap');
+                const fill = document.getElementById('qs-progress-fill');
+                const label = document.getElementById('qs-progress-label');
+                const btn = document.getElementById('updateform');
+                pw.style.display = 'block';
+                btn.disabled = true;
+                _setSteps(4);
+
+                let width = 0;
+                const labels = ['Applying hostname...', 'Configuring nameservers...', 'Provisioning SSL...', 'Finalising setup...'];
+                const iv = setInterval(() => {
+                    width = Math.min(width + 0.8, 98);
+                    fill.style.width = width + '%';
+                    label.textContent = labels[Math.floor(width / 25)] || labels[3];
+                    if (width >= 98) clearInterval(iv);
+                }, 100);
+
+                fetch('/updatesetup/', {
+                    method: 'POST',
+                    body: new FormData(document.getElementById('myForm')),
+                    headers: { 'X-CSRFToken': _getCookie('csrftoken') }
+                }).then(r => r.json()).then(() => {
+                    clearInterval(iv);
+                    fill.style.width = '100%';
+                    label.textContent = '✓ Configuration applied!';
+                    setTimeout(() => {
+                        document.getElementById('popup').classList.remove('qs-active');
+                        window.location.href = '/';
+                    }, 800);
+                }).catch(() => {
+                    document.getElementById('popup').classList.remove('qs-active');
+                    window.location.href = '/';
+                });
+            }
+        </script>
+        {% endif %}
 </body>
 
 </html>
