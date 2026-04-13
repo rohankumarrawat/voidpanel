@@ -4182,9 +4182,11 @@ def updatepanel(request):
         else:
             # Linux: download update script, verify, then run
             import tempfile
+            import subprocess
             _update_path = os.path.join(tempfile.gettempdir(), 'voidpanel_update.sh')
             run_command(f'curl -fsSL -o {shlex.quote(_update_path)} https://voidpanel.com/updatepanel.sh')
-            run_command(f'bash {shlex.quote(_update_path)}')
+            # Run detached so it doesn't wait for completion and allows the HTTP response to return
+            subprocess.Popen(['bash', _update_path], start_new_session=True)
             return JsonResponse({'status': 'success', 'message': 'Update applied successfully.'})
 
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
