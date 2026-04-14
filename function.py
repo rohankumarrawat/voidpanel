@@ -384,9 +384,14 @@ server {{
 """
 
     try:
-        with open(file_path, 'w') as f:
+    try:
+        import tempfile, subprocess
+        with tempfile.NamedTemporaryFile('w', delete=False) as f:
             f.write(nginx_ssl_conf)
-            get_platform().services.restart('nginx')
+            tmp = f.name
+        subprocess.run(f"sudo cp {tmp} {file_path}", shell=True, check=False)
+        subprocess.run(f"rm {tmp}", shell=True, check=False)
+        get_platform().services.restart('nginx')
         print(f"Nginx SSL configuration file created at: {file_path}")
     except OSError as e:
         print(f"Error creating Nginx configuration file: {e}")
@@ -412,7 +417,8 @@ server {{
 #     return private_key_path, public_key_path
 def generate_dkim_keys(domain, key_dir):
     """Generate DKIM keys for a domain and save them to the specified directory."""
-    os.makedirs(key_dir, exist_ok=True)
+    import subprocess
+    subprocess.run(f"sudo mkdir -p {key_dir}", shell=True)
 
     private_key_path = os.path.join(key_dir, 'default.private')
     public_key_path = os.path.join(key_dir, 'default.txt')
@@ -426,11 +432,8 @@ def generate_dkim_keys(domain, key_dir):
             'openssl', 'rsa', '-in', private_key_path, '-pubout', '-out', public_key_path
         ], check=True)
     else:
-        subprocess.run([
-            'opendkim-genkey', '-t', '-s', 'default', '-d', domain, '-b', '2048', '-r', '-v'
-        ], check=True)
-        os.rename('default.private', private_key_path)
-        os.rename('default.txt', public_key_path)
+        subprocess.run(f"sudo opendkim-genkey -t -s default -d {domain} -b 2048 -D {key_dir} -r -v", shell=True, check=True)
+        subprocess.run(f"sudo chown www-data:www-data {key_dir}/default.*", shell=True, check=False)
 
     print(f"DKIM keys generated for {domain}.")
     return private_key_path, public_key_path
@@ -479,7 +482,8 @@ def create_bind_records(domain, key_dir, zone_file_path):
     dkim_selector = "default._domainkey"
     dkim_record = "".join(dkim_record_lines).replace('" "', "").replace("\n", "")
     
-    with open(zone_file_path, 'w') as zone_file:
+    import tempfile, subprocess
+    with tempfile.NamedTemporaryFile('w', delete=False) as zone_file:
         # Write TTL and SOA records
         zone_file.write(f"$TTL 86400  ; Default TTL\n")
         zone_file.write(f"@   IN  SOA ns1.{domain}. admin.{domain}. (\n")
@@ -525,8 +529,12 @@ def create_bind_records(domain, key_dir, zone_file_path):
         
         for chunk in dkim_record_lines:
             zone_file.write(chunk)
+        tmp_zone = zone_file.name
+        
+    subprocess.run(f"sudo cp {tmp_zone} {zone_file_path}", shell=True)
+    subprocess.run(f"rm {tmp_zone}", shell=True)
      
-    with open(paths.BIND_CONF, 'a') as f:
+    with tempfile.NamedTemporaryFile('w', delete=False) as f:
         f.write("\n")
         f.write(f'zone "{domain}" ')
         f.write("{\n")
@@ -534,6 +542,9 @@ def create_bind_records(domain, key_dir, zone_file_path):
         zone_db = os.path.join(paths.BIND_ZONE_DIR, f'db.{domain}')
         f.write(f'file "{zone_db}"; \n')
         f.write("};\n")
+        tmp_conf = f.name
+    subprocess.run(f"cat {tmp_conf} | sudo tee -a {paths.BIND_CONF}", shell=True)
+    subprocess.run(f"rm {tmp_conf}", shell=True)
     
 
     print(f"BIND zone file created and saved to {zone_file_path}.")
@@ -567,7 +578,8 @@ def configure_opendkim(domain, key_dir):
             return
 
         # Update OpenDKIM configuration
-        with open('/etc/opendkim.conf', 'a') as f:
+        import tempfile, subprocess
+        with tempfile.NamedTemporaryFile('w', delete=False) as f:
             f.write(f"\nDomain          {domain}\n")
             f.write(f"KeyFile          {os.path.join(key_dir, 'default.private')}\n")
             f.write(f"Selector         default\n")
@@ -578,20 +590,29 @@ def configure_opendkim(domain, key_dir):
             f.write(f"Syslog           yes\n")
             f.write(f"LogWhy           yes\n")
             f.write(f"Canonicalization    relaxed/simple\n")
+            tmp1 = f.name
+        subprocess.run(f"cat {tmp1} | sudo tee -a /etc/opendkim.conf", shell=True)
 
         # Update KeyTable
-        with open(paths.OPENDKIM_KEYTABLE, 'a') as f:
+        with tempfile.NamedTemporaryFile('w', delete=False) as f:
             f.write(f"default._domainkey.{domain} {domain}:default:{os.path.join(key_dir, 'default.private')}\n")
+            tmp2 = f.name
+        subprocess.run(f"cat {tmp2} | sudo tee -a {paths.OPENDKIM_KEYTABLE}", shell=True)
 
         # Update SigningTable
-        with open(paths.OPENDKIM_SIGNINGTABLE, 'a') as f:
+        with tempfile.NamedTemporaryFile('w', delete=False) as f:
             f.write(f"*@{domain} default._domainkey.{domain}\n")
+            tmp3 = f.name
+        subprocess.run(f"cat {tmp3} | sudo tee -a {paths.OPENDKIM_SIGNINGTABLE}", shell=True)
 
         # Update TrustedHosts
-        with open(paths.OPENDKIM_TRUSTEDHOSTS, 'a') as f:
+        with tempfile.NamedTemporaryFile('w', delete=False) as f:
             f.write(f"127.0.0.1\n")
             f.write(f"localhost\n")
             f.write(f"*.{domain}\n")
+            tmp4 = f.name
+        subprocess.run(f"cat {tmp4} | sudo tee -a {paths.OPENDKIM_TRUSTEDHOSTS}", shell=True)
+        subprocess.run(f"rm {tmp1} {tmp2} {tmp3} {tmp4}", shell=True)
 
         print(f"OpenDKIM configured for {domain}.")
     except IOError as e:
