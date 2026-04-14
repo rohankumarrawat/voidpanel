@@ -1920,8 +1920,11 @@ def _background_provision_user(domain12, email, password, package12, sto, domain
     from django.db import transaction
     path=os.path.join(paths.HOME_BASE, domainname)
     try:
-        os.mkdir(path)
-        os.mkdir(path+'/public_html')
+        if sys.platform != 'win32':
+            subprocess.run(['sudo', 'mkdir', '-p', f"{path}/public_html"], check=True)
+            subprocess.run(['sudo', 'chown', '-R', 'www-data:www-data', path], check=True)
+        else:
+            os.makedirs(f"{path}/public_html", exist_ok=True)
         _vp_src = os.path.join(paths.PANEL_ROOT, 'voidpanel')
         _vp_dst = os.path.join(path, 'public_html')
         for _item in os.listdir(_vp_src):
@@ -1937,9 +1940,15 @@ def _background_provision_user(domain12, email, password, package12, sto, domain
             shutil.copy2(_ln_src, os.path.join(_ln_dst, f'{domain12}.conf'))
         else:
             run_command(f'sudo ln -s {_ln_src}  {_ln_dst}')
-        os.mkdir(path+'/ssl')
-        os.makedirs(os.path.join(path, 'mail', domain12), exist_ok=True)
-        os.mkdir(path+'/logs')
+        if sys.platform != 'win32':
+            subprocess.run(['sudo', 'mkdir', '-p', f"{path}/ssl"], check=True)
+            subprocess.run(['sudo', 'mkdir', '-p', os.path.join(path, 'mail', domain12)], check=True)
+            subprocess.run(['sudo', 'mkdir', '-p', f"{path}/logs"], check=True)
+            subprocess.run(['sudo', 'chown', '-R', 'www-data:www-data', path], check=True)
+        else:
+            os.makedirs(f"{path}/ssl", exist_ok=True)
+            os.makedirs(os.path.join(path, 'mail', domain12), exist_ok=True)
+            os.makedirs(f"{path}/logs", exist_ok=True)
         inipath=path+'/public_html/'+'php.ini'
         php_ini_content = f"""
 ; PHP settings for {domain12}
@@ -2036,16 +2045,18 @@ open_basedir = "/{path}/public_html:/tmp"
         User.objects.filter(username=domainname).delete()
         
         # Rollback Files
-        if os.path.exists(path):
-            shutil.rmtree(path)
+        if sys.platform != 'win32':
+            subprocess.run(['sudo', 'rm', '-rf', path], check=False)
+        else:
+            if os.path.exists(path):
+                shutil.rmtree(path, ignore_errors=True)
+        
         _en = os.path.join(paths.NGINX_SITES_ENABLED, f'{domain12}.conf')
         if os.path.exists(_en):
             os.remove(_en)
         _av = os.path.join(paths.NGINX_SITES_AVAILABLE, f'{domain12}.conf')
         if os.path.exists(_av):
             os.remove(_av)
-        if os.path.exists(os.path.join(path, 'mail', domain12)):
-            shutil.rmtree(os.path.join(path, 'mail', domain12))
         
         # Rollback Unix user
         get_platform().users.delete_user(domainname)
@@ -6432,7 +6443,16 @@ def webserver_manager(request):
 
     from voidplatform.linux.web import get_active_engine
     d = {}
-    d['active_engine'] = get_active_engine()
+    try:
+        d['active_engine'] = get_active_engine()
+    except PermissionError:
+        # State file not readable by www-data — attempt chmod fix then retry
+        try:
+            import subprocess
+            subprocess.run(['sudo', 'chmod', '644', '/etc/voidpanel/web_engine'], check=True)
+            d['active_engine'] = get_active_engine()
+        except Exception:
+            d['active_engine'] = 'nginx'  # safe default
 
     # Detect service running status via pid files
     d['nginx_running'] = (os.path.exists('/run/nginx.pid') or
