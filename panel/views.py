@@ -1944,47 +1944,38 @@ def _background_provision_user(domain12, email, password, package12, sto, domain
             subprocess.run(['sudo', 'mkdir', '-p', f"{path}/ssl"], check=True)
             subprocess.run(['sudo', 'mkdir', '-p', os.path.join(path, 'mail', domain12)], check=True)
             subprocess.run(['sudo', 'mkdir', '-p', f"{path}/logs"], check=True)
+            # CRITICAL: chown+chmod BEFORE writing files — dirs are root-owned after sudo mkdir
             subprocess.run(['sudo', 'chown', '-R', 'www-data:www-data', path], check=True)
+            subprocess.run(['sudo', 'chmod', '-R', '755', path], check=True)
         else:
             os.makedirs(f"{path}/ssl", exist_ok=True)
             os.makedirs(os.path.join(path, 'mail', domain12), exist_ok=True)
             os.makedirs(f"{path}/logs", exist_ok=True)
-        inipath=path+'/public_html/'+'php.ini'
+        inipath = path + '/public_html/php.ini'
         php_ini_content = f"""
 ; PHP settings for {domain12}
-
-; General settings
 max_execution_time = 30
-max_input_time = 60
 memory_limit = 256M
 post_max_size = 64M
 upload_max_filesize = 64M
-max_file_uploads = 20
-default_charset = "UTF-8"
 display_errors = Off
 log_errors = On
-error_log = "/{path}/public_html/logs/php_errors.log"
-error_reporting = E_ALL & ~E_DEPRECATED & ~E_STRICT
-
-; Timezone
-date.timezone = "Asia/Kolkata"  ; Set to your timezone
-
-; File Uploads
+error_log = "{path}/public_html/logs/php_errors.log"
+date.timezone = "Asia/Kolkata"
 file_uploads = On
-upload_tmp_dir = "/{path}/public_html/tmp"
-max_file_uploads = 20
-
-; Session settings
-session.save_path = "/{path}/public_html/sessions"
-session.gc_maxlifetime = 1440
-session.cookie_httponly = 1
-session.cookie_secure = 1
-
-; Custom domain-based settings
-open_basedir = "/{path}/public_html:/tmp"
+open_basedir = "{path}/public_html:/tmp"
 """
-        with open(inipath,'w') as f:
-            f.write(php_ini_content)
+        import tempfile
+        with tempfile.NamedTemporaryFile('w', suffix='.ini', delete=False) as _tmp:
+            _tmp.write(php_ini_content)
+            _tmp_name = _tmp.name
+        if sys.platform != 'win32':
+            subprocess.run(['sudo', 'cp', _tmp_name, inipath], check=True)
+            subprocess.run(['sudo', 'chown', 'www-data:www-data', inipath], check=True)
+        else:
+            import shutil as _shutil
+            _shutil.copy2(_tmp_name, inipath)
+        os.unlink(_tmp_name)
             
         file_path = os.path.join(paths.NGINX_SITES_AVAILABLE, f"{domain12}.conf")
         root_dir = path+'/public_html'

@@ -278,35 +278,35 @@ def extract_zip_with_error_handling(zip_filename, extract_to_folder):
 
 
 
-def generate_ssl_certificates(domain, ssl_dir,logs):
-    # Paths for SSL certificate and key
+def generate_ssl_certificates(domain, ssl_dir, logs):
+    import subprocess, tempfile
     cert_path = os.path.join(ssl_dir, f"{domain}.crt")
     key_path = os.path.join(ssl_dir, f"{domain}.key")
 
-    # Ensure SSL directory exists
-    os.makedirs(ssl_dir, exist_ok=True)
+    # Ensure SSL directory exists — use sudo since dir may be root-owned
+    if sys.platform != 'win32':
+        subprocess.run(['sudo', 'mkdir', '-p', ssl_dir], check=False)
+        subprocess.run(['sudo', 'chown', 'www-data:www-data', ssl_dir], check=False)
+        subprocess.run(['sudo', 'mkdir', '-p', logs], check=False)
+        subprocess.run(['sudo', 'chown', 'www-data:www-data', logs], check=False)
+    else:
+        os.makedirs(ssl_dir, exist_ok=True)
 
-    # OpenSSL command to generate a self-signed SSL certificate
-    openssl_command = [
-        "openssl", "req", "-x509", "-nodes", "-days", "365", "-newkey", "rsa:2048",
-        "-keyout", key_path, "-out", cert_path, "-subj", f"/CN={domain}"
-    ]
-    f=open(f'{logs}/ssl.txt','a')
-
+    log_msg = ''
     try:
-        # Run OpenSSL command to generate the certificates
         get_platform().ssl.generate_self_signed(domain, cert_path, key_path)
-        
-        f.write("\n")
-        f.write(f"SSL certificate and key generated for {domain} at {ssl_dir}")
-        print(f"SSL certificate and key generated for {domain} at {ssl_dir}")
-    except subprocess.CalledProcessError as e:
-        f.write("\n")
-        f.write(f"Failed to generate SSL certificate: {e}")
-        f.write(f"Cannot Write Nginx File")
-    
+        log_msg = f"\nSSL certificate and key generated for {domain} at {ssl_dir}"
+        print(log_msg)
+    except Exception as e:
+        log_msg = f"\nFailed to generate SSL certificate: {e}"
+        print(log_msg)
         return None, None
-    f.close()
+    finally:
+        try:
+            with open(os.path.join(logs, 'ssl.txt'), 'a') as _f:
+                _f.write(log_msg)
+        except Exception:
+            pass
 
     return cert_path, key_path
 
