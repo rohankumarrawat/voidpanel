@@ -1925,15 +1925,19 @@ def _background_provision_user(domain12, email, password, package12, sto, domain
             subprocess.run(['sudo', 'chown', '-R', 'www-data:www-data', path], check=True)
         else:
             os.makedirs(f"{path}/public_html", exist_ok=True)
+        # Copy voidpanel default web files if source dir exists
         _vp_src = os.path.join(paths.PANEL_ROOT, 'voidpanel')
         _vp_dst = os.path.join(path, 'public_html')
-        for _item in os.listdir(_vp_src):
-            _s = os.path.join(_vp_src, _item)
-            _d = os.path.join(_vp_dst, _item)
-            if os.path.isdir(_s):
-                shutil.copytree(_s, _d, dirs_exist_ok=True)
-            else:
-                shutil.copy2(_s, _d)
+        if os.path.isdir(_vp_src):
+            for _item in os.listdir(_vp_src):
+                _s = os.path.join(_vp_src, _item)
+                _d = os.path.join(_vp_dst, _item)
+                if os.path.isdir(_s):
+                    shutil.copytree(_s, _d, dirs_exist_ok=True)
+                else:
+                    shutil.copy2(_s, _d)
+        else:
+            logger.warning('voidpanel static dir not found at %s, skipping copy', _vp_src)
         _ln_src = f'{paths.NGINX_SITES_AVAILABLE}/{domain12}.conf'
         _ln_dst = f'{paths.NGINX_SITES_ENABLED}/'
         if sys.platform == 'win32':
@@ -2027,30 +2031,44 @@ open_basedir = "{path}/public_html:/tmp"
         logger.info('Provisioning SUCCESS: domain=%s user=%s', domain12, domainname)
 
     except Exception as e:
-        # IDEMPOTENT ROLLBACKS
-        logger.error('Provisioning FAILED for %s — rolling back. Error: %s', domainname, e)
-            
+        import traceback as _tb
+        _full_err = _tb.format_exc()
+        # Write full traceback to provision_error.log for debugging
+        try:
+            with open('/var/www/panel/provision_error.log', 'a') as _elf:
+                _elf.write(f'\n\n=== PROVISION FAIL: domain={domain12} user={domainname} ===\n')
+                _elf.write(_full_err)
+                _elf.write('=== END ===\n')
+        except Exception:
+            pass
+        logger.error('Provisioning FAILED for %s \u2014 rolling back. Error: %s\n%s', domainname, e, _full_err)
+
         # Rollback DB
         domain.objects.filter(domain=domain12).delete()
         user.objects.filter(username=domainname).delete()
         User.objects.filter(username=domainname).delete()
-        
+
         # Rollback Files
         if sys.platform != 'win32':
             subprocess.run(['sudo', 'rm', '-rf', path], check=False)
         else:
             if os.path.exists(path):
                 shutil.rmtree(path, ignore_errors=True)
-        
+
         _en = os.path.join(paths.NGINX_SITES_ENABLED, f'{domain12}.conf')
         if os.path.exists(_en):
-            os.remove(_en)
+            try: os.remove(_en)
+            except Exception: pass
         _av = os.path.join(paths.NGINX_SITES_AVAILABLE, f'{domain12}.conf')
         if os.path.exists(_av):
-            os.remove(_av)
-        
+            try: os.remove(_av)
+            except Exception: pass
+
         # Rollback Unix user
-        get_platform().users.delete_user(domainname)
+        try:
+            get_platform().users.delete_user(domainname)
+        except Exception:
+            pass
 
 @login_required(login_url='/')
 @never_cache
