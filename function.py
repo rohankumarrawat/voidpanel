@@ -384,7 +384,6 @@ server {{
 """
 
     try:
-    try:
         import tempfile, subprocess
         with tempfile.NamedTemporaryFile('w', delete=False) as f:
             f.write(nginx_ssl_conf)
