@@ -1943,7 +1943,7 @@ def _background_provision_user(domain12, email, password, package12, sto, domain
         if sys.platform == 'win32':
             shutil.copy2(_ln_src, os.path.join(_ln_dst, f'{domain12}.conf'))
         else:
-            run_command(f'sudo ln -s {_ln_src}  {_ln_dst}')
+            run_command(f'sudo ln -sf {_ln_src}  {_ln_dst}')
         if sys.platform != 'win32':
             subprocess.run(['sudo', 'mkdir', '-p', f"{path}/ssl"], check=True)
             subprocess.run(['sudo', 'mkdir', '-p', os.path.join(path, 'mail', domain12)], check=True)
