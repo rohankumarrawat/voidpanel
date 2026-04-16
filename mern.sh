@@ -98,7 +98,7 @@ cd ..
 echo "Setting up frontend..."
 
 # Create React app
-npx create-react-app frontend
+npx -y create-react-app frontend
 
 # Add proxy to React app package.json to connect frontend to backend
 echo "Configuring proxy in React app..."
