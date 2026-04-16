@@ -5672,7 +5672,7 @@ def addpython(request):
             subprocess.run(['sudo', 'chmod', '-R', '750', app_dir], check=False)
             subprocess.run(['sudo', 'chmod', '-R', '755', os.path.join(app_dir, 'static')], check=False)
             # Service file should run as www-data for socket access — fix socket perms
-            subprocess.run(['sudo', 'chmod', 'g+s', app_dir], check=False)
+            subprocess.run(['sudo', 'chmod', 'g+ws', app_dir], check=False)
         except Exception:
             pass
 
