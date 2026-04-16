@@ -412,7 +412,8 @@ def dbconnect(request, data):
             d['database'] = get_database_names_with_filter(adminpassword, mainn)
             d['users'] = get_database_users_with_filter(adminpassword, mainn)
             return render(request, 'control/dbconnect.html', d)
-        except Exception:
+        except Exception as e:
+            print(f"dbconnect error: {e}")
             return redirect('/listwebsite/')
     else:
         return redirect('/')
