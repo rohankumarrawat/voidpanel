@@ -5959,36 +5959,58 @@ def addmern(request):
         except Exception:
             pass 
 
-        # Assign unique port
-        to_get = mernname.objects.all().order_by('port')
-        last_object = to_get.last()
-        pasport = str(int(last_object.port) + 1) if last_object else '3001'
-
+        # Assign a unique, actually-free TCP port (avoid collisions with existing apps)
+        import socket as _socket
+        used_ports = set(int(p) for p in mernname.objects.values_list('port', flat=True) if p)
+        # Also check python apps
         try:
-            if sys.platform != 'win32':
-                app_dir = os.path.join(paths.HOME_BASE, fre.dir, name)
-                frontend_build = os.path.join(app_dir, 'frontend', 'build')
-                script_path = os.path.join(paths.PANEL_ROOT, 'mern.sh')
-                import subprocess
-                subprocess.run(['sudo', 'bash', script_path, name, frontend_build, app_dir, str(pasport)], capture_output=True, text=True, timeout=300)
-            else:
-                from voidplatform.windows.apps import deploy_mern_app
-                app_dir = os.path.join(paths.HOME_BASE, fre.dir, name)
-                os.makedirs(app_dir, exist_ok=True)
-                port_int, ok, msg = deploy_mern_app(fre.dir, name, domain1, int(pasport))
-                pasport = str(port_int)
-        except:
+            from panel.models import pythonname as _pyname
+            used_ports.update(int(p) for p in _pyname.objects.values_list('port', flat=True) if p)
+        except Exception:
             pass
+        pasport = '3001'
+        for _candidate in range(3001, 4000):
+            if _candidate in used_ports:
+                continue
+            try:
+                with _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM) as _s:
+                    _s.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
+                    _s.bind(('127.0.0.1', _candidate))
+                    pasport = str(_candidate)
+                    break
+            except OSError:
+                continue
 
-        try:
-            if sys.platform != 'win32':
-                app_dir = os.path.join(paths.HOME_BASE, fre.dir, name)
-                import subprocess
-                subprocess.run(['sudo', 'chown', '-R', f'{fre.dir}:www-data', app_dir], check=False)
-                subprocess.run(['sudo', 'chmod', '-R', '750', app_dir], check=False)
-                subprocess.run(['sudo', 'chmod', 'g+ws', app_dir], check=False)
-        except:
-            pass
+        # Run the provisioning script in a background thread so the HTTP request
+        # returns immediately instead of blocking for 3-4 minutes.
+        import threading, subprocess as _sp
+        app_dir = os.path.join(paths.HOME_BASE, fre.dir, name)
+        frontend_build = os.path.join(app_dir, 'frontend', 'build')
+        script_path = os.path.join(paths.PANEL_ROOT, 'mern.sh')
+        _pasport = str(pasport)
+        _fre_dir = fre.dir
+
+        def _run_mern_provision():
+            try:
+                if sys.platform != 'win32':
+                    _sp.run(
+                        ['sudo', 'bash', script_path, name, frontend_build, app_dir, _pasport],
+                        capture_output=True, text=True, timeout=600
+                    )
+                    _sp.run(['sudo', 'chown', '-R', f'{_fre_dir}:www-data', app_dir], check=False)
+                    _sp.run(['sudo', 'chmod', '-R', '750', app_dir], check=False)
+                    _sp.run(['sudo', 'chmod', 'g+ws', app_dir], check=False)
+                else:
+                    from voidplatform.windows.apps import deploy_mern_app as _dma
+                    _dma(_fre_dir, name, domain1, int(_pasport))
+            except Exception as _e:
+                import logging
+                logging.getLogger(__name__).error(f'mern provision bg error: {_e}')
+
+        _t = threading.Thread(target=_run_mern_provision, daemon=True)
+        _t.start()
+
+        # Permissions are now handled inside the background thread above
 
         app_dir = os.path.join(paths.HOME_BASE, fre.dir, name)
         static_path = os.path.join(app_dir, 'frontend', 'build', 'static')
