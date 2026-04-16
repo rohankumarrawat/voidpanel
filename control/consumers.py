@@ -76,11 +76,11 @@ class TerminalConsumer(AsyncWebsocketConsumer):
         if self.pid == 0:
             # Fork Payload
             if self.target_user == "root":
-                os.execvp("bash", ["bash", "-l"])
+                os.execvp("sudo", ["sudo", "bash", "-l"])
             else:
-                # Industry standard Jailed sandbox via `su -` drops privileges natively 
+                # Industry standard Jailed sandbox via `sudo su -` drops privileges natively 
                 # resolving ~ paths and triggering local unprivileged .bash_profile
-                os.execvp("su", ["su", "-", self.target_user])
+                os.execvp("sudo", ["sudo", "su", "-", self.target_user])
             
         self.loop = asyncio.get_event_loop()
         self.loop.add_reader(self.fd, self._read_pty)
@@ -180,7 +180,7 @@ class UserTerminalConsumer(AsyncWebsocketConsumer):
             os.environ['USER'] = self.target_user
             os.environ['SHELL'] = '/bin/rbash'
             os.environ['PATH'] = '/usr/local/bin:/usr/bin:/bin'
-            os.execvp('su', ['su', '-', self.target_user, '-s', '/bin/rbash'])
+            os.execvp('sudo', ['sudo', 'su', '-', self.target_user, '-s', '/bin/rbash'])
 
         self.loop = asyncio.get_event_loop()
         self.loop.add_reader(self.fd, self._read_pty)
