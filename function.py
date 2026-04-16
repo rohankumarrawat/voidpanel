@@ -17,7 +17,7 @@ from voidplatform.config import paths
 
 def _validate_sql_identifier(name):
     """Validate a SQL identifier (database name, username) to prevent injection."""
-    if not name or not re.match(r'^[a-zA-Z0-9_]+$', name):
+    if not name or not re.match(r'^[a-zA-Z0-9_.-]+$', name):
         raise ValueError(f'Invalid SQL identifier: {name!r}')
     return name
 
