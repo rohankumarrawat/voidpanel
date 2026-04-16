@@ -5937,12 +5937,17 @@ def addmern(request):
         if mernname.objects.filter(domain=domain1).exists():
             return JsonResponse({'status': 'already', 'message': 'Domain already has a MERN stack'})
 
+        # Resolve the owner's home directory (always from main domain)
+        # but keep domain1 as the nginx target so subdomain gets its own config
+        is_subdomain = False
         try:
             fre = domain.objects.get(domain=domain1)
         except domain.DoesNotExist:
             try:
-                parent = subdomainname.objects.get(subdomain=domain1).domain
+                sub_obj = subdomainname.objects.get(subdomain=domain1)
+                parent = sub_obj.domain
                 fre = domain.objects.get(domain=parent)
+                is_subdomain = True
             except:
                 return JsonResponse({'status': 'error', 'message': 'Domain not found'})
 
