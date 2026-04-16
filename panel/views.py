@@ -5875,12 +5875,10 @@ def delete_mern(request):
             except:
                 return JsonResponse({'status': 'error', 'message': 'Domain not found'})
 
-        # Clean files
+        # Clean files securely as root
         try:
-            import shutil
             directory_path = os.path.join(paths.HOME_BASE, iwefj, name)
-            if os.path.exists(directory_path):
-                shutil.rmtree(directory_path)
+            run_command(f'sudo rm -rf {shlex.quote(directory_path)}')
         except:
             pass
 
@@ -5902,13 +5900,13 @@ def delete_mern(request):
         except:
             pass
 
-        # Clean Nginx/OLS configs safely
+        # Clean Nginx/OLS configs safely using elevated manager
         from voidplatform.linux.web import get_active_engine_manager, get_active_engine
+        import re
         engine = get_active_engine()
         mgr = get_active_engine_manager()
 
         if engine == 'ols':
-            import re
             old_conf = mgr.read_site_config(domainname)
             # Remove proxy extprocessor and contexts
             new_conf = re.sub(rf'extprocessor mern_{name}\s*{{[^}}]+}}\n?', '', old_conf)
@@ -5917,46 +5915,16 @@ def delete_mern(request):
             new_conf = re.sub(rf'docRoot\s+\$VH_ROOT/{name}/frontend/build', r'docRoot $VH_ROOT/public_html', new_conf)
             mgr.write_and_test_site_config(domainname, new_conf)
         else:
-            conf_path = os.path.join(paths.NGINX_SITES_ENABLED, f'{domainname}.conf')
-            try:
-                with open(conf_path, 'r') as file:
-                    lines = file.readlines()
-
-                new_config_data = []
-                skip = False
-                for line in lines:
-                    if 'location / {' in line or 'location /static/ {' in line or 'location /api/ {' in line:
-                        skip = True
-                    if skip and '}' in line:
-                        skip = False
-                        continue
-                    if not skip:
-                        new_config_data.append(line)
-
-                with open(conf_path, 'w') as file:
-                    file.writelines(new_config_data)
-
-                # Revert the document root to public_html safely
-                with open(conf_path, 'r') as f:
-                    content = f.read()
-                content = content.replace(f'root {os.path.join(paths.HOME_BASE, iwefj, name, "frontend", "build")};', f'root {os.path.join(paths.HOME_BASE, iwefj, "public_html")};')
-                with open(conf_path, 'w') as f:
-                    f.write(content)
-
-                # Safety check before reload
-                if sys.platform != 'win32':
-                    test_res = run_command('sudo nginx -t 2>&1')
-                else:
-                    test_res = type('obj', (object,), {'returncode': 0, 'stdout': 'nginx test skipped on Windows', 'stderr': ''})()
-                if 'successful' in str(test_res).lower() or 'test is successful' in str(test_res).lower():
-                    try:
-                        get_platform().services.reload('nginx')
-                    except Exception:
-                        pass
-                else:
-                    pass # if rollback required
-            except Exception as e:
-                pass
+            old_conf = mgr.read_site_config(domainname)
+            if old_conf:
+                # Strip out /api, /static, and / blocks safely using non-greedy regex
+                new_conf = re.sub(r'[ \t]*location / \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', old_conf)
+                new_conf = re.sub(r'[ \t]*location /static/ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+                new_conf = re.sub(r'[ \t]*location /api/ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+                
+                # Revert root correctly
+                new_conf = re.sub(r'root\s+/home/[^/]+/[^/]+/frontend/build;', f'root /home/{iwefj}/public_html;', new_conf)
+                mgr.write_and_test_site_config(domainname, new_conf)
 
         try:
             df = mernname.objects.get(domain=domainname, name=name)
@@ -6178,9 +6146,12 @@ def delete_python(request):
             except:
                  lololol=subdomainname.objects.get(subdomain=domainname).domain
                  iwefj=domain.objects.get(domain=lololol).dir
-            import shutil
-            directory_path = os.path.join(paths.HOME_BASE, iwefj, name)
-            shutil.rmtree(directory_path, ignore_errors=True)
+            # Clean files securely as root
+            try:
+                directory_path = os.path.join(paths.HOME_BASE, iwefj, name)
+                run_command(f'sudo rm -rf {shlex.quote(directory_path)}')
+            except:
+                pass
 
             # Remove service — platform-aware
             if sys.platform == 'win32':
@@ -6202,11 +6173,11 @@ def delete_python(request):
                     except Exception:
                         pass
             from voidplatform.linux.web import get_active_engine, get_active_engine_manager
+            import re
             engine = get_active_engine()
             mgr = get_active_engine_manager()
 
             if engine == 'ols':
-                import re
                 old_conf = mgr.read_site_config(domainname)
                 # Remove python extprocessor and its contexts
                 new_conf = re.sub(rf'extprocessor python_{name}\s*{{[^}}]+}}\n?', '', old_conf)
@@ -6214,46 +6185,12 @@ def delete_python(request):
                 new_conf = re.sub(r'context /static/\s*\{[^}]*type\s+null[^}]*\}\n?', '', new_conf)
                 mgr.write_and_test_site_config(domainname, new_conf)
             else:
-                redirect_rule_start ='location / {'
-                redirect_rule_end = '}'
-                _dp_conf = os.path.join(paths.NGINX_SITES_ENABLED, f'{domainname}.conf')
-                try:
-                    with open(_dp_conf, 'r') as file:
-                        config_data = file.readlines()
-                        in_redirect_block = False
-                        new_config_data = []
-                        for line in config_data:
-                            if redirect_rule_start in line.strip():
-                                in_redirect_block = True
-                            elif in_redirect_block and redirect_rule_end in line:
-                                in_redirect_block = False
-                                continue
-                            elif not in_redirect_block:
-                                new_config_data.append(line)
-
-                    with open(_dp_conf, 'w') as file:
-                        file.writelines(new_config_data)
-
-                    redirect_rule_start ='location '+'/static/'
-                    redirect_rule_end = '}'
-                    with open(_dp_conf, 'r') as file:
-                        config_data = file.readlines()
-                        in_redirect_block = False
-                        new_config_data = []
-                        for line in config_data:
-                            if redirect_rule_start in line:
-                                in_redirect_block = True
-                            elif in_redirect_block and redirect_rule_end in line:
-                                in_redirect_block = False
-                                continue
-                            elif not in_redirect_block:
-                                new_config_data.append(line)
-
-                    with open(_dp_conf, 'w') as file:
-                        file.writelines(new_config_data)
-                except Exception:
-                    pass
-                mgr.reload()
+                old_conf = mgr.read_site_config(domainname)
+                if old_conf:
+                    # Strip out Python / and /static/ proxies safely
+                    new_conf = re.sub(r'[ \t]*location / \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', old_conf)
+                    new_conf = re.sub(r'[ \t]*location /static/ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+                    mgr.write_and_test_site_config(domainname, new_conf)
 
             df=pythonname.objects.filter(domain=domainname,name=name).first()
             if df:
