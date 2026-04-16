@@ -5,9 +5,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+    
+    <!-- Fonts & Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    
+    <!-- XTERM CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+
     <style>
         :root {
             --neon: #00e5ff;
@@ -18,7 +24,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: 'Inter', sans-serif;
-            background: #060b18;
+            background: #000000;
             height: 100vh;
             display: flex;
             flex-direction: column;
@@ -63,6 +69,16 @@
         .meta-chip.amber { background:rgba(245,158,11,.08); border-color:rgba(245,158,11,.2); color:#f59e0b; }
         .meta-chip.purple { background:rgba(168,85,247,.08); border-color:rgba(168,85,247,.2); color:#a855f7; }
 
+        .btn-action {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+            color: #fff; border-radius: 8px; padding: 5px 12px;
+            font-size: 0.75rem; font-weight: 500; cursor: pointer;
+            display: flex; align-items: center; gap: 5px;
+            transition: all .2s;
+            text-decoration: none;
+        }
+        .btn-action:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+        
         .btn-close-term {
             background: rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.3);
             color: #ef4444; border-radius: 8px; padding: 5px 12px;
@@ -78,28 +94,40 @@
             background: rgba(245,158,11,0.06);
             border-bottom: 1px solid rgba(245,158,11,0.15);
             padding: 6px 20px;
-            display: flex; align-items: center; gap: 8px;
+            display: flex; align-items: center; justify-content: space-between;
             font-size: 0.72rem; color: #f59e0b;
             flex-shrink: 0;
         }
 
-        /* Iframe area */
+        .status-indicator {
+            display: flex; align-items: center; gap: 6px;
+        }
+        .status-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #22c55e; box-shadow: 0 0 8px #22c55e;
+        }
+        .status-dot.offline {
+            background: #ef4444; box-shadow: 0 0 8px #ef4444;
+        }
+
+        /* Terminal Area */
         .term-frame-wrap {
             flex: 1;
+            padding: 10px;
+            background: #000;
             overflow: hidden;
             position: relative;
         }
-        .term-frame-wrap iframe {
+
+        #terminal-container {
             width: 100%;
             height: 100%;
-            border: none;
-            display: block;
         }
 
-        /* Loading screen */
-        .term-loading {
+        /* Loading Overlay */
+        #termLoading {
             position: absolute; inset: 0;
-            background: #060b18;
+            background: #000000;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             gap: 14px; z-index: 10;
         }
@@ -112,7 +140,6 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
         .loading-text { font-size: 0.85rem; color: rgba(180,200,230,.7); }
-        .loading-sub { font-size: 0.72rem; color: rgba(180,200,230,.4); }
     </style>
 </head>
 <body>
@@ -123,40 +150,160 @@
             <div class="term-brand-icon"><i class="fa fa-terminal"></i></div>
             <div>
                 <div class="term-title">Web Terminal — {{ terminal_user }}</div>
-                <div class="term-sub">Restricted Shell &middot; Home: {{ home_dir }}</div>
+                <div class="term-sub">Server: {{ hostname }} ({{ ip }}) &middot; Home: {{ home_dir }}</div>
             </div>
         </div>
 
         <div class="term-meta">
             <span class="meta-chip purple"><i class="fa fa-user"></i> {{ terminal_user }}</span>
-            <span class="meta-chip green"><i class="fa fa-lock"></i> rbash (restricted)</span>
-            <span class="meta-chip amber"><i class="fa fa-folder"></i> /home/{{ terminal_user }}</span>
+            <span class="meta-chip green"><i class="fa fa-lock"></i> PTY WebSocket</span>
+            <span class="meta-chip amber"><i class="fa fa-folder"></i> {{ home_dir }}</span>
         </div>
 
-        <a href="/listusers/" class="btn-close-term">
-            <i class="fa fa-times"></i> Close Terminal
-        </a>
+        <div style="display: flex; gap: 8px;">
+            <button onclick="connectWebsocket()" class="btn-action">
+                <i class="fa fa-refresh"></i> Reconnect
+            </button>
+            <a href="/listusers/" class="btn-close-term">
+                <i class="fa fa-times"></i> Close Terminal
+            </a>
+        </div>
     </div>
 
     <!-- Security notice -->
     <div class="security-bar">
-        <i class="fa fa-shield-alt"></i>
-        <strong>Security Notice:</strong> This terminal runs as user <em>{{ terminal_user }}</em> with restricted bash. Access is limited to the user's home directory only. All activity may be logged.
-    </div>
-
-    <!-- Terminal iframe -->
-    <div class="term-frame-wrap">
-        <div class="term-loading" id="termLoading">
-            <div class="loader-ring"></div>
-            <div class="loading-text">Launching terminal…</div>
-            <div class="loading-sub">Connecting to shellinabox on port {{ terminal_port }}</div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <i class="fa fa-shield-alt"></i>
+            <strong>Security Notice:</strong> Running native PTY session as user <em>{{ terminal_user }}</em> with restricted bash.
         </div>
-        <iframe
-            id="termFrame"
-            src="http://{{ request.META.SERVER_NAME }}:{{ terminal_port }}"
-            onload="document.getElementById('termLoading').style.display='none';"
-        ></iframe>
+        <div class="status-indicator">
+            <div id="conn-status" class="status-dot"></div>
+            <span id="conn-text" style="color: #22c55e; font-weight: 600;">Connected</span>
+        </div>
     </div>
 
+    <!-- Terminal Area -->
+    <div class="term-frame-wrap">
+        <div id="termLoading">
+            <div class="loader-ring"></div>
+            <div class="loading-text">Establishing Secure WebSocket Session…</div>
+        </div>
+        <div id="terminal-container"></div>
+    </div>
+
+    <!-- XTERM JS -->
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+
+    <script>
+        let term;
+        let fitAddon;
+        let socket;
+        const TARGET_USER = "{{ terminal_user }}";
+
+        function updateStatus(connected, message = null) {
+            const dot = document.getElementById('conn-status');
+            const txt = document.getElementById('conn-text');
+            if (connected) {
+                dot.className = 'status-dot';
+                txt.style.color = '#22c55e';
+                txt.innerText = 'Connected';
+                document.getElementById('termLoading').style.display = 'none';
+            } else {
+                dot.className = 'status-dot offline';
+                txt.style.color = '#ef4444';
+                txt.innerText = message || 'Disconnected';
+            }
+        }
+
+        function initTerminal() {
+            document.getElementById('terminal-container').innerHTML = '';
+            
+            term = new Terminal({
+                cursorBlink: true,
+                fontFamily: '"Fira Code", monospace',
+                fontSize: 14,
+                theme: {
+                    background: '#000000',
+                    foreground: '#f8f8f2',
+                    cursor: '#00e5ff'
+                }
+            });
+            
+            fitAddon = new FitAddon.FitAddon();
+            term.loadAddon(fitAddon);
+            term.open(document.getElementById('terminal-container'));
+            fitAddon.fit();
+            
+            connectWebsocket();
+
+            term.onData(data => {
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({
+                        action: "input",
+                        data: data
+                    }));
+                }
+            });
+
+            window.addEventListener('resize', () => {
+                if(fitAddon && socket && socket.readyState === WebSocket.OPEN) {
+                    fitAddon.fit();
+                    const dim = fitAddon.proposeDimensions();
+                    if(dim) {
+                        socket.send(JSON.stringify({
+                            action: "resize",
+                            rows: dim.rows,
+                            cols: dim.cols
+                        }));
+                    }
+                }
+            });
+        }
+
+        function connectWebsocket() {
+            if(socket && socket.readyState !== WebSocket.CLOSED) {
+                socket.close();
+            }
+            
+            document.getElementById('termLoading').style.display = 'flex';
+            updateStatus(false, 'Connecting...');
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            // Use the new user-specific websocket route!
+            socket = new WebSocket(`${protocol}//${window.location.host}/ws/user-terminal/${TARGET_USER}/`);
+
+            socket.onopen = () => {
+                updateStatus(true);
+                term.write('\x1b[36;1mSecure VoidPanel PTY Session initialized...\x1b[0m\r\n');
+                
+                fitAddon.fit();
+                const dim = fitAddon.proposeDimensions();
+                if(dim) {
+                     socket.send(JSON.stringify({
+                        action: "resize",
+                        rows: dim.rows,
+                        cols: dim.cols
+                    }));
+                }
+            };
+
+            socket.onerror = (e) => {
+                console.error("WebSocket Error:", e);
+                updateStatus(false, 'Connection Failed');
+            };
+
+            socket.onclose = () => {
+                updateStatus(false, 'Session Closed');
+                term.write('\r\n\x1b[31;1mConnection closed.\x1b[0m\r\n');
+            };
+
+            socket.onmessage = (event) => {
+                term.write(event.data);
+            };
+        }
+
+        document.addEventListener("DOMContentLoaded", initTerminal);
+    </script>
 </body>
 </html>

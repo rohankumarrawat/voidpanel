@@ -373,13 +373,20 @@
                                     </button>
                                 </td>
                                 <td>
-                                    {% if i.shell %}
-                                    <a href="/user-terminal/{{ i.username }}/" target="_blank" class="act-btn" style="color:#a855f7;border-color:rgba(168,85,247,.3);">
-                                        <i class="fa fa-terminal"></i> Open
-                                    </a>
-                                    {% else %}
-                                    <span style="color:rgba(180,200,230,0.3);font-size:.72rem;">—</span>
-                                    {% endif %}
+                                    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                                        {% if i.shell %}
+                                        <a href="/user-terminal/{{ i.username }}/" target="_blank" class="act-btn" style="color:#a855f7;border-color:rgba(168,85,247,.3);">
+                                            <i class="fa fa-terminal"></i> Open
+                                        </a>
+                                        <button onclick="openShellToggle('{{ i.username }}', true)" class="act-btn" style="color:#ef4444;border-color:rgba(239,68,68,.3);font-size:.68rem;padding:3px 8px;">
+                                            <i class="fa fa-times"></i> Revoke
+                                        </button>
+                                        {% else %}
+                                        <button onclick="openShellToggle('{{ i.username }}', false)" class="act-btn" style="color:#22c55e;border-color:rgba(34,197,94,.3);">
+                                            <i class="fa fa-terminal"></i> Enable Shell
+                                        </button>
+                                        {% endif %}
+                                    </div>
                                 </td>
                                 <td>
                                     {% if i.status %}
@@ -515,6 +522,32 @@
     </div>
 </div>
 
+<!-- ── Shell Toggle Modal ── -->
+<div class="modal-overlay" id="modal-shell">
+    <div class="modal-glass">
+        <div class="modal-head">
+            <div class="modal-head-icon purple"><i class="fa fa-terminal"></i></div>
+            <div>
+                <div class="modal-title" id="shell-modal-title">Enable Shell Access</div>
+                <div class="modal-sub">User: <strong id="shell-username" style="color:#a855f7;"></strong></div>
+            </div>
+        </div>
+        <div class="modal-warn" id="shell-modal-warn">
+            <i class="fa fa-exclamation-triangle"></i>
+            <span id="shell-modal-msg">Granting shell access allows this user to run terminal commands inside their home directory via restricted bash (/bin/rbash).</span>
+        </div>
+        <input type="hidden" id="shell-user">
+        <input type="hidden" id="shell-current-state">
+        <form id="shellform" style="display:none">{% csrf_token %}</form>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-shell')">Cancel</button>
+            <button class="btn-modal-confirm" id="shell-confirm-btn" onclick="submitShellToggle()" style="background:linear-gradient(135deg,#a855f7,#8b5cf6);">
+                <i class="fa fa-check" style="margin-right:6px;"></i><span id="shell-confirm-label">Enable Shell</span>
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- ── Result Modal ── -->
 <div class="result-overlay" id="result-overlay">
     <div class="result-glass">
@@ -567,6 +600,44 @@
         document.getElementById('term-domain').textContent = domain;
         document.getElementById('term-link').href = '/terminate/' + domain;
         openModal('modal-terminate');
+    }
+    function openShellToggle(username, currentlyEnabled) {
+        document.getElementById('shell-username').textContent = username;
+        document.getElementById('shell-user').value = username;
+        document.getElementById('shell-current-state').value = currentlyEnabled ? '1' : '0';
+        if (currentlyEnabled) {
+            document.getElementById('shell-modal-title').textContent = 'Revoke Shell Access';
+            document.getElementById('shell-modal-msg').textContent = 'This will disable terminal access for ' + username + '. Their system shell will be reset to /bin/false.';
+            document.getElementById('shell-confirm-label').textContent = 'Revoke Shell';
+            document.getElementById('shell-confirm-btn').style.background = 'linear-gradient(135deg,#ef4444,#dc2626)';
+        } else {
+            document.getElementById('shell-modal-title').textContent = 'Enable Shell Access';
+            document.getElementById('shell-modal-msg').textContent = 'Granting shell access allows ' + username + ' to run terminal commands inside their home directory via restricted bash (/bin/rbash).';
+            document.getElementById('shell-confirm-label').textContent = 'Enable Shell';
+            document.getElementById('shell-confirm-btn').style.background = 'linear-gradient(135deg,#a855f7,#8b5cf6)';
+        }
+        openModal('modal-shell');
+    }
+    async function submitShellToggle() {
+        const user = document.getElementById('shell-user').value;
+        const enable = document.getElementById('shell-current-state').value === '0';
+        closeModal('modal-shell');
+        const csrf = document.querySelector('#shellform [name=csrfmiddlewaretoken]').value;
+        const fd = new FormData();
+        fd.append('username', user);
+        fd.append('enable', enable ? '1' : '0');
+        try {
+            const res = await fetch('/api/toggle-shell/', { method: 'POST', body: fd, headers: { 'X-CSRFToken': csrf } });
+            const data = await res.json();
+            if (data.status === 'success') {
+                showResult('✓', '#22c55e', enable ? 'Shell access enabled for ' + user + '. Refresh to see the terminal button.' : 'Shell access revoked for ' + user + '.');
+                setTimeout(() => location.reload(), 1800);
+            } else {
+                showResult('✕', '#ef4444', data.message || 'Failed to update shell access.');
+            }
+        } catch(e) {
+            showResult('✕', '#ef4444', 'Network error. Please try again.');
+        }
     }
 
     /* ── Result overlay ── */

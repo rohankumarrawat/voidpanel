@@ -7063,9 +7063,8 @@ def process_restore(request):
 @login_required(login_url='/')
 def user_terminal(request, username):
     """
-    Open a shellinabox terminal restricted to the user's home directory.
-    Only accessible by superusers. The shell runs as the system user (not root),
-    so it is confined to /home/<username> with /bin/rbash.
+    Open an xterm.js terminal restricted to the user's home directory.
+    Only accessible by superusers. Uses the custom UserTerminalConsumer WebSocket.
     """
     if not request.user.is_superuser:
         return redirect('/')
@@ -7083,28 +7082,69 @@ def user_terminal(request, username):
 
     if not vuser.shell:
         return HttpResponse('Shell access not enabled for this user.', status=403)
+        
+    try:
+        from voidplatform.config import paths
+        home_dir = os.path.join(paths.HOME_BASE, username)
+    except ImportError:
+        home_dir = f'/home/{username}'
 
-    home_dir = os.path.join(paths.HOME_BASE, username)
-    port = get_random_port({8080, 8082, 8090, 8092, 9000, 9002})
-
-    if sys.platform != 'win32':
-        # Write shellinabox config — run as the specific user, restricted to their home
-        config = (
-            f'SHELLINABOX_DAEMON_START=1\n'
-            f'SHELLINABOX_PORT={port}\n'
-            f"SHELLINABOX_ARGS='--disable-ssl --no-beep "
-            f"--service=/{username}:{username}:{home_dir}:/bin/rbash'\n"
-        )
-        import tempfile
-        with tempfile.NamedTemporaryFile('w', suffix='.conf', delete=False) as tf:
-            tf.write(config)
-            tmp_conf = tf.name
-        run_command(f'sudo bash -c "cat {tmp_conf} > /etc/default/shellinabox"')
-        run_command('sudo systemctl restart shellinabox')
+    # Fetch basic server info for the UI
+    import socket
+    hostname = socket.gethostname()
+    try:
+        ip = request.META.get('SERVER_NAME', '127.0.0.1')
+    except Exception:
+        ip = "Unknown IP"
 
     d = {
         'terminal_user': username,
-        'terminal_port': port,
         'home_dir': home_dir,
+        'hostname': hostname,
+        'ip': ip,
     }
     return render(request, 'panel/user_terminal.html', d)
+
+
+# ─── Shell Access Toggle API ─────────────────────────────────────────────────
+
+@login_required(login_url='/')
+def toggle_shell_access(request):
+    """
+    POST /api/toggle-shell/
+    Superuser-only. Enables or revokes shell access for a VoidPanel user.
+    Sets/clears the `shell` flag in the DB and runs usermod to set the
+    system shell to /bin/rbash (enable) or /bin/false (revoke).
+    """
+    if not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
+
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required.'}, status=405)
+
+    import re
+    username = request.POST.get('username', '').strip()
+    enable = request.POST.get('enable', '0') == '1'
+
+    if not re.match(r'^[a-z0-9_]{1,32}$', username):
+        return JsonResponse({'status': 'error', 'message': 'Invalid username.'}, status=400)
+
+    from control.models import user as VUser
+    try:
+        vuser = VUser.objects.get(username=username)
+    except VUser.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'User not found.'}, status=404)
+
+    # Update DB flag
+    vuser.shell = enable
+    vuser.save()
+
+    # Update system shell (Linux only)
+    if sys.platform != 'win32':
+        if enable:
+            os.system(f'usermod -s /bin/rbash {username}')
+        else:
+            os.system(f'usermod -s /bin/false {username}')
+
+    action = 'enabled' if enable else 'revoked'
+    return JsonResponse({'status': 'success', 'message': f'Shell access {action} for {username}.'})

@@ -194,6 +194,7 @@ urlpatterns = [
        path('restorewizard/', views.restore_wizard, name='restore_wizard'),
        path('api/restore/process/', views.process_restore, name='process_restore'),
        path('user-terminal/<str:username>/', views.user_terminal, name='user_terminal'),
+       path('api/toggle-shell/', views.toggle_shell_access, name='toggle_shell_access'),
 
 ]
 if settings.DEBUG:
