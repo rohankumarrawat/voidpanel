@@ -63,6 +63,10 @@ class TerminalConsumer(AsyncWebsocketConsumer):
         if self.target_user != "root":
             has_shell = await self.check_shell_access(self.target_user)
             if not has_shell:
+                await self.accept()
+                await self.send(
+                    text_data=f'\r\n\x1b[31;1mAccess denied: Shell access is disconnected for "{self.target_user}". Ask Voidpanel admin to enable shell access from admin panel -> Users list !!\x1b[0m\r\n'
+                )
                 await self.close()
                 return
 

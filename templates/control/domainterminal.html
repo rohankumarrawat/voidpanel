@@ -261,18 +261,19 @@
         });
     }
 
-    function updateStatus(connected) {
+    function updateStatus(connected, msg = null) {
         const dot = document.getElementById('conn-status');
         const txt = document.getElementById('conn-text');
         const loader = document.getElementById('term-loader');
         
-        if(connected) {
+        if (connected) {
             dot.classList.remove('disconnected');
             txt.innerText = 'Tunneled';
             loader.style.display = 'none';
         } else {
             dot.classList.add('disconnected');
-            txt.innerText = 'Disconnected';
+            txt.innerText = msg || 'Disconnected';
+            loader.style.display = 'none';
         }
     }
 
@@ -301,11 +302,11 @@
 
         socket.onerror = (e) => {
             toastr.error("Secure connection timeout. Retrying...");
-            updateStatus(false);
+            updateStatus(false, "Connection Failed");
         };
 
         socket.onclose = () => {
-            updateStatus(false);
+            updateStatus(false, "Session Closed");
             term.write('\r\n\x1b[31;1mConnection closed. Tunnel Terminated.\x1b[0m\r\n');
         };
 
