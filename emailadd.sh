@@ -31,8 +31,8 @@ chmod -R 775 "$FILEDIR"
 TOUCH_FILE="/etc/dovecot/users"
 if [ ! -f "$TOUCH_FILE" ]; then
     touch "$TOUCH_FILE"
-    chown vmail:vmail "$TOUCH_FILE"
-    chmod 660 "$TOUCH_FILE"
+    chown vmail:dovecot "$TOUCH_FILE"
+    chmod 640 "$TOUCH_FILE"
 fi
 
 # Insert routing mapping into Dovecot's global users file

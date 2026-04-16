@@ -363,12 +363,12 @@ def pma_login(request, data):
                 <div style="width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1); border-left-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto; margin-top: 15px;"></div>
                 <style>@keyframes spin {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }}</style>
             </div>
-            <form id="pma_login_form" method="post" action="http://{data}/phpmyadmin/index.php" style="display: none;">
+            <form id="pma_login_form" method="post" action="https://{data}/phpmyadmin/vp_sso.php" style="display: none;">
                 <input type="hidden" name="pma_username" value="{temp_user}">
                 <input type="hidden" name="pma_password" value="{temp_password}">
             </form>
             <script>
-                // Automatically submit the form to phpMyAdmin
+                // Automatically submit the form to phpMyAdmin signon script
                 setTimeout(function() {{
                     document.getElementById('pma_login_form').submit();
                 }}, 500);
@@ -681,7 +681,7 @@ def listemail(request,data):
                # Server details for email client connection info
                d['server_hostname'] = hostname
                d['server_ip'] = get_server_ip()
-               d['roundcube_url'] = f"https://{hostname}:9003"
+               d['roundcube_url'] = f"https://{hostname}:9002"
                
                url = 'https://voidpanel.com/clientdocs/'  # Replace with your API URL
                response = requests.get(url)
@@ -878,16 +878,19 @@ def eadns(request):
     d={}
     d.update(get_user_dashboard_context(current, adminpassword))
     
-    domainname = request.GET.get('domain')
+    domainname = request.GET.get('domain', '')
+    if domainname:
+        domainname = domainname.strip().rstrip('/')
     try:
         current_domain=domain.objects.get(domain=domainname)
         d['domain']=current_domain
         pat=os.path.join(paths.BIND_ZONE_DIR, f"db.{current_domain}")
         data12=parse_dns_zone_file(pat)
         d['data']=data12[2:]
-    except:
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"eadns view failed for domain '{domainname}': {type(e).__name__} - {str(e)}")
         return redirect('/')
-        
     url = 'https://voidpanel.com/clientdocs/'
     response = requests.get(url)
     if response.status_code == 200:
@@ -918,9 +921,13 @@ def adddnsrecord(request):
             if dddd==domainname:
                 if name and record_class and record_type and data and domainname:
                     pat=os.path.join(paths.BIND_ZONE_DIR, f"db.{domainname}")
-                    with open(pat, 'a') as zone_file:
-                        zone_file.write(f"\n; {record_type} Record for {domainname}\n")
-                        zone_file.write(f"{name} {ttl} {record_class} {record_type} {data}\n")
+                    import tempfile
+                    with tempfile.NamedTemporaryFile('w', delete=False) as tf:
+                        tf.write(f"\n; {record_type} Record for {domainname}\n")
+                        tf.write(f"{name} {ttl} {record_class} {record_type} {data}\n")
+                        tmpd = tf.name
+                    run_command(f'cat {tmpd} | sudo tee -a {pat}')
+                    run_command(f'sudo rm {tmpd}')
                     get_platform().services.restart('bind9')
                         
                     return JsonResponse({'success': True})
@@ -964,19 +971,25 @@ def deletedns(request):
         try:
             with open(pat, 'r') as file:
                 lines = file.readlines()
-            with open(pat, 'w') as file:
+            import tempfile
+            with tempfile.NamedTemporaryFile('w', delete=False) as tfile:
                 for line in lines:
                     if name in line and record_type in line and data[:20] in line and (not ttl or ttl in line):
                         deleted = True
                     elif name in line and data[:20] in line:
                         deleted = True
                     else:
-                        file.write(line)
+                        tfile.write(line)
+                tmpout = tfile.name
 
             if deleted:
+                run_command(f'sudo cp {tmpout} {pat}')
+                run_command(f'sudo chmod 644 {pat}')
+                run_command(f'sudo rm {tmpout}')
                 get_platform().services.restart('bind9')
                 return JsonResponse({'success': True})
             else:
+                run_command(f'sudo rm {tmpout}')
                 return JsonResponse({'success': False, 'error': 'Record not found'})
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
@@ -1048,8 +1061,13 @@ def editdnsrecord(request):
                     new_lines.append(line)
 
             if edited:
-                with open(pat, 'w') as file:
-                    file.writelines(new_lines)
+                import tempfile
+                with tempfile.NamedTemporaryFile('w', delete=False) as tfe:
+                    tfe.writelines(new_lines)
+                    tmpedit = tfe.name
+                run_command(f'sudo cp {tmpedit} {pat}')
+                run_command(f'sudo chmod 644 {pat}')
+                run_command(f'sudo rm {tmpedit}')
                 get_platform().services.restart('bind9')
                 return JsonResponse({'success': True, 'message': 'DNS record updated successfully.'})
             else:
@@ -1601,141 +1619,214 @@ def roundcube_login(request, email):
     except Exception:
         return HttpResponse("Cannot decode credentials — please reset the email password first.", status=500)
 
-    # Determine Roundcube URL (standard port 9003 or fall back to server IP)
+    # Determine Roundcube URL (standard port 9002 or fall back to server IP)
     try:
         hostname = socket.gethostname()
-        roundcube_url = f"https://{hostname}:9003"
+        roundcube_url = f"https://{hostname}:9002"
     except Exception:
-        roundcube_url = f"https://{get_server_ip()}:9003"
+        roundcube_url = f"https://{get_server_ip()}:9002"
 
-    # Build auto-submitting POST form (same pattern as phpMyAdmin SSO)
-    html = f"""<!DOCTYPE html>
-<html>
-<head>
-    <title>Logging in to Webmail...</title>
-    <style>
-        body {{ background: #0a0e1a; color: #e2e8f0; font-family: 'Inter', sans-serif;
-               display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }}
-        .msg {{ text-align: center; }}
-        .spinner {{ width: 40px; height: 40px; border: 3px solid rgba(99,102,241,0.2);
-                   border-top-color: #6366f1; border-radius: 50%; animation: spin 0.8s linear infinite;
-                   margin: 0 auto 20px; }}
-        @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
-    </style>
-</head>
-<body>
-<div class="msg">
-    <div class="spinner"></div>
-    <p>Redirecting to Roundcube Webmail...</p>
-</div>
-<form id="rclogin" action="{roundcube_url}/?_task=login" method="POST" target="_blank">
-    <input type="hidden" name="_task" value="login">
-    <input type="hidden" name="_action" value="login">
-    <input type="hidden" name="_timezone" value="auto">
-    <input type="hidden" name="_url" value="">
-    <input type="hidden" name="_user" value="{email}">
-    <input type="hidden" name="_pass" value="{password}">
-</form>
-<script>
-    document.getElementById('rclogin').submit();
-    // Redirect back to email list after short delay
-    setTimeout(function() {{ window.location.href = '/control/listemail/{domain_name}/'; }}, 1500);
-</script>
-</body>
-</html>"""
-    return HttpResponse(html)
+    # Build an SSO gateway redirect generating a temporary file token
+    # This bypasses Cross-Origin cookie restrictions completely
+    import uuid
+    import os
+    token = str(uuid.uuid4())
+    sso_path = f"/tmp/rc_sso_{token}"
+    try:
+        with open(sso_path, "w") as f:
+            f.write(f"{email}\n{password}")
+        os.chmod(sso_path, 0o666)
+    except Exception:
+        pass
+
+    return redirect(f"{roundcube_url}/?_task=login&vp_token={token}")
 
 
 # ─── Analytics View (Control Portal) ────────────────────────────────────────
-@login_required(login_url='/')
+@login_required(login_url="/")
 def analytics_control(request, data):
     if request.user.is_superuser:
-        current = request.session.get('name', request.user.username)
+        current = request.session.get("name", request.user.username)
     else:
         current = request.user.username
 
     if not request.user.is_authenticated:
-        return redirect('/')
+        return redirect("/")
 
-    # Ownership check
     if not request.user.is_superuser:
         owner = user.objects.filter(username=current).first()
         if not owner or owner.domain != data:
             return HttpResponse("Unauthorized.", status=403)
 
     try:
-        with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
+        with open(paths.MYSQL_PASSWORD_FILE, "r") as f:
             adminpassword = f.read().strip()
     except Exception:
-        adminpassword = ''
+        adminpassword = ""
 
     d = {}
     d.update(get_user_dashboard_context(current, adminpassword))
-    d['domain'] = data
+    d["domain"] = data
 
-    # Domain object
     from control.models import domain as ctrl_domain
     dom_obj = ctrl_domain.objects.filter(domain=data).first()
-    d['homedir'] = dom_obj.dir if dom_obj else data
-    d['username'] = current
+    d["homedir"] = dom_obj.dir if dom_obj else data
+    d["username"] = current
 
-    # Package info
     usr_obj = user.objects.filter(username=current).first()
-    pak_name = usr_obj.hosting_package if usr_obj else 'N/A'
-    d['package_name'] = pak_name
+    pak_name = usr_obj.hosting_package if usr_obj else "N/A"
+    d["package_name"] = pak_name
     from control.models import package as ctrl_package
     pak = ctrl_package.objects.filter(name=pak_name).first()
-    d['disk_quota_mb'] = pak.storage if pak else '0'
+    d["disk_quota_mb"] = pak.storage if pak else "0"
 
-    # Disk usage
-    import os
     from function import get_directory_size_in_mb, is_website_live, parse_dns_zone_file
     try:
         disk_used = get_directory_size_in_mb(os.path.join(paths.HOME_BASE, d["homedir"]))
     except Exception:
         disk_used = 0
-    d['disk_used'] = int(disk_used)
-    quota = int(d['disk_quota_mb']) if str(d['disk_quota_mb']).isdigit() else 0
-    d['disk_percent'] = round((int(disk_used) / quota) * 100) if quota > 0 else 0
+    d["disk_used"] = int(disk_used)
+    quota = int(d["disk_quota_mb"]) if str(d["disk_quota_mb"]).isdigit() else 0
+    d["disk_percent"] = round((int(disk_used) / quota) * 100) if quota > 0 else 0
+    d["live"] = is_website_live(f"http://{data}")
+    d["ssl_active"] = os.path.exists(os.path.join(paths.LETSENCRYPT_LIVE, data, "fullchain.pem"))
+    d["php_version"] = dom_obj.php if dom_obj and hasattr(dom_obj, "php") else "N/A"
+    d["domain_status"] = dom_obj.status if dom_obj and hasattr(dom_obj, "status") else True
+    d["emails"] = allemail.objects.filter(domain=data).all()
+    d["subdomains"] = subdomainname.objects.filter(domain=data).all()
+    d["python_apps"] = pythonname.objects.filter(main=data).all()
+    d["mern_apps"] = mernname.objects.filter(main=data).all()
 
-    # Live status
-    d['live'] = is_website_live(f'http://{data}')
-
-    # SSL
-    d['ssl_active'] = os.path.exists(os.path.join(paths.LETSENCRYPT_LIVE, data, 'fullchain.pem'))
-
-    # PHP
-    d['php_version'] = dom_obj.php if dom_obj and hasattr(dom_obj, 'php') else 'N/A'
-    d['domain_status'] = dom_obj.status if dom_obj and hasattr(dom_obj, 'status') else True
-
-    # Email accounts
-    d['emails'] = allemail.objects.filter(domain=data).all()
-
-    # Subdomains
-    d['subdomains'] = subdomainname.objects.filter(domain=data).all()
-
-    # Python + MERN apps
-    d['python_apps'] = pythonname.objects.filter(main=data).all()
-    d['mern_apps'] = mernname.objects.filter(main=data).all()
-
-    # DNS
     try:
-        dns_records = parse_dns_zone_file(os.path.join(paths.BIND_ZONE_DIR, f'db.{data}'))
-        d['dns_records'] = [r for r in dns_records if r.get('type') in ('A','MX','CNAME','TXT','NS','AAAA')]
-        d['dns_count'] = len(d['dns_records'])
+        dns_records = parse_dns_zone_file(os.path.join(paths.BIND_ZONE_DIR, f"db.{data}"))
+        d["dns_records"] = [r for r in dns_records if r.get("type") in ("A","MX","CNAME","TXT","NS","AAAA")]
+        d["dns_count"] = len(d["dns_records"])
     except Exception:
-        d['dns_records'] = []
-        d['dns_count'] = 0
+        d["dns_records"] = []
+        d["dns_count"] = 0
 
-    # MySQL
     try:
         from function import get_database_names_with_filter
-        db_names = get_database_names_with_filter(adminpassword, d['homedir'])
-        d['db_count'] = len(db_names) if db_names else 0
+        db_names = get_database_names_with_filter(adminpassword, d["homedir"])
+        d["db_count"] = len(db_names) if db_names else 0
     except Exception:
-        d['db_count'] = 0
+        d["db_count"] = 0
 
-    return render(request, 'control/analytics.html', d)
+    # Traffic Analytics Engine - dual Nginx/OLS compatible
+    import re as _re, json as _json
+    from collections import defaultdict
+    from datetime import datetime, timedelta
+
+    try:
+        from voidplatform.linux.web import get_active_engine
+        active_engine = get_active_engine()
+    except Exception:
+        active_engine = "nginx"
+
+    def _log_path_for(dname):
+        if active_engine == "ols":
+            return f"/usr/local/lsws/conf/vhosts/{dname}/logs/access.log"
+        return f"/var/log/nginx/{dname}.access.log"
+
+    all_log_paths = [_log_path_for(data)]
+    for sub in d["subdomains"]:
+        sname = getattr(sub, "name", None) or getattr(sub, "subdomain", None)
+        if sname:
+            all_log_paths.append(_log_path_for(f"{sname}.{data}"))
+
+    LOG_RE = _re.compile(
+        r'(?P<ip>[\d\.a-fA-F:]+) \S+ \S+ \[(?P<time>[^\]]+)\] '
+        r'"(?P<method>\S+) (?P<path>\S+) \S+" (?P<status>\d+) (?P<bytes>\d+|-)'
+        r'(?: "(?P<referer>[^"]*)" "(?P<ua>[^"]*)")?'
+    )
+    BOT_KW    = ["bot","crawl","spider","slurp","baidu","yandex","semrush","ahrefs","python-requests","curl"]
+    MOBILE_KW = ["mobile","android","iphone","ipad","ipod"]
+
+    total_requests = 0; total_bytes = 0; unique_ips = set()
+    status_counts  = defaultdict(int); daily_counts = defaultdict(int)
+    country_counts = defaultdict(int); top_paths = defaultdict(int)
+    bot_requests   = 0; mobile_count = 0; desktop_count = 0
+    cutoff         = datetime.utcnow() - timedelta(days=30)
+
+    for lp in all_log_paths:
+        try:
+            with open(lp, "r", errors="replace") as f:
+                for line in f:
+                    m = LOG_RE.match(line.strip())
+                    if not m:
+                        continue
+                    try:
+                        dt = datetime.strptime(m.group("time").split()[0], "%d/%b/%Y:%H:%M:%S")
+                    except Exception:
+                        continue
+                    if dt < cutoff:
+                        continue
+                    total_requests += 1
+                    ip = m.group("ip"); unique_ips.add(ip)
+                    bv = m.group("bytes"); total_bytes += int(bv) if bv != "-" else 0
+                    status_counts[m.group("status")] += 1
+                    daily_counts[dt.strftime("%Y-%m-%d")] += 1
+                    path = m.group("path").split("?")[0]
+                    if path not in ("/", ""):
+                        top_paths[path] += 1
+                    ua = (m.group("ua") or "").lower()
+                    if any(k in ua for k in BOT_KW):
+                        bot_requests += 1
+                    elif any(k in ua for k in MOBILE_KW):
+                        mobile_count += 1
+                    else:
+                        desktop_count += 1
+        except Exception:
+            pass
+
+    GEOIP_DB = "/var/www/panel/geoip/GeoLite2-Country.mmdb"
+    geoip_ok = os.path.exists(GEOIP_DB) and len(unique_ips) > 0
+    if geoip_ok:
+        try:
+            import geoip2.database
+            with geoip2.database.Reader(GEOIP_DB) as reader:
+                for ip in list(unique_ips)[:5000]:
+                    try:
+                        country_counts[reader.country(ip).country.name or "Unknown"] += 1
+                    except Exception:
+                        country_counts["Unknown"] += 1
+        except Exception:
+            geoip_ok = False
+
+    today  = datetime.utcnow().date()
+    last7  = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(6, -1, -1)]
+    l7data = [daily_counts.get(dk, 0) for dk in last7]
+    http_2xx = sum(v for k,v in status_counts.items() if k.startswith("2"))
+    http_3xx = sum(v for k,v in status_counts.items() if k.startswith("3"))
+    http_4xx = sum(v for k,v in status_counts.items() if k.startswith("4"))
+    http_5xx = sum(v for k,v in status_counts.items() if k.startswith("5"))
+
+    d["traffic"] = {
+        "total_requests"  : total_requests,
+        "unique_visitors" : len(unique_ips),
+        "bandwidth_mb"    : round(total_bytes / (1024 * 1024), 2),
+        "bot_requests"    : bot_requests,
+        "mobile_count"    : mobile_count,
+        "desktop_count"   : desktop_count,
+        "http_2xx"        : http_2xx,
+        "http_3xx"        : http_3xx,
+        "http_4xx"        : http_4xx,
+        "http_5xx"        : http_5xx,
+        "top_paths"       : sorted(top_paths.items(), key=lambda x: x[1], reverse=True)[:10],
+        "countries"       : sorted(country_counts.items(), key=lambda x: x[1], reverse=True)[:10],
+        "last7_labels"    : _json.dumps(last7),
+        "last7_data"      : _json.dumps(l7data),
+        "device_labels"   : _json.dumps(["Desktop", "Mobile", "Bots"]),
+        "device_data"     : _json.dumps([desktop_count, mobile_count, bot_requests]),
+        "status_labels"   : _json.dumps(["2xx Success", "3xx Redirect", "4xx Error", "5xx Server Error"]),
+        "status_data"     : _json.dumps([http_2xx, http_3xx, http_4xx, http_5xx]),
+        "geoip_available" : geoip_ok,
+        "active_engine"   : active_engine,
+        "log_path"        : _log_path_for(data),
+    }
+
+    return render(request, "control/analytics.html", d)
+
 
 
 # ─── Raw WebServer Config Editor APIs (User Facing) ──────────────────────────
@@ -1752,8 +1843,8 @@ def user_api_get_site_config(request):
     except Exception:
         return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
         
-    from voidplatform.linux.web import get_active_engine_manager, get_active_engine
-    mgr = get_active_engine_manager()
+    from voidplatform.linux.web import get_web_manager, get_active_engine
+    mgr = get_web_manager()
     conf_text = mgr.read_site_config(domain_name)
     engine = get_active_engine()
     
@@ -1787,8 +1878,8 @@ def user_api_save_site_config(request):
     if not config_text:
         return JsonResponse({'status': 'error', 'message': 'Missing config text'}, status=400)
         
-    from voidplatform.linux.web import get_active_engine_manager
-    mgr = get_active_engine_manager()
+    from voidplatform.linux.web import get_web_manager
+    mgr = get_web_manager()
     
     result = mgr.write_and_test_site_config(domain_name, config_text)
     if result.success:

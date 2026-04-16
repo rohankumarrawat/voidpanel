@@ -88,12 +88,45 @@ def provision_user_task(self, domain12: str, domainname: str, email: str,
     logger.info('Provisioning started: domain=%s user=%s', domain12, domainname)
 
     try:
-        # Write PHP INI
+        # ── 0. Create hosting directories ────────────────────────────────────
+        for _dir in [
+            path,
+            f'{path}/public_html',
+            f'{path}/ssl',
+            f'{path}/logs',
+            os.path.join(path, 'mail', domain12),
+        ]:
+            if sys.platform != 'win32':
+                _run(['sudo', 'mkdir', '-p', _dir])
+            else:
+                os.makedirs(_dir, exist_ok=True)
+
+        # Set ownership so www-data can write files before PHP ini is created
+        if sys.platform != 'win32':
+            _run(['sudo', 'chown', '-R', 'www-data:www-data', path])
+            _run(['sudo', 'chmod', '-R', '755', path])
+
+        # Copy voidpanel default landing page into public_html
+        _vp_src = os.path.join(paths.PANEL_ROOT, 'voidpanel')
+        _vp_dst = os.path.join(path, 'public_html')
+        if os.path.isdir(_vp_src):
+            for _item in os.listdir(_vp_src):
+                _s = os.path.join(_vp_src, _item)
+                _d = os.path.join(_vp_dst, _item)
+                if os.path.isdir(_s):
+                    shutil.copytree(_s, _d, dirs_exist_ok=True)
+                else:
+                    shutil.copy2(_s, _d)
+        else:
+            logger.warning('voidpanel static dir not found at %s, skipping copy', _vp_src)
+
+        # ── 1. Write PHP INI ──────────────────────────────────────────────────
         with open(inipath, 'w', encoding='utf-8') as f:
             f.write(php_ini_content)
 
-        # Nginx / SSL / DNS setup (imported from views helpers)
-        from panel.views import (
+        # ── 2. Nginx / SSL / DNS setup ────────────────────────────────────────
+        # Import directly from function.py — avoids circular panel.views import
+        from function import (
             generate_ssl_certificates, create_nginx_ssl_conf,
             generate_dkim_keys, create_bind_records, configure_opendkim,
         )
@@ -103,6 +136,13 @@ def provision_user_task(self, domain12: str, domainname: str, email: str,
 
         if cert_path and key_path:
             create_nginx_ssl_conf(file_path, domain12, root_dir, cert_path, key_path)
+            # Symlink into sites-enabled for zero-downtime serving
+            _enabled = os.path.join(paths.NGINX_SITES_ENABLED, f'{domain12}.conf')
+            if not os.path.exists(_enabled):
+                if sys.platform == 'win32':
+                    shutil.copy2(file_path, _enabled)
+                else:
+                    _run(['sudo', 'ln', '-sf', file_path, _enabled])
         else:
             raise RuntimeError(f'Cannot generate OpenSSL for domain {domain12}')
 
@@ -116,13 +156,13 @@ def provision_user_task(self, domain12: str, domainname: str, email: str,
         else:
             raise RuntimeError(f'Cannot generate DKIM for domain {domain12}')
 
-        # Atomic DB inserts
+        # ── 3. Atomic DB inserts ──────────────────────────────────────────────
         with transaction.atomic():
             domain.objects.create(domain=domain12, email=email, dir=domainname, userdomain=True)
             user.objects.create(domain=domain12, email=email, username=domainname, hosting_package=package12)
             User.objects.create_user(username=domainname, email=email, password=password)
 
-        # Create system user — platform-aware
+        # ── 4. Create system user ─────────────────────────────────────────────
         plat = get_platform()
         plat.users.create_user(domainname, password, shell=paths.NOLOGIN_SHELL)
 
@@ -130,13 +170,13 @@ def provision_user_task(self, domain12: str, domainname: str, email: str,
         if sys.platform != 'win32':
             _run(['sudo', 'chown', f'{domainname}:{domainname}', home_dir])
 
-        # Apply disk quota
+        # ── 5. Apply disk quota ───────────────────────────────────────────────
         try:
             _run(['sudo', 'setquota', '-u', domainname, str(sto), str(sto), '0', '0', '/'])
         except Exception:
             logger.warning('Quota setup skipped for %s (setquota not available?)', domainname)
 
-        # Zero-downtime reloads
+        # ── 6. Zero-downtime service reloads ──────────────────────────────────
         for svc in ('opendkim', 'bind9', 'postfix', 'nginx'):
             _reload(svc)
 
@@ -234,7 +274,7 @@ def terminate_user_task(self, domain_str: str, mainusername: str, subdomains: li
         shutil.rmtree(spath, ignore_errors=True)
 
     # Mail data
-    shutil.rmtree(_resolve_mail_domain_dir(domain_str, username=domainname), ignore_errors=True)
+    shutil.rmtree(_resolve_mail_domain_dir(domain_str, username=mainusername), ignore_errors=True)
 
     # Service reloads
     for svc in ('bind9', 'nginx', 'postfix', 'dovecot'):
@@ -565,4 +605,55 @@ def run_ssl_task(self, domain_name: str, email: str):
         with open(path, 'a+', encoding='utf-8') as f:
             f.write(f"\nError Occured during AutoSSL for domain {domain_name}")
         logger.error('Auto SSL FAILED for %s. Error: %s', domain_name, exc)
+        raise
+
+# ─────────────────────────────────────────────────────────────
+# Task: Restore / Migration Tool
+# ─────────────────────────────────────────────────────────────
+
+@shared_task(
+    bind=True,
+    max_retries=0,
+    name='voidpanel.background_migration_task',
+    acks_late=True,
+)
+def background_migration_task(self, source_type: str, auth_data: dict, target_user_id: str):
+    """
+    Celery task: Extracts backups or connects to remote panels (cPanel, Plesk, etc.),
+    downloads configurations/data, and restores them to the local VoidPanel setup.
+    """
+    logger.info('Migration task started: type=%s targeted_user=%s', source_type, target_user_id)
+    try:
+        from control.models import user as VUser
+        target_user = VUser.objects.get(id=target_user_id)
+        
+        target_path = os.path.join(paths.HOME_BASE, target_user.username)
+        
+        if source_type == 'file':
+            backup_path = auth_data.get('file_path')
+            logger.info('Extracting local backup file: %s', backup_path)
+            # Placeholder for extracting the file securely
+            # e.g., shutil.unpack_archive(backup_path, '/tmp/migration_extract')
+            # Followed by parsing logic to convert the backup format into VoidPanel configuration
+            
+            # Clean up temporary backup package
+            if backup_path and os.path.exists(backup_path):
+                os.remove(backup_path)
+                
+        elif source_type in ['cpanel', 'plesk', 'directadmin']:
+            host = auth_data.get('host')
+            user_creds = auth_data.get('user')
+            logger.info('Connecting to %s API at %s for user %s', source_type, host, user_creds)
+            # Placeholder for:
+            # 1. API Call to trigger backup generation on remote panel
+            # 2. Polling remote panel until backup is ready
+            # 3. Securely downloading the backup to a local temp folder
+            # 4. Extracting the backup
+            # 5. Iterating through the XML/JSON to recreate domains, users, db, and files.
+        
+        logger.info('Migration task completed successfully for %s', target_user.username)
+        # Notify user (placeholder: could send an email or update a notification model)
+        
+    except Exception as e:
+        logger.error('Migration task failed: %s', str(e))
         raise

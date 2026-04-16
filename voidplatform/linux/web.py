@@ -106,7 +106,9 @@ class NginxWebServerManager(WebServerManager):
         block += f"    listen 80;\n"
         block += f"    server_name {domain} www.{domain};\n"
         block += f"    root {root_dir};\n"
-        block += f"    index index.html index.php;\n\n"
+        block += f"    index index.html index.php;\n"
+        block += f"    access_log /var/log/nginx/{domain}.access.log;\n"
+        block += f"    error_log  /var/log/nginx/{domain}.error.log;\n\n"
 
         # Security headers
         block += "    # Security headers\n"
@@ -188,7 +190,7 @@ class NginxWebServerManager(WebServerManager):
             return CommandResult(success=False, error=str(e))
 
     def test_config(self) -> CommandResult:
-        return _run(['nginx', '-t'])
+        return _run(['sudo', 'nginx', '-t'])
 
     def reload(self) -> CommandResult:
         test = self.test_config()
@@ -216,25 +218,28 @@ class NginxWebServerManager(WebServerManager):
         if not os.path.exists(conf):
             return CommandResult(success=False, error="Nginx configuration file does not exist.")
         
-        backup = ""
+        backup_path = f"/tmp/{domain}_nginx_backup.conf"
+        _run(['sudo', 'cp', conf, backup_path])
+        
         try:
-            with open(conf, 'r') as f:
-                backup = f.read()
-            with open(conf, 'w') as f:
+            temp_path = f"/tmp/{domain}_nginx_new.conf"
+            with open(temp_path, 'w') as f:
                 f.write(config_text)
+            
+            cp_res = _run(['sudo', 'mv', temp_path, conf])
+            if not cp_res.success:
+                raise Exception("Failed to write to Nginx configuration directory via sudo.")
             
             test = self.test_config()
             if not test.success:
-                with open(conf, 'w') as f:
-                    f.write(backup)
+                _run(['sudo', 'cp', backup_path, conf])
                 return CommandResult(success=False, error=test.error or test.output or "Config test failed.")
             
             self.reload()
             return CommandResult(success=True)
+            
         except Exception as e:
-            if backup:
-                with open(conf, 'w') as f:
-                    f.write(backup)
+            _run(['sudo', 'cp', backup_path, conf])
             return CommandResult(success=False, error=str(e))
 
     def setup_reverse_proxy(self, domain: str, app_name: str, proxy_type: str, target: str, static_path: str = '') -> CommandResult:
@@ -493,17 +498,21 @@ listener VoidHTTP {{
         if not os.path.exists(conf):
             return CommandResult(success=False, error="OpenLiteSpeed vhost configuration file does not exist.")
         
-        backup = ""
+        backup_path = f"/tmp/{domain}_ols_backup.conf"
+        _run(['sudo', 'cp', conf, backup_path])
+        
         try:
-            with open(conf, 'r') as f:
-                backup = f.read()
-            with open(conf, 'w') as f:
+            temp_path = f"/tmp/{domain}_ols_new.conf"
+            with open(temp_path, 'w') as f:
                 f.write(config_text)
+            
+            cp_res = _run(['sudo', 'mv', temp_path, conf])
+            if not cp_res.success:
+                raise Exception("Failed to write to OpenLiteSpeed configuration directory via sudo.")
             
             test = self.test_config()
             if not test.success:
-                with open(conf, 'w') as f:
-                    f.write(backup)
+                _run(['sudo', 'cp', backup_path, conf])
                 return CommandResult(success=False, error=test.error or test.output or "Config test failed.")
             
             # If successful, graceful restart needed for new context/extapp changes

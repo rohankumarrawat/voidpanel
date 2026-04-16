@@ -113,7 +113,8 @@ fi
 mkdir -p "$VOIDPANEL_STATE_DIR"
 echo "$WEB_ENGINE"     > "$VOIDPANEL_ENGINE_FILE"
 echo "$OLS_ADMIN_PASS" > "$VOIDPANEL_STATE_DIR/ols_admin_pass"
-chmod 640 "$VOIDPANEL_ENGINE_FILE" "$VOIDPANEL_STATE_DIR/ols_admin_pass"
+chmod 644 "$VOIDPANEL_ENGINE_FILE"             # readable by www-data
+chmod 640 "$VOIDPANEL_STATE_DIR/ols_admin_pass"  # root-only (sensitive)
 
 # =============================================================================
 #  INSTALL OpenLiteSpeed (always — enables hot-swap from admin panel later)
@@ -338,6 +339,37 @@ LimitNOFILE=65535
 WantedBy=multi-user.target
 SVC
 
+    # ── Celery worker service ──────────────────────────────────────────
+    status_msg "Installing Celery worker service"
+    mkdir -p /var/run/celery
+    chown www-data:www-data /var/run/celery
+    cat > /etc/systemd/system/voidpanel-celery.service <<SVC
+[Unit]
+Description=VoidPanel Celery Worker
+After=network.target redis-server.service mysql.service
+Wants=redis-server.service mysql.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=${PROJECT_DIR}
+EnvironmentFile=${PROJECT_DIR}/.env
+Environment=PYTHONPATH=${PROJECT_DIR}
+Environment=DJANGO_SETTINGS_MODULE=panel.settings
+ExecStart=${VENV_DIR}/bin/celery -A panel worker \\
+    --loglevel=info \\
+    --concurrency=4 \\
+    --logfile=/var/log/voidpanel/celery.log
+Restart=on-failure
+RestartSec=10s
+KillSignal=SIGTERM
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target
+SVC
+
     # Grant www-data restricted passwordless sudo to manage system services/PHP
     echo "www-data ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/voidpanel
     chmod 440 /etc/sudoers.d/voidpanel
@@ -396,6 +428,19 @@ NGINXCONF
 
     ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/
     rm -f /etc/nginx/sites-enabled/default
+
+    # ── VoidPanel log directory (must exist before Django/Celery start) ────────
+    status_msg "Creating VoidPanel log directory"
+    mkdir -p /var/log/voidpanel
+    chown www-data:www-data /var/log/voidpanel
+    chmod 750 /var/log/voidpanel
+    touch /var/log/voidpanel/panel.log \
+          /var/log/voidpanel/error.log \
+          /var/log/voidpanel/celery.log
+    chown www-data:www-data \
+          /var/log/voidpanel/panel.log \
+          /var/log/voidpanel/error.log \
+          /var/log/voidpanel/celery.log
 
     # ── Permissions ───────────────────────────────────────────────────────────
     status_msg "Applying permission hardening"
@@ -744,10 +789,11 @@ final_restart() {
     systemctl restart dovecot
     systemctl restart voidpanel
     systemctl restart voidpanel-daphne
+    systemctl restart voidpanel-celery
 
     # Enable all on boot — use 'named' not 'bind9' (bind9 is an alias on Ubuntu 22.04+)
-    systemctl enable nginx php${PHP_VERSION}-fpm mysql named postfix dovecot voidpanel voidpanel-daphne redis-server 2>/dev/null || \
-    systemctl enable nginx php${PHP_VERSION}-fpm mysql bind9 postfix dovecot voidpanel voidpanel-daphne redis-server 2>/dev/null || true
+    systemctl enable nginx php${PHP_VERSION}-fpm mysql named postfix dovecot voidpanel voidpanel-daphne voidpanel-celery redis-server 2>/dev/null || \
+    systemctl enable nginx php${PHP_VERSION}-fpm mysql bind9 postfix dovecot voidpanel voidpanel-daphne voidpanel-celery redis-server 2>/dev/null || true
 
     success_msg "All services online and boot-enabled"
 }

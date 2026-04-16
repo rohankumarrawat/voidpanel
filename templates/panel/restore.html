@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>:: VoidPanel :: Restore / Migrate</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <style>
+        :root {
+            --neon: #00e5ff;
+            --neon-purple: #a855f7;
+            --glass-bg: rgba(15,20,40,0.82);
+            --glass-border: rgba(0,229,255,0.15);
+            --text-dim: rgba(180,200,230,0.7);
+        }
+        body { font-family:'Inter',sans-serif; background:#080c1a !important; }
+
+        .page-header { padding:28px 0 8px; }
+        .page-header h2 { font-size:1.55rem; font-weight:700; color:#fff; letter-spacing:.5px; margin-bottom:4px; }
+        .page-header .breadcrumb { background:transparent; padding:0; margin:0; }
+        .page-header .breadcrumb-item, .page-header .breadcrumb-item a { font-size:.8rem; color:var(--text-dim); }
+        .page-header .breadcrumb-item.active { color:var(--neon); }
+
+        .adduser-grid { display:grid; grid-template-columns:1fr 380px; gap:24px; align-items:start; margin-top:10px; }
+        @media (max-width:900px) { .adduser-grid { grid-template-columns:1fr; } }
+
+        .glass-card {
+            background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:18px;
+            backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); padding:32px 36px;
+            position:relative; overflow:hidden;
+        }
+
+        .card-head { display:flex; align-items:center; gap:14px; margin-bottom:28px; }
+        .card-head-icon {
+            width:46px; height:46px; border-radius:12px; background:linear-gradient(135deg,rgba(0,229,255,.2),rgba(168,85,247,.2));
+            border:1px solid rgba(0,229,255,.2); display:flex; align-items:center; justify-content:center; font-size:1.2rem; color:var(--neon);
+        }
+        
+        .card-head-title { font-size:1.05rem; font-weight:600; color:#fff; }
+        .card-head-sub   { font-size:.78rem; color:var(--text-dim); margin-top:2px; }
+
+        .section-label { font-size:.7rem; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:var(--neon); margin:22px 0 12px; }
+        .section-label:first-child { margin-top:0; }
+
+        .field-wrap { margin-bottom:18px; }
+        .field-wrap label { display:block; font-size:.78rem; font-weight:500; color:var(--text-dim); margin-bottom:6px; }
+
+        .field-inner { position:relative; }
+        .form-control, .form-select, input[type="file"] {
+            width:100%; background:rgba(0,229,255,.06) !important; border:1px solid rgba(0,229,255,.25) !important;
+            border-radius:10px; color:#e4eaf8 !important; font-family:'Inter',sans-serif; font-size:.88rem;
+            padding:11px 14px; outline:none; transition:border-color .22s, box-shadow .22s;
+        }
+        .form-control:focus, .form-select:focus { border-color:var(--neon) !important; box-shadow:0 0 0 3px rgba(0,229,255,.1) !important; }
+
+        .btn-submit {
+            width:100%; margin-top:26px; padding:14px; border-radius:12px; border:none;
+            background:linear-gradient(135deg,#00e5ff,#0ea5e9); color:#fff; font-family:'Inter',sans-serif;
+            font-size:.95rem; font-weight:600; letter-spacing:.3px; cursor:pointer; position:relative;
+            transition:opacity .22s, transform .12s;
+        }
+        .btn-submit:hover { opacity:.88; }
+        .btn-submit:active { transform:scale(.985); }
+
+        .tab-btn {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-dim);
+            padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 500;
+        }
+        .tab-btn.active {
+            background: rgba(0,229,255,0.15); border-color: var(--neon); color: var(--neon);
+        }
+        .tab-content { display: none; margin-top: 15px; }
+        .tab-content.active { display: block; }
+
+        /* Overlay */
+        .process-overlay { display:none; position:fixed; inset:0; background:rgba(8,12,26,.92); backdrop-filter:blur(15px); z-index:9999; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+        .process-overlay.show { display:flex; }
+        .process-title { font-size:1.4rem; font-weight:700; color:#fff; margin-bottom:8px; }
+        .process-sub { font-size:.9rem; color:var(--text-dim); }
+
+    </style>
+</head>
+
+<body data-theme="light" class="font-nunito">
+<div id="wrapper" class="theme-cyan">
+
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
+
+    <div id="main-content">
+        <div class="container-fluid">
+            
+            <div class="page-header">
+                <div>
+                    <h2>Restore / Migrate</h2>
+                    <ul class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="/panel/"><i class="fa fa-home"></i> Dashboard</a></li>
+                        <li class="breadcrumb-item active">Restore Data</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="adduser-grid">
+                
+                <!-- LEFT: Form Card -->
+                <div class="glass-card">
+                    <div class="card-head">
+                        <div class="card-head-icon"><i class="fa fa-cloud-download-alt"></i></div>
+                        <div>
+                            <div class="card-head-title">Migration Setup</div>
+                            <div class="card-head-sub">Import settings, emails, databases, and files</div>
+                        </div>
+                    </div>
+
+                    <form id="restoreForm" onsubmit="submitForm(event)" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        {% if request.user.is_superuser %}
+                        <div class="section-label">Target Ownership</div>
+                        <div class="field-wrap">
+                            <label>Assign to User</label>
+                            <div class="field-inner">
+                                <select name="target_user" id="targetUser" class="form-select" required>
+                                    <option value="">-- Select VoidPanel User --</option>
+                                    {% for u in users_list %}
+                                        <option value="{{ u.id }}">{{ u.username }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <div class="section-label">Source Platform</div>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;">
+                            <button type="button" class="tab-btn active" onclick="switchTab('file')">Local Backup File</button>
+                            <button type="button" class="tab-btn" onclick="switchTab('cpanel')">cPanel</button>
+                            <button type="button" class="tab-btn" onclick="switchTab('plesk')">Plesk</button>
+                            <button type="button" class="tab-btn" onclick="switchTab('directadmin')">DirectAdmin</button>
+                        </div>
+
+                        <input type="hidden" name="source_type" id="sourceType" value="file">
+
+                        <!-- Tab: Local File -->
+                        <div id="tab-file" class="tab-content active">
+                            <div class="field-wrap">
+                                <label>Upload Backup Archive (.zip, .tar.gz)</label>
+                                <div class="field-inner">
+                                    <input type="file" name="backup_file" id="backupFile" accept=".zip,.tar,.gz" class="form-control">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab: Panels (cPanel/Plesk/DirectAdmin use similar credentials) -->
+                        <div id="tab-panel" class="tab-content">
+                            <div class="field-wrap">
+                                <label>Server IP / Hostname</label>
+                                <div class="field-inner">
+                                    <input type="text" name="server_host" id="serverHost" class="form-control" placeholder="192.168.1.1">
+                                </div>
+                            </div>
+                            <div class="field-wrap">
+                                <label>Username</label>
+                                <div class="field-inner">
+                                    <input type="text" name="server_user" id="serverUser" class="form-control" placeholder="admin">
+                                </div>
+                            </div>
+                            <div class="field-wrap">
+                                <label>Password / API Token</label>
+                                <div class="field-inner">
+                                    <input type="password" name="server_pass" id="serverPass" class="form-control" placeholder="••••••••">
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn-submit">
+                            <i class="fa fa-play"></i> Start Analysis & Migration
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- RIGHT: Info Card -->
+                <div>
+                    <div class="glass-card" style="padding:28px;">
+                        <div class="card-head" style="margin-bottom:18px;">
+                            <div class="card-head-icon" style="background:linear-gradient(135deg,rgba(168,85,247,.2),rgba(0,229,255,.2));color:#a855f7;"><i class="fa fa-info-circle"></i></div>
+                            <div>
+                                <div class="card-head-title">How Data is Copied</div>
+                                <div class="card-head-sub">Understanding the migration flow</div>
+                            </div>
+                        </div>
+
+                        <ul style="font-size:0.8rem; color:var(--text-dim); line-height:1.7; padding-left:15px; margin-bottom:0;">
+                            <li><strong>Local File:</strong> VoidPanel will analyze the uploaded configuration file structure and remap it to your system.</li>
+                            <li><strong>Panel Authentication:</strong> VoidPanel will attempt to connect via API/SSH, automatically trigger a platform backup, download it, and restore it into the assigned user's environment.</li>
+                            <li>Process occurs in the background. A notification will appear in the dashboard upon completion.</li>
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="process-overlay" id="processOverlay">
+    <i class="fa fa-circle-o-notch fa-spin" style="font-size:3rem; color:var(--neon); margin-bottom:20px;"></i>
+    <div class="process-title" id="processTitle">Initiating Migration...</div>
+    <div class="process-sub" id="processMsg">Uploading data and preparing background worker.</div>
+</div>
+
+<script>
+    function switchTab(type) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector(`[onclick="switchTab('${type}')"]`).classList.add('active');
+        document.getElementById('sourceType').value = type;
+
+        if (type === 'file') {
+            document.getElementById('tab-file').classList.add('active');
+            document.getElementById('tab-panel').classList.remove('active');
+        } else {
+            document.getElementById('tab-file').classList.remove('active');
+            document.getElementById('tab-panel').classList.add('active');
+        }
+    }
+
+    async function submitForm(e) {
+        e.preventDefault();
+        
+        const form = document.getElementById('restoreForm');
+        const formData = new FormData(form);
+
+        document.getElementById('processOverlay').classList.add('show');
+
+        try {
+            const res = await fetch("/api/restore/process/", {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            });
+            const data = await res.json();
+            
+            if (data.status === 'success') {
+                document.getElementById('processTitle').textContent = 'Migration Started';
+                document.getElementById('processMsg').textContent = 'The migration is now running in the background. You can safely leave this page.';
+                document.querySelector('.fa-circle-o-notch').className = 'fa fa-check';
+                setTimeout(() => window.location.href = '/panel/', 4000);
+            } else {
+                document.getElementById('processTitle').textContent = 'Error';
+                document.getElementById('processMsg').textContent = data.message || 'Server error occurred.';
+                document.querySelector('.fa-circle-o-notch').className = 'fa fa-times';
+                document.querySelector('.fa-times').style.color = '#ef4444';
+                setTimeout(() => document.getElementById('processOverlay').classList.remove('show'), 3000);
+            }
+        } catch (err) {
+            document.getElementById('processTitle').textContent = 'Network Error';
+            document.getElementById('processMsg').textContent = 'Failed to communicate with the server.';
+            document.querySelector('.fa-circle-o-notch').className = 'fa fa-times';
+            document.querySelector('.fa-times').style.color = '#ef4444';
+            setTimeout(() => document.getElementById('processOverlay').classList.remove('show'), 3000);
+        }
+    }
+</script>
+
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+</body>
+</html>

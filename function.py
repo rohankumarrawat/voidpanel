@@ -327,6 +327,9 @@ server {{
     ssl_certificate {cert_path};
     ssl_certificate_key {key_path};
 
+    access_log /var/log/nginx/{domain}.access.log;
+    error_log  /var/log/nginx/{domain}.error.log;
+
     # Security Headers
     add_header X-Content-Type-Options nosniff;
     add_header X-XSS-Protection "1; mode=block";
@@ -531,6 +534,7 @@ def create_bind_records(domain, key_dir, zone_file_path):
         tmp_zone = zone_file.name
         
     subprocess.run(f"sudo cp {tmp_zone} {zone_file_path}", shell=True)
+    subprocess.run(f"sudo chmod 644 {zone_file_path}", shell=True)
     subprocess.run(f"rm {tmp_zone}", shell=True)
      
     with tempfile.NamedTemporaryFile('w', delete=False) as f:
