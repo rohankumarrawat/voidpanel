@@ -6027,23 +6027,24 @@ def addmern(request):
                 app_dir = os.path.join(paths.HOME_BASE, fre.dir, name)
                 frontend_build = os.path.join(app_dir, 'frontend', 'build')
                 script_path = os.path.join(paths.PANEL_ROOT, 'mern.sh')
-                run_command(f'bash {script_path} {name} {frontend_build} {app_dir} {pasport}')
+                import subprocess
+                subprocess.run(['sudo', 'bash', script_path, name, frontend_build, app_dir, str(pasport)], capture_output=True, text=True, timeout=300)
             else:
-                # Windows: use PM2 / sc.exe for MERN app management
                 from voidplatform.windows.apps import deploy_mern_app
                 app_dir = os.path.join(paths.HOME_BASE, fre.dir, name)
                 os.makedirs(app_dir, exist_ok=True)
                 port_int, ok, msg = deploy_mern_app(fre.dir, name, domain1, int(pasport))
-                pasport = str(port_int)  # update port in case it was reallocated
+                pasport = str(port_int)
         except:
             pass
 
-        # FIX: MERN script creates files as root. Change ownership to user, and group to www-data so Nginx can read build static
         try:
             if sys.platform != 'win32':
                 app_dir = os.path.join(paths.HOME_BASE, fre.dir, name)
-                run_command(f'sudo chown -R {fre.dir}:www-data {app_dir}')
-                run_command(f'sudo chmod -R 750 {app_dir}')
+                import subprocess
+                subprocess.run(['sudo', 'chown', '-R', f'{fre.dir}:www-data', app_dir], check=False)
+                subprocess.run(['sudo', 'chmod', '-R', '750', app_dir], check=False)
+                subprocess.run(['sudo', 'chmod', 'g+ws', app_dir], check=False)
         except:
             pass
 
@@ -6056,6 +6057,9 @@ def addmern(request):
         mgr = get_active_engine_manager()
         
         if engine == 'ols':
+            # For OLS proxy, PM2 needs to bind to a local TCP port instead of unix socket,
+            # similar to python apps. However, mern.sh sets PM2 up with unix-socket. 
+            # We'll stick to UDS here, but if there are issues, we may need a port proxy patch.
             ols_proxy = f"""
 extprocessor mern_{name} {{
   type                    proxy
@@ -6084,11 +6088,13 @@ context /api/ {{
     location / {{
         try_files $uri /index.html;
     }}
+
     location /static/ {{
         alias {static_path}/;
         expires 30d;
         add_header Cache-Control "public, no-transform";
     }}
+
     location /api/ {{
         proxy_pass http://unix:{sock_path};
         proxy_http_version 1.1;
@@ -6100,8 +6106,11 @@ context /api/ {{
 """
             conf_path = os.path.join(paths.NGINX_SITES_ENABLED, f'{domain1}.conf')
             try:
-                with open(conf_path, 'r') as file:
-                    lines = file.readlines()
+                import subprocess
+                result = subprocess.run(['sudo', 'cat', conf_path], capture_output=True, text=True)
+                if result.returncode != 0:
+                    raise Exception(f"Cannot read nginx conf: {result.stderr}")
+                lines = result.stdout.splitlines(keepends=True)
 
                 updated_lines = []
                 location_overwritten = False
@@ -6111,9 +6120,14 @@ context /api/ {{
                     if line.strip().startswith('location / {') and not location_overwritten:
                         updated_lines.append(new_location_block)
                         location_overwritten = True
-                        while i < len(lines) - 1 and lines[i].strip() != '}':
+                        depth = 0
+                        while i < len(lines):
+                            for ch in lines[i]:
+                                if ch == '{': depth += 1
+                                elif ch == '}': depth -= 1
                             i += 1
-                        i += 1
+                            if depth <= 0:
+                                break
                         continue
                     if line.strip() == 'location ~ /\\.ht {' and not location_overwritten:
                         updated_lines.append(new_location_block)
@@ -6122,34 +6136,21 @@ context /api/ {{
                     i += 1
 
                 if not location_overwritten:
-                    updated_lines.append(new_location_block)
+                    for j in range(len(updated_lines) - 1, -1, -1):
+                        if updated_lines[j].strip() == '}':
+                            updated_lines.insert(j, new_location_block)
+                            break
 
-                with open(conf_path, 'w') as file:
-                    file.writelines(updated_lines)
-
-                # Safely replace root
-                with open(conf_path, 'r') as f:
-                    content = f.read()
+                content = "".join(updated_lines)
                 content = content.replace(f'root /home/{fre.dir}/public_html;', f'root /home/{fre.dir}/{name}/frontend/build;')
-                with open(conf_path, 'w') as f:
-                    f.write(content)
 
-                # Validate Nginx config
-                if sys.platform != 'win32':
-                    test_res = run_command('sudo nginx -t 2>&1')
-                else:
-                    test_res = type('obj', (object,), {'returncode': 0, 'stdout': 'nginx test skipped on Windows', 'stderr': ''})()
-                if 'successful' not in str(test_res).lower() and 'test is successful' not in str(test_res).lower():
-                    with open(conf_path, 'w') as file:
-                        file.writelines(lines) # rollback
-                    return JsonResponse({'status': 'error', 'message': 'Nginx validation failed'})
-
-                try:
-                    get_platform().services.reload('nginx')
-                except Exception:
-                    pass
+                r = mgr.write_and_test_site_config(domain1, content)
+                if r and not r.success:
+                    return JsonResponse({'status': 'error', 'message': f'Nginx validation failed: {r.error}'})
+                    
             except Exception as e:
-                pass
+                import logging
+                logging.getLogger(__name__).error(f"addmern nginx conf error: {e}")
 
         mernname.objects.create(domain=domain1, name=name, main=fre.dir, port=pasport)
         import time
