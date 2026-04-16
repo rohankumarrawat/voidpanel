@@ -5,7 +5,7 @@ import sys
 import requests
 from django.contrib.auth.decorators import login_required
 from control.models import pythonname,mernname,user,domain,subdomainname,cron,package,allemail,redir,ftpaccount,ftp,phpversion
-from function import get_server_ip,is_website_live,get_database_users_with_filter,get_database_names_with_filter,parse_dns_zone_file,run_command,zip_multiple_locations_backup_user,get_directory_size_in_mb,get_file_info
+from function import get_server_ip,is_website_live,get_database_users_with_filter,get_database_names_with_filter,parse_dns_zone_file,run_command,zip_multiple_locations_backup_user,get_directory_size_in_mb,get_file_info,get_database_privileges_with_filter
 from django.views.decorators.csrf import csrf_exempt
 import os
 import subprocess
@@ -411,6 +411,7 @@ def dbconnect(request, data):
             mainn = cc + '_'
             d['database'] = get_database_names_with_filter(adminpassword, mainn)
             d['users'] = get_database_users_with_filter(adminpassword, mainn)
+            d['mappings'] = get_database_privileges_with_filter(adminpassword, mainn)
             return render(request, 'control/dbconnect.html', d)
         except Exception as e:
             print(f"dbconnect error: {e}")
