@@ -77,6 +77,14 @@ urlpatterns = [
     path('trash/restore/', views.trash_restore, name='trash_restore'),
     path('trash/empty/', views.trash_empty, name='trash_empty'),
 
+    # ── Web IDE ──────────────────────────────────────────────────────────────
+    path('webide/', views.webide_view, name='webide_root', kwargs={'folder_path': ''}),
+    path('webide/<path:folder_path>/', views.webide_view, name='webide'),
+    path('api/file-tree/', views.api_file_tree, name='api_file_tree'),
+    path('api/file-content/', views.api_file_content, name='api_file_content'),
+    path('api/webide-save/', views.webide_save, name='webide_save'),
+    # ─────────────────────────────────────────────────────────────────────────
+
       path('changeemailpassword/', views.changeemailpassword, name='changeemailpassword'),
       path('adddatabase/', views.adddatabase, name='adddatabase'),
       path('addpython/', views.addpython, name='addpython'),
@@ -179,10 +187,13 @@ urlpatterns = [
        path('ols-admin/', views.ols_admin_proxy, name='ols_admin_proxy'),
        path('api/site-config/get/', views.api_get_site_config, name='api_get_site_config'),
        path('api/site-config/save/', views.api_save_site_config, name='api_save_site_config'),
+       path('api/email/suspend-incoming/', views.suspendemail_incoming, name='suspendemail_incoming'),
+       path('api/email/suspend-outgoing/', views.suspendemail_outgoing, name='suspendemail_outgoing'),
+       path('api/email/set-limit/', views.set_email_limit, name='set_email_limit'),
+       
+       path('restorewizard/', views.restore_wizard, name='restore_wizard'),
+       path('api/restore/process/', views.process_restore, name='process_restore'),
 
-    
-
-    
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

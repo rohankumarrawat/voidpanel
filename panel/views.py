@@ -173,14 +173,55 @@ def authenticate_user(request):
     
     return Response({'status': 'error', 'message': 'Invalid credentials'}, status=403)
 
-def background_create_account(username, password, domain, package):
+def background_create_account(username, password, domain_name, package_name):
+    """
+    Called by the WHMCS API create_account endpoint.
+    Resolves directory name, looks up storage quota, then dispatches
+    a Celery provision_user_task so the work runs in the worker process
+    with full logging and retry support.
+    """
+    import re
     try:
-        # Call your account creation logic
-        addusermainapi(username, password, domain, package)
-        # Optionally, log success here or take further action
-    except Exception as e:
-        # Log the error or handle it as needed
-        pass
+        from control.models import package as PackageModel
+        try:
+            pkg = PackageModel.objects.get(name=package_name)
+            sto = int(pkg.storage)
+        except Exception:
+            sto = 0
+
+        home_base  = paths.HOME_BASE
+        directories = os.listdir(home_base) if os.path.isdir(home_base) else []
+        base_name   = re.sub(r'[^a-z0-9]', '', domain_name.split('.')[0].lower())[:16]
+        domainname  = base_name
+        counter = 1
+        while domainname in directories:
+            suffix     = str(counter)
+            domainname = base_name[:16 - len(suffix)] + suffix
+            counter   += 1
+
+        acct_path = os.path.join(paths.HOME_BASE, domainname)
+        inipath   = acct_path + '/public_html/php.ini'
+        php_ini_content = (
+            f'; PHP settings for {domain_name}\n'
+            'max_execution_time = 30\nmemory_limit = 256M\n'
+            'post_max_size = 64M\nupload_max_filesize = 64M\n'
+            'display_errors = Off\nlog_errors = On\n'
+            f'error_log = "{acct_path}/public_html/logs/php_errors.log"\n'
+            'date.timezone = "Asia/Kolkata"\nfile_uploads = On\n'
+            f'open_basedir = "{acct_path}/public_html:/tmp"\n'
+        )
+
+        from control.tasks import provision_user_task
+        task = provision_user_task.delay(
+            domain_name, domainname, username, password, package_name,
+            acct_path, sto, inipath, php_ini_content,
+        )
+        logger.info(
+            'API provision task dispatched: domain=%s domainname=%s task_id=%s',
+            domain_name, domainname, task.id,
+        )
+    except Exception as exc:
+        logger.error('background_create_account failed for %s: %s', domain_name, exc)
 
 
 import threading
@@ -198,22 +239,23 @@ def create_account(request):
          return Response({'status': 'error', 'message': 'All fields are required'}, status=400)
     if random_code != session_token:
         return Response({'status': 'error', 'message': 'Invalid session token'}, status=403)
-    domain=request.data.get("domain"),
-    username=request.data.get("username")
-    password=request.data.get("password")
-    package=request.data.get("package")
+    domain_val = request.data.get('domain')   # fixed: was 'domain=...,' (tuple bug)
+    username   = request.data.get('username')
+    password   = request.data.get('password')
+    package    = request.data.get('package')
 
-    if not all([domain, username, password, package]):
+    if not all([domain_val, username, password, package]):
         return Response({'status': 'error', 'message': 'All fields are required'}, status=400)
+
+    import threading
     thread = threading.Thread(
         target=background_create_account,
-        args=(username, password, domain, package)
+        args=(username, password, domain_val, package)
     )
     thread.start()
-    
+
     # Immediately return a response to the client
-    return Response(
-        {'status': 'success', 'message': 'Account created Successfull'} )
+    return Response({'status': 'success', 'message': 'Account creation initiated'})
 
 
 @api_view(['POST'])
@@ -638,6 +680,150 @@ def filemanager(request):
         return render(request, 'panel/filemanager.html', d)
     return redirect('/')
 
+
+# ─── Web IDE ──────────────────────────────────────────────────────────────────
+
+@login_required(login_url='/')
+def webide_view(request, folder_path=''):
+    """Render the full VS Code-like Web IDE for a given directory."""
+    raw_path = '/' + folder_path.lstrip('/') if folder_path else '/'
+    try:
+        safe_path = sanitize_path(raw_path, request.user)
+    except ValueError as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=403)
+
+    if not os.path.isdir(safe_path):
+        # If it's a file path, open its parent directory
+        safe_path = os.path.dirname(safe_path)
+
+    ctx = {
+        'root_dir': safe_path,
+        'root_name': os.path.basename(safe_path) or '/',
+    }
+    return render(request, 'panel/webide.html', ctx)
+
+
+@login_required(login_url='/')
+def api_file_tree(request):
+    """Return directory listing for the Web IDE file explorer."""
+    raw_path = request.GET.get('path', '/')
+    try:
+        safe_path = sanitize_path(raw_path, request.user)
+    except ValueError as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=403)
+
+    if not os.path.isdir(safe_path):
+        return JsonResponse({'status': 'error', 'message': 'Not a directory'}, status=400)
+
+    result = get_file_info(safe_path)
+    return JsonResponse({
+        'status': 'success',
+        'path': safe_path,
+        'directories': [{'name': d['name'], 'path': os.path.join(safe_path, d['name']), 'permissions': d.get('permissions', '')} for d in result['directories']],
+        'files': [{'name': f['name'], 'path': os.path.join(safe_path, f['name']), 'size': f.get('size', 0), 'type': f.get('type', '')} for f in result['files']],
+    })
+
+
+@login_required(login_url='/')
+def api_file_content(request):
+    """Return file content as JSON for the Web IDE editor."""
+    raw_path = request.GET.get('path', '')
+    if not raw_path:
+        return JsonResponse({'status': 'error', 'message': 'No path provided'}, status=400)
+    try:
+        safe_path = sanitize_path(raw_path, request.user)
+    except ValueError as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=403)
+
+    if not os.path.isfile(safe_path):
+        return JsonResponse({'status': 'error', 'message': 'Not a file'}, status=400)
+
+    # Extension → Monaco language map
+    EXT_LANG = {
+        '.py': 'python', '.js': 'javascript', '.ts': 'typescript',
+        '.html': 'html', '.htm': 'html', '.css': 'css', '.scss': 'css',
+        '.json': 'json', '.jsonc': 'json', '.php': 'php', '.java': 'java',
+        '.cpp': 'cpp', '.c': 'c', '.h': 'c', '.cs': 'csharp',
+        '.go': 'go', '.rs': 'rust', '.rb': 'ruby',
+        '.sh': 'shell', '.bash': 'shell', '.zsh': 'shell',
+        '.sql': 'sql', '.xml': 'xml', '.svg': 'xml',
+        '.yaml': 'yaml', '.yml': 'yaml', '.md': 'markdown',
+        '.ini': 'ini', '.cfg': 'ini', '.conf': 'ini', '.env': 'ini',
+        '.tf': 'hcl', '.toml': 'toml', '.tsx': 'typescript', '.jsx': 'javascript',
+        '.dockerfile': 'dockerfile', '.nginx': 'nginx',
+    }
+    fname = os.path.basename(safe_path)
+    ext = os.path.splitext(fname)[1].lower()
+    lang = EXT_LANG.get(ext, 'plaintext')
+    if lang == 'plaintext':
+        b = fname.lower()
+        if b == 'dockerfile': lang = 'dockerfile'
+        elif b == 'makefile': lang = 'makefile'
+        elif b.startswith('.env'): lang = 'ini'
+
+    # Size limit: refuse files > 5 MB
+    try:
+        size = os.path.getsize(safe_path)
+        if size > 5 * 1024 * 1024:
+            return JsonResponse({'status': 'error', 'message': 'File too large to open in editor (>5MB)'}, status=400)
+    except Exception:
+        pass
+
+    try:
+        try:
+            with open(safe_path, 'r', encoding='utf-8', errors='replace') as f:
+                content = f.read()
+        except PermissionError:
+            import subprocess as _sp
+            result = _sp.run(['sudo', 'cat', safe_path], capture_output=True, check=True)
+            content = result.stdout.decode('utf-8', errors='replace')
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+    return JsonResponse({'status': 'success', 'content': content, 'language': lang, 'filename': fname, 'path': safe_path})
+
+
+@login_required(login_url='/')
+@secure_fm_paths
+def webide_save(request):
+    """
+    Save a file from the Web IDE.
+    Unlike the legacy save_file view, this accepts a clean absolute path
+    directly (no URL-encoded trailing slash hacks needed).
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON body'}, status=400)
+
+    content = data.get('content', '')
+    path    = data.get('path', '')
+    if not path:
+        return JsonResponse({'status': 'error', 'message': 'No path provided'}, status=400)
+
+    # Path is already sanitized by @secure_fm_paths decorator — use directly
+    try:
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        return JsonResponse({'status': 'success', 'message': 'Saved successfully'})
+    except PermissionError:
+        import tempfile, subprocess as _sp
+        try:
+            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.voidtmp') as tmp:
+                tmp.write(content)
+                tmp_path = tmp.name
+            _sp.run(['sudo', 'bash', '-c', f'cat "{tmp_path}" > "{path}"'], check=True)
+            os.unlink(tmp_path)
+            return JsonResponse({'status': 'success', 'message': 'Saved successfully (sudo)'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f'Permission denied (sudo fallback failed): {e}'}, status=500)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': f'Save error: {e}'}, status=500)
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 
 # @login_required(login_url='/')
@@ -2104,15 +2290,32 @@ def addusermain(request):
                 domainname = base_name[:16 - len(suffix)] + suffix
                 counter += 1
                 
-            # 1. ASYNCHRONOUS THREAD EXECUTION: UI returns instantly
-            import threading
-            thread = threading.Thread(
-                target=_background_provision_user,
-                args=(domain12, email, password, package12, sto, domainname)
+            # Dispatch via Celery for robust async provisioning with full logging
+            from control.tasks import provision_user_task
+            acct_path = os.path.join(paths.HOME_BASE, domainname)
+            inipath   = acct_path + '/public_html/php.ini'
+            php_ini_content = (
+                f'; PHP settings for {domain12}\n'
+                'max_execution_time = 30\nmemory_limit = 256M\n'
+                'post_max_size = 64M\nupload_max_filesize = 64M\n'
+                'display_errors = Off\nlog_errors = On\n'
+                f'error_log = "{acct_path}/public_html/logs/php_errors.log"\n'
+                'date.timezone = "Asia/Kolkata"\nfile_uploads = On\n'
+                f'open_basedir = "{acct_path}/public_html:/tmp"\n'
             )
-            thread.start()
-            
-            return JsonResponse({'status': 'success', 'message': 'User Creation Initiated!'})
+            task = provision_user_task.delay(
+                domain12, domainname, email, password, package12,
+                acct_path, int(sto), inipath, php_ini_content,
+            )
+            logger.info(
+                'Provision task dispatched: domain=%s domainname=%s task_id=%s',
+                domain12, domainname, task.id,
+            )
+            return JsonResponse({
+                'status': 'success',
+                'task_id': str(task.id),
+                'message': 'User Creation Initiated!'
+            })
         return JsonResponse({'status': 'success', 'message': 'Domain Added!'})
 
 @login_required(login_url='/')
@@ -2504,7 +2707,9 @@ def listdns(request):
                
        
               
+from django.views.decorators.csrf import csrf_exempt
 
+@csrf_exempt
 def addemailaccount(request):
     import base64
     from control.models import user as sysuser
@@ -2549,21 +2754,25 @@ def addemailaccount(request):
             elif sysuser.objects.filter(username=request.user.username).exists():
                 sys_owner = request.user.username
 
-            with open(paths.POSTFIX_VIRTUAL_DOMAINS, 'a+') as f:
-                f.seek(0)
-                if f"{domain_name}\n" not in f.read():
-                    f.write(f"{domain_name}\n")
-            with open(paths.POSTFIX_VIRTUAL_ALIAS, 'a+') as f:
-                f.seek(0)
-                if f"{full_email} {full_email}\n" not in f.read():
-                    f.write(f"{full_email} {full_email}\n")
+            import tempfile
+            # Safely append domain mapping securely using temporary shadowed files and sudo
+            with tempfile.NamedTemporaryFile('w', delete=False) as tf:
+                tf.write(f"{domain_name}\n")
+                tmp_domain = tf.name
+            run_command(f"sudo bash -c 'grep -q \"^{domain_name}$\" {paths.POSTFIX_VIRTUAL_DOMAINS} || cat {tmp_domain} >> {paths.POSTFIX_VIRTUAL_DOMAINS}'")
+
+            with tempfile.NamedTemporaryFile('w', delete=False) as tf:
+                tf.write(f"{full_email} {full_email}\n")
+                tmp_alias = tf.name
+            run_command(f"sudo bash -c 'grep -q \"^{full_email} \" {paths.POSTFIX_VIRTUAL_ALIAS} || cat {tmp_alias} >> {paths.POSTFIX_VIRTUAL_ALIAS}'")
 
             if sys.platform != 'win32':
-                run_command(f"postmap {paths.POSTFIX_VIRTUAL_ALIAS}")
+                run_command(f"sudo postmap {paths.POSTFIX_VIRTUAL_ALIAS}")
+                run_command(f"sudo postmap {paths.POSTFIX_VIRTUAL_DOMAINS}")
 
-            # Pass sys_owner as argument 3 to the shell script (Linux only)
+            # Pass sys_owner as argument 3 to the shell script executing securely as sudo
             if sys.platform != 'win32':
-                script_cmd = f"bash {shlex.quote(os.path.join(paths.PANEL_ROOT, 'emailadd.sh'))} {shlex.quote(full_email)} {shlex.quote(password)} {shlex.quote(sys_owner)}"
+                script_cmd = f"sudo bash {shlex.quote(os.path.join(paths.PANEL_ROOT, 'emailadd.sh'))} {shlex.quote(full_email)} {shlex.quote(password)} {shlex.quote(sys_owner)}"
                 run_command(script_cmd)
 
             password_b64 = base64.b64encode(password.encode('utf-8')).decode('utf-8')
@@ -6696,3 +6905,136 @@ def api_save_site_config(request):
         return JsonResponse({'status': 'success', 'message': 'Configuration updated and web server reloaded.'})
     else:
         return JsonResponse({'status': 'error', 'message': result.error}, status=400)
+
+@csrf_exempt
+def suspendemail_incoming(request):
+    import shlex
+    if not (request.user.is_superuser or request.user.is_authenticated): return JsonResponse({'error': 'Unauthorized'})
+    email = request.POST.get('email')
+    action = request.POST.get('action') 
+    if not email: return JsonResponse({'error': 'No email'})
+    
+    file_path = "/etc/postfix/vp_suspended_incoming"
+    if action == 'suspend':
+        cmd = f"sudo bash -c 'grep -q \"^{shlex.quote(email)} \" {file_path} || echo \"{shlex.quote(email)} REJECT Incoming messages suspended\" >> {file_path}'"
+    else:
+        cmd = f"sudo sed -i '/^{shlex.quote(email)} /d' {file_path}"
+    run_command(cmd)
+    run_command(f"sudo postmap {file_path}")
+    return JsonResponse({'status': 'success'})
+
+@csrf_exempt
+def suspendemail_outgoing(request):
+    import shlex
+    if not (request.user.is_superuser or request.user.is_authenticated): return JsonResponse({'error': 'Unauthorized'})
+    email = request.POST.get('email')
+    action = request.POST.get('action') 
+    if not email: return JsonResponse({'error': 'No email'})
+    
+    file_path = "/etc/postfix/vp_suspended_outgoing"
+    if action == 'suspend':
+        cmd = f"sudo bash -c 'grep -q \"^{shlex.quote(email)} \" {file_path} || echo \"{shlex.quote(email)} REJECT Outgoing messages suspended\" >> {file_path}'"
+    else:
+        cmd = f"sudo sed -i '/^{shlex.quote(email)} /d' {file_path}"
+    run_command(cmd)
+    run_command(f"sudo postmap {file_path}")
+    return JsonResponse({'status': 'success'})
+
+@csrf_exempt
+def set_email_limit(request):
+    import tempfile
+    if not (request.user.is_superuser or request.user.is_authenticated): return JsonResponse({'error': 'Unauthorized'})
+    email = request.POST.get('email')
+    limit = request.POST.get('limit')
+    limit_type = request.POST.get('type')
+    if not email or not limit: return JsonResponse({'error': 'Invalid parameters'})
+    
+    try: limit_count = int(limit)
+    except: return JsonResponse({'error': 'Limit must be integer'})
+        
+    timespan = "3600" if limit_type == 'hourly' else "86400"
+    file_path = "/etc/postfwd/vp_limits.cf"
+    safe_id = "limit_" + email.replace('@', '_').replace('.', '_')
+    
+    run_command(f"sudo touch {file_path}")
+    run_command(f"sudo sed -i '/id={safe_id};/d' {file_path}")
+    
+    if limit_count > 0:
+        rule = f"id={safe_id}; sasl_username={email}; action=rate(sasl_username/{limit_count}/{timespan}/450 4.7.1 Rate Limit Exceeded for {email})"
+        with tempfile.NamedTemporaryFile('w', delete=False) as tf:
+            tf.write(rule + "\n")
+            tmp_f = tf.name
+        run_command(f"sudo bash -c 'cat {tmp_f} >> {file_path}'")
+        run_command(f"sudo systemctl restart postfwd || true")
+        run_command(f"sudo rm {tmp_f}")
+        
+    return JsonResponse({'status': 'success'})
+
+# ─── Restore / Migration Functions ───────────────────────────────────────────
+
+@login_required(login_url='/')
+def restore_wizard(request):
+    """Render the restore/migration interface in the admin panel."""
+    if not request.user.is_superuser:
+        return redirect('/')
+        
+    d = {}
+    from control.models import user as VUser
+    # Provide users to assign recovered domains/files
+    d['users_list'] = VUser.objects.all()
+    
+    return render(request, 'panel/restore.html', d)
+
+@login_required(login_url='/')
+@csrf_exempt
+def process_restore(request):
+    """Handle incoming request to process a backup."""
+    if not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Forbidden'}, status=403)
+        
+    if request.method == 'POST':
+        source_type = request.POST.get('source_type')
+        target_user_id = request.POST.get('target_user')
+        
+        if not target_user_id:
+            return JsonResponse({'status': 'error', 'message': 'You must select a target user.'}, status=400)
+            
+        auth_data = {}
+        if source_type == 'file':
+            backup_file = request.FILES.get('backup_file')
+            if not backup_file:
+                return JsonResponse({'status': 'error', 'message': 'No file uploaded.'}, status=400)
+            
+            # Save file temporarily in a secure place (e.g. /tmp/ or MEDIA_ROOT)
+            import uuid
+            tmp_path = os.path.join('/tmp', f'restore_{uuid.uuid4().hex}_{backup_file.name}')
+            with open(tmp_path, 'wb+') as destination:
+                for chunk in backup_file.chunks():
+                    destination.write(chunk)
+                    
+            auth_data['file_path'] = tmp_path
+        
+        elif source_type in ['cpanel', 'plesk', 'directadmin']:
+            host = request.POST.get('server_host')
+            user = request.POST.get('server_user')
+            passwd = request.POST.get('server_pass')
+            if not all([host, user, passwd]):
+                return JsonResponse({'status': 'error', 'message': 'Missing panel credentials.'}, status=400)
+                
+            auth_data['host'] = host
+            auth_data['user'] = user
+            auth_data['pass'] = passwd
+            
+        else:
+            return JsonResponse({'status': 'error', 'message': 'Invalid source type.'}, status=400)
+            
+        # Dispatch the Celery task
+        try:
+            from control.tasks import background_migration_task
+            background_migration_task.delay(source_type, auth_data, target_user_id)
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f'Failed to dispatch worker task: {str(e)}'}, status=500)
+            
+        return JsonResponse({'status': 'success'})
+        
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=400)
