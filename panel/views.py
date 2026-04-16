@@ -5655,7 +5655,7 @@ def addpython(request):
             script_path = os.path.join(paths.PANEL_ROOT, 'createpython.sh')
             import subprocess
             result = subprocess.run(
-                ['bash', script_path, fre.dir, app_dir, name],
+                ['sudo', 'bash', script_path, fre.dir, app_dir, name],
                 capture_output=True, text=True, timeout=180
             )
             if result.returncode != 0:
