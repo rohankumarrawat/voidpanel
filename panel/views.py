@@ -6015,9 +6015,17 @@ def addmern(request):
         _t = threading.Thread(target=_run_mern_provision, daemon=True)
         _t.start()
 
-        # Permissions are now handled inside the background thread above
+        compiling_html_path = os.path.join(app_dir, 'compiling.html')
+        with open(compiling_html_path, 'w') as f:
+            f.write("<html><body style='font-family:sans-serif;text-align:center;padding:50px;background:#111;color:#fff;'><h2>Deploying MERN Architecture...</h2><p>Your React environment is currently compiling in the background. It takes approximately 3-4 minutes to download Node dependencies and build the DOM.</p><p>Please refresh this page in a few minutes.</p></body></html>")
+        
+        # Permissions are now handled inside the background thread above,
+        # but apply to compiling.html instantly
+        try:
+            run_command(f'sudo chown {fre.dir}:www-data {compiling_html_path}')
+        except:
+            pass
 
-        app_dir = os.path.join(paths.HOME_BASE, fre.dir, name)
         static_path = os.path.join(app_dir, 'frontend', 'build', 'static')
         sock_path = os.path.join(paths.RUN_DIR, f'{name}.sock')
         
@@ -6056,7 +6064,11 @@ context /api/ {{
             if old_conf:
                 new_location_block = f"""
     location / {{
-        try_files $uri /index.html;
+        try_files $uri /index.html /compiling.html =404;
+    }}
+    
+    location = /compiling.html {{
+        alias /home/{fre.dir}/{name}/compiling.html;
     }}
 
     location /static/ {{
