@@ -1631,7 +1631,7 @@ def roundcube_login(request, email):
     import uuid
     import os
     token = str(uuid.uuid4())
-    sso_path = f"/tmp/rc_sso_{token}"
+    sso_path = f"/var/www/roundcube/temp/rc_sso_{token}"
     try:
         with open(sso_path, "w") as f:
             f.write(f"{email}\n{password}")

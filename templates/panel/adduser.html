@@ -531,6 +531,28 @@
                                 </div>
                             </div>
 
+                            <!-- Shell Access -->
+                            <div class="section-label" style="margin-top:24px;">Advanced Access</div>
+
+                            <div class="field-wrap" style="margin-bottom:10px;">
+                                <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.18);border-radius:12px;padding:14px 16px;">
+                                    <div style="display:flex;align-items:center;gap:12px;">
+                                        <div style="width:36px;height:36px;border-radius:9px;background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.25);display:flex;align-items:center;justify-content:center;">
+                                            <i class="fa fa-terminal" style="color:#a855f7;font-size:0.9rem;"></i>
+                                        </div>
+                                        <div>
+                                            <div style="font-size:0.85rem;font-weight:600;color:#e4eaf8;">Shell Access</div>
+                                            <div style="font-size:0.73rem;color:var(--text-dim);margin-top:2px;">Grants a restricted web terminal for this user (home dir only)</div>
+                                        </div>
+                                    </div>
+                                    <label class="toggle-switch" style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0;">
+                                        <input type="checkbox" id="shellAccess" name="shell_access" style="opacity:0;width:0;height:0;">
+                                        <span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.1);border-radius:24px;transition:.3s;" id="toggleTrack"></span>
+                                        <span style="position:absolute;cursor:pointer;height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s;" id="toggleThumb"></span>
+                                    </label>
+                                </div>
+                            </div>
+
                             <!-- Submit -->
                             <button id="addemailbtn" type="submit" class="btn-submit" disabled>
                                 <div class="btn-glow"></div>
@@ -624,6 +646,26 @@
 
     <!-- ─── Scripts ──────────────────────────────────────────── -->
     <script>
+        /* ──── Shell Access Toggle ────────────────────────── */
+        (function() {
+            const chk = document.getElementById('shellAccess');
+            const track = document.getElementById('toggleTrack');
+            const thumb = document.getElementById('toggleThumb');
+            if (chk && track && thumb) {
+                function updateToggle() {
+                    if (chk.checked) {
+                        track.style.background = 'linear-gradient(135deg,#00e5ff,#a855f7)';
+                        thumb.style.left = '23px';
+                    } else {
+                        track.style.background = 'rgba(255,255,255,0.1)';
+                        thumb.style.left = '3px';
+                    }
+                }
+                chk.addEventListener('change', updateToggle);
+                updateToggle();
+            }
+        })();
+
         /* ──── Password strength ──────────────────────── */
         function updateStrength(val) {
             const segs = ['s1','s2','s3','s4'];
@@ -726,6 +768,7 @@
             const email    = document.getElementById('myInput2').value;
             const password = document.getElementById('password').value;
             const pkg      = document.getElementById('package').value;
+            const shellAccess = document.getElementById('shellAccess').checked;
 
             const btn = document.getElementById('addemailbtn');
             btn.disabled = true;
@@ -738,7 +781,7 @@
                     'Content-Type': 'application/json',
                     'X-CSRFToken': '{{ csrf_token }}'
                 },
-                body: JSON.stringify({ web: website, email, password, package: pkg })
+                body: JSON.stringify({ web: website, email, password, package: pkg, shell_access: shellAccess })
             })
             .then(r => r.json())
             .then(data => {

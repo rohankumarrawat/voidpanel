@@ -9,7 +9,7 @@ class vp_autologin extends rcube_plugin
     {
         if (!empty($_GET['vp_token'])) {
             $token = preg_replace('/[^a-zA-Z0-9-]/', '', $_GET['vp_token']);
-            $file = "/tmp/rc_sso_" . $token;
+            $file = "/var/www/roundcube/temp/rc_sso_" . $token;
             if (file_exists($file)) {
                 $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
                 if (count($lines) >= 2) {

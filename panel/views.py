@@ -2265,7 +2265,8 @@ def addusermain(request):
             domain12 = data.get('web').lower()
             email = data.get('email') 
             password = data.get('password') 
-            package12 = data.get('package') 
+            package12 = data.get('package')
+            shell_access = bool(data.get('shell_access', False))
             
             if package12 == 'Select':
                 package12='default'
@@ -2311,6 +2312,24 @@ def addusermain(request):
                 'Provision task dispatched: domain=%s domainname=%s task_id=%s',
                 domain12, domainname, task.id,
             )
+            
+            # If shell_access requested, update the model once we know domainname
+            # The user model row is created inside Celery, so we save it async after
+            if shell_access:
+                from control.models import user as VUser
+                import threading
+                def _set_shell(dname, dnum):
+                    import time; time.sleep(15)  # Give Celery time to create the row
+                    try:
+                        u = VUser.objects.get(username=dname)
+                        u.shell = True
+                        u.save()
+                        # Change system user shell to /bin/bash (restricted)
+                        run_command(f'sudo usermod -s /bin/rbash {dname}')
+                    except Exception as e:
+                        logger.warning('Set shell flag failed for %s: %s', dname, e)
+                threading.Thread(target=_set_shell, args=(domainname, sto), daemon=True).start()
+            
             return JsonResponse({
                 'status': 'success',
                 'task_id': str(task.id),
@@ -7038,3 +7057,54 @@ def process_restore(request):
         return JsonResponse({'status': 'success'})
         
     return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=400)
+
+# ─── User Restricted Terminal ────────────────────────────────────────────────
+
+@login_required(login_url='/')
+def user_terminal(request, username):
+    """
+    Open a shellinabox terminal restricted to the user's home directory.
+    Only accessible by superusers. The shell runs as the system user (not root),
+    so it is confined to /home/<username> with /bin/rbash.
+    """
+    if not request.user.is_superuser:
+        return redirect('/')
+
+    import re
+    # Validate username to prevent injection
+    if not re.match(r'^[a-z0-9_]{1,32}$', username):
+        return HttpResponse('Invalid username.', status=400)
+
+    from control.models import user as VUser
+    try:
+        vuser = VUser.objects.get(username=username)
+    except VUser.DoesNotExist:
+        return HttpResponse('User not found.', status=404)
+
+    if not vuser.shell:
+        return HttpResponse('Shell access not enabled for this user.', status=403)
+
+    home_dir = os.path.join(paths.HOME_BASE, username)
+    port = get_random_port({8080, 8082, 8090, 8092, 9000, 9002})
+
+    if sys.platform != 'win32':
+        # Write shellinabox config — run as the specific user, restricted to their home
+        config = (
+            f'SHELLINABOX_DAEMON_START=1\n'
+            f'SHELLINABOX_PORT={port}\n'
+            f"SHELLINABOX_ARGS='--disable-ssl --no-beep "
+            f"--service=/{username}:{username}:{home_dir}:/bin/rbash'\n"
+        )
+        import tempfile
+        with tempfile.NamedTemporaryFile('w', suffix='.conf', delete=False) as tf:
+            tf.write(config)
+            tmp_conf = tf.name
+        run_command(f'sudo bash -c "cat {tmp_conf} > /etc/default/shellinabox"')
+        run_command('sudo systemctl restart shellinabox')
+
+    d = {
+        'terminal_user': username,
+        'terminal_port': port,
+        'home_dir': home_dir,
+    }
+    return render(request, 'panel/user_terminal.html', d)
