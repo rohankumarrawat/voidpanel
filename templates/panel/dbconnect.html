@@ -310,6 +310,41 @@
                     </div>
                 </div>
             </div>
+
+            <!-- ── Connected Databases & Privileges ── -->
+            <div class="glass-card" style="margin-top:8px;">
+                <h5><i class="fa fa-link"></i> Connected Databases & Privileges</h5>
+                <div class="table-responsive">
+                    <table class="db-table">
+                        <thead>
+                            <tr>
+                                <th>Database</th>
+                                <th>Connected User</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in mappings %}
+                            <tr>
+                                <td><span class="db-badge"><i class="fa fa-database" style="font-size:9px;"></i>{{ m.database }}</span></td>
+                                <td><span class="user-badge"><i class="fa fa-user" style="font-size:9px;"></i>{{ m.user }}</span></td>
+                                <td>
+                                    <button class="btn-danger-sm" onclick="revokePriv('{{ m.database }}','{{ m.user }}',this)">
+                                        <i class="fa fa-unlink"></i> Revoke Access
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="3" style="text-align:center;color:var(--subtext);padding:30px;">
+                                <i class="fa fa-chain-broken" style="font-size:24px;display:block;margin-bottom:8px;"></i>
+                                No databases connected to users yet. Use Grant Permissions above.
+                            </td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>
@@ -432,6 +467,18 @@ async function changePass() {
 
 document.getElementById('permOverlay').addEventListener('click',function(e){if(e.target===this)closePermModal();});
 document.getElementById('chpOverlay').addEventListener('click',function(e){if(e.target===this)closeChpModal();});
+
+async function revokePriv(database, username, btn) {
+    if (!confirm(`Revoke "${username}" access to "${database}"?`)) return;
+    btn.disabled=true; btn.innerHTML='<i class="fa fa-spinner fa-spin"></i>';
+    try {
+        const fd=new FormData(); fd.append('databasename',database); fd.append('databaseusername',username);
+        const r=await fetch('/revokeprivilege/',{method:'POST',body:fd,headers:{'X-CSRFToken':csrf()}});
+        const d=await r.json();
+        if (d.status==='success') { toast('Access revoked.','success'); btn.closest('tr').style.opacity='.3'; setTimeout(()=>btn.closest('tr').remove(),500); }
+        else { toast(d.message||'Failed.','error'); btn.disabled=false; btn.innerHTML='<i class="fa fa-unlink"></i> Revoke Access'; }
+    } catch { toast('Network error.','error'); btn.disabled=false; btn.innerHTML='<i class="fa fa-unlink"></i> Revoke Access'; }
+}
 </script>
 
 <script src="/static/assets/bundles/libscripts.bundle.js"></script>
