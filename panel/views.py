@@ -5757,50 +5757,24 @@ context /static/ {{
         expires 30d;
         add_header Cache-Control "public, no-transform";
     }}
-    """
+"""
         try:
-            conf_path = os.path.join(paths.NGINX_SITES_ENABLED, f'{domain1}.conf')
-            import subprocess
-            # Read conf (root-readable, but check if readable first)
-            result = subprocess.run(['sudo', 'cat', conf_path], capture_output=True, text=True)
-            if result.returncode != 0:
-                raise Exception(f"Cannot read nginx conf: {result.stderr}")
-            lines = result.stdout.splitlines(keepends=True)
-
-            updated_lines = []
-            location_overwritten = False
-            i = 0
-            while i < len(lines):
-                line = lines[i]
-                if line.strip().startswith('location / {') and not location_overwritten:
-                    updated_lines.append(new_location_block)
-                    location_overwritten = True
-                    # Skip the old location / block
-                    depth = 0
-                    while i < len(lines):
-                        for ch in lines[i]:
-                            if ch == '{': depth += 1
-                            elif ch == '}': depth -= 1
-                        i += 1
-                        if depth <= 0:
-                            break
-                    continue
-                if line.strip() == 'location ~ /\\.ht {' and not location_overwritten:
-                    updated_lines.append(new_location_block)
-                    location_overwritten = True
-                updated_lines.append(line)
-                i += 1
-
-            if not location_overwritten:
-                # Inject before the last closing brace of the server block
-                for j in range(len(updated_lines) - 1, -1, -1):
-                    if updated_lines[j].strip() == '}':
-                        updated_lines.insert(j, new_location_block)
-                        break
-
-            r = mgr.write_and_test_site_config(domain1, "".join(updated_lines))
-            if not r.success:
-                return JsonResponse({'status': 'error', 'message': f'Nginx validation failed: {r.error}'})
+            old_conf = mgr.read_site_config(domain1)
+            if old_conf:
+                import re
+                new_conf = old_conf
+                
+                # Optional safety: Strip them out first if they already existed (e.g. broken states)
+                new_conf = re.sub(r'[ \t]*location / \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+                new_conf = re.sub(r'[ \t]*location /static/ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+                
+                # Inject new blocks properly before location ~ /\.ht { (in 443 block)
+                if 'location ~ /\\.ht {' in new_conf:
+                    new_conf = new_conf.replace('location ~ /\\.ht {', new_location_block + '\n    location ~ /\\.ht {', 1)
+                
+                r = mgr.write_and_test_site_config(domain1, new_conf)
+                if not r.success:
+                    return JsonResponse({'status': 'error', 'message': f'Nginx validation failed: {r.error}'})
         except Exception as e:
             import logging
             logging.getLogger(__name__).error(f"addpython nginx conf error: {e}")
@@ -6051,7 +6025,9 @@ context /api/ {{
                 if not r.success:
                     return JsonResponse({'status': 'error', 'message': f'OLS validation failed: {r.error}'})
         else:
-            new_location_block = f"""
+            old_conf = mgr.read_site_config(domain1)
+            if old_conf:
+                new_location_block = f"""
     location / {{
         try_files $uri /index.html;
     }}
@@ -6071,53 +6047,24 @@ context /api/ {{
         proxy_cache_bypass $http_upgrade;
     }}
 """
-            conf_path = os.path.join(paths.NGINX_SITES_ENABLED, f'{domain1}.conf')
-            try:
-                import subprocess
-                result = subprocess.run(['sudo', 'cat', conf_path], capture_output=True, text=True)
-                if result.returncode != 0:
-                    raise Exception(f"Cannot read nginx conf: {result.stderr}")
-                lines = result.stdout.splitlines(keepends=True)
-
-                updated_lines = []
-                location_overwritten = False
-                i = 0
-                while i < len(lines):
-                    line = lines[i]
-                    if line.strip().startswith('location / {') and not location_overwritten:
-                        updated_lines.append(new_location_block)
-                        location_overwritten = True
-                        depth = 0
-                        while i < len(lines):
-                            for ch in lines[i]:
-                                if ch == '{': depth += 1
-                                elif ch == '}': depth -= 1
-                            i += 1
-                            if depth <= 0:
-                                break
-                        continue
-                    if line.strip() == 'location ~ /\\.ht {' and not location_overwritten:
-                        updated_lines.append(new_location_block)
-                        location_overwritten = True
-                    updated_lines.append(line)
-                    i += 1
-
-                if not location_overwritten:
-                    for j in range(len(updated_lines) - 1, -1, -1):
-                        if updated_lines[j].strip() == '}':
-                            updated_lines.insert(j, new_location_block)
-                            break
-
-                content = "".join(updated_lines)
-                content = content.replace(f'root /home/{fre.dir}/public_html;', f'root /home/{fre.dir}/{name}/frontend/build;')
-
-                r = mgr.write_and_test_site_config(domain1, content)
-                if r and not r.success:
+                import re
+                new_conf = old_conf
+                
+                # Optional safety: Strip them out first if they already existed (e.g. broken states)
+                new_conf = re.sub(r'[ \t]*location / \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+                new_conf = re.sub(r'[ \t]*location /static/ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+                new_conf = re.sub(r'[ \t]*location /api/ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+                
+                # Replace root properly dynamically
+                new_conf = re.sub(r'root\s+/home/[^/]+/public_html;', f'root /home/{fre.dir}/{name}/frontend/build;', new_conf)
+                
+                # Inject new blocks properly before location ~ /\.ht { (in 443 block)
+                if 'location ~ /\\.ht {' in new_conf:
+                    new_conf = new_conf.replace('location ~ /\\.ht {', new_location_block + '\n    location ~ /\\.ht {', 1)
+                
+                r = mgr.write_and_test_site_config(domain1, new_conf)
+                if not r.success:
                     return JsonResponse({'status': 'error', 'message': f'Nginx validation failed: {r.error}'})
-                    
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).error(f"addmern nginx conf error: {e}")
 
         mernname.objects.create(domain=domain1, name=name, main=fre.dir, port=pasport)
         import time
