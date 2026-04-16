@@ -539,15 +539,36 @@ async function doChangePass() {
 }
 
 /* ── Delete Confirmations ── */
-function confirmDeleteDB(name, domain) {
+async function confirmDeleteDB(name, domain) {
     if(!confirm(`Delete database "${name}"?\n\nThis will permanently remove all data!`)) return;
     toast(`Deleting database ${name}...`, 'info');
-    window.location.href = `/dbreomve/${domain}/${name}/`;
+    try {
+        const fd = new FormData(); fd.append('csrfmiddlewaretoken', CSRF);
+        const r = await fetch(`/dbreomve/${domain}/${name}/`, {method:'POST', body:fd, headers:{'X-CSRFToken':CSRF}});
+        const d = await r.json();
+        if(d.status==='success') {
+            toast('Database deleted successfully.', 'success');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            toast(d.message || 'Error deleting database', 'error');
+        }
+    } catch(e) { toast('Network error', 'error'); }
 }
-function confirmDeleteUser(name, domain) {
+
+async function confirmDeleteUser(name, domain) {
     if(!confirm(`Delete DB user "${name}"?`)) return;
     toast(`Deleting user ${name}...`, 'info');
-    window.location.href = `/dbuserremove/${domain}/${name}/`;
+    try {
+        const fd = new FormData(); fd.append('csrfmiddlewaretoken', CSRF);
+        const r = await fetch(`/dbuserremove/${domain}/${name}/`, {method:'POST', body:fd, headers:{'X-CSRFToken':CSRF}});
+        const d = await r.json();
+        if(d.status==='success') {
+            toast('User deleted successfully.', 'success');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            toast(d.message || 'Error deleting user', 'error');
+        }
+    } catch(e) { toast('Network error', 'error'); }
 }
 </script>
 </body>

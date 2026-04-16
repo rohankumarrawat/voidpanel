@@ -417,6 +417,55 @@ def dbconnect(request, data):
     else:
         return redirect('/')
 
+@login_required(login_url='/')
+def fulldbwizard(request, data):
+    try:
+        with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
+            adminpassword = f.read().strip()
+    except Exception:
+        adminpassword = ''
+
+    if request.user.is_superuser:
+        current = request.session.get('name', request.user.username)
+    else:
+        current = request.user
+
+    if data == user.objects.get(username=current).domain:
+        d = {}
+        d.update(get_user_dashboard_context(current, adminpassword))
+        
+        try:
+            lold = domain.objects.get(domain=data)
+            cc = lold.dir
+            # For the control template we pass 'domain' as just the domain object or dictionary
+            d['domain'] = {'domain': data, 'dir': cc}
+            
+            mainn = cc + '_'
+            d['database'] = get_database_names_with_filter(adminpassword, mainn)
+            d['users'] = get_database_users_with_filter(adminpassword, mainn)
+            
+            d['totaldb'] = int(safe_get_package(user.objects.get(username=current).hosting_package).databases_allowed)
+            if d['totaldb'] == 0:
+                d['totaldb'] = '∞'
+            d['useddatabase'] = len(d['database'])
+            
+            # The JS expects front in adddatabase and adddatabaseuser, which is the domain prefix!
+            d['front'] = cc + "_"
+            
+            url = 'https://voidpanel.com/clientdocs/'
+            try:
+                response = requests.get(url, timeout=3)
+                if response.status_code == 200:
+                    d['docs'] = response.json()
+            except:
+                pass
+                
+            return render(request, 'control/fulldbwizard.html', d)
+        except Exception as e:
+            return redirect('/control/')
+    else:
+        return redirect('/')
+
 
 @login_required(login_url='/')
 def addredirect(request,data):

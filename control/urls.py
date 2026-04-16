@@ -42,6 +42,7 @@ urlpatterns = [
      path('filemanager/', views.filemanager, name='filemanager'),
      path('upload/<path:file_path>/', views.upload_files),
      path('dbconnect/<str:data>/', views.dbconnect, name='dbconnect'),
+     path('fulldbwizard/<str:data>/', views.fulldbwizard, name='fulldbwizard'),
      path('pma_login/<str:data>/', views.pma_login, name='pma_login'),
      path('listemail/<str:data>/', views.listemail),
      path('roundcube_login/<str:email>/', views.roundcube_login, name='roundcube_login'),

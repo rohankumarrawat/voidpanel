@@ -122,3 +122,105 @@ class TerminalConsumer(AsyncWebsocketConsumer):
                     os.write(self.fd, data.encode('utf-8'))
             except Exception:
                 pass
+
+
+# ─── Per-User Restricted Terminal Consumer ─────────────────────────────────
+# WebSocket: /ws/user-terminal/<username>/
+# Only superusers can connect. Forks a PTY running `su - <user> -s /bin/rbash`
+
+class UserTerminalConsumer(AsyncWebsocketConsumer):
+
+    @database_sync_to_async
+    def _check_access(self, username):
+        import re
+        if not re.match(r'^[a-z0-9_]{1,32}$', username):
+            return False
+        from control.models import user as VUser
+        try:
+            u = VUser.objects.get(username=username)
+            return bool(getattr(u, 'shell', False))
+        except VUser.DoesNotExist:
+            return False
+
+    async def connect(self):
+        self.user = self.scope.get('user')
+        # Only authenticated superusers may open this socket
+        if not self.user or not self.user.is_authenticated or not self.user.is_superuser:
+            await self.close()
+            return
+
+        if not _POSIX_PTY:
+            await self.accept()
+            await self.send(text_data='PTY not available on this platform.')
+            await self.close()
+            return
+
+        self.target_user = self.scope['url_route']['kwargs'].get('username', '')
+
+        allowed = await self._check_access(self.target_user)
+        if not allowed:
+            await self.accept()
+            await self.send(
+                text_data=f'\r\n\x1b[31mAccess denied: shell not enabled for "{self.target_user}".\x1b[0m\r\n'
+            )
+            await self.close()
+            return
+
+        await self.accept()
+
+        # Fork PTY — drop to restricted user shell
+        self.pid, self.fd = pty.fork()
+        if self.pid == 0:
+            os.environ['HOME'] = f'/home/{self.target_user}'
+            os.environ['LOGNAME'] = self.target_user
+            os.environ['USER'] = self.target_user
+            os.environ['SHELL'] = '/bin/rbash'
+            os.environ['PATH'] = '/usr/local/bin:/usr/bin:/bin'
+            os.execvp('su', ['su', '-', self.target_user, '-s', '/bin/rbash'])
+
+        self.loop = asyncio.get_event_loop()
+        self.loop.add_reader(self.fd, self._read_pty)
+
+    def _read_pty(self):
+        try:
+            data = os.read(self.fd, 8192)
+            if data:
+                asyncio.ensure_future(self.send(text_data=data.decode('utf-8', 'replace')))
+            else:
+                asyncio.ensure_future(self.close())
+        except OSError:
+            asyncio.ensure_future(self.close())
+
+    async def disconnect(self, close_code):
+        if hasattr(self, 'loop') and hasattr(self, 'fd'):
+            try:
+                self.loop.remove_reader(self.fd)
+                os.close(self.fd)
+            except Exception:
+                pass
+        if hasattr(self, 'pid'):
+            try:
+                import signal
+                os.kill(self.pid, signal.SIGKILL)
+                os.waitpid(self.pid, os.WNOHANG)
+            except Exception:
+                pass
+
+    async def receive(self, text_data=None, bytes_data=None):
+        if not text_data:
+            return
+        try:
+            msg = json.loads(text_data)
+            action = msg.get('action')
+            if action == 'input':
+                data = msg.get('data', '')
+                if hasattr(self, 'fd'):
+                    os.write(self.fd, data.encode('utf-8'))
+            elif action == 'resize':
+                rows = int(msg.get('rows', 24))
+                cols = int(msg.get('cols', 80))
+                if _POSIX_PTY and hasattr(self, 'fd'):
+                    winsize = struct.pack('HHHH', rows, cols, 0, 0)
+                    fcntl.ioctl(self.fd, termios.TIOCSWINSZ, winsize)
+        except Exception:
+            pass
