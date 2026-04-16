@@ -5638,31 +5638,52 @@ def addpython(request):
     except Exception:
         pass  # If quota check fails, allow provisioning (graceful degradation)
 
+    # Resolve app dir (needed for both win32 and linux paths)
+    app_dir = os.path.join(paths.HOME_BASE, fre.dir, name)
+
     # Scaffold directories and provision Python app (Linux only)
     if sys.platform != 'win32':
         try:
-            app_dir = os.path.join(paths.HOME_BASE, fre.dir, name)
-            run_command(f'mkdir -p {app_dir}')
-            run_command(f'mkdir -p {os.path.join(app_dir, "static")}')
+            import subprocess
+            subprocess.run(['sudo', 'mkdir', '-p', app_dir], check=False)
+            subprocess.run(['sudo', 'mkdir', '-p', os.path.join(app_dir, 'static')], check=False)
         except Exception:
             pass
 
-        # Run setup script
+        # Run setup script as root (it handles venv creation, uwsgi install, systemd unit)
         try:
             script_path = os.path.join(paths.PANEL_ROOT, 'createpython.sh')
-            run_command(f'bash {script_path} {fre.dir} {app_dir} {name}')
-        except Exception:
-            pass
+            import subprocess
+            result = subprocess.run(
+                ['bash', script_path, fre.dir, app_dir, name],
+                capture_output=True, text=True, timeout=180
+            )
+            if result.returncode != 0:
+                import logging
+                logging.getLogger(__name__).error(f"createpython.sh failed: {result.stderr}")
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"createpython.sh exception: {e}")
 
-        # Fix ownership: user owns files, www-data group can read static
+        # Fix ownership AFTER script runs: user owns files, www-data group for nginx access
         try:
-            run_command(f'sudo chown -R {fre.dir}:www-data {app_dir}')
-            run_command(f'sudo chmod -R 750 {app_dir}')
-            run_command(f'sudo chmod -R 755 {os.path.join(app_dir, "static")}')
+            import subprocess
+            subprocess.run(['sudo', 'chown', '-R', f'{fre.dir}:www-data', app_dir], check=False)
+            subprocess.run(['sudo', 'chmod', '-R', '750', app_dir], check=False)
+            subprocess.run(['sudo', 'chmod', '-R', '755', os.path.join(app_dir, 'static')], check=False)
+            # Service file should run as www-data for socket access — fix socket perms
+            subprocess.run(['sudo', 'chmod', 'g+s', app_dir], check=False)
         except Exception:
             pass
 
-    # Update Engine Config
+        # Reload systemd so the new service unit is visible
+        try:
+            subprocess.run(['sudo', 'systemctl', 'daemon-reload'], check=False)
+        except Exception:
+            pass
+
+    # Update Engine Config — ini filename matches what createpython.sh creates: {name}.ini
+
     sock_path = os.path.join(app_dir, f'{name}.sock')
     static_path = os.path.join(app_dir, 'static')
     
@@ -5672,7 +5693,8 @@ def addpython(request):
     
     if engine == 'ols':
         # Update uWSGI to use http-socket instead of standard socket so OLS proxy can talk HTTP
-        ini_path = os.path.join(app_dir, f'{name}_uwsgi.ini')
+        # Note: createpython.sh creates {name}.ini (not {name}_uwsgi.ini)
+        ini_path = os.path.join(app_dir, f'{name}.ini')
         if os.path.exists(ini_path):
             with open(ini_path, 'r') as f:
                 c = f.read()
@@ -5721,8 +5743,12 @@ context /static/ {{
     """
         try:
             conf_path = os.path.join(paths.NGINX_SITES_ENABLED, f'{domain1}.conf')
-            with open(conf_path, 'r') as file:
-                lines = file.readlines()
+            import subprocess
+            # Read conf (root-readable, but check if readable first)
+            result = subprocess.run(['sudo', 'cat', conf_path], capture_output=True, text=True)
+            if result.returncode != 0:
+                raise Exception(f"Cannot read nginx conf: {result.stderr}")
+            lines = result.stdout.splitlines(keepends=True)
 
             updated_lines = []
             location_overwritten = False
@@ -5732,9 +5758,15 @@ context /static/ {{
                 if line.strip().startswith('location / {') and not location_overwritten:
                     updated_lines.append(new_location_block)
                     location_overwritten = True
-                    while i < len(lines) - 1 and lines[i].strip() != '}':
+                    # Skip the old location / block
+                    depth = 0
+                    while i < len(lines):
+                        for ch in lines[i]:
+                            if ch == '{': depth += 1
+                            elif ch == '}': depth -= 1
                         i += 1
-                    i += 1
+                        if depth <= 0:
+                            break
                     continue
                 if line.strip() == 'location ~ /\\.ht {' and not location_overwritten:
                     updated_lines.append(new_location_block)
@@ -5743,13 +5775,18 @@ context /static/ {{
                 i += 1
 
             if not location_overwritten:
-                updated_lines.append(new_location_block)
+                # Inject before the last closing brace of the server block
+                for j in range(len(updated_lines) - 1, -1, -1):
+                    if updated_lines[j].strip() == '}':
+                        updated_lines.insert(j, new_location_block)
+                        break
 
             r = mgr.write_and_test_site_config(domain1, "".join(updated_lines))
             if not r.success:
                 return JsonResponse({'status': 'error', 'message': f'Nginx validation failed: {r.error}'})
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"addpython nginx conf error: {e}")
 
     # Create DB record and start service — platform-aware
     pythonname.objects.create(domain=domain1, name=name, main=fre.dir)
@@ -5777,8 +5814,10 @@ context /static/ {{
                     with open(conf_path2, 'w') as f2:
                         f2.write(conf)
         else:
-            run_command(f'sudo systemctl start {name} && sudo systemctl enable {name}')
-            run_command('sudo systemctl daemon-reload')
+            # Linux: start and enable the systemd service created by createpython.sh
+            import subprocess
+            subprocess.run(['sudo', 'systemctl', 'enable', name], check=False)
+            subprocess.run(['sudo', 'systemctl', 'start', name], check=False)
 
         try:
             get_platform().services.reload('nginx')
