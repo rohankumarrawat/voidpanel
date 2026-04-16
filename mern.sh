@@ -62,10 +62,10 @@ mongoose
 
 app.get('/api', (req, res) => res.send('API is running...'));
 
-// Ensure Express listens on the Unix socket (use path to prevent errors)
-const socketPath = '/var/run/$PROJECT_NAME.sock';
-app.listen(socketPath, () => {
-    console.log(`Server running at ${socketPath}`);
+// Ensure Express listens on the provided environment port
+const port = process.env.PORT || 5000;
+app.listen(port, '127.0.0.1', () => {
+    console.log(`Server running at http://127.0.0.1:${port}`);
 });
 
 EOF
@@ -133,8 +133,7 @@ module.exports = {
         NODE_ENV: "production",
         MONGO_URI: "mongodb://localhost:27017/${PROJECT_NAME}_db",
         PORT: $4
-      },
-      args: "--unix-socket /var/run/$PROJECT_NAME.sock"
+      }
     }
   ]
 };
@@ -151,5 +150,3 @@ pm2 save
 pm2 startup
 cd ..
 
-sudo chown www-data:www-data /var/run/$PROJECT_NAME.sock
-sudo chmod 777 /var/run/$PROJECT_NAME.sock

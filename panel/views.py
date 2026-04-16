@@ -6057,13 +6057,12 @@ def addmern(request):
         mgr = get_active_engine_manager()
         
         if engine == 'ols':
-            # For OLS proxy, PM2 needs to bind to a local TCP port instead of unix socket,
-            # similar to python apps. However, mern.sh sets PM2 up with unix-socket. 
-            # We'll stick to UDS here, but if there are issues, we may need a port proxy patch.
+            # For OLS proxy, PM2 binds to local TCP port instead of unix socket,
+            # maximizing compatibility across engines.
             ols_proxy = f"""
 extprocessor mern_{name} {{
   type                    proxy
-  address                 UDS://{sock_path}
+  address                 127.0.0.1:{pasport}
   maxConns                100
   initTimeout             60
   retryTimeout            0
@@ -6096,7 +6095,7 @@ context /api/ {{
     }}
 
     location /api/ {{
-        proxy_pass http://unix:{sock_path};
+        proxy_pass http://127.0.0.1:{pasport};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
