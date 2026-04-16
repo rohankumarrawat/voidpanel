@@ -49,6 +49,12 @@ def get_web_manager() -> WebServerManager:
     return NginxWebServerManager()
 
 
+# Alias used by panel/views.py and other callers
+def get_active_engine_manager() -> WebServerManager:
+    """Alias for get_web_manager() — returns manager for the active engine."""
+    return get_web_manager()
+
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 def _run(cmd, **kwargs):
@@ -485,6 +491,14 @@ listener VoidHTTP {{
 
     def read_site_config(self, domain: str) -> str:
         conf = self.get_site_config_path(domain)
+        # OLS vhost confs are owned by lsadm — use sudo cat to read reliably
+        try:
+            result = subprocess.run(['sudo', 'cat', conf], capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                return result.stdout
+        except Exception:
+            pass
+        # fallback: try direct read
         if os.path.exists(conf):
             try:
                 with open(conf, 'r') as f:
@@ -520,9 +534,8 @@ listener VoidHTTP {{
             _run([os.path.join(OLS_ROOT, 'bin', 'lswsctrl'), 'restart'])
             return CommandResult(success=True)
         except Exception as e:
-            if backup:
-                with open(conf, 'w') as f:
-                    f.write(backup)
+            # Restore from backup_path (not undefined 'backup')
+            _run(['sudo', 'cp', backup_path, conf])
             return CommandResult(success=False, error=str(e))
 
     def setup_reverse_proxy(self, domain: str, app_name: str, proxy_type: str, target: str, static_path: str = '') -> CommandResult:

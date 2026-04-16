@@ -5692,21 +5692,38 @@ def addpython(request):
     mgr = get_active_engine_manager()
     
     if engine == 'ols':
-        # Update uWSGI to use http-socket instead of standard socket so OLS proxy can talk HTTP
-        # Note: createpython.sh creates {name}.ini (not {name}_uwsgi.ini)
+        # OLS extprocessor works best with HTTP-over-TCP (not UDS).
+        # Allocate a free port and reconfigure uWSGI accordingly.
+        from function import get_random_port
+        ols_port = get_random_port()
+
+        # Read and update the INI: change unix socket -> tcp http-socket
         ini_path = os.path.join(app_dir, f'{name}.ini')
-        if os.path.exists(ini_path):
-            with open(ini_path, 'r') as f:
-                c = f.read()
-            c = c.replace('socket =', 'http-socket =')
-            with open(ini_path, 'w') as f:
-                f.write(c)
-                
-        # Inject OLS proxy block
+        try:
+            import subprocess as _sp
+            ini_result = _sp.run(['sudo', 'cat', ini_path], capture_output=True, text=True, timeout=10)
+            ini_content = ini_result.stdout if ini_result.returncode == 0 else ''
+            if not ini_content and os.path.exists(ini_path):
+                with open(ini_path, 'r') as f:
+                    ini_content = f.read()
+            if ini_content:
+                import re as _re
+                # Replace unix socket lines with http port
+                ini_content = _re.sub(r'^\s*socket\s*=.*$', f'http-socket = 127.0.0.1:{ols_port}', ini_content, flags=_re.MULTILINE)
+                # Remove chmod-socket line (not needed for TCP)
+                ini_content = _re.sub(r'^\s*chmod-socket\s*=.*\n?', '', ini_content, flags=_re.MULTILINE)
+                # Write back via sudo tee
+                proc = _sp.Popen(['sudo', 'tee', ini_path], stdin=_sp.PIPE, stdout=_sp.DEVNULL)
+                proc.communicate(input=ini_content.encode())
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"OLS ini patch failed: {e}")
+
+        # Inject OLS extprocessor + context blocks into the vhost config
         ols_proxy = f"""
 extprocessor python_{name} {{
   type                    proxy
-  address                 UDS://{sock_path}
+  address                 127.0.0.1:{ols_port}
   maxConns                100
   initTimeout             60
   retryTimeout            0
