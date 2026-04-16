@@ -94,6 +94,7 @@ def get_user_dashboard_context(current, adminpassword=""):
     d['shell_access'] = getattr(u, 'shell', False)
     mainn = str(current) + '_'
     d['useddatabase'] = len(get_database_names_with_filter(adminpassword, mainn))
+    d['status'] = is_website_live(f"http://{u.domain}")
     return d
 
 
