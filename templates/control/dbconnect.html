@@ -374,6 +374,59 @@
                 </div>
             </div>
 
+            <!-- ── Mapped Users & Privileges List ── -->
+            <div class="row g-4 mt-1">
+                <div class="col-12">
+                    <div class="vp-glass mb-4">
+                        <div class="vp-glass-header">
+                            <h5><i class="fa-solid fa-link"></i> Connected Databases & Privileges</h5>
+                            <span style="font-size:0.75rem; color:#64748b;">Active mappings between your databases and users</span>
+                        </div>
+                        <div style="overflow-x:auto;">
+                            <table class="vp-table">
+                                <thead>
+                                    <tr>
+                                        <th>Database</th>
+                                        <th>Connected User</th>
+                                        <th style="text-align:right;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for m in mappings %}
+                                    <tr>
+                                        <td>
+                                            <div class="db-name-cell">
+                                                <div class="db-icon blue"><i class="fa-solid fa-database"></i></div>
+                                                {{ m.database }}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="db-name-cell">
+                                                <div class="db-icon usr"><i class="fa-solid fa-user"></i></div>
+                                                {{ m.user }}
+                                            </div>
+                                        </td>
+                                        <td style="text-align:right;">
+                                            <button onclick="confirmRevokePriv('{{ m.database }}', '{{ m.user }}')" class="vp-btn vp-btn-danger" style="padding:5px 12px; font-size:0.78rem;">
+                                                <i class="fa-solid fa-unlink"></i> Revoke Access
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td colspan="3">
+                                        <div class="vp-empty">
+                                            <i class="fa-solid fa-link-slash"></i>
+                                            No users connected to databases yet. Use the Assign Privileges wizard above.
+                                        </div>
+                                    </td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div><!-- /container-fluid -->
     </div><!-- /main-content -->
 </div><!-- /wrapper -->
@@ -572,6 +625,24 @@ async function confirmDeleteUser(name, domain) {
             setTimeout(() => location.reload(), 800);
         } else {
             toast(d.message || 'Error deleting user', 'error');
+        }
+    } catch(e) { toast('Network error', 'error'); }
+}
+
+async function confirmRevokePriv(database, username) {
+    if(!confirm(`Revoke access from "${username}" to database "${database}"?`)) return;
+    toast(`Revoking privileges...`, 'info');
+    try {
+        const fd = new FormData(); 
+        fd.append('databasename', database);
+        fd.append('databaseusername', username);
+        const r = await fetch(`/revokeprivilege/`, {method:'POST', body:fd, headers:{'X-CSRFToken':CSRF}});
+        const d = await r.json();
+        if(d.status==='success') {
+            toast('Access revoked successfully.', 'success');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            toast(d.message || 'Error revoking access', 'error');
         }
     } catch(e) { toast('Network error', 'error'); }
 }

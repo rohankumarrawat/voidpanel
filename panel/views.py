@@ -30,7 +30,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponse
 from control.models import mernname,portnumber,quick,domain,allemail,phpextentions,cron,subdomainname,phpversion,redir,package,firewall,ftp,user,ftpaccount,pythonname
 from django.views.decorators.csrf import csrf_exempt
-from function import start_service,stop_service,get_directory_size_in_mb,restart_service,get_service_status,get_php_versions,get_php_version,get_php_extensions,get_database_names,get_database_users,change_hostname,remove_zone_from_file,zip_multiple_locations_backup,create_bind_recordsforsubdomain,grant_mysql_user_privileges,change_mysql_user_password,delete_mysql_user,remove_database,get_database_names_with_filter,get_database_users_with_filter,create_mysql_user,is_website_live,parse_dns_zone_file,configure_opendkim,create_bind_records,generate_dkim_keys,create_nginx_ssl_conf,generate_ssl_certificates,hostnamessl,run_command,get_server_ip,get_random_port,get_file_info,zip_files_and_folders,extract_zip_with_error_handling,create_database_and_table,clone_website
+from function import start_service,stop_service,get_directory_size_in_mb,restart_service,get_service_status,get_php_versions,get_php_version,get_php_extensions,get_database_names,get_database_users,change_hostname,remove_zone_from_file,zip_multiple_locations_backup,create_bind_recordsforsubdomain,grant_mysql_user_privileges,change_mysql_user_password,delete_mysql_user,remove_database,get_database_names_with_filter,get_database_users_with_filter,create_mysql_user,is_website_live,parse_dns_zone_file,configure_opendkim,create_bind_records,generate_dkim_keys,create_nginx_ssl_conf,generate_ssl_certificates,hostnamessl,run_command,get_server_ip,get_random_port,get_file_info,zip_files_and_folders,extract_zip_with_error_handling,create_database_and_table,clone_website, get_database_privileges_with_filter, revoke_mysql_user_privileges
 import psutil
 import os, shlex
 from panel.logger import get_logger
@@ -2997,6 +2997,7 @@ def dbconnect(request,data):
                     mainn=cc+"_"
                     d['database']=get_database_names_with_filter(adminpassword,mainn)
                     d['users']=get_database_users_with_filter(adminpassword,mainn)
+                    d['mappings']=get_database_privileges_with_filter(adminpassword,mainn)
                     url = 'https://voidpanel.com/admindocs/'  # Replace with your API URL
                     response = requests.get(url)
                     if response.status_code == 200:
@@ -3166,6 +3167,28 @@ def files(request,data):
     else: 
         return redirect('/')
     
+
+@login_required(login_url='/')
+def revokeprivilege(request):
+    try:
+        with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
+            adminpassword = f.read().strip()
+    except Exception:
+        adminpassword = ''
+
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'})
+    
+    database = request.POST.get('databasename')
+    username = request.POST.get('databaseusername')
+
+    if not database or not username:
+        return JsonResponse({'status': 'error', 'message': 'Database and user required'})
+    
+    if revoke_mysql_user_privileges(username, database, adminpassword):
+        return JsonResponse({'status': 'success'})
+        
+    return JsonResponse({'status': 'error', 'message': 'Could not revoke privilege'})
 
 
 @login_required(login_url='/')

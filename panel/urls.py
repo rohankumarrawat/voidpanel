@@ -95,6 +95,7 @@ urlpatterns = [
        path('dbuserremove/<str:data>/<str:database>/', views.dbuserremove, name='dbreomve'),
         path('changepasswordforuser/', views.changepasswordforuser, name='changepasswordforuser'),
         path('addpermissiontouser/', views.addpermissiontouser, name='addpermissiontouser'),
+        path('revokeprivilege/', views.revokeprivilege, name='revokeprivilege'),
         path('cron/<str:data>', views.cronn, name='cron'),
         path('subdomain/<str:data>', views.subdomain, name='subdomain'),
 

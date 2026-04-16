@@ -986,6 +986,56 @@ def get_database_users_with_filter(passw, filter_string):
 
     return users
 
+def get_database_privileges_with_filter(passw, filter_string):
+    connection = None
+    mappings = []
+    try:
+        connection = mysql.connector.connect(
+            host="localhost",  
+            user="newuser",
+            password=passw
+        )
+        if connection.is_connected():
+            cursor = connection.cursor()
+            # MySQL stores db permissions in mysql.db.
+            # Host, Db, User...
+            cursor.execute("SELECT User, Db FROM mysql.db;")
+            all_privs = cursor.fetchall()
+            
+            for user, db in all_privs:
+                if user.startswith(filter_string) or db.startswith(filter_string):
+                    mappings.append({"user": user, "database": db})
+
+    except Error as e:
+        print(f"Error fetched privs: {e}")
+    finally:
+        if connection and connection.is_connected():
+            cursor.close()
+            connection.close()
+
+    return mappings
+
+def revoke_mysql_user_privileges(username, database, passw):
+    connection = None
+    try:
+        connection = mysql.connector.connect(
+            host="localhost",
+            user="newuser",
+            password=passw
+        )
+        if connection.is_connected():
+            cursor = connection.cursor()
+            cursor.execute(f"REVOKE ALL PRIVILEGES ON `{database}`.* FROM '{username}'@'localhost'")
+            connection.commit()
+            return True
+        return False
+    except Error as e:
+        print(f"Error revoking privileges: {e}")
+        return False
+    finally:
+        if connection and connection.is_connected():
+            cursor.close()
+            connection.close()
 
 import mysql.connector
 from mysql.connector import Error
