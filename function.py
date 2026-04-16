@@ -992,13 +992,11 @@ def get_database_privileges_with_filter(passw, filter_string):
     try:
         connection = mysql.connector.connect(
             host="localhost",  
-            user="newuser",
+            user="root",
             password=passw
         )
         if connection.is_connected():
             cursor = connection.cursor()
-            # MySQL stores db permissions in mysql.db.
-            # Host, Db, User...
             cursor.execute("SELECT User, Db FROM mysql.db;")
             all_privs = cursor.fetchall()
             
@@ -1020,7 +1018,7 @@ def revoke_mysql_user_privileges(username, database, passw):
     try:
         connection = mysql.connector.connect(
             host="localhost",
-            user="newuser",
+            user="root",
             password=passw
         )
         if connection.is_connected():
