@@ -51,9 +51,7 @@ def get_user_dashboard_context(current, adminpassword=""):
 
     # SSL status check for sidebar domain badge
     try:
-        import os
-        cert_path = os.path.join(paths.LETSENCRYPT_LIVE, u.domain, 'fullchain.pem')
-        d['primarydomainstatus'] = os.path.exists(cert_path)
+        d['primarydomainstatus'] = domain.objects.get(domain=u.domain).sslstatus
     except:
         d['primarydomainstatus'] = False
 
