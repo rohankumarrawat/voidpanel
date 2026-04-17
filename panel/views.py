@@ -5886,18 +5886,27 @@ def delete_mern(request):
             new_conf = re.sub(rf'extprocessor mern_{name}\s*{{[^}}]+}}\n?', '', old_conf)
             new_conf = re.sub(rf'context /api/\s*{{[^}}]+handler\s+mern_{name}[^}}]+}}\n?', '', new_conf)
             # Revert docRoot
-            new_conf = re.sub(rf'docRoot\s+\$VH_ROOT/{name}/frontend/build', r'docRoot $VH_ROOT/public_html', new_conf)
+            new_conf = re.sub(r'docRoot\s+\$VH_ROOT/(?:[^/]+/frontend/build|public_html)', r'docRoot $VH_ROOT/public_html', new_conf)
             mgr.write_and_test_site_config(domainname, new_conf)
         else:
             old_conf = mgr.read_site_config(domainname)
             if old_conf:
-                # Strip out /api, /static, and / blocks safely using non-greedy regex
+                # Strip out /api, /static, compiling.html, and / blocks safely using non-greedy regex
                 new_conf = re.sub(r'[ \t]*location / \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', old_conf)
                 new_conf = re.sub(r'[ \t]*location /static/ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
                 new_conf = re.sub(r'[ \t]*location /api/ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+                new_conf = re.sub(r'[ \t]*location = /compiling\.html \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+                
+                # Restore the default location / fallback
+                default_location = """    location / {
+        try_files $uri $uri/ =404;
+    }
+"""
+                if 'location ~ /\.ht {' in new_conf:
+                    new_conf = new_conf.replace('location ~ /\.ht {', default_location + '\n    location ~ /\.ht {', 1)
                 
                 # Revert root correctly
-                new_conf = re.sub(r'root\s+/home/[^/]+/[^/]+/frontend/build;', f'root /home/{iwefj}/public_html;', new_conf)
+                new_conf = re.sub(r'root\s+/home/[^/]+/(?:[^/]+/frontend/build|public_html);', f'root /home/{iwefj}/public_html;', new_conf)
                 mgr.write_and_test_site_config(domainname, new_conf)
 
         try:
@@ -6014,13 +6023,15 @@ def addmern(request):
 
         # We must write compiling.html natively right now so Nginx validation sees it.
         try:
-            os.makedirs(app_dir, exist_ok=True)
+            import shlex
+            run_command(f'sudo mkdir -p {shlex.quote(app_dir)}')
             compiling_html_path = os.path.join(app_dir, 'compiling.html')
-            with open(compiling_html_path, 'w') as f:
-                f.write("<html><body style='font-family:sans-serif;text-align:center;padding:50px;background:#111;color:#fff;'><h2>Deploying MERN Architecture...</h2><p>Your React environment is currently compiling in the background. It takes approximately 3-4 minutes to download Node dependencies and build the DOM.</p><p>Please refresh this page in a few minutes.</p></body></html>")
-            run_command(f'sudo chown {_fre_dir}:www-data {compiling_html_path}')
-        except:
-            pass
+            html_content = "<html><body style='font-family:sans-serif;text-align:center;padding:50px;background:#111;color:#fff;'><h2>Deploying MERN Architecture...</h2><p>Your React environment is currently compiling in the background. It takes approximately 3-4 minutes to download Node dependencies and build the DOM.</p><p>Please refresh this page in a few minutes.</p></body></html>"
+            run_command(f"sudo bash -c \"echo '{html_content}' > {shlex.quote(compiling_html_path)}\"")
+            run_command(f'sudo chown -R {_fre_dir}:www-data {shlex.quote(app_dir)}')
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Error creating compiling.html: {e}")
 
         static_path = os.path.join(app_dir, 'frontend', 'build', 'static')
         sock_path = os.path.join(paths.RUN_DIR, f'{name}.sock')
@@ -6049,7 +6060,7 @@ context /api/ {{
 """
             old_conf = mgr.read_site_config(domain1)
             import re
-            old_conf = re.sub(r'docRoot\s+\$VH_ROOT/public_html', f'docRoot $VH_ROOT/{name}/frontend/build', old_conf)
+            old_conf = re.sub(r'docRoot\s+\$VH_ROOT/(?:[^/]+/frontend/build|public_html)', f'docRoot $VH_ROOT/{name}/frontend/build', old_conf)
             if 'mern_' + name not in old_conf:
                 new_conf = old_conf + "\n" + ols_proxy
                 r = mgr.write_and_test_site_config(domain1, new_conf)
@@ -6089,9 +6100,10 @@ context /api/ {{
                 new_conf = re.sub(r'[ \t]*location / \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
                 new_conf = re.sub(r'[ \t]*location /static/ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
                 new_conf = re.sub(r'[ \t]*location /api/ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+                new_conf = re.sub(r'[ \t]*location = /compiling\.html \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
                 
                 # Replace root properly dynamically
-                new_conf = re.sub(r'root\s+/home/[^/]+/public_html;', f'root /home/{fre.dir}/{name}/frontend/build;', new_conf)
+                new_conf = re.sub(r'root\s+/home/[^/]+/(?:[^/]+/frontend/build|public_html);', f'root /home/{fre.dir}/{name}/frontend/build;', new_conf)
                 
                 # Inject new blocks properly before location ~ /\.ht { (in 443 block)
                 if 'location ~ /\\.ht {' in new_conf:
