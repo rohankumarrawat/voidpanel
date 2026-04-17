@@ -6028,8 +6028,8 @@ def addmern(request):
             import shlex
             run_command(f'sudo mkdir -p {shlex.quote(app_dir)}')
             compiling_html_path = os.path.join(app_dir, 'compiling.html')
-            html_content = "<html><body style='font-family:sans-serif;text-align:center;padding:50px;background:#111;color:#fff;'><h2>Deploying MERN Architecture...</h2><p>Your React environment is currently compiling in the background. It takes approximately 3-4 minutes to download Node dependencies and build the DOM.</p><p>Please refresh this page in a few minutes.</p></body></html>"
-            run_command(f"sudo bash -c \"echo '{html_content}' > {shlex.quote(compiling_html_path)}\"")
+            html_content = "<html><body style=\"font-family:sans-serif;text-align:center;padding:50px;background:#111;color:#fff;\"><h2>Deploying MERN Architecture...</h2><p>Your React environment is currently compiling in the background. It takes approximately 3-4 minutes to download Node dependencies and build the DOM.</p><p>Please refresh this page in a few minutes.</p></body></html>"
+            run_command(f"sudo bash -c \"cat << 'EOF' > {shlex.quote(compiling_html_path)}\\n{html_content}\\nEOF\"")
             run_command(f'sudo chown -R {_fre_dir}:www-data {shlex.quote(app_dir)}')
         except Exception as e:
             import logging
@@ -6080,7 +6080,7 @@ context /api/ {{
     }}
 
     location / {{
-        try_files $uri /index.html /compiling.html =404;
+        try_files $uri /index.html /compiling.html;
     }}
     
     location = /compiling.html {{
