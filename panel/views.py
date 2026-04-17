@@ -3351,45 +3351,53 @@ def subdomainprocess(request):
                                     if sys.platform != 'win32':
                                         run_command(f'chown -R {lold.dir}:{lold.dir} {path}/*')
                                 
-                                file_path = os.path.join(paths.NGINX_SITES_AVAILABLE, f"{full}.conf")
+                                # ── Engine-aware subdomain config ──
+                                from voidplatform.linux.web import get_active_engine, get_active_engine_manager
+                                engine = get_active_engine()
+                                mgr = get_active_engine_manager()
                                 root_dir = path
-                                cert_path, key_path = generate_ssl_certificates(full, oldpath+'/ssl', oldpath+'/logs')
-                                
-                                if cert_path and key_path:
+
+                                if engine == 'nginx':
+                                    file_path = os.path.join(paths.NGINX_SITES_AVAILABLE, f"{full}.conf")
+                                    cert_path, key_path = generate_ssl_certificates(full, oldpath+'/ssl', oldpath+'/logs')
+
+                                    if cert_path and key_path:
                                         create_nginx_ssl_conf(file_path, full, root_dir, cert_path, key_path)
-                                else:
+                                    else:
                                         # Write a standard HTTP-only fallback to avoid breaking nginx
                                         fallback_conf = f"server {{\n    listen 80;\n    server_name {full};\n    root {root_dir};\n    index index.php index.html;\n    location / {{\n        try_files $uri $uri/ =404;\n    }}\n    location ~ \\.php$ {{\n        include snippets/fastcgi-php.conf;\n        fastcgi_pass unix:/run/php/php8.3-fpm.sock;\n    }}\n}}\n"
                                         with open(file_path, 'w') as f:
                                             f.write(fallback_conf)
-                                            
-                                # Safely Symlink & Test
-                                _ln_src = f'{paths.NGINX_SITES_AVAILABLE}/{full}.conf'
-                                _ln_dst = paths.NGINX_SITES_ENABLED
-                                if sys.platform == 'win32':
-                                    shutil.copy2(_ln_src, os.path.join(_ln_dst, f'{full}.conf'))
-                                else:
-                                    run_command(f'sudo ln -sf {_ln_src} {_ln_dst}/')
-                                if sys.platform != 'win32':
-                                    test_res = run_command("nginx -t")
-                                else:
-                                    test_res = type('obj', (object,), {'returncode': 0, 'stdout': 'nginx test skipped on Windows', 'stderr': ''})()
 
-                                # Safety fallback logic
-                                if "successful" not in test_res and "syntax is ok" not in test_res:
-                                    # Config broke Nginx, revert the symlink immediately
-                                    _rm_path = os.path.join(paths.NGINX_SITES_ENABLED, f'{full}.conf')
-                                    if os.path.exists(_rm_path):
-                                        os.remove(_rm_path)
-                                    with open(paths.PANEL_LOG_FILE, 'a') as f:
-                                            f.write(f"Nginx Syntax Test Failed for domain {full}. Symlink reverted.\n")
-                                    return JsonResponse({'status': 'error', 'message': 'Configuration syntax failed. Nginx protected.'})
-                                
+                                    # Safely Symlink & Test
+                                    _ln_src = f'{paths.NGINX_SITES_AVAILABLE}/{full}.conf'
+                                    _ln_dst = paths.NGINX_SITES_ENABLED
+                                    if sys.platform == 'win32':
+                                        shutil.copy2(_ln_src, os.path.join(_ln_dst, f'{full}.conf'))
+                                    else:
+                                        run_command(f'sudo ln -sf {_ln_src} {_ln_dst}/')
+
+                                    if sys.platform != 'win32':
+                                        test_res = mgr.test_config()
+                                        if not test_res.success:
+                                            _rm_path = os.path.join(paths.NGINX_SITES_ENABLED, f'{full}.conf')
+                                            if os.path.exists(_rm_path):
+                                                os.remove(_rm_path)
+                                            return JsonResponse({'status': 'error', 'message': 'Nginx config test failed. Reverted.'})
+
+                                    mgr.reload()
+
+                                else:
+                                    # OpenLiteSpeed — use the engine manager
+                                    result = mgr.create_site(full, root_dir, php_version='8.3', unix_user=lold.dir)
+                                    if not result.success:
+                                        return JsonResponse({'status': 'error', 'message': f'OLS config failed: {result.error}'})
+
+                                # DNS record & service restarts (common for both engines)
                                 zone_file_path = os.path.join(paths.BIND_ZONE_DIR, f'db.{lold.domain}')
                                 create_bind_recordsforsubdomain(name, zone_file_path)
                                 try:
                                     get_platform().services.restart('bind9')
-                                    get_platform().services.reload('nginx')
                                 except Exception:
                                     pass
                                 import time
@@ -3404,12 +3412,20 @@ def subdomainprocess(request):
 def deletesubdomain(request,data):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'POST required.'}, status=405)
+        
+    from voidplatform.linux.web import get_active_engine_manager
+    mgr = get_active_engine_manager()
+
     if request.user.is_superuser :
         xxxx=subdomainname.objects.get(subdomain=data)
         maindir=lold=domain.objects.get(domain=xxxx.domain).dir
         path=os.path.join(paths.HOME_BASE, maindir, "public_html", xxxx.name)
         import shutil
-        shutil.rmtree(path)
+        try:
+            shutil.rmtree(path)
+        except:
+            pass
+        mgr.delete_site(data)
         domainname=xxxx.domain
         xxxx.delete()
         return redirect(f'/subdomain/{domainname}')
@@ -3422,7 +3438,11 @@ def deletesubdomain(request,data):
         maindir=lold=domain.objects.get(domain=xxxx.domain).dir
         path=os.path.join(paths.HOME_BASE, maindir, "public_html", xxxx.name)
         import shutil
-        shutil.rmtree(path)
+        try:
+            shutil.rmtree(path)
+        except:
+            pass
+        mgr.delete_site(data)
         domainname=xxxx.domain
         xxxx.delete()
         return redirect(f'/control/subdomain/{domainname}')
