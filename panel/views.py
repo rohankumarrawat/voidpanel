@@ -7230,14 +7230,16 @@ def api_nginx_cache_toggle(request):
     """Enable or disable Nginx browser caching for a domain."""
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'POST required.'}, status=405)
-    if not request.user.is_superuser:
-        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
-
     domainname = request.POST.get('domain', '').strip()
     enable = request.POST.get('enable', '0') == '1'
 
     if not domainname:
         return JsonResponse({'status': 'error', 'message': 'Missing domain'}, status=400)
+
+    if not request.user.is_superuser:
+        from control.models import domain
+        if not domain.objects.filter(domain=domainname, user=request.user).exists():
+            return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
 
     from voidplatform.linux.web import get_active_engine, get_active_engine_manager
     engine = get_active_engine()
