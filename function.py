@@ -393,7 +393,7 @@ server {{
             tmp = f.name
         subprocess.run(f"sudo cp {tmp} {file_path}", shell=True, check=False)
         subprocess.run(f"rm {tmp}", shell=True, check=False)
-        get_platform().services.restart('nginx')
+        get_platform().services.reload('nginx')
         print(f"Nginx SSL configuration file created at: {file_path}")
     except OSError as e:
         print(f"Error creating Nginx configuration file: {e}")
