@@ -6012,17 +6012,13 @@ def addmern(request):
                 import logging
                 logging.getLogger(__name__).error(f'mern provision bg error: {_e}')
 
-        _t = threading.Thread(target=_run_mern_provision, daemon=True)
-        _t.start()
-
-        compiling_html_path = os.path.join(app_dir, 'compiling.html')
-        with open(compiling_html_path, 'w') as f:
-            f.write("<html><body style='font-family:sans-serif;text-align:center;padding:50px;background:#111;color:#fff;'><h2>Deploying MERN Architecture...</h2><p>Your React environment is currently compiling in the background. It takes approximately 3-4 minutes to download Node dependencies and build the DOM.</p><p>Please refresh this page in a few minutes.</p></body></html>")
-        
-        # Permissions are now handled inside the background thread above,
-        # but apply to compiling.html instantly
+        # We must write compiling.html natively right now so Nginx validation sees it.
         try:
-            run_command(f'sudo chown {fre.dir}:www-data {compiling_html_path}')
+            os.makedirs(app_dir, exist_ok=True)
+            compiling_html_path = os.path.join(app_dir, 'compiling.html')
+            with open(compiling_html_path, 'w') as f:
+                f.write("<html><body style='font-family:sans-serif;text-align:center;padding:50px;background:#111;color:#fff;'><h2>Deploying MERN Architecture...</h2><p>Your React environment is currently compiling in the background. It takes approximately 3-4 minutes to download Node dependencies and build the DOM.</p><p>Please refresh this page in a few minutes.</p></body></html>")
+            run_command(f'sudo chown {_fre_dir}:www-data {compiling_html_path}')
         except:
             pass
 
@@ -6105,7 +6101,15 @@ context /api/ {{
                 if not r.success:
                     return JsonResponse({'status': 'error', 'message': f'Nginx validation failed: {r.error}'})
 
-        mernname.objects.create(domain=domain1, name=name, main=fre.dir, port=pasport)
+        # Atomic reservation: only spawn compilation if DB allocation succeeds
+        try:
+            mernname.objects.create(domain=domain1, name=name, main=fre.dir, port=pasport)
+        except Exception as _e:
+            return JsonResponse({'status': 'error', 'message': f'DB reservation failed: {_e}'})
+
+        _t = threading.Thread(target=_run_mern_provision, daemon=True)
+        _t.start()
+
         import time
         time.sleep(2)
         return JsonResponse({'status': 'success', 'message': 'MERN stack provisioned!'})
