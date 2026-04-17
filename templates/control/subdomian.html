@@ -267,11 +267,15 @@
 
             try {
                 const formData = new FormData(this);
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 30000);
                 const response = await fetch('/subdomainprocess/', {
                     method: 'POST',
                     body: formData,
-                    headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+                    headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
+                    signal: controller.signal
                 });
+                clearTimeout(timeout);
                 
                 const result = await response.json();
                 

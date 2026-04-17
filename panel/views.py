@@ -3384,8 +3384,6 @@ def subdomainprocess(request):
                                                 os.remove(_rm_path)
                                             return JsonResponse({'status': 'error', 'message': 'Nginx config test failed. Reverted.'})
 
-                                    mgr.reload()
-
                                 else:
                                     # OpenLiteSpeed — use the engine manager
                                     result = mgr.create_site(full, root_dir, php_version='8.3', unix_user=lold.dir)
@@ -3396,11 +3394,9 @@ def subdomainprocess(request):
                                 zone_file_path = os.path.join(paths.BIND_ZONE_DIR, f'db.{lold.domain}')
                                 create_bind_recordsforsubdomain(name, zone_file_path)
                                 try:
-                                    get_platform().services.restart('bind9')
+                                    get_platform().services.reload('bind9')
                                 except Exception:
                                     pass
-                                import time
-                                time.sleep(1)
                                 cce=subdomainname.objects.create(subdomain=full, name=name, domain=data)
                                 return JsonResponse({'status': 'success', 'message': 'Subdomain successfully created'})
     
