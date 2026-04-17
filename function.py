@@ -555,22 +555,16 @@ def create_bind_records(domain, key_dir, zone_file_path):
 def create_bind_recordsforsubdomain(name, zone_file_path):
     """Create BIND zone file records including DKIM, SOA, NS, A, MX, and other common DNS records."""
     
-   
-
+    import tempfile, subprocess
     
-    with open(zone_file_path, 'a') as zone_file:
-       
-
-
-
-        
-         # Write A record\zone_file.write(f"; A Record\n")
-         zone_file.write(f"\n")
-         zone_file.write(f"; A Record\n")
-         zone_file.write(f"{name}   IN  A    {get_server_ip()}\n\n")
-        
-
-       
+    record = f"\n; A Record\n{name}   IN  A    {get_server_ip()}\n\n"
+    
+    with tempfile.NamedTemporaryFile('w', delete=False, suffix='.zone') as tmp:
+        tmp.write(record)
+        tmp_path = tmp.name
+    
+    subprocess.run(f"cat {tmp_path} | sudo tee -a {zone_file_path}", shell=True, check=False)
+    subprocess.run(f"rm {tmp_path}", shell=True, check=False)
 
 def configure_opendkim(domain, key_dir):
     """Configure OpenDKIM for the domain."""

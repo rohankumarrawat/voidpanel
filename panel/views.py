@@ -3338,8 +3338,6 @@ def subdomainprocess(request):
                                 oldpath=os.path.join(paths.HOME_BASE, lold.dir)
                                 if not os.path.exists(path):
                                     os.mkdir(path)
-                                    if sys.platform != 'win32':
-                                        run_command(f'sudo chown {lold.dir}:{lold.dir} {path}')
                                     _vp_src = os.path.join(paths.PANEL_ROOT, 'voidpanel')
                                     for _item in os.listdir(_vp_src):
                                         _s = os.path.join(_vp_src, _item)
@@ -3349,7 +3347,8 @@ def subdomainprocess(request):
                                         else:
                                             shutil.copy2(_s, _d)
                                     if sys.platform != 'win32':
-                                        run_command(f'sudo chown -R {lold.dir}:{lold.dir} {path}/*')
+                                        run_command(f'sudo chown -R {lold.dir}:www-data {path}')
+                                        run_command(f'sudo chmod -R 750 {path}')
                                 
                                 # ── Engine-aware subdomain config ──
                                 from voidplatform.linux.web import get_active_engine, get_active_engine_manager
