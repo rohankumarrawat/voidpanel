@@ -5896,6 +5896,8 @@ def delete_mern(request):
                 new_conf = re.sub(r'[ \t]*location /static/ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
                 new_conf = re.sub(r'[ \t]*location /api/ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
                 new_conf = re.sub(r'[ \t]*location = /compiling\.html \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+                new_conf = re.sub(r'[ \t]*location ~\* \\.html\$ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+                new_conf = re.sub(r'[ \t]*# Prevent browser caching[^\n]*\n', '', new_conf)
                 
                 # Restore the default location / fallback
                 default_location = """    location / {
@@ -6070,6 +6072,13 @@ context /api/ {{
             old_conf = mgr.read_site_config(domain1)
             if old_conf:
                 new_location_block = f"""
+    # Prevent browser caching of HTML so page updates are always visible
+    location ~* \\.html$ {{
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Pragma "no-cache";
+        add_header Expires 0;
+    }}
+
     location / {{
         try_files $uri /index.html /compiling.html =404;
     }}
