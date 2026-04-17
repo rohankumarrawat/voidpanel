@@ -853,6 +853,41 @@
                         </div>
                     </div>
 
+                {% if engine == 'nginx' %}
+                <!-- ── Performance ── -->
+                <p class="section-heading"><i class="fa-solid fa-gauge-high" style="margin-right:6px;"></i>Performance</p>
+                <div class="row g-3" style="margin-bottom:20px;">
+                    <div class="col-12">
+                        <div class="card" style="cursor:default;border-left:3px solid #22c55e !important;">
+                            <div class="body" style="padding:18px 22px;">
+                                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+                                    <div style="display:flex;align-items:center;gap:14px;">
+                                        <div style="width:44px;height:44px;border-radius:11px;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.2);display:flex;align-items:center;justify-content:center;font-size:1.15rem;color:#22c55e;flex-shrink:0;">
+                                            <i class="fa-solid fa-bolt"></i>
+                                        </div>
+                                        <div>
+                                            <div style="font-size:.92rem;font-weight:600;color:#f8fafc;">Nginx Browser Cache</div>
+                                            <div style="font-size:.73rem;color:#94a3b8;line-height:1.5;max-width:420px;">Cache static assets (images, CSS, JS, fonts) for 30 days. Reduces load time and bandwidth for returning visitors.</div>
+                                        </div>
+                                    </div>
+                                    <div style="display:flex;align-items:center;gap:12px;">
+                                        <span id="nc-status-badge" style="display:inline-flex;align-items:center;gap:5px;padding:3px 12px;border-radius:999px;font-size:.7rem;font-weight:600;background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.2);transition:all .3s;">
+                                            <span style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span>
+                                            <span id="nc-status-text">Disabled</span>
+                                        </span>
+                                        <label style="position:relative;display:inline-block;width:50px;height:26px;cursor:pointer;">
+                                            <input type="checkbox" id="nc-toggle" style="opacity:0;width:0;height:0;" onchange="toggleNginxCache(this)">
+                                            <span id="nc-slider" style="position:absolute;inset:0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:26px;transition:all .3s;"></span>
+                                            <span id="nc-knob" style="position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;background:#fff;transition:all .3s;box-shadow:0 2px 6px rgba(0,0,0,.3);"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
                 </div>
 
 
@@ -1805,6 +1840,69 @@
         <script src="/static/assets/bundles/chartjs.js"></script>
         <script src="/static/assets/index2.js"></script>
 
+
+
+{% if engine == 'nginx' %}
+<script>
+    /* ── Nginx Cache Toggle ── */
+    const NC_DOMAIN = '{{ domain }}';
+
+    function ncUpdateUI(enabled) {
+        const badge = document.getElementById('nc-status-badge');
+        const text = document.getElementById('nc-status-text');
+        const toggle = document.getElementById('nc-toggle');
+        const knob = document.getElementById('nc-knob');
+        const slider = document.getElementById('nc-slider');
+        if (!badge || !toggle) return;
+
+        toggle.checked = enabled;
+
+        if (enabled) {
+            text.textContent = 'Enabled';
+            badge.style.cssText = 'display:inline-flex;align-items:center;gap:5px;padding:3px 12px;border-radius:999px;font-size:.7rem;font-weight:600;background:rgba(34,197,94,.1);color:#22c55e;border:1px solid rgba(34,197,94,.2);transition:all .3s;';
+            knob.style.left = '26px';
+            slider.style.background = 'rgba(34,197,94,.35)';
+            slider.style.borderColor = 'rgba(34,197,94,.4)';
+        } else {
+            text.textContent = 'Disabled';
+            badge.style.cssText = 'display:inline-flex;align-items:center;gap:5px;padding:3px 12px;border-radius:999px;font-size:.7rem;font-weight:600;background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.2);transition:all .3s;';
+            knob.style.left = '2px';
+            slider.style.background = 'rgba(255,255,255,.08)';
+            slider.style.borderColor = 'rgba(255,255,255,.12)';
+        }
+    }
+
+    /* Fetch status on page load */
+    (async function() {
+        try {
+            const r = await fetch(`/api/nginx-cache/status/?domain=${NC_DOMAIN}`);
+            const d = await r.json();
+            if (d.status === 'success') ncUpdateUI(d.enabled);
+        } catch(e) { console.error('Cache status fetch failed:', e); }
+    })();
+
+    async function toggleNginxCache(el) {
+        const enable = el.checked;
+        ncUpdateUI(enable);
+        try {
+            const fd = new FormData();
+            fd.append('domain', NC_DOMAIN);
+            fd.append('enable', enable ? '1' : '0');
+            const r = await fetch('/api/nginx-cache/toggle/', {method:'POST', body:fd, headers:{'X-CSRFToken':CSRF()}});
+            const d = await r.json();
+            if (d.status === 'success') {
+                showResult(enable ? '⚡' : '🔄', enable ? '#22c55e' : '#f59e0b', d.message);
+            } else {
+                ncUpdateUI(!enable);
+                showResult('✕', '#ef4444', d.message || 'Failed to toggle cache.');
+            }
+        } catch(e) {
+            ncUpdateUI(!enable);
+            showResult('✕', '#ef4444', 'Network error toggling cache.');
+        }
+    }
+</script>
+{% endif %}
 
 </body>
 

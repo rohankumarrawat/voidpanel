@@ -912,6 +912,13 @@ def index(request):
 
 
     d.update(get_user_dashboard_context(current, adminpassword))
+
+    try:
+        from voidplatform.linux.web import get_active_engine
+        d['engine'] = get_active_engine()
+    except:
+        d['engine'] = 'nginx'
+
     return render(request, 'control/index.html', d)
 
 @login_required(login_url='/')
