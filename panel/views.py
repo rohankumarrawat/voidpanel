@@ -7202,12 +7202,14 @@ def toggle_shell_access(request):
 @login_required(login_url='/')
 def api_nginx_cache_status(request):
     """Return whether Nginx browser caching is enabled for a domain."""
-    if not request.user.is_superuser:
-        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
-
     domainname = request.GET.get('domain', '').strip()
     if not domainname:
         return JsonResponse({'status': 'error', 'message': 'Missing domain'}, status=400)
+
+    if not request.user.is_superuser:
+        from control.models import domain as cdomain
+        if not cdomain.objects.filter(domain=domainname, user=request.user).exists():
+            return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
 
     from voidplatform.linux.web import get_active_engine, get_active_engine_manager
     engine = get_active_engine()
