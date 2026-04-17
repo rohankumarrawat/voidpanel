@@ -2374,6 +2374,12 @@ def viewwebsite(request):
                     dataee = response.json()  # Parse the JSON response
                     d['docs']=dataee
                 
+                try:
+                    from voidplatform.linux.web import get_active_engine
+                    d['engine'] = get_active_engine()
+                except:
+                    d['engine'] = 'nginx'
+
                 return render(request,'panel/viewwebsite.html',d)
            else:
                return redirect('/listwebsites')
@@ -7175,3 +7181,90 @@ def toggle_shell_access(request):
 
     action = 'enabled' if enable else 'revoked'
     return JsonResponse({'status': 'success', 'message': f'Shell access {action} for {username}.'})
+
+# ── Nginx Cache Toggle API ──────────────────────────────────────────────────
+@csrf_exempt
+@login_required(login_url='/')
+def api_nginx_cache_status(request):
+    """Return whether Nginx browser caching is enabled for a domain."""
+    if not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+
+    domainname = request.GET.get('domain', '').strip()
+    if not domainname:
+        return JsonResponse({'status': 'error', 'message': 'Missing domain'}, status=400)
+
+    from voidplatform.linux.web import get_active_engine, get_active_engine_manager
+    engine = get_active_engine()
+    if engine != 'nginx':
+        return JsonResponse({'status': 'error', 'message': 'Cache toggle is only available for Nginx.', 'engine': engine})
+
+    mgr = get_active_engine_manager()
+    conf = mgr.read_site_config(domainname)
+    if not conf:
+        return JsonResponse({'status': 'error', 'message': 'Config not found.'})
+
+    # Check if the cache block marker exists
+    enabled = '# VP_NGINX_CACHE_START' in conf
+    return JsonResponse({'status': 'success', 'enabled': enabled, 'engine': engine})
+
+
+@csrf_exempt
+@login_required(login_url='/')
+def api_nginx_cache_toggle(request):
+    """Enable or disable Nginx browser caching for a domain."""
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required.'}, status=405)
+    if not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+
+    domainname = request.POST.get('domain', '').strip()
+    enable = request.POST.get('enable', '0') == '1'
+
+    if not domainname:
+        return JsonResponse({'status': 'error', 'message': 'Missing domain'}, status=400)
+
+    from voidplatform.linux.web import get_active_engine, get_active_engine_manager
+    engine = get_active_engine()
+    if engine != 'nginx':
+        return JsonResponse({'status': 'error', 'message': 'Cache toggle is only available for Nginx.'})
+
+    mgr = get_active_engine_manager()
+    conf = mgr.read_site_config(domainname)
+    if not conf:
+        return JsonResponse({'status': 'error', 'message': 'Config not found.'})
+
+    import re
+    cache_block = """
+    # VP_NGINX_CACHE_START
+    location ~* \\.(jpg|jpeg|png|gif|ico|svg|webp|woff|woff2|ttf|otf|eot|css|js)$ {
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+        add_header Vary "Accept-Encoding";
+        access_log off;
+    }
+    # VP_NGINX_CACHE_END"""
+
+    has_cache = '# VP_NGINX_CACHE_START' in conf
+
+    if enable and not has_cache:
+        # Insert cache block before the closing } of the first server block
+        # Find the last location ~ /\.ht block or just before the final }
+        if 'location ~ /\\.ht {' in conf:
+            conf = conf.replace('location ~ /\\.ht {', cache_block + '\n\n    location ~ /\\.ht {', 1)
+        else:
+            # Insert before the first server block closing brace
+            last_brace = conf.rfind('}')
+            second_last = conf.rfind('}', 0, last_brace)
+            if second_last != -1:
+                conf = conf[:second_last] + cache_block + '\n\n' + conf[second_last:]
+
+    elif not enable and has_cache:
+        conf = re.sub(r'\s*# VP_NGINX_CACHE_START.*?# VP_NGINX_CACHE_END', '', conf, flags=re.DOTALL)
+
+    result = mgr.write_and_test_site_config(domainname, conf)
+    if result.success:
+        action = 'enabled' if enable else 'disabled'
+        return JsonResponse({'status': 'success', 'message': f'Nginx cache {action} for {domainname}.'})
+    else:
+        return JsonResponse({'status': 'error', 'message': f'Nginx validation failed: {result.error}'}, status=400)

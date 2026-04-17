@@ -196,6 +196,8 @@ urlpatterns = [
        path('api/restore/process/', views.process_restore, name='process_restore'),
        path('user-terminal/<str:username>/', views.user_terminal, name='user_terminal'),
        path('api/toggle-shell/', views.toggle_shell_access, name='toggle_shell_access'),
+       path('api/nginx-cache/status/', views.api_nginx_cache_status, name='api_nginx_cache_status'),
+       path('api/nginx-cache/toggle/', views.api_nginx_cache_toggle, name='api_nginx_cache_toggle'),
 
 ]
 if settings.DEBUG:

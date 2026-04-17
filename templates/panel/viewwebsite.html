@@ -439,6 +439,76 @@
                 </a>
             </div>
 
+            {% if engine == 'nginx' %}
+            <!-- ── Nginx Cache ── -->
+            <div class="section-head"><i class="fa fa-bolt"></i> Performance</div>
+            <div id="nginx-cache-card" style="
+                background:var(--glass-bg);
+                border:1px solid var(--glass-border);
+                border-radius:16px;
+                padding:22px 26px;
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+                gap:20px;
+                flex-wrap:wrap;
+                margin-bottom:24px;
+                position:relative;
+                overflow:hidden;
+            ">
+                <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,229,255,.03) 0%,transparent 60%);pointer-events:none;"></div>
+                <div style="display:flex;align-items:center;gap:16px;position:relative;z-index:1;">
+                    <div style="
+                        width:48px;height:48px;border-radius:12px;
+                        background:rgba(34,197,94,.12);
+                        border:1px solid rgba(34,197,94,.2);
+                        display:flex;align-items:center;justify-content:center;
+                        font-size:1.2rem;color:#22c55e;flex-shrink:0;
+                    ">
+                        <i class="fa-solid fa-gauge-high"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:.95rem;font-weight:600;color:#fff;margin-bottom:3px;">
+                            Nginx Browser Cache
+                        </div>
+                        <div style="font-size:.76rem;color:var(--text-dim);line-height:1.5;max-width:420px;">
+                            Cache static assets (images, CSS, JS, fonts) for 30 days. Reduces page load time and bandwidth usage for returning visitors.
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:14px;position:relative;z-index:1;">
+                    <span id="nc-status-badge" style="
+                        display:inline-flex;align-items:center;gap:6px;
+                        padding:4px 14px;border-radius:999px;font-size:.72rem;font-weight:600;
+                        background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.2);
+                        transition:all .3s;
+                    ">
+                        <span style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span>
+                        <span id="nc-status-text">Disabled</span>
+                    </span>
+                    <label id="nc-toggle-label" style="
+                        position:relative;display:inline-block;width:52px;height:28px;cursor:pointer;
+                    ">
+                        <input type="checkbox" id="nc-toggle" style="opacity:0;width:0;height:0;" onchange="toggleNginxCache(this)">
+                        <span id="nc-slider" style="
+                            position:absolute;inset:0;
+                            background:rgba(255,255,255,.1);
+                            border:1px solid rgba(255,255,255,.15);
+                            border-radius:28px;
+                            transition:all .3s;
+                        "></span>
+                        <span id="nc-knob" style="
+                            position:absolute;top:3px;left:3px;
+                            width:22px;height:22px;border-radius:50%;
+                            background:#fff;
+                            transition:all .3s;
+                            box-shadow:0 2px 6px rgba(0,0,0,.3);
+                        "></span>
+                    </label>
+                </div>
+            </div>
+            {% endif %}
+
         </div>
     </div>
 </div>
@@ -877,5 +947,67 @@
 <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
 <script src="/static/assets/bundles/chartjs.js"></script>
 <script src="/static/assets/index2.js"></script>
+
+{% if engine == 'nginx' %}
+<script>
+    /* ── Nginx Cache Toggle ── */
+    const NC_DOMAIN = '{{ domain.domain }}';
+
+    function ncUpdateUI(enabled) {
+        const badge = document.getElementById('nc-status-badge');
+        const text = document.getElementById('nc-status-text');
+        const toggle = document.getElementById('nc-toggle');
+        const knob = document.getElementById('nc-knob');
+        const slider = document.getElementById('nc-slider');
+
+        toggle.checked = enabled;
+
+        if (enabled) {
+            text.textContent = 'Enabled';
+            badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 14px;border-radius:999px;font-size:.72rem;font-weight:600;background:rgba(34,197,94,.1);color:#22c55e;border:1px solid rgba(34,197,94,.2);transition:all .3s;';
+            knob.style.left = '27px';
+            slider.style.background = 'rgba(34,197,94,.35)';
+            slider.style.borderColor = 'rgba(34,197,94,.4)';
+        } else {
+            text.textContent = 'Disabled';
+            badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 14px;border-radius:999px;font-size:.72rem;font-weight:600;background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.2);transition:all .3s;';
+            knob.style.left = '3px';
+            slider.style.background = 'rgba(255,255,255,.1)';
+            slider.style.borderColor = 'rgba(255,255,255,.15)';
+        }
+    }
+
+    /* Fetch status on page load */
+    (async function() {
+        try {
+            const r = await fetch(`/api/nginx-cache/status/?domain=${NC_DOMAIN}`);
+            const d = await r.json();
+            if (d.status === 'success') ncUpdateUI(d.enabled);
+        } catch(e) { console.error('Cache status fetch failed:', e); }
+    })();
+
+    async function toggleNginxCache(el) {
+        const enable = el.checked;
+        ncUpdateUI(enable); // optimistic UI
+        try {
+            const fd = new FormData();
+            fd.append('domain', NC_DOMAIN);
+            fd.append('enable', enable ? '1' : '0');
+            const r = await fetch('/api/nginx-cache/toggle/', {method:'POST', body:fd, headers:{'X-CSRFToken':CSRF()}});
+            const d = await r.json();
+            if (d.status === 'success') {
+                showResult(enable ? '⚡' : '🔄', enable ? '#22c55e' : '#f59e0b', d.message);
+            } else {
+                ncUpdateUI(!enable); // rollback
+                showResult('✕', '#ef4444', d.message || 'Failed to toggle cache.');
+            }
+        } catch(e) {
+            ncUpdateUI(!enable); // rollback
+            showResult('✕', '#ef4444', 'Network error toggling cache.');
+        }
+    }
+</script>
+{% endif %}
+
 </body>
 </html>
