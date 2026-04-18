@@ -2624,7 +2624,7 @@ def adddnsrecord(request):
         with open(zone_file_path, 'r') as f:
             original_content = f.read()
 
-        new_content = original_content + f"\n; {record_type} Record added via VoidPanel\n{name} {ttl} {record_class} {record_type} {data}\n"
+        new_content = original_content + f"\n; {record_type} Record added via VoidPanel\n{name} {ttl} IN {record_type} {data}\n"
 
         import tempfile, subprocess
         with tempfile.NamedTemporaryFile('w', delete=False) as tmp:
@@ -2705,7 +2705,7 @@ def editdnsrecord(request):
                 if old_data and old_data[:15] not in line_str:
                     new_lines.append(line)
                 else:
-                    new_lines.append(f"{name} {ttl} {record_class} {record_type} {data}\n")
+                    new_lines.append(f"{name} {ttl} IN {record_type} {data}\n")
                     edited = True
             else:
                 new_lines.append(line)
@@ -5179,22 +5179,25 @@ def installphpextention(request):
 
 @login_required(login_url='/')
 def cpbruteforce(request):
-    
     if request.user.is_superuser:
-      
-        d={}
+        import shutil
+        d = {}
         if firewall.objects.filter(id=1).exists():
             d['firewall'] = firewall.objects.get(id=1)
         else:
             d['firewall'] = firewall(id=1, status=False)
             d['firewall'].save()
-        url = 'https://voidpanel.com/admindocs/'  # Replace with your API URL
-        response = requests.get(url)
-        if response.status_code == 200:
-            dataee = response.json()  # Parse the JSON response
-            d['docs']=dataee
-        return render(request,'panel/cpbruteforce.html',d)
-    else: 
+        # Detect if CSF is actually installed on this server
+        d['csf_installed'] = shutil.which('csf') is not None or os.path.exists('/etc/csf/csf.conf')
+        try:
+            url = 'https://voidpanel.com/admindocs/'
+            response = requests.get(url, timeout=5)
+            if response.status_code == 200:
+                d['docs'] = response.json()
+        except Exception:
+            pass
+        return render(request, 'panel/cpbruteforce.html', d)
+    else:
         return redirect('/')
     
 @login_required(login_url='/')
