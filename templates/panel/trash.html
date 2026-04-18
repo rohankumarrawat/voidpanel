@@ -138,8 +138,8 @@
             <div class="page-title">
                 <div class="icon"><i class="fa-solid fa-trash-can"></i></div>
                 <div>
-                    <h1>Recycle Bin</h1>
-                    <p>{{ items|length }} item{{ items|length|pluralize }} in trash</p>
+                    <h1>Recycle Bin{% if trash_username %} — {{ trash_username }}{% endif %}</h1>
+                    <p>{{ items|length }} item{{ items|length|pluralize }} · /home/{{ trash_username }}/.trash/</p>
                 </div>
             </div>
             <div style="display:flex;gap:10px;">
@@ -150,6 +150,7 @@
             </div>
         </div>
 
+        {% if error %}<div class="empty-state" style="color:#f87171;"><i class="fa-solid fa-triangle-exclamation"></i><h3>{{ error }}</h3></div>{% endif %}
         <div class="table-wrap">
             {% if items %}
             <table>
@@ -223,7 +224,7 @@ function api(url, body, cb) {
 
 function restore(trashName, btn) {
     btn.disabled = true; btn.textContent = 'Restoring…';
-    api("{% url 'trash_restore' %}", { trash_name: trashName }, d => {
+    api("{% url 'trash_restore' %}", { trash_name: trashName, trash_for: '{{ trash_username }}' }, d => {
         toast(d.message, d.status === 'success' ? 'success' : 'error');
         if(d.status === 'success') btn.closest('tr').remove();
         else { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> Restore'; }
@@ -233,7 +234,7 @@ function restore(trashName, btn) {
 function permDelete(trashName, btn) {
     if(!confirm('Permanently delete this item? This CANNOT be undone.')) return;
     btn.disabled = true; btn.textContent = 'Deleting…';
-    api("{% url 'trash_empty' %}", { trash_name: trashName }, d => {
+    api("{% url 'trash_empty' %}", { trash_name: trashName, trash_for: '{{ trash_username }}' }, d => {
         toast(d.message, d.status === 'success' ? 'success' : 'error');
         if(d.status === 'success') btn.closest('tr').remove();
         else { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-skull-crossbones"></i> Delete'; }
@@ -242,7 +243,7 @@ function permDelete(trashName, btn) {
 
 function emptyAll() {
     if(!confirm('⚠️ Permanently delete ALL items in the Recycle Bin? This CANNOT be undone.')) return;
-    api("{% url 'trash_empty' %}", {}, d => {
+    api("{% url 'trash_empty' %}", { trash_for: '{{ trash_username }}' }, d => {
         toast(d.message, d.status === 'success' ? 'success' : 'error');
         if(d.status === 'success') setTimeout(() => location.reload(), 1000);
     });

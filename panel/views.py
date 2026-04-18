@@ -1677,12 +1677,28 @@ def deletedata(request):
 
 
 # ── Recycle Bin helpers ───────────────────────────────────────────────────────
+def get_trash_dir_for_path(src_path):
+    """
+    SECURITY: Trash location is ALWAYS determined by the file's home directory,
+    regardless of who (admin or user) is performing the delete.
+
+    Files inside /home/<username>/  →  trash goes to  /home/<username>/.trash/
+    Any other path (admin files)    →  trash goes to  /var/www/panel/.voidpanel_trash/
+    """
+    real = os.path.realpath(src_path)
+    home_base = paths.HOME_BASE.rstrip('/')  # e.g. /home
+    # If the file lives inside a user home dir, trash belongs there
+    if real.startswith(home_base + '/'):
+        parts = real[len(home_base)+1:].split('/')
+        if parts and parts[0]:
+            username = parts[0]
+            return os.path.join(home_base, username, '.trash')
+    # Fallback: admin / system-level trash
+    return str(_settings.BASE_DIR / '.voidpanel_trash')
+
 def get_trash_dir(user):
-    """Return the context-specific Recycle Bin directory."""
-    if user.is_superuser:
-        return str(_settings.BASE_DIR / '.voidpanel_trash')
-    else:
-        return os.path.join(paths.HOME_BASE, user.username, '.trash')
+    """Legacy: returns the user's own trash dir (for trash_list / restore / empty)."""
+    return os.path.join(paths.HOME_BASE, user.username, '.trash')
 
 def _sudo_mv(src, dest):
     """Move using sudo mv to handle user-owned files (www-data has NOPASSWD sudo)."""
@@ -1703,12 +1719,16 @@ def _sudo_rm(path):
         raise PermissionError(f"sudo rm failed: {result.stderr.strip()}")
 
 def _trash_move(src_path, user):
-    """Move a file/folder into the VoidPanel trash and write a .meta sidecar."""
+    """Move a file/folder into the VoidPanel trash and write a .meta sidecar.
+
+    SECURITY: trash dir is always determined by where the FILE lives,
+    not who is logged in. This prevents admin's trash from leaking user files.
+    """
     import subprocess
-    t_dir = get_trash_dir(user)
-    # Ensure trash dir exists and is writable by www-data
-    os.makedirs(t_dir, exist_ok=True)
-    # Fix permissions on trash dir so www-data can write
+    # Always use the file path to determine which user's trash to use
+    t_dir = get_trash_dir_for_path(src_path)
+    # Ensure trash dir exists and is writable by www-data using sudo
+    subprocess.run(['sudo', 'mkdir', '-p', t_dir], capture_output=True, timeout=10)
     subprocess.run(['sudo', 'chmod', '777', t_dir], capture_output=True, timeout=10)
     timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')
     item_name = os.path.basename(src_path.rstrip('/'))
@@ -1767,30 +1787,66 @@ def deletedata(request):
 
 @login_required(login_url='/')
 def trash_list(request):
-    """List items in the VoidPanel Recycle Bin."""
-    t_dir = get_trash_dir(request.user)
-    os.makedirs(t_dir, exist_ok=True)
+    """List Recycle Bin items for the CONTEXT user (never admin's own trash).
+
+    Security model:
+    - Regular user   → always shows /home/<their username>/.trash/
+    - Admin user     → shows /home/<session['name']>/.trash/  (the user being managed)
+      The admin can also pass ?for=<username> to view a specific user's trash.
+      Admin CANNOT see their own root-level trash here (by design).
+    """
+    # Determine WHOSE trash to show
+    if request.user.is_superuser:
+        # Admin: prefer session context user, fall back to ?for= query param
+        context_username = request.session.get('name', '')
+        forced = request.GET.get('for', '').strip()
+        if forced:
+            context_username = forced
+        if not context_username:
+            return render(request, 'panel/trash.html', {
+                'items': [], 'trash_username': '',
+                'error': 'No user context. Open the File Manager for a specific user first.',
+            })
+    else:
+        context_username = str(request.user.username)
+
+    # Only allow access to real home dirs (prevent path traversal)
+    if '/' in context_username or '..' in context_username or not context_username:
+        return render(request, 'panel/trash.html', {'items': [], 'trash_username': '', 'error': 'Invalid user.'})
+
+    t_dir = os.path.join(paths.HOME_BASE, context_username, '.trash')
+    import subprocess
+    subprocess.run(['sudo', 'mkdir', '-p', t_dir], capture_output=True)
+    subprocess.run(['sudo', 'chmod', '777', t_dir], capture_output=True)
+
     items = []
-    for fname in os.listdir(t_dir):
-        if fname.endswith('.meta'):
-            continue
-        meta_path = os.path.join(t_dir, fname + '.meta')
-        meta = {}
-        if os.path.exists(meta_path):
-            try:
-                with open(meta_path) as f:
-                    meta = json.load(f)
-            except Exception:
-                pass
-        items.append({
-            'trash_name': fname,
-            'item_name': meta.get('item_name', fname),
-            'original_path': meta.get('original_path', '—'),
-            'deleted_at': meta.get('deleted_at', '—'),
-            'is_dir': os.path.isdir(os.path.join(t_dir, fname)),
-        })
+    try:
+        for fname in os.listdir(t_dir):
+            if fname.endswith('.meta'):
+                continue
+            meta_path = os.path.join(t_dir, fname + '.meta')
+            meta = {}
+            if os.path.exists(meta_path):
+                try:
+                    with open(meta_path) as f:
+                        meta = json.load(f)
+                except Exception:
+                    pass
+            items.append({
+                'trash_name': fname,
+                'item_name': meta.get('item_name', fname),
+                'original_path': meta.get('original_path', '—'),
+                'deleted_at': meta.get('deleted_at', '—'),
+                'is_dir': os.path.isdir(os.path.join(t_dir, fname)),
+                'trash_for': context_username,
+            })
+    except Exception:
+        pass
     items.sort(key=lambda x: x['deleted_at'], reverse=True)
-    return render(request, 'panel/trash.html', {'items': items})
+    return render(request, 'panel/trash.html', {
+        'items': items,
+        'trash_username': context_username,
+    })
 
 
 @login_required(login_url='/')
@@ -1803,7 +1859,15 @@ def trash_restore(request):
     if not trash_name or '/' in trash_name or '..' in trash_name:
         return JsonResponse({'status': 'error', 'message': 'Invalid trash name'}, status=400)
 
-    t_dir = get_trash_dir(request.user)
+    # Determine whose trash to operate on from the metadata path itself
+    # (the caller sends trash_name which is just the filename, and trash_for = username)
+    data_for = data.get('trash_for', '').strip()
+    if request.user.is_superuser and data_for:
+        if '/' in data_for or '..' in data_for:
+            return JsonResponse({'status': 'error', 'message': 'Invalid user'}, status=400)
+        t_dir = os.path.join(paths.HOME_BASE, data_for, '.trash')
+    else:
+        t_dir = os.path.join(paths.HOME_BASE, str(request.user.username), '.trash')
     trash_item = os.path.join(t_dir, trash_name)
     meta_file = trash_item + '.meta'
     if not os.path.exists(trash_item):
@@ -1836,7 +1900,14 @@ def trash_empty(request):
     data = json.loads(request.body)
     trash_name = data.get('trash_name')  # single item, or None/omitted for empty all
 
-    t_dir = get_trash_dir(request.user)
+    # Determine whose trash to empty from the POST body
+    data_for = data.get('trash_for', '').strip()
+    if request.user.is_superuser and data_for:
+        if '/' in data_for or '..' in data_for:
+            return JsonResponse({'status': 'error', 'message': 'Invalid user'}, status=400)
+        t_dir = os.path.join(paths.HOME_BASE, data_for, '.trash')
+    else:
+        t_dir = os.path.join(paths.HOME_BASE, str(request.user.username), '.trash')
 
     try:
         if trash_name:
