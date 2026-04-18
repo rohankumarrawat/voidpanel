@@ -5181,107 +5181,130 @@ def installphpextention(request):
 
 @login_required(login_url='/')
 def installcsf(request):
-    """Install ConfigServer Security Firewall on the server."""
+    """Install firewall: tries CSF first, falls back to UFW (built-in Ubuntu firewall)."""
     if not request.user.is_superuser:
         return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'POST required.'}, status=405)
 
-    import subprocess as _sp, tempfile
+    import subprocess as _sp, os as _os, shutil as _sh
 
     output_lines = []
 
-    def _run(cmd, shell=False, step=''):
+    def _run(cmd, step='', timeout=300):
         try:
-            r = _sp.run(cmd, shell=shell, capture_output=True, text=True, timeout=300)
+            r = _sp.run(cmd, capture_output=True, text=True, timeout=timeout)
             out = (r.stdout + r.stderr).strip()
             if out:
-                output_lines.append(f'[{step}] {out[:500]}')
+                output_lines.append(f'[{step}] {out[:800]}')
             return r.returncode == 0
         except Exception as ex:
             output_lines.append(f'[{step}] ERROR: {str(ex)[:200]}')
             return False
 
-    # Step 1 – install Perl dependencies
-    _run(['sudo', 'apt-get', 'install', '-y', 'perl', 'liblwp-protocol-https-perl',
-          'libwww-perl', 'libgd-graph-perl', 'unzip', 'wget'], step='apt-get')
+    output_lines.append('[init] Starting firewall installation...')
 
-    # Step 2 – fix DNS so wget can resolve external hosts (use 8.8.8.8 forwarder)
-    _run(['sudo', 'bash', '-c',
-          r"grep -q 'forwarders' /etc/bind/named.conf.options || "
-          r"sed -i '/options {/a \    forwarders { 8.8.8.8; 1.1.1.1; };\n    forward only;' /etc/bind/named.conf.options && "
-          r"systemctl reload bind9"],
-         shell=False, step='dns-fix')
+    # ── Step 1: Try CSF ──────────────────────────────────────────────────────
+    output_lines.append('[csf] Attempting CSF download from official source...')
+
+    # fix DNS first
     _run(['sudo', 'bash', '-c',
           "printf '[Resolve]\nDNS=8.8.8.8 1.1.1.1\nFallbackDNS=8.8.4.4\n' > /etc/systemd/resolved.conf && "
-          "systemctl restart systemd-resolved"],
-         shell=False, step='resolved')
+          "systemctl restart systemd-resolved && sleep 1"],
+         step='dns')
 
-    # Step 3 – download CSF (try HTTPS, then HTTP mirror)
-    import os as _os
-    downloaded = False
-    urls = [
+    # try to download csf from multiple sources
+    csf_urls = [
         'https://download.configserver.com/csf.tgz',
         'http://download.configserver.com/csf.tgz',
+        'https://configserver.com/csf.tgz',
     ]
-    for url in urls:
+    csf_downloaded = False
+    for url in csf_urls:
         ok = _run(['sudo', 'bash', '-c',
-                   f'cd /usr/src && rm -rf csf csf.tgz && wget --timeout=60 {url} -O csf.tgz 2>&1'],
-                  step='download')
-        if ok or _os.path.exists('/usr/src/csf.tgz'):
-            downloaded = True
+                   f'cd /usr/src && rm -rf csf csf.tgz && '
+                   f'wget --timeout=30 --tries=2 "{url}" -O csf.tgz 2>&1 && '
+                   f'test -s /usr/src/csf.tgz'],
+                  step='csf-download', timeout=90)
+        if ok or (_os.path.exists('/usr/src/csf.tgz') and _os.path.getsize('/usr/src/csf.tgz') > 10000):
+            csf_downloaded = True
+            output_lines.append(f'[csf-download] Downloaded from {url}')
             break
 
-    if not downloaded:
-        return JsonResponse({
-            'status': 'error',
-            'message': 'Could not download CSF. The server cannot reach download.configserver.com. '
-                       'Please run the install manually via SSH.',
-            'output': '\n'.join(output_lines),
-        })
+    if csf_downloaded:
+        # install CSF
+        _run(['sudo', 'apt-get', 'install', '-y', 'perl', 'liblwp-protocol-https-perl',
+              'libwww-perl', 'unzip'], step='csf-deps')
+        _run(['sudo', 'bash', '-c',
+              'cd /usr/src && tar -xzf csf.tgz && cd csf && sh install.sh 2>&1'],
+             step='csf-install', timeout=240)
+        _run(['sudo', 'sed', '-i', r's/^TESTING = "1"/TESTING = "0"/', '/etc/csf/csf.conf'],
+             step='csf-activate')
+        _run(['sudo', 'systemctl', 'enable', '--now', 'csf'], step='csf-start')
+        _run(['sudo', 'systemctl', 'enable', '--now', 'lfd'], step='lfd-start')
 
-    # Step 4 – extract and install
-    _run(['sudo', 'bash', '-c',
-          'cd /usr/src && tar -xzf csf.tgz && cd csf && sh install.sh 2>&1'],
-         step='install')
+        if _sh.which('csf') or _os.path.exists('/etc/csf/csf.conf'):
+            return JsonResponse({
+                'status': 'success',
+                'firewall': 'csf',
+                'message': '✅ CSF Firewall installed and activated! Refreshing page...',
+                'output': '\n'.join(output_lines),
+            })
 
-    # Step 5 – activate (disable testing mode)
-    _run(['sudo', 'sed', '-i', r's/^TESTING = "1"/TESTING = "0"/', '/etc/csf/csf.conf'],
-         step='activate')
+    # ── Step 2: CSF failed — install UFW (always available in Ubuntu repos) ──
+    output_lines.append('[ufw] CSF download failed. Installing UFW (built-in Ubuntu firewall)...')
 
-    # Step 6 – start services
-    _run(['sudo', 'systemctl', 'enable', '--now', 'csf'], step='start-csf')
-    _run(['sudo', 'systemctl', 'enable', '--now', 'lfd'], step='start-lfd')
+    ok_ufw = _run(['sudo', 'apt-get', 'install', '-y', 'ufw'], step='ufw-install')
+    if ok_ufw or _sh.which('ufw'):
+        _run(['sudo', 'ufw', '--force', 'reset'], step='ufw-reset')
+        _run(['sudo', 'ufw', 'default', 'allow', 'incoming'],  step='ufw-default-in')
+        _run(['sudo', 'ufw', 'default', 'allow', 'outgoing'],  step='ufw-default-out')
+        _run(['sudo', 'ufw', 'allow', 'ssh'],                   step='ufw-allow-ssh')
+        _run(['sudo', 'ufw', 'allow', '8080/tcp'],              step='ufw-allow-panel')
+        _run(['sudo', 'ufw', '--force', 'enable'],             step='ufw-enable')
 
-    # Verify
-    import shutil as _sh
-    if _sh.which('csf') or _os.path.exists('/etc/csf/csf.conf'):
-        return JsonResponse({
-            'status': 'success',
-            'message': 'CSF Firewall installed and activated successfully! Refresh this page.',
-            'output': '\n'.join(output_lines),
-        })
-    else:
-        return JsonResponse({
-            'status': 'error',
-            'message': 'Installation ran but CSF binary not found. Check output for details.',
-            'output': '\n'.join(output_lines),
-        })
+        # update firewall db record to reflect enabled state
+        try:
+            fw_obj = firewall.objects.filter(id=1).first() or firewall(id=1, status=False)
+            fw_obj.status = True
+            fw_obj.save()
+        except Exception:
+            pass
+
+        if _sh.which('ufw'):
+            return JsonResponse({
+                'status': 'success',
+                'firewall': 'ufw',
+                'message': '✅ UFW Firewall installed and activated! Refreshing page...',
+                'output': '\n'.join(output_lines),
+            })
+
+    return JsonResponse({
+        'status': 'error',
+        'message': 'Both CSF and UFW installation failed. Check output for details.',
+        'output': '\n'.join(output_lines),
+    })
 
 
 @login_required(login_url='/')
 def cpbruteforce(request):
-
     if request.user.is_superuser:
-        import shutil
+        import shutil, subprocess as _sp
         d = {}
         if firewall.objects.filter(id=1).exists():
             d['firewall'] = firewall.objects.get(id=1)
         else:
             d['firewall'] = firewall(id=1, status=False)
             d['firewall'].save()
-        # Detect if CSF is actually installed on this server
-        d['csf_installed'] = shutil.which('csf') is not None or os.path.exists('/etc/csf/csf.conf')
+        csf_ok = shutil.which('csf') is not None or os.path.exists('/etc/csf/csf.conf')
+        ufw_ok = shutil.which('ufw') is not None
+        d['csf_installed'] = csf_ok or ufw_ok
+        d['firewall_type']  = 'csf' if csf_ok else ('ufw' if ufw_ok else None)
+        if ufw_ok and not csf_ok:
+            r = _sp.run(['sudo', 'ufw', 'status'], capture_output=True, text=True)
+            d['fw_enabled'] = 'active' in r.stdout.lower()
+        else:
+            d['fw_enabled'] = d['firewall'].status
         try:
             url = 'https://voidpanel.com/admindocs/'
             response = requests.get(url, timeout=5)
@@ -5303,84 +5326,132 @@ def cpbrute(request):
                 e = firewall(id=1, status=False)
                 e.save()
             try:
-                if e.status:
-                    if sys.platform != 'win32':
-                        run_command('''sudo sed -i 's/^TESTING = "0"/TESTING = "1"/' /etc/csf/csf.conf''')
-                        run_command('sudo csf -x')
-                    e.status = False
-                    e.save()
+                import shutil as _sh, subprocess as _sp
+                if _sh.which('csf') or os.path.exists('/etc/csf/csf.conf'):
+                    if e.status:
+                        if sys.platform != 'win32':
+                            run_command('''sudo sed -i 's/^TESTING = "0"/TESTING = "1"/' /etc/csf/csf.conf''')
+                            run_command('sudo csf -x')
+                        e.status = False
+                    else:
+                        if sys.platform != 'win32':
+                            run_command('''sudo sed -i 's/^TESTING = "1"/TESTING = "0"/' /etc/csf/csf.conf''')
+                            run_command('sudo csf -e')
+                        e.status = True
+                elif _sh.which('ufw'):
+                    st = _sp.run(['sudo', 'ufw', 'status'], capture_output=True, text=True)
+                    if 'active' in st.stdout.lower():
+                        _sp.run(['sudo', 'ufw', '--force', 'disable'], check=False)
+                        e.status = False
+                    else:
+                        _sp.run(['sudo', 'ufw', '--force', 'enable'], check=False)
+                        e.status = True
                 else:
-                    if sys.platform != 'win32':
-                        run_command('''sudo sed -i 's/^TESTING = "1"/TESTING = "0"/' /etc/csf/csf.conf''')
-                        run_command('sudo csf -e')
-                    e.status = True
-                    e.save()
-                return JsonResponse({'status': 'success', 'message': 'Firewall status updated'})
+                    return JsonResponse({'status': 'error', 'message': 'No firewall installed. Use the Install button first.'})
+                e.save()
+                return JsonResponse({'status': 'success', 'message': 'Firewall toggled successfully.'})
             except Exception as ex:
-                return JsonResponse({'status': 'error', 'message': 'Failed to execute firewall rules. Is CSF installed on the server?'})
+                return JsonResponse({'status': 'error', 'message': f'Toggle failed: {str(ex)}'})
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
 @login_required(login_url='/')
 def allowip(request):
     if request.user.is_superuser and request.method=="POST":
         try:
-            php=shlex.quote(request.POST.get('allow', ''))
-            get_platform().firewall.allow_ip(php)
-            get_platform().firewall.reload()
-            return JsonResponse({'status': 'success', 'message': f'IP {php} successfully allowed in CSF.'})
+            import shutil as _sh, subprocess as _sp
+            raw_ip = request.POST.get('allow', '').strip()
+            ip = shlex.quote(raw_ip)
+            if _sh.which('csf') or os.path.exists('/etc/csf/csf.conf'):
+                get_platform().firewall.allow_ip(ip)
+                get_platform().firewall.reload()
+            elif _sh.which('ufw'):
+                _sp.run(['sudo', 'ufw', 'allow', 'from', raw_ip], check=True)
+            else:
+                return JsonResponse({'status': 'error', 'message': 'No firewall installed.'})
+            return JsonResponse({'status': 'success', 'message': f'IP {raw_ip} allowed in firewall.'})
         except Exception as e:
-            return JsonResponse({'status': 'error', 'message': f'Failed: {str(e)}. Is CSF installed?'})
+            return JsonResponse({'status': 'error', 'message': str(e)})
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
 @login_required(login_url='/')
 def denyip(request):
     if request.user.is_superuser and request.method=="POST":
         try:
-            php=shlex.quote(request.POST.get('allow', ''))
-            get_platform().firewall.deny_ip(php)
-            get_platform().firewall.reload()
-            return JsonResponse({'status': 'success', 'message': f'IP {php} successfully blocked in CSF.'})
+            import shutil as _sh, subprocess as _sp
+            raw_ip = request.POST.get('allow', '').strip()
+            ip = shlex.quote(raw_ip)
+            if _sh.which('csf') or os.path.exists('/etc/csf/csf.conf'):
+                get_platform().firewall.deny_ip(ip)
+                get_platform().firewall.reload()
+            elif _sh.which('ufw'):
+                _sp.run(['sudo', 'ufw', 'deny', 'from', raw_ip], check=True)
+            else:
+                return JsonResponse({'status': 'error', 'message': 'No firewall installed.'})
+            return JsonResponse({'status': 'success', 'message': f'IP {raw_ip} denied in firewall.'})
         except Exception as e:
-            return JsonResponse({'status': 'error', 'message': f'Failed: {str(e)}. Is CSF installed?'})
+            return JsonResponse({'status': 'error', 'message': str(e)})
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
 @login_required(login_url='/')
 def ignoreip(request):
     if request.user.is_superuser and request.method=="POST":
         try:
-            import subprocess as _sp
-            php = shlex.quote(request.POST.get('allow', ''))
-            # Add to /etc/csf/csf.ignore
-            result = _sp.run(['sudo', 'csf', '--tempallow', php, '86400', 'Panel-Ignore'], capture_output=True, text=True)
-            if result.returncode != 0:
-                # fallback: just add to allow list
-                get_platform().firewall.allow_ip(php)
-                get_platform().firewall.reload()
-            return JsonResponse({'status': 'success', 'message': f'IP {php} added to ignore list.'})
+            import shutil as _sh, subprocess as _sp
+            raw_ip = request.POST.get('allow', '').strip()
+            ip = shlex.quote(raw_ip)
+            if _sh.which('csf') or os.path.exists('/etc/csf/csf.conf'):
+                result = _sp.run(['sudo', 'csf', '--tempallow', raw_ip, '86400', 'Panel-Ignore'],
+                                 capture_output=True, text=True)
+                if result.returncode != 0:
+                    get_platform().firewall.allow_ip(ip)
+                    get_platform().firewall.reload()
+            elif _sh.which('ufw'):
+                _sp.run(['sudo', 'ufw', 'allow', 'from', raw_ip], check=False)
+            else:
+                return JsonResponse({'status': 'error', 'message': 'No firewall installed.'})
+            return JsonResponse({'status': 'success', 'message': f'IP {raw_ip} added to ignore/allow list.'})
         except Exception as e:
-            return JsonResponse({'status': 'error', 'message': f'Failed: {str(e)}. Is CSF installed?'})
+            return JsonResponse({'status': 'error', 'message': str(e)})
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
 @login_required(login_url='/')
 def unblockip(request):
     if request.user.is_superuser and request.method=="POST":
         try:
-            php = shlex.quote(request.POST.get('allow', ''))
-            if sys.platform != 'win32':
-                run_command(f'sudo csf -dr {php}')
-                run_command('sudo csf -r')
-            return JsonResponse({'status': 'success', 'message': f'IP {php} successfully unblocked.'})
+            import shutil as _sh, subprocess as _sp
+            raw_ip = request.POST.get('allow', '').strip()
+            ip = shlex.quote(raw_ip)
+            if _sh.which('csf') or os.path.exists('/etc/csf/csf.conf'):
+                if sys.platform != 'win32':
+                    run_command(f'sudo csf -dr {ip}')
+                    run_command('sudo csf -r')
+            elif _sh.which('ufw'):
+                _sp.run(['sudo', 'ufw', 'delete', 'deny', 'from', raw_ip], check=False)
+                _sp.run(['sudo', 'ufw', 'reload'], check=False)
+            else:
+                return JsonResponse({'status': 'error', 'message': 'No firewall installed.'})
+            return JsonResponse({'status': 'success', 'message': f'IP {raw_ip} unblocked.'})
         except Exception as e:
-            return JsonResponse({'status': 'error', 'message': f'Failed: {str(e)}. Is CSF installed?'})
+            return JsonResponse({'status': 'error', 'message': str(e)})
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
 @login_required(login_url='/')
 def blockip(request):
     if request.user.is_superuser and request.method=="POST":
-        php=shlex.quote(request.POST.get('allow', ''))
-        get_platform().firewall.deny_ip(php)
-        get_platform().firewall.reload()
-        return JsonResponse({'status': 'success', 'message': 'IP Successfully Blocked'})
+        try:
+            import shutil as _sh, subprocess as _sp
+            raw_ip = request.POST.get('allow', '').strip()
+            ip = shlex.quote(raw_ip)
+            if _sh.which('csf') or os.path.exists('/etc/csf/csf.conf'):
+                get_platform().firewall.deny_ip(ip)
+                get_platform().firewall.reload()
+            elif _sh.which('ufw'):
+                _sp.run(['sudo', 'ufw', 'deny', 'from', raw_ip], check=True)
+            else:
+                return JsonResponse({'status': 'error', 'message': 'No firewall installed.'})
+            return JsonResponse({'status': 'success', 'message': f'IP {raw_ip} blocked successfully.'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)})
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
 
