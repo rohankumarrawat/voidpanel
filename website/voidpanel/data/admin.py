@@ -5,6 +5,7 @@ from .models import (
     Installed,
     Invoice,
     Message,
+    OutboundEmailProfile,
     PortalActivity,
     StaffProfile,
     StaffRole,
@@ -31,3 +32,4 @@ admin.site.register(SupportTicket)
 admin.site.register(PortalActivity)
 admin.site.register(StaffRole)
 admin.site.register(StaffProfile)
+admin.site.register(OutboundEmailProfile)

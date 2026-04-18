@@ -866,30 +866,51 @@ def download_file(request):
 @login_required(login_url='/')
 def delete_file(request, file_path):
     import shutil
+    import subprocess
+    import shlex
 
     try:
         safe_path = sanitize_path(file_path, request.user)
     except ValueError as e:
-        return JsonResponse({'error': str(e)}, status=403)
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=403)
 
     if request.method == 'POST':
         try:
-            os.remove(safe_path)
-            return JsonResponse({'status': 'success'})
-        except Exception:
-            pass
-        try:
-            os.rmdir(safe_path)
-            return JsonResponse({'status': 'success'})
-        except Exception:
-            pass
-        try:
-            shutil.rmtree(safe_path)
-            return JsonResponse({'status': 'success'})
-        except Exception as e:
-            return JsonResponse({'error': 'error'})
+            if not os.path.exists(safe_path):
+                return JsonResponse({'status': 'error', 'message': 'File not found'})
 
-    return JsonResponse({'error': 'error'})
+            if sys.platform == 'win32':
+                # Windows: try direct removal
+                try:
+                    if os.path.isdir(safe_path):
+                        shutil.rmtree(safe_path)
+                    else:
+                        os.remove(safe_path)
+                    return JsonResponse({'status': 'success'})
+                except Exception as e:
+                    return JsonResponse({'status': 'error', 'message': str(e)})
+            else:
+                # Linux: use sudo rm since www-data can't delete user-owned files
+                # sudo is allowed for www-data via /etc/sudoers.d/voidpanel
+                quoted = shlex.quote(safe_path)
+                if os.path.isdir(safe_path):
+                    result = subprocess.run(
+                        ['sudo', 'rm', '-rf', safe_path],
+                        capture_output=True, text=True, timeout=30
+                    )
+                else:
+                    result = subprocess.run(
+                        ['sudo', 'rm', '-f', safe_path],
+                        capture_output=True, text=True, timeout=30
+                    )
+                if result.returncode == 0:
+                    return JsonResponse({'status': 'success'})
+                else:
+                    return JsonResponse({'status': 'error', 'message': result.stderr.strip() or 'Delete failed'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)})
+
+    return JsonResponse({'status': 'error', 'message': 'Invalid method'})
 
  
    
@@ -1594,70 +1615,68 @@ def compressdata(request):
             
                  
                try:
-                    zip_files_and_folders(file_path, l)
-                    if not request.user.is_superuser:
-                         if sys.platform != 'win32':
-                             run_command(f'sudo chown {request.user}:{request.user} {file_path}')
-                         
-                 
-                    return JsonResponse({'status': 'success', 'message': 'File Compressed successfully!'})
+                     zip_files_and_folders(file_path, l)
+                     if not request.user.is_superuser:
+                          if sys.platform != 'win32':
+                              run_command(f'sudo chown {request.user}:{request.user} {file_path}')
+                  
+                     return JsonResponse({'status': 'success', 'message': 'File Compressed successfully!'})
               
                except Exception as e:
                     print(e)
                     return JsonResponse({'status': 'error', 'message': 'File Compression Failed!'})
-                
-               
+
 @login_required(login_url='/')
 @secure_fm_paths
 def ddeletedata(request):
-     import os
      import shutil
-     c=0
+     import subprocess
      if request.user.is_superuser or request.user.is_authenticated:
-         if request.method =="POST":
-               
-               data = json.loads(request.body)  # Get the data from the request body
+         if request.method == "POST":
+               data = json.loads(request.body)
                selected_items = data.get('selected', [])
-               file_path = data.get('path')
-        
-              
-               if '/' !=file_path[0]:
-                   file_path="/"+file_path
-               if '/' !=file_path[-1]:
-                   file_path=file_path+"/"
-            
-               for i in selected_items:
-                 
-                try:
-                    
-                    os.remove(file_path+i)
-                    c=c+1
-                    
-                except Exception as e:
-                    pass
-                try:
-                    os.rmdir(file_path+i)
-                    c=c+1
-                 
+               file_path = data.get('path', '')
 
-                except Exception as e:
-                    pass
-                try:
-                    shutil.rmtree(file_path+i)
-                    c=c+1
-                   
+               if not file_path.startswith('/'):
+                   file_path = '/' + file_path
+               if not file_path.endswith('/'):
+                   file_path = file_path + '/'
 
-                except Exception as e:
-                    pass
-               if c==len(selected_items):
-                   return JsonResponse({'status': 'success', 'message': 'File Deleted successfully!'})
+               # Security: non-superusers must stay in their home dir
+               if not request.user.is_superuser:
+                   home = os.path.join('/home', request.user.username)
+                   if not os.path.realpath(file_path).startswith(os.path.realpath(home)):
+                       return JsonResponse({'status': 'error', 'message': 'Unauthorized path'})
+
+               failed = []
+               for item in selected_items:
+                   target = os.path.realpath(os.path.normpath(file_path + item))
+                   if not os.path.exists(target):
+                       continue
+                   if sys.platform == 'win32':
+                       try:
+                           if os.path.isdir(target):
+                               shutil.rmtree(target)
+                           else:
+                               os.remove(target)
+                       except Exception as e:
+                           failed.append(item)
+                   else:
+                       if os.path.isdir(target):
+                           cmd = ['sudo', 'rm', '-rf', target]
+                       else:
+                           cmd = ['sudo', 'rm', '-f', target]
+                       r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+                       if r.returncode != 0:
+                           failed.append(item)
+
+               if not failed:
+                   return JsonResponse({'status': 'success', 'message': 'Deleted successfully!'})
                else:
-                   
-                   return JsonResponse({'status': 'error', 'message': 'File Deletion Failed!'})
-         return JsonResponse({'status': 'error', 'message': 'File Deletion Failed!'})
+                   return JsonResponse({'status': 'error', 'message': f'Failed to delete: {", ".join(failed)}'})
 
-
-     
+         return JsonResponse({'status': 'error', 'message': 'Invalid method'})
+     return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
 
 @login_required(login_url='/')
 def deletedata(request):

@@ -206,3 +206,53 @@ class StaffProfile(models.Model):
 
     def __str__(self):
         return self.display_title or self.user.username
+
+
+class OutboundEmailProfile(models.Model):
+    PURPOSE_CHOICES = [
+        ('transactional', 'Transactional'),
+        ('billing', 'Billing'),
+        ('support', 'Support'),
+        ('security', 'Security'),
+        ('system', 'System Updates'),
+        ('marketing', 'Marketing'),
+        ('custom', 'Custom'),
+    ]
+
+    profile_name = models.CharField(max_length=120)
+    purpose_category = models.CharField(max_length=30, choices=PURPOSE_CHOICES, default='transactional')
+    from_name = models.CharField(max_length=120, blank=True)
+    from_email = models.EmailField()
+    reply_to_email = models.EmailField(blank=True)
+    smtp_host = models.CharField(max_length=160)
+    smtp_port = models.PositiveIntegerField(default=587)
+    smtp_username = models.CharField(max_length=160, blank=True)
+    smtp_password = models.CharField(max_length=255, blank=True)
+    use_tls = models.BooleanField(default=True)
+    use_ssl = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    is_default = models.BooleanField(default=False)
+    send_on_purchase = models.BooleanField(default=True)
+    send_on_invoice_created = models.BooleanField(default=True)
+    send_on_payment_received = models.BooleanField(default=True)
+    send_on_service_activated = models.BooleanField(default=True)
+    send_on_service_suspended = models.BooleanField(default=False)
+    send_on_service_unsuspended = models.BooleanField(default=False)
+    send_on_service_terminated = models.BooleanField(default=False)
+    send_on_ticket_opened = models.BooleanField(default=True)
+    send_on_ticket_reply = models.BooleanField(default=True)
+    send_on_login_success = models.BooleanField(default=False)
+    send_on_password_reset = models.BooleanField(default=True)
+    send_on_account_created = models.BooleanField(default=True)
+    send_on_security_alert = models.BooleanField(default=True)
+    send_on_system_update = models.BooleanField(default=False)
+    send_on_domain_expiry_warning = models.BooleanField(default=True)
+    send_on_ssl_expiry_warning = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-is_default', 'profile_name']
+
+    def __str__(self):
+        return self.profile_name
