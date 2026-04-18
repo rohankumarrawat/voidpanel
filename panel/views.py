@@ -5023,6 +5023,10 @@ def installphpversion(request):
                 capture_output=True, text=True, timeout=300
             )
         phpversion.objects.create(name=php)
+        try:
+            phpextentions.objects.get_or_create(name=php, defaults={'extentions': '{}'})
+        except Exception:
+            pass
         logger.info('PHP %s installed successfully.', php)
         return JsonResponse({'status': 'success', 'message': f'PHP {php} installed.'})
     except Exception as exc:

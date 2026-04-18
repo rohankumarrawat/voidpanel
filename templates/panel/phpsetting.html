@@ -292,8 +292,8 @@
                     <div class="ext-header">
                         <select class="ver-select" id="extVersionSelect" onchange="filterExtensions()">
                             <option value="">Select PHP Version...</option>
-                            {% for phpver, exts in extentionname.items %}
-                            <option value="{{ phpver }}">PHP {{ phpver }}</option>
+                            {% for v in installed %}
+                            <option value="{{ v.name }}">PHP {{ v.name }}</option>
                             {% endfor %}
                         </select>
 
@@ -383,10 +383,14 @@
 <!-- Extension data from server (JSON) -->
 <script>
 const EXT_DATA = {
-    {% for phpver, exts in extentionname.items %}
-    "{{ phpver }}": {
-        {% for name, state in exts.items %}
-        "{{ name }}": {{ state }},
+    {% for v in installed %}
+    "{{ v.name }}": {
+        {% for name, state in extentionname.items %}
+            {% if name == v.name %}
+                {% for ext_name, ext_state in state.items %}
+                "{{ ext_name }}": {{ ext_state }},
+                {% endfor %}
+            {% endif %}
         {% endfor %}
     },
     {% endfor %}
@@ -419,8 +423,8 @@ function switchTab(name, btn) {
 function switchIniTab(ver, btn) {
     document.querySelectorAll('.ini-editor-pane').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.ini-ver-btn').forEach(b => b.classList.remove('active'));
-    const slug = ver.replace('.', '-').replace('.', '-');
-    const pane = document.getElementById('ini-pane-' + CSS.escape(ver).replace(/\\./g, '-'));
+    const slug = ver.replace(/[^a-zA-Z0-9]/g, '');
+    const pane = document.getElementById('ini-pane-' + slug);
     if (pane) pane.classList.add('active');
     btn.classList.add('active');
 }
@@ -428,7 +432,7 @@ function switchIniTab(ver, btn) {
 // ─── Install PHP Version ───
 async function installVersion(ver, btn) {
     btn.disabled = true;
-    const slug = ver.replace(/\./g, '-');
+    const slug = ver.replace(/[^a-zA-Z0-9]/g, '');
     const badge = document.getElementById('ver-badge-' + slug);
     const status = document.getElementById('ver-status-' + slug);
     if (badge) { badge.className = 'ver-badge installing'; badge.innerHTML = '<i class="fa fa-cog fa-spin"></i> PHP ' + ver; }
@@ -533,7 +537,7 @@ async function toggleExt(name, ver, checkbox) {
 
 // ─── PHP INI Save ───
 async function saveIni(ver, btn) {
-    const slug = CSS.escape(ver);
+    const slug = ver.replace(/[^a-zA-Z0-9]/g, '');
     const ta = document.getElementById('ini-ta-' + slug);
     if (!ta) return;
     btn.classList.add('loading');
