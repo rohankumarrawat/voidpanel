@@ -1,0 +1,86 @@
+{% extends "super_admin_base.html" %}
+
+{% block admin_content %}
+<section class="surface section">
+    <div class="section-header">
+        <h2>Staff Management</h2>
+        <span>Provision staff users and manage internal access</span>
+    </div>
+    <div class="two-grid">
+        <div class="form-card">
+            <h3>Create Staff Account</h3>
+            <form method="POST" action="/super-admin/staff/">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="create_staff">
+                <input type="hidden" name="next" value="/super-admin/staff/">
+                <div class="form-grid">
+                    <div><label>Full Name</label><input type="text" name="staff_name" required></div>
+                    <div><label>Email</label><input type="email" name="staff_email" required></div>
+                    <div><label>Password</label><input type="password" name="staff_password" required></div>
+                    <div><label>Role</label><select name="role_id"><option value="">Select role</option>{% for role in roles %}<option value="{{ role.id }}">{{ role.name }}</option>{% endfor %}</select></div>
+                    <div><label>Department</label><input type="text" name="department" placeholder="Support"></div>
+                </div>
+                <div class="check-grid">
+                    <label class="check-item"><input type="checkbox" name="is_super_admin"> Grant super admin access</label>
+                </div>
+                <div class="actions"><button type="submit">Create Staff User</button></div>
+            </form>
+        </div>
+        <div class="card">
+            <strong>Staff Overview</strong>
+            <div class="three-grid" style="margin-top:12px;">
+                <div class="metric"><span>Total Staff</span><strong>{{ admin_stats.staff_count }}</strong></div>
+                <div class="metric"><span>Portal Admins</span><strong>{{ admin_stats.portal_admin_count }}</strong></div>
+                <div class="metric"><span>Super Admins</span><strong>{{ admin_stats.super_admin_count }}</strong></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="surface section">
+    <div class="section-header">
+        <h2>Staff Directory</h2>
+        <span>Update access, titles, and internal privileges</span>
+    </div>
+    <div class="stack">
+        {% for staff in staff_profiles %}
+            <div class="card">
+                <div class="topline">
+                    <div>
+                        <strong>{{ staff.user.get_full_name|default:staff.user.username }}</strong>
+                        <div class="muted">{{ staff.user.email }}</div>
+                    </div>
+                    <div class="badge-row" style="margin-top:0;">
+                        {% if staff.user.is_superuser %}<span class="badge super">Super Admin</span>{% endif %}
+                        {% if staff.user.is_staff %}<span class="badge staff">Staff</span>{% endif %}
+                        {% if staff.is_portal_admin %}<span class="badge role">Portal Admin</span>{% endif %}
+                    </div>
+                </div>
+                <div class="badge-row">
+                    {% if staff.role %}<span class="badge role">{{ staff.role.name }}</span>{% endif %}
+                    {% for item in staff.permission_summary %}<span class="badge soft">{{ item }}</span>{% endfor %}
+                </div>
+                <form method="POST" action="/super-admin/staff/" style="margin-top:14px;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="update_staff">
+                    <input type="hidden" name="user_id" value="{{ staff.user.id }}">
+                    <input type="hidden" name="next" value="/super-admin/staff/">
+                    <div class="form-grid">
+                        <div><label>Role</label><select name="role_id"><option value="">No role</option>{% for role in roles %}<option value="{{ role.id }}"{% if staff.role and role.id == staff.role.id %} selected{% endif %}>{{ role.name }}</option>{% endfor %}</select></div>
+                        <div><label>Department</label><input type="text" name="department" value="{{ staff.department }}"></div>
+                        <div><label>Display Title</label><input type="text" name="display_title" value="{{ staff.display_title }}"></div>
+                    </div>
+                    <div class="check-grid">
+                        <label class="check-item"><input type="checkbox" name="is_staff"{% if staff.user.is_staff %} checked{% endif %}> Staff access</label>
+                        <label class="check-item"><input type="checkbox" name="is_portal_admin"{% if staff.is_portal_admin %} checked{% endif %}> Internal portal access</label>
+                        <label class="check-item"><input type="checkbox" name="is_superuser"{% if staff.user.is_superuser %} checked{% endif %}> Super admin</label>
+                    </div>
+                    <div class="actions"><button type="submit">Update Access</button></div>
+                </form>
+            </div>
+        {% empty %}
+            <div class="card"><strong>No staff members found.</strong></div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

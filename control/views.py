@@ -1510,7 +1510,9 @@ def backupdata(request):
                 pass
                 
             db_dump_dir = os.path.join(main_directory, 'database_backups')
-            os.makedirs(db_dump_dir, exist_ok=True)
+            # Use sudo to create dir inside user-owned home (www-data can't do plain mkdir)
+            subprocess.run(['sudo', 'mkdir', '-p', db_dump_dir], capture_output=True)
+            subprocess.run(['sudo', 'chmod', '777', db_dump_dir], capture_output=True)
             
             databases = get_database_names_with_filter(adminpassword, f"{current}_")
             if databases:
@@ -1529,9 +1531,10 @@ def backupdata(request):
                 pass
             finally:
                 try:
-                    shutil.rmtree(db_dump_dir)
+                    subprocess.run(['sudo', 'rm', '-rf', db_dump_dir], capture_output=True)
                 except Exception:
                     pass
+
                 try:
                     if os.path.exists(progress_file):
                         os.remove(progress_file)

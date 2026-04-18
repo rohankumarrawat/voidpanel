@@ -1600,44 +1600,44 @@ def compressdata(request):
 @login_required(login_url='/')
 @secure_fm_paths
 def ddeletedata(request):
-     import shutil
-     import subprocess
-     if request.user.is_superuser or request.user.is_authenticated:
-         if request.method == "POST":
-               data = json.loads(request.body)
-               selected_items = data.get('selected', [])
-               file_path = data.get('path', '')
+     """Soft-delete: bulk move to Recycle Bin (called by file manager toolbar checkbox delete)."""
+     if not (request.user.is_superuser or request.user.is_authenticated):
+         return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+     if request.method != 'POST':
+         return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
 
-               if not file_path.startswith('/'):
-                   file_path = '/' + file_path
-               if not file_path.endswith('/'):
-                   file_path = file_path + '/'
+     data = json.loads(request.body)
+     selected_items = data.get('selected', [])
+     raw_path = data.get('path', '/')
+     moved = 0
+     errors = []
+     try:
+         base_path = sanitize_path(raw_path, request.user)
+     except ValueError as e:
+         return JsonResponse({'status': 'error', 'message': str(e)}, status=403)
 
-               # Security: non-superusers must stay in their home dir
-               if not request.user.is_superuser:
-                   home = os.path.join('/home', request.user.username)
-                   if not os.path.realpath(file_path).startswith(os.path.realpath(home)):
-                       return JsonResponse({'status': 'error', 'message': 'Unauthorized path'})
+     for item in selected_items:
+         src = os.path.join(base_path, item)
+         try:
+             if not item or '/' in item or '..' in item:
+                 errors.append(f'{item}: invalid name')
+                 continue
+             if os.path.exists(src):
+                 _trash_move(src, request.user)
+                 moved += 1
+             else:
+                 errors.append(f'{item}: not found')
+         except Exception as e:
+             errors.append(f'{item}: {str(e)}')
 
-               failed = []
-               for item in selected_items:
-                   target = os.path.realpath(os.path.normpath(file_path + item))
-                   if not os.path.exists(target):
-                       continue
-                   if sys.platform == 'win32':
-                       try:
-                           if os.path.isdir(target):
-                               shutil.rmtree(target)
-                           else:
-                               os.remove(target)
-                       except Exception as e:
-                           failed.append(item)
-                   else:
-                       if os.path.isdir(target):
-                           cmd = ['sudo', 'rm', '-rf', target]
-                       else:
-                           cmd = ['sudo', 'rm', '-f', target]
-                       r = subprocess.ru@login_required(login_url='/')
+     if moved == len(selected_items):
+         return JsonResponse({'status': 'success', 'message': f'{moved} item(s) moved to Recycle Bin.'})
+     elif moved > 0:
+         return JsonResponse({'status': 'partial', 'message': f'{moved} moved, errors: {", ".join(errors)}'})
+     return JsonResponse({'status': 'error', 'message': f'Failed: {", ".join(errors)}'})
+
+@login_required(login_url='/')
+@secure_fm_paths
 def deletedata(request):
      """Soft-delete: move selected items to the Recycle Bin (called by toolbar bulk-delete)."""
      if not (request.user.is_superuser or request.user.is_authenticated):

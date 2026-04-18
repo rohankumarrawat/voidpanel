@@ -1,0 +1,93 @@
+{% extends "super_admin_base.html" %}
+
+{% block admin_content %}
+<section class="surface section">
+    <div class="section-header">
+        <h2>Email Center</h2>
+        <span>Use different senders for different purposes without mixing them into the rest of admin</span>
+    </div>
+    <div class="three-grid">
+        <div class="metric"><span>Total Profiles</span><strong>{{ email_profiles|length }}</strong></div>
+        <div class="metric"><span>Purpose Groups</span><strong>{{ email_profiles_by_purpose|length }}</strong></div>
+        <div class="metric"><span>Default Sender</span><strong>{% for profile in email_profiles %}{% if profile.is_default %}{{ profile.profile_name }}{% endif %}{% empty %}None{% endfor %}</strong></div>
+    </div>
+</section>
+
+<section class="surface section">
+    <div class="section-header">
+        <h2>Add Email Profile</h2>
+        <span>Create multiple mail accounts for billing, support, security, updates, or custom use</span>
+    </div>
+    <div class="form-card">
+        <form method="POST" action="/super-admin/emails/">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create_email_profile">
+            <input type="hidden" name="next" value="/super-admin/emails/">
+            <div class="form-grid">
+                <div><label>Profile Name</label><input type="text" name="profile_name" required></div>
+                <div><label>Primary Purpose</label><select name="purpose_category">{% for value, label in email_purpose_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></div>
+                <div><label>From Name</label><input type="text" name="from_name"></div>
+                <div><label>From Email</label><input type="email" name="from_email" required></div>
+                <div><label>Reply-To Email</label><input type="email" name="reply_to_email"></div>
+                <div><label>SMTP Host</label><input type="text" name="smtp_host" required></div>
+                <div><label>SMTP Port</label><input type="number" name="smtp_port" value="587" min="1" required></div>
+                <div><label>SMTP Username</label><input type="text" name="smtp_username"></div>
+                <div><label>SMTP Password</label><input type="password" name="smtp_password"></div>
+            </div>
+            <div class="check-grid">
+                <label class="check-item"><input type="checkbox" name="use_tls" checked> Use TLS</label>
+                <label class="check-item"><input type="checkbox" name="use_ssl"> Use SSL</label>
+                <label class="check-item"><input type="checkbox" name="is_active" checked> Profile active</label>
+                <label class="check-item"><input type="checkbox" name="is_default"> Make default profile</label>
+            </div>
+            <div class="check-grid">
+                {% for field, label in email_event_fields %}
+                    <label class="check-item"><input type="checkbox" name="{{ field }}"> {{ label }}</label>
+                {% endfor %}
+            </div>
+            <div class="actions"><button type="submit">Save Email Profile</button></div>
+        </form>
+    </div>
+</section>
+
+<section class="surface section">
+    <div class="section-header">
+        <h2>Profiles by Purpose</h2>
+        <span>Different accounts for different mail responsibilities</span>
+    </div>
+    <div class="stack">
+        {% for purpose_label, profiles in email_profiles_by_purpose.items %}
+            <div class="card">
+                <strong>{{ purpose_label }}</strong>
+                <div class="stack" style="margin-top:12px;">
+                    {% for email_profile in profiles %}
+                        <div class="card">
+                            <div class="topline">
+                                <div>
+                                    <strong>{{ email_profile.profile_name }}</strong>
+                                    <div class="muted">{{ email_profile.from_name|default:"Sender" }} • {{ email_profile.from_email }}</div>
+                                    <div class="muted" style="margin-top:6px;">{{ email_profile.smtp_host }}:{{ email_profile.smtp_port }}</div>
+                                </div>
+                                <div class="badge-row" style="margin-top:0;">
+                                    {% if email_profile.is_default %}<span class="badge role">Default</span>{% endif %}
+                                    {% if email_profile.is_active %}<span class="badge staff">Active</span>{% else %}<span class="badge soft">Paused</span>{% endif %}
+                                </div>
+                            </div>
+                            <div class="badge-row">
+                                {% for permission in email_profile.permission_summary %}<span class="badge soft">{{ permission }}</span>{% empty %}<span class="badge soft">No event permissions selected</span>{% endfor %}
+                            </div>
+                            <div class="inline-actions">
+                                <form method="POST" action="/super-admin/emails/">{% csrf_token %}<input type="hidden" name="action" value="email_profile_action"><input type="hidden" name="profile_id" value="{{ email_profile.id }}"><input type="hidden" name="mode" value="test_connection"><input type="hidden" name="next" value="/super-admin/emails/"><button type="submit">Test Connection</button></form>
+                                <form method="POST" action="/super-admin/emails/">{% csrf_token %}<input type="hidden" name="action" value="email_profile_action"><input type="hidden" name="profile_id" value="{{ email_profile.id }}"><input type="hidden" name="mode" value="make_default"><input type="hidden" name="next" value="/super-admin/emails/"><button type="submit">Make Default</button></form>
+                                <form method="POST" action="/super-admin/emails/">{% csrf_token %}<input type="hidden" name="action" value="email_profile_action"><input type="hidden" name="profile_id" value="{{ email_profile.id }}"><input type="hidden" name="mode" value="toggle_active"><input type="hidden" name="next" value="/super-admin/emails/"><button type="submit">{% if email_profile.is_active %}Pause Profile{% else %}Activate Profile{% endif %}</button></form>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% empty %}
+            <div class="card"><strong>No email profiles yet.</strong></div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

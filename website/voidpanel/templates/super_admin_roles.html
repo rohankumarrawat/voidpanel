@@ -1,0 +1,66 @@
+{% extends "super_admin_base.html" %}
+
+{% block admin_content %}
+<section class="surface section">
+    <div class="section-header">
+        <h2>Role Library</h2>
+        <span>Keep permission architecture separate from user management</span>
+    </div>
+    <div class="two-grid">
+        <div class="form-card">
+            <h3>Create Role</h3>
+            <form method="POST" action="/super-admin/roles/">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="create_role">
+                <input type="hidden" name="next" value="/super-admin/roles/">
+                <div class="form-grid single">
+                    <div><label>Role Name</label><input type="text" name="role_name" required></div>
+                    <div><label>Description</label><textarea name="description"></textarea></div>
+                </div>
+                <div class="check-grid">
+                    <label class="check-item"><input type="checkbox" name="can_manage_clients"> Manage clients</label>
+                    <label class="check-item"><input type="checkbox" name="can_manage_billing"> Manage billing</label>
+                    <label class="check-item"><input type="checkbox" name="can_manage_support"> Manage support</label>
+                    <label class="check-item"><input type="checkbox" name="can_manage_infrastructure"> Manage infrastructure</label>
+                    <label class="check-item"><input type="checkbox" name="can_manage_staff"> Manage staff</label>
+                </div>
+                <div class="actions"><button type="submit">Create Role</button></div>
+            </form>
+        </div>
+        <div class="three-grid">
+            <div class="metric"><span>Total Roles</span><strong>{{ admin_stats.role_count }}</strong></div>
+            <div class="metric"><span>Billing Roles</span><strong>{{ admin_stats.billing_role_count }}</strong></div>
+            <div class="metric"><span>Support Roles</span><strong>{{ admin_stats.support_role_count }}</strong></div>
+        </div>
+    </div>
+</section>
+
+<section class="surface section">
+    <div class="section-header">
+        <h2>Existing Roles</h2>
+        <span>Permission bundles and coverage</span>
+    </div>
+    <div class="stack">
+        {% for role in roles %}
+            <div class="card">
+                <div class="topline">
+                    <div>
+                        <strong>{{ role.name }}</strong>
+                        <div class="muted">{{ role.description|default:"No description provided." }}</div>
+                    </div>
+                    <span class="badge role">{{ role.staff_members.count }} staff</span>
+                </div>
+                <div class="badge-row">
+                    {% if role.can_manage_clients %}<span class="badge soft">Clients</span>{% endif %}
+                    {% if role.can_manage_billing %}<span class="badge soft">Billing</span>{% endif %}
+                    {% if role.can_manage_support %}<span class="badge soft">Support</span>{% endif %}
+                    {% if role.can_manage_infrastructure %}<span class="badge soft">Infrastructure</span>{% endif %}
+                    {% if role.can_manage_staff %}<span class="badge soft">Staff</span>{% endif %}
+                </div>
+            </div>
+        {% empty %}
+            <div class="card"><strong>No roles found.</strong></div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}
