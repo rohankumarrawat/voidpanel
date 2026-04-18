@@ -5206,19 +5206,22 @@ def cpbrute(request):
             else:
                 e = firewall(id=1, status=False)
                 e.save()
-            if e.status:
-                 if sys.platform != 'win32':
-                     run_command('''sudo sed -i 's/^TESTING = "0"/TESTING = "1"/' /etc/csf/csf.conf''')
-                     run_command('sudo csf -x')
-                 e.status=False
-                 e.save()
-            else:
-                 if sys.platform != 'win32':
-                     run_command('''sudo sed -i 's/^TESTING = "1"/TESTING = "0"/' /etc/csf/csf.conf''')
-                     run_command('sudo csf -e')
-                 e.status=True
-                 e.save()
-            return JsonResponse({'status': 'success', 'message': 'Firewall status updated'})
+            try:
+                if e.status:
+                    if sys.platform != 'win32':
+                        run_command('''sudo sed -i 's/^TESTING = "0"/TESTING = "1"/' /etc/csf/csf.conf''')
+                        run_command('sudo csf -x')
+                    e.status = False
+                    e.save()
+                else:
+                    if sys.platform != 'win32':
+                        run_command('''sudo sed -i 's/^TESTING = "1"/TESTING = "0"/' /etc/csf/csf.conf''')
+                        run_command('sudo csf -e')
+                    e.status = True
+                    e.save()
+                return JsonResponse({'status': 'success', 'message': 'Firewall status updated'})
+            except Exception as ex:
+                return JsonResponse({'status': 'error', 'message': 'Failed to execute firewall rules. Is CSF installed on the server?'})
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
 @login_required(login_url='/')
