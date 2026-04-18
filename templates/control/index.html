@@ -1240,42 +1240,230 @@
 
 
 
-        <div class="dash-overlay" id="addphp" style="display: none; align-items:center; justify-content:center;">
-            <div class="dash-modal" style="width: 450px;">
-                <div class="dash-modal-header">
-                    <h4><i class="fa fa-code"></i> Change PHP Version</h4>
+        <!-- PHP Version Selector Modal — Modern Redesign -->
+        <div id="addphp" style="
+            display:none; position:fixed; inset:0; z-index:99999;
+            align-items:center; justify-content:center;
+            background:rgba(4,8,20,0.82); backdrop-filter:blur(8px);
+        ">
+            <div style="
+                background:linear-gradient(145deg,#0d1528,#0a0f1e);
+                border:1px solid rgba(99,102,241,0.25);
+                border-radius:22px; padding:34px 36px;
+                width:460px; max-width:95vw;
+                box-shadow: 0 30px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(99,102,241,0.1) inset;
+                animation: phpModalIn 0.25s cubic-bezier(.22,.8,.46,1);
+            ">
+                <!-- Header -->
+                <div style="display:flex; align-items:center; gap:14px; margin-bottom:28px;">
+                    <div style="
+                        width:44px; height:44px; border-radius:12px;
+                        background:linear-gradient(135deg,rgba(99,102,241,0.25),rgba(168,85,247,0.15));
+                        border:1px solid rgba(99,102,241,0.3);
+                        display:flex; align-items:center; justify-content:center; flex-shrink:0;
+                    ">
+                        <i class="fa fa-code" style="color:#a78bfa; font-size:1.1rem;"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:1.05rem; font-weight:700; color:#f1f5f9; line-height:1.2;">Change PHP Version</div>
+                        <div style="font-size:0.78rem; color:#64748b; margin-top:2px;">Switch the PHP runtime for your domain</div>
+                    </div>
+                    <button onclick="hidephp()" style="
+                        margin-left:auto; background:rgba(255,255,255,0.06);
+                        border:1px solid rgba(255,255,255,0.1); border-radius:8px;
+                        width:32px; height:32px; cursor:pointer; color:#64748b;
+                        display:flex; align-items:center; justify-content:center;
+                        transition:all 0.15s;
+                    " onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='#64748b'">
+                        <i class="fa fa-times"></i>
+                    </button>
                 </div>
-                <div class="dash-modal-body">
-                    <form id="chphp" method="post" action="">{% csrf_token %}
-                        <div class="form-group" style="margin-bottom: 20px;">
-                            <label class="dash-label">Select Domain / Subdomain</label>
-                            <select name="name" class="dash-input-full" required style="cursor: pointer; appearance: auto;">
-                                <option value="" disabled selected>— Choose Target —</option>
-                                <option value="{{domain}}">{{domain}} (Current: PHP {{domain_obj.php}})</option>
+
+                <form id="chphp" method="post" action="">{% csrf_token %}
+                    <!-- Target Domain -->
+                    <div style="margin-bottom:20px;">
+                        <label style="display:block; font-size:0.73rem; font-weight:700; color:#6366f1; text-transform:uppercase; letter-spacing:0.07em; margin-bottom:10px;">
+                            <i class="fa fa-globe" style="margin-right:5px;"></i> Target Domain
+                        </label>
+                        <div style="position:relative;">
+                            <select name="name" id="php-domain-select" required style="
+                                width:100%; padding:13px 18px; border-radius:12px;
+                                background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1);
+                                color:#f1f5f9; font-size:0.9rem; cursor:pointer; outline:none;
+                                font-family:'Inter',sans-serif; appearance:none;
+                                transition:border 0.2s, box-shadow 0.2s;
+                            " onfocus="this.style.borderColor='#6366f1'; this.style.boxShadow='0 0 0 3px rgba(99,102,241,0.18)'"
+                               onblur="this.style.borderColor='rgba(255,255,255,0.1)'; this.style.boxShadow='none'">
+                                <option value="" disabled selected style="color:#475569;">— Select domain or subdomain —</option>
+                                <option value="{{domain}}" style="background:#0d1528;">
+                                    {{domain}} · PHP {{domain_obj.php|default:"—"}}
+                                </option>
                                 {% for i in sub %}
-                                <option value="{{i.subdomain}}">{{i.subdomain}} (Current: PHP {{i.php}})</option>
+                                <option value="{{i.subdomain}}" style="background:#0d1528;">
+                                    {{i.subdomain}} · PHP {{i.php|default:"—"}}
+                                </option>
                                 {% endfor %}
                             </select>
+                            <i class="fa fa-chevron-down" style="position:absolute; right:14px; top:50%; transform:translateY(-50%); color:#475569; pointer-events:none; font-size:0.8rem;"></i>
                         </div>
-                        <div class="form-group" style="margin-bottom: 24px;">
-                            <label class="dash-label">Target PHP Version</label>
-                            <select name="php" class="dash-input-full" required style="cursor: pointer; appearance: auto;">
-                                <option value="" disabled selected>— Choose Version —</option>
-                                {% for i in phpversion %}
-                                <option value="{{i.name}}">PHP {{i.name}}</option>
-                                {% endfor %}
-                            </select>
+                    </div>
+
+                    <!-- PHP Version -->
+                    <div style="margin-bottom:28px;">
+                        <label style="display:block; font-size:0.73rem; font-weight:700; color:#6366f1; text-transform:uppercase; letter-spacing:0.07em; margin-bottom:10px;">
+                            <i class="fa fa-code-fork" style="margin-right:5px;"></i> PHP Version
+                        </label>
+                        <!-- PHP version pills -->
+                        <div id="php-version-pills" style="display:flex; gap:10px; flex-wrap:wrap;">
+                            {% for i in phpversion %}
+                            <label style="cursor:pointer;">
+                                <input type="radio" name="php" value="{{i.name}}" style="display:none;" class="php-pill-radio">
+                                <div class="php-pill" data-ver="{{i.name}}" style="
+                                    padding:10px 20px; border-radius:10px; font-size:0.88rem; font-weight:600;
+                                    border:1.5px solid rgba(99,102,241,0.25); color:#94a3b8;
+                                    background:rgba(255,255,255,0.03);
+                                    transition:all 0.18s; user-select:none;
+                                ">PHP {{i.name}}</div>
+                            </label>
+                            {% empty %}
+                            <div id="php-no-versions" style="color:#64748b; font-size:0.85rem; padding:10px 0;">
+                                <i class="fa fa-exclamation-triangle" style="color:#f59e0b;"></i>
+                                No PHP versions installed yet. Go to PHP Settings first.
+                            </div>
+                            {% endfor %}
                         </div>
-                    </form>
-                </div>
-                <div class="dash-modal-footer">
-                    <button type="button" class="dash-btn dash-btn-ghost" onclick="hidephp();">Cancel</button>
-                    <button type="button" id="addphpbtn" onclick="changephpversion(event);" class="dash-btn dash-btn-primary">
+                        <!-- hidden fallback select for non-JS submit -->
+                        <select name="php" id="php-fallback-select" style="display:none;">
+                            <option value="" disabled selected>— Choose Version —</option>
+                            {% for i in phpversion %}
+                            <option value="{{i.name}}">PHP {{i.name}}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </form>
+
+                <!-- Footer -->
+                <div style="display:flex; gap:10px; justify-content:flex-end;">
+                    <button onclick="hidephp()" style="
+                        padding:11px 22px; border-radius:11px; font-size:0.88rem; font-weight:600;
+                        background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);
+                        color:#94a3b8; cursor:pointer; transition:all 0.18s;
+                    " onmouseenter="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#fff'"
+                       onmouseleave="this.style.background='rgba(255,255,255,0.06)'; this.style.color='#94a3b8'">
+                        Cancel
+                    </button>
+                    <button id="addphpbtn" onclick="changephpversion(event)" style="
+                        padding:11px 26px; border-radius:11px; font-size:0.88rem; font-weight:700;
+                        background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff;
+                        border:none; cursor:pointer;
+                        box-shadow:0 4px 16px rgba(99,102,241,0.4);
+                        transition:all 0.2s; display:flex; align-items:center; gap:8px;
+                    " onmouseenter="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 22px rgba(99,102,241,0.55)'"
+                       onmouseleave="this.style.transform='none'; this.style.boxShadow='0 4px 16px rgba(99,102,241,0.4)'">
                         <i class="fa fa-check"></i> Apply Version
                     </button>
                 </div>
             </div>
         </div>
+
+        <style>
+            @keyframes phpModalIn {
+                from { opacity:0; transform:scale(0.92) translateY(12px); }
+                to { opacity:1; transform:scale(1) translateY(0); }
+            }
+            .php-pill-radio:checked + .php-pill {
+                background:linear-gradient(135deg,rgba(99,102,241,0.3),rgba(168,85,247,0.2)) !important;
+                border-color:#6366f1 !important;
+                color:#a78bfa !important;
+                box-shadow:0 0 0 3px rgba(99,102,241,0.18);
+            }
+            .php-pill:hover {
+                border-color:rgba(99,102,241,0.5) !important;
+                color:#c4b5fd !important;
+                background:rgba(99,102,241,0.08) !important;
+            }
+        </style>
+
+        <script>
+            // PHP pill selection logic
+            document.querySelectorAll('.php-pill-radio').forEach(function(radio) {
+                radio.addEventListener('change', function() {
+                    document.querySelectorAll('.php-pill').forEach(p => {
+                        p.style.background = 'rgba(255,255,255,0.03)';
+                        p.style.borderColor = 'rgba(99,102,241,0.25)';
+                        p.style.color = '#94a3b8';
+                        p.style.boxShadow = 'none';
+                    });
+                    // active pill styling done via :checked CSS above
+                    // Also sync fallback select
+                    document.getElementById('php-fallback-select').value = this.value;
+                });
+            });
+
+            // Override changephpversion to read the pill selection
+            async function changephpversion(event) {
+                if (event) event.preventDefault();
+
+                const selectedDomain = document.getElementById('php-domain-select').value;
+                const selectedPhp = document.querySelector('.php-pill-radio:checked');
+
+                if (!selectedDomain) {
+                    alert('Please select a domain or subdomain.');
+                    return;
+                }
+                if (!selectedPhp) {
+                    alert('Please select a PHP version.');
+                    return;
+                }
+
+                const btn = document.getElementById('addphpbtn');
+                const origHTML = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i> Applying...';
+
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                const formData = new FormData();
+                formData.append('csrfmiddlewaretoken', csrfToken);
+                formData.append('name', selectedDomain);
+                formData.append('php', selectedPhp.value);
+
+                try {
+                    const response = await fetch('/changephpversion/', {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'X-CSRFToken': csrfToken }
+                    });
+                    const result = await response.json();
+                    hidephp();
+                    const toast = document.getElementById('eeee');
+                    if (toast) {
+                        toast.style.display = 'flex';
+                        document.getElementById('statusemail').innerHTML = response.ok && result.status === 'success'
+                            ? '✅ ' + result.message
+                            : '❌ ' + (result.message || 'Error changing PHP version');
+                    }
+                } catch (e) {
+                    hidephp();
+                    const toast = document.getElementById('eeee');
+                    if (toast) {
+                        toast.style.display = 'flex';
+                        document.getElementById('statusemail').innerHTML = '❌ Network error';
+                    }
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = origHTML;
+                }
+            }
+
+            function hidephp() {
+                document.getElementById('addphp').style.display = 'none';
+                // Reset pill selections
+                document.querySelectorAll('.php-pill-radio').forEach(r => r.checked = false);
+            }
+            function viewphp() {
+                document.getElementById('addphp').style.display = 'flex';
+            }
+        </script>
 
 
         <div class="modal animated fadeIn show" id="terminate" style="display: none; margin-top: 300px;">
