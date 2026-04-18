@@ -1501,18 +1501,24 @@ def backupdata(request):
         def _run_full_backup_thread():
             import time as _time
             import json as _json
+            import tempfile
             progress_file = os.path.join(main_directory, ".backup_progress")
+            completed_file = os.path.join(main_directory, ".backup_done")
+            # Remove any stale completed marker from previous run
+            try:
+                if os.path.exists(completed_file):
+                    os.remove(completed_file)
+            except Exception:
+                pass
             try:
                 meta = _json.dumps({'pct': 5, 'pid': threading.current_thread().ident, 'ts': _time.time()})
                 with open(progress_file, "w") as pf:
                     pf.write(meta)
             except Exception:
                 pass
-                
-            db_dump_dir = os.path.join(main_directory, 'database_backups')
-            # Use sudo to create dir inside user-owned home (www-data can't do plain mkdir)
-            subprocess.run(['sudo', 'mkdir', '-p', db_dump_dir], capture_output=True)
-            subprocess.run(['sudo', 'chmod', '777', db_dump_dir], capture_output=True)
+            
+            # Use /tmp for DB dumps — www-data can always write there (avoids PermissionError in user home)
+            db_dump_dir = tempfile.mkdtemp(prefix='voidpanel_dbdump_')
             
             databases = get_database_names_with_filter(adminpassword, f"{current}_")
             if databases:
@@ -1525,24 +1531,33 @@ def backupdata(request):
                         pass
                         
             # Deploy non-blocking execution to handle Zipping
+            zip_ok = False
             try:
                 zip_multiple_locations_backup_user(main_directory, locations, zip_filename, current, progress_file)
+                zip_ok = True
             except Exception as e:
                 pass
             finally:
                 try:
-                    subprocess.run(['sudo', 'rm', '-rf', db_dump_dir], capture_output=True)
+                    import shutil as _shutil
+                    _shutil.rmtree(db_dump_dir, ignore_errors=True)
                 except Exception:
                     pass
-
                 try:
                     if os.path.exists(progress_file):
                         os.remove(progress_file)
                 except Exception:
                     pass
-                
+                # Write a completed marker so backup_status can return 'completed'
+                try:
+                    with open(completed_file, "w") as cf:
+                        cf.write(_json.dumps({'ok': zip_ok, 'ts': _time.time()}))
+                except Exception:
+                    pass
+                    
         t = threading.Thread(target=_run_full_backup_thread)
         t.start()
+
         
         return JsonResponse({'status': 'success', 'message': 'Job Queued in Background!'})
         
@@ -1567,6 +1582,15 @@ def backup_status(request, data):
         namm = domain.objects.get(domain=data)
         main_directory = os.path.join(paths.HOME_BASE, namm.dir)
         progress_file = os.path.join(main_directory, ".backup_progress")
+        completed_file = os.path.join(main_directory, ".backup_done")
+        
+        # Check if backup just finished (completed marker exists, no progress file)
+        if os.path.exists(completed_file) and not os.path.exists(progress_file):
+            try:
+                os.remove(completed_file)   # consume the marker - only report once
+            except Exception:
+                pass
+            return JsonResponse({'status': 'completed'})
         
         if os.path.exists(progress_file):
             try:
@@ -1597,6 +1621,7 @@ def backup_status(request, data):
                 return JsonResponse({'status': 'idle'})
         else:
             return JsonResponse({'status': 'idle'})
+
     except Exception:
         return JsonResponse({'status': 'idle'})
 

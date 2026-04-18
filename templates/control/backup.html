@@ -428,9 +428,13 @@
 
         /* ─── Polling ─────────────────────────────────────────── */
         let pollingTimer = null;
+        let _seenProcessing = false;  // true once we get at least one 'processing' response
+        let _idleAfterStart = 0;      // count of idle responses AFTER we have seen processing
 
         function startPolling(domain) {
             if (pollingTimer) return; // already polling
+            _seenProcessing = false;
+            _idleAfterStart = 0;
             showProcessingSection(true);
             const btn = document.getElementById('btnDeploy');
 
@@ -440,18 +444,46 @@
                     const data = await resp.json();
                     
                     if (data.status === 'processing') {
+                        _seenProcessing = true;
+                        _idleAfterStart = 0;
                         let pct = parseInt(data.progress) || 0;
                         pct = Math.min(pct, 99); // never show 100% until truly done
                         setProgress(pct);
                         if (btn) btn.innerHTML = `<i class="fa fa-circle-o-notch fa-spin"></i> Backing up... ${pct}%`;
-                    } else {
-                        // Idle = completed
-                        clearInterval(pollingTimer);
-                        pollingTimer = null;
+                    } else if (data.status === 'completed') {
+                        // Server explicitly signals completion
+                        clearInterval(pollingTimer); pollingTimer = null;
                         setProgress(100);
-                        if (btn) btn.innerHTML = '<i class="fa fa-check"></i> Completed!';
+                        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-cloud-upload"></i> Backup Data Now'; }
+                        showProcessingSection(false);
                         showToast('✅ Backup completed successfully!', 'success');
                         setTimeout(() => window.location.reload(), 2000);
+                    } else {
+                        // status === 'idle'
+                        if (_seenProcessing) {
+                            // We saw processing before → this idle means it just finished
+                            _idleAfterStart++;
+                            if (_idleAfterStart >= 2) {
+                                // Confirm it's really done (2 consecutive idle responses)
+                                clearInterval(pollingTimer); pollingTimer = null;
+                                setProgress(100);
+                                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-cloud-upload"></i> Backup Data Now'; }
+                                showProcessingSection(false);
+                                showToast('✅ Backup completed!', 'success');
+                                setTimeout(() => window.location.reload(), 2000);
+                            }
+                        } else {
+                            // Never saw processing yet — backup likely still starting up (first ~3 seconds)
+                            // Keep polling, do nothing yet
+                            _idleAfterStart++;
+                            if (_idleAfterStart > 10) {
+                                // 10 polls (20s) with never seeing processing = backup failed to start
+                                clearInterval(pollingTimer); pollingTimer = null;
+                                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-cloud-upload"></i> Backup Data Now'; }
+                                showProcessingSection(false);
+                                showToast('❌ Backup failed to start. Check server logs.', 'error');
+                            }
+                        }
                     }
                 } catch (e) {
                     console.error("Polling error:", e);
