@@ -149,9 +149,18 @@ class NginxWebServerManager(WebServerManager):
         block += "}\n"
 
         try:
-            os.makedirs(os.path.dirname(conf), exist_ok=True)
-            with open(conf, 'w') as f:
-                f.write(block)
+            import tempfile
+            avail_dir = os.path.dirname(conf)
+            _run(['sudo', 'mkdir', '-p', avail_dir])
+            # Write to temp file then sudo mv — www-data cannot write to /etc/nginx directly
+            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.conf') as tmp:
+                tmp.write(block)
+                tmp_path = tmp.name
+            mv_res = _run(['sudo', 'mv', tmp_path, conf])
+            _run(['sudo', 'chown', 'root:root', conf])
+            _run(['sudo', 'chmod', '644', conf])
+            if not mv_res.success:
+                return CommandResult(success=False, error=f'Failed to write nginx config: {mv_res.error}')
             result = self.enable_site(domain)
             # Harden directory permissions for quota & security
             if unix_user and os.path.isdir(root_dir):
@@ -176,10 +185,13 @@ class NginxWebServerManager(WebServerManager):
                               '/etc/nginx/sites-enabled')
         enabled = os.path.join(enabled_dir, f'{domain}.conf')
         try:
-            os.makedirs(enabled_dir, exist_ok=True)
-            if os.path.exists(enabled):
-                os.remove(enabled)
-            os.symlink(avail, enabled)
+            _run(['sudo', 'mkdir', '-p', enabled_dir])
+            # Remove existing symlink/file first
+            _run(['sudo', 'rm', '-f', enabled])
+            # Create symlink via sudo (www-data cannot write to /etc/nginx)
+            res = _run(['sudo', 'ln', '-sf', avail, enabled])
+            if not res.success:
+                return CommandResult(success=False, error=res.error)
             return CommandResult(success=True)
         except Exception as e:
             return CommandResult(success=False, error=str(e))
@@ -189,8 +201,7 @@ class NginxWebServerManager(WebServerManager):
                               '/etc/nginx/sites-enabled')
         enabled = os.path.join(enabled_dir, f'{domain}.conf')
         try:
-            if os.path.exists(enabled):
-                os.remove(enabled)
+            _run(['sudo', 'rm', '-f', enabled])
             return CommandResult(success=True)
         except Exception as e:
             return CommandResult(success=False, error=str(e))
