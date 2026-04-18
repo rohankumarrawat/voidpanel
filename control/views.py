@@ -1006,6 +1006,16 @@ def index(request):
 
 
     d.update(get_user_dashboard_context(current, adminpassword))
+    
+    # Passing querysets for PHP Selector modal
+    try:
+        d['domain_obj'] = domain.objects.get(domain=d['domain'])
+    except Exception:
+        d['domain_obj'] = None
+    
+    d['sub'] = subdomainname.objects.filter(domain=d['domain'])
+    from control.models import phpversion
+    d['phpversion'] = phpversion.objects.all()
 
     try:
         from voidplatform.linux.web import get_active_engine
