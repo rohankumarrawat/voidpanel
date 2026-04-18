@@ -5018,13 +5018,20 @@ def installphpversion(request):
         )
         if result.returncode != 0:
             # Try yum as fallback
-            subprocess.run(
+            result = subprocess.run(
                 ['sudo', 'yum', 'install', '-y', f'php{php}', f'php{php}-fpm'],
                 capture_output=True, text=True, timeout=300
             )
+            
+        if result.returncode != 0:
+            return JsonResponse({'status': 'error', 'message': f'Failed to install PHP {php} via package manager.'}, status=500)
+            
         phpversion.objects.create(name=php)
         try:
-            phpextentions.objects.get_or_create(name=php, defaults={'extentions': '{}'})
+            EXT_LIST = ['gd', 'curl', 'bcmath', 'mbstring', 'xml', 'zip', 'mysql', 'sqlite3', 'intl', 'soap', 'redis', 'memcached', 'imagick']
+            defaults = {f"php{php}-{ext}": 0 for ext in EXT_LIST}
+            import json
+            phpextentions.objects.get_or_create(name=php, defaults={'extentions': json.dumps(defaults)})
         except Exception:
             pass
         logger.info('PHP %s installed successfully.', php)
