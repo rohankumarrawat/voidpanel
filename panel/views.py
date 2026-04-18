@@ -7207,8 +7207,8 @@ def api_nginx_cache_status(request):
         return JsonResponse({'status': 'error', 'message': 'Missing domain'}, status=400)
 
     if not request.user.is_superuser:
-        from control.models import domain as cdomain
-        if not cdomain.objects.filter(domain=domainname, user=request.user).exists():
+        from control.models import user as cuser
+        if not cuser.objects.filter(domain=domainname, username=request.user).exists():
             return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
 
     from voidplatform.linux.web import get_active_engine, get_active_engine_manager
