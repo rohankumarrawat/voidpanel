@@ -146,6 +146,7 @@ urlpatterns = [
 
 
                  path('cpbruteforce/', views.cpbruteforce, name='cpbruteforce'),
+                 path('installcsf/', views.installcsf, name='installcsf'),
                path('deleteemail/<str:data>/', views.deleteemail, name='deleteer'),
                path('deleteemai/<str:data>/', views.deleteemai, name='deletere'),
            

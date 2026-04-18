@@ -2720,7 +2720,8 @@ def editdnsrecord(request):
                 check = subprocess.run(['named-checkzone', domainname, tmp_path], capture_output=True, text=True)
                 if check.returncode != 0:
                     subprocess.run(['sudo', 'rm', '-f', tmp_path], check=False)
-                    return JsonResponse({'success': False, 'error': f'Invalid record syntax. Formatting rejected.'}, status=400)
+                    detail = (check.stdout or check.stderr or '').strip()[:200]
+                    return JsonResponse({'success': False, 'error': f'Invalid record syntax. BIND rejected the change. Details: {detail}'}, status=400)
             
             subprocess.run(['sudo', 'mv', tmp_path, zone_file_path], check=True)
             subprocess.run(['sudo', 'chown', 'bind:bind', zone_file_path], check=False)
@@ -5177,8 +5178,100 @@ def installphpextention(request):
 
 
 
+
+@login_required(login_url='/')
+def installcsf(request):
+    """Install ConfigServer Security Firewall on the server."""
+    if not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required.'}, status=405)
+
+    import subprocess as _sp, tempfile
+
+    output_lines = []
+
+    def _run(cmd, shell=False, step=''):
+        try:
+            r = _sp.run(cmd, shell=shell, capture_output=True, text=True, timeout=300)
+            out = (r.stdout + r.stderr).strip()
+            if out:
+                output_lines.append(f'[{step}] {out[:500]}')
+            return r.returncode == 0
+        except Exception as ex:
+            output_lines.append(f'[{step}] ERROR: {str(ex)[:200]}')
+            return False
+
+    # Step 1 – install Perl dependencies
+    _run(['sudo', 'apt-get', 'install', '-y', 'perl', 'liblwp-protocol-https-perl',
+          'libwww-perl', 'libgd-graph-perl', 'unzip', 'wget'], step='apt-get')
+
+    # Step 2 – fix DNS so wget can resolve external hosts (use 8.8.8.8 forwarder)
+    _run(['sudo', 'bash', '-c',
+          r"grep -q 'forwarders' /etc/bind/named.conf.options || "
+          r"sed -i '/options {/a \    forwarders { 8.8.8.8; 1.1.1.1; };\n    forward only;' /etc/bind/named.conf.options && "
+          r"systemctl reload bind9"],
+         shell=False, step='dns-fix')
+    _run(['sudo', 'bash', '-c',
+          "printf '[Resolve]\nDNS=8.8.8.8 1.1.1.1\nFallbackDNS=8.8.4.4\n' > /etc/systemd/resolved.conf && "
+          "systemctl restart systemd-resolved"],
+         shell=False, step='resolved')
+
+    # Step 3 – download CSF (try HTTPS, then HTTP mirror)
+    import os as _os
+    downloaded = False
+    urls = [
+        'https://download.configserver.com/csf.tgz',
+        'http://download.configserver.com/csf.tgz',
+    ]
+    for url in urls:
+        ok = _run(['sudo', 'bash', '-c',
+                   f'cd /usr/src && rm -rf csf csf.tgz && wget --timeout=60 {url} -O csf.tgz 2>&1'],
+                  step='download')
+        if ok or _os.path.exists('/usr/src/csf.tgz'):
+            downloaded = True
+            break
+
+    if not downloaded:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Could not download CSF. The server cannot reach download.configserver.com. '
+                       'Please run the install manually via SSH.',
+            'output': '\n'.join(output_lines),
+        })
+
+    # Step 4 – extract and install
+    _run(['sudo', 'bash', '-c',
+          'cd /usr/src && tar -xzf csf.tgz && cd csf && sh install.sh 2>&1'],
+         step='install')
+
+    # Step 5 – activate (disable testing mode)
+    _run(['sudo', 'sed', '-i', r's/^TESTING = "1"/TESTING = "0"/', '/etc/csf/csf.conf'],
+         step='activate')
+
+    # Step 6 – start services
+    _run(['sudo', 'systemctl', 'enable', '--now', 'csf'], step='start-csf')
+    _run(['sudo', 'systemctl', 'enable', '--now', 'lfd'], step='start-lfd')
+
+    # Verify
+    import shutil as _sh
+    if _sh.which('csf') or _os.path.exists('/etc/csf/csf.conf'):
+        return JsonResponse({
+            'status': 'success',
+            'message': 'CSF Firewall installed and activated successfully! Refresh this page.',
+            'output': '\n'.join(output_lines),
+        })
+    else:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Installation ran but CSF binary not found. Check output for details.',
+            'output': '\n'.join(output_lines),
+        })
+
+
 @login_required(login_url='/')
 def cpbruteforce(request):
+
     if request.user.is_superuser:
         import shutil
         d = {}
@@ -5230,39 +5323,55 @@ def cpbrute(request):
 @login_required(login_url='/')
 def allowip(request):
     if request.user.is_superuser and request.method=="POST":
-        php=shlex.quote(request.POST.get('allow', ''))
-        get_platform().firewall.allow_ip(php)
-        get_platform().firewall.reload()
-        return JsonResponse({'status': 'success', 'message': 'IP Successfully Allowed'})
+        try:
+            php=shlex.quote(request.POST.get('allow', ''))
+            get_platform().firewall.allow_ip(php)
+            get_platform().firewall.reload()
+            return JsonResponse({'status': 'success', 'message': f'IP {php} successfully allowed in CSF.'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f'Failed: {str(e)}. Is CSF installed?'})
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
 @login_required(login_url='/')
 def denyip(request):
     if request.user.is_superuser and request.method=="POST":
-        php=shlex.quote(request.POST.get('allow', ''))
-        get_platform().firewall.deny_ip(php)
-        get_platform().firewall.reload()
-        return JsonResponse({'status': 'success', 'message': 'IP Successfully Denied'})
+        try:
+            php=shlex.quote(request.POST.get('allow', ''))
+            get_platform().firewall.deny_ip(php)
+            get_platform().firewall.reload()
+            return JsonResponse({'status': 'success', 'message': f'IP {php} successfully blocked in CSF.'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f'Failed: {str(e)}. Is CSF installed?'})
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
 @login_required(login_url='/')
 def ignoreip(request):
     if request.user.is_superuser and request.method=="POST":
-        php=shlex.quote(request.POST.get('allow', ''))
-        # Since CSF has no direct ignore command, we simulate what was there earlier.
-        get_platform().firewall.allow_ip(php)
-        get_platform().firewall.reload()
-        return JsonResponse({'status': 'success', 'message': 'IP Successfully Ignored'})
+        try:
+            import subprocess as _sp
+            php = shlex.quote(request.POST.get('allow', ''))
+            # Add to /etc/csf/csf.ignore
+            result = _sp.run(['sudo', 'csf', '--tempallow', php, '86400', 'Panel-Ignore'], capture_output=True, text=True)
+            if result.returncode != 0:
+                # fallback: just add to allow list
+                get_platform().firewall.allow_ip(php)
+                get_platform().firewall.reload()
+            return JsonResponse({'status': 'success', 'message': f'IP {php} added to ignore list.'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f'Failed: {str(e)}. Is CSF installed?'})
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
 @login_required(login_url='/')
 def unblockip(request):
     if request.user.is_superuser and request.method=="POST":
-        php=shlex.quote(request.POST.get('allow', ''))
-        if sys.platform != 'win32':
-            run_command(f'sudo csf -dr {php}')
-            run_command('sudo csf -r')
-        return JsonResponse({'status': 'success', 'message': 'IP Successfully Unblocked'})
+        try:
+            php = shlex.quote(request.POST.get('allow', ''))
+            if sys.platform != 'win32':
+                run_command(f'sudo csf -dr {php}')
+                run_command('sudo csf -r')
+            return JsonResponse({'status': 'success', 'message': f'IP {php} successfully unblocked.'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f'Failed: {str(e)}. Is CSF installed?'})
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
 @login_required(login_url='/')
