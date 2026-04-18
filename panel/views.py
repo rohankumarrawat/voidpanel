@@ -3770,8 +3770,6 @@ def phpini(request,data):
 
 
 
-
-
 @login_required(login_url='/')
 def addredirect(request,data):
    
@@ -3797,221 +3795,270 @@ def addredirect(request,data):
 
 @login_required(login_url='/')
 def addredirectionnn(request):
-    if request.user.is_superuser or request.user.is_authenticated:
-        if request.method=="POST":
-                            name=request.POST['domain']
-                            name=name.lower()
-                            pathlocation=request.POST['path']
-                            newpathlocation=request.POST['newpath']
-                            maindomain=request.POST['maindomain']
-                            maindomain=maindomain.lower()
-                           
-                            if pathlocation == '/phpmyadmin' or pathlocation == '/phpmyadmin/' or pathlocation == 'phpmyadmin':
-                                 return JsonResponse({'status': 'c', 'message': 'Already Exist'})
-                            if pathlocation == '/static' or pathlocation == '/sttaic/' or pathlocation == 'static':
-                                 return JsonResponse({'status': 'c', 'message': 'Already Exist'})
-                            
-                            if newpathlocation[0]!="/":
-                                newpathlocation="/"+newpathlocation
-                            with open(os.path.join(paths.NGINX_SITES_AVAILABLE, f'{name}.conf'), 'r') as file:
-                                for line in file:
-                                    if line.strip() == f'location {pathlocation} {{':
-                                        return JsonResponse({'status': 'error', 'message': 'Already Exist'})
-                            nginx_conf_path = os.path.join(paths.NGINX_SITES_AVAILABLE, f'{name}.conf')
+    """
+    Add a URL redirect — supports both Nginx and OpenLiteSpeed.
+    Nginx : inserts a location block with return 301/302 into sites-available (via sudo mv).
+    OLS   : writes a RewriteRule into the domain's .htaccess file.
+    """
+    import re as _re
+    import tempfile
+    import subprocess as _sp
+    import os
+    import json
+    from django.http import JsonResponse
+    from control.models import redir, domain, subdomainname, user
+    from voidplatform.config import LinuxPaths as paths
 
-                            redirect_rule = f'''
-        location {pathlocation} {{
-            return 301 https://{name}{newpathlocation};
-        }}
-    '''
-                            try:
-                                xxxxxx=redir.objects.get(domain=name,path=pathlocation)
-                                
-                                return JsonResponse({'status': 'error', 'message': 'Already Exist'})
-                            except:
-                                pass
-                        
-                            try:
-                                namm=domain.objects.get(domain=name)
-                                with open(nginx_conf_path, 'r') as file:
-                                        config_data = file.readlines()
+    if not (request.user.is_superuser or request.user.is_authenticated):
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Invalid method'}, status=405)
 
-                        
-                                if redirect_rule.strip() not in ''.join(config_data):
-                            
-                                    inserted = False
-                                    for index, line in enumerate(config_data):
-                                        if line.strip() == '}':
-                                            # Insert the redirect rule just before the last closing `}`
-                                            config_data.insert(index+1, redirect_rule)
-                                            inserted = True
-                                            break
+    name            = request.POST.get('domain', '').strip().lower()
+    pathlocation    = request.POST.get('path', '').strip()
+    newpathlocation = request.POST.get('newpath', '').strip()
+    maindomain      = request.POST.get('maindomain', '').strip().lower()
+    redir_type      = request.POST.get('type', '301').strip()
 
-                                    if inserted:
-                                        # Write the modified configuration back to the file
-                                        with open(nginx_conf_path, 'w') as file:
-                                            file.writelines(config_data)
+    if not name or not pathlocation or not newpathlocation:
+        return JsonResponse({'status': 'error', 'message': 'Missing required fields.'})
+    if not pathlocation.startswith('/'):
+        pathlocation = '/' + pathlocation
+    if redir_type not in ('301', '302'):
+        redir_type = '301'
 
-                                        dataaaa=redir.objects.create(maindomain=maindomain,domain=name,path=pathlocation,newpath=newpathlocation)
-                                        _ln_src = f'{paths.NGINX_SITES_AVAILABLE}/{name}.conf'
-                                        _ln_dst = f'{paths.NGINX_SITES_ENABLED}/{name}.conf'
-                                        if sys.platform == 'win32':
-                                            shutil.copy2(_ln_src, _ln_dst)
-                                        else:
-                                            run_command(f'sudo ln -s {_ln_src} {_ln_dst}')
-                                        try:
-                                            get_platform().services.reload('nginx')
-                                        except Exception:
-                                            pass
-                                        import time
-                                        time.sleep(2)
-                                        
-                                        return JsonResponse({'status': 'success', 'message': 'Already Exist'})
-                                    else:
-                                        return JsonResponse({'status': 'error', 'message': 'Already Exist'})
-                                
-                                
-                                
-                                
-                            except:
-                                namm=subdomainname.objects.get(subdomain=name)
-                                with open(nginx_conf_path, 'r') as file:
-                                        config_data = file.readlines()
+    _reserved = {'/phpmyadmin', '/phpmyadmin/', '/static', '/static/', '/media', '/.well-known'}
+    if pathlocation.rstrip('/') in {r.rstrip('/') for r in _reserved}:
+        return JsonResponse({'status': 'c', 'message': 'Reserved system path — cannot redirect.'})
 
-                                    # Check if the redirect rule already exists to avoid duplication
-                                if redirect_rule.strip() not in ''.join(config_data):
-                                    # Find where to insert the redirect rule
-                                    inserted = False
-                                    for index, line in enumerate(config_data):
-                                        if line.strip() == '}':
-                                            # Insert the redirect rule just before the last closing `}`
-                                            config_data.insert(index+1, redirect_rule)
-                                            inserted = True
-                                            break
+    # Ownership check for non-admins
+    if not request.user.is_superuser:
+        try:
+            owner = user.objects.get(username=request.user)
+            allowed = {owner.domain} | set(
+                subdomainname.objects.filter(domain=owner.domain).values_list('subdomain', flat=True)
+            )
+            if name not in allowed:
+                return JsonResponse({'status': 'error', 'message': 'Unauthorized domain.'}, status=403)
+        except Exception:
+            return JsonResponse({'status': 'error', 'message': 'Unauthorized.'}, status=403)
 
-                                    if inserted:
-                                        # Write the modified configuration back to the file
-                                        with open(nginx_conf_path, 'w') as file:
-                                            file.writelines(config_data)
+    # Duplicate check
+    if redir.objects.filter(domain=name, path=pathlocation).exists():
+        return JsonResponse({'status': 'error', 'message': 'A redirect for this path already exists.'})
 
-                                        dataaaa=redir.objects.create(maindomain=maindomain,domain=name,path=pathlocation,newpath=newpathlocation)
-                                        _ln_src = f'{paths.NGINX_SITES_AVAILABLE}/{name}.conf'
-                                        _ln_dst = f'{paths.NGINX_SITES_ENABLED}/{name}.conf'
-                                        if sys.platform == 'win32':
-                                            shutil.copy2(_ln_src, _ln_dst)
-                                        else:
-                                            run_command(f'sudo ln -s {_ln_src} {_ln_dst}')
-                                        try:
-                                            get_platform().services.reload('nginx')
-                                        except Exception:
-                                            pass
-                                        import time
-                                        time.sleep(2)
-                                        
-                                        return JsonResponse({'status': 'success', 'message': 'Already Exist'})
-                                    else:
-                                        return JsonResponse({'status': 'error', 'message': 'Already Exist'})                  
-        return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
+    # Resolve doc root
+    doc_root = None
+    site_user = None
+    try:
+        d_obj = domain.objects.get(domain=name)
+        doc_root = os.path.join(paths.HOME_BASE, d_obj.dir, 'public_html')
+        site_user = d_obj.dir
+    except domain.DoesNotExist:
+        try:
+            s_obj = subdomainname.objects.get(subdomain=name)
+            doc_root = os.path.join(paths.HOME_BASE, s_obj.dir, 'public_html')
+            site_user = s_obj.dir
+        except subdomainname.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': f'Domain {name} not registered in panel.'})
 
+    # Build destination
+    if newpathlocation.startswith('http://') or newpathlocation.startswith('https://'):
+        destination = newpathlocation
+    else:
+        if not newpathlocation.startswith('/'):
+            newpathlocation = '/' + newpathlocation
+        destination = f'https://{name}{newpathlocation}'
+
+    from voidplatform.linux.web import get_active_engine
+    engine = get_active_engine()
+
+    try:
+        if engine == 'nginx':
+            conf_path = os.path.join(paths.NGINX_SITES_AVAILABLE, f'{name}.conf')
+            if not os.path.exists(conf_path):
+                return JsonResponse({'status': 'error', 'message': 'Nginx config not found for this domain.'})
+
+            read_r = _sp.run(['sudo', 'cat', conf_path], capture_output=True, text=True)
+            conf_text = read_r.stdout if read_r.returncode == 0 else open(conf_path).read()
+
+            if _re.search(rf'location\s+{_re.escape(pathlocation)}\s*\{{', conf_text):
+                return JsonResponse({'status': 'error', 'message': 'Location block already exists in nginx config.'})
+
+            redirect_block = (
+                f'\n    # VP-REDIR {pathlocation}\n'
+                f'    location {pathlocation} {{\n'
+                f'        return {redir_type} {destination};\n'
+                f'    }}\n'
+            )
+            last_brace = conf_text.rfind('\n}')
+            if last_brace == -1:
+                last_brace = conf_text.rfind('}')
+            new_conf = conf_text[:last_brace] + redirect_block + conf_text[last_brace:]
+
+            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.conf') as tmp:
+                tmp.write(new_conf)
+                tmp_path = tmp.name
+            _sp.run(['sudo', 'chown', 'root:root', tmp_path], check=False)
+            _sp.run(['sudo', 'chmod', '644', tmp_path], check=False)
+            mv = _sp.run(['sudo', 'mv', tmp_path, conf_path])
+            if mv.returncode != 0:
+                return JsonResponse({'status': 'error', 'message': 'Failed to write nginx config (permission denied).'})
+
+            test = _sp.run(['sudo', 'nginx', '-t'], capture_output=True, text=True)
+            if test.returncode != 0:
+                _sp.run(['sudo', 'mv', f'/tmp/{name}_nginx_backup.conf', conf_path], check=False) # best effort restore
+                return JsonResponse({'status': 'error', 'message': f'Nginx config test failed: {test.stderr.strip()}'})
+            _sp.run(['sudo', 'systemctl', 'reload', 'nginx'], check=False)
+
+        else:
+            # OLS: write .htaccess RewriteRule
+            htaccess_path = os.path.join(doc_root, '.htaccess')
+            htaccess = ''
+            if os.path.exists(htaccess_path):
+                r2 = _sp.run(['sudo', 'cat', htaccess_path], capture_output=True, text=True)
+                htaccess = r2.stdout if r2.returncode == 0 else open(htaccess_path, 'r', errors='replace').read()
+
+            rule_pat = _re.escape(pathlocation.lstrip('/'))
+            if _re.search(rf'RewriteRule\s+\^{rule_pat}', htaccess):
+                return JsonResponse({'status': 'error', 'message': 'RewriteRule already exists for this path.'})
+
+            flag = 'R=301,L' if redir_type == '301' else 'R=302,L'
+            new_rule = (
+                f'\n# VP-REDIR {pathlocation}\n'
+                f'RewriteEngine On\n'
+                f'RewriteRule ^{pathlocation.lstrip("/")}(/.*)?$ {destination} [{flag}]\n'
+            )
+            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.htaccess') as tmp:
+                tmp.write(htaccess.rstrip('\n') + new_rule + '\n')
+                tmp_path = tmp.name
+            _sp.run(['sudo', 'mv', tmp_path, htaccess_path], check=False)
+            _sp.run(['sudo', 'chown', f'{site_user}:{site_user}', htaccess_path], check=False)
+            _sp.run(['sudo', 'chmod', '644', htaccess_path], check=False)
+            _sp.run(['sudo', 'systemctl', 'reload', 'lsws'], check=False)
+
+        redir.objects.create(maindomain=maindomain, domain=name, path=pathlocation, newpath=newpathlocation)
+        return JsonResponse({'status': 'success', 'message': f'Redirect added: {pathlocation} → {destination} ({redir_type})'})
+
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f'addredirectionnn error: {e}', exc_info=True)
+        return JsonResponse({'status': 'error', 'message': str(e)})
 
 
 @login_required(login_url='/')
 def delredirectionnn(request):
-    if request.user.is_superuser or request.user.is_authenticated:
-        if request.method=="POST":
-                            data = json.loads(request.body)
-                            name=data.get('domain').strip(' ')
-                        
-                            pathlocation=data.get('path').strip(' ')
-                            newpathlocation=data.get('newpath').strip(' ')
-                            
-                            
-                            nginx_conf_path = os.path.join(paths.NGINX_SITES_AVAILABLE, f'{name}.conf')
+    """
+    Remove a URL redirect — supports both Nginx and OpenLiteSpeed.
+    """
+    import re as _re
+    import tempfile
+    import subprocess as _sp
+    import os
+    import json
+    from django.http import JsonResponse
+    from control.models import redir, domain, subdomainname, user
+    from voidplatform.config import LinuxPaths as paths
 
-                            redirect_rule_start ='location '+pathlocation
-                            redirect_rule_end = '}'
-                            
-                        
-                            try:
-                                
-                                namm=domain.objects.get(domain=name)
+    if not (request.user.is_superuser or request.user.is_authenticated):
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Invalid method'}, status=405)
 
-                                with open(nginx_conf_path, 'r') as file:
-                                        config_data = file.readlines()
+    try:
+        body = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON body.'})
 
-                                    # Check if the redirect rule already exists to avoid duplication
-                                in_redirect_block = False
-                                new_config_data = []
-                                for line in config_data:
-                                    # Check if the current line starts the redirect rule
-                                    if redirect_rule_start in line:
-                                        in_redirect_block = True  # Start ignoring lines in this block
-                                    elif in_redirect_block and redirect_rule_end in line:
-                                        in_redirect_block = False  # End ignoring once we close the location block
-                                        continue  # Skip the current closing line
-                                    elif not in_redirect_block:
-                                        new_config_data.append(line)
+    name         = body.get('domain', '').strip()
+    pathlocation = body.get('path', '').strip()
 
-                                
-                        
-                                with open(nginx_conf_path, 'w') as file:
-                                        file.writelines(new_config_data)
+    if not name or not pathlocation:
+        return JsonResponse({'status': 'error', 'message': 'Missing required fields.'})
 
-                                try:
-                                    get_platform().services.reload('nginx')
-                                except Exception:
-                                    pass
-                                import time
-                                time.sleep(2)
-                            
-                                xxxxxx=redir.objects.get(domain=name, path=pathlocation)
-                                xxxxxx.delete()
-                                        
-                                return JsonResponse({'status': 'success', 'message': 'Already Exist'})
-                        
-                                
-                                
-                                
-                                
-                            except:
-                                namm=subdomainname.objects.get(subdomain=name)
-                                with open(nginx_conf_path, 'r') as file:
-                                        config_data = file.readlines()
+    if not request.user.is_superuser:
+        try:
+            owner = user.objects.get(username=request.user)
+            allowed = {owner.domain} | set(
+                subdomainname.objects.filter(domain=owner.domain).values_list('subdomain', flat=True)
+            )
+            if name not in allowed:
+                return JsonResponse({'status': 'error', 'message': 'Unauthorized domain.'}, status=403)
+        except Exception:
+            return JsonResponse({'status': 'error', 'message': 'Unauthorized.'}, status=403)
 
-                                    # Check if the redirect rule already exists to avoid duplication
-                                in_redirect_block = False
-                                new_config_data = []
-                                for line in config_data:
-                                    # Check if the current line starts the redirect rule
-                                    if redirect_rule_start in line:
-                                        in_redirect_block = True  # Start ignoring lines in this block
-                                    elif in_redirect_block and redirect_rule_end in line:
-                                        in_redirect_block = False  # End ignoring once we close the location block
-                                        continue  # Skip the current closing line
-                                    elif not in_redirect_block:
-                                        new_config_data.append(line)
+    # Resolve doc root
+    doc_root = None
+    site_user = None
+    try:
+        d_obj = domain.objects.get(domain=name)
+        doc_root = os.path.join(paths.HOME_BASE, d_obj.dir, 'public_html')
+    except domain.DoesNotExist:
+        try:
+            s_obj = subdomainname.objects.get(subdomain=name)
+            doc_root = os.path.join(paths.HOME_BASE, s_obj.dir, 'public_html')
+        except subdomainname.DoesNotExist:
+            pass
 
-                                
-                        
-                                with open(nginx_conf_path, 'w') as file:
-                                        file.writelines(new_config_data)
-                                xxxxxx=redir.objects.get(domain=name, path=pathlocation)
-                                xxxxxx.delete()
+    from voidplatform.linux.web import get_active_engine
+    engine = get_active_engine()
 
+    try:
+        if engine == 'nginx':
+            conf_path = os.path.join(paths.NGINX_SITES_AVAILABLE, f'{name}.conf')
+            if os.path.exists(conf_path):
+                r = _sp.run(['sudo', 'cat', conf_path], capture_output=True, text=True)
+                conf_text = r.stdout if r.returncode == 0 else open(conf_path).read()
 
-                                try:
-                                    get_platform().services.reload('nginx')
-                                except Exception:
-                                    pass
-                                        
-                                import time
-                                time.sleep(2)
-                                return JsonResponse({'status': 'success', 'message': 'Already Exist'})             
-        return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
+                esc = _re.escape(pathlocation)
+                # Remove VP-tagged block first
+                new_conf = _re.sub(
+                    rf'\n\s*#\s*VP-REDIR\s+{esc}\s*\n\s*location\s+{esc}\s*\{{[^}}]*\}}\n?',
+                    '\n', conf_text, flags=_re.DOTALL
+                )
+                # Generic fallback removal
+                if new_conf == conf_text:
+                    new_conf = _re.sub(
+                        rf'\s*location\s+{esc}\s*\{{[^}}]*\}}\n?',
+                        '\n', conf_text, flags=_re.DOTALL
+                    )
 
+                with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.conf') as tmp:
+                    tmp.write(new_conf)
+                    tmp_path = tmp.name
+                _sp.run(['sudo', 'mv', tmp_path, conf_path], check=False)
+                _sp.run(['sudo', 'chown', 'root:root', conf_path], check=False)
+                _sp.run(['sudo', 'chmod', '644', conf_path], check=False)
+                test = _sp.run(['sudo', 'nginx', '-t'], capture_output=True, text=True)
+                if test.returncode == 0:
+                    _sp.run(['sudo', 'systemctl', 'reload', 'nginx'], check=False)
+        else:
+            if doc_root:
+                htaccess_path = os.path.join(doc_root, '.htaccess')
+                if os.path.exists(htaccess_path):
+                    r2 = _sp.run(['sudo', 'cat', htaccess_path], capture_output=True, text=True)
+                    htaccess = r2.stdout if r2.returncode == 0 else open(htaccess_path, 'r', errors='replace').read()
+                    rule_pat = _re.escape(pathlocation.lstrip('/'))
+                    new_ht = _re.sub(
+                        rf'\n?#\s*VP-REDIR\s+{_re.escape(pathlocation)}\nRewriteEngine On\nRewriteRule\s+\^{rule_pat}[^\n]*\n?',
+                        '\n', htaccess, flags=_re.DOTALL
+                    )
+                    if new_ht == htaccess:
+                        new_ht = _re.sub(rf'RewriteRule\s+\^{rule_pat}[^\n]*\n?', '', htaccess)
+                    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.htaccess') as tmp:
+                        tmp.write(new_ht)
+                        tmp_path = tmp.name
+                    _sp.run(['sudo', 'mv', tmp_path, htaccess_path], check=False)
+                    _sp.run(['sudo', 'chmod', '644', htaccess_path], check=False)
+                    _sp.run(['sudo', 'systemctl', 'reload', 'lsws'], check=False)
 
+        redir.objects.filter(domain=name, path=pathlocation).delete()
+        return JsonResponse({'status': 'success', 'message': 'Redirect removed successfully.'})
 
-
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f'delredirectionnn error: {e}', exc_info=True)
+        return JsonResponse({'status': 'error', 'message': str(e)})
 
 
 def _background_terminate_user(domain_str, mainusername, subdomains):

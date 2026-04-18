@@ -165,133 +165,191 @@
                         <form id="addr" method="post" action="">{% csrf_token %}
                         <div class="">
                             <div class="row clearfix">
+                    <div class="col-lg-12">
+                        <div class="card glass-card">
+                            <div class="body">
+                                <div class="row">
+                                    <div class="col-lg-5 col-md-12">
+                                        <div class="redirect-form-container">
+                                            <h4 class="mb-4 text-white" style="font-weight: 700;"><i class="fa fa-link" style="color: #6366f1;"></i> Create Redirect</h4>
+                                            <form id="addr" method="post" action="">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="maindomain" value="{{domain}}">
+                                                
+                                                <div class="form-group modern-input-group">
+                                                    <label class="text-white-50">Target Domain</label>
+                                                    <select name="domain" class="form-control modern-select" required>
+                                                        <option value="{{domain}}">{{domain}}</option>
+                                                        {% for i in subdomain %}
+                                                        <option value="{{i.subdomain}}">{{i.subdomain}}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
 
+                                                <div class="form-group modern-input-group">
+                                                    <label class="text-white-50">Source Path <small>(e.g. /old-page)</small></label>
+                                                    <input type="text" name="path" class="form-control modern-input" value="/" placeholder="/old-path" required>
+                                                </div>
 
+                                                <div class="form-group modern-input-group">
+                                                    <label class="text-white-50">Destination URL/Path <small>(e.g. https://google.com or /new-page)</small></label>
+                                                    <input type="text" name="newpath" class="form-control modern-input" value="/" placeholder="https://new-domain.com/ or /new" required>
+                                                </div>
 
-                       
+                                                <div class="form-group modern-input-group">
+                                                    <label class="text-white-50">Redirect Type</label>
+                                                    <select name="type" class="form-control modern-select" required>
+                                                        <option value="301" selected>301 — Permanent Redirect</option>
+                                                        <option value="302">302 — Temporary Redirect</option>
+                                                    </select>
+                                                </div>
 
-                                    <div class="col-lg-6 col-md-6 col-sm-12">
-                                        <div class="form-group">
-                                            <label for="text-input1">Select Domain</label>
-                                            <select name="domain" class="form-control show-tick" required>
-                                                <option>Domain</option>
-                                                <option value="{{domain}}">{{domain}}</option>
-                                                {% for i in subdomain %}
-                                                <option value="{{i.subdomain}}">{{i.subdomain}}</option>
-                                                {% endfor %}
-
-                                            </select>
+                                                <button id="submitRedirectBtn" onclick="addredirec(event)" class="btn btn-primary modern-btn w-100 mt-3">
+                                                    <i class="fa fa-plus-circle"></i> Create Redirect
+                                                </button>
+                                            </form>
                                         </div>
-
-
-                                        <input type="text" name="maindomain" class="form-control" hidden value="{{domain}}" 
-                                        required>
-
-                                        <div class="form-group">
-                                            <label for="text-input1">Path</label>
-                                            <input type="text" name="path" class="form-control" value="/" placeholder="/"
-                                                required>
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label for="text-input1">New Path</label>
-                                            <input type="text" name="newpath" class="form-control" value="/" placeholder="/"
-                                                required>
-                                        </div>
-
-
-
-
-                                        <div style="display: flex; justify-content: center; align-items: center;">
-                                            <button onclick="addredirec(event)"
-                                                class="btn btn-primary">Submit/Save</button>
-                                        </div>
-
-
                                     </div>
-                             
-                                <div class="modal animated fadeIn show" id="pro1"
-                                    style="display: none; margin-top: 300px;">
-                                    <div class="modal-dialog modal-sm" role="document">
-                                        <div class="modal-content">
-                                            <div class="modal-header">
-                                                <p class="processing">Processing<span class="dots"></span></p>
-
+                                    
+                                    <div class="col-lg-7 col-md-12">
+                                        <div class="redirect-list-container">
+                                            <h4 class="mb-4 text-white" style="font-weight: 700;"><i class="fa fa-list" style="color: #6366f1;"></i> Active Redirects</h4>
+                                            
+                                            <div class="table-responsive">
+                                                <table class="table table-hover modern-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Domain</th>
+                                                            <th>Source Path</th>
+                                                            <th>Destination</th>
+                                                            <th class="text-center">Action</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% if allredir %}
+                                                            {% for i in allredir %}
+                                                            <tr>
+                                                                <td class="font-weight-bold text-white">{{i.domain}}</td>
+                                                                <td style="color:#a78bfa;">{{i.path}}</td>
+                                                                <td class="text-truncate" style="max-width: 150px;" title="{{i.newpath}}">{{i.newpath}}</td>
+                                                                <td class="text-center">
+                                                                    <button onclick="delredir(event,'{{i.domain}}','{{i.path}}','{{i.newpath}}');" class="btn btn-sm btn-outline-danger modern-btn-sm" title="Delete Redirect">
+                                                                        <i class="fa fa-trash"></i>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                            {% endfor %}
+                                                        {% else %}
+                                                            <tr>
+                                                                <td colspan="4" class="text-center text-white-50 py-4">No active redirects found.</td>
+                                                            </tr>
+                                                        {% endif %}
+                                                    </tbody>
+                                                </table>
                                             </div>
-
                                         </div>
                                     </div>
                                 </div>
                             </div>
-
-                        </div>
-                    </form>
-                    </div>
-                    <div class="col-lg-6 col-md-12">
-                        <div class="">
-                            <div class="header">
-                                <h4>Redirection Info</h4>
-                            </div>
-                            <div class="body table-responsive social_media_table"
-                                style="max-height: 300px; overflow-y: auto;">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-
-                                            <th>Domain</th>
-                                            <th>Path</th>
-                                            <th>New Path</th>
-                                            <th>Delete</th>
-
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-
-                                      
-
-                                        {% for i in allredir %}
-                                        <tr>
-
-
-                                            <td>{{i.domain}}</td>
-
-                                  
-
-
-                                            <td>{{i.path}}</td>
-                                    
-                                            <td>{{i.newpath}}</td>
-
-                                            <td>
-
-                                                <button onclick="delredir(event,'{{i.domain}} ','{{i.path}} ','{{i.newpath}} ');"
-                                                    class="btn btn-danger"> Delete <i
-                                                        class="fa fa-trash"></i></button>
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
                         </div>
                     </div>
-
                 </div>
 
+                <style>
+                    /* Glassmorphism Aesthetics */
+                    .glass-card {
+                        background: rgba(30, 41, 59, 0.7);
+                        backdrop-filter: blur(12px);
+                        -webkit-backdrop-filter: blur(12px);
+                        border: 1px solid rgba(255,255,255,0.05);
+                        border-radius: 16px;
+                        box-shadow: 0 8px 32px rgba(0,0,0,0.2) !important;
+                        overflow: hidden;
+                    }
+                    .modern-input-group label {
+                        font-weight: 600;
+                        font-size: 0.85rem;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                        margin-bottom: 6px;
+                        color: #94a3b8 !important;
+                    }
+                    .modern-input, .modern-select {
+                        background: rgba(15, 23, 42, 0.6) !important;
+                        border: 1px solid rgba(255,255,255,0.1) !important;
+                        color: #fff !important;
+                        border-radius: 8px;
+                        padding: 10px 15px;
+                        transition: all 0.3s ease;
+                    }
+                    .modern-input:focus, .modern-select:focus {
+                        border-color: #6366f1 !important;
+                        box-shadow: 0 0 0 3px rgba(99,102,241,0.2) !important;
+                    }
+                    .modern-select option {
+                        background: #1e293b;
+                        color: #fff;
+                    }
+                    .modern-btn {
+                        background: linear-gradient(135deg, #6366f1, #4f46e5);
+                        border: none;
+                        border-radius: 8px;
+                        padding: 12px;
+                        font-weight: 700;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                        transition: all 0.2s;
+                        box-shadow: 0 4px 15px rgba(99,102,241,0.3);
+                    }
+                    .modern-btn:hover {
+                        transform: translateY(-2px);
+                        box-shadow: 0 6px 20px rgba(99,102,241,0.4);
+                        background: linear-gradient(135deg, #4f46e5, #4338ca);
+                    }
+                    .modern-btn-sm {
+                        border-radius: 6px;
+                        padding: 4px 10px;
+                        transition: all 0.2s;
+                    }
+                    .modern-btn-sm:hover {
+                        transform: scale(1.05);
+                    }
+                    .modern-table {
+                        color: #cbd5e1;
+                    }
+                    .modern-table thead th {
+                        border-bottom: 2px solid rgba(255,255,255,0.05);
+                        color: #94a3b8;
+                        text-transform: uppercase;
+                        font-size: 0.8rem;
+                        letter-spacing: 0.5px;
+                        border-top: none;
+                    }
+                    .modern-table tbody td {
+                        border-bottom: 1px solid rgba(255,255,255,0.05);
+                        vertical-align: middle;
+                    }
+                    .redirect-form-container {
+                        padding: 10px 20px 20px 0;
+                        border-right: 1px solid rgba(255,255,255,0.08);
+                    }
+                    .redirect-list-container {
+                        padding: 10px 0 20px 20px;
+                    }
+                    @media (max-width: 991px) {
+                        .redirect-form-container {
+                            border-right: none;
+                            border-bottom: 1px solid rgba(255,255,255,0.08);
+                            padding: 0 0 30px 0;
+                            margin-bottom: 30px;
+                        }
+                        .redirect-list-container {
+                            padding: 0;
+                        }
+                    }
+                </style>
 
-
-
-
-
-
-
-
-
-
-            </div>
-
-        </div>
-        <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
+                <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
             <div class="modal-dialog modal-sm" role="document">
                 <div class="modal-content">
                     <div class="modal-header">
