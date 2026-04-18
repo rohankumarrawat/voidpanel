@@ -1499,10 +1499,13 @@ def backupdata(request):
         locations = [l for l in [front, mail, open1, lets] if l]
         
         def _run_full_backup_thread():
+            import time as _time
+            import json as _json
             progress_file = os.path.join(main_directory, ".backup_progress")
             try:
+                meta = _json.dumps({'pct': 5, 'pid': threading.current_thread().ident, 'ts': _time.time()})
                 with open(progress_file, "w") as pf:
-                    pf.write("5") # initial 5% during DB dumps
+                    pf.write(meta)
             except Exception:
                 pass
                 
@@ -1550,6 +1553,9 @@ def backup_status(request, data):
         current = request.user
         
     try:
+        import json as _json
+        import time as _time
+
         # Ownership: make sure the domain belongs to this user
         owner_domain = user.objects.get(username=current).domain
         if data != owner_domain and not request.user.is_superuser:
@@ -1560,13 +1566,32 @@ def backup_status(request, data):
         progress_file = os.path.join(main_directory, ".backup_progress")
         
         if os.path.exists(progress_file):
-            with open(progress_file, 'r') as f:
-                content = f.read().strip()
             try:
-                pct = int(content)
-            except ValueError:
-                pct = 0
-            return JsonResponse({'status': 'processing', 'progress': pct})
+                with open(progress_file, 'r') as f:
+                    raw = f.read().strip()
+
+                # Try new JSON format first
+                try:
+                    meta = _json.loads(raw)
+                    pct = int(meta.get('pct', 0))
+                    ts  = float(meta.get('ts', 0))
+                    age = _time.time() - ts
+
+                    # Stale detection: if last update was > 10 minutes ago, backup is dead
+                    if age > 600:
+                        try:
+                            os.remove(progress_file)
+                        except Exception:
+                            pass
+                        return JsonResponse({'status': 'idle'})
+
+                except (ValueError, KeyError):
+                    # Old plain integer format fallback
+                    pct = int(raw) if raw.isdigit() else 0
+
+                return JsonResponse({'status': 'processing', 'progress': pct})
+            except Exception:
+                return JsonResponse({'status': 'idle'})
         else:
             return JsonResponse({'status': 'idle'})
     except Exception:

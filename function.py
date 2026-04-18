@@ -1170,63 +1170,95 @@ def zip_multiple_locations_backup(main_directory, locations, zip_filename):
                 else:
                     # If it's a file, add it directly
                     zipf.write(location, arcname=os.path.basename(location))
-         
+
 def zip_multiple_locations_backup_user(main_directory, locations, zip_filename, current, progress_file=None):
+    import time
+    import json
+
+    # Directories that should NEVER be backed up (regenerable, huge, or irrelevant)
+    EXCLUDED_DIRS = {
+        'node_modules', '__pycache__', '.git', '.svn', '.hg',
+        'venv', '.venv', 'env', '.env', '.tox',
+        '.npm', '.npm_cache', '.cache', '.next', '.nuxt',
+        'dist', 'bower_components',
+    }
+    # Files to explicitly skip
+    EXCLUDED_NAMES = {'.backup_progress', '.DS_Store', 'Thumbs.db'}
+
     # Ensure the main directory exists
     if not os.path.exists(main_directory):
         os.makedirs(main_directory)
-    # Path to the zip file
+
     zip_filepath = os.path.join(main_directory, f"{zip_filename}.zip")
 
+    # Write PID + start timestamp to progress file for stale detection
+    if progress_file:
+        try:
+            meta = json.dumps({'pct': 5, 'pid': os.getpid(), 'ts': time.time()})
+            with open(progress_file, 'w') as pf:
+                pf.write(meta)
+        except Exception:
+            pass
+
     file_list = []
-    # Pre-calculate files for percentage indexing
     for location in locations:
-        if os.path.exists(location):
-            if os.path.isdir(location):
-                for root, dirs, files in os.walk(location):
-                    for file in files:
-                        file_list.append(
-                            (os.path.join(root, file), os.path.join(os.path.basename(location), os.path.relpath(os.path.join(root, file), start=location)))
-                        )
-            else:
-                file_list.append((location, os.path.basename(location)))
+        if not os.path.exists(location):
+            continue
+        if os.path.isdir(location):
+            for root, dirs, files in os.walk(location, topdown=True):
+                # Prune excluded directories in-place (prevents os.walk from descending)
+                dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS]
+                for file in files:
+                    full_path = os.path.join(root, file)
+                    fname = os.path.basename(full_path)
+                    # Skip backup zips, progress files, and excluded names
+                    if fname in EXCLUDED_NAMES:
+                        continue
+                    if fname.startswith("backup_") and fname.endswith(".zip"):
+                        continue
+                    arcname = os.path.join(
+                        os.path.basename(location),
+                        os.path.relpath(full_path, start=location)
+                    )
+                    file_list.append((full_path, arcname))
+        else:
+            fname = os.path.basename(location)
+            if fname not in EXCLUDED_NAMES:
+                file_list.append((location, fname))
 
     total_files = len(file_list)
     processed = 0
+    # Update progress every 1% (min 1 file, max every 50 files) for smooth bar movement
+    update_interval = max(1, min(50, total_files // 100))
+    last_pct = 5
 
-    # Create a zip file in write mode
-    with zipfile.ZipFile(zip_filepath, 'w') as zipf:
+    with zipfile.ZipFile(zip_filepath, 'w', compression=zipfile.ZIP_DEFLATED, allowZip64=True) as zipf:
         for file_path, arcname in file_list:
-            # Skip the currently forming zip file if it overlaps
             if file_path == zip_filepath:
                 continue
-            
-            # Skip old backup zips or the progress file
-            fname = os.path.basename(file_path)
-            if fname.startswith("backup_") and fname.endswith(".zip"):
-                continue
-            if fname == ".backup_progress":
-                continue
-
             try:
                 zipf.write(file_path, arcname=arcname)
             except Exception:
                 continue
-            
+
             processed += 1
-            # Update progress file safely every few ticks to save IO mapping
-            if progress_file and total_files > 0 and processed % max(1, total_files // 100) == 0:
-                pct = int((processed / total_files) * 100)
-                try:
-                    with open(progress_file, 'w') as pf:
-                        pf.write(str(pct))
-                except Exception:
-                    pass
+            if progress_file and total_files > 0 and processed % update_interval == 0:
+                pct = max(5, min(99, int((processed / total_files) * 95) + 5))
+                if pct != last_pct:
+                    last_pct = pct
+                    try:
+                        meta = json.dumps({'pct': pct, 'pid': os.getpid(), 'ts': time.time()})
+                        with open(progress_file, 'w') as pf:
+                            pf.write(meta)
+                    except Exception:
+                        pass
+
     if sys.platform != 'win32':
         run_command(f'sudo chown {current}:{current} {zip_filepath}')
     else:
         run_command(f'icacls "{zip_filepath}" /grant {current}:F')
-                
+
+          
 
 
 
