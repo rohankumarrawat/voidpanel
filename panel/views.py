@@ -4935,6 +4935,7 @@ def phpsetting(request):
 @login_required(login_url='/')
 def savephpini(request):
     """Dedicated endpoint for saving PHP INI content sent via JSON."""
+    import subprocess
     from panel.logger import get_logger
     logger = get_logger(__name__)
     if not request.user.is_superuser:
@@ -4958,12 +4959,23 @@ def savephpini(request):
         # Platform-aware PHP INI path
         if sys.platform == 'win32':
             ini_path = os.path.join(paths.PHP_FPM_INI_DIR, version, 'php.ini')
+            os.makedirs(os.path.dirname(ini_path), exist_ok=True)
+            with open(ini_path, 'w', encoding='utf-8') as f:
+                f.write(content)
         else:
             ini_path = f'/etc/php/{version}/fpm/php.ini'
-
-        os.makedirs(os.path.dirname(ini_path), exist_ok=True)
-        with open(ini_path, 'w', encoding='utf-8') as f:
-            f.write(content)
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp:
+                tmp.write(content)
+                tmp_path = tmp.name
+                
+            mv_res = subprocess.run(['sudo', 'mv', tmp_path, ini_path], capture_output=True, text=True)
+            subprocess.run(['sudo', 'chown', 'root:root', ini_path], capture_output=True)
+            subprocess.run(['sudo', 'chmod', '644', ini_path], capture_output=True)
+            
+            if mv_res.returncode != 0:
+                os.unlink(tmp_path)
+                return JsonResponse({'status': 'error', 'message': f'Failed to write INI: {mv_res.stderr}'}, status=500)
 
         # Reload PHP service — platform-aware
         if sys.platform == 'win32':
@@ -5044,6 +5056,7 @@ def installphpversion(request):
 
 @login_required(login_url='/')
 def installphpextention(request):
+    import subprocess
     from panel.logger import get_logger
     logger = get_logger(__name__)
     if not request.user.is_superuser:
