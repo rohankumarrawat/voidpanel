@@ -2199,13 +2199,19 @@ def _background_provision_user(domain12, email, password, package12, sto, domain
             subprocess.run(['sudo', 'mkdir', '-p', f"{path}/ssl"], check=True)
             subprocess.run(['sudo', 'mkdir', '-p', os.path.join(path, 'mail', domain12)], check=True)
             subprocess.run(['sudo', 'mkdir', '-p', f"{path}/logs"], check=True)
+            # Create Recycle Bin dir owned by www-data so the panel can always write to it
+            subprocess.run(['sudo', 'mkdir', '-p', f"{path}/.trash"], check=True)
             # CRITICAL: chown+chmod BEFORE writing files — dirs are root-owned after sudo mkdir
             subprocess.run(['sudo', 'chown', '-R', 'www-data:www-data', path], check=True)
             subprocess.run(['sudo', 'chmod', '-R', '755', path], check=True)
+            # .trash must be 777 so user files (owned by the linux user) can also be moved in/out
+            subprocess.run(['sudo', 'chmod', '777', f"{path}/.trash"], check=True)
         else:
             os.makedirs(f"{path}/ssl", exist_ok=True)
             os.makedirs(os.path.join(path, 'mail', domain12), exist_ok=True)
             os.makedirs(f"{path}/logs", exist_ok=True)
+            os.makedirs(f"{path}/.trash", exist_ok=True)
+
         inipath = path + '/public_html/php.ini'
         php_ini_content = f"""
 ; PHP settings for {domain12}
