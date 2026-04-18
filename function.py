@@ -1171,28 +1171,57 @@ def zip_multiple_locations_backup(main_directory, locations, zip_filename):
                     # If it's a file, add it directly
                     zipf.write(location, arcname=os.path.basename(location))
          
-def zip_multiple_locations_backup_user(main_directory, locations, zip_filename,current):
+def zip_multiple_locations_backup_user(main_directory, locations, zip_filename, current, progress_file=None):
     # Ensure the main directory exists
     if not os.path.exists(main_directory):
         os.makedirs(main_directory)
     # Path to the zip file
     zip_filepath = os.path.join(main_directory, f"{zip_filename}.zip")
 
+    file_list = []
+    # Pre-calculate files for percentage indexing
+    for location in locations:
+        if os.path.exists(location):
+            if os.path.isdir(location):
+                for root, dirs, files in os.walk(location):
+                    for file in files:
+                        file_list.append(
+                            (os.path.join(root, file), os.path.join(os.path.basename(location), os.path.relpath(os.path.join(root, file), start=location)))
+                        )
+            else:
+                file_list.append((location, os.path.basename(location)))
+
+    total_files = len(file_list)
+    processed = 0
+
     # Create a zip file in write mode
     with zipfile.ZipFile(zip_filepath, 'w') as zipf:
-        for location in locations:
-            if os.path.exists(location):
-                if os.path.isdir(location):
-                    # If it's a directory, add all files recursively
-                    for root, dirs, files in os.walk(location):
-                        for file in files:
-                            file_path = os.path.join(root, file)
-                            arcname = os.path.relpath(file_path, start=location)
-                            zipf.write(file_path, arcname=os.path.join(os.path.basename(location), arcname))
-                    
-                else:
-                    # If it's a file, add it directly
-                    zipf.write(location, arcname=os.path.basename(location))
+        for file_path, arcname in file_list:
+            # Skip the currently forming zip file if it overlaps
+            if file_path == zip_filepath:
+                continue
+            
+            # Skip old backup zips or the progress file
+            fname = os.path.basename(file_path)
+            if fname.startswith("backup_") and fname.endswith(".zip"):
+                continue
+            if fname == ".backup_progress":
+                continue
+
+            try:
+                zipf.write(file_path, arcname=arcname)
+            except Exception:
+                continue
+            
+            processed += 1
+            # Update progress file safely every few ticks to save IO mapping
+            if progress_file and total_files > 0 and processed % max(1, total_files // 100) == 0:
+                pct = int((processed / total_files) * 100)
+                try:
+                    with open(progress_file, 'w') as pf:
+                        pf.write(str(pct))
+                except Exception:
+                    pass
     if sys.platform != 'win32':
         run_command(f'sudo chown {current}:{current} {zip_filepath}')
     else:

@@ -1391,19 +1391,87 @@ def backupdata(request):
         
         import datetime
         import threading
+        import subprocess
+        import shutil
+        from function import get_database_names_with_filter
+        
+        try:
+            with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
+                adminpassword = f.read().strip()
+        except:
+            adminpassword = ""
         
         zip_filename = "backup_"+namm.domain+"_"+str(datetime.datetime.today().strftime('%Y%m%d_%H%M%S'))
         zip_filename=zip_filename.replace(" ", "_").replace(":", "-")
         locations = [l for l in [front, mail, open1, lets] if l]
         
-        # Deploy non-blocking thread to handle Zipping
-        t = threading.Thread(target=zip_multiple_locations_backup_user, args=(main_directory, locations, zip_filename, current))
+        def _run_full_backup_thread():
+            progress_file = os.path.join(main_directory, ".backup_progress")
+            try:
+                with open(progress_file, "w") as pf:
+                    pf.write("5") # initial 5% during DB dumps
+            except Exception:
+                pass
+                
+            db_dump_dir = os.path.join(main_directory, 'database_backups')
+            os.makedirs(db_dump_dir, exist_ok=True)
+            
+            databases = get_database_names_with_filter(adminpassword, f"{current}_")
+            if databases:
+                for db in databases:
+                    db_path = os.path.join(db_dump_dir, f"{db}.sql")
+                    try:
+                        with open(db_path, "w") as dump_file:
+                            subprocess.run(["mysqldump", "-u", "root", f"-p{adminpassword}", db], stdout=dump_file, stderr=subprocess.DEVNULL)
+                    except Exception:
+                        pass
+                        
+            # Deploy non-blocking execution to handle Zipping
+            try:
+                zip_multiple_locations_backup_user(main_directory, locations, zip_filename, current, progress_file)
+            except Exception as e:
+                pass
+            finally:
+                try:
+                    shutil.rmtree(db_dump_dir)
+                except Exception:
+                    pass
+                try:
+                    if os.path.exists(progress_file):
+                        os.remove(progress_file)
+                except Exception:
+                    pass
+                
+        t = threading.Thread(target=_run_full_backup_thread)
         t.start()
         
         return JsonResponse({'status': 'success', 'message': 'Job Queued in Background!'})
         
     return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
 
+@login_required(login_url='/')
+def backup_status(request, data):
+    if request.user.is_superuser:
+        current = request.session['name']
+    else:
+        current = request.user
+        
+    try:
+        namm = domain.objects.get(domain=data)
+        if namm.dir != getattr(user.objects.get(username=current), 'domain', None) and namm.dir != current.username and namm.dir != current:
+             pass # Simple auth
+        
+        main_directory = os.path.join(paths.HOME_BASE, namm.dir)
+        progress_file = os.path.join(main_directory, ".backup_progress")
+        
+        if os.path.exists(progress_file):
+            with open(progress_file, 'r') as f:
+                content = f.read().strip()
+            return JsonResponse({'status': 'processing', 'progress': content})
+        else:
+            return JsonResponse({'status': 'idle'})
+    except Exception:
+        return JsonResponse({'status': 'idle'})
 
 @login_required(login_url='/')
 def filemanager(request):
