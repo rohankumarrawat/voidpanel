@@ -2546,19 +2546,21 @@ def deletedns(request):
                 new_lines.append(line)
 
         if deleted:
-            with open(zone_file_path, 'w') as f:
-                f.writelines(new_lines)
+            import tempfile, subprocess
+            with tempfile.NamedTemporaryFile('w', delete=False) as tmp:
+                tmp.writelines(new_lines)
+                tmp_path = tmp.name
 
-            import subprocess
-            # Validate zone file using BIND industry standard (Linux only)
             if sys.platform != 'win32':
-                check = subprocess.run(['named-checkzone', domainname, zone_file_path], capture_output=True, text=True)
+                check = subprocess.run(['named-checkzone', domainname, tmp_path], capture_output=True, text=True)
                 if check.returncode != 0:
-                    # File is corrupted: Revert to original content
-                    with open(zone_file_path, 'w') as f:
-                        f.write(original_content)
+                    subprocess.run(['sudo', 'rm', '-f', tmp_path], check=False)
                     return JsonResponse({'status': 'error', 'message': 'DNS Validation failed. Record syntax may break the DNS zone.'}, status=400)
+            
+            subprocess.run(['sudo', 'mv', tmp_path, zone_file_path], check=True)
+            subprocess.run(['sudo', 'chown', 'bind:bind', zone_file_path], check=False)
 
+            if sys.platform != 'win32':
                 subprocess.run(['sudo', 'systemctl', 'reload', 'bind9'], check=False)
             return JsonResponse({'status': 'success', 'message': 'DNS record deleted successfully.'})
         else:
@@ -2622,19 +2624,23 @@ def adddnsrecord(request):
         with open(zone_file_path, 'r') as f:
             original_content = f.read()
 
-        with open(zone_file_path, 'a') as zone_file:
-            zone_file.write(f"\n; {record_type} Record added via VoidPanel\n")
-            zone_file.write(f"{name} {ttl} {record_class} {record_type} {data}\n")
+        new_content = original_content + f"\n; {record_type} Record added via VoidPanel\n{name} {ttl} {record_class} {record_type} {data}\n"
 
-        import subprocess
-        # Validate zone file using BIND industry standard (Linux only)
+        import tempfile, subprocess
+        with tempfile.NamedTemporaryFile('w', delete=False) as tmp:
+            tmp.write(new_content)
+            tmp_path = tmp.name
+
         if sys.platform != 'win32':
-            check = subprocess.run(['named-checkzone', domainname, zone_file_path], capture_output=True, text=True)
+            check = subprocess.run(['named-checkzone', domainname, tmp_path], capture_output=True, text=True)
             if check.returncode != 0:
-                with open(zone_file_path, 'w') as f:
-                    f.write(original_content)
+                subprocess.run(['sudo', 'rm', '-f', tmp_path], check=False)
                 return JsonResponse({'success': False, 'error': f'Invalid record syntax. BIND rejected the entry. Details: {check.stdout[:100]}'}, status=400)
+        
+        subprocess.run(['sudo', 'mv', tmp_path, zone_file_path], check=True)
+        subprocess.run(['sudo', 'chown', 'bind:bind', zone_file_path], check=False)
 
+        if sys.platform != 'win32':
             subprocess.run(['sudo', 'systemctl', 'reload', 'bind9'], check=False)
         return JsonResponse({'success': True, 'message': f'{record_type} record for "{name}" added successfully.'})
 
@@ -2705,18 +2711,21 @@ def editdnsrecord(request):
                 new_lines.append(line)
 
         if edited:
-            with open(zone_file_path, 'w') as f:
-                f.writelines(new_lines)
+            import tempfile, subprocess
+            with tempfile.NamedTemporaryFile('w', delete=False) as tmp:
+                tmp.writelines(new_lines)
+                tmp_path = tmp.name
 
-            import subprocess
-            # Validate zone file using BIND industry standard (Linux only)
             if sys.platform != 'win32':
-                check = subprocess.run(['named-checkzone', domainname, zone_file_path], capture_output=True, text=True)
+                check = subprocess.run(['named-checkzone', domainname, tmp_path], capture_output=True, text=True)
                 if check.returncode != 0:
-                    with open(zone_file_path, 'w') as f:
-                        f.write(original_content)
+                    subprocess.run(['sudo', 'rm', '-f', tmp_path], check=False)
                     return JsonResponse({'success': False, 'error': f'Invalid record syntax. Formatting rejected.'}, status=400)
+            
+            subprocess.run(['sudo', 'mv', tmp_path, zone_file_path], check=True)
+            subprocess.run(['sudo', 'chown', 'bind:bind', zone_file_path], check=False)
 
+            if sys.platform != 'win32':
                 subprocess.run(['sudo', 'systemctl', 'reload', 'bind9'], check=False)
             return JsonResponse({'success': True, 'message': 'DNS record updated successfully.'})
         else:
