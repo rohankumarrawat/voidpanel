@@ -1180,10 +1180,10 @@ def zip_multiple_locations_backup_user(main_directory, locations, zip_filename, 
         'node_modules', '__pycache__', '.git', '.svn', '.hg',
         'venv', '.venv', 'env', '.env', '.tox',
         '.npm', '.npm_cache', '.cache', '.next', '.nuxt',
-        'dist', 'bower_components', '.trash',  # .trash = Recycle Bin
+        'dist', 'bower_components', '.trash', '.backups', # .trash = Recycle Bin, .backups = Backup Quota Dir
     }
     # Files to explicitly skip
-    EXCLUDED_NAMES = {'.backup_progress', '.DS_Store', 'Thumbs.db'}
+    EXCLUDED_NAMES = {'.backup_progress', '.DS_Store', 'Thumbs.db', '.backup_done'}
 
     # Ensure the main directory exists
     if not os.path.exists(main_directory):

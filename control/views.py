@@ -1457,10 +1457,14 @@ def deletecron(request,data):
 
 def _get_backup_store(username):
     """Return a www-data-writable backup directory for a user.
-    Stored at /var/www/panel/.backups/<username>/ so www-data always owns it.
+    Stored at /home/<username>/.backups/ so it counts towards user quota,
+    but owned by www-data so the panel can manage it.
     """
-    store = os.path.join(paths.PANEL_ROOT, '.backups', str(username))
-    os.makedirs(store, exist_ok=True)
+    import subprocess
+    store = os.path.join(paths.HOME_BASE, str(username), '.backups')
+    subprocess.run(['sudo', 'mkdir', '-p', store], check=False)
+    subprocess.run(['sudo', 'chown', '-R', 'www-data:www-data', store], check=False)
+    subprocess.run(['sudo', 'chmod', '777', store], check=False)
     return store
 
 @login_required(login_url='/')
