@@ -870,8 +870,9 @@ def backup(request,data):
                     d['domain']=data
                     folder={}
                     directory=os.path.join(paths.HOME_BASE, lold.dir)
+                    backup_store = _get_backup_store(lold.dir)
                     
-                    zip_files = sorted(glob.glob(os.path.join(directory, "backup_*.zip")), reverse=True)
+                    zip_files = sorted(glob.glob(os.path.join(backup_store, "backup_*.zip")), reverse=True)
                     
                     for zip_file in zip_files:
                         basename = os.path.basename(zip_file)
@@ -936,13 +937,13 @@ def delete_backup(request):
             return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
 
         lold = domain.objects.get(domain=domainname)
-        directory = os.path.join(paths.HOME_BASE, lold.dir)
-        filepath = os.path.join(directory, filename)
+        backup_store = _get_backup_store(lold.dir)
+        filepath = os.path.join(backup_store, filename)
 
-        # Security check: file must be inside the user's home directory
+        # Security check: file must be inside the backup store (no path traversal)
         real_filepath = os.path.realpath(filepath)
-        real_directory = os.path.realpath(directory)
-        if not real_filepath.startswith(real_directory + os.sep):
+        real_store = os.path.realpath(backup_store)
+        if not real_filepath.startswith(real_store + os.sep):
             return JsonResponse({'status': 'error', 'message': 'Path traversal denied'}, status=403)
 
         if os.path.exists(real_filepath):
@@ -968,12 +969,12 @@ def download_backup(request, filename):
         domain_obj = user.objects.get(username=current)
         owner_domain = domain_obj.domain
         lold = domain.objects.get(domain=owner_domain)
-        directory = os.path.join(paths.HOME_BASE, lold.dir)
-        filepath = os.path.join(directory, filename)
+        backup_store = _get_backup_store(lold.dir)
+        filepath = os.path.join(backup_store, filename)
 
         real_filepath = os.path.realpath(filepath)
-        real_directory = os.path.realpath(directory)
-        if not real_filepath.startswith(real_directory + os.sep):
+        real_store = os.path.realpath(backup_store)
+        if not real_filepath.startswith(real_store + os.sep):
             raise Http404("Path traversal denied")
 
         if not os.path.exists(real_filepath):
@@ -1453,6 +1454,15 @@ def deletecron(request,data):
     except:
         return JsonResponse({'success': False, 'message': 'Cronjob not found.'})
         
+
+def _get_backup_store(username):
+    """Return a www-data-writable backup directory for a user.
+    Stored at /var/www/panel/.backups/<username>/ so www-data always owns it.
+    """
+    store = os.path.join(paths.PANEL_ROOT, '.backups', str(username))
+    os.makedirs(store, exist_ok=True)
+    return store
+
 @login_required(login_url='/')
 def backupdata(request):
     if request.user.is_superuser:
@@ -1497,13 +1507,15 @@ def backupdata(request):
         zip_filename = "backup_"+namm.domain+"_"+str(datetime.datetime.today().strftime('%Y%m%d_%H%M%S'))
         zip_filename=zip_filename.replace(" ", "_").replace(":", "-")
         locations = [l for l in [front, mail, open1, lets] if l]
+        # Use a www-data-writable backup store (www-data cannot write directly to /home/username/)
+        backup_store = _get_backup_store(namm.dir)
         
         def _run_full_backup_thread():
             import time as _time
             import json as _json
             import tempfile
-            progress_file = os.path.join(main_directory, ".backup_progress")
-            completed_file = os.path.join(main_directory, ".backup_done")
+            progress_file = os.path.join(backup_store, ".backup_progress")
+            completed_file = os.path.join(backup_store, ".backup_done")
             # Remove any stale completed marker from previous run
             try:
                 if os.path.exists(completed_file):
@@ -1533,7 +1545,7 @@ def backupdata(request):
             # Deploy non-blocking execution to handle Zipping
             zip_ok = False
             try:
-                zip_multiple_locations_backup_user(main_directory, locations, zip_filename, current, progress_file)
+                zip_multiple_locations_backup_user(backup_store, locations, zip_filename, current, progress_file)
                 zip_ok = True
             except Exception as e:
                 pass
@@ -1581,8 +1593,9 @@ def backup_status(request, data):
 
         namm = domain.objects.get(domain=data)
         main_directory = os.path.join(paths.HOME_BASE, namm.dir)
-        progress_file = os.path.join(main_directory, ".backup_progress")
-        completed_file = os.path.join(main_directory, ".backup_done")
+        backup_store = _get_backup_store(namm.dir)
+        progress_file = os.path.join(backup_store, ".backup_progress")
+        completed_file = os.path.join(backup_store, ".backup_done")
         
         # Check if backup just finished (completed marker exists, no progress file)
         if os.path.exists(completed_file) and not os.path.exists(progress_file):
