@@ -1,5 +1,20 @@
 from django.contrib import admin
-from .models import positive_review,negative_review,Message,Installed,clientdocumentation,admindocumentation,updates
+from .models import (
+    CustomerProfile,
+    HostingService,
+    Installed,
+    Invoice,
+    Message,
+    PortalActivity,
+    StaffProfile,
+    StaffRole,
+    SupportTicket,
+    admindocumentation,
+    clientdocumentation,
+    negative_review,
+    positive_review,
+    updates,
+)
 
 # Register your models here.
 admin.site.register(Message)
@@ -9,3 +24,10 @@ admin.site.register(admindocumentation)
 admin.site.register(updates)
 admin.site.register(positive_review)
 admin.site.register(negative_review)
+admin.site.register(CustomerProfile)
+admin.site.register(HostingService)
+admin.site.register(Invoice)
+admin.site.register(SupportTicket)
+admin.site.register(PortalActivity)
+admin.site.register(StaffRole)
+admin.site.register(StaffProfile)

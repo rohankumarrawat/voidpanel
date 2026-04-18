@@ -1,0 +1,781 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Super Admin Portal | VoidPanel</title>
+    <meta name="description" content="Modern internal operations dashboard for VoidPanel super admins.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css">
+    <style>
+        .admin-page {
+            min-height: 100vh;
+            padding: 108px 18px 36px;
+            background:
+                radial-gradient(circle at top left, rgba(34, 197, 94, 0.14), transparent 24%),
+                radial-gradient(circle at top right, rgba(14, 165, 233, 0.14), transparent 22%),
+                radial-gradient(circle at bottom left, rgba(245, 158, 11, 0.08), transparent 18%),
+                linear-gradient(180deg, #06101a 0%, #09131d 42%, #08111a 100%);
+        }
+        .admin-layout {
+            max-width: 1520px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 300px minmax(0, 1fr);
+            gap: 24px;
+        }
+        .shell {
+            background: rgba(8, 13, 22, 0.84);
+            border: 1px solid rgba(255,255,255,0.08);
+            backdrop-filter: blur(18px);
+            box-shadow: 0 26px 90px rgba(0, 0, 0, 0.28);
+        }
+        .sidebar {
+            position: sticky;
+            top: 104px;
+            height: fit-content;
+            border-radius: 30px;
+            padding: 24px;
+        }
+        .brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-primary);
+            font-weight: 700;
+            margin-bottom: 18px;
+        }
+        .brand img {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+        }
+        .side-hero {
+            border-radius: 24px;
+            padding: 20px;
+            background: linear-gradient(180deg, rgba(34, 197, 94, 0.16), rgba(255,255,255,0.03));
+            border: 1px solid rgba(255,255,255,0.08);
+            margin-bottom: 18px;
+        }
+        .side-hero .eyebrow {
+            display: inline-flex;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.08);
+            color: var(--text-primary);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .side-hero h2 {
+            margin: 14px 0 8px;
+            font-size: 1.45rem;
+            color: var(--text-primary);
+        }
+        .side-hero p, .muted {
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+        .nav-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 18px 0;
+        }
+        .nav-group a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            border-radius: 18px;
+            color: var(--text-secondary);
+            background: rgba(255,255,255,0.025);
+            border: 1px solid rgba(255,255,255,0.04);
+        }
+        .nav-group a.active, .nav-group a:hover {
+            color: var(--text-primary);
+            background: rgba(14, 165, 233, 0.12);
+            border-color: rgba(14, 165, 233, 0.22);
+        }
+        .mini-card {
+            padding: 18px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            margin-top: 14px;
+        }
+        .mini-card strong {
+            color: var(--text-primary);
+            display: block;
+            margin-bottom: 8px;
+        }
+        .main {
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
+        }
+        .message-banner {
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: rgba(34, 197, 94, 0.14);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+            color: var(--text-primary);
+        }
+        .hero-card {
+            border-radius: 34px;
+            padding: 32px;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero-card::after {
+            content: "";
+            position: absolute;
+            width: 380px;
+            height: 380px;
+            border-radius: 50%;
+            right: -120px;
+            top: -100px;
+            background: radial-gradient(circle, rgba(14, 165, 233, 0.18), transparent 68%);
+            pointer-events: none;
+        }
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1.3fr .95fr;
+            gap: 22px;
+            position: relative;
+            z-index: 1;
+        }
+        .hero-tag {
+            display: inline-flex;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(245, 158, 11, 0.12);
+            color: #fcd34d;
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .hero-card h1 {
+            margin: 16px 0 12px;
+            font-size: clamp(2.15rem, 4vw, 3.8rem);
+            line-height: 1.04;
+            color: var(--text-primary);
+        }
+        .hero-card p {
+            color: var(--text-secondary);
+            line-height: 1.8;
+            max-width: 760px;
+            margin: 0;
+        }
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 24px;
+        }
+        .hero-actions a {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 18px;
+            border-radius: 16px;
+            font-weight: 700;
+        }
+        .hero-primary {
+            background: linear-gradient(135deg, #22c55e, #59c4bc);
+            color: #02120f;
+        }
+        .hero-secondary {
+            background: rgba(255,255,255,0.04);
+            color: var(--text-primary);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 14px;
+        }
+        .metric {
+            padding: 18px;
+            border-radius: 22px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+        .metric span {
+            color: var(--text-muted);
+            display: block;
+            margin-bottom: 10px;
+            font-size: 0.84rem;
+        }
+        .metric strong {
+            color: var(--text-primary);
+            font-size: 2rem;
+            display: block;
+        }
+        .metric small {
+            color: var(--text-muted);
+            display: block;
+            margin-top: 8px;
+            line-height: 1.5;
+        }
+        .row {
+            display: grid;
+            grid-template-columns: 1.15fr .85fr;
+            gap: 22px;
+        }
+        .panel {
+            border-radius: 28px;
+            padding: 24px;
+        }
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .panel-header h2, .panel-header h3 {
+            margin: 0;
+            color: var(--text-primary);
+        }
+        .panel-header span {
+            color: var(--text-muted);
+            font-size: 0.84rem;
+        }
+        .staff-stack, .role-stack, .feed-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .staff-card, .role-card, .feed-card, .command-card {
+            border-radius: 22px;
+            padding: 18px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+        .staff-top, .role-top, .feed-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: flex-start;
+        }
+        .staff-top strong, .role-top strong, .feed-top strong {
+            color: var(--text-primary);
+        }
+        .badge-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 7px 12px;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+        .badge.super {
+            background: rgba(245, 158, 11, 0.14);
+            color: #fcd34d;
+        }
+        .badge.staff {
+            background: rgba(34, 197, 94, 0.12);
+            color: #86efac;
+        }
+        .badge.role {
+            background: rgba(14, 165, 233, 0.12);
+            color: #7dd3fc;
+        }
+        .badge.soft {
+            background: rgba(255,255,255,0.06);
+            color: var(--text-secondary);
+        }
+        .form-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .form-card {
+            border-radius: 24px;
+            padding: 20px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+        .form-card h3 {
+            margin: 0 0 8px;
+            color: var(--text-primary);
+        }
+        .form-card p {
+            margin: 0 0 16px;
+            color: var(--text-muted);
+            line-height: 1.7;
+        }
+        .field-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        .field-grid.single {
+            grid-template-columns: 1fr;
+        }
+        label {
+            display: block;
+            color: var(--text-secondary);
+            font-size: 0.88rem;
+            margin-bottom: 8px;
+        }
+        input, textarea, select {
+            width: 100%;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.03);
+            color: var(--text-primary);
+            padding: 13px 14px;
+        }
+        textarea {
+            min-height: 96px;
+            resize: vertical;
+        }
+        .check-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 12px;
+        }
+        .check-item {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            color: var(--text-secondary);
+        }
+        .check-item input {
+            width: auto;
+            margin: 0;
+        }
+        .actions {
+            margin-top: 14px;
+            display: flex;
+            justify-content: flex-end;
+        }
+        .actions button {
+            border: none;
+            cursor: pointer;
+            padding: 13px 18px;
+            border-radius: 14px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #59c4bc, #22c55e);
+            color: #031016;
+        }
+        .command-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+        }
+        .command-card strong {
+            color: var(--text-primary);
+            display: block;
+            margin-bottom: 8px;
+        }
+        .command-card p {
+            margin: 0;
+            color: var(--text-muted);
+            line-height: 1.65;
+        }
+        @media (max-width: 1260px) {
+            .admin-layout, .hero-grid, .row, .form-panel {
+                grid-template-columns: 1fr;
+            }
+            .sidebar {
+                position: static;
+            }
+        }
+        @media (max-width: 760px) {
+            .admin-page {
+                padding: 96px 12px 28px;
+            }
+            .sidebar, .hero-card, .panel {
+                padding: 18px;
+            }
+            .metric-grid, .field-grid, .check-grid, .command-grid {
+                grid-template-columns: 1fr;
+            }
+            .hero-actions {
+                flex-direction: column;
+            }
+            .hero-actions a {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+{% include 'header.html' %}
+
+<main class="admin-page">
+    <div class="admin-layout">
+        <aside class="shell sidebar">
+            <a class="brand" href="/super-admin/">
+                <img src="/static/fav.png" alt="VoidPanel">
+                <span>VoidPanel Ops</span>
+            </a>
+
+            <div class="side-hero">
+                <span class="eyebrow">Executive Access</span>
+                <h2>Super Admin Console</h2>
+                <p>Control staff access, role design, support pressure, and revenue-sensitive operations from one internal workspace.</p>
+            </div>
+
+            <nav class="nav-group">
+                <a href="#overview" class="active"><i class="fas fa-chart-pie"></i> Overview</a>
+                <a href="#staff"><i class="fas fa-user-shield"></i> Staff Control</a>
+                <a href="#roles"><i class="fas fa-layer-group"></i> Role Library</a>
+                <a href="#commands"><i class="fas fa-bolt"></i> Quick Commands</a>
+                <a href="#signals"><i class="fas fa-tower-broadcast"></i> Live Signals</a>
+            </nav>
+
+            <div class="mini-card">
+                <strong>Revenue Snapshot</strong>
+                <p class="muted">Monthly recurring revenue: ${{ admin_stats.monthly_revenue }}</p>
+                <p class="muted" style="margin:8px 0 0;">Outstanding invoices: ${{ admin_stats.unpaid_total }}</p>
+            </div>
+
+            <div class="mini-card">
+                <strong>Access Map</strong>
+                <p class="muted">{{ admin_stats.super_admin_count }} super admins • {{ admin_stats.portal_admin_count }} portal admins</p>
+                <p class="muted" style="margin:8px 0 0;">{{ admin_stats.billing_role_count }} billing-enabled roles • {{ admin_stats.support_role_count }} support-enabled roles</p>
+            </div>
+
+            <div class="mini-card">
+                <strong>Switch Views</strong>
+                <p class="muted">Need to inspect the customer-facing experience?</p>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
+                    <a href="/portal/" class="btn-void btn-void-outline" style="flex:1;justify-content:center;">Client Portal</a>
+                    <a href="/admin/" class="btn-void btn-void-primary" style="flex:1;justify-content:center;">Django Admin</a>
+                </div>
+            </div>
+        </aside>
+
+        <section class="main">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="message-banner">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+
+            <section class="shell hero-card" id="overview">
+                <div class="hero-grid">
+                    <div>
+                        <span class="hero-tag">Internal Command Center</span>
+                        <h1>Modern operations dashboard for staff governance and platform control.</h1>
+                        <p>This super admin dashboard is designed as a true internal product surface. It gives you quick visibility into team access, role coverage, customer scale, ticket pressure, and revenue health while keeping the most important staff actions one step away.</p>
+                        <div class="hero-actions">
+                            <a href="#staff" class="hero-primary"><i class="fas fa-users-cog"></i> Manage Staff</a>
+                            <a href="#roles" class="hero-secondary"><i class="fas fa-id-badge"></i> Design Roles</a>
+                            <a href="#signals" class="hero-secondary"><i class="fas fa-satellite-dish"></i> Watch Signals</a>
+                        </div>
+                    </div>
+
+                    <div class="metric-grid">
+                        <div class="metric">
+                            <span>Staff Members</span>
+                            <strong>{{ admin_stats.staff_count }}</strong>
+                            <small>{{ admin_stats.super_admin_count }} super admins with top-level control.</small>
+                        </div>
+                        <div class="metric">
+                            <span>Client Accounts</span>
+                            <strong>{{ admin_stats.client_count }}</strong>
+                            <small>Customer accounts currently inside the platform.</small>
+                        </div>
+                        <div class="metric">
+                            <span>Monthly Revenue</span>
+                            <strong>${{ admin_stats.monthly_revenue }}</strong>
+                            <small>Recurring active-service revenue across the portal.</small>
+                        </div>
+                        <div class="metric">
+                            <span>Open Tickets</span>
+                            <strong>{{ admin_stats.open_ticket_count }}</strong>
+                            <small>Support load that still needs operational follow-up.</small>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="shell panel" id="commands">
+                <div class="panel-header">
+                    <h2>Quick Commands</h2>
+                    <span>What this dashboard is optimized to help you do</span>
+                </div>
+                <div class="command-grid">
+                    <div class="command-card">
+                        <strong>Provision New Staff</strong>
+                        <p>Create internal team accounts, assign a role, and make them operational in one pass.</p>
+                    </div>
+                    <div class="command-card">
+                        <strong>Shape Permission Models</strong>
+                        <p>Design role bundles for billing, support, clients, infrastructure, and staff management.</p>
+                    </div>
+                    <div class="command-card">
+                        <strong>Monitor Operational Risk</strong>
+                        <p>Track support pressure, unpaid revenue, and new customer growth without leaving the page.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="row">
+                <div class="shell panel" id="staff">
+                    <div class="panel-header">
+                        <h2>Staff Governance</h2>
+                        <span>Access control, titles, and internal privileges</span>
+                    </div>
+                    <div class="staff-stack">
+                        {% for staff in staff_profiles %}
+                            <div class="staff-card">
+                                <div class="staff-top">
+                                    <div>
+                                        <strong>{{ staff.user.get_full_name|default:staff.user.username }}</strong>
+                                        <div class="muted" style="margin-top:6px;">{{ staff.user.email }}</div>
+                                    </div>
+                                    <div class="badge-row" style="margin-top:0;justify-content:flex-end;">
+                                        {% if staff.user.is_superuser %}<span class="badge super">Super Admin</span>{% endif %}
+                                        {% if staff.user.is_staff %}<span class="badge staff">Staff</span>{% endif %}
+                                        {% if staff.is_portal_admin %}<span class="badge role">Portal Admin</span>{% endif %}
+                                    </div>
+                                </div>
+
+                                <p class="muted" style="margin:12px 0 0;">{{ staff.display_title|default:"Staff Member" }}{% if staff.department %} • {{ staff.department }}{% endif %}</p>
+
+                                <div class="badge-row">
+                                    {% if staff.role %}
+                                        <span class="badge role">{{ staff.role.name }}</span>
+                                    {% else %}
+                                        <span class="badge soft">No role assigned</span>
+                                    {% endif %}
+                                    {% for item in staff.permission_summary %}
+                                        <span class="badge soft">{{ item }}</span>
+                                    {% endfor %}
+                                </div>
+
+                                <form method="POST" action="/super-admin/" style="margin-top:16px;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="update_staff">
+                                    <input type="hidden" name="user_id" value="{{ staff.user.id }}">
+
+                                    <div class="field-grid">
+                                        <div>
+                                            <label>Role</label>
+                                            <select name="role_id">
+                                                <option value="">No role</option>
+                                                {% for role in roles %}
+                                                    <option value="{{ role.id }}"{% if staff.role and role.id == staff.role.id %} selected{% endif %}>{{ role.name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label>Department</label>
+                                            <input type="text" name="department" value="{{ staff.department }}" placeholder="Support">
+                                        </div>
+                                        <div>
+                                            <label>Display Title</label>
+                                            <input type="text" name="display_title" value="{{ staff.display_title }}" placeholder="Support Lead">
+                                        </div>
+                                    </div>
+
+                                    <div class="check-grid">
+                                        <label class="check-item"><input type="checkbox" name="is_staff"{% if staff.user.is_staff %} checked{% endif %}> Staff access</label>
+                                        <label class="check-item"><input type="checkbox" name="is_portal_admin"{% if staff.is_portal_admin %} checked{% endif %}> Internal portal access</label>
+                                        <label class="check-item"><input type="checkbox" name="is_superuser"{% if staff.user.is_superuser %} checked{% endif %}> Super admin</label>
+                                    </div>
+
+                                    <div class="actions">
+                                        <button type="submit">Update Access</button>
+                                    </div>
+                                </form>
+                            </div>
+                        {% empty %}
+                            <div class="staff-card"><strong>No staff members found.</strong></div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="shell panel">
+                    <div class="panel-header">
+                        <h3>Admin Actions</h3>
+                        <span>Fast provisioning and role design</span>
+                    </div>
+
+                    <div class="form-panel">
+                        <div class="form-card">
+                            <h3>Create Staff Role</h3>
+                            <p>Build a permission profile for a department, seniority level, or operating function.</p>
+                            <form method="POST" action="/super-admin/">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="create_role">
+                                <div class="field-grid single">
+                                    <div>
+                                        <label>Role Name</label>
+                                        <input type="text" name="role_name" placeholder="Revenue Manager" required>
+                                    </div>
+                                    <div>
+                                        <label>Description</label>
+                                        <textarea name="description" placeholder="What this role is responsible for"></textarea>
+                                    </div>
+                                </div>
+                                <div class="check-grid">
+                                    <label class="check-item"><input type="checkbox" name="can_manage_clients"> Manage clients</label>
+                                    <label class="check-item"><input type="checkbox" name="can_manage_billing"> Manage billing</label>
+                                    <label class="check-item"><input type="checkbox" name="can_manage_support"> Manage support</label>
+                                    <label class="check-item"><input type="checkbox" name="can_manage_infrastructure"> Manage infrastructure</label>
+                                    <label class="check-item"><input type="checkbox" name="can_manage_staff"> Manage staff</label>
+                                </div>
+                                <div class="actions">
+                                    <button type="submit">Create Role</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="form-card">
+                            <h3>Create Staff Account</h3>
+                            <p>Provision a new internal team member and place them directly into the operations workflow.</p>
+                            <form method="POST" action="/super-admin/">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="create_staff">
+                                <div class="field-grid">
+                                    <div>
+                                        <label>Full Name</label>
+                                        <input type="text" name="staff_name" placeholder="Aman Sharma" required>
+                                    </div>
+                                    <div>
+                                        <label>Email</label>
+                                        <input type="email" name="staff_email" placeholder="aman@voidpanel.com" required>
+                                    </div>
+                                    <div>
+                                        <label>Password</label>
+                                        <input type="password" name="staff_password" placeholder="Strong password" required>
+                                    </div>
+                                    <div>
+                                        <label>Role</label>
+                                        <select name="role_id">
+                                            <option value="">Select role</option>
+                                            {% for role in roles %}
+                                                <option value="{{ role.id }}">{{ role.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label>Department</label>
+                                        <input type="text" name="department" placeholder="Billing">
+                                    </div>
+                                </div>
+                                <div class="check-grid">
+                                    <label class="check-item"><input type="checkbox" name="is_super_admin"> Grant super admin access</label>
+                                </div>
+                                <div class="actions">
+                                    <button type="submit">Create Staff User</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="row" id="roles">
+                <div class="shell panel">
+                    <div class="panel-header">
+                        <h2>Role Library</h2>
+                        <span>Permission architecture for internal teams</span>
+                    </div>
+                    <div class="role-stack">
+                        {% for role in roles %}
+                            <div class="role-card">
+                                <div class="role-top">
+                                    <div>
+                                        <strong>{{ role.name }}</strong>
+                                        <div class="muted" style="margin-top:6px;">{{ role.description|default:"No description provided." }}</div>
+                                    </div>
+                                    <span class="badge role">{{ role.staff_members.count }} staff</span>
+                                </div>
+                                <div class="badge-row">
+                                    {% if role.can_manage_clients %}<span class="badge soft">Clients</span>{% endif %}
+                                    {% if role.can_manage_billing %}<span class="badge soft">Billing</span>{% endif %}
+                                    {% if role.can_manage_support %}<span class="badge soft">Support</span>{% endif %}
+                                    {% if role.can_manage_infrastructure %}<span class="badge soft">Infrastructure</span>{% endif %}
+                                    {% if role.can_manage_staff %}<span class="badge soft">Staff</span>{% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="shell panel" id="signals">
+                    <div class="panel-header">
+                        <h3>Operational Signals</h3>
+                        <span>Recent movement across the platform</span>
+                    </div>
+
+                    <div class="feed-stack">
+                        <div class="feed-card">
+                            <div class="feed-top">
+                                <strong>Revenue Health</strong>
+                                <span class="badge role">${{ admin_stats.monthly_revenue }}</span>
+                            </div>
+                            <p class="muted" style="margin:10px 0 0;">Outstanding billing is currently ${{ admin_stats.unpaid_total }} across unpaid and overdue invoices.</p>
+                        </div>
+
+                        <div class="feed-card">
+                            <div class="feed-top">
+                                <strong>Recent Clients</strong>
+                                <span class="badge soft">{{ recent_clients|length }} newest</span>
+                            </div>
+                            <div class="feed-stack" style="margin-top:12px;">
+                                {% for user in recent_clients %}
+                                    <div class="feed-card" style="padding:14px;">
+                                        <div class="feed-top">
+                                            <strong>{{ user.get_full_name|default:user.username }}</strong>
+                                            <span class="muted">{{ user.date_joined|date:"M d, Y" }}</span>
+                                        </div>
+                                        <div class="muted" style="margin-top:6px;">{{ user.email }}</div>
+                                    </div>
+                                {% empty %}
+                                    <div class="muted">No recent clients.</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="feed-card">
+                            <div class="feed-top">
+                                <strong>Support Pressure</strong>
+                                <span class="badge soft">{{ admin_stats.open_ticket_count }} open</span>
+                            </div>
+                            <div class="feed-stack" style="margin-top:12px;">
+                                {% for ticket in recent_tickets %}
+                                    <div class="feed-card" style="padding:14px;">
+                                        <div class="feed-top">
+                                            <strong>{{ ticket.subject }}</strong>
+                                            <span class="badge soft">{{ ticket.get_status_display }}</span>
+                                        </div>
+                                        <div class="muted" style="margin-top:6px;">{{ ticket.ticket_number }} • {{ ticket.user.email }}</div>
+                                    </div>
+                                {% empty %}
+                                    <div class="muted">No tickets found.</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </section>
+    </div>
+</main>
+
+{% include 'footer.html' %}
+</body>
+</html>

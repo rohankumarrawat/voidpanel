@@ -1,0 +1,648 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Client Portal | VoidPanel</title>
+    <meta name="description" content="Modern VoidPanel client portal for hosting operations, billing visibility, and support management.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css">
+    <style>
+        .portal-page {
+            min-height: 100vh;
+            padding: 108px 20px 40px;
+            background:
+                radial-gradient(circle at top left, rgba(89, 196, 188, 0.22), transparent 28%),
+                radial-gradient(circle at top right, rgba(245, 158, 11, 0.12), transparent 24%),
+                linear-gradient(180deg, #071018 0%, #0d1724 52%, #08111a 100%);
+        }
+        .portal-layout {
+            max-width: 1500px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 290px minmax(0, 1fr);
+            gap: 24px;
+        }
+        .portal-shell {
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(8, 14, 24, 0.86);
+            backdrop-filter: blur(18px);
+            box-shadow: 0 30px 90px rgba(0, 0, 0, 0.28);
+        }
+        .portal-sidebar {
+            border-radius: 30px;
+            padding: 24px;
+            position: sticky;
+            top: 106px;
+            height: fit-content;
+        }
+        .portal-main {
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
+        }
+        .brand-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .brand-chip img {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+        }
+        .profile-card, .side-card, .hero-card, .content-card, .service-card, .signal-card, .ticket-card, .activity-card {
+            border-radius: 28px;
+        }
+        .profile-card {
+            padding: 22px;
+            background: linear-gradient(180deg, rgba(89, 196, 188, 0.18), rgba(255,255,255,0.03));
+            border: 1px solid rgba(255,255,255,0.09);
+            margin-bottom: 18px;
+        }
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.09);
+            color: var(--text-primary);
+            font-size: 0.83rem;
+        }
+        .profile-card h2 {
+            margin: 14px 0 8px;
+            font-size: 1.4rem;
+            color: var(--text-primary);
+        }
+        .profile-card p {
+            margin: 0;
+            color: var(--text-secondary);
+            line-height: 1.65;
+        }
+        .menu-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .menu-list a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            border-radius: 18px;
+            color: var(--text-secondary);
+            background: rgba(255,255,255,0.025);
+            border: 1px solid rgba(255,255,255,0.04);
+        }
+        .menu-list a.active, .menu-list a:hover {
+            color: var(--text-primary);
+            background: rgba(89, 196, 188, 0.12);
+            border-color: rgba(89, 196, 188, 0.2);
+        }
+        .side-card {
+            padding: 18px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            margin-top: 14px;
+        }
+        .side-card strong, .content-card h3, .service-card h3, .signal-card h3 {
+            color: var(--text-primary);
+        }
+        .hero-card {
+            position: relative;
+            overflow: hidden;
+            padding: 32px;
+            background:
+                radial-gradient(circle at 85% 15%, rgba(89, 196, 188, 0.18), transparent 20%),
+                linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+        }
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1.4fr .9fr;
+            gap: 22px;
+            align-items: end;
+        }
+        .eyebrow {
+            display: inline-flex;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(245, 158, 11, 0.12);
+            color: #fcd34d;
+            font-size: 0.82rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .hero-card h1 {
+            margin: 16px 0 12px;
+            font-size: clamp(2.1rem, 4vw, 3.6rem);
+            line-height: 1.05;
+            color: var(--text-primary);
+        }
+        .hero-card p {
+            max-width: 700px;
+            color: var(--text-secondary);
+            line-height: 1.8;
+            margin: 0;
+        }
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 24px;
+        }
+        .hero-actions a {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 18px;
+            border-radius: 16px;
+            font-weight: 600;
+        }
+        .hero-primary {
+            background: linear-gradient(135deg, #59c4bc, #2dd4bf);
+            color: #04131a;
+        }
+        .hero-secondary {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: var(--text-primary);
+        }
+        .mini-metric-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 14px;
+        }
+        .mini-metric, .content-card, .service-card, .signal-card, .ticket-card, .activity-card {
+            padding: 22px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+        .mini-metric span {
+            display: block;
+            font-size: 0.84rem;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+        .mini-metric strong {
+            display: block;
+            font-size: 2rem;
+            color: var(--text-primary);
+        }
+        .portal-row {
+            display: grid;
+            grid-template-columns: 1.35fr .95fr;
+            gap: 22px;
+        }
+        .content-card h3, .service-card h3, .signal-card h3, .ticket-card h3, .activity-card h3 {
+            margin: 0 0 16px;
+            font-size: 1.18rem;
+        }
+        .section-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .section-top span {
+            color: var(--text-muted);
+            font-size: 0.84rem;
+        }
+        .service-stack, .ticket-stack, .activity-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .service-card {
+            background:
+                linear-gradient(145deg, rgba(255,255,255,0.035), rgba(255,255,255,0.02)),
+                rgba(255,255,255,0.02);
+        }
+        .service-head, .ticket-head, .activity-head, .detail-line {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: center;
+        }
+        .service-head strong, .ticket-head strong, .activity-head strong {
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+        .muted {
+            color: var(--text-muted);
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 7px 12px;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: capitalize;
+        }
+        .status-active, .status-paid, .status-answered {
+            background: rgba(74, 222, 128, 0.14);
+            color: #86efac;
+        }
+        .status-pending, .status-unpaid, .status-open, .status-in_progress {
+            background: rgba(245, 158, 11, 0.14);
+            color: #fcd34d;
+        }
+        .status-overdue, .status-suspended, .status-closed {
+            background: rgba(248, 113, 113, 0.16);
+            color: #fca5a5;
+        }
+        .progress-bar {
+            height: 10px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.06);
+            overflow: hidden;
+            margin-top: 12px;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, #59c4bc, #f59e0b);
+        }
+        .invoice-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .invoice-item {
+            padding: 16px 18px;
+            border-radius: 18px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+        .table-shell {
+            overflow-x: auto;
+            border-radius: 22px;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 16px 18px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+        th {
+            color: var(--text-muted);
+            font-size: 0.77rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .message-banner {
+            margin-bottom: 16px;
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: rgba(89, 196, 188, 0.14);
+            border: 1px solid rgba(89, 196, 188, 0.22);
+            color: var(--text-primary);
+        }
+        @media (max-width: 1200px) {
+            .portal-layout, .hero-grid, .portal-row {
+                grid-template-columns: 1fr;
+            }
+            .portal-sidebar {
+                position: static;
+            }
+        }
+        @media (max-width: 720px) {
+            .portal-page {
+                padding: 96px 14px 32px;
+            }
+            .hero-card, .content-card, .service-card, .signal-card, .ticket-card, .activity-card, .portal-sidebar {
+                padding: 18px;
+            }
+            .mini-metric-grid {
+                grid-template-columns: 1fr;
+            }
+            .hero-actions {
+                flex-direction: column;
+            }
+            .hero-actions a {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+{% include 'header.html' %}
+
+<main class="portal-page">
+    <div class="portal-layout">
+        <aside class="portal-shell portal-sidebar">
+            <a class="brand-chip" href="/portal/">
+                <img src="/static/fav.png" alt="VoidPanel">
+                <span>Client Workspace</span>
+            </a>
+
+            <div class="profile-card">
+                <span class="pill"><i class="fas fa-shield-heart"></i> {{ profile.portal_role }}</span>
+                <h2>{{ request.user.get_full_name|default:request.user.username }}</h2>
+                <p>{{ request.user.email }}</p>
+                <p style="margin-top:10px;">Customer since {{ stats.customer_since|date:"M d, Y" }}</p>
+            </div>
+
+            <nav class="menu-list">
+                <a href="#overview" class="active"><i class="fas fa-chart-line"></i> Overview</a>
+                <a href="#services"><i class="fas fa-server"></i> Services</a>
+                <a href="#billing"><i class="fas fa-file-invoice-dollar"></i> Billing</a>
+                <a href="#support"><i class="fas fa-life-ring"></i> Support</a>
+                <a href="#activity"><i class="fas fa-clock-rotate-left"></i> Activity</a>
+            </nav>
+
+            <div class="side-card">
+                <strong>Account Snapshot</strong>
+                <p class="muted" style="margin:10px 0 0;line-height:1.7;">{{ profile.company_name|default:"Independent account" }}{% if profile.country %} • {{ profile.country }}{% endif %}</p>
+            </div>
+
+            <div class="side-card">
+                <strong>Outstanding Balance</strong>
+                <p style="margin:10px 0 0;font-size:1.6rem;color:var(--text-primary);">${{ stats.unpaid_total }}</p>
+                <p class="muted" style="margin:8px 0 0;line-height:1.7;">Renewals and provisioning tasks are easiest to manage when billing is current.</p>
+            </div>
+
+            {% if request.user.is_superuser %}
+                <div class="side-card">
+                    <strong>Internal Access</strong>
+                    <p class="muted" style="margin:10px 0 14px;">You can switch from the client view to the operations portal.</p>
+                    <a href="/super-admin/" class="btn-void btn-void-primary" style="width:100%;justify-content:center;">Open Super Admin</a>
+                </div>
+            {% endif %}
+        </aside>
+
+        <section class="portal-main">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="message-banner">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+
+            <section class="portal-shell hero-card" id="overview">
+                <div class="hero-grid">
+                    <div>
+                        <span class="eyebrow">Hosting Control Center</span>
+                        <h1>Modern client operations with a stronger WHMCS-style experience.</h1>
+                        <p>Track services, invoices, renewals, and support from one premium workspace. The portal is designed to feel less like a basic account page and more like a real customer operations console.</p>
+                        <div class="hero-actions">
+                            <a href="#services" class="hero-primary"><i class="fas fa-rocket"></i> Review Services</a>
+                            <a href="/whmcs/module/" class="hero-secondary"><i class="fas fa-plug"></i> WHMCS Module Docs</a>
+                            <a href="/docs/" class="hero-secondary"><i class="fas fa-book-open"></i> Deployment Docs</a>
+                        </div>
+                    </div>
+                    <div class="mini-metric-grid">
+                        <div class="mini-metric">
+                            <span>Monthly Spend</span>
+                            <strong>${{ stats.monthly_spend }}</strong>
+                        </div>
+                        <div class="mini-metric">
+                            <span>Paid to Date</span>
+                            <strong>${{ stats.paid_total }}</strong>
+                        </div>
+                        <div class="mini-metric">
+                            <span>Open Tickets</span>
+                            <strong>{{ stats.open_tickets }}</strong>
+                        </div>
+                        <div class="mini-metric">
+                            <span>Total Services</span>
+                            <strong>{{ stats.total_services }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="portal-row">
+                <div class="portal-shell content-card">
+                    <div class="section-top">
+                        <h3>Service Health</h3>
+                        <span>Performance and lifecycle view</span>
+                    </div>
+                    <div class="detail-line">
+                        <span class="muted">Active footprint</span>
+                        <strong>{{ service_mix.active }} active / {{ stats.total_services }} total</strong>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width:{% if stats.total_services %}{% widthratio service_mix.active stats.total_services 100 %}{% else %}0{% endif %}%;"></div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px;">
+                        <div class="side-card" style="margin:0;">
+                            <strong>{{ service_mix.active }}</strong>
+                            <p class="muted" style="margin:8px 0 0;">Active</p>
+                        </div>
+                        <div class="side-card" style="margin:0;">
+                            <strong>{{ service_mix.pending }}</strong>
+                            <p class="muted" style="margin:8px 0 0;">Pending</p>
+                        </div>
+                        <div class="side-card" style="margin:0;">
+                            <strong>{{ service_mix.suspended }}</strong>
+                            <p class="muted" style="margin:8px 0 0;">Suspended</p>
+                        </div>
+                    </div>
+                    {% if active_service %}
+                        <div class="side-card" style="margin-top:18px;">
+                            <div class="service-head">
+                                <strong>{{ active_service.service_name }}</strong>
+                                <span class="status-badge status-{{ active_service.status }}">{{ active_service.get_status_display }}</span>
+                            </div>
+                            <p class="muted" style="margin:10px 0 0;">{{ active_service.domain }} • {{ active_service.server_hostname }}</p>
+                            <p class="muted" style="margin:6px 0 0;">{{ active_service.storage_gb }} GB SSD / {{ active_service.bandwidth_gb }} GB bandwidth</p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="portal-shell signal-card">
+                    <div class="section-top">
+                        <h3>Priority Signals</h3>
+                        <span>What needs attention now</span>
+                    </div>
+                    <div class="invoice-list">
+                        <div class="invoice-item">
+                            <div class="detail-line">
+                                <strong>Billing Exposure</strong>
+                                <span class="status-badge status-{% if stats.unpaid_invoices %}unpaid{% else %}paid{% endif %}">{{ stats.unpaid_invoices }} unpaid</span>
+                            </div>
+                            <p class="muted" style="margin:10px 0 0;">Outstanding balance across current invoices is ${{ stats.unpaid_total }}.</p>
+                        </div>
+                        <div class="invoice-item">
+                            <div class="detail-line">
+                                <strong>Latest Ticket</strong>
+                                {% if latest_ticket %}
+                                    <span class="status-badge status-{{ latest_ticket.status }}">{{ latest_ticket.get_status_display }}</span>
+                                {% else %}
+                                    <span class="status-badge status-answered">Clear</span>
+                                {% endif %}
+                            </div>
+                            <p class="muted" style="margin:10px 0 0;">{% if latest_ticket %}{{ latest_ticket.subject }}{% else %}No open support pressure right now.{% endif %}</p>
+                        </div>
+                        <div class="invoice-item">
+                            <div class="detail-line">
+                                <strong>Next Invoice Due</strong>
+                                <span>{% if next_invoice %}{{ next_invoice.due_date }}{% else %}None pending{% endif %}</span>
+                            </div>
+                            <p class="muted" style="margin:10px 0 0;">{% if next_invoice %}{{ next_invoice.invoice_number }} for {{ next_invoice.currency }} {{ next_invoice.total }}{% else %}Your account is clear for now.{% endif %}</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="portal-row" id="services">
+                <div class="portal-shell content-card">
+                    <div class="section-top">
+                        <h3>Service Portfolio</h3>
+                        <span>Provisioning, renewal, and infrastructure status</span>
+                    </div>
+                    <div class="service-stack">
+                        {% for service in services %}
+                            <div class="service-card">
+                                <div class="service-head">
+                                    <div>
+                                        <strong>{{ service.service_name }}</strong>
+                                        <div class="muted" style="margin-top:6px;">{{ service.product_type }} • {{ service.domain }}</div>
+                                    </div>
+                                    <span class="status-badge status-{{ service.status }}">{{ service.get_status_display }}</span>
+                                </div>
+                                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px;">
+                                    <div>
+                                        <div class="muted">Billing</div>
+                                        <strong>${{ service.monthly_price }} / {{ service.get_billing_cycle_display }}</strong>
+                                    </div>
+                                    <div>
+                                        <div class="muted">Resources</div>
+                                        <strong>{{ service.storage_gb }} GB / {{ service.bandwidth_gb }} GB</strong>
+                                    </div>
+                                    <div>
+                                        <div class="muted">Next Due</div>
+                                        <strong>{{ service.next_due_date }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        {% empty %}
+                            <div class="service-card"><strong>No services found.</strong></div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="portal-shell content-card" id="billing">
+                    <div class="section-top">
+                        <h3>Billing Queue</h3>
+                        <span>Recent invoice movement</span>
+                    </div>
+                    <div class="invoice-list">
+                        {% for invoice in invoices %}
+                            <div class="invoice-item">
+                                <div class="detail-line">
+                                    <strong>{{ invoice.invoice_number }}</strong>
+                                    <span class="status-badge status-{{ invoice.status }}">{{ invoice.get_status_display }}</span>
+                                </div>
+                                <p class="muted" style="margin:10px 0 0;">{{ invoice.description }}</p>
+                                <div class="detail-line" style="margin-top:14px;">
+                                    <span>{{ invoice.currency }} {{ invoice.total }}</span>
+                                    <span class="muted">Due {{ invoice.due_date }}</span>
+                                </div>
+                            </div>
+                        {% empty %}
+                            <div class="invoice-item"><strong>No invoices found.</strong></div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </section>
+
+            <section class="portal-row" id="support">
+                <div class="portal-shell content-card">
+                    <div class="section-top">
+                        <h3>Support Tickets</h3>
+                        <span>Queue visibility and recent updates</span>
+                    </div>
+                    <div class="ticket-stack">
+                        {% for ticket in tickets %}
+                            <div class="ticket-card">
+                                <div class="ticket-head">
+                                    <strong>{{ ticket.subject }}</strong>
+                                    <span class="status-badge status-{{ ticket.status }}">{{ ticket.get_status_display }}</span>
+                                </div>
+                                <p class="muted" style="margin:10px 0 0;">{{ ticket.ticket_number }} • {{ ticket.department }} • {{ ticket.get_priority_display }} priority</p>
+                                <p class="muted" style="margin:8px 0 0;">Last reply {{ ticket.last_reply_at|date:"M d, Y H:i" }}</p>
+                            </div>
+                        {% empty %}
+                            <div class="ticket-card"><strong>No tickets found.</strong></div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="portal-shell content-card" id="activity">
+                    <div class="section-top">
+                        <h3>Activity Feed</h3>
+                        <span>Latest account events</span>
+                    </div>
+                    <div class="activity-stack">
+                        {% for activity in activities %}
+                            <div class="activity-card">
+                                <div class="activity-head">
+                                    <strong>{{ activity.title }}</strong>
+                                    <span class="muted">{{ activity.created_at|date:"M d, H:i" }}</span>
+                                </div>
+                                <p class="muted" style="margin:10px 0 0;line-height:1.7;">{{ activity.description }}</p>
+                            </div>
+                        {% empty %}
+                            <div class="activity-card"><strong>No recent activity.</strong></div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </section>
+
+            <section class="portal-shell content-card">
+                <div class="section-top">
+                    <h3>Full Services Table</h3>
+                    <span>Structured account inventory</span>
+                </div>
+                <div class="table-shell">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Domain</th>
+                                <th>Status</th>
+                                <th>Billing</th>
+                                <th>Panel</th>
+                                <th>Next Due</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for service in services %}
+                                <tr>
+                                    <td>{{ service.service_name }}</td>
+                                    <td>{{ service.domain }}</td>
+                                    <td><span class="status-badge status-{{ service.status }}">{{ service.get_status_display }}</span></td>
+                                    <td>${{ service.monthly_price }} / {{ service.get_billing_cycle_display }}</td>
+                                    <td>{{ service.server_hostname|default:"Pending assignment" }}</td>
+                                    <td>{{ service.next_due_date }}</td>
+                                </tr>
+                            {% empty %}
+                                <tr><td colspan="6">No services found.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </section>
+    </div>
+</main>
+
+{% include 'footer.html' %}
+</body>
+</html>

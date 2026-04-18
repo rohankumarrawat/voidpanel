@@ -5896,41 +5896,9 @@ def delete_mern(request):
             pass
 
         # Clean Nginx/OLS configs safely using elevated manager
-        from voidplatform.linux.web import get_active_engine_manager, get_active_engine
-        import re
-        engine = get_active_engine()
+        from voidplatform.linux.web import get_active_engine_manager
         mgr = get_active_engine_manager()
-
-        if engine == 'ols':
-            old_conf = mgr.read_site_config(domainname)
-            # Remove proxy extprocessor and contexts
-            new_conf = re.sub(rf'extprocessor mern_{name}\s*{{[^}}]+}}\n?', '', old_conf)
-            new_conf = re.sub(rf'context /api/\s*{{[^}}]+handler\s+mern_{name}[^}}]+}}\n?', '', new_conf)
-            # Revert docRoot
-            new_conf = re.sub(r'docRoot\s+\$VH_ROOT/(?:[^/]+/frontend/build|public_html)', r'docRoot $VH_ROOT/public_html', new_conf)
-            mgr.write_and_test_site_config(domainname, new_conf)
-        else:
-            old_conf = mgr.read_site_config(domainname)
-            if old_conf:
-                # Strip out /api, /static, compiling.html, and / blocks safely using non-greedy regex
-                new_conf = re.sub(r'[ \t]*location / \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', old_conf)
-                new_conf = re.sub(r'[ \t]*location /static/ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
-                new_conf = re.sub(r'[ \t]*location /api/ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
-                new_conf = re.sub(r'[ \t]*location = /compiling\.html \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
-                new_conf = re.sub(r'[ \t]*location ~\* \\.html\$ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
-                new_conf = re.sub(r'[ \t]*# Prevent browser caching[^\n]*\n', '', new_conf)
-                
-                # Restore the default location / fallback
-                default_location = """    location / {
-        try_files $uri $uri/ =404;
-    }
-"""
-                if 'location ~ /\.ht {' in new_conf:
-                    new_conf = new_conf.replace('location ~ /\.ht {', default_location + '\n    location ~ /\.ht {', 1)
-                
-                # Revert root correctly
-                new_conf = re.sub(r'root\s+/home/[^/]+/(?:[^/]+/frontend/build|public_html);', f'root /home/{iwefj}/public_html;', new_conf)
-                mgr.write_and_test_site_config(domainname, new_conf)
+        mgr.remove_reverse_proxy(domainname, name)
 
         try:
             df = mernname.objects.get(domain=domainname, name=name)
@@ -6059,89 +6027,13 @@ def addmern(request):
         static_path = os.path.join(app_dir, 'frontend', 'build', 'static')
         sock_path = os.path.join(paths.RUN_DIR, f'{name}.sock')
         
-        from voidplatform.linux.web import get_active_engine, get_active_engine_manager
-        engine = get_active_engine()
+        from voidplatform.linux.web import get_active_engine_manager
         mgr = get_active_engine_manager()
         
-        if engine == 'ols':
-            # For OLS proxy, PM2 binds to local TCP port instead of unix socket,
-            # maximizing compatibility across engines.
-            ols_proxy = f"""
-extprocessor mern_{name} {{
-  type                    proxy
-  address                 127.0.0.1:{pasport}
-  maxConns                100
-  initTimeout             60
-  retryTimeout            0
-  respBuffer              0
-}}
-context /api/ {{
-  type                    proxy
-  handler                 mern_{name}
-  addDefaultCharset       off
-}}
-"""
-            old_conf = mgr.read_site_config(domain1)
-            import re
-            old_conf = re.sub(r'docRoot\s+\$VH_ROOT/(?:[^/]+/frontend/build|public_html)', f'docRoot $VH_ROOT/{name}/frontend/build', old_conf)
-            if 'mern_' + name not in old_conf:
-                new_conf = old_conf + "\n" + ols_proxy
-                r = mgr.write_and_test_site_config(domain1, new_conf)
-                if not r.success:
-                    return JsonResponse({'status': 'error', 'message': f'OLS validation failed: {r.error}'})
-        else:
-            old_conf = mgr.read_site_config(domain1)
-            if old_conf:
-                new_location_block = f"""
-    # Prevent browser caching of HTML so page updates are always visible
-    location ~* \\.html$ {{
-        add_header Cache-Control "no-cache, no-store, must-revalidate";
-        add_header Pragma "no-cache";
-        add_header Expires 0;
-    }}
-
-    location / {{
-        try_files $uri /index.html /compiling.html;
-    }}
-    
-    location = /compiling.html {{
-        alias /home/{fre.dir}/{name}/compiling.html;
-    }}
-
-    location /static/ {{
-        alias {static_path}/;
-        expires 30d;
-        add_header Cache-Control "public, no-transform";
-    }}
-
-    location /api/ {{
-        proxy_pass http://127.0.0.1:{pasport};
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }}
-"""
-                import re
-                new_conf = old_conf
-                
-                # Optional safety: Strip them out first if they already existed (e.g. broken states)
-                new_conf = re.sub(r'[ \t]*location / \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
-                new_conf = re.sub(r'[ \t]*location /static/ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
-                new_conf = re.sub(r'[ \t]*location /api/ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
-                new_conf = re.sub(r'[ \t]*location = /compiling\.html \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
-                
-                # Replace root properly dynamically
-                new_conf = re.sub(r'root\s+/home/[^/]+/(?:[^/]+/frontend/build|public_html);', f'root /home/{fre.dir}/{name}/frontend/build;', new_conf)
-                
-                # Inject new blocks properly before location ~ /\.ht { (in 443 block)
-                if 'location ~ /\\.ht {' in new_conf:
-                    new_conf = new_conf.replace('location ~ /\\.ht {', new_location_block + '\n    location ~ /\\.ht {', 1)
-                
-                r = mgr.write_and_test_site_config(domain1, new_conf)
-                if not r.success:
-                    return JsonResponse({'status': 'error', 'message': f'Nginx validation failed: {r.error}'})
+        frontend_build_root = f"/home/{fre.dir}/{name}/frontend/build"
+        r = mgr.setup_reverse_proxy(domain1, name, 'mern', f'http://127.0.0.1:{pasport}', static_path, frontend_build_root)
+        if not r.success:
+            return JsonResponse({'status': 'error', 'message': f'Server configuration validation failed: {r.error}'})
 
         # Atomic reservation: only spawn compilation if DB allocation succeeds
         try:

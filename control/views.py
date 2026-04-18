@@ -866,34 +866,127 @@ def backup(request,data):
                 mainn=str(current)+'_'
                 d['useddatabase']=len(get_database_names_with_filter(adminpassword,mainn))
                 try:
-                    
                     lold=domain.objects.get(domain=data)   
                     d['domain']=data
-                    import glob
                     folder={}
                     directory=os.path.join(paths.HOME_BASE, lold.dir)
                     
-                    zip_files = glob.glob(os.path.join(directory, "*.zip"))
+                    zip_files = sorted(glob.glob(os.path.join(directory, "backup_*.zip")), reverse=True)
                     
-            
                     for zip_file in zip_files:
-                        print(os.path.basename(zip_file))
-                        parts = zip_file.rsplit('_', 2)
-                        if len(parts) == 3:
-                            folder[parts[2]]=[parts[0],parts[1],parts[2].replace(".zip",""),os.path.basename(zip_file)]
+                        basename = os.path.basename(zip_file)
+                        # Format: backup_<domain>_<YYYYMMDD>_<HHMMSS>.zip
+                        # We reliably get date/time as last two underscore-segments before .zip
+                        name_no_ext = basename[:-4]  # strip .zip
+                        segments = name_no_ext.split('_')
+                        # Last two segments are date and time
+                        if len(segments) >= 4:
+                            time_part = segments[-1]
+                            date_part = segments[-2]
+                            # Format date nicely: YYYYMMDD -> YYYY-MM-DD
+                            try:
+                                date_pretty = f"{date_part[:4]}-{date_part[4:6]}-{date_part[6:8]}"
+                            except Exception:
+                                date_pretty = date_part
+                            try:
+                                time_pretty = f"{time_part[:2]}:{time_part[2:4]}:{time_part[4:6]}"
+                            except Exception:
+                                time_pretty = time_part
+                            import os as _os
+                            size_bytes = _os.path.getsize(zip_file)
+                            size_mb = round(size_bytes / (1024 * 1024), 1)
+                            folder[basename] = [
+                                directory,       # j.0 - full path of the directory
+                                date_pretty,     # j.1 - formatted date
+                                time_pretty,     # j.2 - formatted time
+                                basename,        # j.3 - filename for download
+                                f"{size_mb} MB", # j.4 - size
+                            ]
                     d['folder']=folder
                     d['dire']=lold.dir
-                    url = 'https://voidpanel.com/clientdocs/'  # Replace with your API URL
-                    response = requests.get(url)
-                    if response.status_code == 200:
-                        dataee = response.json()  # Parse the JSON response
-                        d['docs']=dataee
                     return render(request,'control/backup.html',d)
                 except Exception as e:
                     return redirect("/")
            
     else: 
         return redirect('/')
+
+
+@login_required(login_url='/')
+def delete_backup(request):
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Invalid method'})
+    if request.user.is_superuser:
+        current = request.session['name']
+    else:
+        current = request.user
+
+    try:
+        data = json.loads(request.body)
+        filename = data.get('filename', '').strip()
+        domainname = data.get('domain', '').strip()
+
+        # Basic security: filename must start with backup_ and end with .zip
+        if not filename.startswith('backup_') or not filename.endswith('.zip') or '/' in filename or '..' in filename:
+            return JsonResponse({'status': 'error', 'message': 'Invalid filename'})
+
+        # Verify ownership
+        owner_domain = user.objects.get(username=current).domain
+        if domainname != owner_domain:
+            return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+
+        lold = domain.objects.get(domain=domainname)
+        directory = os.path.join(paths.HOME_BASE, lold.dir)
+        filepath = os.path.join(directory, filename)
+
+        # Security check: file must be inside the user's home directory
+        real_filepath = os.path.realpath(filepath)
+        real_directory = os.path.realpath(directory)
+        if not real_filepath.startswith(real_directory + os.sep):
+            return JsonResponse({'status': 'error', 'message': 'Path traversal denied'}, status=403)
+
+        if os.path.exists(real_filepath):
+            os.remove(real_filepath)
+            return JsonResponse({'status': 'success', 'message': 'Backup deleted successfully'})
+        else:
+            return JsonResponse({'status': 'error', 'message': 'Backup file not found'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
+
+@login_required(login_url='/')
+def download_backup(request, filename):
+    if request.user.is_superuser:
+        current = request.session['name']
+    else:
+        current = request.user
+
+    try:
+        # Security: filename must be a valid backup zip, no path traversal
+        if not filename.startswith('backup_') or not filename.endswith('.zip') or '/' in filename or '..' in filename:
+            raise Http404("Invalid filename")
+
+        domain_obj = user.objects.get(username=current)
+        owner_domain = domain_obj.domain
+        lold = domain.objects.get(domain=owner_domain)
+        directory = os.path.join(paths.HOME_BASE, lold.dir)
+        filepath = os.path.join(directory, filename)
+
+        real_filepath = os.path.realpath(filepath)
+        real_directory = os.path.realpath(directory)
+        if not real_filepath.startswith(real_directory + os.sep):
+            raise Http404("Path traversal denied")
+
+        if not os.path.exists(real_filepath):
+            raise Http404("Backup file not found")
+
+        from django.http import FileResponse
+        response = FileResponse(open(real_filepath, 'rb'), content_type='application/zip')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+    except Http404:
+        raise
+    except Exception as e:
+        raise Http404("File not found")
 
                    
 @login_required(login_url='/')
@@ -1457,17 +1550,23 @@ def backup_status(request, data):
         current = request.user
         
     try:
+        # Ownership: make sure the domain belongs to this user
+        owner_domain = user.objects.get(username=current).domain
+        if data != owner_domain and not request.user.is_superuser:
+            return JsonResponse({'status': 'idle'})
+
         namm = domain.objects.get(domain=data)
-        if namm.dir != getattr(user.objects.get(username=current), 'domain', None) and namm.dir != current.username and namm.dir != current:
-             pass # Simple auth
-        
         main_directory = os.path.join(paths.HOME_BASE, namm.dir)
         progress_file = os.path.join(main_directory, ".backup_progress")
         
         if os.path.exists(progress_file):
             with open(progress_file, 'r') as f:
                 content = f.read().strip()
-            return JsonResponse({'status': 'processing', 'progress': content})
+            try:
+                pct = int(content)
+            except ValueError:
+                pct = 0
+            return JsonResponse({'status': 'processing', 'progress': pct})
         else:
             return JsonResponse({'status': 'idle'})
     except Exception:

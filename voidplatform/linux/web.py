@@ -248,11 +248,100 @@ class NginxWebServerManager(WebServerManager):
             _run(['sudo', 'cp', backup_path, conf])
             return CommandResult(success=False, error=str(e))
 
-    def setup_reverse_proxy(self, domain: str, app_name: str, proxy_type: str, target: str, static_path: str = '') -> CommandResult:
-        return CommandResult(success=True)
+    def setup_reverse_proxy(self, domain: str, app_name: str, proxy_type: str, target: str, static_path: str = '', root_path: str = '') -> CommandResult:
+        try:
+            import re
+            old_conf = self.read_site_config(domain)
+            if not old_conf:
+                return CommandResult(success=False, error="Config not found")
+
+            # Ensure we operate from a clean slate by removing any existing blocks 
+            new_conf = old_conf
+            new_conf = re.sub(r'[ \t]*location / \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+            new_conf = re.sub(r'[ \t]*location /static/ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+            new_conf = re.sub(r'[ \t]*location /api/ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+            new_conf = re.sub(r'[ \t]*location = /compiling\.html \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+            new_conf = re.sub(r'[ \t]*location ~\* \\.html\$ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+
+            if proxy_type == 'mern':
+                # Strip old root and assign dynamically
+                new_conf = re.sub(r'root\s+/home/[^/]+/(?:[^/]+/frontend/build|public_html);?', '', new_conf)
+                owner = root_path.split('/')[2] if root_path else "unknown"
+                compiling_path = f"/home/{owner}/{app_name}/compiling.html"
+                
+                new_location_block = f"""
+    root {root_path};
+
+    # Prevent browser caching of HTML so page updates are always visible
+    location ~* \\.html$ {{
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Pragma "no-cache";
+        add_header Expires 0;
+    }}
+
+    location / {{
+        try_files $uri /index.html /compiling.html;
+    }}
+    
+    location = /compiling.html {{
+        alias {compiling_path};
+    }}
+
+    location /static/ {{
+        alias {static_path}/;
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+    }}
+
+    location /api/ {{
+        proxy_pass {target};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }}"""
+                if 'location ~ /\\.ht {' in new_conf:
+                    new_conf = new_conf.replace('location ~ /\\.ht {', new_location_block[1:] + '\n\n    location ~ /\\.ht {', 1)
+                else:
+                    # Append it right before the last closing brace as a failsafe
+                    new_conf = new_conf.rstrip().rsplit('}', 1)
+                    new_conf = new_conf[0] + new_location_block + '\n}'
+            
+            return self.write_and_test_site_config(domain, new_conf)
+        except Exception as e:
+            return CommandResult(success=False, error=str(e))
 
     def remove_reverse_proxy(self, domain: str, app_name: str) -> CommandResult:
-        return CommandResult(success=True)
+        try:
+            import re
+            old_conf = self.read_site_config(domain)
+            if not old_conf:
+                return CommandResult(success=True)
+
+            new_conf = old_conf
+            new_conf = re.sub(r'[ \t]*location / \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+            new_conf = re.sub(r'[ \t]*location /static/ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+            new_conf = re.sub(r'[ \t]*location /api/ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+            new_conf = re.sub(r'[ \t]*location = /compiling\.html \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+            new_conf = re.sub(r'[ \t]*location ~\* \\.html\$ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
+
+            # Revert MERN-specific root and fallback to standard execution
+            owner_match = re.search(r'root\s+/home/([^/]+)/[^;]+', new_conf)
+            fallback_owner = owner_match.group(1) if owner_match else "unknown"
+            new_conf = re.sub(r'root\s+/home/[^/]+/(?:[^/]+/frontend/build|public_html);?', f'root /home/{fallback_owner}/public_html;', new_conf)
+
+            default_location = """
+    location / {
+        try_files $uri $uri/ =404;
+    }
+"""
+            if 'location ~ /\\.ht {' in new_conf:
+                new_conf = new_conf.replace('location ~ /\\.ht {', default_location[1:] + '    location ~ /\\.ht {', 1)
+
+            return self.write_and_test_site_config(domain, new_conf)
+        except Exception as e:
+            return CommandResult(success=False, error=str(e))
 # ── OpenLiteSpeed Implementation ─────────────────────────────────────────────
 
 class OLSWebServerManager(WebServerManager):
@@ -538,11 +627,61 @@ listener VoidHTTP {{
             _run(['sudo', 'cp', backup_path, conf])
             return CommandResult(success=False, error=str(e))
 
-    def setup_reverse_proxy(self, domain: str, app_name: str, proxy_type: str, target: str, static_path: str = '') -> CommandResult:
-        return CommandResult(success=True)
+    def setup_reverse_proxy(self, domain: str, app_name: str, proxy_type: str, target: str, static_path: str = '', root_path: str = '') -> CommandResult:
+        try:
+            import re
+            old_conf = self.read_site_config(domain)
+            if not old_conf:
+                return CommandResult(success=False, error="Config not found")
+            
+            # Extract port if target is HTTP (e.g. http://127.0.0.1:3001)
+            address = target
+            if "http://" in address:
+                address = target.split("http://")[-1]
+
+            ols_proxy = f"""
+extprocessor {proxy_type}_{app_name} {{
+  type                    proxy
+  address                 {address}
+  maxConns                100
+  initTimeout             60
+  retryTimeout            0
+  respBuffer              0
+}}
+context /api/ {{
+  type                    proxy
+  handler                 {proxy_type}_{app_name}
+  addDefaultCharset       off
+}}
+"""
+            new_conf = old_conf
+            # Adjust document root strictly for MERN
+            if proxy_type == 'mern' and root_path:
+                new_conf = re.sub(r'docRoot\s+\$VH_ROOT/(?:[^/]+/frontend/build|public_html)', f'docRoot $VH_ROOT/{app_name}/frontend/build', new_conf)
+
+            if f"{proxy_type}_{app_name}" not in new_conf:
+                new_conf += f"\n{ols_proxy}"
+
+            return self.write_and_test_site_config(domain, new_conf)
+        except Exception as e:
+            return CommandResult(success=False, error=str(e))
 
     def remove_reverse_proxy(self, domain: str, app_name: str) -> CommandResult:
-        return CommandResult(success=True)
+        try:
+            import re
+            old_conf = self.read_site_config(domain)
+            if not old_conf:
+                return CommandResult(success=True)
+
+            # Clean extprocessors safely using named boundaries
+            new_conf = re.sub(rf'extprocessor (?:mern|python)_{app_name}\s*{{[^}}]+}}\n?', '', old_conf)
+            new_conf = re.sub(rf'context /(?:api/)?\s*{{[^}}]+handler\s+(?:mern|python)_{app_name}[^}}]+}}\n?', '', new_conf)
+            new_conf = re.sub(r'docRoot\s+\$VH_ROOT/(?:[^/]+/frontend/build|public_html)', r'docRoot $VH_ROOT/public_html', new_conf)
+            new_conf = re.sub(r'context /static/\s*\{[^}]*type\s+null[^}]*\}\n?', '', new_conf)
+
+            return self.write_and_test_site_config(domain, new_conf)
+        except Exception as e:
+            return CommandResult(success=False, error=str(e))
 # ── Hot-Swap Engine ───────────────────────────────────────────────────────────
 
 class WebServerSwitcher:

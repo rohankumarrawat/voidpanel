@@ -45,10 +45,14 @@ urlpatterns = [
     path('clientdocs/', views.clientdocs),
     path('api/increment/', views.increment_number, name='increment-number'),
     path('login/', views.loginn),
+    path('logout/', views.logout_view),
     path('register/', views.register),
+    path('portal/', views.portal),
+    path('super-admin/', views.super_admin_portal),
     path('blog1/', views.blog1),
     path('addemail/', views.addemail),
     path('whmcs/', views.whmcs),
+    path('whmcs/module/', views.whmcs_module),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL,
