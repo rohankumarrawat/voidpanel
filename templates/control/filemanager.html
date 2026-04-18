@@ -232,7 +232,12 @@
         <button onclick="viewpermission()"  class="fm-btn"><i class="fa fa-lock"></i><span>Chmod</span></button>
         <button onclick="compress(event)"   class="fm-btn"><i class="fa fa-file-zip-o"></i><span>Compress</span></button>
         <button onclick="extract(event)"    class="fm-btn"><i class="fa fa-expand"></i><span>Extract</span></button>
-        <button onclick="deletedata()"      class="fm-btn danger"><i class="fa fa-trash"></i><span>Delete</span></button>
+        <button onclick="deletedata()"      class="fm-btn danger"><i class="fa fa-trash"></i><span>Move to Trash</span></button>
+
+        <div style="width:1px; height:24px; background:rgba(255,255,255,0.08); margin:0 4px;"></div>
+        <a href="/trash/" class="fm-btn" style="background:rgba(239,68,68,0.08); border-color:rgba(239,68,68,0.2); color:#f87171;" title="Open Recycle Bin">
+            <i class="fa fa-recycle"></i><span>Recycle Bin</span>
+        </a>
 
         <input type="text" class="fm-search" id="searchdata" placeholder="&#xf002;  Search files..." onkeyup="filterTable()">
     </div>
@@ -277,7 +282,7 @@
                     <td><span class="perm-badge">{{key.permissions}}</span></td>
                     <td class="size-text">Directory</td>
                     <td style="text-align:right;">
-                        <button onclick="mydel('{{key.name}}','/deletefile{{main_dir}}/{{key.name}}/')" class="fm-btn danger" style="padding:4px 10px; font-size:0.78rem;">
+                        <button onclick="mydel('{{key.name}}','/deletefile{{main_dir}}/{{key.name}}/')" class="fm-btn danger" style="padding:4px 10px; font-size:0.78rem;" title="Move to Recycle Bin">
                             <i class="fa fa-trash"></i>
                         </button>
                     </td>
@@ -579,13 +584,13 @@ function ctxPermission() {
 }
 function ctxDelete() {
     if(!_ctx) return;
-    if(!confirm(`Delete "${_ctx.name}"?`)) return;
+    if(!confirm(`Move "${_ctx.name}" to Recycle Bin?`)) return;
     fetch(`/deletefile{{main_dir}}/${_ctx.name}/`, {
         method:'POST', headers:{'X-CSRFToken':CSRF},
         body: new URLSearchParams({'csrfmiddlewaretoken':CSRF})
     }).then(r=>r.json()).then(d=>{
-        if(d.status==='success') { showToast('Deleted','success'); document.getElementById('row-'+_ctx.name)?.remove(); }
-        else showToast(d.message||'Delete failed','error');
+        if(d.status==='success') { showToast(`"${_ctx.name}" moved to Recycle Bin ♻️`,'success'); document.getElementById('row-'+_ctx.name)?.remove(); }
+        else showToast(d.message||'Failed to move to trash','error');
     });
 }
 
@@ -670,29 +675,31 @@ async function doUpload() {
     finally { prog.style.display='none'; bar.style.width='0%'; btn.disabled=false; btn.innerHTML='<i class="fa fa-upload"></i> Upload'; }
 }
 
-// ── Single Delete ─────────────────────────────────────────
+// ── Single Delete (→ Recycle Bin) ────────────────────────────────
 function mydel(name, path) {
-    if(!confirm(`Delete "${name}"?`)) return;
+    if(!confirm(`Move "${name}" to Recycle Bin?`)) return;
     $.ajax({ url:path, type:'POST', data:{'csrfmiddlewaretoken':CSRF},
         success: r => {
             if(r.status==='success') {
-                showToast('Deleted successfully','success');
+                showToast(`"${name}" moved to Recycle Bin ♻️`, 'success');
                 const row = document.getElementById('row-'+name);
                 if(row) row.remove(); else location.reload();
-            } else { showToast('Error deleting','error'); }
-        }, error: () => showToast('Error deleting file','error')
+            } else { showToast(r.message || 'Error moving to trash', 'error'); }
+        }, error: () => showToast('Error contacting server', 'error')
     });
 }
 
-// ── Bulk Delete ───────────────────────────────────────────
+// ── Bulk Delete (→ Recycle Bin) ──────────────────────────────────
 function deletedata() {
     const sel = getChecked();
     if(!sel.length) { showToast('Select at least one item','error'); return; }
-    if(!confirm(`Delete ${sel.length} item(s)?`)) return;
+    if(!confirm(`Move ${sel.length} item(s) to Recycle Bin?`)) return;
     fetch("{% url 'ddeletedata' %}", { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF}, body: JSON.stringify({selected:sel, path:CUR_PATH}) })
         .then(r=>r.json()).then(d=>{
-            if(d.status==='success') { showToast('Deleted successfully','success'); setTimeout(()=>location.reload(),600); }
-            else showToast(d.message||'Error deleting','error');
+            if(d.status==='success' || d.status==='partial') {
+                showToast(d.message || `${sel.length} item(s) moved to Recycle Bin ♻️`, 'success');
+                setTimeout(()=>location.reload(), 700);
+            } else showToast(d.message||'Error moving to trash','error');
         }).catch(()=>showToast('Network error','error'));
 }
 

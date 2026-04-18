@@ -551,192 +551,206 @@ def portal(request):
 
 @login_required(login_url='/login/')
 def super_admin_portal(request):
+    denied = _super_admin_guard(request)
+    if denied:
+        return denied
+    if request.method == 'POST':
+        handled = _handle_super_admin_post(request)
+        if handled:
+            return handled
+    context = _build_super_admin_context('dashboard')
+    return render(request, 'super_admin_dashboard.html', context)
+
+
+def _super_admin_guard(request):
     if not request.user.is_superuser:
         messages.error(request, "Super admin access is required")
         return redirect('/portal/')
+    return None
 
+
+def _super_admin_redirect(request, fallback):
+    target = request.POST.get('next') or request.META.get('HTTP_REFERER') or fallback
+    return redirect(target)
+
+
+def _handle_super_admin_post(request):
+    action = request.POST.get('action')
+
+    if action == 'create_role':
+        role_name = request.POST.get('role_name', '').strip()
+        description = request.POST.get('description', '').strip()
+        if not role_name:
+            messages.error(request, "Role name is required")
+            return _super_admin_redirect(request, '/super-admin/roles/')
+        slug = slugify(role_name)
+        if StaffRole.objects.filter(slug=slug).exists():
+            messages.error(request, "A role with that name already exists")
+            return _super_admin_redirect(request, '/super-admin/roles/')
+        StaffRole.objects.create(
+            name=role_name,
+            slug=slug,
+            description=description,
+            can_manage_clients=bool(request.POST.get('can_manage_clients')),
+            can_manage_billing=bool(request.POST.get('can_manage_billing')),
+            can_manage_support=bool(request.POST.get('can_manage_support')),
+            can_manage_infrastructure=bool(request.POST.get('can_manage_infrastructure')),
+            can_manage_staff=bool(request.POST.get('can_manage_staff')),
+        )
+        messages.success(request, "Staff role created")
+        return _super_admin_redirect(request, '/super-admin/roles/')
+
+    if action == 'create_staff':
+        name = request.POST.get('staff_name', '').strip()
+        email = request.POST.get('staff_email', '').strip().lower()
+        password = request.POST.get('staff_password', '')
+        role_id = request.POST.get('role_id')
+        department = request.POST.get('department', '').strip()
+        is_super_admin = bool(request.POST.get('is_super_admin'))
+        if not name or not email or not password:
+            messages.error(request, "Name, email, and password are required for new staff")
+            return _super_admin_redirect(request, '/super-admin/staff/')
+        if User.objects.filter(email=email).exists():
+            messages.error(request, "That email is already in use")
+            return _super_admin_redirect(request, '/super-admin/staff/')
+        try:
+            validate_password(password)
+        except ValidationError as exc:
+            for error in exc.messages:
+                messages.error(request, error)
+            return _super_admin_redirect(request, '/super-admin/staff/')
+
+        role = StaffRole.objects.filter(id=role_id).first()
+        first_name, _, last_name = name.partition(' ')
+        username = _generate_username_from_email(email)
+        with transaction.atomic():
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name.strip(),
+                is_staff=True,
+                is_superuser=is_super_admin,
+            )
+            ensure_portal_seed_data(user, profile_defaults={'country': 'IN'})
+            _ensure_staff_profile(
+                user,
+                role=role,
+                is_portal_admin=True,
+                display_title=role.name if role else 'Staff Member',
+                department=department,
+            )
+            PortalActivity.objects.create(
+                user=user,
+                category='account',
+                title='Staff access provisioned',
+                description='This account was promoted into the internal operations portal.',
+            )
+        messages.success(request, "Staff account created")
+        return _super_admin_redirect(request, '/super-admin/staff/')
+
+    if action == 'update_staff':
+        user_id = request.POST.get('user_id')
+        role_id = request.POST.get('role_id')
+        department = request.POST.get('department', '').strip()
+        title = request.POST.get('display_title', '').strip()
+        user = User.objects.filter(id=user_id).first()
+        role = StaffRole.objects.filter(id=role_id).first()
+        if not user:
+            messages.error(request, "Staff member not found")
+            return _super_admin_redirect(request, '/super-admin/staff/')
+        user.is_staff = bool(request.POST.get('is_staff'))
+        user.is_superuser = bool(request.POST.get('is_superuser'))
+        user.save(update_fields=['is_staff', 'is_superuser'])
+        _ensure_staff_profile(
+            user,
+            role=role,
+            is_portal_admin=bool(request.POST.get('is_portal_admin')),
+            department=department,
+            display_title=title or (role.name if role else 'Staff Member'),
+        )
+        messages.success(request, f"Updated access for {user.get_full_name() or user.username}")
+        return _super_admin_redirect(request, '/super-admin/staff/')
+
+    if action == 'create_email_profile':
+        profile_name = request.POST.get('profile_name', '').strip()
+        from_email = request.POST.get('from_email', '').strip()
+        smtp_host = request.POST.get('smtp_host', '').strip()
+        smtp_port = request.POST.get('smtp_port', '').strip() or '587'
+        if not profile_name or not from_email or not smtp_host:
+            messages.error(request, "Profile name, sender email, and SMTP host are required")
+            return _super_admin_redirect(request, '/super-admin/emails/')
+        should_be_default = bool(request.POST.get('is_default'))
+        if should_be_default:
+            OutboundEmailProfile.objects.update(is_default=False)
+        email_profile = OutboundEmailProfile.objects.create(
+            profile_name=profile_name,
+            purpose_category=request.POST.get('purpose_category', 'transactional'),
+            from_name=request.POST.get('from_name', '').strip(),
+            from_email=from_email,
+            reply_to_email=request.POST.get('reply_to_email', '').strip(),
+            smtp_host=smtp_host,
+            smtp_port=int(smtp_port),
+            smtp_username=request.POST.get('smtp_username', '').strip(),
+            smtp_password=request.POST.get('smtp_password', ''),
+            use_tls=bool(request.POST.get('use_tls')),
+            use_ssl=bool(request.POST.get('use_ssl')),
+            is_active=bool(request.POST.get('is_active')),
+            is_default=should_be_default or not OutboundEmailProfile.objects.exists(),
+            **{field: bool(request.POST.get(field)) for field, _ in EMAIL_EVENT_FIELDS},
+        )
+        if not OutboundEmailProfile.objects.exclude(id=email_profile.id).exists():
+            email_profile.is_default = True
+            email_profile.save(update_fields=['is_default'])
+        messages.success(request, "Email profile created")
+        return _super_admin_redirect(request, '/super-admin/emails/')
+
+    if action == 'email_profile_action':
+        profile = OutboundEmailProfile.objects.filter(id=request.POST.get('profile_id')).first()
+        mode = request.POST.get('mode')
+        if not profile:
+            messages.error(request, "Email profile not found")
+            return _super_admin_redirect(request, '/super-admin/emails/')
+        if mode == 'make_default':
+            OutboundEmailProfile.objects.update(is_default=False)
+            profile.is_default = True
+            profile.save(update_fields=['is_default'])
+            messages.success(request, f"{profile.profile_name} is now the default email profile")
+            return _super_admin_redirect(request, '/super-admin/emails/')
+        if mode == 'toggle_active':
+            profile.is_active = not profile.is_active
+            profile.save(update_fields=['is_active'])
+            messages.success(request, f"{profile.profile_name} was {'activated' if profile.is_active else 'paused'}")
+            return _super_admin_redirect(request, '/super-admin/emails/')
+        if mode == 'test_connection':
+            try:
+                _test_email_profile_connection(profile)
+                messages.success(request, f"SMTP test connection succeeded for {profile.profile_name}")
+            except Exception as exc:
+                messages.error(request, f"SMTP test failed for {profile.profile_name}: {exc}")
+            return _super_admin_redirect(request, '/super-admin/emails/')
+    return None
+
+
+def _build_super_admin_context(active_page):
     ensure_default_staff_roles()
     _ensure_staff_profile(
-        request.user,
+        User.objects.filter(is_superuser=True).first() or User.objects.filter(is_staff=True).first(),
         role=StaffRole.objects.filter(can_manage_staff=True).first(),
         is_portal_admin=True,
         display_title='Super Administrator',
         department='Executive',
     )
-
-    if request.method == 'POST':
-        action = request.POST.get('action')
-
-        if action == 'create_role':
-            role_name = request.POST.get('role_name', '').strip()
-            description = request.POST.get('description', '').strip()
-            if not role_name:
-                messages.error(request, "Role name is required")
-                return redirect('/super-admin/')
-            slug = slugify(role_name)
-            if StaffRole.objects.filter(slug=slug).exists():
-                messages.error(request, "A role with that name already exists")
-                return redirect('/super-admin/')
-            StaffRole.objects.create(
-                name=role_name,
-                slug=slug,
-                description=description,
-                can_manage_clients=bool(request.POST.get('can_manage_clients')),
-                can_manage_billing=bool(request.POST.get('can_manage_billing')),
-                can_manage_support=bool(request.POST.get('can_manage_support')),
-                can_manage_infrastructure=bool(request.POST.get('can_manage_infrastructure')),
-                can_manage_staff=bool(request.POST.get('can_manage_staff')),
-            )
-            messages.success(request, "Staff role created")
-            return redirect('/super-admin/')
-
-        if action == 'create_staff':
-            name = request.POST.get('staff_name', '').strip()
-            email = request.POST.get('staff_email', '').strip().lower()
-            password = request.POST.get('staff_password', '')
-            role_id = request.POST.get('role_id')
-            department = request.POST.get('department', '').strip()
-            is_super_admin = bool(request.POST.get('is_super_admin'))
-            if not name or not email or not password:
-                messages.error(request, "Name, email, and password are required for new staff")
-                return redirect('/super-admin/')
-            if User.objects.filter(email=email).exists():
-                messages.error(request, "That email is already in use")
-                return redirect('/super-admin/')
-            try:
-                validate_password(password)
-            except ValidationError as exc:
-                for error in exc.messages:
-                    messages.error(request, error)
-                return redirect('/super-admin/')
-
-            role = StaffRole.objects.filter(id=role_id).first()
-            first_name, _, last_name = name.partition(' ')
-            username = _generate_username_from_email(email)
-            with transaction.atomic():
-                user = User.objects.create_user(
-                    username=username,
-                    email=email,
-                    password=password,
-                    first_name=first_name,
-                    last_name=last_name.strip(),
-                    is_staff=True,
-                    is_superuser=is_super_admin,
-                )
-                ensure_portal_seed_data(user, profile_defaults={'country': 'IN'})
-                _ensure_staff_profile(
-                    user,
-                    role=role,
-                    is_portal_admin=True,
-                    display_title=role.name if role else 'Staff Member',
-                    department=department,
-                )
-                PortalActivity.objects.create(
-                    user=user,
-                    category='account',
-                    title='Staff access provisioned',
-                    description='This account was promoted into the internal operations portal.',
-                )
-            messages.success(request, "Staff account created")
-            return redirect('/super-admin/')
-
-        if action == 'update_staff':
-            user_id = request.POST.get('user_id')
-            role_id = request.POST.get('role_id')
-            department = request.POST.get('department', '').strip()
-            title = request.POST.get('display_title', '').strip()
-            user = User.objects.filter(id=user_id).first()
-            role = StaffRole.objects.filter(id=role_id).first()
-            if not user:
-                messages.error(request, "Staff member not found")
-                return redirect('/super-admin/')
-            user.is_staff = bool(request.POST.get('is_staff'))
-            user.is_superuser = bool(request.POST.get('is_superuser'))
-            user.save(update_fields=['is_staff', 'is_superuser'])
-            _ensure_staff_profile(
-                user,
-                role=role,
-                is_portal_admin=bool(request.POST.get('is_portal_admin')),
-                department=department,
-                display_title=title or (role.name if role else 'Staff Member'),
-            )
-            messages.success(request, f"Updated access for {user.get_full_name() or user.username}")
-            return redirect('/super-admin/')
-
-        if action == 'create_email_profile':
-            profile_name = request.POST.get('profile_name', '').strip()
-            from_email = request.POST.get('from_email', '').strip()
-            smtp_host = request.POST.get('smtp_host', '').strip()
-            smtp_port = request.POST.get('smtp_port', '').strip() or '587'
-            if not profile_name or not from_email or not smtp_host:
-                messages.error(request, "Profile name, sender email, and SMTP host are required")
-                return redirect('/super-admin/#settings')
-
-            should_be_default = bool(request.POST.get('is_default'))
-            if should_be_default:
-                OutboundEmailProfile.objects.update(is_default=False)
-
-            email_profile = OutboundEmailProfile.objects.create(
-                profile_name=profile_name,
-                purpose_category=request.POST.get('purpose_category', 'transactional'),
-                from_name=request.POST.get('from_name', '').strip(),
-                from_email=from_email,
-                reply_to_email=request.POST.get('reply_to_email', '').strip(),
-                smtp_host=smtp_host,
-                smtp_port=int(smtp_port),
-                smtp_username=request.POST.get('smtp_username', '').strip(),
-                smtp_password=request.POST.get('smtp_password', ''),
-                use_tls=bool(request.POST.get('use_tls')),
-                use_ssl=bool(request.POST.get('use_ssl')),
-                is_active=bool(request.POST.get('is_active')),
-                is_default=should_be_default or not OutboundEmailProfile.objects.exclude(id=0).exists(),
-                **{field: bool(request.POST.get(field)) for field, _ in EMAIL_EVENT_FIELDS},
-            )
-            if not OutboundEmailProfile.objects.exclude(id=email_profile.id).exists():
-                email_profile.is_default = True
-                email_profile.save(update_fields=['is_default'])
-            messages.success(request, "Email profile created")
-            return redirect('/super-admin/#settings')
-
-        if action == 'email_profile_action':
-            profile = OutboundEmailProfile.objects.filter(id=request.POST.get('profile_id')).first()
-            mode = request.POST.get('mode')
-            if not profile:
-                messages.error(request, "Email profile not found")
-                return redirect('/super-admin/#settings')
-
-            if mode == 'make_default':
-                OutboundEmailProfile.objects.update(is_default=False)
-                profile.is_default = True
-                profile.save(update_fields=['is_default'])
-                messages.success(request, f"{profile.profile_name} is now the default email profile")
-                return redirect('/super-admin/#settings')
-
-            if mode == 'toggle_active':
-                profile.is_active = not profile.is_active
-                profile.save(update_fields=['is_active'])
-                messages.success(request, f"{profile.profile_name} was {'activated' if profile.is_active else 'paused'}")
-                return redirect('/super-admin/#settings')
-
-            if mode == 'test_connection':
-                try:
-                    _test_email_profile_connection(profile)
-                    messages.success(request, f"SMTP test connection succeeded for {profile.profile_name}")
-                except Exception as exc:
-                    messages.error(request, f"SMTP test failed for {profile.profile_name}: {exc}")
-                return redirect('/super-admin/#settings')
-
     staff_users = User.objects.filter(is_staff=True).order_by('first_name', 'username')
     for user in staff_users:
         _ensure_staff_profile(user, is_portal_admin=getattr(getattr(user, 'staff_profile', None), 'is_portal_admin', False))
-
     staff_profiles = StaffProfile.objects.select_related('user', 'role').filter(user__is_staff=True)
     roles = list(StaffRole.objects.all())
     client_count = User.objects.filter(is_staff=False, is_superuser=False).count()
     open_ticket_count = SupportTicket.objects.exclude(status='closed').count()
     unpaid_total = Invoice.objects.filter(status__in=['unpaid', 'overdue']).aggregate(total=Sum('total'))['total'] or Decimal('0.00')
     monthly_revenue = HostingService.objects.filter(status='active').aggregate(total=Sum('monthly_price'))['total'] or Decimal('0.00')
-
     recent_clients = User.objects.filter(is_staff=False).order_by('-date_joined')[:6]
     recent_tickets = SupportTicket.objects.select_related('user').all()[:6]
     email_profiles = OutboundEmailProfile.objects.all()
@@ -744,7 +758,6 @@ def super_admin_portal(request):
     portal_admin_count = staff_profiles.filter(is_portal_admin=True).count()
     billing_role_count = StaffRole.objects.filter(can_manage_billing=True).count()
     support_role_count = StaffRole.objects.filter(can_manage_support=True).count()
-
     for profile in staff_profiles:
         profile.permission_summary = _staff_permissions_summary(profile.role)
     for email_profile in email_profiles:
@@ -754,8 +767,8 @@ def super_admin_portal(request):
         bucket = [profile for profile in email_profiles if profile.purpose_category == value]
         if bucket:
             email_profiles_by_purpose[label] = bucket
-
-    context = {
+    return {
+        'active_page': active_page,
         'email_event_fields': EMAIL_EVENT_FIELDS,
         'email_purpose_choices': EMAIL_PURPOSE_CHOICES,
         'email_profiles': email_profiles,
@@ -777,7 +790,50 @@ def super_admin_portal(request):
             'support_role_count': support_role_count,
         },
     }
-    return render(request, 'super_admin.html', context)
+
+
+@login_required(login_url='/login/')
+def super_admin_staff(request):
+    denied = _super_admin_guard(request)
+    if denied:
+        return denied
+    if request.method == 'POST':
+        handled = _handle_super_admin_post(request)
+        if handled:
+            return handled
+    return render(request, 'super_admin_staff.html', _build_super_admin_context('staff'))
+
+
+@login_required(login_url='/login/')
+def super_admin_roles(request):
+    denied = _super_admin_guard(request)
+    if denied:
+        return denied
+    if request.method == 'POST':
+        handled = _handle_super_admin_post(request)
+        if handled:
+            return handled
+    return render(request, 'super_admin_roles.html', _build_super_admin_context('roles'))
+
+
+@login_required(login_url='/login/')
+def super_admin_emails(request):
+    denied = _super_admin_guard(request)
+    if denied:
+        return denied
+    if request.method == 'POST':
+        handled = _handle_super_admin_post(request)
+        if handled:
+            return handled
+    return render(request, 'super_admin_emails.html', _build_super_admin_context('emails'))
+
+
+@login_required(login_url='/login/')
+def super_admin_signals(request):
+    denied = _super_admin_guard(request)
+    if denied:
+        return denied
+    return render(request, 'super_admin_signals.html', _build_super_admin_context('signals'))
 
 
 def loginn(request):

@@ -865,10 +865,7 @@ def download_file(request):
 
 @login_required(login_url='/')
 def delete_file(request, file_path):
-    import shutil
-    import subprocess
-    import shlex
-
+    """Soft-delete: move to Recycle Bin. Single-item delete from file manager rows."""
     try:
         safe_path = sanitize_path(file_path, request.user)
     except ValueError as e:
@@ -878,39 +875,13 @@ def delete_file(request, file_path):
         try:
             if not os.path.exists(safe_path):
                 return JsonResponse({'status': 'error', 'message': 'File not found'})
-
-            if sys.platform == 'win32':
-                # Windows: try direct removal
-                try:
-                    if os.path.isdir(safe_path):
-                        shutil.rmtree(safe_path)
-                    else:
-                        os.remove(safe_path)
-                    return JsonResponse({'status': 'success'})
-                except Exception as e:
-                    return JsonResponse({'status': 'error', 'message': str(e)})
-            else:
-                # Linux: use sudo rm since www-data can't delete user-owned files
-                # sudo is allowed for www-data via /etc/sudoers.d/voidpanel
-                quoted = shlex.quote(safe_path)
-                if os.path.isdir(safe_path):
-                    result = subprocess.run(
-                        ['sudo', 'rm', '-rf', safe_path],
-                        capture_output=True, text=True, timeout=30
-                    )
-                else:
-                    result = subprocess.run(
-                        ['sudo', 'rm', '-f', safe_path],
-                        capture_output=True, text=True, timeout=30
-                    )
-                if result.returncode == 0:
-                    return JsonResponse({'status': 'success'})
-                else:
-                    return JsonResponse({'status': 'error', 'message': result.stderr.strip() or 'Delete failed'})
+            _trash_move(safe_path, request.user)
+            return JsonResponse({'status': 'success', 'message': 'Moved to Recycle Bin'})
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)})
 
     return JsonResponse({'status': 'error', 'message': 'Invalid method'})
+
 
  
    
@@ -1666,67 +1637,44 @@ def ddeletedata(request):
                            cmd = ['sudo', 'rm', '-rf', target]
                        else:
                            cmd = ['sudo', 'rm', '-f', target]
-                       r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-                       if r.returncode != 0:
-                           failed.append(item)
-
-               if not failed:
-                   return JsonResponse({'status': 'success', 'message': 'Deleted successfully!'})
-               else:
-                   return JsonResponse({'status': 'error', 'message': f'Failed to delete: {", ".join(failed)}'})
-
-         return JsonResponse({'status': 'error', 'message': 'Invalid method'})
-     return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
-
-@login_required(login_url='/')
+                       r = subprocess.ru@login_required(login_url='/')
 def deletedata(request):
-     import os
-     import shutil
-     c=0
+     """Soft-delete: move selected items to the Recycle Bin (called by toolbar bulk-delete)."""
+     if not (request.user.is_superuser or request.user.is_authenticated):
+         return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+     if request.method != 'POST':
+         return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
 
-     if request.user.is_superuser or request.user.is_authenticated:
-         if request.method =="POST":
-               
-               data = json.loads(request.body)  # Get the data from the request body
-               selected_items = data.get('selected', [])
-               file_path = data.get('path')
-        
-              
-               if '/' !=file_path[0]:
-                   file_path="/"+file_path
-               if '/' !=file_path[-1]:
-                   file_path=file_path+"/"
-            
-               for i in selected_items:
-                 
-                try:
-                    
-                    os.remove(file_path+i)
-                    c=c+1
-                    
-                except Exception as e:
-                    pass
-                try:
-                    os.rmdir(file_path+i)
-                    c=c+1
-                    return JsonResponse({'status':'success'})
+     data = json.loads(request.body)
+     selected_items = data.get('selected', [])
+     raw_path = data.get('path', '/')
+     moved = 0
+     errors = []
+     try:
+         base_path = sanitize_path(raw_path, request.user)
+     except ValueError as e:
+         return JsonResponse({'status': 'error', 'message': str(e)}, status=403)
 
-                except Exception as e:
-                    pass
-                try:
-                    shutil.rmtree(file_path+i)
-                    c=c+1
-                    return JsonResponse({'status':'success'})
+     for item in selected_items:
+         src = os.path.join(base_path, item)
+         try:
+             if not item or '/' in item or '..' in item:
+                 errors.append(f'{item}: invalid name')
+                 continue
+             if os.path.exists(src):
+                 _trash_move(src, request.user)
+                 moved += 1
+             else:
+                 errors.append(f'{item}: not found')
+         except Exception as e:
+             errors.append(f'{item}: {str(e)}')
 
-                except Exception as e:
-                    pass
-               if c==len(selected_items):
-                   return JsonResponse({'status': 'success', 'message': 'File Deleted successfully!'})
-               else:
-                   
-                   return JsonResponse({'status': 'error', 'message': 'File Deletion Failed!'})
-         return JsonResponse({'status': 'error', 'message': 'File Deletion Failed!'})
-     
+     if moved == len(selected_items):
+         return JsonResponse({'status': 'success', 'message': f'{moved} item(s) moved to Recycle Bin.'})
+     elif moved > 0:
+         return JsonResponse({'status': 'partial', 'message': f'{moved} moved, errors: {", ".join(errors)}'})
+     return JsonResponse({'status': 'error', 'message': f'Failed: {", ".join(errors)}'})
+
 
 # ── Recycle Bin helpers ───────────────────────────────────────────────────────
 def get_trash_dir(user):
@@ -1736,15 +1684,38 @@ def get_trash_dir(user):
     else:
         return os.path.join(paths.HOME_BASE, user.username, '.trash')
 
+def _sudo_mv(src, dest):
+    """Move using sudo mv to handle user-owned files (www-data has NOPASSWD sudo)."""
+    import subprocess
+    result = subprocess.run(['sudo', 'mv', src, dest], capture_output=True, text=True, timeout=30)
+    if result.returncode != 0:
+        raise PermissionError(f"sudo mv failed: {result.stderr.strip()}")
+
+def _sudo_rm(path):
+    """Remove using sudo rm to handle user-owned files."""
+    import subprocess
+    if os.path.isdir(path):
+        cmd = ['sudo', 'rm', '-rf', path]
+    else:
+        cmd = ['sudo', 'rm', '-f', path]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    if result.returncode != 0:
+        raise PermissionError(f"sudo rm failed: {result.stderr.strip()}")
+
 def _trash_move(src_path, user):
     """Move a file/folder into the VoidPanel trash and write a .meta sidecar."""
+    import subprocess
     t_dir = get_trash_dir(user)
+    # Ensure trash dir exists and is writable by www-data
     os.makedirs(t_dir, exist_ok=True)
+    # Fix permissions on trash dir so www-data can write
+    subprocess.run(['sudo', 'chmod', '777', t_dir], capture_output=True, timeout=10)
     timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')
     item_name = os.path.basename(src_path.rstrip('/'))
     trash_name = f'{timestamp}__{item_name}'
     dest = os.path.join(t_dir, trash_name)
-    shutil.move(src_path, dest)
+    # Use sudo mv to handle user-owned files
+    _sudo_mv(src_path, dest)
     # Write metadata sidecar
     meta = {
         'original_path': src_path,
@@ -1843,21 +1814,27 @@ def trash_restore(request):
         original_path = meta.get('original_path')
         if not original_path:
             raise ValueError('No original path in metadata')
-        os.makedirs(os.path.dirname(original_path), exist_ok=True)
-        shutil.move(trash_item, original_path)
-        os.remove(meta_file)
-        return JsonResponse({'status': 'success', 'message': f'Restored to {original_path}'})
+        # If destination already exists, restore with a unique suffix
+        restore_dest = original_path
+        if os.path.exists(restore_dest):
+            base, ext = os.path.splitext(restore_dest)
+            restore_dest = f"{base}_restored_{datetime.datetime.now().strftime('%H%M%S')}{ext}"
+        os.makedirs(os.path.dirname(restore_dest), exist_ok=True)
+        _sudo_mv(trash_item, restore_dest)
+        if os.path.exists(meta_file):
+            os.remove(meta_file)
+        return JsonResponse({'status': 'success', 'message': f'Restored to {restore_dest}'})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)})
 
 
 @login_required(login_url='/')
 def trash_empty(request):
-    """Permanently delete all items in the Recycle Bin."""
+    """Permanently delete one or all items in the Recycle Bin."""
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
     data = json.loads(request.body)
-    trash_name = data.get('trash_name')  # single item, or None for empty all
+    trash_name = data.get('trash_name')  # single item, or None/omitted for empty all
 
     t_dir = get_trash_dir(request.user)
 
@@ -1867,11 +1844,9 @@ def trash_empty(request):
             if '/' in trash_name or '..' in trash_name:
                 return JsonResponse({'status': 'error', 'message': 'Invalid name'}, status=400)
             target = os.path.join(t_dir, trash_name)
-            meta = target + '.meta'
-            if os.path.isdir(target):
-                shutil.rmtree(target)
-            elif os.path.isfile(target):
-                os.remove(target)
+            meta  = target + '.meta'
+            if os.path.exists(target):
+                _sudo_rm(target)
             if os.path.exists(meta):
                 os.remove(meta)
             return JsonResponse({'status': 'success', 'message': 'Item permanently deleted.'})
@@ -1879,10 +1854,10 @@ def trash_empty(request):
             # Empty entire trash
             for fname in os.listdir(t_dir):
                 fpath = os.path.join(t_dir, fname)
-                if os.path.isdir(fpath):
-                    shutil.rmtree(fpath)
-                else:
-                    os.remove(fpath)
+                try:
+                    _sudo_rm(fpath)
+                except Exception:
+                    pass
             return JsonResponse({'status': 'success', 'message': 'Recycle Bin emptied.'})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)})
