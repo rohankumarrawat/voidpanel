@@ -368,6 +368,27 @@
         window.location.reload();
     }
 
+    let pollInterval = null;
+
+    async function checkServerBack() {
+        if (pollInterval) return;
+        document.getElementById('progSub').innerHTML = 'Engine swapped! Waiting for the new server to bind to port 8080 and accept connections...';
+        document.getElementById('progBar').style.width = '95%';
+        
+        pollInterval = setInterval(async () => {
+             try {
+                 // Try to hit the panel root. If it connects, the new webserver is up!
+                 const r = await fetch('/panel/', { method: 'GET' });
+                 if (r.ok) {
+                     clearInterval(pollInterval);
+                     window.location.reload();
+                 }
+             } catch(e) {
+                 // still offline, keep polling
+             }
+        }, 2500);
+    }
+
     async function doSwitch() {
         if (!selectedEngine || selectedEngine === activeEngine) return;
 
@@ -377,19 +398,19 @@
         let w = 0;
         const pbar = document.getElementById('progBar');
         pbar.style.width = '0%';
-        const intv = setInterval(() => { if(w<90) { w+=2; pbar.style.width = w+'%'; } }, 200);
+        const intv = setInterval(() => { if(w<85) { w+=2; pbar.style.width = w+'%'; } }, 200);
 
         try {
-            const resp = await fetch('/api/switch-webserver/', {
+            // We do NOT await this because the connection WILL drop when NGINX/OLS is stopped.
+            fetch('/api/switch-webserver/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
                 body: JSON.stringify({ target: selectedEngine })
-            });
-            const data = await resp.json();
-            clearInterval(intv);
-            pbar.style.width = '100%';
-            
-            setTimeout(() => {
+            }).then(async (resp) => {
+                // If it returns quickly, it might be a validation error or rollback
+                clearInterval(intv);
+                const data = await resp.json();
+                
                 showModal('m-result');
                 if (data.status === 'success' || data.status === 'ok') {
                     document.getElementById('resIcon').innerHTML = '<i class="fa-solid fa-circle-check" style="color:#34d399;"></i>';
@@ -402,14 +423,24 @@
                     document.getElementById('resMsg').innerHTML = data.message || 'Unknown error occurred.';
                     document.getElementById('resMsg').style.color = '#f87171';
                 }
-            }, 600);
+            }).catch(e => {
+                // This is EXPECTED! The webserver dropped the connection mid-flight because it shut down.
+                clearInterval(intv);
+                checkServerBack();
+            });
+            
+            // Failsafe: if the promise didn't reject right away, assume it's switching and start polling after 6s
+            setTimeout(() => {
+                clearInterval(intv);
+                checkServerBack();
+            }, 6000);
             
         } catch (e) {
             clearInterval(intv);
             showModal('m-result');
             document.getElementById('resIcon').innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:#f87171;"></i>';
-            document.getElementById('resTitle').textContent = 'Connection Error';
-            document.getElementById('resMsg').textContent = 'Could not reach the server API. The web server process was not interrupted.';
+            document.getElementById('resTitle').textContent = 'Connection Error 2';
+            document.getElementById('resMsg').textContent = 'Could not initiate the request.';
             document.getElementById('resMsg').style.color = '#f87171';
         }
     }
