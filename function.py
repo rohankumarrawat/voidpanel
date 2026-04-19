@@ -842,7 +842,7 @@ def create_database_and_table(db_name,password):
         _validate_sql_identifier(db_name)
         connection = mysql.connector.connect(
             host="localhost",
-            user="newuser", 
+            user="root", 
             password=password
         )
         if connection.is_connected():
@@ -864,7 +864,7 @@ def create_mysql_user(username,password,passw):
         _validate_sql_identifier(username)
         connection = mysql.connector.connect(
             host="localhost",
-            user="newuser",
+            user="root",
             password=passw
         )
 
@@ -889,7 +889,7 @@ def get_database_names(passw):
         # Establish a connection to MySQL server
         connection = mysql.connector.connect(
             host="localhost",  
-            user="newuser",  # Replace with your MySQL admin username
+            user="root",  # Replace with your MySQL admin username
             password=passw  # Replace with your MySQL admin password
         )
 
@@ -915,7 +915,7 @@ def get_database_users(passw):
         # Establish a connection to MySQL server
         connection = mysql.connector.connect(
             host="localhost",  
-            user="newuser",  # Replace with your MySQL admin username
+            user="root",  # Replace with your MySQL admin username
             password=passw  # Replace with your MySQL admin password
         )
 
@@ -941,7 +941,7 @@ def get_database_names_with_filter(passw, filter_string):
         # Establish a connection to MySQL server
         connection = mysql.connector.connect(
             host="localhost",  
-            user="newuser",  # Replace with your MySQL admin username
+            user="root",  # Replace with your MySQL admin username
             password=passw  # Replace with your MySQL admin password
         )
 
@@ -971,7 +971,7 @@ def get_database_users_with_filter(passw, filter_string):
         # Establish a connection to MySQL server
         connection = mysql.connector.connect(
             host="localhost",  
-            user="newuser",  # Replace with your MySQL admin username
+            user="root",  # Replace with your MySQL admin username
             password=passw  # Replace with your MySQL admin password
         )
 
@@ -1051,7 +1051,7 @@ def remove_database(db_name, passw):
         _validate_sql_identifier(db_name)
         connection = mysql.connector.connect(
             host="localhost",  
-            user="newuser",
+            user="root",
             password=passw
         )
 
@@ -1075,7 +1075,7 @@ def delete_mysql_user(username, passw):
         _validate_sql_identifier(username)
         connection = mysql.connector.connect(
             host="localhost",  
-            user="newuser",
+            user="root",
             password=passw
         )
 
@@ -1104,7 +1104,7 @@ def change_mysql_user_password(username, new_password, passw):
         _validate_sql_identifier(username)
         connection = mysql.connector.connect(
             host="localhost",  
-            user="newuser",
+            user="root",
             password=passw
         )
 
@@ -1137,7 +1137,7 @@ def grant_mysql_user_privileges(username, database, privileges, admin_password):
                 raise ValueError(f'Invalid MySQL privilege: {priv!r}')
         connection = mysql.connector.connect(
             host="localhost",  
-            user="newuser",
+            user="root",
             password=admin_password
         )
 
