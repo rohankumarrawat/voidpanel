@@ -2524,10 +2524,11 @@ def deletedns(request):
 
     deleted = False
     try:
-        with open(zone_file_path, 'r') as f:
-            original_content = f.read()
-            f.seek(0)
-            lines = f.readlines()
+        import subprocess
+        result = subprocess.run(['sudo', 'cat', zone_file_path], capture_output=True, text=True)
+        if result.returncode != 0:
+            raise PermissionError('Failed to read zone file.')
+        lines = result.stdout.splitlines(True)
 
         new_lines = []
         for line in lines:
@@ -2621,8 +2622,11 @@ def adddnsrecord(request):
         return JsonResponse({'success': False, 'error': 'Zone file not found for this domain.'}, status=404)
 
     try:
-        with open(zone_file_path, 'r') as f:
-            original_content = f.read()
+        import subprocess
+        result = subprocess.run(['sudo', 'cat', zone_file_path], capture_output=True, text=True)
+        if result.returncode != 0:
+            raise PermissionError('Failed to read zone file.')
+        original_content = result.stdout
 
         new_content = original_content + f"\n; {record_type} Record added via VoidPanel\n{name} {ttl} IN {record_type} {data}\n"
 
@@ -2688,10 +2692,11 @@ def editdnsrecord(request):
 
     edited = False
     try:
-        with open(zone_file_path, 'r') as f:
-            original_content = f.read()
-            f.seek(0)
-            lines = f.readlines()
+        import subprocess
+        result = subprocess.run(['sudo', 'cat', zone_file_path], capture_output=True, text=True)
+        if result.returncode != 0:
+            raise PermissionError('Failed to read zone file.')
+        lines = result.stdout.splitlines(True)
 
         new_lines = []
         for line in lines:
@@ -4829,15 +4834,32 @@ def fulldbwizard(request):
     if request.user.is_superuser:
       
         d={}
-        lold=domain.objects.all()
-  
-        d['database']=get_database_names(adminpassword)
-        d['users']=get_database_users(adminpassword)
-        url = 'https://voidpanel.com/admindocs/'  # Replace with your API URL
-        response = requests.get(url)
-        if response.status_code == 200:
-            dataee = response.json()  # Parse the JSON response
-            d['docs']=dataee
+
+        d['database'] = get_database_names(adminpassword)
+        d['users'] = get_database_users(adminpassword)
+        d['totaldb'] = '∞'
+
+        # Get all DB→user privilege mappings from mysql.db
+        try:
+            import mysql.connector
+            _conn = mysql.connector.connect(host='localhost', user='root', password=adminpassword)
+            _cur = _conn.cursor()
+            _cur.execute("SELECT User, Db FROM mysql.db ORDER BY Db, User;")
+            _rows = _cur.fetchall()
+            _cur.close()
+            _conn.close()
+            d['mappings'] = [{'user': r[0], 'database': r[1]} for r in _rows]
+        except Exception:
+            d['mappings'] = []
+
+        try:
+            url = 'https://voidpanel.com/admindocs/'
+            response = requests.get(url, timeout=4)
+            if response.status_code == 200:
+                d['docs'] = response.json()
+        except Exception:
+            pass
+
         return render(request,'panel/fulldbwizard.html',d)
     else: 
         return redirect('/')

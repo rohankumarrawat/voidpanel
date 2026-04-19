@@ -1141,8 +1141,11 @@ def deletedns(request):
             
     if domain == dddd:
         try:
-            with open(pat, 'r') as file:
-                lines = file.readlines()
+            import subprocess
+            result = subprocess.run(['sudo', 'cat', pat], capture_output=True, text=True)
+            if result.returncode != 0:
+                raise PermissionError('Failed to read zone file.')
+            lines = result.stdout.splitlines(True)
             import tempfile
             with tempfile.NamedTemporaryFile('w', delete=False) as tfile:
                 for line in lines:
@@ -1212,8 +1215,11 @@ def editdnsrecord(request):
     if domain == dddd:
         edited = False
         try:
-            with open(pat, 'r') as file:
-                lines = file.readlines()
+            import subprocess
+            result = subprocess.run(['sudo', 'cat', pat], capture_output=True, text=True)
+            if result.returncode != 0:
+                raise PermissionError('Failed to read zone file.')
+            lines = result.stdout.splitlines(True)
             
             new_lines = []
             for line in lines:
