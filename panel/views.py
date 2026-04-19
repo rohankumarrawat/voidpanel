@@ -5622,11 +5622,6 @@ def serverstatus(request):
         d['postfixstatus']=get_service_status('postfix')
         d['dnsstatus']=get_service_status('bind9')
         d['firewallstatus']=get_service_status('csf')
-        url = 'https://voidpanel.com/admindocs/'  # Replace with your API URL
-        response = requests.get(url)
-        if response.status_code == 200:
-            dataee = response.json()  # Parse the JSON response
-            d['docs']=dataee
         return render(request,'panel/serverstatus.html',d)
     else: 
         return redirect('/')

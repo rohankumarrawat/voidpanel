@@ -1,713 +1,477 @@
+{% load static %}
 <!doctype html>
 <html lang="en">
-
 <head>
-    <title>:: VoidPanel :: Service Status</title>
+    <title>Server Status | VoidPanel Admin</title>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="VoidPanel Redirects ">
-    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="VoidPanel Server Status — real-time service monitoring and control">
     <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
-
-    <!-- VENDOR CSS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
-    <!-- Font Awesome 6 -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
-    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
-    <style>
-        /* Basic styling for the p tag */
-        p.processing {
-            font-size: 18px;
-            font-weight: bold;
-
-        }
-
-        /* Animation for the dots */
-        .dots::after {
-            content: '';
-            display: inline-block;
-            width: 1em;
-            text-align: left;
-            animation: dots 1.5s steps(4, end) infinite;
-        }
-
-        /* Keyframes for the dots animation */
-        @keyframes dots {
-
-            0%,
-            100% {
-                content: '';
-            }
-
-            25% {
-                content: '.';
-            }
-
-            50% {
-                content: '..';
-            }
-
-            75% {
-                content: '...';
-            }
-        }
-    </style>
-
-    <!-- MAIN Project CSS file -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
-
-    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
-
     <style>
-        .myname {
-            border-radius: 30px;
-            box-shadow: inset;
-            border-width: 4px;
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body, #wrapper { background: #09090f !important; font-family: 'Inter', sans-serif !important; color: #f1f5f9; }
 
-
+        #main-content {
+            padding: 32px 28px;
+            background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 24px 24px;
+            min-height: 100vh;
         }
 
-        .text-container {
+        /* ─── Page Header ─── */
+        .page-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:32px; flex-wrap:wrap; gap:16px; }
+        .ph-left { display:flex; align-items:center; gap:16px; }
+        .ph-icon { width:52px; height:52px; border-radius:14px; background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.25); display:flex; align-items:center; justify-content:center; font-size:1.3rem; color:#818cf8; flex-shrink:0; }
+        .ph-title { font-size:1.7rem; font-weight:900; letter-spacing:-0.02em; }
+        .ph-sub { font-size:0.78rem; color:#64748b; margin-top:4px; }
+        .ph-sub a { color:#475569; text-decoration:none; }
+        .live-badge { display:inline-flex; align-items:center; gap:8px; padding:7px 16px; border-radius:100px; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; background:rgba(52,211,153,0.08); border:1px solid rgba(52,211,153,0.25); color:#34d399; }
+        .live-dot { width:7px; height:7px; border-radius:50%; background:#34d399; box-shadow:0 0 8px #34d399; animation:pulse 2s ease-in-out infinite; }
+        @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
 
-            border: 1px solid #ccc;
+        /* ─── Stat Grid ─── */
+        .stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-bottom:28px; }
+        .stat-card { background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07); border-radius:16px; padding:20px; display:flex; align-items:center; gap:14px; backdrop-filter:blur(12px); transition:border-color .2s; }
+        .stat-card:hover { border-color:rgba(255,255,255,0.14); }
+        .s-icon { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.15rem; flex-shrink:0; }
+        .si-indigo { background:rgba(99,102,241,.12); color:#818cf8; border:1px solid rgba(99,102,241,.2); }
+        .si-green  { background:rgba(52,211,153,.12); color:#34d399; border:1px solid rgba(52,211,153,.2); }
+        .si-amber  { background:rgba(251,191,36,.12);  color:#fbbf24; border:1px solid rgba(251,191,36,.2); }
+        .si-blue   { background:rgba(56,189,248,.12);  color:#38bdf8; border:1px solid rgba(56,189,248,.2); }
+        .s-label  { font-size:.68rem; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:1px; }
+        .s-val    { font-size:1.1rem; font-weight:800; color:#f1f5f9; margin-top:2px; }
 
-            word-wrap: break-word;
-            /* Force text to wrap */
-            white-space: normal;
-            /* Ensure normal wrapping */
-            overflow-wrap: break-word;
-            /* Ensure long words break */
+        /* ─── Section card ─── */
+        .section-card { background:rgba(255,255,255,0.022); border:1px solid rgba(255,255,255,0.07); border-radius:20px; padding:28px; backdrop-filter:blur(14px); }
+        .section-title { font-size:1rem; font-weight:800; color:#fff; margin-bottom:20px; display:flex; align-items:center; gap:10px; }
+        .section-title i { color:#818cf8; }
+
+        /* ─── Gauge ─── */
+        .gauges-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+        @media(max-width:600px) { .gauges-grid { grid-template-columns:1fr; } }
+        .gauge-wrap { display:flex; flex-direction:column; align-items:center; gap:12px; }
+        .gauge-svg { position:relative; }
+        .gauge-svg text { font-family:'Inter',sans-serif; font-weight:800; }
+        .gauge-label { font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#64748b; }
+        .gauge-sub { font-size:.72rem; color:#475569; margin-top:2px; text-align:center; font-family:'JetBrains Mono',monospace; }
+        .gauge-sub span { color:#94a3b8; }
+
+        /* ─── Services ─── */
+        .services-list { display:flex; flex-direction:column; gap:10px; }
+        .svc-row {
+            display:grid;
+            grid-template-columns: 1fr auto auto auto auto;
+            align-items:center;
+            gap:16px;
+            background:rgba(255,255,255,0.02);
+            border:1px solid rgba(255,255,255,0.05);
+            border-radius:14px;
+            padding:14px 18px;
+            transition:background .2s, border-color .2s;
         }
+        .svc-row:hover { background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.1); }
+        .svc-info { display:flex; align-items:center; gap:12px; }
+        .svc-sicon { width:36px; height:36px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:.9rem; flex-shrink:0; }
+        .svc-name  { font-size:.88rem; font-weight:700; color:#f1f5f9; }
+        .svc-desc  { font-size:.72rem; color:#64748b; margin-top:1px; }
+        .svc-badge { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:100px; font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; }
+        .svc-badge .bdot { width:5px; height:5px; border-radius:50%; }
+        .badge-run { background:rgba(52,211,153,.1); color:#34d399; border:1px solid rgba(52,211,153,.25); }
+        .badge-run .bdot { background:#34d399; animation:pulse 2s infinite; }
+        .badge-stp { background:rgba(248,113,113,.1); color:#f87171; border:1px solid rgba(248,113,113,.25); }
+        .badge-stp .bdot { background:#f87171; }
+        .svc-btn { width:34px; height:34px; border-radius:9px; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:.82rem; transition:all .18s; flex-shrink:0; }
+        .svc-btn:hover { transform:translateY(-1px); }
+        .btn-restart { background:rgba(99,102,241,.12); color:#818cf8; border:1px solid rgba(99,102,241,.2); }
+        .btn-restart:hover { background:rgba(99,102,241,.25); }
+        .btn-start   { background:rgba(52,211,153,.12); color:#34d399; border:1px solid rgba(52,211,153,.2); }
+        .btn-start:hover { background:rgba(52,211,153,.25); }
+        .btn-stop    { background:rgba(248,113,113,.12); color:#f87171; border:1px solid rgba(248,113,113,.2); }
+        .btn-stop:hover { background:rgba(248,113,113,.25); }
+        .btn-disabled { background:rgba(255,255,255,.04); color:#334155; border:1px solid rgba(255,255,255,.05); cursor:not-allowed; }
+
+        /* ─── Two-col layout ─── */
+        .two-col { display:grid; grid-template-columns:1fr 420px; gap:20px; }
+        @media(max-width:900px) { .two-col { grid-template-columns:1fr; } }
+
+        /* ─── Toast overlay ─── */
+        .toast-overlay { position:fixed; bottom:28px; right:28px; z-index:9999; display:flex; flex-direction:column; gap:10px; pointer-events:none; }
+        .toast-item { background:rgba(15,20,35,0.97); border:1px solid rgba(255,255,255,0.1); border-radius:14px; padding:14px 18px; min-width:280px; display:flex; align-items:center; gap:12px; backdrop-filter:blur(20px); pointer-events:all; animation:slideUp .25s ease; }
+        @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+        .toast-item.success { border-left:3px solid #34d399; }
+        .toast-item.error   { border-left:3px solid #f87171; }
+        .toast-item.info    { border-left:3px solid #818cf8; }
+        .toast-icon  { font-size:1.05rem; }
+        .toast-msg   { font-size:.82rem; color:#cbd5e1; line-height:1.5; }
+        .toast-close { margin-left:auto; background:none; border:none; color:#64748b; cursor:pointer; font-size:.8rem; }
+        .toast-close:hover { color:#f1f5f9; }
+
+        /* ─── Spinner overlay ─── */
+        .spin-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9998; display:none; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
+        .spin-overlay.show { display:flex; }
+        .spin-box { background:rgba(15,20,35,0.95); border:1px solid rgba(255,255,255,0.1); border-radius:20px; padding:32px 40px; text-align:center; }
+        .spin-ring { width:48px; height:48px; border:3px solid rgba(129,140,248,0.2); border-top-color:#818cf8; border-radius:50%; animation:spin .7s linear infinite; margin:0 auto 16px; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .spin-text { font-size:.88rem; color:#94a3b8; }
+
+        input[type=hidden][name=csrfmiddlewaretoken] { display:none !important; }
     </style>
-
 </head>
-
-<body onload="updateServerLoad()" data-theme="light" class="font-nunito">
-
-    <div id="wrapper" class="theme-cyan">
-
-        <!-- Page Loader -->
-        <div class="page-loader-wrapper">
-            <div class="loader">
-                <div class="m-t-30"><img src="/static/assets/images/logo-icon.svg" width="48" height="48" alt="Iconic">
-                </div>
-                <p>Please wait...</p>
-            </div>
-        </div>
-
-
-
-        {% include 'navbar.html' %}
-
-        <!-- main left menu -->
-        {% include 'left.html' %}
-        <!-- rightbar icon div -->
-        {% include 'right.html' %}
-
-
-        <!-- mani page content body part -->
-
-        <div id="main-content">
-
-            <div class="container-fluid">
-                <div class="block-header">
-                    <div class="row">
-                        <div class="col-lg-6 col-md-6 col-sm-12">
-                            <h2>Server Status</h2>
-                            <ul class="breadcrumb">
-                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
-                                </li>
-                                <li class="breadcrumb-item">Dashboard</li>
-                                <li class="breadcrumb-item active">Server status</li>
-                            </ul>
-                        </div>
-
-                    </div>
-                </div>
-
-
-                <div class="row clearfix" style="margin-top: 50px;">
-                    <div class="col-lg-9 col-md-12 col-sm-12">
-
-                        <div class="">
-                            <div class="header">
-                                <h2>Services</h2>
-                            </div>
-                            <div class="body card">
-                                <div class="table-responsive">
-                                    <table class="table mb-0">
-                                        <thead>
-                                            <tr>
-                                                <th>#</th>
-                                                <th>Service Name</th>
-                                                <th>Status</th>
-                                                <th>Restart</th>
-                                                <th>Start</th>
-                                                <th>Stop</th>
-
-
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <td>1</td>
-                                                <td><span>Nginx(Web Server)</span></td>
-                                                <td><span class="badge badge-success">Running</span></td>
-                                                <td onclick="install(event,'nginx');"><img src="/static/icons/power.png"
-                                                        width="40"></td>
-                                                <td onclick="install1(event,'nginx');"><img
-                                                        src="/static/icons/refresh.png" width="30"></td>
-                                                <td onclick="cannot();"><img src="/static/icons/shutdown.png"
-                                                        width="30"></td>
-
-
-                                            </tr>
-
-                                            <tr>
-                                                <td>2</td>
-                                                <td><span>MySQL</span></td>
-                                                {% if mysqlstatus %}
-                                                <td><span class="badge badge-success">Running</span></td>
-                                                {% else %}
-                                                <td><span class="badge badge-danger">Stopped</span></td>
-                                                {% endif %}
-                                                <td onclick="install(event,'mysql');"><img src="/static/icons/power.png"
-                                                        width="40"></td>
-                                                <td onclick="install1(event,'mysql');"><img
-                                                        src="/static/icons/refresh.png" width="30"></td>
-                                                <td onclick="install2(event,'mysql');"><img
-                                                        src="/static/icons/shutdown.png" width="30"></td>
-
-
-                                            </tr>
-
-                                            <tr>
-                                                <td>3</td>
-                                                <td><span>Dovecot</span></td>
-                                                {% if dovecotstatus %}
-                                                <td><span class="badge badge-success">Running</span></td>
-                                                {% else %}
-                                                <td><span class="badge badge-danger">Stopped</span></td>
-                                                {% endif %}
-                                                <td onclick="install(event,'dovecot');"><img
-                                                        src="/static/icons/power.png" width="40"></td>
-                                                <td onclick="install1(event,'dovecot');"><img
-                                                        src="/static/icons/refresh.png" width="30"></td>
-                                                <td onclick="install2(event,'dovecot');"><img
-                                                        src="/static/icons/shutdown.png" width="30"></td>
-
-
-                                            </tr>
-
-                                            <tr>
-                                                <td>4</td>
-                                                <td><span>Postfix</span></td>
-                                                {% if postfixstatus %}
-                                                <td><span class="badge badge-success">Running</span></td>
-                                                {% else %}
-                                                <td><span class="badge badge-danger">Stopped</span></td>
-                                                {% endif %}
-                                                <td onclick="install(event,'postfix');"><img
-                                                        src="/static/icons/power.png" width="40"></td>
-                                                <td onclick="install1(event,'postfix');"><img
-                                                        src="/static/icons/refresh.png" width="30"></td>
-                                                <td onclick="install2(event,'postfix');"><img
-                                                        src="/static/icons/shutdown.png" width="30"></td>
-
-
-                                            </tr>
-
-                                            <tr>
-                                                <td>5</td>
-                                                <td><span>DNS</span></td>
-                                                {% if dnsstatus %}
-                                                <td><span class="badge badge-success">Running</span></td>
-                                                {% else %}
-                                                <td><span class="badge badge-danger">Stopped</span></td>
-                                                {% endif %}
-                                                <td onclick="install(event,'bind9');"><img src="/static/icons/power.png"
-                                                        width="40"></td>
-                                                <td onclick="install1(event,'bind9');"><img
-                                                        src="/static/icons/refresh.png" width="30"></td>
-                                                <td onclick="install2(event,'bind9');"><img
-                                                        src="/static/icons/shutdown.png" width="30"></td>
-
-
-                                            </tr>
-
-                                            <tr>
-                                                <td>6</td>
-                                                <td><span>Firewall</span></td>
-                                                {% if firewallstatus %}
-                                                <td><span class="badge badge-success">Running</span></td>
-                                                {% else %}
-                                                <td><span class="badge badge-danger">Stopped</span></td>
-                                                {% endif %}
-
-                                                <td onclick="install(event,'csf');"><img src="/static/icons/power.png"
-                                                        width="40"></td>
-                                                <td onclick="install1(event,'csf');"><img
-                                                        src="/static/icons/refresh.png" width="30"></td>
-                                                <td onclick="install2(event,'csf');"><img
-                                                        src="/static/icons/shutdown.png" width="30"></td>
-
-
-                                            </tr>
-
-
-
-
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-
-
-
-
-
-
-                    </div>
-
-
-                    <div class="col-lg-3 col-md-12 col-sm-12" style="margin-top: 100px;">
-
-                        <div class="">
-
-                            <div class="body d-flex justify-content-start align-items-center p-1">
-                                <div class="mr-2">
-                                    <div style="display:inline;">
-                                        <div style="display:inline;width:90px;height:90px;"><input id="cpu-load"
-                                                type="text" class="knob" value="9" data-width="90" data-height="90"
-                                                data-thickness="0.1" data-fgcolor="#59c4bc" readonly="readonly"
-                                                style="width: 49px; height: 30px; position: absolute; vertical-align: middle; margin-top: 30px; margin-left: auto; border: 0px; background: none; font-style: normal; font-variant-caps: normal; font-weight: bold; font-stretch: normal; font-size: 18px; line-height: normal; font-family: Arial; font-size-adjust: none; font-kerning: auto; font-variant-alternates: normal; font-variant-ligatures: normal; font-variant-numeric: normal; font-variant-east-asian: normal; font-variant-position: normal; font-feature-settings: normal; font-optical-sizing: auto; font-variation-settings: normal; text-align: center; color: rgb(89, 196, 188); padding: 0px; appearance: none; margin-right: -69px; font-variant-emoji: normal;">
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="ml-2">
-                                    <h6>Server Load</h6>
-
-                                    <p class="mb-0">Average <span id="cpu" class="font-12 text-muted">6.9%</span></p>
-                                </div>
-                            </div>
-                            <div class="body d-flex justify-content-start align-items-center p-2">
-                                <div class="mr-2">
-                                    <div style="display:inline;">
-                                        <div style="display:inline;width:90px;height:90px;"><input id="disk-load"
-                                                type="text" class="knob" value="65" data-width="90" data-height="90"
-                                                data-thickness="0.1" data-fgcolor="#59c4bc" readonly="readonly"
-                                                style="width: 49px; height: 30px; position: absolute; vertical-align: middle; margin-top: 30px; margin-left: auto; border: 0px; background: none; font-style: normal; font-variant-caps: normal; font-weight: bold; font-stretch: normal; font-size: 18px; line-height: normal; font-family: Arial; font-size-adjust: none; font-kerning: auto; font-variant-alternates: normal; font-variant-ligatures: normal; font-variant-numeric: normal; font-variant-east-asian: normal; font-variant-position: normal; font-feature-settings: normal; font-optical-sizing: auto; font-variation-settings: normal; text-align: center; color: rgb(89, 196, 188); padding: 0px; appearance: none; margin-right: -69px; font-variant-emoji: normal;">
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="ml-2">
-                                    <h6>Disk Usage</h6>
-                                    <p class="mb-0">Average <span id="disk" class="font-12 text-muted">7.1%</span></p>
-                                </div>
-                            </div>
-                            <div class="body d-flex justify-content-start align-items-center p-1">
-                                <div class="mr-2">
-                                    <div style="display:inline;">
-                                        <div style="display:inline;width:90px;height:90px;"><input id="memory-load"
-                                                type="text" class="knob" value="65" data-width="90" data-height="90"
-                                                data-thickness="0.1" data-fgcolor="#59c4bc" readonly="readonly"
-                                                style="width: 49px; height: 30px; position: absolute; vertical-align: middle; margin-top: 30px; margin-left: auto; border: 0px; background: none; font-style: normal; font-variant-caps: normal; font-weight: bold; font-stretch: normal; font-size: 18px; line-height: normal; font-family: Arial; font-size-adjust: none; font-kerning: auto; font-variant-alternates: normal; font-variant-ligatures: normal; font-variant-numeric: normal; font-variant-east-asian: normal; font-variant-position: normal; font-feature-settings: normal; font-optical-sizing: auto; font-variation-settings: normal; text-align: center; color: rgb(89, 196, 188); padding: 0px; appearance: none; margin-right: -69px; font-variant-emoji: normal;">
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="ml-2">
-                                    <h6>Ram Usage</h6>
-
-                                    <p class="mb-0">Average <span id="ram" class="font-12 text-muted">73.1%</span></p>
-                                </div>
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-
-
-                <div class="row clearfix">
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-                        <div class="body d-flex justify-content-start align-items-center p-1">
-                            <div class="mr-2">
-                                <div style="display:inline;">
-                                    <div style="display:inline;width:90px;height:90px;"><input id="memory-load"
-                                            type="text" class="knob" value="{{domains}}" data-width="90"
-                                            data-height="90" data-thickness="0.1" data-fgcolor="#59c4bc"
-                                            readonly="readonly"
-                                            style="width: 49px; height: 30px; position: absolute; vertical-align: middle; margin-top: 30px; margin-left: auto; border: 0px; background: none; font-style: normal; font-variant-caps: normal; font-weight: bold; font-stretch: normal; font-size: 18px; line-height: normal; font-family: Arial; font-size-adjust: none; font-kerning: auto; font-variant-alternates: normal; font-variant-ligatures: normal; font-variant-numeric: normal; font-variant-east-asian: normal; font-variant-position: normal; font-feature-settings: normal; font-optical-sizing: auto; font-variation-settings: normal; text-align: center; color: rgb(89, 196, 188); padding: 0px; appearance: none; margin-right: -69px; font-variant-emoji: normal;">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="ml-2">
-                                <h6>Total Domains</h6>
-                                <p class="mb-0">Total <span id="ram" class="font-12 text-muted">{{domains}}</span></p>
-                            </div>
-                        </div>
-                    </div>
-
-
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-                        <div class="body d-flex justify-content-start align-items-center p-1">
-                            <div class="mr-2">
-                                <div style="display:inline;">
-                                    <div style="display:inline;width:90px;height:90px;"><input id="memory-load"
-                                            type="text" class="knob" value="{{email}}" data-width="90" data-height="90"
-                                            data-thickness="0.1" data-fgcolor="#59c4bc" readonly="readonly"
-                                            style="width: 49px; height: 30px; position: absolute; vertical-align: middle; margin-top: 30px; margin-left: auto; border: 0px; background: none; font-style: normal; font-variant-caps: normal; font-weight: bold; font-stretch: normal; font-size: 18px; line-height: normal; font-family: Arial; font-size-adjust: none; font-kerning: auto; font-variant-alternates: normal; font-variant-ligatures: normal; font-variant-numeric: normal; font-variant-east-asian: normal; font-variant-position: normal; font-feature-settings: normal; font-optical-sizing: auto; font-variation-settings: normal; text-align: center; color: rgb(89, 196, 188); padding: 0px; appearance: none; margin-right: -69px; font-variant-emoji: normal;">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="ml-2">
-                                <h6>Total Emails</h6>
-                                <p class="mb-0">Total <span id="ram" class="font-12 text-muted">{{email}}</span></p>
-                            </div>
-                        </div>
-                    </div>
-
-
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-                        <div class="body d-flex justify-content-start align-items-center p-1">
-                            <div class="mr-2">
-                                <div style="display:inline;">
-                                    <div style="display:inline;width:90px;height:90px;"><input id="memory-load"
-                                            type="text" class="knob" value="{{package}}" data-width="90"
-                                            data-height="90" data-thickness="0.1" data-fgcolor="#59c4bc"
-                                            readonly="readonly"
-                                            style="width: 49px; height: 30px; position: absolute; vertical-align: middle; margin-top: 30px; margin-left: auto; border: 0px; background: none; font-style: normal; font-variant-caps: normal; font-weight: bold; font-stretch: normal; font-size: 18px; line-height: normal; font-family: Arial; font-size-adjust: none; font-kerning: auto; font-variant-alternates: normal; font-variant-ligatures: normal; font-variant-numeric: normal; font-variant-east-asian: normal; font-variant-position: normal; font-feature-settings: normal; font-optical-sizing: auto; font-variation-settings: normal; text-align: center; color: rgb(89, 196, 188); padding: 0px; appearance: none; margin-right: -69px; font-variant-emoji: normal;">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="ml-2">
-                                <h6>Total Packages</h6>
-
-                                <p class="mb-0">Total <span id="ram" class="font-12 text-muted">{{package}}</span></p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-                        <div class="body d-flex justify-content-start align-items-center p-1">
-                            <div class="mr-2">
-                                <div style="display:inline;">
-                                    <div style="display:inline;width:90px;height:90px;"><input id="memory-load"
-                                            type="text" class="knob" value="{{databases}}" data-width="90"
-                                            data-height="90" data-thickness="0.1" data-fgcolor="#59c4bc"
-                                            readonly="readonly"
-                                            style="width: 49px; height: 30px; position: absolute; vertical-align: middle; margin-top: 30px; margin-left: auto; border: 0px; background: none; font-style: normal; font-variant-caps: normal; font-weight: bold; font-stretch: normal; font-size: 18px; line-height: normal; font-family: Arial; font-size-adjust: none; font-kerning: auto; font-variant-alternates: normal; font-variant-ligatures: normal; font-variant-numeric: normal; font-variant-east-asian: normal; font-variant-position: normal; font-feature-settings: normal; font-optical-sizing: auto; font-variation-settings: normal; text-align: center; color: rgb(89, 196, 188); padding: 0px; appearance: none; margin-right: -69px; font-variant-emoji: normal;">
-                                    </div>
-                                    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
-
-                                </div>
-                            </div>
-                            <div class="ml-2">
-                                <h6>Total DataBases</h6>
-
-                                <p class="mb-0">Total <span id="ram" class="font-12 text-muted">{{databases}}</span></p>
-                            </div>
-                        </div>
-                    </div>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                </div>
-            </div>
-
-
-
-
-
-
-
-        </div>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    </div>
-    <div class="modal animated fadeIn show" id="pro2" style="display: none; margin-top: 300px;">
-        <div class="modal-dialog modal-sm" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <p class="processing">Processing<span class="dots"></span></p>
-
-                </div>
-
-            </div>
+<body data-theme="dark">
+<div id="wrapper">
+    <div class="page-loader-wrapper">
+        <div class="loader">
+            <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel"></div>
+            <p>Please wait...</p>
         </div>
     </div>
-    <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
-        <div class="modal-dialog modal-sm" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h6 class="title" id="defaultModalLabel">Status</h6>
-                </div>
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
 
-                <div class="modal-body">
-                    <div class="col-md-12 col-sm-12">
-                        <div id="statusemail" style="text-align: center;" class="row clearfix">
+    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
 
-
-
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button  onclick="closeelol();"
-                            class="btn btn-danger">Close</button>
-                    </div>
-                </div>
-
-            </div>
+    <!-- Spinner -->
+    <div class="spin-overlay" id="spinOverlay">
+        <div class="spin-box">
+            <div class="spin-ring"></div>
+            <p class="spin-text" id="spinText">Processing...</p>
         </div>
     </div>
+
+    <!-- Toast container -->
+    <div class="toast-overlay" id="toastArea"></div>
+
+    <div id="main-content">
+      <div style="max-width:1180px;margin:0 auto;">
+
+        <!-- Header -->
+        <div class="page-header">
+          <div class="ph-left">
+            <div class="ph-icon"><i class="fa-solid fa-server"></i></div>
+            <div>
+              <h1 class="ph-title">Server Status</h1>
+              <p class="ph-sub">
+                <a href="/panel/"><i class="fa fa-home"></i></a>
+                <span style="margin:0 6px;opacity:.3">/</span>System
+                <span style="margin:0 6px;opacity:.3">/</span>
+                <span style="color:#818cf8">Services & Health</span>
+              </p>
+            </div>
+          </div>
+          <div class="live-badge"><span class="live-dot"></span>Live Monitoring</div>
+        </div>
+
+        <!-- Stat pills -->
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="s-icon si-indigo"><i class="fa-solid fa-globe"></i></div>
+            <div><div class="s-label">Domains</div><div class="s-val">{{ domains }}</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="s-icon si-blue"><i class="fa-solid fa-envelope"></i></div>
+            <div><div class="s-label">Email Accounts</div><div class="s-val">{{ email }}</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="s-icon si-green"><i class="fa-solid fa-database"></i></div>
+            <div><div class="s-label">Databases</div><div class="s-val">{{ databases }}</div></div>
+          </div>
+          <div class="stat-card">
+            <div class="s-icon si-amber"><i class="fa-solid fa-box"></i></div>
+            <div><div class="s-label">Packages</div><div class="s-val">{{ package }}</div></div>
+          </div>
+        </div>
+
+        <!-- Main two-col -->
+        <div class="two-col">
+
+          <!-- Services -->
+          <div class="section-card">
+            <h3 class="section-title"><i class="fa-solid fa-circle-nodes"></i> System Services</h3>
+            <div class="services-list">
+
+              <!-- NGINX -->
+              <div class="svc-row" id="svc-nginx">
+                <div class="svc-info">
+                  <div class="svc-sicon si-green"><i class="fa-brands fa-nginx" style="color:#34d399;"></i></div>
+                  <div>
+                    <div class="svc-name">NGINX</div>
+                    <div class="svc-desc">Web Server &amp; Reverse Proxy</div>
+                  </div>
+                </div>
+                <span class="svc-badge badge-run"><span class="bdot"></span>Running</span>
+                <button class="svc-btn btn-restart" title="Restart" onclick="svcAction('restart','nginx','NGINX')"><i class="fa-solid fa-rotate-right"></i></button>
+                <button class="svc-btn btn-start"   title="Start"   onclick="svcAction('start','nginx','NGINX')"><i class="fa-solid fa-play"></i></button>
+                <button class="svc-btn btn-disabled" title="NGINX cannot be stopped" onclick="showToast('error','Cannot stop NGINX &mdash; it serves the panel itself.','fa-triangle-exclamation')"><i class="fa-solid fa-stop"></i></button>
+              </div>
+
+              <!-- MySQL -->
+              <div class="svc-row" id="svc-mysql">
+                <div class="svc-info">
+                  <div class="svc-sicon si-blue"><i class="fa-solid fa-database" style="color:#38bdf8;"></i></div>
+                  <div>
+                    <div class="svc-name">MySQL</div>
+                    <div class="svc-desc">Database Server</div>
+                  </div>
+                </div>
+                <span class="svc-badge {% if mysqlstatus %}badge-run{% else %}badge-stp{% endif %}">
+                  <span class="bdot"></span>{% if mysqlstatus %}Running{% else %}Stopped{% endif %}
+                </span>
+                <button class="svc-btn btn-restart" title="Restart" onclick="svcAction('restart','mysql','MySQL')"><i class="fa-solid fa-rotate-right"></i></button>
+                <button class="svc-btn btn-start"   title="Start"   onclick="svcAction('start','mysql','MySQL')"><i class="fa-solid fa-play"></i></button>
+                <button class="svc-btn btn-stop"    title="Stop"    onclick="svcAction('stop','mysql','MySQL')"><i class="fa-solid fa-stop"></i></button>
+              </div>
+
+              <!-- Dovecot -->
+              <div class="svc-row" id="svc-dovecot">
+                <div class="svc-info">
+                  <div class="svc-sicon si-indigo"><i class="fa-solid fa-inbox" style="color:#818cf8;"></i></div>
+                  <div>
+                    <div class="svc-name">Dovecot</div>
+                    <div class="svc-desc">IMAP / POP3 Mail Server</div>
+                  </div>
+                </div>
+                <span class="svc-badge {% if dovecotstatus %}badge-run{% else %}badge-stp{% endif %}">
+                  <span class="bdot"></span>{% if dovecotstatus %}Running{% else %}Stopped{% endif %}
+                </span>
+                <button class="svc-btn btn-restart" title="Restart" onclick="svcAction('restart','dovecot','Dovecot')"><i class="fa-solid fa-rotate-right"></i></button>
+                <button class="svc-btn btn-start"   title="Start"   onclick="svcAction('start','dovecot','Dovecot')"><i class="fa-solid fa-play"></i></button>
+                <button class="svc-btn btn-stop"    title="Stop"    onclick="svcAction('stop','dovecot','Dovecot')"><i class="fa-solid fa-stop"></i></button>
+              </div>
+
+              <!-- Postfix -->
+              <div class="svc-row" id="svc-postfix">
+                <div class="svc-info">
+                  <div class="svc-sicon si-amber"><i class="fa-solid fa-paper-plane" style="color:#fbbf24;"></i></div>
+                  <div>
+                    <div class="svc-name">Postfix</div>
+                    <div class="svc-desc">SMTP Mail Transfer Agent</div>
+                  </div>
+                </div>
+                <span class="svc-badge {% if postfixstatus %}badge-run{% else %}badge-stp{% endif %}">
+                  <span class="bdot"></span>{% if postfixstatus %}Running{% else %}Stopped{% endif %}
+                </span>
+                <button class="svc-btn btn-restart" title="Restart" onclick="svcAction('restart','postfix','Postfix')"><i class="fa-solid fa-rotate-right"></i></button>
+                <button class="svc-btn btn-start"   title="Start"   onclick="svcAction('start','postfix','Postfix')"><i class="fa-solid fa-play"></i></button>
+                <button class="svc-btn btn-stop"    title="Stop"    onclick="svcAction('stop','postfix','Postfix')"><i class="fa-solid fa-stop"></i></button>
+              </div>
+
+              <!-- DNS -->
+              <div class="svc-row" id="svc-bind9">
+                <div class="svc-info">
+                  <div class="svc-sicon" style="background:rgba(236,72,153,.1);color:#f472b6;border:1px solid rgba(236,72,153,.2);width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-network-wired"></i></div>
+                  <div>
+                    <div class="svc-name">BIND9 DNS</div>
+                    <div class="svc-desc">Authoritative Name Server</div>
+                  </div>
+                </div>
+                <span class="svc-badge {% if dnsstatus %}badge-run{% else %}badge-stp{% endif %}">
+                  <span class="bdot"></span>{% if dnsstatus %}Running{% else %}Stopped{% endif %}
+                </span>
+                <button class="svc-btn btn-restart" title="Restart" onclick="svcAction('restart','bind9','DNS')"><i class="fa-solid fa-rotate-right"></i></button>
+                <button class="svc-btn btn-start"   title="Start"   onclick="svcAction('start','bind9','DNS')"><i class="fa-solid fa-play"></i></button>
+                <button class="svc-btn btn-stop"    title="Stop"    onclick="svcAction('stop','bind9','DNS')"><i class="fa-solid fa-stop"></i></button>
+              </div>
+
+              <!-- Firewall (CSF) -->
+              <div class="svc-row" id="svc-csf">
+                <div class="svc-info">
+                  <div class="svc-sicon" style="background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.2);width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-shield-halved"></i></div>
+                  <div>
+                    <div class="svc-name">Firewall (CSF)</div>
+                    <div class="svc-desc">ConfigServer Security &amp; Firewall</div>
+                  </div>
+                </div>
+                <span class="svc-badge {% if firewallstatus %}badge-run{% else %}badge-stp{% endif %}">
+                  <span class="bdot"></span>{% if firewallstatus %}Running{% else %}Stopped{% endif %}
+                </span>
+                <button class="svc-btn btn-restart" title="Restart" onclick="svcAction('restart','csf','CSF')"><i class="fa-solid fa-rotate-right"></i></button>
+                <button class="svc-btn btn-start"   title="Start"   onclick="svcAction('start','csf','CSF')"><i class="fa-solid fa-play"></i></button>
+                <button class="svc-btn btn-stop"    title="Stop"    onclick="svcAction('stop','csf','CSF')"><i class="fa-solid fa-stop"></i></button>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Resource gauges -->
+          <div style="display:flex;flex-direction:column;gap:20px;">
+            <div class="section-card">
+              <h3 class="section-title"><i class="fa-solid fa-gauge-high"></i> Resource Usage</h3>
+              <div class="gauges-grid">
+                <!-- CPU -->
+                <div class="gauge-wrap">
+                  <svg width="120" height="70" viewBox="0 0 120 70">
+                    <defs>
+                      <linearGradient id="gcpu" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#818cf8"/>
+                        <stop offset="100%" stop-color="#6366f1"/>
+                      </linearGradient>
+                    </defs>
+                    <path d="M 10 65 A 50 50 0 0 1 110 65" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8" stroke-linecap="round"/>
+                    <path id="arc-cpu" d="M 10 65 A 50 50 0 0 1 110 65" fill="none" stroke="url(#gcpu)" stroke-width="8" stroke-linecap="round"
+                          stroke-dasharray="157" stroke-dashoffset="157" style="transition:stroke-dashoffset 1s ease"/>
+                    <text id="gauge-cpu-val" x="60" y="50" text-anchor="middle" font-size="18" fill="#f1f5f9">0%</text>
+                  </svg>
+                  <div class="gauge-label">CPU Load</div>
+                  <div class="gauge-sub" id="gauge-cpu-raw"><span>–</span></div>
+                </div>
+                <!-- RAM -->
+                <div class="gauge-wrap">
+                  <svg width="120" height="70" viewBox="0 0 120 70">
+                    <defs>
+                      <linearGradient id="gram" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#34d399"/>
+                        <stop offset="100%" stop-color="#10b981"/>
+                      </linearGradient>
+                    </defs>
+                    <path d="M 10 65 A 50 50 0 0 1 110 65" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8" stroke-linecap="round"/>
+                    <path id="arc-ram" d="M 10 65 A 50 50 0 0 1 110 65" fill="none" stroke="url(#gram)" stroke-width="8" stroke-linecap="round"
+                          stroke-dasharray="157" stroke-dashoffset="157" style="transition:stroke-dashoffset 1s ease"/>
+                    <text id="gauge-ram-val" x="60" y="50" text-anchor="middle" font-size="18" fill="#f1f5f9">0%</text>
+                  </svg>
+                  <div class="gauge-label">RAM Usage</div>
+                  <div class="gauge-sub" id="gauge-ram-raw"><span>–</span></div>
+                </div>
+                <!-- Disk -->
+                <div class="gauge-wrap">
+                  <svg width="120" height="70" viewBox="0 0 120 70">
+                    <defs>
+                      <linearGradient id="gdsk" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#fbbf24"/>
+                        <stop offset="100%" stop-color="#f59e0b"/>
+                      </linearGradient>
+                    </defs>
+                    <path d="M 10 65 A 50 50 0 0 1 110 65" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8" stroke-linecap="round"/>
+                    <path id="arc-disk" d="M 10 65 A 50 50 0 0 1 110 65" fill="none" stroke="url(#gdsk)" stroke-width="8" stroke-linecap="round"
+                          stroke-dasharray="157" stroke-dashoffset="157" style="transition:stroke-dashoffset 1s ease"/>
+                    <text id="gauge-disk-val" x="60" y="50" text-anchor="middle" font-size="18" fill="#f1f5f9">0%</text>
+                  </svg>
+                  <div class="gauge-label">Disk Usage</div>
+                  <div class="gauge-sub" id="gauge-disk-raw"><span>–</span></div>
+                </div>
+              </div>
+              <p style="text-align:center;font-size:.7rem;color:#334155;margin-top:20px;font-family:'JetBrains Mono',monospace;">Auto-refreshes every 3 seconds</p>
+            </div>
+
+            <!-- Quick tips -->
+            <div class="section-card" style="padding:20px;">
+              <h3 class="section-title" style="font-size:.88rem;margin-bottom:14px;"><i class="fa-solid fa-circle-info" style="color:#38bdf8;"></i> Service Guide</h3>
+              <div style="display:flex;flex-direction:column;gap:9px;">
+                <div style="display:flex;align-items:center;gap:10px;font-size:.78rem;color:#94a3b8;">
+                  <i class="fa-solid fa-rotate-right" style="color:#818cf8;width:16px;text-align:center;"></i>
+                  <span><strong style="color:#f1f5f9;">Restart</strong> — Reload config and restart the service</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;font-size:.78rem;color:#94a3b8;">
+                  <i class="fa-solid fa-play" style="color:#34d399;width:16px;text-align:center;"></i>
+                  <span><strong style="color:#f1f5f9;">Start</strong> — Start a stopped service</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;font-size:.78rem;color:#94a3b8;">
+                  <i class="fa-solid fa-stop" style="color:#f87171;width:16px;text-align:center;"></i>
+                  <span><strong style="color:#f1f5f9;">Stop</strong> — Gracefully stop the service</span>
+                </div>
+                <div style="border-top:1px solid rgba(255,255,255,.05);margin-top:4px;padding-top:9px;display:flex;align-items:center;gap:10px;font-size:.78rem;color:#64748b;">
+                  <i class="fa-solid fa-triangle-exclamation" style="color:#fbbf24;width:16px;text-align:center;"></i>
+                  <span>NGINX cannot be stopped — it runs the panel.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
 
 <script>
-function closeelol(){
-    document.getElementById('eeee').style.display='none';
-   
+const CSRF = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+/* ─ Toast ─ */
+function showToast(type, msg, icon) {
+    const area = document.getElementById('toastArea');
+    const el = document.createElement('div');
+    const icons = { success:'fa-circle-check', error:'fa-circle-xmark', info:'fa-circle-info' };
+    const colors = { success:'#34d399', error:'#f87171', info:'#818cf8' };
+    el.className = `toast-item ${type}`;
+    el.innerHTML = `
+        <i class="fa-solid ${icon||icons[type]}" style="color:${colors[type]};font-size:1rem;"></i>
+        <span class="toast-msg">${msg}</span>
+        <button class="toast-close" onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>`;
+    area.appendChild(el);
+    setTimeout(() => el.remove(), 5000);
 }
+
+/* ─ Spinner ─ */
+function spin(show, txt) {
+    const o = document.getElementById('spinOverlay');
+    o.classList.toggle('show', show);
+    if(txt) document.getElementById('spinText').textContent = txt;
+}
+
+/* ─ Service actions ─ */
+async function svcAction(action, service, label) {
+    const urlMap = {
+        restart: "{% url 'restart_now' %}",
+        start:   "{% url 'start_now' %}",
+        stop:    "{% url 'stop_now' %}"
+    };
+    spin(true, `${action.charAt(0).toUpperCase()+action.slice(1)}ing ${label}…`);
+    try {
+        const res = await fetch(urlMap[action], {
+            method: 'POST',
+            headers: { 'Content-Type':'application/json', 'X-CSRFToken': CSRF },
+            body: JSON.stringify({ service })
+        });
+        const data = await res.json();
+        spin(false);
+        if (data.status === 'success') {
+            showToast('success', `${label} ${action}ed successfully.`);
+            setTimeout(() => location.reload(), 1200);
+        } else {
+            showToast('error', `Failed to ${action} ${label}. ${data.message || ''}`);
+        }
+    } catch(e) {
+        spin(false);
+        showToast('error', `Network error while trying to ${action} ${label}.`);
+    }
+}
+
+/* ─ Arc gauge animator ─ */
+function setGauge(id, pct) {
+    const arc = document.getElementById('arc-' + id);
+    const total = 157; // semicircle length
+    const used  = (pct / 100) * total;
+    if(arc) arc.style.strokeDashoffset = total - used;
+}
+
+function updateGauges() {
+    fetch('/server-load/')
+        .then(r => r.json())
+        .then(d => {
+            ['cpu','ram','disk'].forEach(k => {
+                const raw = k === 'ram' ? d.memory : d[k];
+                const val = parseFloat(raw) || 0;
+                const el  = document.getElementById(`gauge-${k}-val`);
+                const sub = document.getElementById(`gauge-${k}-raw`);
+                if(el)  el.textContent = val + '%';
+                if(sub) sub.innerHTML  = `<span>${val}%</span>`;
+                setGauge(k, val);
+            });
+        })
+        .catch(() => {});
+}
+
+updateGauges();
+setInterval(updateGauges, 3000);
 </script>
-
-
-    </div>
-
-    <script>
-        function cannot() {
-        
-            document.getElementById('eeee').style.display = "block";
-            document.getElementById('statusemail').innerHTML = "Cannot Stop Nginx Web Server";
-        }
-
-        async function install2(event, servi) {
-            // Prevent the default action (e.g., form submission)
-            if (event) {
-                event.preventDefault();
-            }
-            document.getElementById('pro2').style.display='block';
-
-            var data = {
-                'service': servi,  // Assuming 'servi' contains the name of the service you want to restart
-            };
-
-            try {
-                // Fetch request to submit form data
-                const response = await fetch("{% url 'stop_now' %}", {
-                    method: 'POST',
-                    body: JSON.stringify(data),
-                    headers: {
-                        'Content-Type': 'application/json',  // Ensure content is JSON
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-                    }
-                });
-
-                // Parse the JSON response
-                const result = await response.json();
-
-                // Handle response based on the result
-                if (response.ok && result.status === 'success') {
-                    document.getElementById('pro2').style.display='none';
-                   
-                    document.getElementById('eeee').style.display = "block";
-                    document.getElementById('statusemail').innerHTML = 'Service ' + servi + ' Stopped successfully.';
-                    location.reload(true);
-
-                } else {
-       
-                    document.getElementById('pro2').style.display='none';
-                    document.getElementById('eeee').style.display = "block";
-                    document.getElementById('statusemail').innerHTML = 'Failed to stop service ' + servi;
-                    location.reload(true);
-
-                }
-            } catch (error) {
-                // Catch any errors from the fetch call itself (e.g., network errors)
-                document.getElementById('pro2').style.display='none';
-                document.getElementById('eeee').style.display = "block";
-                document.getElementById('statusemail').innerHTML = 'An error occurred while trying to start service ' + servi + '. Please try again later.';
-
-            }
-        }
-
-
-
-
-
-        async function install1(event, servi) {
-            // Prevent the default action (e.g., form submission)
-            if (event) {
-                event.preventDefault();
-            }
-            document.getElementById('pro2').style.display='block';
-
-            var data = {
-                'service': servi,  // Assuming 'servi' contains the name of the service you want to restart
-            };
-
-            try {
-                // Fetch request to submit form data
-                const response = await fetch("{% url 'start_now' %}", {
-                    method: 'POST',
-                    body: JSON.stringify(data),
-                    headers: {
-                        'Content-Type': 'application/json',  // Ensure content is JSON
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-                    }
-                });
-
-                // Parse the JSON response
-                const result = await response.json();
-
-                // Handle response based on the result
-                if (response.ok && result.status === 'success') {
-                    document.getElementById('pro2').style.display='none';
-
-                    document.getElementById('eeee').style.display = "block";
-                    document.getElementById('statusemail').innerHTML ='Service ' + servi + ' started successfully.';
-                    location.reload(true);
-
-                } else {
-                    document.getElementById('pro2').style.display='none';
-              
-                    document.getElementById('eeee').style.display = "block";
-                    document.getElementById('statusemail').innerHTML = 'Failed to start service ' + servi;
-                    location.reload(true);
-
-                }
-            } catch (error) {
-                // Catch any errors from the fetch call itself (e.g., network errors)
-                document.getElementById('pro2').style.display='none';
-   
-                document.getElementById('eeee').style.display = "block";
-                document.getElementById('statusemail').innerHTML = 'An error occurred while trying to start service ' + servi + '. Please try again later.';
-
-            }
-        }
-    </script>
-
-    <script>
-        async function install(event, servi) {
-            // Prevent the default action (e.g., form submission)
-            if (event) {
-                event.preventDefault();
-            }
-            document.getElementById('pro2').style.display='block';
-
-            var data = {
-                'service': servi,  // Assuming 'servi' contains the name of the service you want to restart
-            };
-
-            try {
-                // Fetch request to submit form data
-                const response = await fetch("{% url 'restart_now' %}", {
-                    method: 'POST',
-                    body: JSON.stringify(data),
-                    headers: {
-                        'Content-Type': 'application/json',  // Ensure content is JSON
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-                    }
-                });
-
-                // Parse the JSON response
-                const result = await response.json();
-
-                // Handle response based on the result
-                if (response.ok && result.status === 'success') {
-                    document.getElementById('pro2').style.display='none';
-                
-                    document.getElementById('eeee').style.display = "block";
-                    document.getElementById('statusemail').innerHTML = 'Service ' + servi + ' restarted successfully.';
-                } else {
-                    document.getElementById('pro2').style.display='none';
-            
-                    document.getElementById('eeee').style.display = "block";
-                    document.getElementById('statusemail').innerHTML = 'Failed to restart service ' + servi;
-                }
-            } catch (error) {
-                // Catch any errors from the fetch call itself (e.g., network errors)
-                document.getElementById('pro2').style.display='none';
-                document.getElementById('eeee').style.display = "block";
-                document.getElementById('statusemail').innerHTML ='An error occurred while trying to restart service ' + servi + '. Please try again later.';
-
-            }
-        }
-    </script>
-
-    <!-- Javascript -->
-    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
-    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
-
-    <!-- page vendor js file -->
-    <script src="/static/assets/vendor/toastr/toastr.js"></script>
-    <script src="/static/assets/bundles/c3.bundle.js"></script>
-
-
-    <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
-    <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
-
-
-    <!-- page js file -->
-    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
-    <script src="/static/assets/bundles/chartjs.js"></script>
-    <script src="/static/assets/index2.js"></script>
-    <script>
-        function updateServerLoad() {
-            fetch('/server-load/')
-                .then(response => response.json())
-                .then(data => {
-
-                    document.getElementById('cpu-load').value = data.cpu + "%";
-                    document.getElementById('memory-load').value = data.memory + "%";
-                    document.getElementById('disk-load').value = data.disk + "%";
-                    document.getElementById('cpu').innerHTML = data.cpu + "%";
-                    document.getElementById('ram').innerHTML = data.memory + "%";
-                    document.getElementById('disk').innerHTML = data.disk + "%";
-                })
-                .catch(error => console.error('Error:', error));
-        }
-
-        // Update server load every 5 seconds
-        setInterval(updateServerLoad, 2000);
-    </script>
-
-
 </body>
-
 </html>
