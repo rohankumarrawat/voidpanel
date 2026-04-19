@@ -183,6 +183,12 @@ urlpatterns = [
     path('api/suspend-account/', views.suspend_account, name='suspend_account'),
     path('api/unsuspend-account/', views.unsuspend_account, name='unsuspend_account'),
     path('api/terminate-account/', views.terminate_account, name='terminate_account'),
+    
+    # Internal automated provisioning paths for the frontend web portal
+    path('api/provision/create/', __import__('panel.api_provision').api_provision.portal_provision_create),
+    path('api/provision/suspend/', __import__('panel.api_provision').api_provision.portal_provision_suspend),
+    path('api/provision/unsuspend/', __import__('panel.api_provision').api_provision.portal_provision_unsuspend),
+    
        path('analytics/', views.analytics, name='analytics'),
        path('webserver/', views.webserver_manager, name='webserver_manager'),
        path('ols-admin/', views.ols_admin_proxy, name='ols_admin_proxy'),

@@ -20,6 +20,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from data.models import (
     CustomerProfile,
+    HostingOrder,
     HostingPackage,
     HostingPricingSettings,
     HostingService,
@@ -31,6 +32,7 @@ from data.models import (
     StaffProfile,
     StaffRole,
     SupportTicket,
+    TicketReply,
     admindocumentation,
     clientdocumentation,
     negative_review,
@@ -1115,3 +1117,376 @@ def logout_view(request):
     if request.user.is_authenticated:
         logout(request)
     return redirect('/')
+
+
+# ══════════════════════════════════════════════════════════════
+#  CART & CHECKOUT
+# ══════════════════════════════════════════════════════════════
+
+@login_required(login_url='/login/')
+def cart_config(request, slug):
+    """Step-1/2: Choose domain + billing cycle for a hosting package."""
+    package = HostingPackage.objects.filter(slug=slug, is_active=True).first()
+    if not package:
+        messages.error(request, 'That hosting package does not exist or is no longer available.')
+        return redirect('/web-hosting/')
+
+    pricing_settings = ensure_default_hosting_catalog()
+    discounts = {
+        'monthly': 0,
+        'quarterly': pricing_settings.quarterly_discount_percent,
+        'annually': pricing_settings.annual_discount_percent,
+    }
+
+    if request.method == 'POST':
+        domain = request.POST.get('domain', '').strip().lower()
+        billing_cycle = request.POST.get('billing_cycle', 'monthly')
+
+        if not domain or '.' not in domain:
+            messages.error(request, 'Please enter a valid domain name (e.g. example.com).')
+            return render(request, 'cart_config.html', {'package': package, 'discounts': discounts})
+
+        # Calculate discounted price
+        discount_pct = discounts.get(billing_cycle, 0)
+        total = package.monthly_price * (1 - Decimal(discount_pct) / 100)
+        if billing_cycle == 'annually':
+            total = total * 12
+        elif billing_cycle == 'quarterly':
+            total = total * 3
+        total = total.quantize(Decimal('0.01'))
+
+        today = timezone.localdate()
+        due_delta = {'monthly': 30, 'quarterly': 90, 'annually': 365}.get(billing_cycle, 30)
+        next_due = today + timedelta(days=due_delta)
+
+        ensure_portal_seed_data(request.user)
+
+        with transaction.atomic():
+            service = HostingService.objects.create(
+                user=request.user,
+                service_name=package.name,
+                domain=domain,
+                product_type='Shared Hosting',
+                status='pending',
+                billing_cycle=billing_cycle,
+                monthly_price=package.monthly_price,
+                next_due_date=next_due,
+                server_hostname='in-mum-01.voidpanel.cloud',
+                storage_gb=package.storage_gb,
+                bandwidth_gb=500,
+            )
+            inv_count = Invoice.objects.filter(user=request.user).count()
+            invoice = Invoice.objects.create(
+                user=request.user,
+                invoice_number=f'VP-{request.user.id:04d}-{inv_count + 1:03d}',
+                description=f'{package.name} Hosting — {domain}',
+                status='unpaid',
+                total=total,
+                currency='USD',
+                due_date=today + timedelta(days=7),
+            )
+            order = HostingOrder.objects.create(
+                user=request.user,
+                package=package,
+                service=service,
+                invoice=invoice,
+                domain=domain,
+                billing_cycle=billing_cycle,
+                total=total,
+                status='pending_payment',
+            )
+            PortalActivity.objects.create(
+                user=request.user,
+                category='billing',
+                title=f'Order placed: {package.name}',
+                description=f'Domain: {domain} — Billing: {billing_cycle} — Total: ${total}',
+            )
+
+        return redirect(f'/portal/invoice/{invoice.id}/pay/')
+
+    return render(request, 'cart_config.html', {
+        'package': package,
+        'discounts': discounts,
+    })
+
+
+@login_required(login_url='/login/')
+def invoice_pay(request, inv_id):
+    """Show an invoice with payment instructions. Admin can confirm payment."""
+    invoice = Invoice.objects.filter(id=inv_id, user=request.user).first()
+    if not invoice:
+        # Superusers can view any invoice
+        if request.user.is_superuser:
+            invoice = Invoice.objects.filter(id=inv_id).first()
+        if not invoice:
+            messages.error(request, 'Invoice not found.')
+            return redirect('/portal/')
+
+    # Superuser manual payment confirmation
+    if request.method == 'POST' and request.user.is_superuser:
+        action = request.POST.get('action')
+        if action == 'mark_paid':
+            invoice.status = 'paid'
+            invoice.paid_date = timezone.localdate()
+            invoice.save(update_fields=['status', 'paid_date'])
+            # Activate linked service
+            if hasattr(invoice, 'order') and invoice.order:
+                order = invoice.order
+                order.status = 'provisioning'
+                order.save(update_fields=['status'])
+                if order.service:
+                    # Trigger provisioning bridge
+                    from voidpanel.provisioner import provision_hosting_account
+                    result = provision_hosting_account(order.service)
+                    order.provision_response = result
+                    if result.get('status') == 'ok':
+                        order.service.status = 'active'
+                        order.service.save(update_fields=['status'])
+                        order.status = 'active'
+                    else:
+                        order.status = 'failed'
+                    order.save(update_fields=['status', 'provision_response'])
+            PortalActivity.objects.create(
+                user=invoice.user,
+                category='billing',
+                title='Invoice marked as paid',
+                description=f'{invoice.invoice_number} for {invoice.total} {invoice.currency}',
+            )
+            messages.success(request, f'Invoice {invoice.invoice_number} marked as paid and provisioning triggered.')
+            return redirect(f'/portal/invoice/{inv_id}/pay/')
+
+    order = getattr(invoice, 'order', None)
+    return render(request, 'invoice_pay.html', {
+        'invoice': invoice,
+        'order': order,
+    })
+
+
+def order_complete(request):
+    return render(request, 'order_complete.html')
+
+
+# ══════════════════════════════════════════════════════════════
+#  CLIENT PORTAL — TICKET SYSTEM
+# ══════════════════════════════════════════════════════════════
+
+@login_required(login_url='/login/')
+def portal_ticket_new(request):
+    """Client creates a new support ticket."""
+    if request.method == 'POST':
+        subject = request.POST.get('subject', '').strip()
+        department = request.POST.get('department', 'Support')
+        priority = request.POST.get('priority', 'medium')
+        body = request.POST.get('body', '').strip()
+
+        if not subject or not body:
+            messages.error(request, 'Subject and message body are required.')
+            return render(request, 'portal_ticket_new.html')
+
+        ticket_count = SupportTicket.objects.filter(user=request.user).count()
+        ticket = SupportTicket.objects.create(
+            user=request.user,
+            ticket_number=f'VP-TKT-{request.user.id:04d}-{ticket_count + 1:03d}',
+            subject=subject,
+            department=department,
+            priority=priority,
+            status='open',
+            last_reply_at=timezone.now(),
+        )
+        TicketReply.objects.create(
+            ticket=ticket,
+            author=request.user,
+            is_staff_reply=False,
+            body=body,
+        )
+        PortalActivity.objects.create(
+            user=request.user,
+            category='support',
+            title=f'Ticket opened: {subject}',
+            description=f'Department: {department} | Priority: {priority}',
+        )
+        messages.success(request, f'Ticket {ticket.ticket_number} created. Our team will respond shortly.')
+        return redirect(f'/portal/ticket/{ticket.id}/')
+
+    return render(request, 'portal_ticket_new.html')
+
+
+@login_required(login_url='/login/')
+def portal_ticket_detail(request, ticket_id):
+    """View a ticket thread and add a reply."""
+    ticket = SupportTicket.objects.filter(id=ticket_id).first()
+    if not ticket:
+        messages.error(request, 'Ticket not found.')
+        return redirect('/portal/')
+    # Only owner or staff can view
+    if ticket.user != request.user and not request.user.is_staff:
+        messages.error(request, 'Access denied.')
+        return redirect('/portal/')
+
+    if request.method == 'POST':
+        body = request.POST.get('body', '').strip()
+        if body:
+            TicketReply.objects.create(
+                ticket=ticket,
+                author=request.user,
+                is_staff_reply=request.user.is_staff,
+                body=body,
+            )
+            ticket.last_reply_at = timezone.now()
+            if request.user.is_staff:
+                ticket.status = 'answered'
+            else:
+                ticket.status = 'open'
+            ticket.save(update_fields=['last_reply_at', 'status'])
+            messages.success(request, 'Reply posted.')
+        return redirect(f'/portal/ticket/{ticket_id}/')
+
+    replies = ticket.replies.select_related('author').all()
+    return render(request, 'portal_ticket_detail.html', {
+        'ticket': ticket,
+        'replies': replies,
+    })
+
+
+# ══════════════════════════════════════════════════════════════
+#  SUPER ADMIN — CLIENTS, BILLING, TICKETS
+# ══════════════════════════════════════════════════════════════
+
+@login_required(login_url='/login/')
+def super_admin_clients(request):
+    denied = _super_admin_guard(request)
+    if denied:
+        return denied
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'suspend_all':
+            uid = request.POST.get('user_id')
+            HostingService.objects.filter(user_id=uid, status='active').update(status='suspended')
+            messages.success(request, 'All active services for that client have been suspended.')
+        return _super_admin_redirect(request, '/super-admin/clients/')
+
+    clients = User.objects.filter(is_staff=False, is_superuser=False).order_by('-date_joined')
+    client_data = []
+    for c in clients:
+        unpaid = Invoice.objects.filter(user=c, status__in=['unpaid', 'overdue']).aggregate(
+            total=Sum('total'))['total'] or Decimal('0.00')
+        client_data.append({
+            'user': c,
+            'active_services': HostingService.objects.filter(user=c, status='active').count(),
+            'total_services': HostingService.objects.filter(user=c).count(),
+            'open_tickets': SupportTicket.objects.filter(user=c).exclude(status='closed').count(),
+            'unpaid_balance': unpaid,
+        })
+    ctx = _build_super_admin_context('clients')
+    ctx['client_data'] = client_data
+    return render(request, 'super_admin_clients.html', ctx)
+
+
+@login_required(login_url='/login/')
+def super_admin_billing(request):
+    denied = _super_admin_guard(request)
+    if denied:
+        return denied
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'mark_paid':
+            inv_id = request.POST.get('invoice_id')
+            inv = Invoice.objects.filter(id=inv_id).first()
+            if inv:
+                inv.status = 'paid'
+                inv.paid_date = timezone.localdate()
+                inv.save(update_fields=['status', 'paid_date'])
+                # Activate linked service via provisioner
+                if hasattr(inv, 'order') and inv.order and inv.order.service:
+                    from voidpanel.provisioner import provision_hosting_account
+                    result = provision_hosting_account(inv.order.service)
+                    inv.order.provision_response = result
+                    if result.get('status') == 'ok':
+                        inv.order.service.status = 'active'
+                        inv.order.service.save(update_fields=['status'])
+                        inv.order.status = 'active'
+                    else:
+                        inv.order.status = 'failed'
+                    inv.order.save(update_fields=['status', 'provision_response'])
+                messages.success(request, f'Invoice {inv.invoice_number} marked as paid.')
+        elif action == 'create_invoice':
+            uid = request.POST.get('user_id')
+            desc = request.POST.get('description', '').strip()
+            total = request.POST.get('total', '0')
+            due = request.POST.get('due_date')
+            user = User.objects.filter(id=uid).first()
+            if user and desc and due:
+                cnt = Invoice.objects.filter(user=user).count()
+                Invoice.objects.create(
+                    user=user,
+                    invoice_number=f'VP-{user.id:04d}-{cnt + 1:03d}',
+                    description=desc,
+                    status='unpaid',
+                    total=Decimal(total),
+                    currency='USD',
+                    due_date=due,
+                )
+                messages.success(request, f'Invoice created for {user.get_full_name() or user.username}.')
+        return _super_admin_redirect(request, '/super-admin/billing/')
+
+    status_filter = request.GET.get('status', '')
+    invoices = Invoice.objects.select_related('user').order_by('-created_at')
+    if status_filter:
+        invoices = invoices.filter(status=status_filter)
+    clients = User.objects.filter(is_staff=False).order_by('username')
+    ctx = _build_super_admin_context('billing')
+    ctx['invoices'] = invoices[:100]
+    ctx['clients'] = clients
+    ctx['status_filter'] = status_filter
+    return render(request, 'super_admin_billing.html', ctx)
+
+
+@login_required(login_url='/login/')
+def super_admin_tickets(request):
+    denied = _super_admin_guard(request)
+    if denied:
+        return denied
+    dept_filter = request.GET.get('dept', '')
+    status_filter = request.GET.get('status', '')
+    tickets = SupportTicket.objects.select_related('user').order_by('-last_reply_at')
+    if dept_filter:
+        tickets = tickets.filter(department=dept_filter)
+    if status_filter:
+        tickets = tickets.filter(status=status_filter)
+    ctx = _build_super_admin_context('tickets')
+    ctx['tickets'] = tickets[:100]
+    ctx['dept_filter'] = dept_filter
+    ctx['status_filter'] = status_filter
+    return render(request, 'super_admin_tickets.html', ctx)
+
+
+@login_required(login_url='/login/')
+def super_admin_ticket_detail(request, ticket_id):
+    denied = _super_admin_guard(request)
+    if denied:
+        return denied
+    ticket = SupportTicket.objects.select_related('user').filter(id=ticket_id).first()
+    if not ticket:
+        messages.error(request, 'Ticket not found.')
+        return redirect('/super-admin/tickets/')
+    if request.method == 'POST':
+        body = request.POST.get('body', '').strip()
+        close = request.POST.get('close_ticket')
+        if body:
+            TicketReply.objects.create(
+                ticket=ticket,
+                author=request.user,
+                is_staff_reply=True,
+                body=body,
+            )
+            ticket.last_reply_at = timezone.now()
+            ticket.status = 'closed' if close else 'answered'
+            ticket.save(update_fields=['last_reply_at', 'status'])
+            messages.success(request, 'Staff reply posted.')
+        return redirect(f'/super-admin/tickets/{ticket_id}/')
+    replies = ticket.replies.select_related('author').all()
+    ctx = _build_super_admin_context('tickets')
+    ctx['ticket'] = ticket
+    ctx['replies'] = replies
+    return render(request, 'super_admin_ticket_detail.html', ctx)
+

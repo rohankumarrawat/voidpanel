@@ -305,3 +305,77 @@ class HostingPricingSettings(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class TicketReply(models.Model):
+    """A single reply in a support ticket thread (from client or staff)."""
+    ticket = models.ForeignKey(
+        SupportTicket,
+        on_delete=models.CASCADE,
+        related_name='replies',
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='ticket_replies',
+    )
+    is_staff_reply = models.BooleanField(default=False)
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        prefix = '[Staff]' if self.is_staff_reply else '[Client]'
+        return f"{prefix} {self.ticket.ticket_number} — {self.created_at:%Y-%m-%d %H:%M}"
+
+
+class HostingOrder(models.Model):
+    """Links a checkout session to a HostingService + Invoice before provisioning."""
+    STATUS_CHOICES = [
+        ('pending_payment', 'Pending Payment'),
+        ('paid', 'Paid'),
+        ('provisioning', 'Provisioning'),
+        ('active', 'Active'),
+        ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='hosting_orders',
+    )
+    package = models.ForeignKey(
+        HostingPackage,
+        on_delete=models.PROTECT,
+        related_name='orders',
+    )
+    service = models.OneToOneField(
+        HostingService,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='order',
+    )
+    invoice = models.OneToOneField(
+        Invoice,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='order',
+    )
+    domain = models.CharField(max_length=200)
+    billing_cycle = models.CharField(max_length=20, default='monthly')
+    total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='pending_payment')
+    provision_response = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Order #{self.pk} — {self.user.username} — {self.package.name}"

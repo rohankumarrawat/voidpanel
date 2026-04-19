@@ -384,7 +384,22 @@
                     <a href="/super-admin/" class="btn-void btn-void-primary" style="width:100%;justify-content:center;">Open Super Admin</a>
                 </div>
             {% endif %}
+            <div class="side-card">
+                <strong>Quick Actions</strong>
+                <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px;">
+                    <a href="/web-hosting/" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:16px;background:rgba(89,196,188,0.1);border:1px solid rgba(89,196,188,0.2);color:#59c4bc;font-size:0.86rem;font-weight:600;">
+                        <i class="fas fa-plus"></i> Order New Hosting
+                    </a>
+                    <a href="/portal/ticket/new/" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:16px;background:rgba(129,140,248,0.1);border:1px solid rgba(129,140,248,0.2);color:#a5b4fc;font-size:0.86rem;font-weight:600;">
+                        <i class="fas fa-life-ring"></i> Open Support Ticket
+                    </a>
+                    <a href="/logout/" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);color:var(--text-muted);font-size:0.86rem;">
+                        <i class="fas fa-right-from-bracket"></i> Sign Out
+                    </a>
+                </div>
+            </div>
         </aside>
+
 
         <section class="portal-main">
             {% if messages %}
@@ -487,15 +502,26 @@
                                     <span class="status-badge status-answered">Clear</span>
                                 {% endif %}
                             </div>
-                            <p class="muted" style="margin:10px 0 0;">{% if latest_ticket %}{{ latest_ticket.subject }}{% else %}No open support pressure right now.{% endif %}</p>
+                            {% if latest_ticket %}
+                            <p class="muted" style="margin:10px 0 8px;">{{ latest_ticket.subject }}</p>
+                            <a href="/portal/ticket/{{ latest_ticket.id }}/" style="font-size:0.82rem;color:#818cf8;"><i class="fas fa-arrow-right"></i> View Thread</a>
+                            {% else %}
+                            <p class="muted" style="margin:10px 0 0;">No open support pressure right now.</p>
+                            {% endif %}
                         </div>
                         <div class="invoice-item">
                             <div class="detail-line">
                                 <strong>Next Invoice Due</strong>
                                 <span>{% if next_invoice %}{{ next_invoice.due_date }}{% else %}None pending{% endif %}</span>
                             </div>
-                            <p class="muted" style="margin:10px 0 0;">{% if next_invoice %}{{ next_invoice.invoice_number }} for {{ next_invoice.currency }} {{ next_invoice.total }}{% else %}Your account is clear for now.{% endif %}</p>
+                            {% if next_invoice %}
+                            <p class="muted" style="margin:10px 0 8px;">{{ next_invoice.invoice_number }} for {{ next_invoice.currency }} {{ next_invoice.total }}</p>
+                            <a href="/portal/invoice/{{ next_invoice.id }}/pay/" style="font-size:0.82rem;color:#59c4bc;"><i class="fas fa-credit-card"></i> Pay Now</a>
+                            {% else %}
+                            <p class="muted" style="margin:10px 0 0;">Your account is clear for now.</p>
+                            {% endif %}
                         </div>
+
                     </div>
                 </div>
             </section>
@@ -530,6 +556,12 @@
                                         <strong>{{ service.next_due_date }}</strong>
                                     </div>
                                 </div>
+                                {% if service.status == 'active' and service.panel_url %}
+                                <div style="margin-top:14px;">
+                                    <a href="{{ service.panel_url }}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:12px;background:rgba(89,196,188,0.1);border:1px solid rgba(89,196,188,0.2);color:#59c4bc;font-size:0.84rem;font-weight:700;"><i class="fas fa-external-link-alt"></i> Login to Panel</a>
+                                </div>
+                                {% endif %}
+
                             </div>
                         {% empty %}
                             <div class="service-card"><strong>No services found.</strong></div>
@@ -551,13 +583,22 @@
                                 </div>
                                 <p class="muted" style="margin:10px 0 0;">{{ invoice.description }}</p>
                                 <div class="detail-line" style="margin-top:14px;">
-                                    <span>{{ invoice.currency }} {{ invoice.total }}</span>
-                                    <span class="muted">Due {{ invoice.due_date }}</span>
+                                    <span>{{ invoice.currency }} {{ invoice.total }} &bull; Due {{ invoice.due_date }}</span>
+                                    {% if invoice.status != 'paid' %}
+                                    <a href="/portal/invoice/{{ invoice.id }}/pay/" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:12px;background:rgba(89,196,188,0.12);border:1px solid rgba(89,196,188,0.22);color:#59c4bc;font-size:0.82rem;font-weight:700;"><i class="fas fa-credit-card"></i> Pay Now</a>
+                                    {% else %}
+                                    <a href="/portal/invoice/{{ invoice.id }}/pay/" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:12px;background:rgba(255,255,255,0.04);color:var(--text-muted);font-size:0.82rem;"><i class="fas fa-receipt"></i> View</a>
+                                    {% endif %}
                                 </div>
                             </div>
                         {% empty %}
-                            <div class="invoice-item"><strong>No invoices found.</strong></div>
+                            <div class="invoice-item" style="text-align:center;padding:28px;">
+                                <i class="fas fa-file-invoice" style="font-size:1.5rem;color:var(--text-muted);margin-bottom:10px;display:block;"></i>
+                                <strong style="color:var(--text-muted);">No invoices yet.</strong><br>
+                                <a href="/web-hosting/" style="color:#59c4bc;font-size:0.88rem;margin-top:8px;display:inline-block;">Browse hosting plans &rarr;</a>
+                            </div>
                         {% endfor %}
+
                     </div>
                 </div>
             </section>
@@ -566,7 +607,7 @@
                 <div class="portal-shell content-card">
                     <div class="section-top">
                         <h3>Support Tickets</h3>
-                        <span>Queue visibility and recent updates</span>
+                        <a href="/portal/ticket/new/" style="display:inline-flex;align-items:center;gap:6px;padding:9px 14px;border-radius:14px;background:rgba(129,140,248,0.12);border:1px solid rgba(129,140,248,0.22);color:#a5b4fc;font-size:0.82rem;font-weight:700;"><i class="fas fa-plus"></i> New Ticket</a>
                     </div>
                     <div class="ticket-stack">
                         {% for ticket in tickets %}
@@ -575,13 +616,21 @@
                                     <strong>{{ ticket.subject }}</strong>
                                     <span class="status-badge status-{{ ticket.status }}">{{ ticket.get_status_display }}</span>
                                 </div>
-                                <p class="muted" style="margin:10px 0 0;">{{ ticket.ticket_number }} • {{ ticket.department }} • {{ ticket.get_priority_display }} priority</p>
-                                <p class="muted" style="margin:8px 0 0;">Last reply {{ ticket.last_reply_at|date:"M d, Y H:i" }}</p>
+                                <p class="muted" style="margin:10px 0 0;">{{ ticket.ticket_number }} &bull; {{ ticket.department }} &bull; {{ ticket.get_priority_display }} priority</p>
+                                <div class="detail-line" style="margin-top:12px;">
+                                    <span class="muted" style="font-size:0.82rem;">Last reply {{ ticket.last_reply_at|date:"M d, Y H:i" }}</span>
+                                    <a href="/portal/ticket/{{ ticket.id }}/" style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:12px;background:rgba(255,255,255,0.05);color:var(--text-secondary);font-size:0.82rem;"><i class="fas fa-comments"></i> View Thread</a>
+                                </div>
                             </div>
                         {% empty %}
-                            <div class="ticket-card"><strong>No tickets found.</strong></div>
+                            <div class="ticket-card" style="text-align:center;padding:28px;">
+                                <i class="fas fa-headset" style="font-size:1.5rem;color:var(--text-muted);margin-bottom:10px;display:block;"></i>
+                                <strong style="color:var(--text-muted);">No tickets yet.</strong><br>
+                                <a href="/portal/ticket/new/" style="color:#818cf8;font-size:0.88rem;margin-top:8px;display:inline-block;">Open your first ticket &rarr;</a>
+                            </div>
                         {% endfor %}
                     </div>
+
                 </div>
 
                 <div class="portal-shell content-card" id="activity">

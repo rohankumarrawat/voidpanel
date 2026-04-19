@@ -1,21 +1,5 @@
-"""
-URL configuration for voidpanel project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.1/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 from django.contrib import admin
-from django.urls import path,include
+from django.urls import path, include
 from . import views
 from django.conf import settings
 from django.conf.urls.static import static
@@ -51,18 +35,35 @@ urlpatterns = [
     path('login/', views.loginn),
     path('logout/', views.logout_view),
     path('register/', views.register),
+
+    # ── Client Portal ──────────────────────────────────────────────────────────
     path('portal/', views.portal),
+    path('portal/ticket/new/', views.portal_ticket_new, name='portal_ticket_new'),
+    path('portal/ticket/<int:ticket_id>/', views.portal_ticket_detail, name='portal_ticket_detail'),
+    path('portal/invoice/<int:inv_id>/pay/', views.invoice_pay, name='invoice_pay'),
+    path('portal/order-complete/', views.order_complete, name='order_complete'),
+
+    # ── Cart & Checkout ────────────────────────────────────────────────────────
+    path('cart/<slug:slug>/', views.cart_config, name='cart_config'),
+
+    # ── Super Admin ────────────────────────────────────────────────────────────
     path('super-admin/', views.super_admin_portal),
     path('super-admin/staff/', views.super_admin_staff),
     path('super-admin/roles/', views.super_admin_roles),
     path('super-admin/emails/', views.super_admin_emails),
     path('super-admin/hosting/', views.super_admin_hosting),
     path('super-admin/signals/', views.super_admin_signals),
+    path('super-admin/clients/', views.super_admin_clients),
+    path('super-admin/billing/', views.super_admin_billing),
+    path('super-admin/tickets/', views.super_admin_tickets),
+    path('super-admin/tickets/<int:ticket_id>/', views.super_admin_ticket_detail),
+
+    # ── Blog / Legacy ──────────────────────────────────────────────────────────
     path('blog1/', views.blog1),
     path('addemail/', views.addemail),
     path('whmcs/', views.whmcs),
     path('whmcs/module/', views.whmcs_module),
 ]
+
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL,
-                          document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
