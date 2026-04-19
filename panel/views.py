@@ -5296,7 +5296,8 @@ def cpbruteforce(request):
         d['firewall_type']  = 'csf' if csf_ok else ('ufw' if ufw_ok else None)
         if ufw_ok and not csf_ok:
             r = _sp.run(['sudo', 'ufw', 'status'], capture_output=True, text=True)
-            d['fw_enabled'] = 'active' in r.stdout.lower()
+            out_lower = r.stdout.lower()
+            d['fw_enabled'] = ('active' in out_lower and 'inactive' not in out_lower)
         else:
             d['fw_enabled'] = d['firewall'].status
         try:
@@ -5343,7 +5344,10 @@ def cpbrute(request):
                 elif ufw_binary:
                     # UFW fallback
                     st = _sp.run(['sudo', 'ufw', 'status'], capture_output=True, text=True)
-                    if 'active' in st.stdout.lower() or e.status:
+                    out_lower = st.stdout.lower()
+                    is_running = ('active' in out_lower and 'inactive' not in out_lower)
+                    
+                    if is_running or e.status:
                         _sp.run(['sudo', 'ufw', '--force', 'disable'], check=False)
                         e.status = False
                     else:
