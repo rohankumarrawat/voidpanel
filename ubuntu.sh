@@ -628,6 +628,9 @@ EOF
     cp config/config.inc.php.sample config/config.inc.php
     sed -i "s|.*db_dsnw.*|\$config['db_dsnw'] = 'mysql://${DB_USER}:${DB_PASS}@localhost/${DB_NAME}';|" \
         config/config.inc.php
+        
+    status_msg "Initializing Roundcube Database Schema"
+    mysql ${DB_NAME} < SQL/mysql.initial.sql
 
     cat > /etc/nginx/sites-available/roundcube <<NGINXCONF
 server {
