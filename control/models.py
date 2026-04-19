@@ -161,3 +161,44 @@ class EmailConfig(models.Model):
 
     def __str__(self):
         return "Global Email Configuration"
+
+
+class ActivityLog(models.Model):
+    """Structured audit log for all provisioning and administrative events."""
+
+    class Level(models.TextChoices):
+        SUCCESS = 'success', 'Success'
+        INFO    = 'info',    'Info'
+        WARNING = 'warning', 'Warning'
+        ERROR   = 'error',   'Error'
+
+    class Category(models.TextChoices):
+        DOMAIN  = 'domain',  'Domain'
+        PYTHON  = 'python',  'Python App'
+        MERN    = 'mern',    'MERN Stack'
+        EMAIL   = 'email',   'Email'
+        DB      = 'db',      'Database'
+        SSL     = 'ssl',     'SSL'
+        FTP     = 'ftp',     'FTP'
+        SYSTEM  = 'system',  'System'
+        NGINX   = 'nginx',   'Nginx'
+        BACKUP  = 'backup',  'Backup'
+
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    level     = models.CharField(max_length=10, choices=Level.choices, default=Level.INFO)
+    category  = models.CharField(max_length=15, choices=Category.choices, default=Category.SYSTEM)
+    domain    = models.CharField(max_length=255, blank=True, default='')
+    username  = models.CharField(max_length=150, blank=True, default='')
+    action    = models.CharField(max_length=255)
+    detail    = models.TextField(blank=True, default='')
+    ip        = models.CharField(max_length=64, blank=True, default='')
+
+    class Meta:
+        ordering = ['-timestamp']
+        indexes  = [
+            models.Index(fields=['domain', '-timestamp']),
+            models.Index(fields=['level',  '-timestamp']),
+        ]
+
+    def __str__(self):
+        return f'[{self.level.upper()}] {self.action} ({self.domain})'

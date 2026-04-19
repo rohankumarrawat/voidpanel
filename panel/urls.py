@@ -205,6 +205,11 @@ urlpatterns = [
        path('api/nginx-cache/status/', views.api_nginx_cache_status, name='api_nginx_cache_status'),
        path('api/nginx-cache/toggle/', views.api_nginx_cache_toggle, name='api_nginx_cache_toggle'),
 
+       # ── Activity Log ──────────────────────────────────────────────────────
+       path('activitylog/', views.activitylog_page, name='activitylog'),
+       path('api/activity-logs/', views.api_activity_logs, name='api_activity_logs'),
+       path('api/activity-logs/clear/', views.api_clear_activity_logs, name='api_clear_activity_logs'),
+
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

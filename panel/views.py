@@ -2209,6 +2209,9 @@ open_basedir = "/{path}/public_html:/tmp"
                    logger.error("Error in addweb dispatch: %s", e)
                    return JsonResponse({'status': 'error', 'message': str(e)})
              
+         from control.activity import log_activity as _log
+         _domain_val = request.POST.get('domain', data.get('domain', '')) if hasattr(request, 'POST') else ''
+         _log(request, 'success', 'domain', domain=str(_domain_val), action='Domain created', detail='vHost and Nginx config provisioned.')
          return JsonResponse({'status': 'success', 'message': 'Domain Added!'})
             
 
@@ -2934,6 +2937,10 @@ def addemailaccount(request):
 
             password_b64 = base64.b64encode(password.encode('utf-8')).decode('utf-8')
             allemail.objects.create(domain=domain_name, email=full_email, password=password_b64)
+            from control.activity import log_activity
+            log_activity(request, 'success', 'email', domain=domain_name,
+                         action=f'Email account created: {full_email}',
+                         detail=f'Dovecot maildir provisioned for {full_email}')
             return JsonResponse({'status': 'success'})
 
         return JsonResponse({'status': 'error', 'message': 'POST required.'})
@@ -3090,8 +3097,16 @@ def adddatabase(request):
         pass
 
     if create_database_and_table(final, adminpassword):
+        from control.activity import log_activity
+        log_activity(request, 'success', 'db', domain=current,
+                     action=f'Database created: {final}',
+                     detail=f'MySQL database provisioned for user {current}')
         return JsonResponse({'status': 'success'})
     
+    from control.activity import log_activity
+    log_activity(request, 'error', 'db', domain=current,
+                 action=f'Database creation failed: {final}',
+                 detail='MySQL create_database_and_table returned False')
     return JsonResponse({'status': 'error', 'message': 'Database creation failed'})
 
 @login_required(login_url='/')
@@ -6227,6 +6242,10 @@ context /static/ {{
                 
                 r = mgr.write_and_test_site_config(domain1, new_conf)
                 if not r.success:
+                    from control.activity import log_activity
+                    log_activity(request, 'error', 'python', domain=domain1,
+                                 action=f'Python deploy failed: {name}',
+                                 detail=f'Nginx validation error: {r.error}')
                     return JsonResponse({'status': 'error', 'message': f'Nginx validation failed: {r.error}'})
         except Exception as e:
             import logging
@@ -6272,6 +6291,10 @@ context /static/ {{
 
     import time
     time.sleep(2)
+    from control.activity import log_activity
+    log_activity(request, 'success', 'python', domain=domain1,
+                 action=f'Python app deployed: {name}',
+                 detail=f'uWSGI socket provisioned at /var/run/panel/{name}.sock')
     return JsonResponse({'status': 'success', 'message': f'Python app "{name}" provisioned successfully!'})
 
      
@@ -6465,6 +6488,10 @@ def addmern(request):
         frontend_build_root = f"/home/{fre.dir}/{name}/frontend/build"
         r = mgr.setup_reverse_proxy(domain1, name, 'mern', f'http://127.0.0.1:{pasport}', static_path, frontend_build_root)
         if not r.success:
+            from control.activity import log_activity
+            log_activity(request, 'error', 'mern', domain=domain1,
+                         action=f'MERN deploy failed: {name}',
+                         detail=f'Nginx proxy error: {r.error}')
             return JsonResponse({'status': 'error', 'message': f'Server configuration validation failed: {r.error}'})
 
         # Atomic reservation: only spawn compilation if DB allocation succeeds
@@ -6478,6 +6505,10 @@ def addmern(request):
 
         import time
         time.sleep(2)
+        from control.activity import log_activity
+        log_activity(request, 'success', 'mern', domain=domain1,
+                     action=f'MERN stack deployed: {name}',
+                     detail=f'Port {pasport}, compiling in background')
         return JsonResponse({'status': 'success', 'message': 'MERN stack provisioned!'})
     return JsonResponse({'status': 'error', 'message': 'Invalid request'})
 
@@ -7549,3 +7580,26 @@ def api_nginx_cache_toggle(request):
         return JsonResponse({'status': 'success', 'message': f'Nginx cache {action} for {domainname}.'})
     else:
         return JsonResponse({'status': 'error', 'message': f'Nginx validation failed: {result.error}'}, status=400)
+
+
+# ── Activity Log ──────────────────────────────────────────────────────────────
+
+@login_required(login_url='/')
+def activitylog_page(request):
+    """Render the activity log UI."""
+    return render(request, 'panel/activitylog.html')
+
+
+@login_required(login_url='/')
+def api_activity_logs(request):
+    """Proxy through to the control.activity API handler."""
+    from control.activity import api_activity_logs as _handler
+    return _handler(request)
+
+
+@login_required(login_url='/')
+def api_clear_activity_logs(request):
+    """Proxy through to the control.activity clear handler."""
+    from control.activity import api_clear_logs as _handler
+    return _handler(request)
+
