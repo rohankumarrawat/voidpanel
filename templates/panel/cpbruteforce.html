@@ -5,12 +5,10 @@
     <title>VoidPanel — Firewall Center</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="VoidPanel CSF/UFW Firewall Management">
+    <meta name="description" content="VoidPanel Advanced Firewall Management">
     <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
-    
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -18,152 +16,257 @@
 
     <style>
         :root {
-            --bg-deep:    #09090f;
-            --bg-card:    rgba(255,255,255,0.04);
-            --border:     rgba(255,255,255,0.08);
-            --accent:     #6366f1;
-            --accent2:    #818cf8;
-            --success:    #10b981;
-            --warning:    #f59e0b;
-            --danger:     #ef4444;
-            --text:       #f1f5f9;
-            --text-muted: #94a3b8;
-            --glow:       rgba(99,102,241,0.25);
-            --radius:     16px;
-            --radius-sm:  10px;
+            --c-bg:       #070710;
+            --c-surface:  rgba(255,255,255,0.035);
+            --c-border:   rgba(255,255,255,0.07);
+            --c-green:    #00ff88;
+            --c-red:      #ff3860;
+            --c-purple:   #a855f7;
+            --c-orange:   #f59e0b;
+            --c-blue:     #38bdf8;
+            --c-dim:      #94a3b8;
+            --c-text:     #f1f5f9;
+            --font-mono:  'JetBrains Mono', monospace;
+            --font-sans:  'Inter', sans-serif;
         }
 
-        * { box-sizing: border-box; }
+        *, *::before, *::after { box-sizing: border-box; }
 
         body, #wrapper {
-            background: var(--bg-deep) !important;
-            font-family: 'Inter', sans-serif !important;
-            color: var(--text) !important;
+            background: var(--c-bg) !important;
+            font-family: var(--font-sans);
+            color: var(--c-text);
             min-height: 100vh;
         }
 
-        #main-content { padding: 24px 28px; }
-        
-        .page-title { font-size: 1.6rem; font-weight: 800; color: var(--text); margin-bottom: 2px; }
-        .breadcrumb { background: none !important; padding: 0; margin: 0; }
-        .breadcrumb-item, .breadcrumb-item a { color: var(--text-muted) !important; font-size: 0.78rem; }
-        .breadcrumb-item.active { color: var(--accent2) !important; }
-
-        /* Component: Glass Card */
-        .gc {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            box-shadow: 0 4px 30px rgba(0,0,0,0.3);
-            padding: 24px 28px;
-            margin-bottom: 24px;
+        /* Dot-grid background */
+        #main-content {
+            background-image: radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px);
+            background-size: 28px 28px;
+            padding: 28px 32px;
         }
-        
-        /* Master Switch Row */
-        .master-bar {
+
+        /* ──────────── Page Header ──────────── */
+        .fw-header {
             display: flex; align-items: center; justify-content: space-between;
-            flex-wrap: wrap; gap: 20px;
+            margin-bottom: 32px; flex-wrap: wrap; gap: 16px;
         }
-        
-        .master-bar-title {
-            font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 4px;
-            display: flex; align-items: center; gap: 10px;
+        .fw-title-row { display: flex; align-items: center; gap: 18px; }
+        .fw-icon-wrap {
+            width: 58px; height: 58px; border-radius: 16px;
+            background: radial-gradient(135deg at 30% 30%, rgba(255,56,96,0.22), rgba(255,56,96,0.06));
+            border: 1px solid rgba(255,56,96,0.3); flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; color: var(--c-red);
+            box-shadow: 0 0 24px rgba(255,56,96,0.18);
         }
-        .master-bar-sub { font-size: 0.85rem; color: var(--text-muted); }
+        .fw-title { font-size: 1.8rem; font-weight: 900; letter-spacing: -0.03em; color: var(--c-text); margin: 0; }
+        .fw-sub { font-size: 0.8rem; color: var(--c-dim); margin: 4px 0 0 0; }
 
-        /* The Toggle Switch */
-        .switch { position:relative; display:inline-block; width:52px; height:28px; margin:0; }
-        .switch input { opacity:0; width:0; height:0; }
-        .slider { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.1); transition:.3s; border-radius:30px; }
-        .slider:before { position:absolute; content:""; height:20px; width:20px; left:3px; bottom:3px; background:#fff; transition:.3s cubic-bezier(0.68, -0.55, 0.265, 1.55); border-radius:50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-        input:checked + .slider { background:var(--success); border-color:var(--success); }
-        input:checked + .slider:before { transform:translateX(24px); }
-        
-        .fw-status-text { font-weight:700; font-size:0.95rem; margin-right:14px; text-transform:uppercase; letter-spacing:0.05em; }
-        .status-on  { color:var(--success); text-shadow: 0 0 10px rgba(16,185,129,0.4); }
-        .status-off { color:var(--danger); }
-        
-        /* Badge */
-        .fw-badge {
-            font-size: 0.75rem; font-weight: 700; padding: 6px 14px; border-radius: 20px;
-            background: rgba(16,185,129,0.15); color: var(--success); border: 1px solid rgba(16,185,129,0.3);
-            text-transform: uppercase; letter-spacing: 0.05em; box-shadow: 0 0 16px rgba(16,185,129,0.1);
+        .fw-pill {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 8px 16px; border-radius: 100px; font-size: 0.78rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.07em;
+            border: 1px solid; backdrop-filter: blur(12px);
         }
+        .fw-pill .dot { width: 7px; height: 7px; border-radius: 50%; animation: pulse-dot 2s ease-in-out infinite; }
+        .fw-pill.green { color: var(--c-green); border-color: rgba(0,255,136,0.35); background: rgba(0,255,136,0.06); }
+        .fw-pill.green .dot { background: var(--c-green); box-shadow: 0 0 8px var(--c-green); }
+        .fw-pill.red { color: var(--c-red); border-color: rgba(255,56,96,0.35); background: rgba(255,56,96,0.06); }
+        .fw-pill.red .dot { background: var(--c-red); box-shadow: 0 0 8px var(--c-red); }
+        @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.6;transform:scale(0.8);} }
 
-        /* IP Action Grid */
-        .fw-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:20px; }
-        
+        /* ──────────── Master Switch Card ──────────── */
+        .master-card {
+            position: relative; overflow: hidden;
+            background: var(--c-surface);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px; padding: 28px 36px;
+            margin-bottom: 28px;
+            backdrop-filter: blur(20px);
+            display: flex; align-items: center; justify-content: space-between; gap: 20px;
+            transition: border-color 0.4s;
+        }
+        .master-card::before {
+            content: '';
+            position: absolute; inset: -1px;
+            border-radius: 20px;
+            background: linear-gradient(135deg,
+                rgba(0,255,136,0.12) 0%,
+                transparent 50%,
+                rgba(0,255,136,0.04) 100%);
+            pointer-events: none;
+            transition: opacity 0.4s;
+        }
+        .master-card.disabled::before {
+            background: linear-gradient(135deg,
+                rgba(255,56,96,0.1) 0%,
+                transparent 50%,
+                rgba(255,56,96,0.04) 100%);
+        }
+        .master-card-label { font-size: 1rem; font-weight: 700; color: var(--c-text); margin-bottom: 5px; }
+        .master-card-sub { font-size: 0.82rem; color: var(--c-dim); }
+        .master-state {
+            display: flex; align-items: center; gap: 18px;
+        }
+        .state-text {
+            font-size: 0.9rem; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 0.08em; transition: color 0.3s;
+        }
+        .state-text.on { color: var(--c-green); text-shadow: 0 0 14px rgba(0,255,136,0.5); }
+        .state-text.off { color: var(--c-red); text-shadow: 0 0 14px rgba(255,56,96,0.5); }
+
+        /* Toggle Switch */
+        .toggle { position: relative; width: 56px; height: 30px; flex-shrink: 0; }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .toggle-track {
+            position: absolute; cursor: pointer; inset: 0;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 30px; transition: 0.35s ease;
+        }
+        .toggle-track:before {
+            position: absolute; content: ''; height: 22px; width: 22px;
+            left: 3px; bottom: 3px; background: #fff; border-radius: 50%;
+            transition: 0.35s cubic-bezier(0.68,-0.55,0.265,1.55);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+        }
+        .toggle input:checked + .toggle-track { background: rgba(0,255,136,0.2); border-color: var(--c-green); box-shadow: 0 0 20px rgba(0,255,136,0.2); }
+        .toggle input:checked + .toggle-track:before { transform: translateX(26px); background: var(--c-green); }
+
+        /* ──────────── Action Cards Grid ──────────── */
+        .fw-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 20px; }
+
         .fw-card {
-            background: rgba(0,0,0,0.2); border: 1px solid var(--border);
-            border-radius: var(--radius-sm); padding: 22px;
-            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative; overflow: hidden;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--c-border);
+            border-radius: 18px; padding: 24px;
+            backdrop-filter: blur(14px);
+            transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
         }
-        .fw-card:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
-        
-        .fw-card h3 { font-size:1rem; font-weight:700; margin:0 0 8px 0; display:flex; align-items:center; gap:10px; }
-        .fw-card p  { font-size:0.8rem; color:var(--text-muted); margin-bottom:18px; line-height: 1.5; }
-        
-        .c-allow h3 { color:var(--success); }
-        .c-deny h3 { color:var(--danger); }
-        .c-unblock h3 { color:var(--accent2); }
-        .c-block h3 { color:var(--danger); }
-        .c-ignore h3 { color:var(--warning); }
-        
-        /* Inputs & Buttons */
-        .form-control {
-            width:100%; padding:12px 14px; border-radius:8px;
-            background:rgba(0,0,0,0.3) !important; border:1px solid var(--border) !important;
-            color:var(--text) !important; font-size:0.85rem; font-family:'JetBrains Mono',monospace;
-            transition:border-color 0.2s, box-shadow 0.2s; outline:none; margin-bottom:12px;
+        .fw-card::after {
+            content: ''; position: absolute; inset: 0; border-radius: 18px;
+            opacity: 0; transition: opacity 0.25s;
         }
-        .form-control:focus { border-color:var(--accent) !important; box-shadow: 0 0 0 3px rgba(99,102,241,0.15) !important; }
-        
-        .btn {
-            display:inline-flex; align-items:center; justify-content:center; gap:8px;
-            padding:12px 16px; border-radius:8px; width:100%;
-            font-size:0.85rem; font-weight:700; cursor:pointer;
-            border:1px solid transparent; transition:all 0.2s; text-transform:uppercase; letter-spacing:0.04em;
-        }
-        .btn:disabled { opacity:0.6; cursor:not-allowed; }
-        .btn-success { background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3); }
-        .btn-success:hover:not(:disabled) { background:rgba(16,185,129,0.25); box-shadow:0 6px 15px rgba(16,185,129,0.15); }
-        .btn-danger  { background:rgba(239,68,68,0.15); color:var(--danger); border-color:rgba(239,68,68,0.3); }
-        .btn-danger:hover:not(:disabled) { background:rgba(239,68,68,0.25); box-shadow:0 6px 15px rgba(239,68,68,0.15); }
-        .btn-warning { background:rgba(245,158,11,0.15); color:var(--warning); border-color:rgba(245,158,11,0.3); }
-        .btn-warning:hover:not(:disabled) { background:rgba(245,158,11,0.25); box-shadow:0 6px 15px rgba(245,158,11,0.15); }
-        .btn-accent  { background:rgba(99,102,241,0.15); color:var(--accent2); border-color:rgba(99,102,241,0.3); }
-        .btn-accent:hover:not(:disabled) { background:rgba(99,102,241,0.25); box-shadow:0 6px 15px rgba(99,102,241,0.15); }
+        .fw-card:hover { transform: translateY(-5px); }
+        .fw-card:hover::after { opacity: 1; }
 
-        /* Install Terminal */
+        /* color treatments */
+        .fw-card.c-green  { --glow: 0,255,136; }
+        .fw-card.c-red    { --glow: 255,56,96; }
+        .fw-card.c-purple { --glow: 168,85,247; }
+        .fw-card.c-orange { --glow: 245,158,11; }
+        .fw-card.c-blue   { --glow: 56,189,248; }
+
+        .fw-card.c-green:hover  { border-color: rgba(var(--glow),0.5); box-shadow: 0 0 30px rgba(var(--glow),0.12), 0 8px 32px rgba(0,0,0,0.4); }
+        .fw-card.c-red:hover    { border-color: rgba(var(--glow),0.5); box-shadow: 0 0 30px rgba(var(--glow),0.12), 0 8px 32px rgba(0,0,0,0.4); }
+        .fw-card.c-purple:hover { border-color: rgba(var(--glow),0.5); box-shadow: 0 0 30px rgba(var(--glow),0.12), 0 8px 32px rgba(0,0,0,0.4); }
+        .fw-card.c-orange:hover { border-color: rgba(var(--glow),0.5); box-shadow: 0 0 30px rgba(var(--glow),0.12), 0 8px 32px rgba(0,0,0,0.4); }
+        .fw-card.c-blue:hover   { border-color: rgba(var(--glow),0.5); box-shadow: 0 0 30px rgba(var(--glow),0.12), 0 8px 32px rgba(0,0,0,0.4); }
+
+        .fw-card-icon {
+            width: 40px; height: 40px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1rem; margin-bottom: 14px;
+        }
+        .c-green  .fw-card-icon { background: rgba(0,255,136,0.1);  color: var(--c-green);  }
+        .c-red    .fw-card-icon { background: rgba(255,56,96,0.1);  color: var(--c-red);    }
+        .c-purple .fw-card-icon { background: rgba(168,85,247,0.1); color: var(--c-purple); }
+        .c-orange .fw-card-icon { background: rgba(245,158,11,0.1); color: var(--c-orange); }
+        .c-blue   .fw-card-icon { background: rgba(56,189,248,0.1); color: var(--c-blue);   }
+
+        .fw-card h3 { font-size: 0.95rem; font-weight: 700; margin: 0 0 5px; color: var(--c-text); }
+        .fw-card p  { font-size: 0.78rem; color: var(--c-dim); margin: 0 0 18px; line-height: 1.6; }
+
+        /* Inputs */
+        .fw-input {
+            width: 100%; padding: 12px 14px; border-radius: 10px;
+            background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.08);
+            color: var(--c-text); font-size: 0.83rem; font-family: var(--font-mono);
+            outline: none; margin-bottom: 12px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .fw-input::placeholder { color: rgba(255,255,255,0.2); }
+        .fw-input:focus { border-color: rgba(var(--glow, 255,255,255),0.4); box-shadow: 0 0 0 3px rgba(var(--glow, 255,255,255),0.08); }
+
+        /* Action Buttons */
+        .fw-btn {
+            display: inline-flex; width: 100%; align-items: center; justify-content: center; gap: 8px;
+            padding: 12px 16px; border-radius: 10px; border: 1px solid transparent;
+            font-size: 0.82rem; font-weight: 700; cursor: pointer;
+            text-transform: uppercase; letter-spacing: 0.06em;
+            transition: all 0.22s;
+        }
+        .fw-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .c-green  .fw-btn { background: rgba(0,255,136,0.08);  border-color: rgba(0,255,136,0.2);  color: var(--c-green);  }
+        .c-green  .fw-btn:hover:not(:disabled) { background: rgba(0,255,136,0.15); box-shadow: 0 4px 18px rgba(0,255,136,0.15); }
+        .c-red    .fw-btn { background: rgba(255,56,96,0.08);  border-color: rgba(255,56,96,0.2);  color: var(--c-red);    }
+        .c-red    .fw-btn:hover:not(:disabled) { background: rgba(255,56,96,0.16); box-shadow: 0 4px 18px rgba(255,56,96,0.15); }
+        .c-purple .fw-btn { background: rgba(168,85,247,0.08); border-color: rgba(168,85,247,0.2); color: var(--c-purple); }
+        .c-purple .fw-btn:hover:not(:disabled) { background: rgba(168,85,247,0.15); box-shadow: 0 4px 18px rgba(168,85,247,0.15); }
+        .c-orange .fw-btn { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.2); color: var(--c-orange); }
+        .c-orange .fw-btn:hover:not(:disabled) { background: rgba(245,158,11,0.15); box-shadow: 0 4px 18px rgba(245,158,11,0.15); }
+        .c-blue   .fw-btn { background: rgba(56,189,248,0.08); border-color: rgba(56,189,248,0.2); color: var(--c-blue); }
+        .c-blue   .fw-btn:hover:not(:disabled) { background: rgba(56,189,248,0.15); box-shadow: 0 4px 18px rgba(56,189,248,0.15); }
+
+        /* ──────────── Terminal Cheatsheet ──────────── */
+        .fw-terminal {
+            background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 14px; overflow: hidden;
+        }
+        .fw-terminal-header {
+            display: flex; align-items: center; gap: 10px;
+            padding: 12px 18px; background: rgba(255,255,255,0.03);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .fw-terminal-dot { width:10px;height:10px;border-radius:50%; }
+        .fw-terminal-body { padding: 18px 20px; font-family: var(--font-mono); font-size: 0.77rem; line-height: 2; }
+        .fw-terminal-body .cmd { color: #38bdf8; }
+        .fw-terminal-body .cmt { color: rgba(255,255,255,0.28); }
+        .fw-terminal-body .arg { color: #f59e0b; }
+
+        /* ──────────── Not Installed Banner ──────────── */
+        .install-banner {
+            background: rgba(99,102,241,0.05); border: 1px solid rgba(99,102,241,0.2);
+            border-radius: 20px; padding: 40px;
+        }
         .install-terminal {
-            display:none; background:#050508; border:1px solid rgba(99,102,241,0.3);
-            border-radius:10px; padding:18px; margin-top:20px;
-            font-family:'JetBrains Mono',monospace; font-size:0.8rem; color:#a5f3fc;
-            max-height:300px; overflow-y:auto; line-height:1.6;
-            white-space:pre-wrap; word-break:break-all;
+            display: none; background: #000812; border: 1px solid rgba(56,189,248,0.2);
+            border-radius: 12px; padding: 18px; margin-top: 22px;
+            font-family: var(--font-mono); font-size: 0.79rem; color: #a5f3fc;
+            max-height: 280px; overflow-y: auto; line-height: 1.7;
+            white-space: pre-wrap; word-break: break-all;
         }
-        .install-terminal.visible { display:block; }
-        .install-status { margin-top:16px; font-size:0.9rem; font-weight:700; display:none; align-items:center; gap:8px; }
-        .install-status.ok  { color:var(--success); }
-        .install-status.err { color:var(--danger); }
+        .install-terminal.visible { display: block; }
+        .install-status { margin-top: 16px; font-size: 0.88rem; font-weight: 700; display: none; gap: 10px; }
+        .install-status.ok  { color: var(--c-green); }
+        .install-status.err { color: var(--c-red); }
 
-        /* Toast */
-        #toast-stack { position:fixed; bottom:24px; right:24px; z-index:9999; display:flex; flex-direction:column; gap:10px; }
-        .toast {
-            min-width:280px; padding:14px 20px; border-radius:10px;
-            font-size:0.88rem; font-weight:600; backdrop-filter:blur(20px);
-            box-shadow:0 10px 40px rgba(0,0,0,0.5); display:flex; align-items:center; gap:12px;
-            animation:toastIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            background:rgba(15,23,42,0.95); color:#fff; border:1px solid var(--border);
+        .btn-install {
+            display: inline-flex; align-items: center; gap: 12px;
+            padding: 14px 28px; border-radius: 12px; border: none;
+            background: linear-gradient(135deg, #6366f1, #818cf8); color: #fff;
+            font-size: 0.9rem; font-weight: 700; cursor: pointer;
+            transition: all 0.2s; box-shadow: 0 6px 24px rgba(99,102,241,0.3);
+            margin-top: 22px;
         }
-        .toast.success { background:rgba(16,185,129,0.15); border-color:rgba(16,185,129,0.3); color:var(--success); }
-        .toast.error   { background:rgba(239,68,68,0.15);  border-color:rgba(239,68,68,0.3);  color:var(--danger); }
-        @keyframes toastIn { from{opacity:0;transform:translateX(50px) scale(0.9);} to{opacity:1;transform:translateX(0) scale(1);} }
+        .btn-install:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(99,102,241,0.4); }
+        .btn-install:disabled { opacity: 0.55; transform: none; cursor: not-allowed; }
 
-        /* Quick Ref Code */
-        .qref-code { background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px; color:#818cf8; font-family:'JetBrains Mono',monospace; }
+        /* ──────────── Toasts ──────────── */
+        #toast-stack { position: fixed; bottom: 28px; right: 28px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 14px 20px; border-radius: 12px; font-size: 0.85rem; font-weight: 600;
+            backdrop-filter: blur(24px); box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+            animation: slideIn 0.3s cubic-bezier(0.175,0.885,0.32,1.275);
+            min-width: 280px;
+        }
+        .toast-item.ok  { background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3); color: var(--c-green); }
+        .toast-item.err { background: rgba(255,56,96,0.1);  border: 1px solid rgba(255,56,96,0.3);  color: var(--c-red); }
+        @keyframes slideIn { from{opacity:0;transform:translateX(60px) scale(0.85);} to{opacity:1;transform:translateX(0) scale(1);} }
     </style>
 </head>
 <body data-theme="dark" class="font-nunito">
@@ -181,255 +284,260 @@
     {% include 'right.html' %}
 
     <div id="main-content">
-        <div class="container-fluid" style="max-width:1200px;">
-            
-            <div style="margin-bottom:24px; display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <div class="page-title"><i class="fa-solid fa-shield-halved" style="color:var(--danger); margin-right:12px;"></i>Firewall Center</div>
-                    <ul class="breadcrumb" style="margin-top:4px;">
-                        <li class="breadcrumb-item"><a href="/"><i class="fa fa-home"></i></a></li>
-                        <li class="breadcrumb-item">Security</li>
-                        <li class="breadcrumb-item active">Firewall</li>
-                    </ul>
+        <div class="container-fluid" style="max-width:1280px;">
+
+            <!-- Header -->
+            <div class="fw-header">
+                <div class="fw-title-row">
+                    <div class="fw-icon-wrap">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </div>
+                    <div>
+                        <h1 class="fw-title">Firewall Center</h1>
+                        <p class="fw-sub">
+                            <a href="/" style="color:var(--c-dim); text-decoration:none;"><i class="fa fa-home"></i></a>
+                            <span style="margin:0 6px;opacity:0.3;">/</span>
+                            <span>Security</span>
+                            <span style="margin:0 6px;opacity:0.3;">/</span>
+                            <span style="color:var(--c-blue);">Firewall</span>
+                        </p>
+                    </div>
                 </div>
                 {% if csf_installed %}
-                <div>
-                    <div class="fw-badge">
-                        <i class="fa-solid fa-circle" style="font-size:0.5rem; vertical-align:middle; margin-right:4px;"></i> {{ firewall_type|default:"Engine"|upper }} Active
-                    </div>
+                <div class="fw-pill {% if fw_enabled %}green{% else %}red{% endif %}">
+                    <span class="dot"></span>
+                    {{ firewall_type|default:"Engine"|upper }} {% if fw_enabled %}ONLINE{% else %}OFFLINE{% endif %}
                 </div>
                 {% endif %}
             </div>
 
             {% if csf_installed %}
-            
-            <!-- ── Master Switch ─────────────────────────────────────── -->
-            <div class="gc">
-                <div class="master-bar">
-                    <div>
-                        <div class="master-bar-title"><i class="fa-solid fa-power-off" style="color:var(--accent2);"></i> Master Security Switch</div>
-                        <div class="master-bar-sub">Toggle your server's primary defense engine on or off instantly</div>
-                    </div>
-                    
-                    <div style="display:flex; align-items:center;">
-                        {% if fw_enabled %}
-                        <span class="fw-status-text status-on">Shield Active</span>
-                        <label class="switch">
-                            <input type="checkbox" id="fw-toggle" checked onchange="toggleFirewall(this)">
-                            <span class="slider"></span>
-                        </label>
-                        {% else %}
-                        <span class="fw-status-text status-off">System Vulnerable</span>
-                        <label class="switch">
-                            <input type="checkbox" id="fw-toggle" onchange="toggleFirewall(this)">
-                            <span class="slider"></span>
-                        </label>
-                        {% endif %}
-                    </div>
+
+            <!-- Master Switch -->
+            <div class="master-card {% if not fw_enabled %}disabled{% endif %}" id="master-card">
+                <div>
+                    <div class="master-card-label"><i class="fa-solid fa-power-off" style="color:var(--c-blue);margin-right:8px;"></i>Master Defense Switch</div>
+                    <div class="master-card-sub">Toggle the primary firewall engine — takes effect instantly across all rules</div>
+                </div>
+                <div class="master-state">
+                    <span class="state-text {% if fw_enabled %}on{% else %}off{% endif %}" id="state-text">
+                        {% if fw_enabled %}SHIELD ACTIVE{% else %}UNPROTECTED{% endif %}
+                    </span>
+                    <label class="toggle" title="Toggle firewall">
+                        <input type="checkbox" id="fw-toggle" {% if fw_enabled %}checked{% endif %} onchange="toggleFirewall(this)">
+                        <span class="toggle-track"></span>
+                    </label>
                 </div>
             </div>
 
-            <!-- ── Management Grid ─────────────────────────────────── -->
+            <!-- IP Action Grid - Row 1 -->
             <div class="fw-grid">
 
-                <div class="fw-card c-allow">
-                    <h3><i class="fa-solid fa-shield-check"></i> Whitelist IP</h3>
-                    <p>Permanently allow an IP address to bypass all standard firewall blocks.</p>
-                    <form id="form-allowip" onsubmit="submitForm(event, '/allowip/', this, 'Allowing...')">
-                        <input type="text" class="form-control" name="allow" placeholder="IP e.g. 192.168.1.1" required>
-                        <button type="submit" class="btn btn-success"><i class="fa-solid fa-check"></i> Allow Access</button>
+                <div class="fw-card c-green">
+                    <div class="fw-card-icon"><i class="fa-solid fa-check"></i></div>
+                    <h3>Whitelist IP</h3>
+                    <p>Permanently whitelist an IP address — passes all security checks without restriction.</p>
+                    <form onsubmit="submitForm(event, '/allowip/', this, 'Adding...')">
+                        <input type="text" class="fw-input" name="allow" placeholder="e.g. 192.168.1.1" required>
+                        <button type="submit" class="fw-btn"><i class="fa-solid fa-shield-check"></i> Allow Access</button>
                     </form>
                 </div>
 
-                <div class="fw-card c-deny">
-                    <h3><i class="fa-solid fa-ban"></i> Blacklist IP</h3>
-                    <p>Permanently drop all traffic from an IP. No connection will be allowed.</p>
-                    <form id="form-denyip" onsubmit="submitForm(event, '/denyip/', this, 'Denying...')">
-                        <input type="text" class="form-control" name="allow" placeholder="IP e.g. 203.0.113.5" required>
-                        <button type="submit" class="btn btn-danger"><i class="fa-solid fa-xmark"></i> Block Traffic</button>
+                <div class="fw-card c-red">
+                    <div class="fw-card-icon"><i class="fa-solid fa-ban"></i></div>
+                    <h3>Blacklist IP</h3>
+                    <p>Permanently block an IP — all inbound and outbound traffic from this address is dropped.</p>
+                    <form onsubmit="submitForm(event, '/denyip/', this, 'Blocking...')">
+                        <input type="text" class="fw-input" name="allow" placeholder="e.g. 203.0.113.5" required>
+                        <button type="submit" class="fw-btn"><i class="fa-solid fa-xmark"></i> Block Traffic</button>
                     </form>
                 </div>
 
-                <div class="fw-card c-unblock">
-                    <h3><i class="fa-solid fa-unlock-keyhole"></i> Unban IP</h3>
-                    <p>Remove an IP address from the temporary or permanent deny lists.</p>
-                    <form id="form-unblockip" onsubmit="submitForm(event, '/unblockip/', this, 'Unblocking...')">
-                        <input type="text" class="form-control" name="allow" placeholder="IP to unblock" required>
-                        <button type="submit" class="btn btn-accent"><i class="fa-solid fa-rotate-left"></i> Remove Ban</button>
+                <div class="fw-card c-purple">
+                    <div class="fw-card-icon"><i class="fa-solid fa-unlock-keyhole"></i></div>
+                    <h3>Unban IP</h3>
+                    <p>Remove an IP from the auto-ban or permanent deny list to restore its access rights.</p>
+                    <form onsubmit="submitForm(event, '/unblockip/', this, 'Unbanning...')">
+                        <input type="text" class="fw-input" name="allow" placeholder="IP to unban" required>
+                        <button type="submit" class="fw-btn"><i class="fa-solid fa-rotate-left"></i> Remove Ban</button>
                     </form>
                 </div>
 
-                <div class="fw-card c-ignore">
-                    <h3><i class="fa-solid fa-eye-slash"></i> Temp Ignore (LFD)</h3>
-                    <p>Instruct the Login Failure Daemon to ignore actions from this IP for 24h.</p>
-                    <form id="form-ignoreip" onsubmit="submitForm(event, '/ignoreip/', this, 'Ignoring...')">
-                        <input type="text" class="form-control" name="allow" placeholder="IP to ignore" required>
-                        <button type="submit" class="btn btn-warning"><i class="fa-solid fa-clock"></i> Ignore 24h</button>
+            </div>
+
+            <!-- IP Action Grid - Row 2 -->
+            <div class="fw-grid">
+
+                <div class="fw-card c-red" style="--glow:255,56,96;">
+                    <div class="fw-card-icon"><i class="fa-solid fa-shield-virus"></i></div>
+                    <h3>Tactical Block</h3>
+                    <p>Immediately isolate a suspicious IP via <code style="font-family:var(--font-mono);color:var(--c-red);">csf -d</code> — used for active intrusion response.</p>
+                    <form onsubmit="submitForm(event, '/blockip/', this, 'Blocking...')">
+                        <input type="text" class="fw-input" name="allow" placeholder="Suspicious IP" required>
+                        <button type="submit" class="fw-btn"><i class="fa-solid fa-bolt"></i> Isolate Threat</button>
                     </form>
                 </div>
 
-                <!-- Info Box -->
-                <div class="fw-card" style="grid-column: 1 / -1; background:rgba(99,102,241,0.05); border-color:rgba(99,102,241,0.15); display:flex; gap:20px; flex-wrap:wrap; align-items:center;">
-                    <div style="flex:1; min-width:260px;">
-                        <h3 style="color:var(--accent2); margin-bottom:10px;"><i class="fa-solid fa-terminal"></i> Command Line Cheatsheet</h3>
-                        <p style="margin-bottom:0;">You can also manage the firewall natively over SSH.</p>
+                <div class="fw-card c-orange">
+                    <div class="fw-card-icon"><i class="fa-solid fa-eye-slash"></i></div>
+                    <h3>Temp Ignore <span style="opacity:0.5;font-weight:400;">(LFD)</span></h3>
+                    <p>Instruct the Login Failure Daemon to ignore this IP for 24h — useful when testing logins.</p>
+                    <form onsubmit="submitForm(event, '/ignoreip/', this, 'Ignoring...')">
+                        <input type="text" class="fw-input" name="allow" placeholder="IP to ignore" required>
+                        <button type="submit" class="fw-btn"><i class="fa-solid fa-clock"></i> Ignore 24h</button>
+                    </form>
+                </div>
+
+                <!-- Terminal Cheatsheet -->
+                <div class="fw-terminal" style="align-self:start;">
+                    <div class="fw-terminal-header">
+                        <div class="fw-terminal-dot" style="background:#ff5f57;"></div>
+                        <div class="fw-terminal-dot" style="background:#ffbd2e;"></div>
+                        <div class="fw-terminal-dot" style="background:#28c840;"></div>
+                        <span style="margin-left:8px;font-size:0.75rem;color:rgba(255,255,255,0.3);font-family:var(--font-mono);">firewall.sh — SSH Reference</span>
                     </div>
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:x-16px; gap-y:8px; font-size:0.8rem; color:var(--text-secondary); line-height:1.8;">
-                        <div><span class="qref-code">csf -a &lt;IP&gt;</span> — Allow permanently</div>
-                        <div><span class="qref-code">csf -d &lt;IP&gt;</span> — Deny permanently</div>
-                        <div><span class="qref-code">csf -dr &lt;IP&gt;</span> — Remove from deny</div>
-                        <div><span class="qref-code">csf -g &lt;IP&gt;</span> — Check IP status</div>
+                    <div class="fw-terminal-body">
+                        <div><span class="cmt"># Allow IP permanently</span></div>
+                        <div><span class="cmd">csf</span> <span class="arg">-a</span> &lt;IP&gt;</div>
+                        <div style="margin-top:6px;"><span class="cmt"># Deny IP permanently</span></div>
+                        <div><span class="cmd">csf</span> <span class="arg">-d</span> &lt;IP&gt;</div>
+                        <div style="margin-top:6px;"><span class="cmt"># Remove from deny list</span></div>
+                        <div><span class="cmd">csf</span> <span class="arg">-dr</span> &lt;IP&gt;</div>
+                        <div style="margin-top:6px;"><span class="cmt"># Check IP status</span></div>
+                        <div><span class="cmd">csf</span> <span class="arg">-g</span> &lt;IP&gt;</div>
+                        <div style="margin-top:6px;"><span class="cmt"># Reload all rules</span></div>
+                        <div><span class="cmd">csf</span> <span class="arg">-r</span></div>
                     </div>
                 </div>
 
-            </div><!-- /fw-grid -->
+            </div>
 
             {% else %}
-            
-            <!-- ── Not Installed Banner ──────────────────────────────── -->
-            <div class="gc" style="border-color:rgba(99,102,241,0.3); background:rgba(99,102,241,0.06);">
-                <div style="display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start;">
-                    <div style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,rgba(99,102,241,0.2),rgba(129,140,248,0.2));display:flex;align-items:center;justify-content:center;color:var(--accent2);font-size:2rem;flex-shrink:0;">
-                        <i class="fa-solid fa-shield-virus"></i>
+
+            <!-- Not Installed -->
+            <div class="install-banner">
+                <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;">
+                    <div style="width:68px;height:68px;border-radius:18px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);display:flex;align-items:center;justify-content:center;font-size:1.8rem;color:#818cf8;flex-shrink:0;">
+                        <i class="fa-solid fa-shield-exclamation"></i>
                     </div>
                     <div style="flex:1;">
-                        <div style="font-size:1.3rem;font-weight:800;color:var(--text);margin-bottom:8px;">Firewall Engine Offline</div>
-                        <p style="font-size:0.9rem;color:var(--text-muted);line-height:1.6;margin-bottom:24px;">
-                            No supported firewall (CSF or UFW) is installed on this instance. The VoidPanel security infrastructure requires an active firewall to automatically block brute-force attacks and manage port mapping.<br><br>
-                            Click below to seamlessly deploy <strong>CSF</strong> (or fallback to UFW) across the OS stack.
+                        <div style="font-size:1.4rem;font-weight:900;color:var(--c-text);margin-bottom:10px;">No Firewall Engine Detected</div>
+                        <p style="font-size:0.88rem;color:var(--c-dim);line-height:1.7;margin-bottom:0;max-width:600px;">
+                            Neither CSF nor UFW is installed on this server. Without a firewall, your server is exposed to brute-force attacks, port scanning, and unauthorized access.
+                            <br><br>
+                            Click below to auto-deploy the firewall stack — the panel will try <strong style="color:#818cf8;">CSF</strong> first, then fall back to <strong style="color:#818cf8;">UFW</strong> if unavailable. No SSH required.
                         </p>
-                        
-                        <button id="btn-install-csf" class="btn btn-accent" style="width:auto; padding:14px 28px; font-size:0.95rem; background:linear-gradient(135deg,#6366f1,#818cf8); color:#fff; border:none; box-shadow:0 6px 20px var(--glow);" onclick="startInstall()">
-                            <i class="fa-solid fa-download"></i> Auto-Install Security Engine
+                        <button id="btn-install-csf" class="btn-install" onclick="startInstall()">
+                            <i class="fa-solid fa-rocket"></i> Deploy Firewall Engine
                         </button>
-
                         <div id="install-terminal" class="install-terminal"></div>
                         <div id="install-status" class="install-status"></div>
                     </div>
                 </div>
             </div>
-            
+
             {% endif %}
 
-        </div>
-    </div>
-</div>
+        </div><!-- /container -->
+    </div><!-- /main-content -->
+</div><!-- /wrapper -->
 
 <div id="toast-stack"></div>
 
 <script>
-    const CSRF_TOKEN = "{{ csrf_token }}";
+    const CSRF = "{{ csrf_token }}";
 
-    function toast(msg, type='info') {
+    function toast(msg, type) {
         const stack = document.getElementById('toast-stack');
         const el = document.createElement('div');
-        el.className = `toast ${type}`;
-        const icon = type === 'success' ? 'fa-check' : 'fa-xmark';
-        el.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${msg}</span>`;
+        el.className = `toast-item ${type}`;
+        const icon = type === 'ok'
+            ? '<i class="fa-solid fa-circle-check"></i>'
+            : '<i class="fa-solid fa-circle-xmark"></i>';
+        el.innerHTML = `${icon}<span>${msg}</span>`;
         stack.appendChild(el);
-        setTimeout(() => el.remove(), 4000);
+        setTimeout(() => el.remove(), 4500);
     }
 
-    // Toggle
     async function toggleFirewall(chk) {
         chk.disabled = true;
+        const card = document.getElementById('master-card');
+        const stateText = document.getElementById('state-text');
+
         try {
             const resp = await fetch('/cpbrute/', {
                 method: 'POST',
-                headers: { 'X-CSRFToken': CSRF_TOKEN },
+                headers: { 'X-CSRFToken': CSRF },
                 body: new FormData()
             });
             const data = await resp.json();
             if (data.status === 'success') {
-                toast(data.message, 'success');
+                toast(data.message, 'ok');
                 setTimeout(() => location.reload(), 1200);
             } else {
-                toast(data.message || 'Failed to toggle.', 'error');
-                chk.checked = !chk.checked; // revert UI
+                toast(data.message || 'Toggle failed.', 'err');
+                chk.checked = !chk.checked;
                 chk.disabled = false;
             }
-        } catch(e) {
-            toast('Network connection failed.', 'error');
+        } catch (e) {
+            toast('Network error — could not reach server.', 'err');
             chk.checked = !chk.checked;
             chk.disabled = false;
         }
     }
 
-    // Actions
-    async function submitForm(e, url, form, loadingText) {
+    async function submitForm(e, url, form, loadingMsg) {
         e.preventDefault();
         const btn = form.querySelector('button[type="submit"]');
         const orig = btn.innerHTML;
         btn.disabled = true;
-        btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> ${loadingText}`;
-
+        btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> ${loadingMsg}`;
         try {
             const resp = await fetch(url, {
                 method: 'POST',
-                headers: { 'X-CSRFToken': CSRF_TOKEN },
+                headers: { 'X-CSRFToken': CSRF },
                 body: new FormData(form)
             });
             const data = await resp.json();
-            if (data.status === 'success') {
-                toast(data.message, 'success');
-                form.reset();
-            } else {
-                toast(data.message || 'Engine execution rejected.', 'error');
-            }
-        } catch(err) {
-            toast('Network error.', 'error');
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = orig;
-        }
+            if (data.status === 'success') { toast(data.message, 'ok'); form.reset(); }
+            else { toast(data.message || 'Command failed.', 'err'); }
+        } catch { toast('Network error.', 'err'); }
+        finally { btn.disabled = false; btn.innerHTML = orig; }
     }
 
-    // Install
     async function startInstall() {
-        const btn     = document.getElementById('btn-install-csf');
-        const term    = document.getElementById('install-terminal');
-        const status  = document.getElementById('install-status');
-
+        const btn  = document.getElementById('btn-install-csf');
+        const term = document.getElementById('install-terminal');
+        const stat = document.getElementById('install-status');
         btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Initializing OS Installer...';
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Deploying engine…';
         term.classList.add('visible');
-        term.textContent = '> Root clearance acquired.\n> Executing firewall deployment sequence...\n';
-        status.className = 'install-status';
-        status.style.display = 'none';
-
+        term.textContent = '> Initiating firewall deployment sequence...\n';
+        stat.style.display = 'none';
         try {
-            const resp = await fetch('/installcsf/', {
-                method: 'POST',
-                headers: { 'X-CSRFToken': CSRF_TOKEN }
-            });
+            const resp = await fetch('/installcsf/', { method:'POST', headers:{'X-CSRFToken':CSRF} });
             const data = await resp.json();
-
-            if (data.output) {
-                term.textContent += data.output;
-                term.scrollTop = term.scrollHeight;
-            }
-
+            if (data.output) { term.textContent += data.output; term.scrollTop = term.scrollHeight; }
             if (data.status === 'success') {
-                status.className = 'install-status ok';
-                status.innerHTML = `<i class="fa-solid fa-circle-check"></i> Deployment complete. Reactivating dashboard...`;
-                status.style.display = 'flex';
-                toast('Firewall engine installed!', 'success');
+                stat.className = 'install-status ok';
+                stat.innerHTML = '<i class="fa-solid fa-check-circle"></i> Deployment complete! Reloading…';
+                stat.style.display = 'flex';
+                toast('Firewall engine deployed!', 'ok');
                 setTimeout(() => location.reload(), 3000);
             } else {
-                status.className = 'install-status err';
-                status.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${data.message}`;
-                status.style.display = 'flex';
+                stat.className = 'install-status err';
+                stat.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${data.message}`;
+                stat.style.display = 'flex';
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Retry Engine Install';
-                toast(data.message, 'error');
+                btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Retry Deployment';
+                toast(data.message, 'err');
             }
-        } catch(err) {
-            term.textContent += '\n[FATAL] Gateway timeout. Check syslog.\n';
-            status.className = 'install-status err';
-            status.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Network execution failed.';
-            status.style.display = 'flex';
+        } catch {
+            stat.className = 'install-status err';
+            stat.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Network timeout. Check server logs.';
+            stat.style.display = 'flex';
             btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Retry Engine Install';
+            btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Retry Deployment';
         }
     }
 </script>
