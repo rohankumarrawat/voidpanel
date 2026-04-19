@@ -276,8 +276,8 @@ class NginxWebServerManager(WebServerManager):
             new_conf = re.sub(r'[ \t]*location ~\* \\.html\$ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
 
             if proxy_type == 'mern':
-                # Strip old root and assign dynamically
-                new_conf = re.sub(r'root\s+/home/[^/]+/(?:[^/]+/frontend/build|public_html);?', '', new_conf)
+                # Strip old root completely to ensure no broken path fragments remain
+                new_conf = re.sub(r'[ \t]*root\s+[^;]+;\s*', '\n', new_conf)
                 owner = root_path.split('/')[2] if root_path else "unknown"
                 compiling_path = f"/home/{owner}/{app_name}/compiling.html"
                 
