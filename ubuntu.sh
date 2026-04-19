@@ -144,6 +144,8 @@ if [[ "$WEB_ENGINE" == "ols" ]]; then
 else
     systemctl disable lsws 2>/dev/null || true
     systemctl stop    lsws 2>/dev/null || true
+    /usr/local/lsws/bin/lswsctrl stop 2>/dev/null || true
+    pkill -9 litespeed 2>/dev/null || true
     success_msg "NGINX enabled as primary site engine"
 fi
 

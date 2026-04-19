@@ -131,6 +131,8 @@ else
     systemctl enable  nginx  2>/dev/null || true
     systemctl disable lsws   2>/dev/null || true
     systemctl stop    lsws   2>/dev/null || true
+    /usr/local/lsws/bin/lswsctrl stop 2>/dev/null || true
+    pkill -9 litespeed 2>/dev/null || true
     NGINX_CONF_DIR="/etc/nginx/conf.d"
     status_msg "NGINX will be the primary web server"
 fi
