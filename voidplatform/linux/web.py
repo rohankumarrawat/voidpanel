@@ -314,6 +314,8 @@ class NginxWebServerManager(WebServerManager):
     }}"""
                 if 'location ~ /\\.ht {' in new_conf:
                     new_conf = new_conf.replace('location ~ /\\.ht {', new_location_block[1:] + '\n\n    location ~ /\\.ht {', 1)
+                elif re.search(r'location\s*~\s*/\\.\(ht\|svn\|git\)\s*\{', new_conf):
+                    new_conf = re.sub(r'(location\s*~\s*/\\.\(ht\|svn\|git\)\s*\{)', new_location_block[1:] + r'\n\n    \1', new_conf, count=1)
                 else:
                     # Append it right before the last closing brace as a failsafe
                     new_conf = new_conf.rstrip().rsplit('}', 1)
@@ -349,6 +351,8 @@ class NginxWebServerManager(WebServerManager):
 """
             if 'location ~ /\\.ht {' in new_conf:
                 new_conf = new_conf.replace('location ~ /\\.ht {', default_location[1:] + '    location ~ /\\.ht {', 1)
+            elif re.search(r'location\s*~\s*/\\.\(ht\|svn\|git\)\s*\{', new_conf):
+                new_conf = re.sub(r'(location\s*~\s*/\\.\(ht\|svn\|git\)\s*\{)', default_location[1:] + r'    \1', new_conf, count=1)
 
             return self.write_and_test_site_config(domain, new_conf)
         except Exception as e:
