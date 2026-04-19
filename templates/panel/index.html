@@ -120,7 +120,63 @@
             background: var(--void-border-s);
         }
 
-        /* ── Quick Action Cards ── */
+        /* ── Stats Strip ── */
+        .stats-strip {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: var(--void-card);
+            border: 1px solid var(--void-border-s);
+            border-radius: var(--radius);
+            padding: 18px 22px;
+            display: flex; align-items: center; gap: 16px;
+            backdrop-filter: blur(20px);
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .stat-card:hover { border-color: var(--void-border); transform: translateY(-2px); }
+        .stat-icon {
+            width: 44px; height: 44px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.15rem; flex-shrink: 0;
+        }
+        .stat-info .stat-count {
+            font-size: 1.8rem; font-weight: 800;
+            color: var(--t-primary); line-height: 1;
+            font-variant-numeric: tabular-nums;
+        }
+        .stat-info .stat-label { font-size: 0.75rem; color: var(--t-muted); font-weight: 500; margin-top: 3px; }
+
+        /* ── Server Info Grid (inside gauge card) ── */
+        .sinfo-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+            padding-top: 18px;
+            border-top: 1px solid var(--void-border-s);
+        }
+        .sinfo-item {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--void-border-s);
+            border-radius: 10px;
+            padding: 12px 14px;
+        }
+        .sinfo-label {
+            font-size: 0.68rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.8px;
+            color: var(--t-muted); margin-bottom: 4px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .sinfo-label i { font-size: 0.7rem; }
+        .sinfo-val {
+            font-size: 0.88rem; font-weight: 700;
+            color: var(--t-primary);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
         .action-grid {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
@@ -494,6 +550,38 @@
             </div>
         </div>
 
+
+        <!-- ── Stats Strip ── -->
+        <div class="stats-strip">
+            <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(99,102,241,0.15); color:#818cf8;">
+                    <i class="fa-solid fa-users"></i>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-count">{{ total_users }}</div>
+                    <div class="stat-label">Hosted Users</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(34,211,238,0.15); color:#22d3ee;">
+                    <i class="fa-solid fa-earth-americas"></i>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-count">{{ total_domains }}</div>
+                    <div class="stat-label">Active Domains</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(16,185,129,0.15); color:#10b981;">
+                    <i class="fa-solid fa-globe"></i>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-count">{{ total_websites }}</div>
+                    <div class="stat-label">Live Websites</div>
+                </div>
+            </div>
+        </div>
+
         <!-- ── Quick Actions ── -->
         <p class="dash-section-label"><i class="fa-solid fa-bolt"></i> Quick Actions</p>
         <div class="action-grid">
@@ -635,6 +723,35 @@
                     </div>
 
                 </div>
+
+                <!-- Server Info Grid fills the empty space -->
+                <div class="sinfo-grid">
+                    <div class="sinfo-item">
+                        <div class="sinfo-label"><i class="fa-solid fa-clock" style="color:#818cf8;"></i> Uptime</div>
+                        <div class="sinfo-val" id="si-uptime">—</div>
+                    </div>
+                    <div class="sinfo-item">
+                        <div class="sinfo-label"><i class="fa-solid fa-tag" style="color:#22d3ee;"></i> Hostname</div>
+                        <div class="sinfo-val" id="si-host">—</div>
+                    </div>
+                    <div class="sinfo-item">
+                        <div class="sinfo-label"><i class="fa-solid fa-linux" style="color:#f59e0b;"></i> OS</div>
+                        <div class="sinfo-val" id="si-os">—</div>
+                    </div>
+                    <div class="sinfo-item">
+                        <div class="sinfo-label"><i class="fa-solid fa-wave-square" style="color:#10b981;"></i> Load Avg</div>
+                        <div class="sinfo-val" id="si-load">—</div>
+                    </div>
+                    <div class="sinfo-item">
+                        <div class="sinfo-label"><i class="fa-solid fa-memory" style="color:#c084fc;"></i> RAM Total</div>
+                        <div class="sinfo-val" id="si-ram">—</div>
+                    </div>
+                    <div class="sinfo-item">
+                        <div class="sinfo-label"><i class="fa-solid fa-hard-drive" style="color:#fb923c;"></i> Disk Total</div>
+                        <div class="sinfo-val" id="si-disk">—</div>
+                    </div>
+                </div>
+
             </div>
 
             <!-- Server Controls -->
@@ -885,6 +1002,15 @@ function updateMetrics() {
             setArc('arc-cpu',  'bar-cpu',  'val-cpu',  data.cpu);
             setArc('arc-mem',  'bar-mem',  'val-mem',  data.memory);
             setArc('arc-disk', 'bar-disk', 'val-disk', data.disk);
+
+            // Server info grid
+            function si(id, v) { const el = document.getElementById(id); if (el && v) el.textContent = v; }
+            si('si-uptime', data.uptime);
+            si('si-host',   data.hostname);
+            si('si-os',     data.os);
+            si('si-load',   Array.isArray(data.load_avg) ? data.load_avg.join(' / ') : data.load_avg);
+            si('si-ram',    data.ram_total  ? data.ram_total  + ' GB' : null);
+            si('si-disk',   data.disk_total ? data.disk_used + ' / ' + data.disk_total + ' GB' : null);
         })
         .catch(() => {});
 }

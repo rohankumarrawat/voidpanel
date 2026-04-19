@@ -339,12 +339,45 @@ def get_server_load(request):
     disk_load = disk_usage.percent
     
     # Return the data as JSON
+    try:
+        import platform, datetime
+        boot_ts  = psutil.boot_time()
+        uptime_s = int(psutil.time.time() - boot_ts)
+        days, r  = divmod(uptime_s, 86400)
+        hrs,  r  = divmod(r, 3600)
+        mins, _  = divmod(r, 60)
+        uptime_str = f"{days}d {hrs}h {mins}m" if days else f"{hrs}h {mins}m"
+
+        load_avg = [round(x, 2) for x in psutil.getloadavg()] if hasattr(psutil, 'getloadavg') else [0, 0, 0]
+        hostname = platform.node()
+        os_info  = f"{platform.system()} {platform.release()}"
+
+        ram_total = round(memory_info.total / (1024**3), 1)
+        disk_total = round(disk_usage.total / (1024**3), 1)
+        disk_used  = round(disk_usage.used  / (1024**3), 1)
+    except Exception:
+        uptime_str = "N/A"
+        load_avg = [0, 0, 0]
+        hostname = "N/A"
+        os_info  = "N/A"
+        ram_total = 0
+        disk_total = 0
+        disk_used  = 0
+
     load = {
-        'cpu': cpu_load,
-        'memory': memory_load,
-        'disk': disk_load
+        'cpu':        cpu_load,
+        'memory':     memory_load,
+        'disk':       disk_load,
+        'uptime':     uptime_str,
+        'hostname':   hostname,
+        'os':         os_info,
+        'load_avg':   load_avg,
+        'ram_total':  ram_total,
+        'disk_total': disk_total,
+        'disk_used':  disk_used,
     }
     return JsonResponse(load)
+
 
 
 
@@ -448,7 +481,20 @@ def panel(request):
         d['docs'] = docs_data
         d['serverip'] = server_ip
 
+        # Quick stats for dashboard summary strip
+        try:
+            from control.models import domain as domain_model
+            from control.models import Websites as websites_model
+            d['total_users']    = user.objects.count()
+            d['total_domains']  = domain_model.objects.count()
+            d['total_websites'] = websites_model.objects.count()
+        except Exception:
+            d['total_users']    = 0
+            d['total_domains']  = 0
+            d['total_websites'] = 0
+
         return render(request, 'panel/index.html', d)
+
     else: 
         return redirect('/')
     
