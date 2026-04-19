@@ -6214,11 +6214,16 @@ context /static/ {{
                 new_conf = re.sub(r'[ \t]*location / \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
                 new_conf = re.sub(r'[ \t]*location /static/ \{(?:[^{}]|\{[^{}]*\})*\}\s*', '', new_conf)
                 
-                # Inject new blocks properly before location ~ /\.ht { (in 443 block)
+                # Inject new blocks properly before location ~ /\.ht (or equivalent security block)
                 if 'location ~ /\\.ht {' in new_conf:
                     new_conf = new_conf.replace('location ~ /\\.ht {', new_location_block + '\n    location ~ /\\.ht {', 1)
                 elif re.search(r'location\s*~\s*/\\.\(ht\|svn\|git\)\s*\{', new_conf):
                     new_conf = re.sub(r'(location\s*~\s*/\\.\(ht\|svn\|git\)\s*\{)', new_location_block + r'\n    \1', new_conf, count=1)
+                elif re.search(r'location\s*~\s*/\\\.\(\?!well-known\)\s*\{', new_conf):
+                    new_conf = re.sub(r'(location\s*~\s*/\\\.\(\?!well-known\)\s*\{)', new_location_block + r'\n    \1', new_conf, count=1)
+                else:
+                    new_conf = new_conf.rstrip().rsplit('}', 1)
+                    new_conf = new_conf[0] + new_location_block + '\n}'
                 
                 r = mgr.write_and_test_site_config(domain1, new_conf)
                 if not r.success:
@@ -7526,6 +7531,8 @@ def api_nginx_cache_toggle(request):
             conf = conf.replace('location ~ /\\.ht {', cache_block + '\n\n    location ~ /\\.ht {', 1)
         elif re.search(r'location\s*~\s*/\\.\(ht\|svn\|git\)\s*\{', conf):
             conf = re.sub(r'(location\s*~\s*/\\.\(ht\|svn\|git\)\s*\{)', cache_block + r'\n\n    \1', conf, count=1)
+        elif re.search(r'location\s*~\s*/\\\.\(\?!well-known\)\s*\{', conf):
+            conf = re.sub(r'(location\s*~\s*/\\\.\(\?!well-known\)\s*\{)', cache_block + r'\n\n    \1', conf, count=1)
         else:
             # Insert before the first server block closing brace
             last_brace = conf.rfind('}')
