@@ -205,20 +205,92 @@
         }
         .gauge-card h3 i { color: var(--void-accent); }
 
-        .gauge-row {
-            display: flex; flex-direction: column; gap: 16px;
+        /* ── System Resources Card ── */
+        .gauge-card {
+            background: var(--void-card);
+            border: 1px solid var(--void-border-s);
+            border-radius: var(--radius);
+            padding: 24px;
+            backdrop-filter: blur(20px);
         }
-        .gauge-item { display: flex; align-items: center; gap: 14px; }
-        .gauge-svg-wrap { flex-shrink: 0; }
-        .gauge-info { flex: 1; min-width: 0; }
-        .gauge-label { font-size: 0.78rem; color: var(--t-secondary); font-weight: 600; margin-bottom: 4px; }
-        .gauge-val { font-size: 1.1rem; font-weight: 800; color: var(--t-primary); font-variant-numeric: tabular-nums; }
+        .gauge-card h3 {
+            font-size: 0.95rem; font-weight: 700;
+            color: var(--t-primary); margin: 0 0 22px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .gauge-card h3 i { color: var(--void-accent); }
 
-        /* SVG arc gauge */
-        .arc-bg { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 5; }
-        .arc-fill { fill: none; stroke-width: 5; stroke-linecap: round;
-                    stroke-dasharray: 100; stroke-dashoffset: 100;
-                    transition: stroke-dashoffset 0.8s cubic-bezier(.4,0,.2,1); }
+        /* Horizontal 3-ring row */
+        .gauge-row {
+            display: flex;
+            flex-direction: row;
+            gap: 12px;
+            justify-content: space-between;
+        }
+        .gauge-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+        }
+
+        /* Ring wrapper — percentage text centered via absolute */
+        .ring-wrap {
+            position: relative;
+            width: 100px; height: 100px;
+            flex-shrink: 0;
+        }
+        .ring-wrap svg { display: block; }
+        .ring-center {
+            position: absolute;
+            inset: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            pointer-events: none;
+        }
+        .ring-pct {
+            font-size: 1.25rem; font-weight: 800;
+            color: var(--t-primary);
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+        }
+        .ring-unit {
+            font-size: 0.62rem; color: var(--t-muted); margin-top: 2px;
+        }
+
+        /* SVG arc — proper circumference: 2π×40 ≈ 251.2 */
+        .arc-track { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 8; }
+        .arc-fill  {
+            fill: none; stroke-width: 8; stroke-linecap: round;
+            stroke-dasharray: 251.2;
+            stroke-dashoffset: 251.2;   /* fully empty by default */
+            transition: stroke-dashoffset 1s cubic-bezier(.4,0,.2,1),
+                        stroke 0.4s ease;
+        }
+
+        /* Per-metric info block below the ring */
+        .gauge-meta {
+            width: 100%;
+            text-align: center;
+        }
+        .gauge-name {
+            font-size: 0.75rem; font-weight: 600;
+            color: var(--t-secondary); margin-bottom: 8px;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+        }
+        /* Thin progress bar */
+        .gauge-bar-track {
+            width: 100%; height: 4px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 4px; overflow: hidden;
+        }
+        .gauge-bar-fill {
+            height: 100%; border-radius: 4px;
+            width: 0%;
+            transition: width 1s cubic-bezier(.4,0,.2,1), background 0.4s;
+        }
+
 
         /* ── Server Controls Card ── */
         .controls-card {
@@ -485,53 +557,80 @@
             <!-- System Metrics -->
             <div class="gauge-card">
                 <h3><i class="fa-solid fa-microchip"></i> System Resources</h3>
+
                 <div class="gauge-row">
 
                     <!-- CPU -->
                     <div class="gauge-item">
-                        <div class="gauge-svg-wrap">
-                            <svg width="54" height="54" viewBox="0 0 36 36">
-                                <circle class="arc-bg" cx="18" cy="18" r="15.9" stroke-dasharray="100 100" pathLength="100" transform="rotate(-90 18 18)"/>
-                                <circle id="arc-cpu" class="arc-fill" cx="18" cy="18" r="15.9" pathLength="100"
-                                    stroke="#818cf8" transform="rotate(-90 18 18)"/>
-                                <text x="18" y="22" text-anchor="middle" font-size="7" fill="#f1f5f9" font-weight="700" id="txt-cpu">—</text>
+                        <div class="ring-wrap">
+                            <svg width="100" height="100" viewBox="0 0 100 100">
+                                <!-- Background track -->
+                                <circle class="arc-track" cx="50" cy="50" r="40"
+                                    transform="rotate(-90 50 50)"/>
+                                <!-- Filled arc -->
+                                <circle id="arc-cpu" class="arc-fill" cx="50" cy="50" r="40"
+                                    stroke="#818cf8" transform="rotate(-90 50 50)"/>
                             </svg>
+                            <div class="ring-center">
+                                <span class="ring-pct" id="val-cpu">—</span>
+                                <span class="ring-unit">CPU</span>
+                            </div>
                         </div>
-                        <div class="gauge-info">
-                            <div class="gauge-label"><i class="fa-solid fa-cpu" style="color:#818cf8; margin-right:5px;"></i>CPU Load</div>
-                            <div class="gauge-val" id="val-cpu">—</div>
+                        <div class="gauge-meta">
+                            <div class="gauge-name">
+                                <i class="fa-solid fa-cpu" style="color:#818cf8;"></i> CPU Load
+                            </div>
+                            <div class="gauge-bar-track">
+                                <div class="gauge-bar-fill" id="bar-cpu" style="background:#818cf8;"></div>
+                            </div>
                         </div>
                     </div>
 
                     <!-- RAM -->
                     <div class="gauge-item">
-                        <div class="gauge-svg-wrap">
-                            <svg width="54" height="54" viewBox="0 0 36 36">
-                                <circle class="arc-bg" cx="18" cy="18" r="15.9" stroke-dasharray="100 100" pathLength="100" transform="rotate(-90 18 18)"/>
-                                <circle id="arc-mem" class="arc-fill" cx="18" cy="18" r="15.9" pathLength="100"
-                                    stroke="#22d3ee" transform="rotate(-90 18 18)"/>
-                                <text x="18" y="22" text-anchor="middle" font-size="7" fill="#f1f5f9" font-weight="700" id="txt-mem">—</text>
+                        <div class="ring-wrap">
+                            <svg width="100" height="100" viewBox="0 0 100 100">
+                                <circle class="arc-track" cx="50" cy="50" r="40"
+                                    transform="rotate(-90 50 50)"/>
+                                <circle id="arc-mem" class="arc-fill" cx="50" cy="50" r="40"
+                                    stroke="#22d3ee" transform="rotate(-90 50 50)"/>
                             </svg>
+                            <div class="ring-center">
+                                <span class="ring-pct" id="val-mem">—</span>
+                                <span class="ring-unit">RAM</span>
+                            </div>
                         </div>
-                        <div class="gauge-info">
-                            <div class="gauge-label"><i class="fa-solid fa-memory" style="color:#22d3ee; margin-right:5px;"></i>RAM Usage</div>
-                            <div class="gauge-val" id="val-mem">—</div>
+                        <div class="gauge-meta">
+                            <div class="gauge-name">
+                                <i class="fa-solid fa-memory" style="color:#22d3ee;"></i> RAM Usage
+                            </div>
+                            <div class="gauge-bar-track">
+                                <div class="gauge-bar-fill" id="bar-mem" style="background:#22d3ee;"></div>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Disk -->
                     <div class="gauge-item">
-                        <div class="gauge-svg-wrap">
-                            <svg width="54" height="54" viewBox="0 0 36 36">
-                                <circle class="arc-bg" cx="18" cy="18" r="15.9" stroke-dasharray="100 100" pathLength="100" transform="rotate(-90 18 18)"/>
-                                <circle id="arc-disk" class="arc-fill" cx="18" cy="18" r="15.9" pathLength="100"
-                                    stroke="#f59e0b" transform="rotate(-90 18 18)"/>
-                                <text x="18" y="22" text-anchor="middle" font-size="7" fill="#f1f5f9" font-weight="700" id="txt-disk">—</text>
+                        <div class="ring-wrap">
+                            <svg width="100" height="100" viewBox="0 0 100 100">
+                                <circle class="arc-track" cx="50" cy="50" r="40"
+                                    transform="rotate(-90 50 50)"/>
+                                <circle id="arc-disk" class="arc-fill" cx="50" cy="50" r="40"
+                                    stroke="#f59e0b" transform="rotate(-90 50 50)"/>
                             </svg>
+                            <div class="ring-center">
+                                <span class="ring-pct" id="val-disk">—</span>
+                                <span class="ring-unit">Disk</span>
+                            </div>
                         </div>
-                        <div class="gauge-info">
-                            <div class="gauge-label"><i class="fa-solid fa-hard-drive" style="color:#f59e0b; margin-right:5px;"></i>Disk Usage</div>
-                            <div class="gauge-val" id="val-disk">—</div>
+                        <div class="gauge-meta">
+                            <div class="gauge-name">
+                                <i class="fa-solid fa-hard-drive" style="color:#f59e0b;"></i> Disk Usage
+                            </div>
+                            <div class="gauge-bar-track">
+                                <div class="gauge-bar-fill" id="bar-disk" style="background:#f59e0b;"></div>
+                            </div>
                         </div>
                     </div>
 
@@ -754,31 +853,45 @@ async function execShutdown() {
     document.getElementById('spin-shutdown').style.display = 'none';
 }
 
-/* ── SVG Arc Gauges ── */
-function setArc(id, pct) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.style.strokeDashoffset = 100 - Math.min(pct, 100);
-    // Color thresholds
-    const color = pct < 60 ? '#10b981' : pct < 80 ? '#f59e0b' : '#ef4444';
-    el.style.stroke = color;
+/* ── SVG Arc Gauges (circumference = 2π×40 ≈ 251.2) ── */
+const CIRC = 251.2;
+
+function setArc(arcId, barId, valId, pct) {
+    // Ring arc
+    const arc = document.getElementById(arcId);
+    if (arc) {
+        const offset = CIRC - (CIRC * Math.min(pct, 100) / 100);
+        arc.style.strokeDashoffset = offset;
+        // Colour thresholds
+        const color = pct < 60 ? '#10b981' : pct < 80 ? '#f59e0b' : '#ef4444';
+        arc.style.stroke = color;
+    }
+    // Thin bar below
+    const bar = document.getElementById(barId);
+    if (bar) {
+        bar.style.width = Math.min(pct, 100) + '%';
+        const barColor = pct < 60 ? '#10b981' : pct < 80 ? '#f59e0b' : '#ef4444';
+        bar.style.background = barColor;
+    }
+    // Centre text label
+    const val = document.getElementById(valId);
+    if (val) val.textContent = pct + '%';
 }
-function setTxt(id, val)  { const el = document.getElementById(id); if (el) el.textContent = val + '%'; }
-function setVal(id, val)  { const el = document.getElementById(id); if (el) el.textContent = val + '%'; }
 
 function updateMetrics() {
     fetch('/server-load/')
         .then(r => r.json())
         .then(data => {
-            setArc('arc-cpu',  data.cpu);    setTxt('txt-cpu',  data.cpu);    setVal('val-cpu',  data.cpu);
-            setArc('arc-mem',  data.memory); setTxt('txt-mem',  data.memory); setVal('val-mem',  data.memory);
-            setArc('arc-disk', data.disk);   setTxt('txt-disk', data.disk);   setVal('val-disk', data.disk);
+            setArc('arc-cpu',  'bar-cpu',  'val-cpu',  data.cpu);
+            setArc('arc-mem',  'bar-mem',  'val-mem',  data.memory);
+            setArc('arc-disk', 'bar-disk', 'val-disk', data.disk);
         })
         .catch(() => {});
 }
 
 updateMetrics();
 setInterval(updateMetrics, 5000);
+
 
 /* ── Close modals on bg click ── */
 document.querySelectorAll('.void-modal-bg').forEach(el => {
