@@ -1045,60 +1045,71 @@ def eadns(request):
     try:
         current_domain=domain.objects.get(domain=domainname)
         d['domain']=current_domain
-        pat=os.path.join(paths.BIND_ZONE_DIR, f"db.{current_domain}")
-        data12=parse_dns_zone_file(pat)
-        d['data']=data12[2:]
+        try:
+            pat=os.path.join(paths.BIND_ZONE_DIR, f"db.{current_domain}")
+            data12=parse_dns_zone_file(pat)
+            # Skip the $TTL header entry (index 0), and the SOA record usually at [1]
+            d['data']=data12[2:]
+            d['zone_error'] = None
+        except PermissionError as e:
+            d['data'] = []
+            d['zone_error'] = str(e)
+        except Exception as e:
+            d['data'] = []
+            d['zone_error'] = f'Could not read zone records: {e}'
     except Exception as e:
         import logging
         logging.getLogger(__name__).error(f"eadns view failed for domain '{domainname}': {type(e).__name__} - {str(e)}")
         return redirect('/')
-    url = 'https://voidpanel.com/clientdocs/'
-    response = requests.get(url)
-    if response.status_code == 200:
-        d['docs'] = response.json()
-        
     return render(request,'control/eadns.html', d)
 
 @login_required(login_url='/')
 def adddnsrecord(request):
-        try:
-            usewe=user.objects.get(username=request.user)
+    try:
+        usewe=user.objects.get(username=request.user)
+        dddd=usewe.domain
+    except:
+        if request.user.is_superuser:
+            usewe=user.objects.get(username=request.session['name'])
             dddd=usewe.domain
-        except:
-             if request.user.is_superuser:
-                usewe=user.objects.get(username=request.session['name'])
-                dddd=usewe.domain
-                  
-             
-        if request.method == 'POST':
-            # Extract data from the POST request
-            name = request.POST.get('name')
+        else:
+            return JsonResponse({'success': False, 'error': 'Unauthorized'})
 
-            domainname = request.POST.get('domain')
-            record_class = request.POST.get('class')
-            record_type = request.POST.get('type',None)
-            ttl = request.POST.get('ttl')
-            data = request.POST.get('data')
-            if dddd==domainname:
-                if name and record_class and record_type and data and domainname:
-                    pat=os.path.join(paths.BIND_ZONE_DIR, f"db.{domainname}")
-                    import tempfile
-                    with tempfile.NamedTemporaryFile('w', delete=False) as tf:
-                        tf.write(f"\n; {record_type} Record for {domainname}\n")
-                        tf.write(f"{name} {ttl} {record_class} {record_type} {data}\n")
-                        tmpd = tf.name
-                    run_command(f'cat {tmpd} | sudo tee -a {pat}')
-                    run_command(f'sudo rm {tmpd}')
-                    get_platform().services.restart('bind9')
-                        
-                    return JsonResponse({'success': True})
-                else:
-                    return JsonResponse({'success': False, 'error': 'Missing required fields'})
-            else:
-                 return JsonResponse({'success': False, 'error': 'Invalid request method'})
-                 
+    if request.method == 'POST':
+        name         = (request.POST.get('name') or '').strip()
+        domainname   = (request.POST.get('domain') or '').strip()
+        record_type  = (request.POST.get('type') or '').strip().upper()
+        ttl          = (request.POST.get('ttl') or '86400').strip()
+        data         = (request.POST.get('data') or '').strip()
 
-        return JsonResponse({'success': False, 'error': 'Invalid request method'})
+        VALID_TYPES = {'A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SRV', 'CAA', 'PTR', 'SOA'}
+
+        if not name:
+            return JsonResponse({'success': False, 'error': 'Record name is required (use @ for root).'})
+        if record_type not in VALID_TYPES:
+            return JsonResponse({'success': False, 'error': f'Invalid record type "{record_type}".'})
+        if not data:
+            return JsonResponse({'success': False, 'error': 'Record value/data is required.'})
+        if dddd != domainname:
+            return JsonResponse({'success': False, 'error': 'Unauthorized domain.'})
+
+        import re as _re
+        if not _re.match(r'^[a-zA-Z0-9@._\-\*]+$', name):
+            return JsonResponse({'success': False, 'error': 'Invalid record name characters.'})
+
+        pat = os.path.join(paths.BIND_ZONE_DIR, f"db.{domainname}")
+        import tempfile
+        # Write a properly-formatted zone record: name TTL IN TYPE data
+        with tempfile.NamedTemporaryFile('w', delete=False, suffix='.zone') as tf:
+            tf.write(f"\n; {record_type} Record added via VoidPanel\n")
+            tf.write(f"{name} {ttl} IN {record_type} {data}\n")
+            tmpd = tf.name
+        run_command(f'cat {tmpd} | sudo tee -a {pat}')
+        run_command(f'sudo rm {tmpd}')
+        get_platform().services.restart('bind9')
+        return JsonResponse({'success': True})
+
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
 @login_required(login_url='/')
 def deletedns(request):

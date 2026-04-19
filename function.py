@@ -767,54 +767,67 @@ def parse_dns_zone_file(DNS_FILE):
     multiline_record = ""
     inside_multiline = False
 
-    with open(DNS_FILE, 'r') as file:
-        for line in file:
-            line = line.strip()
+    # Zone files are owned by bind:bind (mode 640).
+    # www-data can't read them directly, so use 'sudo cat'.
+    try:
+        import subprocess as _sp
+        result = _sp.run(['sudo', 'cat', DNS_FILE], capture_output=True, text=True, timeout=10)
+        if result.returncode != 0:
+            raise PermissionError(f'Permission denied reading zone file. Check server file permissions.')
+        content = result.stdout
+    except PermissionError:
+        raise
+    except Exception as e:
+        raise PermissionError(f'Could not read zone file: {e}')
 
-            if not line or line.startswith(';'):
-                continue  # Skip comments and empty lines
+    for line in content.splitlines():
+        line = line.strip()
 
-            # Check if it's a TTL line
-            ttl_match = re.match(r'^\$TTL\s+(?P<ttl>\d+)\s+;\s+(?P<data>.*)', line)
-            if ttl_match:
-                records.append({
-                    'name': '$TTL',
-                    'ttl': ttl_match.group('ttl'),
-                    'class': 'IN',
-                    'type': ';',
-                    'data': ttl_match.group('data')
-                })
-                continue
+        if not line or line.startswith(';'):
+            continue  # Skip comments and empty lines
 
-            # Check if the record is a multiline TXT/DKIM entry (inside parentheses)
-            if '(' in line:
-                inside_multiline = True
-                multiline_record = line
-                continue
-            elif inside_multiline:
-                multiline_record += " " + line
-                if ')' in line:
-                    inside_multiline = False
+        # Check if it's a TTL line
+        ttl_match = re.match(r'^\$TTL\s+(?P<ttl>\d+)', line)
+        if ttl_match:
+            records.append({
+                'name': '$TTL',
+                'ttl': ttl_match.group('ttl'),
+                'class': 'IN',
+                'type': ';',
+                'data': 'Default TTL'
+            })
+            continue
 
-                    # Process multiline record as one line
-                    multiline_record = multiline_record.replace('(', '').replace(')', '')
-                    match = re.match(r'(?P<name>\S+)\s+((?P<ttl>\d+)\s+)?IN\s+(?P<type>\S+)\s+(?P<data>.*)', multiline_record)
-                    if match:
-                        record_data = match.groupdict()
-                        record_data['ttl'] = record_data.get('ttl', None)
-                        records.append(record_data)
-                    multiline_record = ""
-                continue
+        # Check if the record is a multiline TXT/DKIM entry (inside parentheses)
+        if '(' in line:
+            inside_multiline = True
+            multiline_record = line
+            continue
+        elif inside_multiline:
+            multiline_record += " " + line
+            if ')' in line:
+                inside_multiline = False
 
-            # Match general DNS record lines
-            general_pattern = re.compile(
-                r'(?P<name>\S+)\s+((?P<ttl>\d+)\s+)?IN\s+(?P<type>\S+)\s+(?P<data>.*)'
-            )
-            match = general_pattern.match(line)
-            if match:
-                record_data = match.groupdict()
-                record_data['ttl'] = record_data.get('ttl', None)
-                records.append(record_data)
+                # Process multiline record as one line
+                multiline_record = multiline_record.replace('(', '').replace(')', '')
+                match = re.match(r'(?P<name>\S+)\s+((?P<ttl>\d+)\s+)?IN\s+(?P<type>\S+)\s+(?P<data>.*)', multiline_record)
+                if match:
+                    record_data = match.groupdict()
+                    record_data['ttl'] = record_data.get('ttl', None)
+                    records.append(record_data)
+                multiline_record = ""
+            continue
+
+        # Match general DNS record lines (with or without IN class keyword)
+        general_pattern = re.compile(
+            r'(?P<name>\S+)\s+((?P<ttl>\d+)\s+)?(?:IN\s+)?(?P<type>[A-Z]+)\s+(?P<data>.*)'
+        )
+        match = general_pattern.match(line)
+        if match:
+            record_data = match.groupdict()
+            record_data['ttl'] = record_data.get('ttl') or '86400'
+            record_data['class'] = 'IN'
+            records.append(record_data)
 
     return records
 
