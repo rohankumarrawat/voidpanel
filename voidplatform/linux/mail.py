@@ -98,3 +98,38 @@ class LinuxMailManager(MailManager):
     def reload(self):
         _run(['sudo', 'systemctl', 'reload', 'postfix'])
         return _run(['sudo', 'systemctl', 'reload', 'dovecot'])
+
+def apply_global_email_config(config):
+    """Applies global email configurations from the database to Postfix and SpamAssassin."""
+    try:
+        # Convert MB to bytes for Postfix message_size_limit
+        max_bytes = int(config.max_attachment_size_mb) * 1024 * 1024
+        _run(['sudo', 'postconf', '-e', f'message_size_limit = {max_bytes}'])
+
+        # Concurrent connections limit per client
+        conn_limit = int(config.max_concurrent_connections)
+        _run(['sudo', 'postconf', '-e', f'smtpd_client_connection_count_limit = {conn_limit}'])
+
+        # Native hourly limit capability using anvil_rate_time_unit and message_rate_limit
+        hourly = int(config.hourly_limit)
+        _run(['sudo', 'postconf', '-e', 'anvil_rate_time_unit = 3600s'])
+        _run(['sudo', 'postconf', '-e', f'smtpd_client_message_rate_limit = {hourly}'])
+
+        # Antispam adjustments if SpamAssassin is installed
+        if config.enable_antispam:
+            sa_cmd = (
+                "if [ -f /etc/spamassassin/local.cf ]; then "
+                "sed -i -E 's/^[#\s]*required_score\s+.*/required_score " + str(config.spam_score_threshold) + "/g' /etc/spamassassin/local.cf; "
+                "systemctl reload spamassassin || true; "
+                "fi"
+            )
+            _run(['sudo', 'bash', '-c', sa_cmd])
+
+        # Reload settings across the cluster
+        _run(['sudo', 'systemctl', 'reload', 'postfix'])
+        return True
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Failed to apply global email config: {str(e)}")
+        return False
+

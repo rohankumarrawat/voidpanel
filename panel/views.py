@@ -3063,10 +3063,14 @@ def adddatabaseuser(request):
     password = request.POST.get('password')
     domain_val = request.POST.get('domain')
     
-    if not username or not password or not domain_val:
+    if not username or not password or domain_val is None:
         return JsonResponse({'status': 'error', 'message': 'All fields are required'})
 
-    full = f"{domain_val}_{username}"
+    if domain_val == "":
+        full = username
+    else:
+        full = f"{domain_val}_{username}"
+        
     if create_mysql_user(full, password, adminpassword):
         return JsonResponse({'status': 'success'})
     return JsonResponse({'status': 'error', 'message': 'Could not create user'})
@@ -4960,6 +4964,11 @@ def emailconfig(request):
         config.catch_all_capability = request.POST.get('catch_all_capability') == 'true'
         config.allow_autoresponders = request.POST.get('allow_autoresponders') == 'true'
         config.save()
+        
+        # Apply configurations to live postfix / dovecot / spamassassin
+        from voidplatform.linux.mail import apply_global_email_config
+        apply_global_email_config(config)
+        
         return JsonResponse({'status': 'success'})
 
     return render(request, 'panel/emailconfig.html', {'config': config})
