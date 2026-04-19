@@ -758,21 +758,23 @@ class WebServerSwitcher:
                       f'{current} running.\n{test_r.error}'
             )
 
-        # ── Step 3: start new engine ────────────────────────────────────────
+        # ── Step 3: stop old engine (freeing up ports 80/443) ───────────────
+        _run(['sudo', 'systemctl', 'stop', old_service])
+
+        # ── Step 4: start new engine ────────────────────────────────────────
         start_r = _run(['sudo', 'systemctl', 'start', new_service])
         if not start_r.success:
+            # ROLLBACK: start the old engine again
+            _run(['sudo', 'systemctl', 'start', old_service])
             return CommandResult(
                 success=False,
-                error=f'Failed to start {new_service}. '
-                      f'Original {old_service} still running.\n{start_r.error}'
+                error=f'Failed to start {new_service} after config test passed. '
+                      f'Safely rolled back to {old_service}.\n{start_r.error}'
             )
 
-        # ── Step 4: stop old engine ─────────────────────────────────────────
-        _run(['sudo', 'systemctl', 'stop',    old_service])
+        # ── Step 5: persist state & enable services on boot ─────────────────
         _run(['sudo', 'systemctl', 'disable', old_service])
         _run(['sudo', 'systemctl', 'enable',  new_service])
-
-        # ── Step 5: persist state ───────────────────────────────────────────
         set_active_engine(target_engine)
 
         summary = (f'Switched from {current} → {target_engine}. '
