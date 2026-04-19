@@ -122,15 +122,15 @@ fi
 
 # Enable/disable engines based on user choice
 if [[ "$WEB_ENGINE" == "ols" ]]; then
-    systemctl enable  lsws   2>/dev/null || true
+    systemctl enable  lshttpd lsws   2>/dev/null || true
     systemctl disable nginx  2>/dev/null || true
     systemctl stop    nginx  2>/dev/null || true
     NGINX_CONF_DIR="/usr/local/lsws/conf"           # OLS primary conf dir
     status_msg "OpenLiteSpeed will be the primary web server"
 else
     systemctl enable  nginx  2>/dev/null || true
-    systemctl disable lsws   2>/dev/null || true
-    systemctl stop    lsws   2>/dev/null || true
+    systemctl disable lshttpd lsws   2>/dev/null || true
+    systemctl stop    lshttpd lsws   2>/dev/null || true
     /usr/local/lsws/bin/lswsctrl stop 2>/dev/null || true
     pkill -9 litespeed 2>/dev/null || true
     NGINX_CONF_DIR="/etc/nginx/conf.d"

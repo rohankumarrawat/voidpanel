@@ -138,12 +138,12 @@ if [[ -f /usr/local/lsws/admin/misc/admpass.sh ]]; then
 fi
 
 if [[ "$WEB_ENGINE" == "ols" ]]; then
-    systemctl enable lsws  2>/dev/null || true
-    systemctl start  lsws  2>/dev/null || true
+    systemctl enable lshttpd lsws 2>/dev/null || true
+    systemctl start  lshttpd lsws 2>/dev/null || true
     success_msg "OpenLiteSpeed enabled as primary site engine (80/443)"
 else
-    systemctl disable lsws 2>/dev/null || true
-    systemctl stop    lsws 2>/dev/null || true
+    systemctl disable lshttpd lsws 2>/dev/null || true
+    systemctl stop    lshttpd lsws 2>/dev/null || true
     /usr/local/lsws/bin/lswsctrl stop 2>/dev/null || true
     pkill -9 litespeed 2>/dev/null || true
     success_msg "NGINX enabled as primary site engine"
