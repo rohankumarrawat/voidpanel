@@ -573,7 +573,7 @@ def run_ssl_task(self, domain_name: str, email: str):
     from control.models import domain
     
     logger.info('Auto SSL task started for domain: %s', domain_name)
-    path = os.path.join(paths.LOG_DIR, 'ssl.txt') if os.path.isdir(paths.LOG_DIR) else '/var/log/ssl.txt'
+    path = paths.SSL_LOG
     
     try:
         # Run SSL provisioning (platform-aware)

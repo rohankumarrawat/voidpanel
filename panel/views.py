@@ -4723,32 +4723,34 @@ def chpass(request):
     
 @login_required(login_url='/')
 def runsslall(request):
-   
     if request.user.is_superuser:
-                d={}
-                try:
-                    
-                    lold=domain.objects.all()
-                  
-
-                    d['domain']=lold
-                    
-                    logs=[]
-                    path=paths.SSL_LOG
-                    with open(path,'r') as f:
-                         dd=f.readlines()
-                         for i in dd:
-                              logs.append(i)
-                    d['logs']=logs   
-                    url = 'https://voidpanel.com/admindocs/'  # Replace with your API URL
-                    response = requests.get(url)
-                    if response.status_code == 200:
-                        dataee = response.json()  # Parse the JSON response
-                        d['docs']=dataee
-                    return render(request,'panel/allssl.html',d)
-                except Exception as e:
-                    return redirect("/panel")
-           
+        import os
+        d = {}
+        try:
+            lold = domain.objects.all()
+            d['domain'] = lold
+            
+            logs = []
+            path = paths.SSL_LOG
+            if os.path.exists(path):
+                with open(path, 'r') as f:
+                    dd = f.readlines()
+                    for i in dd:
+                        logs.append(i)
+            d['logs'] = logs   
+            
+            try:
+                url = 'https://voidpanel.com/admindocs/'
+                response = requests.get(url, timeout=5)
+                if response.status_code == 200:
+                    dataee = response.json()
+                    d['docs'] = dataee
+            except Exception:
+                pass
+                
+            return render(request, 'panel/allssl.html', d)
+        except Exception as e:
+            return redirect("/panel")
     else: 
         return redirect('/')
 
