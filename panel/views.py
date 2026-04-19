@@ -5294,19 +5294,27 @@ def cpbruteforce(request):
         ufw_ok = shutil.which('ufw') is not None
         d['csf_installed'] = csf_ok or ufw_ok
         d['firewall_type']  = 'csf' if csf_ok else ('ufw' if ufw_ok else None)
-        if ufw_ok and not csf_ok:
-            r = _sp.run(['sudo', 'ufw', 'status'], capture_output=True, text=True)
+        
+        # Always read LIVE state from the OS, not just the DB
+        if csf_ok:
+            csf_status = _sp.run(['sudo', 'csf', '--status'], capture_output=True, text=True, timeout=5)
+            d['fw_enabled'] = 'disabled' not in csf_status.stdout.lower() and csf_status.returncode == 0
+        elif ufw_ok:
+            r = _sp.run(['sudo', 'ufw', 'status'], capture_output=True, text=True, timeout=5)
             out_lower = r.stdout.lower()
             d['fw_enabled'] = ('active' in out_lower and 'inactive' not in out_lower)
         else:
-            d['fw_enabled'] = d['firewall'].status
+            d['fw_enabled'] = False
+            
+        # Sync DB record to match live state
         try:
-            url = 'https://voidpanel.com/admindocs/'
-            response = requests.get(url, timeout=5)
-            if response.status_code == 200:
-                d['docs'] = response.json()
+            fw_obj = d['firewall']
+            if fw_obj.status != d['fw_enabled']:
+                fw_obj.status = d['fw_enabled']
+                fw_obj.save()
         except Exception:
             pass
+            
         return render(request, 'panel/cpbruteforce.html', d)
     else:
         return redirect('/')
