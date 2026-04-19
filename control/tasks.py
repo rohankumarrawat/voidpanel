@@ -571,25 +571,45 @@ def run_ssl_task(self, domain_name: str, email: str):
     Celery task: Dispatch certbot to generate SSL for a domain asynchronously.
     """
     from control.models import domain
+    from datetime import datetime
     
     logger.info('Auto SSL task started for domain: %s', domain_name)
     path = paths.SSL_LOG
     
+    # Ensure directory exists for safety
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+    except Exception:
+        pass
+
     try:
         # Run SSL provisioning (platform-aware)
+        log_output = f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Starting AutoSSL for {domain_name}...\n"
+        
         if sys.platform != 'win32':
-            _run([
+            result = _run([
                 "sudo", "certbot", "--nginx",
                 "-d", domain_name, "-d", f'www.{domain_name}',
                 "--non-interactive", "--agree-tos",
                 "--email", email, "--redirect", "--no-eff-email"
             ], timeout=120)
+            
+            if result.stdout:
+                log_output += result.stdout + "\n"
+            if result.stderr:
+                log_output += result.stderr + "\n"
+                
+            if result.returncode == 0:
+                log_output += f"✓ AutoSSL Completed successfully for {domain_name}\n"
+            else:
+                log_output += f"✖ AutoSSL Failed with exit code {result.returncode} for {domain_name}\n"
         else:
             get_platform().ssl.provision(domain_name, email=email)
+            log_output += f"✓ AutoSSL Completed successfully (Windows OS) for {domain_name}\n"
         
-        # Log success
+        # Log results
         with open(path, 'a+', encoding='utf-8') as f:
-            f.write(f"\nAutoSSl Completed for domain {domain_name}")
+            f.write(log_output)
             
         # Update Database
         try:
@@ -602,8 +622,12 @@ def run_ssl_task(self, domain_name: str, email: str):
         logger.info('Auto SSL SUCCESS: %s', domain_name)
         
     except Exception as exc:
-        with open(path, 'a+', encoding='utf-8') as f:
-            f.write(f"\nError Occured during AutoSSL for domain {domain_name}")
+        err_out = f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✖ Error occurred during AutoSSL for {domain_name}: {str(exc)}\n"
+        try:
+            with open(path, 'a+', encoding='utf-8') as f:
+                f.write(err_out)
+        except Exception:
+            pass
         logger.error('Auto SSL FAILED for %s. Error: %s', domain_name, exc)
         raise
 

@@ -43,7 +43,7 @@ class LinuxPaths:
     DETAILS_FILE     = '/etc/details.txt'
     PANEL_LOG_FILE   = '/var/logs.txt'
     MAIL_LOG         = '/var/log/mail.log'
-    SSL_LOG          = '/var/log/ssl.txt'
+    SSL_LOG          = '/var/log/voidpanel/ssl.txt'
     PHP_FPM_INI_DIR  = '/etc/php'
     SHELLINABOX_DEFAULT = '/etc/default/shellinabox'
     SUSPEND_ROOT     = '/var/www/suspend'
