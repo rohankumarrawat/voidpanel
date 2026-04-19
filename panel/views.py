@@ -5351,6 +5351,11 @@ def cpbrute(request):
                         _sp.run(['sudo', 'ufw', '--force', 'disable'], check=False)
                         e.status = False
                     else:
+                        # ALWAYS pre-allow critical ports before enabling to prevent lockout
+                        _sp.run(['sudo', 'ufw', 'allow', '22/tcp'],   check=False)  # SSH
+                        _sp.run(['sudo', 'ufw', 'allow', '80/tcp'],   check=False)  # HTTP
+                        _sp.run(['sudo', 'ufw', 'allow', '443/tcp'],  check=False)  # HTTPS
+                        _sp.run(['sudo', 'ufw', 'allow', '8080/tcp'], check=False)  # VoidPanel
                         _sp.run(['sudo', 'ufw', '--force', 'enable'], check=False)
                         e.status = True
                 else:
