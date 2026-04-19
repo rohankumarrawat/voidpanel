@@ -484,9 +484,9 @@ context / {{
 
             # Harden directory permissions for quota & security
             if unix_user and os.path.isdir(root_dir):
-                _harden_site_dir(root_dir, unix_user, 'nobody')
+                _harden_site_dir(root_dir, unix_user, 'nogroup')
 
-            return _run(['sudo', 'systemctl', 'reload', 'lsws'])
+            return _run(['sudo', 'systemctl', 'reload', 'lshttpd'])
 
         except Exception as e:
             return CommandResult(success=False, error=str(e))
@@ -557,7 +557,7 @@ listener VoidHTTP {{
             if os.path.isdir(vhost_dir):
                 shutil.rmtree(vhost_dir)
             self._unregister_vhost(domain)
-            return _run(['sudo', 'systemctl', 'reload', 'lsws'])
+            return _run(['sudo', 'systemctl', 'reload', 'lshttpd'])
         except Exception as e:
             return CommandResult(success=False, error=str(e))
 
@@ -576,18 +576,18 @@ listener VoidHTTP {{
         except Exception:
             pass
         self._register_vhost(domain, self._vhost_dir(domain), root_dir)
-        return _run(['sudo', 'systemctl', 'reload', 'lsws'])
+        return _run(['sudo', 'systemctl', 'reload', 'lshttpd'])
 
     def disable_site(self, domain: str) -> CommandResult:
         """OLS: unregister from httpd_config.conf without deleting vhost files."""
         self._unregister_vhost(domain)
-        return _run(['sudo', 'systemctl', 'reload', 'lsws'])
+        return _run(['sudo', 'systemctl', 'reload', 'lshttpd'])
 
     def test_config(self) -> CommandResult:
         return _run(['sudo', os.path.join(OLS_ROOT, 'bin', 'openlitespeed'), '-t'])
 
     def reload(self) -> CommandResult:
-        return _run(['sudo', 'systemctl', 'reload', 'lsws'])
+        return _run(['sudo', 'systemctl', 'reload', 'lshttpd'])
 
     def read_site_config(self, domain: str) -> str:
         conf = self.get_site_config_path(domain)
@@ -726,8 +726,8 @@ class WebServerSwitcher:
                                  output=f'Already running {target_engine}')
 
         php_defaults = php_defaults or {'php_version': '8.3'}
-        old_service  = 'nginx'   if current      == 'nginx' else 'lsws'
-        new_service  = 'lsws'    if target_engine == 'ols'  else 'nginx'
+        old_service  = 'nginx'   if current      == 'nginx' else 'lshttpd'
+        new_service  = 'lshttpd' if target_engine == 'ols'  else 'nginx'
         new_manager  = OLSWebServerManager() if target_engine == 'ols' \
                        else NginxWebServerManager()
 
