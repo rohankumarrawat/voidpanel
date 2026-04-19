@@ -2891,7 +2891,7 @@ def addemailaccount(request):
                     current_email_count = allemail.objects.filter(domain=domain_name).count()
                     allowed_emails_str = str(package_obj.email_accounts).strip().lower()
                     
-                    if allowed_emails_str != "unlimited":
+                    if allowed_emails_str != "unlimited" and allowed_emails_str != "0":
                         try:
                             max_emails = int(allowed_emails_str)
                             if current_email_count >= max_emails:

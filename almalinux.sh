@@ -184,6 +184,10 @@ password=$MYSQL_ROOT_PASS
 MYCNF
 chmod 600 /root/.my.cnf
 
+# Write VoidPanel MySQL credential file (read by the panel application)
+echo "$MYSQL_ROOT_PASS" > /etc/dontdelete.txt
+chmod 644 /etc/dontdelete.txt
+
 # --- 3. Panel Core Setup ---
 panelsetup() {
     status_msg "Creating Project Directories"
