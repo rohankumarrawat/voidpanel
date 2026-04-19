@@ -185,7 +185,6 @@ urlpatterns = [
     path('api/terminate-account/', views.terminate_account, name='terminate_account'),
        path('analytics/', views.analytics, name='analytics'),
        path('webserver/', views.webserver_manager, name='webserver_manager'),
-       path('api/switch-webserver/', views.api_switch_webserver, name='api_switch_webserver'),
        path('ols-admin/', views.ols_admin_proxy, name='ols_admin_proxy'),
        path('api/site-config/get/', views.api_get_site_config, name='api_get_site_config'),
        path('api/site-config/save/', views.api_save_site_config, name='api_save_site_config'),

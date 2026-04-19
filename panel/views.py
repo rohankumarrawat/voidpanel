@@ -6973,7 +6973,9 @@ def analytics(request):
 
 @login_required(login_url='/')
 def webserver_manager(request):
-    """Admin-only page showing current web server and allowing live switching."""
+    """Admin-only page showing the active web server engine (read-only).
+    Engine selection is performed at installation time only.
+    """
     if not request.user.is_superuser:
         return HttpResponse('Unauthorized', status=403)
 
@@ -6982,7 +6984,6 @@ def webserver_manager(request):
     try:
         d['active_engine'] = get_active_engine()
     except PermissionError:
-        # State file not readable by www-data — attempt chmod fix then retry
         try:
             import subprocess
             subprocess.run(['sudo', 'chmod', '644', '/etc/voidpanel/web_engine'], check=True)
@@ -6995,78 +6996,11 @@ def webserver_manager(request):
                           os.path.exists('/var/run/nginx.pid'))
     d['ols_running']   = (os.path.exists('/tmp/lshttpd/lshttpd.pid') or
                           os.path.exists('/usr/local/lsws/logs/lshttpd.pid'))
-
-    # OLS is "installed" if the binary or state file exists
-    d['ols_installed'] = (os.path.exists('/usr/local/lsws/bin/lswsctrl') or
-                          os.path.exists('/usr/local/lsws') or
+    d['ols_installed'] = (os.path.exists('/usr/local/lsws') or
                           d['active_engine'] == 'ols' or
                           d['ols_running'])
-
     d['domain_count'] = domain.objects.count()
     return render(request, 'panel/webserver_manager.html', d)
-
-
-@login_required(login_url='/')
-def api_switch_webserver(request):
-    """
-    POST API — switches the live web server between NGINX and OpenLiteSpeed.
-
-    Security guarantees:
-      - Superuser-only. Returns 403 for everyone else.
-      - All site configs are fully written and tested BEFORE stopping the old server.
-      - If the new engine fails its config test, the old engine stays running (automatic rollback).
-      - All site directories are re-chowned to their unix users BEFORE the switch — quota
-        attribution is continuous with zero gap.
-      - The system state flag is updated ONLY after a successful service start.
-
-    POST body: { "target": "nginx" | "ols" }
-    """
-    if not request.user.is_superuser:
-        return JsonResponse({'status': 'error', 'message': 'Superuser only'}, status=403)
-    if request.method != 'POST':
-        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
-
-    import json as _json
-    try:
-        body = _json.loads(request.body)
-        target_engine = body.get('target', '').lower()
-    except Exception:
-        target_engine = request.POST.get('target', '').lower()
-
-    if target_engine not in ('nginx', 'ols'):
-        return JsonResponse({'status': 'error',
-                             'message': 'target must be "nginx" or "ols"'}, status=400)
-
-    from voidplatform.linux.web import get_active_engine, WebServerSwitcher
-
-    current = get_active_engine()
-    if current == target_engine:
-        return JsonResponse({'status': 'ok',
-                             'message': f'Already running {target_engine}'})
-
-    # Build the domain list for the switcher
-    all_domains = domain.objects.select_related().all()
-    domain_list = []
-    for dom in all_domains:
-        # Get the user record to pull their unix dir + php version
-        u_obj = user.objects.filter(domain=dom.domain).first()
-        php   = getattr(dom, 'php', '8.3') or '8.3'
-        root  = os.path.join(paths.HOME_BASE, dom.dir, 'public_html')
-        domain_list.append({
-            'domain':      dom.domain,
-            'root_dir':    root,
-            'php_version': php,
-            'unix_user':   dom.dir,   # unix username IS the dir field
-        })
-
-    switcher = WebServerSwitcher()
-    result   = switcher.switch(target_engine, domain_list,
-                               php_defaults={'php_version': '8.3'})
-
-    if result.success:
-        return JsonResponse({'status': 'success', 'message': result.output})
-    else:
-        return JsonResponse({'status': 'error',   'message': result.error}, status=500)
 
 
 # ─── LiteSpeed Admin Auto-Login (Admin Only) ─────────────────────────────────
