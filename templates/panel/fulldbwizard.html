@@ -8,27 +8,36 @@
     <meta name="description" content="VoidPanel Database Wizard — Create and manage MySQL databases securely.">
     <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
     <style>
         *, *::before, *::after { box-sizing: border-box; }
 
-        /* ── Force dark theme over Bootstrap ── */
-        body { font-family: 'Inter', sans-serif !important; background: #080c18 !important; color: #f1f5f9 !important; }
+        body { font-family: 'Inter', sans-serif !important; background: #060b17 !important; color: #f1f5f9 !important; }
         #main-content { background: transparent !important; }
         .block-header h2, .breadcrumb-item { color: #f1f5f9 !important; }
         .breadcrumb-item a, .breadcrumb-item+.breadcrumb-item::before { color: #64748b !important; }
-        .page-loader-wrapper { background: #080c18 !important; }
+        .page-loader-wrapper { background: #060b17 !important; }
 
-        /* ── Background ── */
+        /* ── Animated Background ── */
+        body::before {
+            content:''; position:fixed; inset:0; z-index:-2;
+            background:#060b17;
+        }
         body::after {
             content:''; position:fixed; inset:0; z-index:-1;
             background:
-                radial-gradient(ellipse at 15% 20%, rgba(99,102,241,0.15) 0%, transparent 55%),
-                radial-gradient(ellipse at 85% 75%, rgba(16,185,129,0.09) 0%, transparent 55%),
-                radial-gradient(ellipse at 50% 50%, rgba(139,92,246,0.07) 0%, transparent 70%);
+                radial-gradient(ellipse at 10% 15%, rgba(99,102,241,0.18) 0%, transparent 50%),
+                radial-gradient(ellipse at 90% 80%, rgba(16,185,129,0.12) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(139,92,246,0.08) 0%, transparent 65%),
+                radial-gradient(ellipse at 80% 10%, rgba(245,158,11,0.06) 0%, transparent 40%);
+            animation: bgPulse 12s ease-in-out infinite alternate;
+        }
+        @keyframes bgPulse {
+            0%   { opacity:0.7; }
+            100% { opacity:1; }
         }
 
         /* ── Hero ── */
@@ -37,60 +46,120 @@
             padding:28px 0 20px;
         }
         .db-hero-icon {
-            width:58px; height:58px; border-radius:16px;
+            width:64px; height:64px; border-radius:18px;
             background: linear-gradient(135deg,#6366f1,#4f46e5);
             display:flex; align-items:center; justify-content:center;
-            font-size:24px; color:#fff;
-            box-shadow: 0 6px 24px rgba(99,102,241,0.45);
-            flex-shrink:0;
+            font-size:26px; color:#fff;
+            box-shadow: 0 8px 32px rgba(99,102,241,0.5);
+            flex-shrink:0; position:relative; overflow:hidden;
         }
-        .db-hero h1 { font-size:1.5rem; font-weight:800; color:#fff; margin:0 0 4px; }
-        .db-hero p  { font-size:0.84rem; color:#64748b; margin:0; }
+        .db-hero-icon::before {
+            content:''; position:absolute; inset:0;
+            background:linear-gradient(135deg, rgba(255,255,255,0.25) 0%, transparent 60%);
+        }
+        .db-hero h1 { font-size:1.65rem; font-weight:900; color:#fff; margin:0 0 4px; letter-spacing:-0.02em; }
+        .db-hero p  { font-size:0.85rem; color:#64748b; margin:0; }
 
-        /* ── Quota Banner ── */
-        .quota-banner {
-            display:flex; align-items:center; gap:20px; flex-wrap:wrap;
-            padding:16px 22px; margin-bottom:24px;
-            background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08));
-            border:1px solid rgba(99,102,241,0.25); border-radius:14px;
+        /* ── Stats Cards Row ── */
+        .stats-row {
+            display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:16px;
+            margin-bottom:28px;
         }
-        .quota-item { display:flex; align-items:center; gap:10px; }
-        .quota-dot { width:10px; height:10px; border-radius:50%; }
-        .quota-dot.blue { background:#6366f1; box-shadow:0 0 6px rgba(99,102,241,0.6); }
-        .quota-dot.green { background:#10b981; box-shadow:0 0 6px rgba(16,185,129,0.6); }
-        .quota-label { font-size:0.77rem; color:#64748b; }
-        .quota-value { font-size:0.95rem; font-weight:700; color:#f1f5f9; }
-        .quota-bar-bg { flex:1; min-width:120px; height:6px; background:rgba(0,0,0,0.3); border-radius:3px; overflow:hidden; }
-        .quota-bar-fill { height:100%; background:linear-gradient(90deg,#6366f1,#10b981); border-radius:3px; transition:width 0.6s ease; }
+        .stat-card {
+            background:linear-gradient(135deg, rgba(22,32,54,0.85), rgba(12,18,36,0.98));
+            border:1px solid rgba(255,255,255,0.07);
+            border-radius:16px; padding:20px 22px;
+            backdrop-filter:blur(20px);
+            position:relative; overflow:hidden;
+            transition:transform 0.2s, box-shadow 0.2s;
+        }
+        .stat-card:hover { transform:translateY(-2px); box-shadow:0 12px 40px rgba(0,0,0,0.4); }
+        .stat-card::before {
+            content:''; position:absolute; top:-30px; right:-30px;
+            width:100px; height:100px; border-radius:50%;
+            opacity:0.12;
+        }
+        .stat-card.blue::before { background:#6366f1; }
+        .stat-card.green::before { background:#10b981; }
+        .stat-card.purple::before { background:#a855f7; }
+        .stat-card.amber::before { background:#f59e0b; }
+        .stat-icon {
+            width:40px; height:40px; border-radius:12px;
+            display:flex; align-items:center; justify-content:center;
+            font-size:16px; margin-bottom:12px;
+        }
+        .stat-icon.blue  { background:rgba(99,102,241,0.2); color:#818cf8; }
+        .stat-icon.green { background:rgba(16,185,129,0.2); color:#34d399; }
+        .stat-icon.purple{ background:rgba(168,85,247,0.2); color:#c084fc; }
+        .stat-icon.amber { background:rgba(245,158,11,0.2); color:#fbbf24; }
+        .stat-value { font-size:1.8rem; font-weight:900; color:#fff; line-height:1; margin-bottom:4px; }
+        .stat-label { font-size:0.75rem; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; }
+        .stat-bar-bg { height:4px; background:rgba(255,255,255,0.06); border-radius:2px; margin-top:14px; overflow:hidden; }
+        .stat-bar-fill { height:100%; border-radius:2px; transition:width 0.8s ease; }
+        .stat-bar-fill.blue  { background:linear-gradient(90deg,#6366f1,#818cf8); }
+        .stat-bar-fill.green { background:linear-gradient(90deg,#10b981,#34d399); }
 
         /* ── Tab Navigation ── */
         .db-tabs {
             display:flex; gap:4px;
-            background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.05);
-            border-radius:12px; padding:4px; margin-bottom:24px; width:fit-content;
+            background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.06);
+            border-radius:14px; padding:5px; margin-bottom:24px; width:fit-content;
         }
         .db-tab {
-            padding:9px 20px; border-radius:9px; cursor:pointer;
+            padding:10px 22px; border-radius:10px; cursor:pointer;
             font-size:0.84rem; font-weight:600; color:#64748b;
-            transition:all 0.2s; border:none; background:transparent; outline:none;
+            transition:all 0.22s; border:none; background:transparent; outline:none;
             display:flex; align-items:center; gap:8px;
         }
-        .db-tab.active { background:rgba(99,102,241,0.25); color:#818cf8; border:1px solid rgba(99,102,241,0.35); }
+        .db-tab.active {
+            background:linear-gradient(135deg,rgba(99,102,241,0.3), rgba(79,70,229,0.2));
+            color:#a5b4fc; border:1px solid rgba(99,102,241,0.4);
+            box-shadow:0 2px 12px rgba(99,102,241,0.2);
+        }
         .db-tab-panel { display:none; }
-        .db-tab-panel.active { display:block; }
+        .db-tab-panel.active { display:block; animation:panelIn 0.2s ease; }
+        @keyframes panelIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+        /* ── Step Indicator ── */
+        .step-strip {
+            display:flex; align-items:center; gap:0; margin-bottom:24px;
+        }
+        .step-item { display:flex; align-items:center; gap:10px; font-size:0.8rem; font-weight:600; }
+        .step-circle {
+            width:32px; height:32px; border-radius:50%; flex-shrink:0;
+            display:flex; align-items:center; justify-content:center;
+            font-size:0.75rem; font-weight:800;
+            background:rgba(255,255,255,0.06); color:#475569; border:2px solid rgba(255,255,255,0.08);
+            transition:all 0.3s;
+        }
+        .step-circle.done {
+            background:rgba(16,185,129,0.2); color:#10b981; border-color:#10b981;
+            box-shadow:0 0 12px rgba(16,185,129,0.35);
+        }
+        .step-circle.active {
+            background:rgba(99,102,241,0.28); color:#818cf8; border-color:#6366f1;
+            box-shadow:0 0 16px rgba(99,102,241,0.45);
+        }
+        .step-name { color:#475569; transition:color 0.3s; }
+        .step-name.active { color:#f1f5f9; }
+        .step-line { flex:1; height:2px; background:rgba(255,255,255,0.05); margin:0 14px; min-width:30px;
+            position:relative; border-radius:1px; }
 
         /* ── Glass Cards ── */
         .vp-card {
-            background: linear-gradient(135deg, rgba(22,32,54,0.8), rgba(12,18,36,0.95));
-            border:1px solid rgba(255,255,255,0.06);
-            border-radius:16px; overflow:hidden;
-            backdrop-filter:blur(16px);
+            background:linear-gradient(135deg, rgba(22,32,54,0.8), rgba(10,14,26,0.95));
+            border:1px solid rgba(255,255,255,0.07);
+            border-radius:18px; overflow:hidden;
+            backdrop-filter:blur(20px);
             margin-bottom:24px;
+            transition:border-color 0.2s;
         }
+        .vp-card:hover { border-color:rgba(99,102,241,0.2); }
         .vp-card-header {
             padding:18px 24px;
             border-bottom:1px solid rgba(255,255,255,0.05);
             display:flex; align-items:center; justify-content:space-between; gap:12px;
+            background:rgba(0,0,0,0.1);
         }
         .vp-card-header h5 {
             margin:0; font-size:0.95rem; font-weight:700; color:#f1f5f9;
@@ -99,161 +168,189 @@
         .vp-card-header h5 i { color:#6366f1; font-size:1rem; }
         .vp-card-body { padding:24px; }
 
-        /* ── Step indicator ── */
-        .step-strip {
-            display:flex; align-items:center; gap:0; margin-bottom:24px;
-        }
-        .step-item {
-            display:flex; align-items:center; gap:10px;
-            font-size:0.8rem; font-weight:600;
-        }
-        .step-circle {
-            width:30px; height:30px; border-radius:50%; flex-shrink:0;
-            display:flex; align-items:center; justify-content:center;
-            font-size:0.75rem; font-weight:700;
-            background:rgba(255,255,255,0.07); color:#64748b; border:1px solid rgba(255,255,255,0.1);
-        }
-        .step-circle.done { background:rgba(16,185,129,0.2); color:#10b981; border-color:#10b981; }
-        .step-circle.active { background:rgba(99,102,241,0.25); color:#818cf8; border-color:#6366f1; }
-        .step-name { color:#64748b; }
-        .step-name.active { color:#f1f5f9; }
-        .step-line { flex:1; height:1px; background:rgba(255,255,255,0.06); margin:0 12px; min-width:30px; }
-
         /* ── Form inputs ── */
-        .vp-label { font-size:0.78rem; color:#64748b; font-weight:600; display:block; margin-bottom:7px; letter-spacing:0.02em; }
+        .vp-label { font-size:0.78rem; color:#64748b; font-weight:600; display:block; margin-bottom:7px; letter-spacing:0.04em; text-transform:uppercase; }
         .vp-input {
-            width:100%; padding:11px 15px; border-radius:10px;
-            background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.1);
+            width:100%; padding:12px 16px; border-radius:11px;
+            background:rgba(0,0,0,0.3); border:1.5px solid rgba(255,255,255,0.09);
             color:#fff; font-size:0.88rem; outline:none; font-family:'Inter',sans-serif;
             transition:border 0.18s, box-shadow 0.18s; margin-bottom:0;
         }
-        .vp-input:focus { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,0.18); }
-        .vp-input::placeholder { color:#475569; }
-        .vp-input[type=password] { letter-spacing:0.1em; }
+        .vp-input:focus { border-color:#6366f1; box-shadow:0 0 0 4px rgba(99,102,241,0.15); background:rgba(0,0,0,0.35); }
+        .vp-input::placeholder { color:#334155; }
 
         /* prefix-group */
-        .vp-prefix-group { display:flex; align-items:stretch; margin-bottom:0; }
+        .vp-prefix-group { display:flex; align-items:stretch; }
         .vp-prefix {
-            padding:11px 14px; background:rgba(99,102,241,0.18);
-            border:1px solid rgba(99,102,241,0.35); border-right:none;
-            border-radius:10px 0 0 10px; font-size:0.82rem; font-weight:700;
+            padding:12px 15px; background:rgba(99,102,241,0.15);
+            border:1.5px solid rgba(99,102,241,0.3); border-right:none;
+            border-radius:11px 0 0 11px; font-size:0.82rem; font-weight:700;
             color:#a78bfa; white-space:nowrap; display:flex; align-items:center; gap:6px;
         }
-        .vp-prefix-group .vp-input { border-radius:0 10px 10px 0; }
+        .vp-prefix-group .vp-input { border-radius:0 11px 11px 0; flex:1; min-width:0; }
         .vp-suffix-btn {
-            padding:11px 14px; background:rgba(255,255,255,0.07);
-            border:1px solid rgba(255,255,255,0.12); border-left:none;
-            border-radius:0 10px 10px 0; cursor:pointer; color:#94a3b8;
-            transition:background 0.15s; display:flex; align-items:center;
+            padding:12px 15px; background:rgba(255,255,255,0.06);
+            border:1.5px solid rgba(255,255,255,0.1); border-left:none;
+            border-radius:0 11px 11px 0; cursor:pointer; color:#64748b;
+            transition:background 0.15s, color 0.15s; display:flex; align-items:center;
         }
-        .vp-suffix-btn:hover { background:rgba(255,255,255,0.14); color:#fff; }
-        .vp-prefix-group .vp-input.with-suffix { border-radius:0; }
+        .vp-suffix-btn:hover { background:rgba(255,255,255,0.12); color:#fff; }
+        .vp-prefix-group .vp-input.with-suffix { border-radius:0; border-right:none; }
 
         /* ── Strength bar ── */
-        .strength-bar { height:4px; border-radius:2px; margin-top:8px; background:rgba(255,255,255,0.06); overflow:hidden; }
-        .strength-fill { height:100%; border-radius:2px; width:0; transition:all 0.3s; }
-        .strength-fill.weak   { width:30%; background:#ef4444; }
-        .strength-fill.medium { width:60%; background:#f59e0b; }
-        .strength-fill.strong { width:100%; background:#10b981; }
-        .strength-label { font-size:0.72rem; margin-top:4px; color:#64748b; }
+        .strength-bar { height:5px; border-radius:3px; margin-top:10px; background:rgba(255,255,255,0.06); overflow:hidden; }
+        .strength-fill { height:100%; border-radius:3px; width:0; transition:all 0.35s ease; }
+        .strength-fill.weak   { width:30%; background:linear-gradient(90deg,#ef4444,#f87171); }
+        .strength-fill.medium { width:65%; background:linear-gradient(90deg,#f59e0b,#fbbf24); }
+        .strength-fill.strong { width:100%; background:linear-gradient(90deg,#10b981,#34d399); }
+        .strength-label { font-size:0.72rem; margin-top:6px; color:#64748b; font-weight:500; }
 
         /* ── Buttons ── */
         .vp-btn {
             display:inline-flex; align-items:center; gap:8px;
-            padding:10px 20px; border-radius:10px; font-size:0.85rem; font-weight:600;
-            cursor:pointer; border:1px solid transparent; transition:all 0.2s;
+            padding:11px 22px; border-radius:11px; font-size:0.85rem; font-weight:600;
+            cursor:pointer; border:1.5px solid transparent; transition:all 0.22s;
             font-family:'Inter',sans-serif; white-space:nowrap; outline:none;
             text-decoration:none; justify-content:center;
         }
         .vp-btn-primary {
             background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff;
-            box-shadow:0 4px 14px rgba(99,102,241,0.35);
+            box-shadow:0 4px 18px rgba(99,102,241,0.4);
+            border-color:rgba(99,102,241,0.5);
         }
-        .vp-btn-primary:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(99,102,241,0.5); }
-        .vp-btn-primary:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
-        .vp-btn-success { background:rgba(16,185,129,0.14); border-color:rgba(16,185,129,0.3); color:#34d399; }
-        .vp-btn-success:hover { background:rgba(16,185,129,0.24); }
+        .vp-btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(99,102,241,0.55); }
+        .vp-btn-primary:disabled { opacity:0.45; cursor:not-allowed; transform:none; box-shadow:none; }
+        .vp-btn-success { background:rgba(16,185,129,0.14); border-color:rgba(16,185,129,0.35); color:#34d399; }
+        .vp-btn-success:hover { background:rgba(16,185,129,0.26); box-shadow:0 4px 16px rgba(16,185,129,0.25); }
         .vp-btn-danger  { background:rgba(239,68,68,0.12);  border-color:rgba(239,68,68,0.3);  color:#f87171; }
-        .vp-btn-danger:hover { background:rgba(239,68,68,0.24); }
+        .vp-btn-danger:hover { background:rgba(239,68,68,0.26); box-shadow:0 4px 14px rgba(239,68,68,0.2); }
         .vp-btn-ghost   { background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.1); color:#94a3b8; }
         .vp-btn-ghost:hover { background:rgba(255,255,255,0.12); color:#fff; }
+        .vp-btn-warning { background:rgba(245,158,11,0.13); border-color:rgba(245,158,11,0.3); color:#fbbf24; }
+        .vp-btn-warning:hover { background:rgba(245,158,11,0.24); }
         .vp-btn.full { width:100%; }
-        .vp-btn.loading { opacity:0.6; pointer-events:none; }
+        .vp-btn.loading { opacity:0.55; pointer-events:none; }
+        .vp-btn-sm { padding:6px 14px; font-size:0.78rem; border-radius:8px; }
 
         /* ── DB Table ── */
         .vp-table { width:100%; border-collapse:collapse; }
-        .vp-table thead tr { background:rgba(0,0,0,0.15); }
-        .vp-table th { padding:10px 16px; font-size:0.71rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#475569; border-bottom:1px solid rgba(255,255,255,0.04); text-align:left; }
-        .vp-table td { padding:13px 16px; font-size:0.86rem; color:#cbd5e1; border-bottom:1px solid rgba(255,255,255,0.03); vertical-align:middle; }
+        .vp-table thead tr { background:rgba(0,0,0,0.18); }
+        .vp-table th { padding:11px 16px; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#475569; border-bottom:1px solid rgba(255,255,255,0.05); text-align:left; }
+        .vp-table td { padding:14px 16px; font-size:0.86rem; color:#cbd5e1; border-bottom:1px solid rgba(255,255,255,0.03); vertical-align:middle; }
         .vp-table tbody tr:last-child td { border-bottom:none; }
-        .vp-table tbody tr:hover td { background:rgba(99,102,241,0.06); }
-        .db-badge { display:inline-flex; align-items:center; gap:7px; padding:3px 10px; font-size:0.78rem; font-weight:600; border-radius:20px; }
-        .db-badge.db-type { background:rgba(99,102,241,0.12); color:#818cf8; }
-        .db-badge.user-type { background:rgba(16,185,129,0.1); color:#34d399; }
+        .vp-table tbody tr:hover td { background:rgba(99,102,241,0.07); }
+        .db-badge { display:inline-flex; align-items:center; gap:7px; padding:4px 12px; font-size:0.78rem; font-weight:600; border-radius:20px; }
+        .db-badge.db-type { background:rgba(99,102,241,0.14); color:#818cf8; border:1px solid rgba(99,102,241,0.2); }
+        .db-badge.user-type { background:rgba(16,185,129,0.11); color:#34d399; border:1px solid rgba(16,185,129,0.2); }
+        .db-badge.conn-type { background:rgba(245,158,11,0.11); color:#fbbf24; border:1px solid rgba(245,158,11,0.2); }
 
         /* ── Perm chips ── */
-        .perm-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:8px; }
+        .perm-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px; }
         .perm-chip {
-            padding:9px 8px; text-align:center; font-size:0.78rem; font-weight:700;
-            border:1px solid rgba(255,255,255,0.08); border-radius:9px;
+            padding:10px 8px; text-align:center; font-size:0.78rem; font-weight:700;
+            border:1.5px solid rgba(255,255,255,0.08); border-radius:10px;
             background:rgba(0,0,0,0.2); color:#64748b; cursor:pointer;
             transition:all 0.18s; user-select:none;
         }
-        .perm-chip:hover { border-color:#6366f1; color:#818cf8; }
-        .perm-chip.active { background:rgba(99,102,241,0.2); border-color:#6366f1; color:#a5b4fc; }
+        .perm-chip:hover { border-color:rgba(99,102,241,0.5); color:#818cf8; background:rgba(99,102,241,0.08); }
+        .perm-chip.active { background:rgba(99,102,241,0.22); border-color:#6366f1; color:#a5b4fc; box-shadow:0 0 8px rgba(99,102,241,0.2); }
 
         /* ── Connect Bar ── */
         .connect-bar {
-            display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap;
-            padding:22px 24px;
+            display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap;
+            padding:24px;
         }
-        .connect-bar .field { flex:1; min-width:180px; }
+        .connect-bar .field { flex:1; min-width:190px; }
         .vp-select {
-            width:100%; padding:11px 14px; border-radius:10px;
-            background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.1);
+            width:100%; padding:12px 16px; border-radius:11px;
+            background:rgba(0,0,0,0.3); border:1.5px solid rgba(255,255,255,0.09);
             color:#f1f5f9; font-size:0.87rem; outline:none; font-family:'Inter',sans-serif;
             appearance:none; cursor:pointer;
             background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2364748b' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
-            background-repeat:no-repeat; background-position:right 14px center;
+            background-repeat:no-repeat; background-position:right 16px center;
+            transition:border 0.18s;
         }
-        .vp-select:focus { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,0.15); }
+        .vp-select:focus { border-color:#6366f1; box-shadow:0 0 0 4px rgba(99,102,241,0.15); }
         .vp-select option { background:#1e293b; color:#f1f5f9; }
 
         /* ── Modal ── */
         .vp-overlay {
-            position:fixed; inset:0; background:rgba(0,0,0,0.65); backdrop-filter:blur(5px);
+            position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(8px);
             z-index:9000; display:none; align-items:center; justify-content:center;
         }
         .vp-overlay.open { display:flex; }
         .vp-modal {
-            background:linear-gradient(135deg,rgba(22,33,58,0.99),rgba(10,14,26,0.99));
-            border:1px solid rgba(99,102,241,0.22); border-radius:18px;
-            padding:30px 32px; width:520px; max-width:96vw;
-            box-shadow:0 25px 60px rgba(0,0,0,0.7); animation:mIn 0.22s ease;
+            background:linear-gradient(145deg,rgba(22,33,58,0.99),rgba(8,12,24,0.99));
+            border:1px solid rgba(99,102,241,0.25); border-radius:20px;
+            padding:32px 34px; width:540px; max-width:96vw;
+            box-shadow:0 30px 70px rgba(0,0,0,0.75); animation:mIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
         }
-        @keyframes mIn { from { opacity:0; transform:scale(0.93); } to { opacity:1; transform:scale(1); } }
-        .vp-modal h4 { margin:0 0 20px; font-size:1.05rem; font-weight:700; color:#fff; display:flex; align-items:center; gap:10px; }
+        @keyframes mIn { from { opacity:0; transform:scale(0.9) translateY(20px); } to { opacity:1; transform:scale(1) translateY(0); } }
+        .vp-modal h4 { margin:0 0 22px; font-size:1.08rem; font-weight:800; color:#fff; display:flex; align-items:center; gap:10px; }
         .vp-modal h4 i { color:#6366f1; }
-        .modal-footer { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; }
+        .modal-footer { display:flex; gap:10px; justify-content:flex-end; margin-top:22px; }
+
+        /* ── Info mini cards inside modal ── */
+        .modal-info-card {
+            flex:1; min-width:150px;
+            border-radius:11px; padding:12px 16px;
+        }
+        .modal-info-card .mic-label { font-size:0.68rem; color:#475569; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px; }
+        .modal-info-card .mic-value { font-weight:800; font-size:0.92rem; }
+
+        /* ── Copy input ── */
+        .copy-group { display:flex; gap:0; }
+        .copy-input {
+            flex:1; padding:10px 14px; border-radius:10px 0 0 10px;
+            background:rgba(0,0,0,0.3); border:1.5px solid rgba(255,255,255,0.09); border-right:none;
+            color:#a5b4fc; font-size:0.82rem; font-family:monospace; outline:none;
+        }
+        .copy-btn {
+            padding:10px 14px; background:rgba(99,102,241,0.2);
+            border:1.5px solid rgba(99,102,241,0.35); border-left:none;
+            border-radius:0 10px 10px 0; cursor:pointer; color:#818cf8;
+            font-size:0.8rem; transition:background 0.15s; display:flex; align-items:center; gap:6px;
+        }
+        .copy-btn:hover { background:rgba(99,102,241,0.35); }
+
+        /* ── Connection Card (DB→User link) ── */
+        .conn-card {
+            background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.05);
+            border-radius:12px; padding:14px 18px;
+            display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+            transition:background 0.18s;
+        }
+        .conn-card:hover { background:rgba(99,102,241,0.06); border-color:rgba(99,102,241,0.15); }
+        .conn-arrow { color:#475569; font-size:0.9rem; flex-shrink:0; }
+        .conn-grid { display:grid; gap:8px; }
 
         /* ── Misc ── */
-        .vp-empty { text-align:center; padding:36px; color:#475569; }
-        .vp-empty i { font-size:2rem; display:block; margin-bottom:10px; opacity:0.5; }
-        .form-row { margin-bottom:18px; }
+        .vp-empty { text-align:center; padding:40px 20px; color:#334155; }
+        .vp-empty i { font-size:2.2rem; display:block; margin-bottom:12px; opacity:0.4; }
+        .vp-empty p { font-size:0.82rem; margin:0; }
+        .form-row { margin-bottom:20px; }
+        .info-hint { margin-top:8px; font-size:0.73rem; color:#334155; display:flex; align-items:center; gap:6px; }
 
         /* ── Toast ── */
-        #toast-stack { position:fixed; bottom:22px; right:22px; z-index:10000; display:flex; flex-direction:column; gap:8px; }
+        #toast-stack { position:fixed; bottom:24px; right:24px; z-index:10000; display:flex; flex-direction:column; gap:8px; }
         .vp-toast {
-            min-width:240px; padding:12px 18px; border-radius:10px; font-size:0.83rem; font-weight:500;
-            backdrop-filter:blur(20px); box-shadow:0 8px 32px rgba(0,0,0,0.5);
-            animation:tIn 0.25s ease; display:flex; align-items:center; gap:10px;
+            min-width:260px; padding:13px 18px; border-radius:12px; font-size:0.83rem; font-weight:500;
+            backdrop-filter:blur(24px); box-shadow:0 10px 40px rgba(0,0,0,0.55);
+            animation:tIn 0.3s cubic-bezier(0.34,1.56,0.64,1); display:flex; align-items:center; gap:10px;
         }
-        @keyframes tIn { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
-        .vp-toast.success { background:rgba(16,185,129,0.16); border:1px solid rgba(16,185,129,0.35); color:#34d399; }
-        .vp-toast.error   { background:rgba(239,68,68,0.16);  border:1px solid rgba(239,68,68,0.35);  color:#f87171; }
-        .vp-toast.info    { background:rgba(99,102,241,0.16); border:1px solid rgba(99,102,241,0.35); color:#818cf8; }
+        @keyframes tIn { from { opacity:0; transform:translateX(50px) scale(0.9); } to { opacity:1; transform:translateX(0) scale(1); } }
+        .vp-toast.success { background:rgba(16,185,129,0.18); border:1px solid rgba(16,185,129,0.4); color:#34d399; }
+        .vp-toast.error   { background:rgba(239,68,68,0.18);  border:1px solid rgba(239,68,68,0.4);  color:#f87171; }
+        .vp-toast.info    { background:rgba(99,102,241,0.18); border:1px solid rgba(99,102,241,0.4); color:#818cf8; }
 
-        @media(max-width:768px){ .db-tabs { width:100%; } .db-tab { font-size:0.75rem; padding:8px 14px; } }
+        /* ── Count badge on tab ── */
+        .tab-count {
+            background:rgba(99,102,241,0.25); color:#818cf8;
+            border-radius:20px; padding:2px 8px; font-size:0.68rem; font-weight:800;
+        }
+
+        @media(max-width:768px){ .db-tabs { width:100%; } .db-tab { font-size:0.75rem; padding:8px 14px; } .stats-row { grid-template-columns:1fr 1fr; } }
+        @media(max-width:480px){ .stats-row { grid-template-columns:1fr; } }
     </style>
 </head>
 
@@ -275,37 +372,34 @@
                 <div class="db-hero-icon"><i class="fa-solid fa-database"></i></div>
                 <div>
                     <h1>Database Wizard</h1>
-                    <p>Create MySQL databases, manage users &amp; grant privileges — all secured via AJAX.</p>
+                    <p>Create MySQL databases &amp; users, manage privileges — all in one place.</p>
                 </div>
             </div>
 
-            <!-- ── Quota Banner ── -->
-            <div class="quota-banner">
-                <div class="quota-item">
-                    <span class="quota-dot blue"></span>
-                    <div>
-                        <div class="quota-label">Databases Used</div>
-                        <div class="quota-value">{{ database|length }} / {{ totaldb }}</div>
-                    </div>
+            <!-- ── Stats Row ── -->
+            <div class="stats-row">
+                <div class="stat-card blue">
+                    <div class="stat-icon blue"><i class="fa-solid fa-database"></i></div>
+                    <div class="stat-value" id="statDbCount">{{ database|length }}</div>
+                    <div class="stat-label">Total Databases</div>
+                    <div class="stat-bar-bg"><div class="stat-bar-fill blue" style="width:{{ database|length|default:0 }}%;" id="statDbBar"></div></div>
                 </div>
-                <div class="quota-item">
-                    <span class="quota-dot green"></span>
-                    <div>
-                        <div class="quota-label">DB Users Created</div>
-                        <div class="quota-value">{{ users|length }}</div>
-                    </div>
+                <div class="stat-card green">
+                    <div class="stat-icon green"><i class="fa-solid fa-users"></i></div>
+                    <div class="stat-value">{{ users|length }}</div>
+                    <div class="stat-label">DB Users</div>
+                    <div class="stat-bar-bg"><div class="stat-bar-fill green" style="width:{{ users|length|default:0 }}%;"></div></div>
                 </div>
-                <div class="quota-bar-bg">
-                    {% if totaldb != '∞' %}
-                    <div class="quota-bar-fill" style="width:{% widthratio database|length totaldb 100 %}%;"></div>
-                    {% else %}
-                    <div class="quota-bar-fill" style="width:30%;"></div>
-                    {% endif %}
+                <div class="stat-card purple">
+                    <div class="stat-icon purple"><i class="fa-solid fa-link"></i></div>
+                    <div class="stat-value">{{ mappings|length }}</div>
+                    <div class="stat-label">Active Connections</div>
                 </div>
-                <div style="font-size:0.78rem; color:#64748b;">Domain: <span style="color:#818cf8; font-weight:600;">{{ domain.domain }}</span></div>
-                <a href="/dbconnect/{{ domain.domain }}/" class="vp-btn vp-btn-ghost" style="padding:7px 14px; font-size:0.8rem; margin-left:auto;">
-                    <i class="fa-solid fa-arrow-left"></i> Back to DB Manager
-                </a>
+                <div class="stat-card amber">
+                    <div class="stat-icon amber"><i class="fa-solid fa-infinity"></i></div>
+                    <div class="stat-value">∞</div>
+                    <div class="stat-label">DB Quota (Admin)</div>
+                </div>
             </div>
 
             <!-- ── Step indicator ── -->
@@ -328,14 +422,17 @@
 
             <!-- ── Tab Navigation ── -->
             <div class="db-tabs">
-                <button class="db-tab active" onclick="switchTab('create')"><i class="fa-solid fa-plus-circle"></i> Create</button>
-                <button class="db-tab" onclick="switchTab('connect')"><i class="fa-solid fa-link"></i> Grant Privileges</button>
-                <button class="db-tab" onclick="switchTab('list')"><i class="fa-solid fa-list"></i> View All</button>
+                <button class="db-tab active" id="tab-btn-create" onclick="switchTab('create')"><i class="fa-solid fa-plus-circle"></i> Create</button>
+                <button class="db-tab" id="tab-btn-connect" onclick="switchTab('connect')"><i class="fa-solid fa-shield-halved"></i> Grant Privileges</button>
+                <button class="db-tab" id="tab-btn-list" onclick="switchTab('list')">
+                    <i class="fa-solid fa-list"></i> View All
+                    <span class="tab-count">{{ database|length }}</span>
+                </button>
             </div>
 
             <!-- ── TAB: Create ── -->
             <div class="db-tab-panel active" id="tab-create">
-                <div class="row g-3">
+                <div class="row g-4">
 
                     <!-- Add Database Card -->
                     <div class="col-lg-6 col-md-12">
@@ -344,18 +441,18 @@
                                 <h5><i class="fa-solid fa-database"></i> Create New Database</h5>
                             </div>
                             <div class="vp-card-body">
-                                <form id="addDbForm">
+                                <form id="addDbForm" onsubmit="event.preventDefault(); addDatabase(event);">
                                     {% csrf_token %}
                                     <input type="hidden" name="front" value="">
-                                    <div class="form-row">
+                                    <div class="form-group">
                                         <label class="vp-label">Database Name</label>
                                         <div class="vp-prefix-group">
                                             <span class="vp-prefix"><i class="fa-solid fa-database"></i></span>
                                             <input class="vp-input" type="text" name="databasename" id="dbNameInput"
                                                 oninput="sanitize(this)" placeholder="my_database" required>
                                         </div>
-                                        <div style="margin-top:8px; font-size:0.75rem; color:#475569;">
-                                            <i class="fa-solid fa-circle-info"></i> Only letters, numbers, and underscores allowed.
+                                        <div class="info-hint">
+                                            <i class="fa-solid fa-circle-info"></i> Only letters, numbers, and underscores.
                                         </div>
                                     </div>
                                     <button type="button" class="vp-btn vp-btn-primary full" id="addDbBtn" onclick="addDatabase(event)">
@@ -373,10 +470,10 @@
                                 <h5><i class="fa-solid fa-user-plus"></i> Create Database User</h5>
                             </div>
                             <div class="vp-card-body">
-                                <form id="addUserForm">
+                                <form id="addUserForm" onsubmit="event.preventDefault(); addDatabaseUser(event);">
                                     {% csrf_token %}
                                     <input type="hidden" name="domain" value="">
-                                    <div class="form-row">
+                                    <div class="form-group">
                                         <label class="vp-label">Username</label>
                                         <div class="vp-prefix-group">
                                             <span class="vp-prefix"><i class="fa-solid fa-user"></i></span>
@@ -384,25 +481,26 @@
                                                 oninput="sanitize(this)" placeholder="db_user" required>
                                         </div>
                                     </div>
-                                    <div class="form-row">
+                                    <div class="form-group">
                                         <label class="vp-label">Password</label>
                                         <div class="vp-prefix-group">
                                             <input class="vp-input with-suffix" type="password" name="password" id="pw1"
                                                 oninput="checkStrength()" placeholder="Enter password" required autocomplete="new-password">
-                                            <button type="button" class="vp-suffix-btn" onclick="togglePw('pw1',this)"><i class="fa fa-eye"></i></button>
+                                            <button type="button" class="vp-suffix-btn" onclick="togglePw('pw1',this)" title="Toggle visibility"><i class="fa fa-eye"></i></button>
                                         </div>
                                         <div class="strength-bar"><div class="strength-fill" id="strengthFill"></div></div>
                                         <div class="strength-label" id="strengthLabel">Enter a password</div>
                                     </div>
-                                    <div class="form-row">
+                                    <div class="form-group">
                                         <label class="vp-label">Confirm Password</label>
                                         <div class="vp-prefix-group">
                                             <input class="vp-input with-suffix" type="password" name="password1" id="pw2"
                                                 oninput="checkMatch()" placeholder="Repeat password" required autocomplete="new-password">
-                                            <button type="button" class="vp-suffix-btn" onclick="togglePw('pw2',this)"><i class="fa fa-eye"></i></button>
+                                            <button type="button" class="vp-suffix-btn" onclick="togglePw('pw2',this)" title="Toggle visibility"><i class="fa fa-eye"></i></button>
                                         </div>
+                                        <div id="matchHint" class="info-hint" style="display:none;"></div>
                                     </div>
-                                    <div class="form-row" style="margin-bottom:18px;">
+                                    <div class="form-group">
                                         <button type="button" class="vp-btn vp-btn-ghost full" onclick="generatePass()">
                                             <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Strong Password
                                         </button>
@@ -414,7 +512,6 @@
                             </div>
                         </div>
                     </div>
-
                 </div>
             </div>
 
@@ -423,7 +520,7 @@
                 <div class="vp-card">
                     <div class="vp-card-header">
                         <h5><i class="fa-solid fa-shield-halved"></i> Grant Database Privileges to User</h5>
-                        <span style="font-size:0.78rem; color:#64748b;">Select a database and a user, then assign the MySQL privileges</span>
+                        <span style="font-size:0.78rem; color:#64748b;">Select a database and user, then assign MySQL privileges</span>
                     </div>
                     <div class="connect-bar">
                         <div class="field">
@@ -438,45 +535,78 @@
                             <select class="vp-select" id="userSelect">
                                 <option value="">— Select User —</option>
                                 {% for i in users %}
-                                {% if i != 'newuser' and i != 'roundcube' and i != 'roundcubeuser' %}
+                                {% if i != 'newuser' and i != 'roundcube' and i != 'roundcubeuser' and i != 'root' and i != 'mysql.infoschema' and i != 'mysql.session' and i != 'mysql.sys' %}
                                 <option value="{{ i }}">{{ i }}</option>
                                 {% endif %}
                                 {% endfor %}
                             </select>
                         </div>
                         <div>
-                            <button class="vp-btn vp-btn-primary" onclick="openPermModal()" style="margin-top:0;">
-                                <i class="fa-solid fa-link"></i> Assign Privileges
+                            <button class="vp-btn vp-btn-primary" onclick="openPermModal()">
+                                <i class="fa-solid fa-shield-halved"></i> Assign Privileges
                             </button>
                         </div>
                     </div>
                 </div>
+
+                <!-- ── Existing connections quick view ── -->
+                {% if mappings %}
+                <div class="vp-card">
+                    <div class="vp-card-header">
+                        <h5><i class="fa-solid fa-diagram-project"></i> Existing DB→User Connections</h5>
+                        <span style="font-size:0.78rem; color:#64748b;">{{ mappings|length }} active privilege mapping(s)</span>
+                    </div>
+                    <div class="vp-card-body" style="padding:16px 24px;">
+                        <div class="conn-grid">
+                        {% for m in mappings %}
+                        <div class="conn-card">
+                            <span class="db-badge db-type"><i class="fa-solid fa-database" style="font-size:0.65rem;"></i>{{ m.database }}</span>
+                            <span class="conn-arrow"><i class="fa-solid fa-arrow-right-long"></i></span>
+                            <span class="db-badge user-type"><i class="fa-solid fa-user" style="font-size:0.65rem;"></i>{{ m.user }}</span>
+                            <button class="vp-btn vp-btn-danger vp-btn-sm" style="margin-left:auto;"
+                                onclick="revokePrivs('{{ m.database }}','{{ m.user }}',this)" title="Revoke privileges">
+                                <i class="fa-solid fa-ban"></i> Revoke
+                            </button>
+                        </div>
+                        {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
             </div>
 
             <!-- ── TAB: View All ── -->
             <div class="db-tab-panel" id="tab-list">
-                <div class="row g-3">
-                    <!-- Databases -->
+                <div class="row g-4">
+                    <!-- Databases Table -->
                     <div class="col-lg-6 col-md-12">
                         <div class="vp-card">
-                            <div class="vp-card-header"><h5><i class="fa-solid fa-server"></i> All Databases</h5></div>
+                            <div class="vp-card-header">
+                                <h5><i class="fa-solid fa-server"></i> All Databases</h5>
+                                <span class="db-badge db-type">{{ database|length }} total</span>
+                            </div>
                             <div style="overflow-x:auto;">
                                 <table class="vp-table">
-                                    <thead><tr><th>Database</th><th>Domain</th><th style="text-align:right;">Action</th></tr></thead>
+                                    <thead><tr><th>Database Name</th><th>Owner</th><th style="text-align:right;">Action</th></tr></thead>
                                     <tbody id="dbListBody">
                                     {% for i in database %}
+                                    {% if i != 'information_schema' and i != 'performance_schema' and i != 'mysql' and i != 'sys' %}
                                     <tr id="dbrow-{{ forloop.counter }}">
-                                        <td><span class="db-badge db-type"><i class="fa-solid fa-circle" style="font-size:6px;"></i>{{ i }}</span></td>
-                                        <td style="color:#64748b; font-size:0.8rem;">{{ domain.domain }}</td>
+                                        <td><span class="db-badge db-type"><i class="fa-solid fa-circle" style="font-size:5px;"></i>{{ i }}</span></td>
+                                        <td style="color:#475569; font-size:0.8rem;">
+                                            {% for m in mappings %}{% if m.database == i %}<span style="color:#34d399; font-size:0.78rem;"><i class="fa-solid fa-user" style="font-size:0.65rem; margin-right:4px;"></i>{{ m.user }}</span>&nbsp;{% endif %}{% endfor %}
+                                            {% if not mappings %}<span style="color:#334155;">—</span>{% endif %}
+                                        </td>
                                         <td style="text-align:right;">
-                                            <button class="vp-btn vp-btn-danger" style="padding:5px 12px; font-size:0.78rem;"
-                                                onclick="deleteDB('{{ domain.domain }}','{{ i }}',this)">
+                                            <button class="vp-btn vp-btn-danger vp-btn-sm"
+                                                onclick="deleteDB('admin','{{ i }}',this)">
                                                 <i class="fa-solid fa-trash"></i> Delete
                                             </button>
                                         </td>
                                     </tr>
+                                    {% endif %}
                                     {% empty %}
-                                    <tr><td colspan="3"><div class="vp-empty"><i class="fa-solid fa-database"></i>No databases yet.</div></td></tr>
+                                    <tr><td colspan="3"><div class="vp-empty"><i class="fa-solid fa-database"></i><p>No databases yet.</p></div></td></tr>
                                     {% endfor %}
                                     </tbody>
                                 </table>
@@ -484,25 +614,37 @@
                         </div>
                     </div>
 
-                    <!-- Users -->
+                    <!-- Users Table -->
                     <div class="col-lg-6 col-md-12">
                         <div class="vp-card">
-                            <div class="vp-card-header"><h5><i class="fa-solid fa-users"></i> All DB Users</h5></div>
+                            <div class="vp-card-header">
+                                <h5><i class="fa-solid fa-users"></i> All DB Users</h5>
+                                <span class="db-badge user-type">{{ users|length }} total</span>
+                            </div>
                             <div style="overflow-x:auto;">
                                 <table class="vp-table">
-                                    <thead><tr><th>Username</th><th style="text-align:right;">Actions</th></tr></thead>
+                                    <thead><tr><th>Username</th><th>Connected Databases</th><th style="text-align:right;">Actions</th></tr></thead>
                                     <tbody id="userListBody">
                                     {% for i in users %}
-                                    {% if i != 'newuser' and i != 'roundcube' and i != 'roundcubeuser' %}
+                                    {% if i != 'newuser' and i != 'roundcube' and i != 'roundcubeuser' and i != 'root' and i != 'mysql.infoschema' and i != 'mysql.session' and i != 'mysql.sys' %}
                                     <tr id="userrow-{{ forloop.counter }}">
-                                        <td><span class="db-badge user-type"><i class="fa-solid fa-user" style="font-size:0.7rem;"></i>{{ i }}</span></td>
+                                        <td>
+                                            <span class="db-badge user-type"><i class="fa-solid fa-user" style="font-size:0.65rem;"></i>{{ i }}</span>
+                                        </td>
+                                        <td style="font-size:0.78rem;">
+                                            {% for m in mappings %}
+                                            {% if m.user == i %}
+                                            <span class="db-badge db-type" style="margin:2px; font-size:0.72rem; padding:2px 8px;">{{ m.database }}</span>
+                                            {% endif %}
+                                            {% endfor %}
+                                        </td>
                                         <td style="text-align:right;">
                                             <div style="display:flex; gap:6px; justify-content:flex-end;">
-                                                <button class="vp-btn vp-btn-success" style="padding:5px 10px; font-size:0.78rem;" onclick="openChpModal('{{ i }}')">
+                                                <button class="vp-btn vp-btn-warning vp-btn-sm" onclick="openChpModal('{{ i }}')" title="Change password">
                                                     <i class="fa-solid fa-key"></i>
                                                 </button>
-                                                <button class="vp-btn vp-btn-danger" style="padding:5px 10px; font-size:0.78rem;"
-                                                    onclick="deleteUser('{{ domain.domain }}','{{ i }}',this)">
+                                                <button class="vp-btn vp-btn-danger vp-btn-sm"
+                                                    onclick="deleteUser('admin','{{ i }}',this)" title="Delete user">
                                                     <i class="fa-solid fa-trash"></i>
                                                 </button>
                                             </div>
@@ -510,13 +652,42 @@
                                     </tr>
                                     {% endif %}
                                     {% empty %}
-                                    <tr><td colspan="2"><div class="vp-empty"><i class="fa-solid fa-user"></i>No users yet.</div></td></tr>
+                                    <tr><td colspan="3"><div class="vp-empty"><i class="fa-solid fa-user"></i><p>No users yet.</p></div></td></tr>
                                     {% endfor %}
                                     </tbody>
                                 </table>
                             </div>
                         </div>
                     </div>
+
+                    <!-- Full Connections Map -->
+                    {% if mappings %}
+                    <div class="col-12">
+                        <div class="vp-card">
+                            <div class="vp-card-header">
+                                <h5><i class="fa-solid fa-diagram-project"></i> Database ↔ User Connection Map</h5>
+                                <span style="font-size:0.78rem; color:#64748b;">All active privilege relationships</span>
+                            </div>
+                            <div class="vp-card-body" style="padding:16px 24px;">
+                                <div class="conn-grid" style="grid-template-columns:repeat(auto-fill,minmax(340px,1fr));">
+                                {% for m in mappings %}
+                                <div class="conn-card">
+                                    <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:0; flex-wrap:wrap;">
+                                        <span class="db-badge db-type" style="font-size:0.8rem;"><i class="fa-solid fa-database" style="font-size:0.65rem;"></i>{{ m.database }}</span>
+                                        <span class="conn-arrow"><i class="fa-solid fa-arrow-right-long"></i></span>
+                                        <span class="db-badge user-type" style="font-size:0.8rem;"><i class="fa-solid fa-user" style="font-size:0.65rem;"></i>{{ m.user }}</span>
+                                    </div>
+                                    <button class="vp-btn vp-btn-danger vp-btn-sm" title="Revoke all privileges"
+                                        onclick="revokePrivs('{{ m.database }}','{{ m.user }}',this)">
+                                        <i class="fa-solid fa-ban"></i>
+                                    </button>
+                                </div>
+                                {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
 
@@ -526,20 +697,20 @@
 
 <!-- ══ Grant Privileges Modal ══ -->
 <div class="vp-overlay" id="permOverlay">
-    <div class="vp-modal" style="width:540px;">
+    <div class="vp-modal" style="width:560px;">
         <h4><i class="fa-solid fa-shield-halved"></i> Grant Database Privileges</h4>
         <form id="permForm">
             {% csrf_token %}
             <input type="hidden" id="permDbName" name="databasename">
             <input type="hidden" id="permUserName" name="databaseusername">
-            <div style="display:flex; gap:16px; margin-bottom:18px; flex-wrap:wrap;">
-                <div style="flex:1; min-width:160px; background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2); border-radius:10px; padding:12px 16px;">
-                    <div style="font-size:0.72rem; color:#64748b; margin-bottom:4px;">DATABASE</div>
-                    <div id="perm-db-label" style="font-weight:700; color:#818cf8; font-size:0.9rem;"></div>
+            <div style="display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
+                <div class="modal-info-card" style="background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.22);">
+                    <div class="mic-label">Database</div>
+                    <div class="mic-value" id="perm-db-label" style="color:#818cf8;"></div>
                 </div>
-                <div style="flex:1; min-width:160px; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.2); border-radius:10px; padding:12px 16px;">
-                    <div style="font-size:0.72rem; color:#64748b; margin-bottom:4px;">USER</div>
-                    <div id="perm-user-label" style="font-weight:700; color:#34d399; font-size:0.9rem;"></div>
+                <div class="modal-info-card" style="background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.22);">
+                    <div class="mic-label">User</div>
+                    <div class="mic-value" id="perm-user-label" style="color:#34d399;"></div>
                 </div>
             </div>
             <div style="margin-bottom:14px;">
@@ -548,15 +719,15 @@
                 </label>
             </div>
             <div class="perm-grid" id="permGrid">
-                <div class="perm-chip" data-perm="SELECT"    onclick="togglePerm(this)">SELECT</div>
-                <div class="perm-chip" data-perm="INSERT"    onclick="togglePerm(this)">INSERT</div>
-                <div class="perm-chip" data-perm="UPDATE"    onclick="togglePerm(this)">UPDATE</div>
-                <div class="perm-chip" data-perm="DELETE"    onclick="togglePerm(this)">DELETE</div>
-                <div class="perm-chip" data-perm="CREATE"    onclick="togglePerm(this)">CREATE</div>
-                <div class="perm-chip" data-perm="DROP"      onclick="togglePerm(this)">DROP</div>
-                <div class="perm-chip" data-perm="ALTER"     onclick="togglePerm(this)">ALTER</div>
-                <div class="perm-chip" data-perm="EXECUTE"   onclick="togglePerm(this)">EXECUTE</div>
-                <div class="perm-chip" data-perm="INDEX"     onclick="togglePerm(this)">INDEX</div>
+                <div class="perm-chip" data-perm="SELECT"     onclick="togglePerm(this)">SELECT</div>
+                <div class="perm-chip" data-perm="INSERT"     onclick="togglePerm(this)">INSERT</div>
+                <div class="perm-chip" data-perm="UPDATE"     onclick="togglePerm(this)">UPDATE</div>
+                <div class="perm-chip" data-perm="DELETE"     onclick="togglePerm(this)">DELETE</div>
+                <div class="perm-chip" data-perm="CREATE"     onclick="togglePerm(this)">CREATE</div>
+                <div class="perm-chip" data-perm="DROP"       onclick="togglePerm(this)">DROP</div>
+                <div class="perm-chip" data-perm="ALTER"      onclick="togglePerm(this)">ALTER</div>
+                <div class="perm-chip" data-perm="EXECUTE"    onclick="togglePerm(this)">EXECUTE</div>
+                <div class="perm-chip" data-perm="INDEX"      onclick="togglePerm(this)">INDEX</div>
                 <div class="perm-chip" data-perm="REFERENCES" onclick="togglePerm(this)">REFERENCES</div>
             </div>
             <div class="modal-footer">
@@ -576,9 +747,9 @@
         <form id="chpForm">
             {% csrf_token %}
             <input type="hidden" id="chpUsername" name="databaseuser">
-            <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.2); border-radius:10px; padding:12px 16px; margin-bottom:18px;">
-                <div style="font-size:0.72rem; color:#64748b; margin-bottom:3px;">CHANGING PASSWORD FOR</div>
-                <div id="chp-user-display" style="font-weight:700; color:#34d399;"></div>
+            <div style="background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.25); border-radius:11px; padding:12px 16px; margin-bottom:20px;">
+                <div style="font-size:0.7rem; color:#64748b; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.06em; font-weight:700;">Changing Password For</div>
+                <div id="chp-user-display" style="font-weight:800; color:#fbbf24; font-size:1rem;"></div>
             </div>
             <label class="vp-label">New Password</label>
             <div class="vp-prefix-group" style="margin-bottom:8px;">
@@ -588,7 +759,7 @@
             <div class="modal-footer">
                 <button type="button" class="vp-btn vp-btn-ghost" onclick="closeModal('chpOverlay')">Cancel</button>
                 <button type="button" class="vp-btn vp-btn-primary" onclick="changePass()">
-                    <i class="fa-solid fa-save"></i> Update Password
+                    <i class="fa-solid fa-floppy-disk"></i> Update Password
                 </button>
             </div>
         </form>
@@ -607,18 +778,20 @@ function toast(msg, type='info') {
     const s = document.getElementById('toast-stack');
     const t = document.createElement('div');
     t.className = `vp-toast ${type}`;
-    const ico = {success:'fa-circle-check',error:'fa-circle-xmark',info:'fa-circle-info'};
+    const ico = {success:'fa-circle-check', error:'fa-circle-xmark', info:'fa-circle-info'};
     t.innerHTML = `<i class="fa-solid ${ico[type]||'fa-circle-info'}"></i> ${msg}`;
     s.appendChild(t);
-    setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300); }, 4000);
+    setTimeout(()=>{ t.style.transition='opacity .35s'; t.style.opacity='0'; setTimeout(()=>t.remove(),350); }, 4200);
 }
 
 /* ── Tabs ── */
 function switchTab(name) {
-    document.querySelectorAll('.db-tab').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.db-tab-panel').forEach(p => p.classList.remove('active'));
-    document.querySelector(`.db-tab[onclick*="${name}"]`).classList.add('active');
-    document.getElementById(`tab-${name}`).classList.add('active');
+    document.querySelectorAll('.db-tab').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.db-tab-panel').forEach(p=>p.classList.remove('active'));
+    const btn = document.getElementById(`tab-btn-${name}`);
+    if(btn) btn.classList.add('active');
+    const panel = document.getElementById(`tab-${name}`);
+    if(panel) panel.classList.add('active');
 }
 
 /* ── Modal ── */
@@ -643,7 +816,7 @@ function checkStrength() {
     if(v.length < 6) {
         fill.className='strength-fill weak'; label.textContent='Weak — too short'; label.style.color='#ef4444';
     } else if(v.length < 10 || !/[A-Z]/.test(v) || !/[0-9]/.test(v)) {
-        fill.className='strength-fill medium'; label.textContent='Medium — add uppercase &amp; numbers'; label.style.color='#f59e0b';
+        fill.className='strength-fill medium'; label.textContent='Medium — add uppercase & numbers'; label.style.color='#f59e0b';
     } else {
         fill.className='strength-fill strong'; label.textContent='Strong ✓'; label.style.color='#10b981';
     }
@@ -652,32 +825,52 @@ function checkStrength() {
 function checkMatch() {
     const p1 = document.getElementById('pw1').value;
     const p2 = document.getElementById('pw2').value;
-    document.getElementById('addUserBtn').disabled = !(p1 && p2 && p1===p2);
+    const hint = document.getElementById('matchHint');
+    const match = p1 && p2 && p1===p2;
+    document.getElementById('addUserBtn').disabled = !match;
+    if(p2) {
+        hint.style.display='flex';
+        hint.innerHTML = match
+            ? '<i class="fa-solid fa-circle-check" style="color:#10b981;"></i> <span style="color:#10b981;">Passwords match</span>'
+            : '<i class="fa-solid fa-circle-xmark" style="color:#ef4444;"></i> <span style="color:#ef4444;">Passwords do not match</span>';
+    } else {
+        hint.style.display='none';
+    }
 }
 function generatePass() {
     const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%&';
-    const pw = Array.from({length:16}, ()=>chars[Math.floor(Math.random()*chars.length)]).join('');
-    document.getElementById('pw1').value = pw;
-    document.getElementById('pw2').value = pw;
-    document.getElementById('pw1').type = 'text';
+    const pw = Array.from({length:18}, ()=>chars[Math.floor(Math.random()*chars.length)]).join('');
+    const f1 = document.getElementById('pw1');
+    const f2 = document.getElementById('pw2');
+    f1.value = pw; f2.value = pw;
+    f1.type = 'text'; f2.type = 'text';
+    // Update eye icons
+    document.querySelectorAll('button.vp-suffix-btn').forEach((b,i)=>{
+        if([0,1].includes(i)) b.innerHTML='<i class="fa fa-eye-slash"></i>';
+    });
     checkStrength(); checkMatch();
-    toast('Strong password generated!', 'success');
+    toast('18-char password generated!', 'success');
 }
 
 /* ── Steps ── */
 function markStep(n) {
     for(let i=1; i<n; i++) {
-        document.getElementById(`step${i}-circle`).className = 'step-circle done';
-        document.getElementById(`step${i}-circle`).innerHTML = '<i class="fa-solid fa-check" style="font-size:0.7rem;"></i>';
+        const c = document.getElementById(`step${i}-circle`);
+        c.className = 'step-circle done';
+        c.innerHTML = '<i class="fa-solid fa-check" style="font-size:0.7rem;"></i>';
     }
-    document.getElementById(`step${n}-circle`).className = 'step-circle active';
-    document.getElementById(`step${n}-name`).className   = 'step-name active';
+    const ac = document.getElementById(`step${n}-circle`);
+    const an = document.getElementById(`step${n}-name`);
+    if(ac) { ac.className = 'step-circle active'; }
+    if(an) { an.className = 'step-name active'; }
 }
 
 /* ── Add Database ── */
 async function addDatabase(e) {
     e.preventDefault();
     const btn = document.getElementById('addDbBtn');
+    const name = document.getElementById('dbNameInput').value.trim();
+    if(!name) { toast('Please enter a database name.','error'); return; }
     btn.classList.add('loading'); btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating...';
     const fd = new FormData(document.getElementById('addDbForm'));
     try {
@@ -686,13 +879,13 @@ async function addDatabase(e) {
         if(d.status==='success') {
             toast('Database created successfully!','success');
             markStep(2);
-            setTimeout(()=>location.reload(),900);
+            setTimeout(()=>location.reload(), 900);
         } else if(d.status==='exceed') {
-            toast('Database quota limit reached for your package.','error');
+            toast('Database quota limit reached.','error');
         } else {
             toast(d.message||'Failed to create database.','error');
         }
-    } catch { toast('Network error.','error'); }
+    } catch { toast('Network error. Please try again.','error'); }
     btn.classList.remove('loading');
     btn.innerHTML = '<i class="fa-solid fa-database"></i> Create Database';
 }
@@ -707,9 +900,9 @@ async function addDatabaseUser(e) {
         const r = await fetch('/adddatabaseuser/', {method:'POST',body:fd,headers:{'X-CSRFToken':CSRF}});
         const d = await r.json();
         if(d.status==='success') {
-            toast('DB user created!','success');
+            toast('DB user created successfully!','success');
             markStep(2);
-            setTimeout(()=>location.reload(),900);
+            setTimeout(()=>location.reload(), 900);
         } else { toast(d.message||'Failed to create user.','error'); }
     } catch { toast('Network error.','error'); }
     btn.classList.remove('loading');
@@ -722,39 +915,60 @@ async function deleteDB(domain, db, btn) {
     btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>';
     try {
         const fd = new FormData(); fd.append('csrfmiddlewaretoken',CSRF);
-        const r = await fetch(`/dbreomve/admin/${db}/`,{method:'POST',body:fd,headers:{'X-CSRFToken':CSRF}});
+        const r = await fetch(`/dbreomve/${domain}/${db}/`,{method:'POST',body:fd,headers:{'X-CSRFToken':CSRF}});
         const d = await r.json();
         if(d.status==='success') {
             toast('Database deleted.','success');
-            btn.closest('tr').style.transition='opacity 0.4s';
-            btn.closest('tr').style.opacity='0';
-            setTimeout(()=>btn.closest('tr').remove(), 400);
+            const row = btn.closest('tr');
+            row.style.transition='opacity 0.4s, transform 0.4s';
+            row.style.opacity='0'; row.style.transform='translateX(30px)';
+            setTimeout(()=>row.remove(), 420);
         } else { toast(d.message||'Delete failed.','error'); btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-trash"></i> Delete'; }
     } catch { toast('Network error.','error'); btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-trash"></i> Delete'; }
 }
 
 /* ── Delete User ── */
 async function deleteUser(domain, usr, btn) {
-    if(!confirm(`Delete DB user "${usr}"?`)) return;
+    if(!confirm(`Delete DB user "${usr}"? This cannot be undone.`)) return;
     btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>';
     try {
         const fd = new FormData(); fd.append('csrfmiddlewaretoken',CSRF);
-        const r = await fetch(`/dbuserremove/admin/${usr}/`,{method:'POST',body:fd,headers:{'X-CSRFToken':CSRF}});
+        const r = await fetch(`/dbuserremove/${domain}/${usr}/`,{method:'POST',body:fd,headers:{'X-CSRFToken':CSRF}});
         const d = await r.json();
         if(d.status==='success') {
             toast('User deleted.','success');
-            btn.closest('tr').style.transition='opacity 0.4s';
-            btn.closest('tr').style.opacity='0';
-            setTimeout(()=>btn.closest('tr').remove(), 400);
+            const row = btn.closest('tr');
+            row.style.transition='opacity 0.4s, transform 0.4s';
+            row.style.opacity='0'; row.style.transform='translateX(30px)';
+            setTimeout(()=>row.remove(), 420);
         } else { toast(d.message||'Delete failed.','error'); btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-trash"></i>'; }
     } catch { toast('Network error.','error'); btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-trash"></i>'; }
+}
+
+/* ── Revoke Privileges ── */
+async function revokePrivs(db, usr, btn) {
+    if(!confirm(`Revoke all privileges for "${usr}" on "${db}"?`)) return;
+    const origHtml = btn.innerHTML;
+    btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>';
+    try {
+        const fd = new FormData(); fd.append('csrfmiddlewaretoken',CSRF);
+        fd.append('databasename', db); fd.append('databaseusername', usr);
+        const r = await fetch('/revokeprivilege/',{method:'POST',body:fd,headers:{'X-CSRFToken':CSRF}});
+        const d = await r.json();
+        if(d.status==='success') {
+            toast('Privileges revoked.','success');
+            const card = btn.closest('.conn-card');
+            if(card){ card.style.transition='opacity 0.4s'; card.style.opacity='0'; setTimeout(()=>card.remove(),420); }
+        } else { toast(d.message||'Error revoking.','error'); btn.disabled=false; btn.innerHTML=origHtml; }
+    } catch { toast('Network error.','error'); btn.disabled=false; btn.innerHTML=origHtml; }
 }
 
 /* ── Permission Modal ── */
 function openPermModal() {
     const db  = document.getElementById('dbSelect').value;
     const usr = document.getElementById('userSelect').value;
-    if(!db||!usr) { toast('Select both a database and a user first.','error'); return; }
+    if(!db)  { toast('Please select a database.','error'); return; }
+    if(!usr) { toast('Please select a DB user.','error'); return; }
     document.getElementById('permDbName').value   = db;
     document.getElementById('permUserName').value  = usr;
     document.getElementById('perm-db-label').textContent   = db;
@@ -768,43 +982,57 @@ function toggleAllPerms(cb) {
     document.querySelectorAll('.perm-chip').forEach(c => cb.checked ? c.classList.add('active') : c.classList.remove('active'));
 }
 function syncAllCheck() {
-    const all = document.querySelectorAll('.perm-chip').length;
+    const all    = document.querySelectorAll('.perm-chip').length;
     const active = document.querySelectorAll('.perm-chip.active').length;
     document.getElementById('selectAllPerms').checked = all===active;
 }
 async function grantPerms() {
-    const active = [...document.querySelectorAll('.perm-chip.active')];
-    if(!active.length) { toast('Select at least one privilege.','error'); return; }
+    const chips = [...document.querySelectorAll('.perm-chip.active')];
+    if(!chips.length) { toast('Select at least one privilege.','error'); return; }
     const fd = new FormData(document.getElementById('permForm'));
-    active.forEach(c => fd.append(c.dataset.perm.toLowerCase(), c.dataset.perm));
+    chips.forEach(c => fd.append(c.dataset.perm.toLowerCase(), c.dataset.perm));
     try {
         const r = await fetch('/addpermissiontouser/',{method:'POST',body:fd,headers:{'X-CSRFToken':CSRF}});
         const d = await r.json();
         closeModal('permOverlay');
-        toast(d.status==='success'?'Privileges granted successfully!':d.message||'Error granting privileges.',
-              d.status==='success'?'success':'error');
-        if(d.status==='success') markStep(3);
+        if(d.status==='success') {
+            toast('Privileges granted successfully!','success');
+            markStep(3);
+            setTimeout(()=>location.reload(),1200);
+        } else { toast(d.message||'Error granting privileges.','error'); }
     } catch { toast('Network error.','error'); }
 }
 
 /* ── Change Password Modal ── */
 function openChpModal(usr) {
-    document.getElementById('chpUsername').value       = usr;
+    document.getElementById('chpUsername').value = usr;
     document.getElementById('chp-user-display').textContent = usr;
-    document.getElementById('chpPw').value             = '';
+    document.getElementById('chpPw').value = '';
+    document.getElementById('chpPw').type = 'password';
     openModal('chpOverlay');
 }
 async function changePass() {
+    const pw = document.getElementById('chpPw').value;
+    if(!pw || pw.length < 6) { toast('Password must be at least 6 characters.','error'); return; }
     const fd = new FormData(document.getElementById('chpForm'));
-    if(!document.getElementById('chpPw').value) { toast('Enter a new password.','error'); return; }
     try {
         const r = await fetch('/changepasswordforuser/',{method:'POST',body:fd,headers:{'X-CSRFToken':CSRF}});
         const d = await r.json();
         closeModal('chpOverlay');
-        toast(d.status==='success'?'Password updated!':d.message||'Error changing password.',
-              d.status==='success'?'success':'error');
+        toast(d.status==='success' ? 'Password updated successfully!' : d.message||'Error changing password.',
+              d.status==='success' ? 'success' : 'error');
     } catch { toast('Network error.','error'); }
 }
+
+/* ── Animate stat bar caps ── */
+window.addEventListener('load', ()=>{
+    const total = {{ database|length }};
+    const bar = document.getElementById('statDbBar');
+    if(bar && total > 0) {
+        const pct = Math.min(100, total * 4); // visual scale, not literal %
+        bar.style.width = pct + '%';
+    }
+});
 </script>
 </body>
 </html>

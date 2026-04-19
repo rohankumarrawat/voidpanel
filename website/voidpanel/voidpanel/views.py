@@ -1,6 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
 from smtplib import SMTPException
+import json
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -19,6 +20,8 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from data.models import (
     CustomerProfile,
+    HostingPackage,
+    HostingPricingSettings,
     HostingService,
     Installed,
     Invoice,
@@ -138,10 +141,140 @@ def increment_number(request):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+def ensure_default_hosting_catalog():
+    pricing, _ = HostingPricingSettings.objects.get_or_create(
+        id=1,
+        defaults={
+            'title': 'Primary Pricing Rules',
+            'storage_price_per_10gb': Decimal('1.50'),
+            'ram_price_per_1gb': Decimal('4.00'),
+            'cpu_price_per_core': Decimal('8.00'),
+            'bandwidth_100gb_price': Decimal('5.00'),
+            'bandwidth_500gb_price': Decimal('12.00'),
+            'bandwidth_1000gb_price': Decimal('20.00'),
+            'bandwidth_unmetered_price': Decimal('35.00'),
+            'storage_min_gb': 10,
+            'storage_max_gb': 500,
+            'ram_min_gb': 1,
+            'ram_max_gb': 32,
+            'cpu_min_cores': 1,
+            'cpu_max_cores': 16,
+            'quarterly_discount_percent': 0,
+            'annual_discount_percent': 10,
+        },
+    )
+    defaults = [
+        {
+            'name': 'Starter',
+            'slug': 'starter',
+            'short_description': 'Great for a first website or lightweight applications.',
+            'storage_gb': 25,
+            'ram_gb': 2,
+            'cpu_cores': 1,
+            'bandwidth_label': '500GB',
+            'allowed_domains': 1,
+            'monthly_price': Decimal('19.00'),
+            'sort_order': 1,
+        },
+        {
+            'name': 'Professional',
+            'slug': 'professional',
+            'short_description': 'Balanced compute for production workloads and growing businesses.',
+            'storage_gb': 80,
+            'ram_gb': 8,
+            'cpu_cores': 4,
+            'bandwidth_label': '1TB',
+            'allowed_domains': 10,
+            'monthly_price': Decimal('49.00'),
+            'is_featured': True,
+            'sort_order': 2,
+        },
+        {
+            'name': 'Business',
+            'slug': 'business',
+            'short_description': 'Higher performance footprint for agencies and serious multi-site hosting.',
+            'storage_gb': 200,
+            'ram_gb': 16,
+            'cpu_cores': 8,
+            'bandwidth_label': 'Unmetered',
+            'allowed_domains': 50,
+            'monthly_price': Decimal('99.00'),
+            'sort_order': 3,
+        },
+    ]
+    for item in defaults:
+        HostingPackage.objects.get_or_create(slug=item['slug'], defaults=item)
+    return pricing
+
+
+def _bandwidth_choices(pricing):
+    return [
+        {'value': '100GB', 'label': '100GB', 'price': float(pricing.bandwidth_100gb_price)},
+        {'value': '500GB', 'label': '500GB', 'price': float(pricing.bandwidth_500gb_price)},
+        {'value': '1TB', 'label': '1TB', 'price': float(pricing.bandwidth_1000gb_price)},
+        {'value': 'Unmetered', 'label': 'Unmetered', 'price': float(pricing.bandwidth_unmetered_price)},
+    ]
+
+
 # ─── Page Views ─────────────────────────────────────────────────────────────────
 
 def index(request):
     return render(request, "index.html")
+
+
+def pricing(request):
+    pricing_settings = ensure_default_hosting_catalog()
+    packages = HostingPackage.objects.filter(is_active=True).order_by('sort_order', 'monthly_price')
+    builder_config = {
+        'storage': {
+            'min': pricing_settings.storage_min_gb,
+            'max': pricing_settings.storage_max_gb,
+            'step': 10,
+            'pricePerStep': float(pricing_settings.storage_price_per_10gb),
+            'default': max(pricing_settings.storage_min_gb, 50),
+        },
+        'ram': {
+            'min': pricing_settings.ram_min_gb,
+            'max': pricing_settings.ram_max_gb,
+            'step': 1,
+            'pricePerStep': float(pricing_settings.ram_price_per_1gb),
+            'default': max(pricing_settings.ram_min_gb, 4),
+        },
+        'cpu': {
+            'min': pricing_settings.cpu_min_cores,
+            'max': pricing_settings.cpu_max_cores,
+            'step': 1,
+            'pricePerStep': float(pricing_settings.cpu_price_per_core),
+            'default': max(pricing_settings.cpu_min_cores, 2),
+        },
+        'bandwidthChoices': _bandwidth_choices(pricing_settings),
+        'discounts': {
+            'monthly': 0,
+            'quarterly': pricing_settings.quarterly_discount_percent,
+            'annually': pricing_settings.annual_discount_percent,
+        },
+    }
+    return render(
+        request,
+        "pricing.html",
+        {
+            'packages': packages,
+            'builder_config': builder_config,
+            'pricing_settings': pricing_settings,
+        },
+    )
+
+
+def order_summary(request):
+    pricing_settings = ensure_default_hosting_catalog()
+    builder_config = {
+        'discounts': {
+            'monthly': 0,
+            'quarterly': pricing_settings.quarterly_discount_percent,
+            'annually': pricing_settings.annual_discount_percent,
+        }
+    }
+    return render(request, "order_summary.html", {'builder_config': builder_config})
 
 
 def aboutus(request):
@@ -730,11 +863,59 @@ def _handle_super_admin_post(request):
             except Exception as exc:
                 messages.error(request, f"SMTP test failed for {profile.profile_name}: {exc}")
             return _super_admin_redirect(request, '/super-admin/emails/')
+
+    if action == 'create_hosting_package':
+        name = request.POST.get('name', '').strip()
+        slug = slugify(request.POST.get('slug', '').strip() or name)
+        if not name or not slug:
+            messages.error(request, "Package name is required")
+            return _super_admin_redirect(request, '/super-admin/hosting/')
+        if HostingPackage.objects.filter(slug=slug).exists():
+            messages.error(request, "A package with that slug already exists")
+            return _super_admin_redirect(request, '/super-admin/hosting/')
+        HostingPackage.objects.create(
+            name=name,
+            slug=slug,
+            short_description=request.POST.get('short_description', '').strip(),
+            storage_gb=int(request.POST.get('storage_gb') or 25),
+            ram_gb=int(request.POST.get('ram_gb') or 2),
+            cpu_cores=int(request.POST.get('cpu_cores') or 1),
+            bandwidth_label=request.POST.get('bandwidth_label', '500GB').strip(),
+            allowed_domains=int(request.POST.get('allowed_domains') or 1),
+            monthly_price=Decimal(request.POST.get('monthly_price') or '0'),
+            is_featured=bool(request.POST.get('is_featured')),
+            is_active=bool(request.POST.get('is_active')),
+            sort_order=int(request.POST.get('sort_order') or 0),
+        )
+        messages.success(request, "Hosting package created")
+        return _super_admin_redirect(request, '/super-admin/hosting/')
+
+    if action == 'update_pricing_settings':
+        settings_obj = ensure_default_hosting_catalog()
+        settings_obj.storage_price_per_10gb = Decimal(request.POST.get('storage_price_per_10gb') or '1.50')
+        settings_obj.ram_price_per_1gb = Decimal(request.POST.get('ram_price_per_1gb') or '4.00')
+        settings_obj.cpu_price_per_core = Decimal(request.POST.get('cpu_price_per_core') or '8.00')
+        settings_obj.bandwidth_100gb_price = Decimal(request.POST.get('bandwidth_100gb_price') or '5.00')
+        settings_obj.bandwidth_500gb_price = Decimal(request.POST.get('bandwidth_500gb_price') or '12.00')
+        settings_obj.bandwidth_1000gb_price = Decimal(request.POST.get('bandwidth_1000gb_price') or '20.00')
+        settings_obj.bandwidth_unmetered_price = Decimal(request.POST.get('bandwidth_unmetered_price') or '35.00')
+        settings_obj.storage_min_gb = int(request.POST.get('storage_min_gb') or 10)
+        settings_obj.storage_max_gb = int(request.POST.get('storage_max_gb') or 500)
+        settings_obj.ram_min_gb = int(request.POST.get('ram_min_gb') or 1)
+        settings_obj.ram_max_gb = int(request.POST.get('ram_max_gb') or 32)
+        settings_obj.cpu_min_cores = int(request.POST.get('cpu_min_cores') or 1)
+        settings_obj.cpu_max_cores = int(request.POST.get('cpu_max_cores') or 16)
+        settings_obj.quarterly_discount_percent = int(request.POST.get('quarterly_discount_percent') or 0)
+        settings_obj.annual_discount_percent = int(request.POST.get('annual_discount_percent') or 10)
+        settings_obj.save()
+        messages.success(request, "Builder pricing settings updated")
+        return _super_admin_redirect(request, '/super-admin/hosting/')
     return None
 
 
 def _build_super_admin_context(active_page):
     ensure_default_staff_roles()
+    pricing_settings = ensure_default_hosting_catalog()
     _ensure_staff_profile(
         User.objects.filter(is_superuser=True).first() or User.objects.filter(is_staff=True).first(),
         role=StaffRole.objects.filter(can_manage_staff=True).first(),
@@ -754,6 +935,7 @@ def _build_super_admin_context(active_page):
     recent_clients = User.objects.filter(is_staff=False).order_by('-date_joined')[:6]
     recent_tickets = SupportTicket.objects.select_related('user').all()[:6]
     email_profiles = OutboundEmailProfile.objects.all()
+    hosting_packages = HostingPackage.objects.all()
     super_admin_count = staff_profiles.filter(user__is_superuser=True).count()
     portal_admin_count = staff_profiles.filter(is_portal_admin=True).count()
     billing_role_count = StaffRole.objects.filter(can_manage_billing=True).count()
@@ -773,6 +955,9 @@ def _build_super_admin_context(active_page):
         'email_purpose_choices': EMAIL_PURPOSE_CHOICES,
         'email_profiles': email_profiles,
         'email_profiles_by_purpose': email_profiles_by_purpose,
+        'hosting_packages': hosting_packages,
+        'pricing_settings': pricing_settings,
+        'builder_bandwidth_choices': _bandwidth_choices(pricing_settings),
         'roles': roles,
         'staff_profiles': staff_profiles,
         'recent_clients': recent_clients,
@@ -826,6 +1011,18 @@ def super_admin_emails(request):
         if handled:
             return handled
     return render(request, 'super_admin_emails.html', _build_super_admin_context('emails'))
+
+
+@login_required(login_url='/login/')
+def super_admin_hosting(request):
+    denied = _super_admin_guard(request)
+    if denied:
+        return denied
+    if request.method == 'POST':
+        handled = _handle_super_admin_post(request)
+        if handled:
+            return handled
+    return render(request, 'super_admin_hosting.html', _build_super_admin_context('hosting'))
 
 
 @login_required(login_url='/login/')

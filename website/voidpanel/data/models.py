@@ -256,3 +256,52 @@ class OutboundEmailProfile(models.Model):
 
     def __str__(self):
         return self.profile_name
+
+
+class HostingPackage(models.Model):
+    name = models.CharField(max_length=80)
+    slug = models.SlugField(max_length=90, unique=True)
+    short_description = models.CharField(max_length=180, blank=True)
+    storage_gb = models.PositiveIntegerField(default=25)
+    ram_gb = models.PositiveIntegerField(default=2)
+    cpu_cores = models.PositiveIntegerField(default=1)
+    bandwidth_label = models.CharField(max_length=40, default='500GB')
+    allowed_domains = models.PositiveIntegerField(default=1)
+    monthly_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    is_featured = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['sort_order', 'monthly_price']
+
+    def __str__(self):
+        return self.name
+
+
+class HostingPricingSettings(models.Model):
+    title = models.CharField(max_length=120, default='Primary Pricing Rules')
+    storage_price_per_10gb = models.DecimalField(max_digits=8, decimal_places=2, default=1.50)
+    ram_price_per_1gb = models.DecimalField(max_digits=8, decimal_places=2, default=4.00)
+    cpu_price_per_core = models.DecimalField(max_digits=8, decimal_places=2, default=8.00)
+    bandwidth_100gb_price = models.DecimalField(max_digits=8, decimal_places=2, default=5.00)
+    bandwidth_500gb_price = models.DecimalField(max_digits=8, decimal_places=2, default=12.00)
+    bandwidth_1000gb_price = models.DecimalField(max_digits=8, decimal_places=2, default=20.00)
+    bandwidth_unmetered_price = models.DecimalField(max_digits=8, decimal_places=2, default=35.00)
+    storage_min_gb = models.PositiveIntegerField(default=10)
+    storage_max_gb = models.PositiveIntegerField(default=500)
+    ram_min_gb = models.PositiveIntegerField(default=1)
+    ram_max_gb = models.PositiveIntegerField(default=32)
+    cpu_min_cores = models.PositiveIntegerField(default=1)
+    cpu_max_cores = models.PositiveIntegerField(default=16)
+    quarterly_discount_percent = models.PositiveIntegerField(default=0)
+    annual_discount_percent = models.PositiveIntegerField(default=10)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = 'Hosting pricing settings'
+
+    def __str__(self):
+        return self.title

@@ -199,6 +199,9 @@ STATICFILES_DIRS = [
 _csrf_env = _os.environ.get('DJANGO_CSRF_ORIGINS', '').strip()
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_env.split(',') if o.strip()] if _csrf_env else []
 
+# Critical for HTTPS proxying (e.g. Nginx on port 8082 proxying to 8080) to pass CSRF validation
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 # Optional: Additional static file storage settings
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
