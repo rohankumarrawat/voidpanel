@@ -1,775 +1,430 @@
+{% load static %}
 <!doctype html>
 <html lang="en">
-
 <head>
-    <title>:: VoidPanel :: FTP</title>
+    <title>FTP Accounts | VoidPanel Admin</title>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="VoidPanel FTP ">
-    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
-
-    <!-- VENDOR CSS -->
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
-    <!-- Font Awesome 6 -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
-    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
-
-
-    <!-- MAIN Project CSS file -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
 
-    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
     <style>
-        /* Basic styling for the p tag */
-        p.processing {
-            font-size: 18px;
-            font-weight: bold;
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body, #wrapper { background: #09090f !important; font-family: 'Inter', sans-serif !important; color: #f1f5f9; }
 
+        #main-content {
+            padding: 32px 28px;
+            background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 24px 24px;
+            min-height: 100vh;
         }
 
-        /* Animation for the dots */
-        .dots::after {
-            content: '';
-            display: inline-block;
-            width: 1em;
-            text-align: left;
-            animation: dots 1.5s steps(4, end) infinite;
-        }
+        /* Page Header */
+        .page-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:32px; flex-wrap:wrap; gap:16px; }
+        .ph-left { display:flex; align-items:center; gap:16px; }
+        .ph-icon { width:52px; height:52px; border-radius:14px; background:rgba(234,88,12,0.1); border:1px solid rgba(234,88,12,0.25); display:flex; align-items:center; justify-content:center; font-size:1.5rem; color:#ea580c; flex-shrink:0; }
+        .ph-title { font-size:1.7rem; font-weight:900; letter-spacing:-0.02em; }
+        .ph-sub { font-size:0.78rem; color:#64748b; margin-top:4px; }
+        .ph-sub a { color:#475569; text-decoration:none; }
 
-        /* Keyframes for the dots animation */
-        @keyframes dots {
+        /* Grid */
+        .grid-layout { display: grid; grid-template-columns: 360px 1fr; gap: 24px; align-items: start; }
+        @media(max-width:992px) { .grid-layout { grid-template-columns: 1fr; } }
 
-            0%,
-            100% {
-                content: '';
-            }
+        /* Card styles */
+        .glass-card { background:rgba(15,20,35,0.6); border:1px solid rgba(255,255,255,0.07); border-radius:18px; padding:24px; backdrop-filter:blur(14px); }
+        .card-header-title { font-size:1.05rem; font-weight:800; color:#fff; margin-bottom:20px; display:flex; align-items:center; gap:10px; }
+        .card-header-title i { color:#ea580c; }
+        
+        .form-group label { font-size: 0.8rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; display: block; }
+        
+        /* Inputs & Groups */
+        .input-group { border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); transition: border-color 0.2s; background: rgba(0,0,0,0.2); }
+        .input-group:focus-within { border-color: #ea580c; box-shadow: 0 0 0 3px rgba(234,88,12,0.15); }
+        .input-group-text { background: rgba(255,255,255,0.03) !important; border: none !important; color: #94a3b8 !important; font-weight: 600; font-size: 0.85rem; padding: 10px 14px; }
+        .form-control { background: transparent !important; border: none !important; color: #f1f5f9 !important; padding: 10px 14px !important; box-shadow: none !important; }
+        .form-control-standalone { background: rgba(0,0,0,0.2) !important; border: 1px solid rgba(255,255,255,0.08) !important; border-radius: 10px !important; color: #f1f5f9 !important; padding: 10px 14px !important; transition: all 0.2s !important; width: 100%; box-shadow: none !important;}
+        .form-control-standalone:focus { outline: none !important; border-color: #ea580c !important; box-shadow: 0 0 0 3px rgba(234,88,12,0.15) !important; }
+        input[type="password"] { font-family: 'JetBrains Mono', monospace; }
 
-            25% {
-                content: '.';
-            }
+        /* Buttons */
+        .btn-primary { background: linear-gradient(135deg, #f97316, #ea580c) !important; border: none !important; border-radius: 10px !important; padding: 12px 20px !important; font-weight: 700 !important; letter-spacing: 0.02em !important; display: flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important; transition: all 0.2s !important; width: 100%; box-shadow: 0 4px 12px rgba(234,88,12,0.3) !important; }
+        .btn-primary:hover:not(:disabled) { transform: translateY(-2px) !important; box-shadow: 0 6px 16px rgba(234,88,12,0.4) !important; filter: brightness(1.1); }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+        
+        .btn-secondary { background: rgba(255,255,255,0.05) !important; border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 8px !important; color: #f1f5f9 !important; font-weight: 600 !important; padding: 8px 14px !important; transition: background 0.2s !important; font-size: 0.8rem; }
+        .btn-secondary:hover { background: rgba(255,255,255,0.1) !important; }
 
-            50% {
-                content: '..';
-            }
+        .btn-danger-sm { background: rgba(248,113,113,0.1) !important; border: 1px solid rgba(248,113,113,0.2) !important; color: #f87171 !important; border-radius: 8px !important; padding: 6px 12px !important; font-size: 0.8rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s; }
+        .btn-danger-sm:hover { background: rgba(248,113,113,0.2) !important; color: #fecaca !important; }
 
-            75% {
-                content: '...';
-            }
-        }
+        .btn-outline-sm { background: transparent !important; border: 1px solid rgba(255,255,255,0.15) !important; color: #e2e8f0 !important; border-radius: 8px !important; padding: 6px 12px !important; font-size: 0.8rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s; }
+        .btn-outline-sm:hover { background: rgba(255,255,255,0.05) !important;}
+
+        /* Table */
+        .table { width: 100%; border-collapse: separate; border-spacing: 0; margin-bottom: 0; }
+        .table th { background: rgba(0,0,0,0.2); border: none !important; color: #94a3b8; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.05) !important; }
+        .table th:first-child { border-top-left-radius: 12px; }
+        .table th:last-child { border-top-right-radius: 12px; text-align: right; }
+        .table td { background: transparent; border: none !important; border-bottom: 1px solid rgba(255,255,255,0.03) !important; color: #e2e8f0; font-size: 0.9rem; padding: 14px 16px; vertical-align: middle; }
+        .table tr:last-child td { border-bottom: none !important; }
+        .table td:last-child { text-align: right; }
+        .table tr:hover td { background: rgba(255,255,255,0.02); }
+
+        .ftp-user-col { font-weight: 600; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; }
+        
+        .action-flex { display: flex; gap: 8px; justify-content: flex-end; }
+
+        .text-hint { font-size: 0.75rem; color: #64748b; margin-top: 6px; line-height: 1.4; display: block; }
+        
+        .match-msg { font-size: 0.75rem; font-weight: 600; margin-top: 4px; display: block; }
+        .match-msg.matched { color: #34d399; }
+        .match-msg.unmatched { color: #f87171; }
+
+        /* Toast overlay */
+        .toast-overlay { position:fixed; bottom:28px; right:28px; z-index:9999; display:flex; flex-direction:column; gap:10px; pointer-events:none; }
+        .toast-item { background:rgba(15,20,35,0.97); border:1px solid rgba(255,255,255,0.1); border-radius:14px; padding:14px 18px; min-width:280px; display:flex; align-items:center; gap:12px; backdrop-filter:blur(20px); pointer-events:all; animation:slideUp .25s ease; }
+        @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+        .toast-item.success { border-left:3px solid #34d399; }
+        .toast-item.error   { border-left:3px solid #f87171; }
+        .toast-item.info    { border-left:3px solid #ea580c; }
+        .toast-icon  { font-size:1.05rem; }
+        .toast-msg   { font-size:.82rem; color:#cbd5e1; line-height:1.5; }
+
+        /* Simple Modal */
+        .neo-modal { display: none; position: fixed; inset: 0; z-index: 1050; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); align-items: center; justify-content: center; }
+        .neo-modal.show { display: flex; animation: fadeModal 0.2s ease; }
+        .neo-modal-content { background: #0f1423; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; width: 100%; max-width: 420px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); overflow: hidden; }
+        .neo-modal-header { padding: 18px 24px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; }
+        .neo-modal-title { font-size: 1.05rem; font-weight: 700; color: #fff; }
+        .neo-modal-close { background: none; border: none; color: #64748b; cursor: pointer; font-size: 1.2rem; }
+        .neo-modal-body { padding: 24px; }
+        .neo-modal-footer { padding: 16px 24px; background: rgba(0,0,0,0.2); border-top: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: flex-end; gap: 10px; }
+        @keyframes fadeModal { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        
+        .loading-dots::after { content: ''; display: inline-block; width: 1em; text-align: left; animation: dots 1.5s steps(4, end) infinite; }
+        @keyframes dots { 0%,100% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
     </style>
-    <style>
-        .myname {
-            border-radius: 30px;
-            box-shadow: inset;
-            border-width: 4px;
-
-
-        }
-
-        .text-container {
-
-            border: 1px solid #ccc;
-
-            word-wrap: break-word;
-            /* Force text to wrap */
-            white-space: normal;
-            /* Ensure normal wrapping */
-            overflow-wrap: break-word;
-            /* Ensure long words break */
-        }
-    </style>
-
 </head>
-
-<body data-theme="light" class="font-nunito">
-
-    <div id="wrapper" class="theme-cyan">
-
-        <!-- Page Loader -->
-        <div class="page-loader-wrapper">
-            <div class="loader">
-
-                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
-                </div>
-                <p>Please wait...</p>
-            </div>
+<body data-theme="dark">
+<div id="wrapper">
+    <div class="page-loader-wrapper">
+        <div class="loader">
+            <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel"></div>
+            <p>Please wait...</p>
         </div>
+    </div>
 
+    {% include 'control/navbar.html' %}
+    {% include 'control/left.html' %}
+    {% include 'control/right.html' %}
 
+    <div class="toast-overlay" id="toastArea"></div>
 
-        {% include 'control/navbar.html' %}
-
-        <!-- main left menu -->
-        {% include 'control/left.html' %}
-        <!-- rightbar icon div -->
-        {% include 'control/right.html' %}
-
-
-        <!-- mani page content body part -->
-
-        <div id="main-content">
-
-            <div class="container-fluid">
-                <div class="block-header">
-                    <div class="row">
-                        <div class="col-lg-10 col-md-6 col-sm-12">
-                            <h2>Create Backup</h2>
-                            <ul class="breadcrumb">
-                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
-                                </li>
-                                <li class="breadcrumb-item">Dashboard</li>
-                                <li class="breadcrumb-item">Create FTP Account</li>
-
-                            </ul>
-                        </div>
-
-
-
-
-
-
-
+    <div id="main-content">
+        <div style="max-width:1280px;margin:0 auto;">
+            
+            <!-- Header -->
+            <div class="page-header">
+                <div class="ph-left">
+                    <div class="ph-icon"><i class="fa-solid fa-network-wired"></i></div>
+                    <div>
+                        <h1 class="ph-title">FTP Accounts</h1>
+                        <p class="ph-sub">
+                            <a href="/"><i class="fa fa-home"></i></a>
+                            <span style="margin:0 6px;opacity:.3">/</span>Domain
+                            <span style="margin:0 6px;opacity:.3">/</span>
+                            <span style="color:#ea580c">{{domain}}</span>
+                        </p>
                     </div>
                 </div>
+            </div>
 
-                <div class="row clearfix">
-                    <div class="col-lg-12">
-
-                        <div class="">
-                            <div class="header">
-                                <h2 style="display: inline-block;">FTP Account</h2>
-
-                                <img src="/static/icons/ftp.png" style="height: 80px; width: 80px; border-radius: 5%;">
-
-
+            <div class="grid-layout">
+                <!-- Create FTP Form -->
+                <div class="glass-card">
+                    <h3 class="card-header-title"><i class="fa-solid fa-user-plus"></i> New Account</h3>
+                    <form id="ftpadd" method="post" action="">
+                        {% csrf_token %}
+                        <input type="password" name="domain" value="{{domain}}" hidden>
+                        
+                        <div class="form-group mb-3">
+                            <label>Username</label>
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text">{{dir}}_</span>
+                                </div>
+                                <input required type="text" oninput="removeSpacesAndSpecialChars(this);" name="username" class="form-control" placeholder="user123">
                             </div>
-
-
                         </div>
-                    </div>
+
+                        <div class="form-group mb-3">
+                            <label>Password</label>
+                            <input required type="password" name="password" id="password" class="form-control-standalone mb-2" placeholder="Password">
+                            <input required type="password" name="password1" id="password1" class="form-control-standalone" placeholder="Confirm Password" oninput="confirmPass();">
+                            <span id="match" class="match-msg"></span>
+                        </div>
+
+                        <div class="d-flex gap-2 mb-4">
+                            <button type="button" class="btn-secondary flex-grow-1" onclick="genPass();"><i class="fa-solid fa-key"></i> Generate</button>
+                            <button type="button" class="btn-secondary" onclick="togglePass();" title="Toggle visibility"><i class="fa-solid fa-eye" id="eyeIcon"></i></button>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label>Quota & Path</label>
+                            <div class="input-group mb-2">
+                                <input required type="text" oninput="removeSpacesAndSpecialChar(this);" name="storage" class="form-control" placeholder="0">
+                                <div class="input-group-append">
+                                    <span class="input-group-text">MB</span>
+                                </div>
+                            </div>
+                            <span class="text-hint mb-3">Set to 0 for Unlimited storage.</span>
+
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text">/home/{{dir}}/</span>
+                                </div>
+                                <input required type="text" name="path" class="form-control" placeholder="public_html">
+                            </div>
+                        </div>
+
+                        <button disabled id="addemailbtn" onclick="ftpaddFunc(event);" class="btn btn-primary">
+                            <i class="fa-solid fa-plus"></i> Create Account
+                        </button>
+                    </form>
                 </div>
 
-                <div class="row clearfix " style="margin-top: 30px;">
-
-
-
-
-
-                </div>
-<script>
-    function removeSpacesAndSpecialChars(input) {
-                // Regular expression to remove any non-alphanumeric characters (including spaces)
-                const regex = /[^a-zA-Z0-9_-]/g;
-
-                // Replace any spaces or special characters with an empty string
-                input.value = input.value.replace(regex, '');
-            }
-
-            function removeSpacesAndSpecialChar(input) {
-                // Regular expression to remove any non-alphanumeric characters (including spaces)
-                const regex = /[^0-9]/g;
-
-                // Replace any spaces or special characters with an empty string
-                input.value = input.value.replace(regex, '');
-            }
-            function confirm(input) {
-                const password = document.getElementById('password').value;
-                const password1 = document.getElementById('password1').value;
-                const pri = document.getElementById('match');
-                if (password === password1) {
-                    pri.innerHTML = "Password Matched !";
-                    document.getElementById('addemailbtn').disabled = false;
-                } else {
-                    pri.innerHTML = 'Passwords do not match!';
-                    document.getElementById('addemailbtn').disabled = true;
-                }
-
-
-            }
-            function gen(){
-                // Define characters to include in the password
-                const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+~";
-
-                let password = "";
-
-                // Loop to generate 8 characters randomly
-                for (let i = 0; i < 10; i++) {
-                    const randomIndex = Math.floor(Math.random() * chars.length);
-                    password += chars[randomIndex];
-                }
-
-                passw = document.getElementById('password');
-                passw1 = document.getElementById('password1');
-                passw.value = password;
-                passw1.value = password;
-                passw.placeholder = password;
-                passw1.placeholder = password;
-  
-                document.getElementById('addemailbtn').disabled = false;
-            }
-                function genshow(input) {
-                const password = document.getElementById('password');
-                const password1 = document.getElementById('password1');
-                if (password.type === "password") {
-                    password.type = "text";
-                    password1.type = "text";
-                } else {
-                    password.type = "password";
-                    password1.type = "password";
-                }
-            }
-</script>
-
-                <div class="row clearfix" style="margin-top: 30px;">
-                    <div class="col-lg-4 col-md-12">
-                        <div style="margin-left: 20px;" class="p-2 m-2">
-                            <form id="ftpadd" method="post" action="">{% csrf_token %}
-                                <div class="input-group mb-3">
-                                   
-                                    <div class="input-group-append">
-                                        <span class="input-group-text" id="basic-addon2">{{dir}}_</span>
-                                    </div>
-                                    <input required type="text" id="textInput"
-                                    oninput="removeSpacesAndSpecialChars(this);" name="username"
-                                    class="form-control" placeholder="username" aria-label="Recipient's username"
-                                    aria-describedby="basic-addon2">
-                                </div>
-                                <div class="form-group">
-                                    <input required type="password" name="password" placeholder="Password" id="password"
-                                        class="form-control">
-
-                                    <input type="password" name="domain" value="{{domain}}" hidden class="form-control">
-
-                                </div>
-                                <div id="match" class="form-group">
-
-
-                                </div>
-                                <div class="form-group">
-                                    <input required  type="password" oninput="confirm(this);" name="password1"
-                                        placeholder="Confirm Password" id="password1" class="form-control">
-
-                                </div>
-                                <div class="row clearfix">
-                                    <div class="col-md-8 col-sm-12">
-                                        <div class="form-group">
-                                            <button  type="button" class="btn btn-secondary" onclick="gen();">Generate
-                                                Password</button>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4 col-sm-12">
-                                        <div class="form-group">
-                                            <button type="button" class="btn btn-primary" onclick="genshow();"><i
-                                                    class="fa  icon-eye"> </i></button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="input-group mb-3">
-                                    <input required type="text" id="textInput"
-                                        oninput="removeSpacesAndSpecialChar(this);" name="storage"
-                                        class="form-control" placeholder="10" >
-                                    <div class="input-group-append">
-                                        <span class="input-group-text" id="basic-addon2">(In MB)</span>
-                                    </div>
-                                    
-                                </div>
-                                <p>0 for Unlimited</p>
-
-                                <div class="input-group mb-3">
-                                    <div class="input-group-append">
-                                        <span class="input-group-text" id="basic-addon2">/home/{{dir}}/</span>
-                                    </div>
-                                    <input required type="text" id="textInput"
-                                        name="path"
-                                        class="form-control" placeholder="10" >
-                                   
-                                    
-                                </div>
-                                
-
-                                <div class="modal-footer">
-                                    <button disabled id="addemailbtn" onclick="ftpadd(event);" class="btn btn-primary p-2 m-2">Add Account</button>
-                            </form>
-                        </div>
+                <!-- FTP Accounts List -->
+                <div class="glass-card" style="padding:0; overflow:hidden;">
+                    <div style="padding:24px 24px 16px 24px;">
+                        <h3 class="card-header-title" style="margin-bottom:0;"><i class="fa-solid fa-users-gear"></i> Active Accounts</h3>
                     </div>
                     
-                </div>
-
-                <div class="col-lg-8 col-md-12">
-                    <div class="">
-                        <div class="header">
-                            <h4>FTP Info</h4>
-                        </div>
-                        <div class="body table-responsive social_media_table"
-                            style="max-height: 300px; overflow-y: auto;">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-
-                                        <th>User</th>
-                                        <!-- <th> Storage Used</th> -->
-
-                                        <th>Change Storage</th>
-                                        <th>Change Password</th>
-                                        
-                                        <th>Delete Account</th>
-
-                                    </tr>
-                                </thead>
-                                <tbody>
-
-
-
+                    <div class="table-responsive" style="max-height: 500px;">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>FTP Username</th>
+                                    <th>Directory</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if ftp %}
                                     {% for i in ftp %}
                                     <tr>
-
-
-                                        <td>{{ i.username }}</td>
-
-                                        <!-- <td> <div id="progress" style="display: block;">
-                                            <div class="progress">
-                                                <div id="pbar" class="progress-bar progress-bar-success progress-bar-striped active"
-                                                    role="progressbar" aria-valuenow="{{i.storage}}" aria-valuemin="0" aria-valuemax="100"
-                                                    style="width: 5%">
-                    
-                                                </div>
-                    
-                                            </div>
-                                        </div></td> -->
-
-                                        <td> <button onclick="changestorage('{{i.username}}');"
-                                            class="btn btn-secondary"> Change Storage
-                                        </button></td>
-
-                                        <td>  <button onclick="changepassword('{{i.username}}');"
-                                            class="btn btn-secondary"> Change Password
-                                        </button></td>
-
+                                        <td><span class="ftp-user-col">{{ i.username }}</span></td>
+                                        <td><span style="color:#94a3b8;font-size:0.8rem;">(Root dir)</span></td>
                                         <td>
-
-                                            <a href="/control/deleteftp/{{ i.username }}/"> <button
-                                                    class="btn btn-danger"> Delete Account
-                                                </button></a>
+                                            <div class="action-flex">
+                                                <button onclick="openStorageModal('{{i.username}}');" class="btn-outline-sm" title="Change Quota"><i class="fa-solid fa-hard-drive"></i> Quota</button>
+                                                <button onclick="openPasswordModal('{{i.username}}');" class="btn-outline-sm" title="Change Password"><i class="fa-solid fa-lock"></i> Pass</button>
+                                                <a href="/control/deleteftp/{{ i.username }}/" class="btn-danger-sm" title="Delete"><i class="fa-solid fa-trash"></i></a>
+                                            </div>
                                         </td>
                                     </tr>
                                     {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-
-
-
-
-
-
-
-
-
-
-
-        </div>
-
-    </div>
-    
-    <div class="modal animated fadeIn show" id="changestorage" style="display: none; margin-top: 300px;">
-        <div class="modal-dialog modal-sm" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h6 class="title" id="defaultModalLabel">Change Storage</h6>
-                </div>
-                <form id="chstorage" method="post" action="">{% csrf_token %}
-                    <div class="modal-body">
-                        <div class="row clearfix">
-                            <div class="col-md-12 col-sm-12">
-                                <div class="form-group">
-                      
-                                  <p id="str"></p>
-                                    <input type="text" oninput="removeSpacesAndSpecialChar(this);" name="storage" id="myInput6" required class="form-control"
-                                        placeholder="Your  Storage In MB">
-
-                                        <input type="text" name="user" value="" id="accountnamestorage" required class="form-control"
-                                        hidden>
-
-                                    
-                                   
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button onclick="chstorage(event);" class="btn btn-success">Change</button>
-                        <button type="button" class="btn btn-danger" onclick="hidestorage();">CLOSE</button>
-                    </div>
-
-                    <div class="modal animated fadeIn show" id="pro1" style="display: none; margin-top: 300px;">
-                        <div class="modal-dialog modal-sm" role="document">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <p class="processing">Processing<span class="dots"></span></p>
-
-                                </div>
-
-                            </div>
-                        </div>
-                    </div>
-                    
-                </form>
-            </div>
-        </div>
-    </div>
-
-
-
-    <div class="modal animated fadeIn show" id="changepassword1" style="display: none; margin-top: 300px;">
-        <div class="modal-dialog modal-sm" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h6 class="title" id="defaultModalLabel">Change Password</h6>
-                </div>
-                <form id="changepassword" method="post" action="">{% csrf_token %}
-                    <div class="modal-body">
-                        <div class="row clearfix">
-                            <div class="col-md-12 col-sm-12">
-                                <div class="form-group">
-                      
-                                  <p id="str1"></p>
-                                    <input type="password" name="password" id="myInput6" required class="form-control"
-                                        placeholder="Your Password">
-
-                                        <input type="text" name="domain" id="accountnamepassword" required class="form-control"
-                                        hidden>
-
-                                   
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button onclick="chch(event);" class="btn btn-success">Change</button>
-                        <button type="button" class="btn btn-danger" onclick="hidepassword();">CLOSE</button>
-                    </div>
-                    <div class="modal animated fadeIn show" id="pro2" style="display: none; margin-top: 300px;">
-                        <div class="modal-dialog modal-sm" role="document">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <p class="processing">Processing<span class="dots"></span></p>
-
-                                </div>
-
-                            </div>
-                        </div>
-                    </div>
-                   
-                </form>
-            </div>
-        </div>
-    </div>
-    <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
-        <div class="modal-dialog modal-sm" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h6 class="title" id="defaultModalLabel">Status</h6>
-                </div>
-
-                <div class="modal-body">
-                    <div class="col-md-12 col-sm-12">
-                        <div id="statusemail" style="text-align: center;" class="row clearfix">
-
-
-
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button  onclick="closeelol();"
-                            class="btn btn-danger">Close</button>
+                                {% else %}
+                                    <tr>
+                                        <td colspan="3" style="text-align:center; padding:32px; color:#64748b;">
+                                            <i class="fa-solid fa-ghost" style="font-size:2rem; margin-bottom:12px; display:block; opacity:0.5;"></i>
+                                            No FTP accounts configured yet.
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
             </div>
         </div>
     </div>
+</div>
+
+<!-- Modals -->
+<div class="neo-modal" id="modalStorage">
+    <div class="neo-modal-content">
+        <div class="neo-modal-header">
+            <h6 class="neo-modal-title">Change Storage Quota</h6>
+            <button class="neo-modal-close" onclick="closeModal('modalStorage')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form id="chstorage" onsubmit="chgStorage(event)">
+            {% csrf_token %}
+            <div class="neo-modal-body">
+                <p id="strLabel" style="font-size:0.85rem;color:#94a3b8;margin-bottom:14px;"></p>
+                <div class="input-group">
+                    <input type="text" oninput="removeSpacesAndSpecialChar(this);" name="storage" required class="form-control" placeholder="Enter new limit (0 for unlimited)">
+                    <div class="input-group-append"><span class="input-group-text">MB</span></div>
+                </div>
+                <input type="hidden" name="user" id="accnameStorage">
+            </div>
+            <div class="neo-modal-footer">
+                <button type="button" class="btn-outline-sm" onclick="closeModal('modalStorage')">Cancel</button>
+                <button type="submit" class="btn-primary" style="width:auto;margin:0;padding:8px 16px;">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="neo-modal" id="modalPassword">
+    <div class="neo-modal-content">
+        <div class="neo-modal-header">
+            <h6 class="neo-modal-title">Change FTP Password</h6>
+            <button class="neo-modal-close" onclick="closeModal('modalPassword')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form id="changepassword" onsubmit="chgPassword(event)">
+            {% csrf_token %}
+            <div class="neo-modal-body">
+                <p id="pwdLabel" style="font-size:0.85rem;color:#94a3b8;margin-bottom:14px;"></p>
+                <input type="password" name="password" required class="form-control-standalone" placeholder="Enter new robust password">
+                <input type="hidden" name="domain" id="accnamePassword">
+            </div>
+            <div class="neo-modal-footer">
+                <button type="button" class="btn-outline-sm" onclick="closeModal('modalPassword')">Cancel</button>
+                <button type="submit" class="btn-primary" style="width:auto;margin:0;padding:8px 16px;">Update Info</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="neo-modal" id="modalProcessing">
+    <div class="neo-modal-content" style="max-width:300px;text-align:center;background:transparent;border:none;box-shadow:none;">
+        <div style="background:rgba(15,20,35,0.95);border:1px solid rgba(255,255,255,0.1);padding:32px;border-radius:16px;">
+            <i class="fa-solid fa-circle-notch fa-spin" style="font-size:2rem;color:#ea580c;margin-bottom:16px;"></i>
+            <h6 style="color:#fff;font-weight:600;margin:0;">Processing<span class="loading-dots"></span></h6>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
 
 <script>
-function closeelol(){
-    document.getElementById('eeee').style.display='none';
-}
+    function showToast(type, msg) {
+        const area = document.getElementById('toastArea');
+        const el = document.createElement('div');
+        const icons = { success:'fa-circle-check', error:'fa-circle-xmark', info:'fa-circle-info' };
+        el.className = `toast-item ${type}`;
+        el.innerHTML = `<i class="fa-solid ${icons[type]||icons.info} toast-icon"></i><span class="toast-msg">${msg}</span>`;
+        area.appendChild(el);
+        setTimeout(() => el.remove(), 4000);
+    }
+
+    function removeSpacesAndSpecialChars(input) { input.value = input.value.replace(/[^a-zA-Z0-9_-]/g, ''); }
+    function removeSpacesAndSpecialChar(input) { input.value = input.value.replace(/[^0-9]/g, ''); }
+
+    function confirmPass() {
+        const p1 = document.getElementById('password').value;
+        const p2 = document.getElementById('password1').value;
+        const msg = document.getElementById('match');
+        const btn = document.getElementById('addemailbtn');
+        if (!p1 && !p2) { msg.textContent = ''; btn.disabled = true; return; }
+        
+        if (p1 === p2) {
+            msg.textContent = "Passwords match";
+            msg.className = "match-msg matched";
+            btn.disabled = false;
+        } else {
+            msg.textContent = "Passwords do not match";
+            msg.className = "match-msg unmatched";
+            btn.disabled = true;
+        }
+    }
+
+    function genPass() {
+        const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+~";
+        let str = "";
+        for (let i = 0; i < 14; i++) str += chars[Math.floor(Math.random() * chars.length)];
+        
+        document.getElementById('password').value = str;
+        document.getElementById('password1').value = str;
+        confirmPass();
+    }
+
+    function togglePass() {
+        const i1 = document.getElementById('password');
+        const i2 = document.getElementById('password1');
+        const ico = document.getElementById('eyeIcon');
+        if (i1.type === "password") {
+            i1.type = "text"; i2.type = "text";
+            ico.className = "fa-solid fa-eye-slash";
+        } else {
+            i1.type = "password"; i2.type = "password";
+            ico.className = "fa-solid fa-eye";
+        }
+    }
+
+    /* Modal controls */
+    function openStorageModal(name) {
+        document.getElementById('strLabel').innerHTML = `Adjust limit for <strong>${name}</strong>`;
+        document.getElementById('accnameStorage').value = name;
+        document.getElementById('modalStorage').classList.add('show');
+    }
+    function openPasswordModal(name) {
+        document.getElementById('pwdLabel').innerHTML = `New password for <strong>${name}</strong>`;
+        document.getElementById('accnamePassword').value = name;
+        document.getElementById('modalPassword').classList.add('show');
+    }
+    function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+    function showProc() { document.getElementById('modalProcessing').classList.add('show'); }
+    function hideProc() { document.getElementById('modalProcessing').classList.remove('show'); }
+
+    /* AJAX Submits */
+    async function ftpaddFunc(e) {
+        e.preventDefault();
+        showProc();
+        const fd = new FormData(document.getElementById('ftpadd'));
+        
+        try {
+            const res = await fetch('/control/ftpadd/', {
+                method: 'POST', body: fd,
+                headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+            });
+            const dat = await res.json();
+            if(res.ok && dat.status === 'success') location.reload();
+            else {
+                hideProc();
+                const msg = dat.status==='exceed'?'Account limit exceeded':
+                            dat.status==='path'?'Invalid root path':
+                            dat.status==='already'?'Account already exists':'Creation failed.';
+                showToast('error', msg);
+            }
+        } catch(err) { hideProc(); showToast('error', 'Network error.'); }
+    }
+
+    async function chgPassword(e) {
+        e.preventDefault();
+        showProc();
+        const fd = new FormData(document.getElementById('changepassword'));
+        try {
+            const res = await fetch('/control/chpasswordftp/', {
+                method: 'POST', body: fd,
+                headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+            });
+            if(res.ok) location.reload();
+        } catch(err) { hideProc(); showToast('error', 'Network error.'); }
+    }
+
+    async function chgStorage(e) {
+        e.preventDefault();
+        showProc();
+        const fd = new FormData(document.getElementById('chstorage'));
+        try {
+            const res = await fetch('/control/chstorageftp/', {
+                method: 'POST', body: fd,
+                headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+            });
+            if(res.ok) location.reload();
+        } catch(err) { hideProc(); showToast('error', 'Network error.'); }
+    }
 </script>
-
-    <script>
-
-        function changepassword(name){
-            
-            document.getElementById('changepassword1').style.display='block';
-            document.getElementById('str1').innerHTML='Change Password For '+name;
-            document.getElementById('accountnamepassword').value=name;
-        }
-
-        function hidepassword(){
-            
-            document.getElementById('changepassword1').style.display='none';
-        }
-        function hidestorage(){
-            
-            document.getElementById('changestorage').style.display='none';
-        }
-
-        function changestorage(name){
-            document.getElementById('changestorage').style.display='block';
-            document.getElementById('str').innerHTML='Change Storage For '+name;
-            document.getElementById('accountnamestorage').value=name;
-            
-            
-        }
-
-
-        async function ftpadd(event) {
-            event.preventDefault();  // Prevent the default form submission behavior
-
-
-            document.getElementById('pro2').style.display = "block";
-
-            // Get the form data
-            const form = document.getElementById('ftpadd');
-            const formData = new FormData(form);
-           
-
-
-
-            try {
-                // Make the fetch request to change the password
-                const response = await fetch('/control/ftpadd/', {  // Replace with your actual API endpoint
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-                    }
-                });
-                const result = await response.json();
-
-                // Handle the server response
-                if (response.ok && result.status === 'success') {
-                    document.getElementById('pro2').style.display = "none";
-                    location.reload(true);
-                }
-                else if (response.ok && result.status === 'exceed') {
-                    document.getElementById('pro2').style.display = "none";
-                
-
-  document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Limit Exceeded";
-
-                    location.reload(true);
-                }
-                else if (response.ok && result.status === 'path') {
-                    document.getElementById('pro2').style.display = "none";
-            
-
-  document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Invalid Path";
-
-                    location.reload(true);
-                }
-                else if (response.ok && result.status === 'already') {
-                    document.getElementById('pro2').style.display = "none";
-                   
-
-  document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Already Exist Account";
-
-                    location.reload(true);
-                }
-
-
-            } catch (error) {
-
-                document.getElementById('pro1').style.display = "none";
-                location.reload(true);
-            }
-        }
-
-
-        async function chch(event) {
-            event.preventDefault();  // Prevent the default form submission behavior
-
-
-            document.getElementById('pro2').style.display = "block";
-
-            // Get the form data
-            const form = document.getElementById('changepassword');
-            const formData = new FormData(form);
-           
-
-
-
-            try {
-                // Make the fetch request to change the password
-                const response = await fetch('/control/chpasswordftp/', {  // Replace with your actual API endpoint
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-                    }
-                });
-                const result = await response.json();
-
-                // Handle the server response
-                if (response.ok && result.status === 'success') {
-                    document.getElementById('pro2').style.display = "none";
-                    location.reload(true);
-                }
-                else if (response.ok && result.status === 'exceed') {
-                    document.getElementById('pro2').style.display = "none";
-                   
-
-  document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Limit Exceeded";
-
-                    location.reload(true);
-                }
-                else if (response.ok && result.status === 'path') {
-                    document.getElementById('pro2').style.display = "none";
-                
-
-  document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Invalid Path";
-
-                    location.reload(true);
-                }
-                else if (response.ok && result.status === 'already') {
-                    document.getElementById('pro2').style.display = "none";
-                    
-
-  document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Already Exist Account";
-
-                    location.reload(true);
-                }
-
-
-            } catch (error) {
-
-                document.getElementById('pro1').style.display = "none";
-                location.reload(true);
-            }
-        }
-
-
-
-
-
-
-
-
-
-        async function chstorage(event) {
-            event.preventDefault();  // Prevent the default form submission behavior
-
-
-            document.getElementById('pro1').style.display = "block";
-
-            // Get the form data
-            const form = document.getElementById('chstorage');
-            const formData = new FormData(form);
-           
-
-
-
-            try {
-                // Make the fetch request to change the password
-                const response = await fetch('/control/chstorageftp/', {  // Replace with your actual API endpoint
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-                    }
-                });
-                const result = await response.json();
-
-                // Handle the server response
-                if (response.ok && result.status === 'success') {
-                    document.getElementById('pro1').style.display = "none";
-                    location.reload(true);
-                }
-                else if (response.ok && result.status === 'exceed') {
-                    document.getElementById('pro1').style.display = "none";
-                  
-
-  document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Limit Exceeded";
-
-                    location.reload(true);
-                }
-                else if (response.ok && result.status === 'path') {
-                    document.getElementById('pro1').style.display = "none";
-             
-
-  document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Invalid Path";
-
-                    location.reload(true);
-                }
-                else if (response.ok && result.status === 'already') {
-                    document.getElementById('pro1').style.display = "none";
-                  
-
-  document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Already Exist Account";
-
-                    location.reload(true);
-                }
-
-
-            } catch (error) {
-
-                document.getElementById('pro1').style.display = "none";
-                location.reload(true);
-            }
-        }
-
-    </script>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <!-- Javascript -->
-    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
-    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
-
-    <!-- page vendor js file -->
-    <script src="/static/assets/vendor/toastr/toastr.js"></script>
-    <script src="/static/assets/bundles/c3.bundle.js"></script>
-
-
-    <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
-    <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
-
-
-    <!-- page js file -->
-    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
-    <script src="/static/assets/bundles/chartjs.js"></script>
-    <script src="/static/assets/index2.js"></script>
-
-
 </body>
-
 </html>
