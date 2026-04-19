@@ -224,8 +224,9 @@ class NginxWebServerManager(WebServerManager):
         conf = self.get_site_config_path(domain)
         if os.path.exists(conf):
             try:
-                with open(conf, 'r') as f:
-                    return f.read()
+                res = _run(['sudo', 'cat', conf])
+                if res.success:
+                    return res.output
             except Exception:
                 pass
         return ""
