@@ -5514,12 +5514,11 @@ def ftpserver(request):
     if request.user.is_superuser:
       
         d={}
-        d['ftp']=ftp.objects.get(id=1)
-        url = 'https://voidpanel.com/admindocs/'  # Replace with your API URL
-        response = requests.get(url)
-        if response.status_code == 200:
-            dataee = response.json()  # Parse the JSON response
-            d['docs']=dataee
+        from control.models import ftp
+        # Use get_or_create to prevent 500 error crash when FTP configuration is not yet seeded
+        ftp_obj, created = ftp.objects.get_or_create(id=1, defaults={'status': True})
+        d['ftp'] = ftp_obj
+        
         return render(request,'panel/ftp.html',d)
     else: 
         return redirect('/')
@@ -5532,7 +5531,8 @@ def ftp12(request):
         
     if request.method == "POST":
         try:
-            e = ftp.objects.get(id=1)
+            from control.models import ftp
+            e, created = ftp.objects.get_or_create(id=1, defaults={'status': True})
             import platform
             
             if e.status:
