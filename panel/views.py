@@ -3750,30 +3750,24 @@ def changephpversion(request):
             if not obj or not config_name:
                 return JsonResponse({'status': 'error', 'message': 'Domain not found.'})
 
-            config_path = os.path.join(paths.NGINX_SITES_ENABLED, f"{config_name}.conf")
-
             try:
+                from voidplatform.linux.web import get_active_engine_manager
+                mgr = get_active_engine_manager()
+                _old_content = mgr.read_site_config(config_name)
+                
+                if not _old_content:
+                     return JsonResponse({'status': 'error', 'message': 'Configuration file not found.'})
+
                 import re as _re
-                with open(config_path, 'r') as _f:
-                    _old_content = _f.read()
                 _new_content = _re.sub(
                     r'fastcgi_pass unix:/run/php/php[0-9.]+-fpm\.sock;',
                     f'fastcgi_pass unix:/run/php/php{php}-fpm.sock;',
                     _old_content
                 )
-                with open(config_path, 'w') as _f:
-                    _f.write(_new_content)
-
-                # Check config syntax before reloading
-                test_result = get_platform().web.test_config()
-                if not test_result.success:
-                    # Revert if syntax is broken
-                    with open(config_path, 'w') as _f:
-                        _f.write(_old_content)
-                    return JsonResponse({'status': 'error', 'message': 'Nginx syntax error after changing PHP version. Operation reverted.'})
-
-                # Configuration is safe, reload Nginx safely
-                get_platform().services.reload('nginx')
+                
+                r = mgr.write_and_test_site_config(config_name, _new_content)
+                if not r.success:
+                    return JsonResponse({'status': 'error', 'message': f'Nginx syntax error after changing PHP version: {r.error}'})
                 
                 obj.php = php
                 obj.save()
