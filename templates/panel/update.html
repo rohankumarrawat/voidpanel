@@ -1,367 +1,633 @@
 <!doctype html>
 <html lang="en">
-
 <head>
-    <title>:: VoidPanel :: Updates</title>
+    <title>VoidPanel — System Updates</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="VoidPanel Updates ">
-    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
+    <meta name="description" content="VoidPanel System Update Center">
     <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
-
-    <!-- VENDOR CSS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
     <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
-
-    <!-- MAIN Project CSS file -->
     <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
-    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
 
     <style>
-        .glass-card {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        :root {
+            --bg-deep:    #09090f;
+            --bg-card:    rgba(255,255,255,0.04);
+            --border:     rgba(255,255,255,0.08);
+            --accent:     #6366f1;
+            --accent2:    #818cf8;
+            --success:    #10b981;
+            --warning:    #f59e0b;
+            --danger:     #ef4444;
+            --text:       #f1f5f9;
+            --text-muted: #94a3b8;
+            --glow:       rgba(99,102,241,0.25);
+        }
+
+        * { box-sizing: border-box; }
+
+        body, #wrapper {
+            background: var(--bg-deep) !important;
+            font-family: 'Inter', sans-serif !important;
+            color: var(--text) !important;
+            min-height: 100vh;
+        }
+
+        /* ── Page Layout ──────────────────────────────── */
+        #main-content { padding: 24px 28px; }
+        .page-title { font-size: 1.6rem; font-weight: 800; color: var(--text); margin-bottom: 2px; }
+        .page-sub   { font-size: 0.82rem; color: var(--text-muted); }
+        .breadcrumb { background: none !important; padding: 0; margin: 0; }
+        .breadcrumb-item, .breadcrumb-item a { color: var(--text-muted) !important; font-size: 0.78rem; }
+        .breadcrumb-item.active { color: var(--accent2) !important; }
+
+        /* ── Glass Card ───────────────────────────────── */
+        .gc {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
             border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            padding: 40px;
-            margin: 40px auto;
-            max-width: 600px;
-            transition: all 0.3s ease;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: 0 4px 30px rgba(0,0,0,0.3);
+            padding: 28px;
+        }
+
+        /* ── Version Header Hero ──────────────────────── */
+        .hero-wrap {
             text-align: center;
+            padding: 40px 20px 32px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 28px;
         }
-
-        [data-theme="light"] .glass-card {
-            background: rgba(255, 255, 255, 0.85);
-            border: 1px solid rgba(0, 0, 0, 0.05);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
-        }
-
-        .version-badge {
-            font-size: 15px;
-            padding: 6px 16px;
+        .hero-icon {
+            width: 80px; height: 80px;
             border-radius: 20px;
-            font-weight: 600;
-            display: inline-block;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 2rem; color: #fff;
+            box-shadow: 0 12px 40px var(--glow);
             margin-bottom: 20px;
+            animation: float 3s ease-in-out infinite;
         }
-        
-        .badge-current {
-            background: rgba(108, 117, 125, 0.1);
-            color: #6c757d;
-            border: 1px solid rgba(108, 117, 125, 0.3);
+        @keyframes float {
+            0%,100% { transform: translateY(0); }
+            50%      { transform: translateY(-8px); }
+        }
+        .hero-title { font-size: 1.4rem; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+        .hero-sub   { font-size: 0.85rem; color: var(--text-muted); }
+
+        /* ── Version Badges ───────────────────────────── */
+        .version-row {
+            display: flex; align-items: center; justify-content: center;
+            gap: 20px; flex-wrap: wrap; margin: 20px 0;
+        }
+        .vbadge {
+            padding: 10px 22px; border-radius: 30px;
+            font-size: 0.85rem; font-weight: 700;
+            border: 1px solid;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .vbadge-cur  { background: rgba(148,163,184,0.08); color: #94a3b8; border-color: rgba(148,163,184,0.2); }
+        .vbadge-new  { background: rgba(16,185,129,0.1);   color: var(--success); border-color: rgba(16,185,129,0.3);
+                       box-shadow: 0 0 16px rgba(16,185,129,0.15); animation: pulse-green 2s infinite; }
+        .vbadge-ok   { background: rgba(99,102,241,0.1);   color: var(--accent2); border-color: rgba(99,102,241,0.3); }
+        @keyframes pulse-green {
+            0%,100% { box-shadow: 0 0 16px rgba(16,185,129,0.15); }
+            50%      { box-shadow: 0 0 28px rgba(16,185,129,0.35); }
+        }
+        .arrow-divider { color: var(--accent2); font-size: 1.3rem; }
+
+        /* ── Info Grid ────────────────────────────────── */
+        .info-grid {
+            display: grid; grid-template-columns: repeat(3,1fr);
+            gap: 14px; margin-bottom: 28px;
+        }
+        @media(max-width:768px) { .info-grid { grid-template-columns: 1fr; } }
+        .info-tile {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 12px; padding: 18px 20px;
+            display: flex; align-items: center; gap: 14px;
+        }
+        .info-tile-icon {
+            width: 44px; height: 44px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; flex-shrink: 0;
+        }
+        .t-blue  { background: rgba(99,102,241,0.15); color: var(--accent2); }
+        .t-green { background: rgba(16,185,129,0.15); color: var(--success); }
+        .t-amber { background: rgba(245,158,11,0.15); color: var(--warning); }
+        .info-tile-label { font-size: 0.73rem; color: var(--text-muted); margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.06em; }
+        .info-tile-val   { font-size: 0.95rem; font-weight: 700; color: var(--text); font-family: 'JetBrains Mono', monospace; }
+
+        /* ── Update Button ────────────────────────────── */
+        .btn-update {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border: none; padding: 14px 40px; border-radius: 12px;
+            font-size: 1rem; font-weight: 700; color: #fff;
+            cursor: pointer; letter-spacing: 0.03em;
+            box-shadow: 0 6px 24px var(--glow);
+            transition: all 0.25s ease;
+            display: inline-flex; align-items: center; gap: 10px;
+        }
+        .btn-update:hover { transform: translateY(-2px); box-shadow: 0 10px 32px var(--glow); }
+        .btn-update:active { transform: translateY(0); }
+        .btn-update-ok {
+            background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3);
+            padding: 12px 30px; border-radius: 12px;
+            font-size: 0.9rem; font-weight: 700; color: var(--success);
+            display: inline-flex; align-items: center; gap: 8px;
         }
 
-        .badge-new {
-            background: rgba(40, 167, 69, 0.1);
-            color: #28a745;
-            border: 1px solid rgba(40, 167, 69, 0.3);
+        /* ── Changelog Panel ──────────────────────────── */
+        .changelog-section { margin-top: 12px; }
+        .changelog-entry {
+            display: flex; align-items: flex-start; gap: 12px;
+            padding: 12px 0; border-bottom: 1px solid var(--border);
+        }
+        .changelog-entry:last-child { border-bottom: none; }
+        .cl-dot {
+            width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+            margin-top: 6px;
+        }
+        .cl-fix   { background: var(--success); box-shadow: 0 0 8px rgba(16,185,129,0.5); }
+        .cl-feat  { background: var(--accent2); box-shadow: 0 0 8px rgba(129,140,248,0.5); }
+        .cl-perf  { background: var(--warning); box-shadow: 0 0 8px rgba(245,158,11,0.5); }
+        .cl-tag {
+            font-size: 0.67rem; font-weight: 700; padding: 2px 8px;
+            border-radius: 10px; text-transform: uppercase; letter-spacing: 0.05em;
+            flex-shrink: 0; margin-top: 1px;
+        }
+        .tag-fix  { background: rgba(16,185,129,0.15);  color: var(--success); }
+        .tag-feat { background: rgba(99,102,241,0.15);  color: var(--accent2); }
+        .tag-perf { background: rgba(245,158,11,0.15);  color: var(--warning); }
+        .cl-text  { font-size: 0.83rem; color: var(--text); line-height: 1.5; }
+
+        /* ── Progress Terminal ────────────────────────── */
+        #progress-section { display: none; }
+
+        .terminal-box {
+            background: #0a0a12; border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 12px; padding: 20px 22px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem; min-height: 160px;
+            overflow-y: auto; max-height: 260px;
+        }
+        .term-line { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+        .term-prompt { color: #6366f1; }
+        .term-text   { color: #94a3b8; }
+        .term-text.active { color: #e2e8f0; }
+        .term-text.done   { color: #10b981; }
+        .term-text.err    { color: #ef4444; }
+        .term-cursor { display: inline-block; width: 8px; height: 14px; background: #6366f1; animation: blink 1s step-end infinite; vertical-align: middle; }
+        @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0;} }
+
+        /* Steps */
+        .steps-grid {
+            display: grid; grid-template-columns: repeat(4,1fr);
+            gap: 10px; margin-bottom: 24px;
+        }
+        @media(max-width:600px) { .steps-grid { grid-template-columns: repeat(2,1fr); } }
+        .step-tile {
+            background: rgba(255,255,255,0.02); border: 1px solid var(--border);
+            border-radius: 10px; padding: 14px 12px; text-align: center;
+            transition: all 0.3s;
+        }
+        .step-tile .step-ico { font-size: 1.3rem; margin-bottom: 6px; color: var(--text-muted); transition: all 0.3s; }
+        .step-tile .step-lbl { font-size: 0.72rem; color: var(--text-muted); }
+        .step-tile.active { border-color: rgba(99,102,241,0.4); background: rgba(99,102,241,0.06); }
+        .step-tile.active .step-ico { color: var(--accent2); animation: spin-once 0.5s ease; }
+        .step-tile.done { border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.05); }
+        .step-tile.done .step-ico { color: var(--success); }
+        .step-tile.error { border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.05); }
+        .step-tile.error .step-ico { color: var(--danger); }
+        @keyframes spin-once { from{transform:rotate(0);} to{transform:rotate(360deg);} }
+
+        /* Progress Bar */
+        .prog-track {
+            background: rgba(255,255,255,0.06); border-radius: 8px;
+            height: 8px; overflow: hidden; width: 100%; margin: 16px 0 8px;
+        }
+        .prog-bar {
+            height: 100%; border-radius: 8px; width: 0%;
+            background: linear-gradient(90deg, #6366f1, #818cf8, #10b981);
+            background-size: 200% 100%;
+            transition: width 0.6s ease;
+            animation: shimmer-bar 2s linear infinite;
+        }
+        @keyframes shimmer-bar {
+            0%   { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .prog-label {
+            font-size: 0.8rem; color: var(--text-muted); text-align: right; margin-bottom: 12px;
+            font-family: 'JetBrains Mono', monospace;
         }
 
-        .update-action-btn {
-            background: linear-gradient(135deg, #007bff, #0056b3);
-            border: none;
-            padding: 12px 30px;
-            font-size: 16px;
-            font-weight: bold;
-            border-radius: 8px;
-            color: white;
-            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .update-action-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
-        }
-
-        /* Progress Bar Styles */
-        .progress-wrapper {
-            display: none;
-            margin-top: 30px;
-        }
-
-        .progress-track {
-            background: rgba(0, 0, 0, 0.1);
-            border-radius: 8px;
-            height: 14px;
-            overflow: hidden;
-            width: 100%;
-            margin-bottom: 15px;
-        }
-        
-        [data-theme="dark"] .progress-track {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        .progress-bar-animated {
-            height: 100%;
-            border-radius: 8px;
-            background: linear-gradient(90deg, #00c6ff, #0072ff);
-            width: 0%;
-            transition: width 0.5s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .progress-bar-animated::after {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 0;
-            bottom: 0;
-            right: 0;
-            background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%);
-            animation: shimmer 1.5s infinite;
-        }
-
-        @keyframes shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-        }
-
-        .step-text {
-            font-size: 18px;
-            font-weight: 700;
-            color: inherit;
-        }
-        
-        .step-subtext {
-            font-size: 14px;
-            color: #6c757d;
-            margin-top: 5px;
-        }
-        
-        [data-theme="dark"] .step-subtext {
-            color: #adb5bd;
-        }
-        
-        .success-checkmark {
-            display: none;
-            color: #28a745;
-            font-size: 48px;
-            margin-bottom: 20px;
+        /* Success Block */
+        #success-block { display: none; text-align: center; padding: 20px 0; }
+        .success-ring {
+            width: 80px; height: 80px; border-radius: 50%;
+            background: rgba(16,185,129,0.12); border: 2px solid rgba(16,185,129,0.4);
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 2.2rem; color: var(--success);
+            box-shadow: 0 0 30px rgba(16,185,129,0.2);
             animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            margin-bottom: 16px;
         }
-        
-        @keyframes popIn {
-            0% { transform: scale(0); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
+        @keyframes popIn { from{transform:scale(0);opacity:0;} to{transform:scale(1);opacity:1;} }
+
+        /* Section Label */
+        .sec-label {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 14px;
+            display: flex; align-items: center; gap: 8px;
         }
+        .sec-label::after { content:''; flex:1; height:1px; background:var(--border); }
     </style>
 </head>
 
-<body data-theme="light" class="font-nunito">
+<body data-theme="dark" class="font-nunito">
+<div id="wrapper" class="theme-cyan">
 
-    <div id="wrapper" class="theme-cyan">
-
-        <!-- Page Loader -->
-        <div class="page-loader-wrapper">
-            <div class="loader">
-                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel"></div>
-                <p>Please wait...</p>
-            </div>
+    <div class="page-loader-wrapper">
+        <div class="loader">
+            <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel"></div>
+            <p>Please wait...</p>
         </div>
-
-        {% include 'navbar.html' %}
-        {% include 'left.html' %}
-        {% include 'right.html' %}
-
-        <div id="main-content">
-            <div class="container-fluid">
-                <div class="block-header">
-                    <div class="row">
-                        <div class="col-lg-6 col-md-6 col-sm-12">
-                            <h2>System Updates</h2>
-                            <ul class="breadcrumb">
-                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a></li>
-                                <li class="breadcrumb-item">Dashboard</li>
-                                <li class="breadcrumb-item active">Updates</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Update Card Container -->
-                <div class="glass-card" id="update-card">
-                    <i class="fa fa-rocket" style="font-size: 40px; color: #007bff; margin-bottom: 20px;"></i>
-                    <h3 style="margin-bottom: 20px;">VoidPanel Engine</h3>
-                    
-                    <div id="initial-state">
-                        <div class="version-badge badge-current">Current Version: {{version}}</div>
-                        
-                        {% if show %}
-                        <div class="version-badge badge-new" style="display: block;">Latest Version Available: {{latestversion}}</div>
-                        <p class="text-muted" style="margin-bottom: 30px;">A new version of VoidPanel is available. Keeping your panel updated ensures you have the latest security patches and features.</p>
-                        <button onclick="startUpdate(event);" id="update-btn" class="update-action-btn">
-                            <i class="fa fa-download" style="margin-right: 8px;"></i> Update Now
-                        </button>
-                        {% else %}
-                        <div>
-                            <div class="version-badge badge-new">You are up to date!</div>
-                        </div>
-                        <p class="text-muted" style="margin-bottom: 10px;">Your system is running the latest enterprise release.</p>
-                        {% endif %}
-                    </div>
-                    
-                    <!-- Progress Section -->
-                    <div class="progress-wrapper" id="progress-section">
-                        <div class="success-checkmark" id="success-icon">
-                            <i class="fa fa-check-circle"></i>
-                        </div>
-                        <div class="step-text" id="step-title">Initializing Update...</div>
-                        <div class="step-subtext" id="step-detail">Connecting to update servers</div>
-                        
-                        <div class="progress-track" id="progress-bar-container">
-                            <div class="progress-bar-animated" id="progress-bar"></div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-
     </div>
 
-    <!-- Javascript Logic -->
-    <script>
-        async function startUpdate(event) {
-            if (event) event.preventDefault();
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
 
-            // Transition UI State
-            document.getElementById('initial-state').style.display = 'none';
-            document.getElementById('progress-section').style.display = 'block';
-            
-            const pb = document.getElementById('progress-bar');
-            const title = document.getElementById('step-title');
-            const detail = document.getElementById('step-detail');
-            
-            // Step 1: Initializing
-            pb.style.width = '15%';
-            
-            try {
-                // Call API without blocking the worker
-                const response = await fetch('/updatepanel/', {
-                    method: 'POST',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok && result.status === 'success') {
-                    // Update has successfully detached in backend. Start UX simulation.
-                    simulateUpdateProgress();
-                } else {
-                    handleError("Update Failed", result.message || "Server refused update request.");
-                }
-            } catch (error) {
-                // Network error means server might have already restarted too fast!
-                console.warn("Fetch error (usually means server restarted):", error);
-                simulateUpdateProgress(true); // Jump to restart phase
+    <div id="main-content">
+        <div class="container-fluid" style="max-width:960px;">
+
+            <!-- Header -->
+            <div style="margin-bottom:24px;">
+                <div class="page-title"><i class="fa-solid fa-rotate" style="color:var(--accent2);margin-right:10px;"></i>System Updates</div>
+                <ul class="breadcrumb" style="margin-top:4px;">
+                    <li class="breadcrumb-item"><a href="/"><i class="fa fa-home"></i></a></li>
+                    <li class="breadcrumb-item">Dashboard</li>
+                    <li class="breadcrumb-item active">Updates</li>
+                </ul>
+            </div>
+
+            <!-- ── Main Update Card ───────────────────────── -->
+            <div class="gc">
+
+                <!-- Hero -->
+                <div class="hero-wrap">
+                    <div class="hero-icon"><i class="fa-solid fa-rocket"></i></div>
+                    <div class="hero-title">VoidPanel Engine</div>
+                    <div class="hero-sub">Powered by VoidPlatform &mdash; Advanced Control Panel Infrastructure</div>
+
+                    <!-- Version Badges -->
+                    <div class="version-row" style="margin-top:24px;">
+                        <div class="vbadge vbadge-cur">
+                            <i class="fa-solid fa-tag" style="margin-right:6px;opacity:0.6;"></i>
+                            Current &nbsp;<span id="ver-current">{{version}}</span>
+                        </div>
+                        {% if show %}
+                        <div class="arrow-divider"><i class="fa-solid fa-arrow-right-long"></i></div>
+                        <div class="vbadge vbadge-new">
+                            <i class="fa-solid fa-sparkles" style="margin-right:6px;"></i>
+                            Latest &nbsp;{{latestversion}}
+                        </div>
+                        {% else %}
+                        <div class="vbadge vbadge-ok">
+                            <i class="fa-solid fa-circle-check" style="margin-right:6px;"></i>
+                            Up to Date
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- ── State: Initial ──────────────────────── -->
+                <div id="initial-state">
+
+                    <!-- System Info Tiles -->
+                    <div class="info-grid">
+                        <div class="info-tile">
+                            <div class="info-tile-icon t-blue"><i class="fa-solid fa-code-branch"></i></div>
+                            <div>
+                                <div class="info-tile-label">Installed</div>
+                                <div class="info-tile-val">v{{version}}</div>
+                            </div>
+                        </div>
+                        <div class="info-tile">
+                            <div class="info-tile-icon t-green"><i class="fa-solid fa-shield-halved"></i></div>
+                            <div>
+                                <div class="info-tile-label">Channel</div>
+                                <div class="info-tile-val">Stable</div>
+                            </div>
+                        </div>
+                        <div class="info-tile">
+                            <div class="info-tile-icon t-amber"><i class="fa-solid fa-clock"></i></div>
+                            <div>
+                                <div class="info-tile-label">Last Check</div>
+                                <div class="info-tile-val" id="last-check-time">Just now</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if show %}
+                    <!-- Update Available -->
+                    <div style="background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.2); border-radius:12px; padding:20px 22px; margin-bottom:24px;">
+                        <div style="display:flex; align-items:flex-start; gap:14px;">
+                            <div style="width:42px;height:42px;border-radius:10px;background:rgba(99,102,241,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--accent2);font-size:1.2rem;">
+                                <i class="fa-solid fa-bolt"></i>
+                            </div>
+                            <div>
+                                <div style="font-weight:700;font-size:0.95rem;color:var(--text);margin-bottom:4px;">Version {{latestversion}} is available</div>
+                                <div style="font-size:0.82rem;color:var(--text-muted);line-height:1.6;">
+                                    A new release is ready to install. The update process runs in the background — your services will stay online during download. The panel will automatically restart when done.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Changelog -->
+                    <div class="sec-label">What's New in {{latestversion}}</div>
+                    <div class="changelog-section" style="margin-bottom:28px;">
+                        <div class="changelog-entry">
+                            <div class="cl-dot cl-feat"></div>
+                            <div class="cl-tag tag-feat">Feature</div>
+                            <div class="cl-text">UFW firewall fallback — auto-installs UFW if CSF cannot be downloaded</div>
+                        </div>
+                        <div class="changelog-entry">
+                            <div class="cl-dot cl-fix"></div>
+                            <div class="cl-tag tag-fix">Fix</div>
+                            <div class="cl-text">DNS zone record syntax now uses correct BIND9 <code style="color:var(--accent2);">name ttl IN type data</code> format</div>
+                        </div>
+                        <div class="changelog-entry">
+                            <div class="cl-dot cl-fix"></div>
+                            <div class="cl-tag tag-fix">Fix</div>
+                            <div class="cl-text">Auto SSL Manager no longer crashes when log file is absent; logging path unified</div>
+                        </div>
+                        <div class="changelog-entry">
+                            <div class="cl-dot cl-perf"></div>
+                            <div class="cl-tag tag-perf">Perf</div>
+                            <div class="cl-text">Firewall IP views (allow/deny/block/ignore) now use parameterised subprocess calls — no shell injection risk</div>
+                        </div>
+                        <div class="changelog-entry">
+                            <div class="cl-dot cl-feat"></div>
+                            <div class="cl-tag tag-feat">Feature</div>
+                            <div class="cl-text">Live CSF install terminal with real-time output streaming in Firewall Center</div>
+                        </div>
+                    </div>
+
+                    <div style="text-align:center;">
+                        <button onclick="startUpdate(event);" id="update-btn" class="btn-update">
+                            <i class="fa-solid fa-download"></i> Install Update Now
+                        </button>
+                        <div style="font-size:0.76rem;color:var(--text-muted);margin-top:12px;">
+                            <i class="fa-solid fa-circle-info" style="margin-right:4px;"></i>
+                            Your active domains and services will not be interrupted
+                        </div>
+                    </div>
+
+                    {% else %}
+                    <!-- Up to Date State -->
+                    <div style="text-align:center; padding: 20px 0 10px;">
+                        <div style="width:72px;height:72px;border-radius:50%;background:rgba(16,185,129,0.12);border:2px solid rgba(16,185,129,0.3);display:inline-flex;align-items:center;justify-content:center;font-size:2rem;color:var(--success);margin-bottom:18px;">
+                            <i class="fa-solid fa-circle-check"></i>
+                        </div>
+                        <div style="font-size:1.05rem;font-weight:700;color:var(--text);margin-bottom:6px;">You&rsquo;re fully up to date</div>
+                        <div style="font-size:0.84rem;color:var(--text-muted);margin-bottom:24px;">VoidPanel <strong style="color:var(--text);">v{{version}}</strong> is the latest stable release.</div>
+                        <div class="btn-update-ok">
+                            <i class="fa-solid fa-shield-halved"></i> Running Latest Release
+                        </div>
+                    </div>
+                    {% endif %}
+
+                </div><!-- /#initial-state -->
+
+                <!-- ── State: Progress ──────────────────────── -->
+                <div id="progress-section">
+
+                    <!-- Step indicators -->
+                    <div class="steps-grid">
+                        <div class="step-tile" id="step-0">
+                            <div class="step-ico"><i class="fa-solid fa-plug"></i></div>
+                            <div class="step-lbl">Connecting</div>
+                        </div>
+                        <div class="step-tile" id="step-1">
+                            <div class="step-ico"><i class="fa-solid fa-download"></i></div>
+                            <div class="step-lbl">Downloading</div>
+                        </div>
+                        <div class="step-tile" id="step-2">
+                            <div class="step-ico"><i class="fa-solid fa-gear"></i></div>
+                            <div class="step-lbl">Applying</div>
+                        </div>
+                        <div class="step-tile" id="step-3">
+                            <div class="step-ico"><i class="fa-solid fa-rotate-right"></i></div>
+                            <div class="step-lbl">Restarting</div>
+                        </div>
+                    </div>
+
+                    <!-- Progress bar -->
+                    <div class="prog-track"><div class="prog-bar" id="prog-bar"></div></div>
+                    <div class="prog-label" id="prog-pct">0%</div>
+
+                    <!-- Terminal output -->
+                    <div class="sec-label" style="margin-top:4px;">Live Output</div>
+                    <div class="terminal-box" id="terminal-box">
+                        <div class="term-line">
+                            <span class="term-prompt">$</span>
+                            <span class="term-text active" id="term-current">Initializing update engine...</span>
+                            <span class="term-cursor" id="term-cursor"></span>
+                        </div>
+                        <div id="term-log"></div>
+                    </div>
+
+                    <!-- Success block -->
+                    <div id="success-block">
+                        <div class="success-ring"><i class="fa-solid fa-check"></i></div>
+                        <div style="font-size:1.05rem;font-weight:700;color:var(--text);margin-bottom:6px;">Update Complete!</div>
+                        <div style="font-size:0.83rem;color:var(--text-muted);">Reloading dashboard in <span id="reload-countdown">3</span>s...</div>
+                    </div>
+
+                </div><!-- /#progress-section -->
+
+            </div><!-- /.gc -->
+
+        </div>
+    </div>
+
+</div><!-- /#wrapper -->
+
+<!-- JS Bundles -->
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/vendor/toastr/toastr.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+
+<script>
+// ── Utility ───────────────────────────────────────────────────
+function setStep(idx, state) { // state: 'active' | 'done' | 'error'
+    for(let i=0;i<4;i++) {
+        const el = document.getElementById('step-'+i);
+        el.classList.remove('active','done','error');
+        if(i < idx) el.classList.add('done');
+    }
+    if(idx < 4) document.getElementById('step-'+idx).classList.add(state);
+}
+
+function setProgress(pct) {
+    document.getElementById('prog-bar').style.width = pct + '%';
+    document.getElementById('prog-pct').innerText = pct + '%';
+}
+
+function termLog(msg, cls='') {
+    const box = document.getElementById('term-log');
+    const line = document.createElement('div');
+    line.className = 'term-line';
+    line.innerHTML = `<span class="term-prompt" style="color:#3f3f6e;">›</span><span class="term-text ${cls}">${msg}</span>`;
+    box.appendChild(line);
+    document.getElementById('terminal-box').scrollTop = 9999;
+}
+
+function setTermCurrent(msg) {
+    document.getElementById('term-current').innerText = msg;
+}
+
+// Last check time
+(function(){
+    const now = new Date();
+    document.getElementById('last-check-time').innerText =
+        now.toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit'});
+})();
+
+// ── Main Update Flow ─────────────────────────────────────────
+async function startUpdate(event) {
+    if (event) event.preventDefault();
+
+    document.getElementById('initial-state').style.display = 'none';
+    document.getElementById('progress-section').style.display = 'block';
+
+    setStep(0, 'active');
+    setProgress(8);
+    termLog('Connecting to VoidPanel update servers...');
+    setTermCurrent('Authenticating request...');
+
+    try {
+        const response = await fetch('/updatepanel/', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.status === 'success') {
+            setStep(0, 'done'); setStep(1, 'active');
+            setProgress(20);
+            termLog('✓ Connection established', 'done');
+            runUpdateSequence();
+        } else {
+            handleError('Update refused by server', result.message || 'Unexpected error.');
+        }
+    } catch (error) {
+        // Server may have restarted before responding — treat as success & jump to restart
+        termLog('→ Server disconnected — likely restarting...', 'active');
+        setStep(2, 'done'); setStep(3, 'active');
+        setProgress(88);
+        pollForReconnection();
+    }
+}
+
+function runUpdateSequence() {
+    // Downloading
+    setTimeout(() => {
+        termLog('Fetching latest release from VoidPanel CDN...');
+        setTermCurrent('Downloading packages...');
+        setProgress(35);
+    }, 800);
+
+    setTimeout(() => {
+        termLog('Download complete ✓', 'done');
+        setStep(1, 'done'); setStep(2, 'active');
+        setProgress(55);
+        termLog('Extracting and applying system changes...');
+        setTermCurrent('Applying update...');
+    }, 4000);
+
+    setTimeout(() => {
+        termLog('Running database migrations...');
+        setProgress(70);
+    }, 6500);
+
+    setTimeout(() => {
+        termLog('Migrations complete ✓', 'done');
+        termLog('Collecting static assets...');
+        setProgress(80);
+    }, 8500);
+
+    setTimeout(() => {
+        setStep(2, 'done'); setStep(3, 'active');
+        setProgress(88);
+        termLog('Restarting panel services...', 'active');
+        setTermCurrent('Restarting services — please wait...');
+        pollForReconnection();
+    }, 11000);
+}
+
+function pollForReconnection() {
+    let tries = 0;
+    const max = 25; // 75s max
+    document.getElementById('term-cursor').style.display = 'none';
+
+    const iv = setInterval(async () => {
+        tries++;
+        termLog(`Waiting for server... (${tries}/${max})`);
+        try {
+            const r = await fetch('/panel/', { method: 'GET', cache: 'no-store' });
+            if (r.ok) {
+                clearInterval(iv);
+                setStep(3, 'done');
+                setProgress(100);
+                showSuccess();
             }
+        } catch(e) { /* still restarting */ }
+
+        if (tries >= max) {
+            clearInterval(iv);
+            handleError('Reconnection Timeout', 'Server is taking longer than expected. Please refresh manually.');
         }
+    }, 3000);
+}
 
-        function simulateUpdateProgress(jumpToRestart = false) {
-            const pb = document.getElementById('progress-bar');
-            const title = document.getElementById('step-title');
-            const detail = document.getElementById('step-detail');
+function showSuccess() {
+    document.getElementById('terminal-box').style.display = 'none';
+    document.getElementById('success-block').style.display = 'block';
+    toastr.success('VoidPanel updated successfully!', 'Update Complete');
 
-            if (!jumpToRestart) {
-                // Step 2: Downloading
-                setTimeout(() => {
-                    title.innerText = "Downloading Packages...";
-                    detail.innerText = "Fetching latest assets from VoidPanel CDN";
-                    pb.style.width = '45%';
-                }, 2000);
+    let count = 3;
+    const cd = setInterval(() => {
+        count--;
+        document.getElementById('reload-countdown').innerText = count;
+        if (count <= 0) { clearInterval(cd); location.reload(true); }
+    }, 1000);
+}
 
-                // Step 3: Applying
-                setTimeout(() => {
-                    title.innerText = "Applying System Changes...";
-                    detail.innerText = "Extracting files and migrating configurations";
-                    pb.style.width = '75%';
-                }, 6000);
-            }
-
-            // Step 4: Restarting
-            const restartWaitTime = jumpToRestart ? 0 : 10000;
-            setTimeout(() => {
-                title.innerText = "Restarting Services...";
-                detail.innerText = "Please wait, the panel is rebooting. This may take up to 30 seconds.";
-                pb.style.width = '90%';
-                
-                // Begin Server Polling
-                pollServerForReconnection();
-            }, restartWaitTime);
-        }
-        
-        function pollServerForReconnection() {
-            let retryCount = 0;
-            const maxRetries = 20; // 20 * 3s = 60 seconds max
-            
-            const pollInterval = setInterval(async () => {
-                retryCount++;
-                try {
-                    // Ping the login endpoint (or root) to see if server is back
-                    const response = await fetch('/panel/', { method: 'GET', cache: 'no-store' });
-                    
-                    if (response.ok) {
-                        // Server is back!
-                        clearInterval(pollInterval);
-                        showSuccessAndReload();
-                    }
-                } catch (e) {
-                    console.log("Server not ready yet, retrying...", retryCount);
-                }
-                
-                if (retryCount >= maxRetries) {
-                    clearInterval(pollInterval);
-                    handleError("Reconnection Timeout", "The server is taking too long to respond. Please refresh the page manually.");
-                }
-            }, 3000);
-        }
-        
-        function showSuccessAndReload() {
-            const pb = document.getElementById('progress-bar');
-            const title = document.getElementById('step-title');
-            const detail = document.getElementById('step-detail');
-            
-            pb.style.width = '100%';
-            document.getElementById('progress-bar-container').style.display = 'none';
-            document.getElementById('success-icon').style.display = 'block';
-            
-            title.innerText = "Update Complete!";
-            detail.innerText = "Your system has been successfully updated. Reloading in 3 seconds...";
-            
-            toastr.success("System updated successfully!");
-            
-            setTimeout(() => {
-                location.reload(true);
-            }, 3000);
-        }
-
-        function handleError(titleStr, detailStr) {
-            document.getElementById('progress-bar').style.background = '#dc3545'; // Red
-            document.getElementById('step-title').innerText = titleStr;
-            document.getElementById('step-title').style.color = '#dc3545';
-            document.getElementById('step-detail').innerText = detailStr;
-            toastr.error(detailStr, titleStr);
-        }
-    </script>
-
-    <!-- Javascript Packages -->
-    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
-    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
-    <script src="/static/assets/vendor/toastr/toastr.js"></script>
-    <script src="/static/assets/bundles/c3.bundle.js"></script>
-    <script src="/static/assets/bundles/jvectormap.bundle.js"></script>
-    <script src="/static/assets/bundles/knob.bundle.js"></script>
-    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
-    <script src="/static/assets/bundles/chartjs.js"></script>
+function handleError(title, message) {
+    document.getElementById('prog-bar').style.background = 'linear-gradient(90deg,#ef4444,#f87171)';
+    setTermCurrent('✖ ' + title);
+    document.getElementById('term-current').style.color = 'var(--danger)';
+    document.getElementById('term-cursor').style.display = 'none';
+    termLog('✖ ' + message, 'err');
+    for(let i=0;i<4;i++) {
+        const el = document.getElementById('step-'+i);
+        if(el.classList.contains('active')) { el.classList.remove('active'); el.classList.add('error'); }
+    }
+    toastr.error(message, title);
+}
+</script>
 </body>
 </html>

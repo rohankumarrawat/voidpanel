@@ -4550,42 +4550,34 @@ def packagewizard(request):
     
 
 @login_required(login_url='/')
+@login_required(login_url='/')
 def update(request):
-    
-   
-    if request.user.is_superuser:
-                
-                d={}
-                url = 'https://voidpanel.com/admindocs/'  # Replace with your API URL
-                response = requests.get(url)
-                if response.status_code == 200:
-                    dataee = response.json()  # Parse the JSON response
-                    d['docs']=dataee
-                url = 'https://voidpanel.com/version_name/'  # Replace with your API URL
-                response = requests.get(url)
-                if response.status_code == 200:
-                    dataee = response.json()  # Parse the JSON response
-                
-                    try:
-                         with open(paths.VERSION_FILE, 'r') as f:
-                              version=f.read()
-                    except:
-                         version='1.0'
-                    if dataee['version'] > version:
-                         d['show']=True
-                         d['latestversion']=dataee['version']
-                    else:
-                         print("no")
-                else:
-                     version='1.0'
-                d['version']=version
-     
-                    
-                return render(request,'panel/update.html',d)
-                
-           
-    else: 
+    if not request.user.is_superuser:
         return redirect('/')
+
+    d = {}
+
+    # Read installed version
+    try:
+        with open(paths.VERSION_FILE, 'r') as f:
+            version = f.read().strip()
+    except Exception:
+        version = '1.0'
+    d['version'] = version
+
+    # Check for latest version (non-blocking, ignore failures)
+    try:
+        resp = requests.get('https://voidpanel.com/version_name/', timeout=6)
+        if resp.status_code == 200:
+            dataee = resp.json()
+            latest = dataee.get('version', version)
+            if latest > version:
+                d['show'] = True
+                d['latestversion'] = latest
+    except Exception:
+        pass
+
+    return render(request, 'panel/update.html', d)
     
 @login_required(login_url='/')
 def updatepanel(request):
