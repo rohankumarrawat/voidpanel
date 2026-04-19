@@ -2,138 +2,171 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <title>:: VoidPanel :: CSF Firewall</title>
+    <title>VoidPanel — Firewall Center</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="VoidPanel CSF/UFW Firewall Management">
     <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
 
     <style>
-        .fw {
-            --bg-card: rgba(15, 23, 42, 0.85);
-            --border: rgba(99, 102, 241, 0.2);
-            --border-light: rgba(255,255,255,0.07);
-            --accent: #6366f1;
-            --accent-hover: #818cf8;
-            --success: #10b981;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --text-primary: #f1f5f9;
-            --text-secondary: #94a3b8;
-            --text-muted: #475569;
-            --radius: 12px;
-            --radius-sm: 8px;
-            font-family: 'Inter', sans-serif;
-            color: var(--text-primary);
-            padding: 25px 5px;
-            margin-top: 10px;
+        :root {
+            --bg-deep:    #09090f;
+            --bg-card:    rgba(255,255,255,0.04);
+            --border:     rgba(255,255,255,0.08);
+            --accent:     #6366f1;
+            --accent2:    #818cf8;
+            --success:    #10b981;
+            --warning:    #f59e0b;
+            --danger:     #ef4444;
+            --text:       #f1f5f9;
+            --text-muted: #94a3b8;
+            --glow:       rgba(99,102,241,0.25);
+            --radius:     16px;
+            --radius-sm:  10px;
         }
-        .fw * { box-sizing: border-box; }
 
-        /* Header */
-        .fw .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; padding:10px 0; }
-        .fw .page-title  { display:flex; align-items:center; gap:15px; }
-        .fw .page-title .icon { width:44px; height:44px; border-radius:10px; background:rgba(239,68,68,0.12); color:var(--danger); display:flex; align-items:center; justify-content:center; font-size:1.2rem; }
-        .fw .page-title h1 { font-size:1.25rem; font-weight:700; margin:0; }
-        .fw .page-title p  { font-size:0.8rem; color:var(--text-muted); margin:2px 0 0 0; }
+        * { box-sizing: border-box; }
 
-        /* Status card */
-        .fw .status-card { background:var(--bg-card); border:1px solid var(--border-light); border-radius:var(--radius); padding:20px 24px; margin-bottom:24px; display:flex; align-items:center; justify-content:space-between; backdrop-filter:blur(20px); }
-        .fw .switch { position:relative; display:inline-block; width:44px; height:24px; margin:0; }
-        .fw .switch input { opacity:0; width:0; height:0; }
-        .fw .slider { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background:rgba(255,255,255,0.1); transition:.3s; border-radius:24px; }
-        .fw .slider:before { position:absolute; content:""; height:18px; width:18px; left:3px; bottom:3px; background:#fff; transition:.3s; border-radius:50%; }
-        .fw input:checked + .slider { background:var(--success); }
-        .fw input:checked + .slider:before { transform:translateX(20px); }
-        .fw .fw-status-text { font-weight:600; font-size:0.9rem; margin-right:12px; }
-        .fw .status-on  { color:var(--success); }
-        .fw .status-off { color:var(--danger); }
-
-        /* IP action grid */
-        .fw .fw-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:18px; }
-        .fw .fw-card { background:var(--bg-card); border:1px solid var(--border-light); border-radius:var(--radius); padding:20px; backdrop-filter:blur(20px); }
-        .fw .fw-card h3 { font-size:0.95rem; margin:0 0 6px 0; display:flex; align-items:center; gap:8px; }
-        .fw .fw-card p  { font-size:0.78rem; color:var(--text-muted); margin-bottom:14px; }
-        .fw .fw-card.allow  h3 { color:var(--success); }
-        .fw .fw-card.deny   h3 { color:var(--danger); }
-        .fw .fw-card.ignore h3 { color:var(--warning); }
-        .fw .fw-card.unblock h3 { color:var(--accent-hover); }
-        .fw .fw-card.block  h3 { color:var(--danger); }
-
-        /* Form inputs */
-        .fw .form-control {
-            width:100%; padding:10px 12px; border-radius:var(--radius-sm);
-            background:rgba(0,0,0,0.22) !important; border:1px solid var(--border-light) !important;
-            color:var(--text-primary) !important; font-size:0.83rem; font-family:'Inter',sans-serif;
-            transition:border-color 0.2s; outline:none; margin-bottom:10px;
+        body, #wrapper {
+            background: var(--bg-deep) !important;
+            font-family: 'Inter', sans-serif !important;
+            color: var(--text) !important;
+            min-height: 100vh;
         }
-        .fw .form-control:focus { border-color:var(--accent) !important; }
 
-        /* Buttons */
-        .fw .btn {
-            display:inline-flex; align-items:center; justify-content:center; gap:7px;
-            padding:9px 14px; border-radius:var(--radius-sm); width:100%;
-            font-size:0.83rem; font-weight:600; cursor:pointer;
-            border:1px solid transparent; transition:all 0.2s;
-        }
-        .fw .btn:disabled { opacity:0.6; cursor:not-allowed; }
-        .fw .btn-success { background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3); }
-        .fw .btn-success:hover:not(:disabled) { background:rgba(16,185,129,0.28); }
-        .fw .btn-danger  { background:rgba(239,68,68,0.15); color:var(--danger); border-color:rgba(239,68,68,0.3); }
-        .fw .btn-danger:hover:not(:disabled) { background:rgba(239,68,68,0.28); }
-        .fw .btn-warning { background:rgba(245,158,11,0.15); color:var(--warning); border-color:rgba(245,158,11,0.3); }
-        .fw .btn-warning:hover:not(:disabled) { background:rgba(245,158,11,0.28); }
-        .fw .btn-accent  { background:rgba(99,102,241,0.15); color:var(--accent-hover); border-color:rgba(99,102,241,0.3); }
-        .fw .btn-accent:hover:not(:disabled) { background:rgba(99,102,241,0.28); }
-        .fw .btn-install {
-            display:inline-flex; align-items:center; gap:10px;
-            padding:12px 24px; border-radius:var(--radius-sm);
-            background:linear-gradient(135deg, #6366f1, #818cf8);
-            color:#fff; border:none; font-size:0.9rem; font-weight:700;
-            cursor:pointer; transition:all 0.2s; margin-top:18px;
-        }
-        .fw .btn-install:hover:not(:disabled) { opacity:0.88; transform:translateY(-1px); }
-        .fw .btn-install:disabled { opacity:0.55; cursor:not-allowed; transform:none; }
+        #main-content { padding: 24px 28px; }
+        
+        .page-title { font-size: 1.6rem; font-weight: 800; color: var(--text); margin-bottom: 2px; }
+        .breadcrumb { background: none !important; padding: 0; margin: 0; }
+        .breadcrumb-item, .breadcrumb-item a { color: var(--text-muted) !important; font-size: 0.78rem; }
+        .breadcrumb-item.active { color: var(--accent2) !important; }
 
-        /* Install output terminal */
+        /* Component: Glass Card */
+        .gc {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: 0 4px 30px rgba(0,0,0,0.3);
+            padding: 24px 28px;
+            margin-bottom: 24px;
+        }
+        
+        /* Master Switch Row */
+        .master-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 20px;
+        }
+        
+        .master-bar-title {
+            font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 4px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .master-bar-sub { font-size: 0.85rem; color: var(--text-muted); }
+
+        /* The Toggle Switch */
+        .switch { position:relative; display:inline-block; width:52px; height:28px; margin:0; }
+        .switch input { opacity:0; width:0; height:0; }
+        .slider { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.1); transition:.3s; border-radius:30px; }
+        .slider:before { position:absolute; content:""; height:20px; width:20px; left:3px; bottom:3px; background:#fff; transition:.3s cubic-bezier(0.68, -0.55, 0.265, 1.55); border-radius:50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        input:checked + .slider { background:var(--success); border-color:var(--success); }
+        input:checked + .slider:before { transform:translateX(24px); }
+        
+        .fw-status-text { font-weight:700; font-size:0.95rem; margin-right:14px; text-transform:uppercase; letter-spacing:0.05em; }
+        .status-on  { color:var(--success); text-shadow: 0 0 10px rgba(16,185,129,0.4); }
+        .status-off { color:var(--danger); }
+        
+        /* Badge */
+        .fw-badge {
+            font-size: 0.75rem; font-weight: 700; padding: 6px 14px; border-radius: 20px;
+            background: rgba(16,185,129,0.15); color: var(--success); border: 1px solid rgba(16,185,129,0.3);
+            text-transform: uppercase; letter-spacing: 0.05em; box-shadow: 0 0 16px rgba(16,185,129,0.1);
+        }
+
+        /* IP Action Grid */
+        .fw-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:20px; }
+        
+        .fw-card {
+            background: rgba(0,0,0,0.2); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 22px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .fw-card:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
+        
+        .fw-card h3 { font-size:1rem; font-weight:700; margin:0 0 8px 0; display:flex; align-items:center; gap:10px; }
+        .fw-card p  { font-size:0.8rem; color:var(--text-muted); margin-bottom:18px; line-height: 1.5; }
+        
+        .c-allow h3 { color:var(--success); }
+        .c-deny h3 { color:var(--danger); }
+        .c-unblock h3 { color:var(--accent2); }
+        .c-block h3 { color:var(--danger); }
+        .c-ignore h3 { color:var(--warning); }
+        
+        /* Inputs & Buttons */
+        .form-control {
+            width:100%; padding:12px 14px; border-radius:8px;
+            background:rgba(0,0,0,0.3) !important; border:1px solid var(--border) !important;
+            color:var(--text) !important; font-size:0.85rem; font-family:'JetBrains Mono',monospace;
+            transition:border-color 0.2s, box-shadow 0.2s; outline:none; margin-bottom:12px;
+        }
+        .form-control:focus { border-color:var(--accent) !important; box-shadow: 0 0 0 3px rgba(99,102,241,0.15) !important; }
+        
+        .btn {
+            display:inline-flex; align-items:center; justify-content:center; gap:8px;
+            padding:12px 16px; border-radius:8px; width:100%;
+            font-size:0.85rem; font-weight:700; cursor:pointer;
+            border:1px solid transparent; transition:all 0.2s; text-transform:uppercase; letter-spacing:0.04em;
+        }
+        .btn:disabled { opacity:0.6; cursor:not-allowed; }
+        .btn-success { background:rgba(16,185,129,0.15); color:var(--success); border-color:rgba(16,185,129,0.3); }
+        .btn-success:hover:not(:disabled) { background:rgba(16,185,129,0.25); box-shadow:0 6px 15px rgba(16,185,129,0.15); }
+        .btn-danger  { background:rgba(239,68,68,0.15); color:var(--danger); border-color:rgba(239,68,68,0.3); }
+        .btn-danger:hover:not(:disabled) { background:rgba(239,68,68,0.25); box-shadow:0 6px 15px rgba(239,68,68,0.15); }
+        .btn-warning { background:rgba(245,158,11,0.15); color:var(--warning); border-color:rgba(245,158,11,0.3); }
+        .btn-warning:hover:not(:disabled) { background:rgba(245,158,11,0.25); box-shadow:0 6px 15px rgba(245,158,11,0.15); }
+        .btn-accent  { background:rgba(99,102,241,0.15); color:var(--accent2); border-color:rgba(99,102,241,0.3); }
+        .btn-accent:hover:not(:disabled) { background:rgba(99,102,241,0.25); box-shadow:0 6px 15px rgba(99,102,241,0.15); }
+
+        /* Install Terminal */
         .install-terminal {
-            display:none; background:#0a0f1e; border:1px solid rgba(99,102,241,0.25);
-            border-radius:var(--radius-sm); padding:16px; margin-top:18px;
-            font-family:'Courier New',monospace; font-size:0.78rem; color:#a5f3fc;
-            max-height:280px; overflow-y:auto; line-height:1.7;
+            display:none; background:#050508; border:1px solid rgba(99,102,241,0.3);
+            border-radius:10px; padding:18px; margin-top:20px;
+            font-family:'JetBrains Mono',monospace; font-size:0.8rem; color:#a5f3fc;
+            max-height:300px; overflow-y:auto; line-height:1.6;
             white-space:pre-wrap; word-break:break-all;
         }
         .install-terminal.visible { display:block; }
-        .install-status { margin-top:14px; font-size:0.83rem; font-weight:600; display:none; }
-        .install-status.ok  { color:var(--success); display:flex; align-items:center; gap:8px; }
-        .install-status.err { color:var(--danger);  display:flex; align-items:center; gap:8px; }
-
-        /* Not-installed banner */
-        .not-installed-banner {
-            background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.2);
-            border-radius:16px; padding:30px 32px; margin-bottom:24px;
-        }
+        .install-status { margin-top:16px; font-size:0.9rem; font-weight:700; display:none; align-items:center; gap:8px; }
+        .install-status.ok  { color:var(--success); }
+        .install-status.err { color:var(--danger); }
 
         /* Toast */
-        #toast-stack { position:fixed; bottom:24px; right:24px; z-index:9999; display:flex; flex-direction:column; gap:8px; }
+        #toast-stack { position:fixed; bottom:24px; right:24px; z-index:9999; display:flex; flex-direction:column; gap:10px; }
         .toast {
-            min-width:240px; padding:12px 18px; border-radius:var(--radius-sm);
-            font-size:0.83rem; font-weight:500; backdrop-filter:blur(20px);
-            box-shadow:0 8px 32px rgba(0,0,0,0.5); display:flex; align-items:center; gap:10px;
-            animation:toastIn 0.25s ease;
-            background:rgba(15,23,42,0.92); color:#fff; border:1px solid var(--border-light);
+            min-width:280px; padding:14px 20px; border-radius:10px;
+            font-size:0.88rem; font-weight:600; backdrop-filter:blur(20px);
+            box-shadow:0 10px 40px rgba(0,0,0,0.5); display:flex; align-items:center; gap:12px;
+            animation:toastIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            background:rgba(15,23,42,0.95); color:#fff; border:1px solid var(--border);
         }
-        .toast.success { background:rgba(16,185,129,0.15); border-color:rgba(16,185,129,0.25); color:var(--success); }
-        .toast.error   { background:rgba(239,68,68,0.15);  border-color:rgba(239,68,68,0.25);  color:var(--danger); }
-        @keyframes toastIn { from{opacity:0;transform:translateX(40px);} to{opacity:1;transform:translateX(0);} }
+        .toast.success { background:rgba(16,185,129,0.15); border-color:rgba(16,185,129,0.3); color:var(--success); }
+        .toast.error   { background:rgba(239,68,68,0.15);  border-color:rgba(239,68,68,0.3);  color:var(--danger); }
+        @keyframes toastIn { from{opacity:0;transform:translateX(50px) scale(0.9);} to{opacity:1;transform:translateX(0) scale(1);} }
+
+        /* Quick Ref Code */
+        .qref-code { background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px; color:#818cf8; font-family:'JetBrains Mono',monospace; }
     </style>
 </head>
-<body data-theme="light" class="font-nunito">
+<body data-theme="dark" class="font-nunito">
 <div id="wrapper" class="theme-cyan">
 
     <div class="page-loader-wrapper">
@@ -148,42 +181,45 @@
     {% include 'right.html' %}
 
     <div id="main-content">
-        <div class="container-fluid">
-            <div class="fw">
-
-                <div class="page-header">
-                    <div class="page-title">
-                        <div class="icon"><i class="fa-solid fa-shield-halved"></i></div>
-                        <div>
-                            <h1>CSF Firewall Center</h1>
-                            <p>Advanced Config Server Security &amp; Firewall Management</p>
-                        </div>
-                    </div>
-                    {% if csf_installed %}
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <span style="font-size:0.78rem; padding:4px 10px; border-radius:20px; background:rgba(16,185,129,0.15); color:var(--success); border:1px solid rgba(16,185,129,0.25);">
-                            <i class="fa-solid fa-circle" style="font-size:0.5rem; vertical-align:middle;"></i> CSF Active
-                        </span>
-                    </div>
-                    {% endif %}
+        <div class="container-fluid" style="max-width:1200px;">
+            
+            <div style="margin-bottom:24px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <div class="page-title"><i class="fa-solid fa-shield-halved" style="color:var(--danger); margin-right:12px;"></i>Firewall Center</div>
+                    <ul class="breadcrumb" style="margin-top:4px;">
+                        <li class="breadcrumb-item"><a href="/"><i class="fa fa-home"></i></a></li>
+                        <li class="breadcrumb-item">Security</li>
+                        <li class="breadcrumb-item active">Firewall</li>
+                    </ul>
                 </div>
-
                 {% if csf_installed %}
-                <!-- ── Master Switch ─────────────────────────────────────── -->
-                <div class="status-card">
-                    <div>
-                        <h3 style="font-size:1rem; margin-bottom:4px;">Master Firewall Switch</h3>
-                        <p style="font-size:0.8rem; color:var(--text-muted); margin:0;">Toggle to instantly enable or disable the firewall engine</p>
+                <div>
+                    <div class="fw-badge">
+                        <i class="fa-solid fa-circle" style="font-size:0.5rem; vertical-align:middle; margin-right:4px;"></i> {{ firewall_type|default:"Engine"|upper }} Active
                     </div>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if csf_installed %}
+            
+            <!-- ── Master Switch ─────────────────────────────────────── -->
+            <div class="gc">
+                <div class="master-bar">
+                    <div>
+                        <div class="master-bar-title"><i class="fa-solid fa-power-off" style="color:var(--accent2);"></i> Master Security Switch</div>
+                        <div class="master-bar-sub">Toggle your server's primary defense engine on or off instantly</div>
+                    </div>
+                    
                     <div style="display:flex; align-items:center;">
                         {% if fw_enabled %}
-                        <span class="fw-status-text status-on">Enforcing Rules</span>
+                        <span class="fw-status-text status-on">Shield Active</span>
                         <label class="switch">
                             <input type="checkbox" id="fw-toggle" checked onchange="toggleFirewall(this)">
                             <span class="slider"></span>
                         </label>
                         {% else %}
-                        <span class="fw-status-text status-off">Firewall Disabled</span>
+                        <span class="fw-status-text status-off">System Vulnerable</span>
                         <label class="switch">
                             <input type="checkbox" id="fw-toggle" onchange="toggleFirewall(this)">
                             <span class="slider"></span>
@@ -191,120 +227,90 @@
                         {% endif %}
                     </div>
                 </div>
+            </div>
 
-                <!-- ── IP Management Grid ──────────────────────────────── -->
-                <div class="fw-grid">
+            <!-- ── Management Grid ─────────────────────────────────── -->
+            <div class="fw-grid">
 
-                    <div class="fw-card allow">
-                        <h3><i class="fa-solid fa-check-circle"></i> Quick Allow</h3>
-                        <p>Permanently whitelist an IP in <code>csf.allow</code>.</p>
-                        <form id="form-allowip" onsubmit="submitForm(event, '/allowip/', this, 'Allowing...')">
-                            <input type="text" class="form-control" name="allow" placeholder="IP e.g. 192.168.1.1" required>
-                            <button type="submit" class="btn btn-success"><i class="fa-solid fa-plus"></i> Allow IP</button>
-                        </form>
+                <div class="fw-card c-allow">
+                    <h3><i class="fa-solid fa-shield-check"></i> Whitelist IP</h3>
+                    <p>Permanently allow an IP address to bypass all standard firewall blocks.</p>
+                    <form id="form-allowip" onsubmit="submitForm(event, '/allowip/', this, 'Allowing...')">
+                        <input type="text" class="form-control" name="allow" placeholder="IP e.g. 192.168.1.1" required>
+                        <button type="submit" class="btn btn-success"><i class="fa-solid fa-check"></i> Allow Access</button>
+                    </form>
+                </div>
+
+                <div class="fw-card c-deny">
+                    <h3><i class="fa-solid fa-ban"></i> Blacklist IP</h3>
+                    <p>Permanently drop all traffic from an IP. No connection will be allowed.</p>
+                    <form id="form-denyip" onsubmit="submitForm(event, '/denyip/', this, 'Denying...')">
+                        <input type="text" class="form-control" name="allow" placeholder="IP e.g. 203.0.113.5" required>
+                        <button type="submit" class="btn btn-danger"><i class="fa-solid fa-xmark"></i> Block Traffic</button>
+                    </form>
+                </div>
+
+                <div class="fw-card c-unblock">
+                    <h3><i class="fa-solid fa-unlock-keyhole"></i> Unban IP</h3>
+                    <p>Remove an IP address from the temporary or permanent deny lists.</p>
+                    <form id="form-unblockip" onsubmit="submitForm(event, '/unblockip/', this, 'Unblocking...')">
+                        <input type="text" class="form-control" name="allow" placeholder="IP to unblock" required>
+                        <button type="submit" class="btn btn-accent"><i class="fa-solid fa-rotate-left"></i> Remove Ban</button>
+                    </form>
+                </div>
+
+                <div class="fw-card c-ignore">
+                    <h3><i class="fa-solid fa-eye-slash"></i> Temp Ignore (LFD)</h3>
+                    <p>Instruct the Login Failure Daemon to ignore actions from this IP for 24h.</p>
+                    <form id="form-ignoreip" onsubmit="submitForm(event, '/ignoreip/', this, 'Ignoring...')">
+                        <input type="text" class="form-control" name="allow" placeholder="IP to ignore" required>
+                        <button type="submit" class="btn btn-warning"><i class="fa-solid fa-clock"></i> Ignore 24h</button>
+                    </form>
+                </div>
+
+                <!-- Info Box -->
+                <div class="fw-card" style="grid-column: 1 / -1; background:rgba(99,102,241,0.05); border-color:rgba(99,102,241,0.15); display:flex; gap:20px; flex-wrap:wrap; align-items:center;">
+                    <div style="flex:1; min-width:260px;">
+                        <h3 style="color:var(--accent2); margin-bottom:10px;"><i class="fa-solid fa-terminal"></i> Command Line Cheatsheet</h3>
+                        <p style="margin-bottom:0;">You can also manage the firewall natively over SSH.</p>
                     </div>
-
-                    <div class="fw-card deny">
-                        <h3><i class="fa-solid fa-ban"></i> Quick Deny</h3>
-                        <p>Permanently blacklist an IP in <code>csf.deny</code>.</p>
-                        <form id="form-denyip" onsubmit="submitForm(event, '/denyip/', this, 'Denying...')">
-                            <input type="text" class="form-control" name="allow" placeholder="IP e.g. 203.0.113.5" required>
-                            <button type="submit" class="btn btn-danger"><i class="fa-solid fa-xmark"></i> Deny IP</button>
-                        </form>
-                    </div>
-
-                    <div class="fw-card unblock">
-                        <h3><i class="fa-solid fa-unlock-keyhole"></i> Unblock IP</h3>
-                        <p>Remove an IP from the auto-ban deny list (csf -dr).</p>
-                        <form id="form-unblockip" onsubmit="submitForm(event, '/unblockip/', this, 'Unblocking...')">
-                            <input type="text" class="form-control" name="allow" placeholder="IP to unblock" required>
-                            <button type="submit" class="btn btn-accent"><i class="fa-solid fa-rotate-left"></i> Unblock IP</button>
-                        </form>
-                    </div>
-
-                    <div class="fw-card block">
-                        <h3><i class="fa-solid fa-shield-virus"></i> Tactical Block</h3>
-                        <p>Block a suspicious IP immediately via <code>csf -d</code>.</p>
-                        <form id="form-blockip" onsubmit="submitForm(event, '/blockip/', this, 'Blocking...')">
-                            <input type="text" class="form-control" name="allow" placeholder="Suspicious IP" required>
-                            <button type="submit" class="btn btn-danger"><i class="fa-solid fa-shield"></i> Block IP</button>
-                        </form>
-                    </div>
-
-                    <div class="fw-card ignore">
-                        <h3><i class="fa-regular fa-eye-slash"></i> Temp Ignore</h3>
-                        <p>Allow an IP for 24 hrs bypassing LFD auto-ban rules.</p>
-                        <form id="form-ignoreip" onsubmit="submitForm(event, '/ignoreip/', this, 'Adding...')">
-                            <input type="text" class="form-control" name="allow" placeholder="IP to temporarily ignore" required>
-                            <button type="submit" class="btn btn-warning"><i class="fa-solid fa-eye-slash"></i> Ignore 24h</button>
-                        </form>
-                    </div>
-
-                    <!-- Info card -->
-                    <div class="fw-card" style="background:rgba(99,102,241,0.06); border-color:rgba(99,102,241,0.18);">
-                        <h3 style="color:var(--accent-hover);"><i class="fa-solid fa-circle-info"></i> Quick Reference</h3>
-                        <div style="font-size:0.78rem; color:var(--text-secondary); line-height:2;">
-                            <div><code style="color:#a5f3fc;">csf -a &lt;IP&gt;</code> — Allow permanently</div>
-                            <div><code style="color:#a5f3fc;">csf -d &lt;IP&gt;</code> — Deny permanently</div>
-                            <div><code style="color:#a5f3fc;">csf -dr &lt;IP&gt;</code> — Remove from deny</div>
-                            <div><code style="color:#a5f3fc;">csf -g &lt;IP&gt;</code> — Check IP status</div>
-                            <div><code style="color:#a5f3fc;">csf -r</code> — Reload all rules</div>
-                            <div><code style="color:#a5f3fc;">csf -x</code> — Disable firewall</div>
-                            <div><code style="color:#a5f3fc;">csf -e</code> — Enable firewall</div>
-                        </div>
-                    </div>
-
-                </div><!-- /fw-grid -->
-
-                {% else %}
-                <!-- ── CSF Not Installed ───────────────────────────────── -->
-                <div class="not-installed-banner">
-                    <div style="display:flex; align-items:flex-start; gap:20px; flex-wrap:wrap;">
-                        <div style="width:54px; height:54px; border-radius:12px; background:rgba(99,102,241,0.15); display:flex; align-items:center; justify-content:center; font-size:1.5rem; color:#818cf8; flex-shrink:0;">
-                            <i class="fa-solid fa-shield-exclamation"></i>
-                        </div>
-                        <div style="flex:1; min-width:200px;">
-                            <div style="font-size:1.05rem; font-weight:700; color:#f1f5f9; margin-bottom:6px;">
-                                CSF Firewall is Not Installed
-                            </div>
-                            <p style="font-size:0.83rem; color:var(--text-muted); margin-bottom:0; line-height:1.7;">
-                                ConfigServer Security &amp; Firewall (CSF) is not detected on this server.
-                                Click <strong style="color:#818cf8;">Auto-Install Firewall</strong> below — the panel will:
-                                <br>① Try to install <strong>CSF</strong> (professional firewall)
-                                <br>② If CSF download fails, automatically install <strong>UFW</strong> (Ubuntu's built-in firewall)
-                                <br>Either way your firewall will be up and running — no SSH required.
-                            </p>
-
-                            <button id="btn-install-csf" class="btn-install" onclick="startInstall()">
-                                <i class="fa-solid fa-download"></i> Auto-Install Firewall (CSF / UFW)
-                            </button>
-
-                            <!-- Live terminal output -->
-                            <div id="install-terminal" class="install-terminal"></div>
-                            <div id="install-status" class="install-status"></div>
-
-                            <!-- Fallback manual instructions -->
-                            <details style="margin-top:22px;">
-                                <summary style="cursor:pointer; font-size:0.82rem; color:var(--text-muted); user-select:none;">
-                                    <i class="fa-solid fa-terminal" style="color:#6366f1;"></i>&nbsp; Manual SSH installation commands
-                                </summary>
-                                <div style="background:rgba(0,0,0,0.3); border-radius:8px; padding:14px 18px; font-family:'Courier New',monospace; font-size:0.77rem; color:#a5f3fc; line-height:2.2; border:1px solid rgba(255,255,255,0.06); margin-top:12px;">
-                                    <span style="color:#6b7280;"># Install dependencies</span><br>
-                                    apt-get install -y perl liblwp-protocol-https-perl libwww-perl<br>
-                                    <span style="color:#6b7280;"># Download &amp; install CSF</span><br>
-                                    cd /usr/src &amp;&amp; wget https://download.configserver.com/csf.tgz<br>
-                                    tar -xzf csf.tgz &amp;&amp; cd csf &amp;&amp; sh install.sh<br>
-                                    <span style="color:#6b7280;"># Enable (disable testing mode)</span><br>
-                                    sed -i 's/^TESTING = "1"/TESTING = "0"/' /etc/csf/csf.conf<br>
-                                    systemctl restart csf lfd
-                                </div>
-                            </details>
-                        </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:x-16px; gap-y:8px; font-size:0.8rem; color:var(--text-secondary); line-height:1.8;">
+                        <div><span class="qref-code">csf -a &lt;IP&gt;</span> — Allow permanently</div>
+                        <div><span class="qref-code">csf -d &lt;IP&gt;</span> — Deny permanently</div>
+                        <div><span class="qref-code">csf -dr &lt;IP&gt;</span> — Remove from deny</div>
+                        <div><span class="qref-code">csf -g &lt;IP&gt;</span> — Check IP status</div>
                     </div>
                 </div>
-                {% endif %}
 
-            </div><!-- /fw -->
+            </div><!-- /fw-grid -->
+
+            {% else %}
+            
+            <!-- ── Not Installed Banner ──────────────────────────────── -->
+            <div class="gc" style="border-color:rgba(99,102,241,0.3); background:rgba(99,102,241,0.06);">
+                <div style="display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start;">
+                    <div style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,rgba(99,102,241,0.2),rgba(129,140,248,0.2));display:flex;align-items:center;justify-content:center;color:var(--accent2);font-size:2rem;flex-shrink:0;">
+                        <i class="fa-solid fa-shield-virus"></i>
+                    </div>
+                    <div style="flex:1;">
+                        <div style="font-size:1.3rem;font-weight:800;color:var(--text);margin-bottom:8px;">Firewall Engine Offline</div>
+                        <p style="font-size:0.9rem;color:var(--text-muted);line-height:1.6;margin-bottom:24px;">
+                            No supported firewall (CSF or UFW) is installed on this instance. The VoidPanel security infrastructure requires an active firewall to automatically block brute-force attacks and manage port mapping.<br><br>
+                            Click below to seamlessly deploy <strong>CSF</strong> (or fallback to UFW) across the OS stack.
+                        </p>
+                        
+                        <button id="btn-install-csf" class="btn btn-accent" style="width:auto; padding:14px 28px; font-size:0.95rem; background:linear-gradient(135deg,#6366f1,#818cf8); color:#fff; border:none; box-shadow:0 6px 20px var(--glow);" onclick="startInstall()">
+                            <i class="fa-solid fa-download"></i> Auto-Install Security Engine
+                        </button>
+
+                        <div id="install-terminal" class="install-terminal"></div>
+                        <div id="install-status" class="install-status"></div>
+                    </div>
+                </div>
+            </div>
+            
+            {% endif %}
+
         </div>
     </div>
 </div>
@@ -318,37 +324,38 @@
         const stack = document.getElementById('toast-stack');
         const el = document.createElement('div');
         el.className = `toast ${type}`;
-        const icon = type === 'success' ? 'fa-circle-check' : 'fa-circle-xmark';
+        const icon = type === 'success' ? 'fa-check' : 'fa-xmark';
         el.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${msg}</span>`;
         stack.appendChild(el);
-        setTimeout(() => el.remove(), 5000);
+        setTimeout(() => el.remove(), 4000);
     }
 
-    // ── Master Firewall Toggle ──────────────────────────────
+    // Toggle
     async function toggleFirewall(chk) {
         chk.disabled = true;
         try {
-            const fd = new FormData();
             const resp = await fetch('/cpbrute/', {
                 method: 'POST',
                 headers: { 'X-CSRFToken': CSRF_TOKEN },
-                body: fd
+                body: new FormData()
             });
             const data = await resp.json();
             if (data.status === 'success') {
                 toast(data.message, 'success');
-                setTimeout(() => location.reload(), 1000);
+                setTimeout(() => location.reload(), 1200);
             } else {
-                toast(data.message || 'Failed to toggle firewall.', 'error');
+                toast(data.message || 'Failed to toggle.', 'error');
+                chk.checked = !chk.checked; // revert UI
                 chk.disabled = false;
             }
         } catch(e) {
-            toast('Network error.', 'error');
+            toast('Network connection failed.', 'error');
+            chk.checked = !chk.checked;
             chk.disabled = false;
         }
     }
 
-    // ── IP Action Forms ─────────────────────────────────────
+    // Actions
     async function submitForm(e, url, form, loadingText) {
         e.preventDefault();
         const btn = form.querySelector('button[type="submit"]');
@@ -367,7 +374,7 @@
                 toast(data.message, 'success');
                 form.reset();
             } else {
-                toast(data.message || 'Error executing command.', 'error');
+                toast(data.message || 'Engine execution rejected.', 'error');
             }
         } catch(err) {
             toast('Network error.', 'error');
@@ -377,16 +384,16 @@
         }
     }
 
-    // ── CSF Auto-Install ────────────────────────────────────
+    // Install
     async function startInstall() {
         const btn     = document.getElementById('btn-install-csf');
         const term    = document.getElementById('install-terminal');
         const status  = document.getElementById('install-status');
 
         btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Installing… (this may take 1-2 minutes)';
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Initializing OS Installer...';
         term.classList.add('visible');
-        term.textContent = '$ Starting CSF installation...\n';
+        term.textContent = '> Root clearance acquired.\n> Executing firewall deployment sequence...\n';
         status.className = 'install-status';
         status.style.display = 'none';
 
@@ -404,30 +411,29 @@
 
             if (data.status === 'success') {
                 status.className = 'install-status ok';
-                status.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${data.message}`;
+                status.innerHTML = `<i class="fa-solid fa-circle-check"></i> Deployment complete. Reactivating dashboard...`;
                 status.style.display = 'flex';
-                toast('CSF installed! Refreshing in 3s…', 'success');
+                toast('Firewall engine installed!', 'success');
                 setTimeout(() => location.reload(), 3000);
             } else {
                 status.className = 'install-status err';
                 status.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${data.message}`;
                 status.style.display = 'flex';
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Retry Installation';
+                btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Retry Engine Install';
                 toast(data.message, 'error');
             }
         } catch(err) {
-            term.textContent += '\nERROR: Network request failed.\n';
+            term.textContent += '\n[FATAL] Gateway timeout. Check syslog.\n';
             status.className = 'install-status err';
-            status.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Request failed. Check server logs.';
+            status.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Network execution failed.';
             status.style.display = 'flex';
             btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Retry Installation';
+            btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Retry Engine Install';
         }
     }
 </script>
 
-<!-- Javascript -->
 <script src="/static/assets/bundles/libscripts.bundle.js"></script>
 <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
 <script src="/static/assets/bundles/mainscripts.bundle.js"></script>

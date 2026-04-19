@@ -5313,40 +5313,51 @@ def cpbruteforce(request):
 @login_required(login_url='/')
 def cpbrute(request):
     if request.user.is_superuser:
-        if request.method=="POST":
+        if request.method == "POST":
+            # Ensure firewall model instance exists
             if firewall.objects.filter(id=1).exists():
                 e = firewall.objects.get(id=1)
             else:
                 e = firewall(id=1, status=False)
                 e.save()
+                
             try:
                 import shutil as _sh, subprocess as _sp
-                if _sh.which('csf') or os.path.exists('/etc/csf/csf.conf'):
+                csf_binary = _sh.which('csf')
+                ufw_binary = _sh.which('ufw')
+                
+                if csf_binary or os.path.exists('/etc/csf/csf.conf'):
                     if e.status:
+                        # Currently enabled -> we want to disable
                         if sys.platform != 'win32':
-                            run_command('''sudo sed -i 's/^TESTING = "0"/TESTING = "1"/' /etc/csf/csf.conf''')
-                            run_command('sudo csf -x')
+                            _sp.run(['sudo', 'sed', '-i', 's/^TESTING = "0"/TESTING = "1"/', '/etc/csf/csf.conf'], check=False)
+                            _sp.run(['sudo', 'csf', '-x'], check=False)
                         e.status = False
                     else:
+                        # Currently disabled -> we want to enable
                         if sys.platform != 'win32':
-                            run_command('''sudo sed -i 's/^TESTING = "1"/TESTING = "0"/' /etc/csf/csf.conf''')
-                            run_command('sudo csf -e')
+                            _sp.run(['sudo', 'sed', '-i', 's/^TESTING = "1"/TESTING = "0"/', '/etc/csf/csf.conf'], check=False)
+                            _sp.run(['sudo', 'csf', '-e'], check=False)
                         e.status = True
-                elif _sh.which('ufw'):
+                        
+                elif ufw_binary:
+                    # UFW fallback
                     st = _sp.run(['sudo', 'ufw', 'status'], capture_output=True, text=True)
-                    if 'active' in st.stdout.lower():
+                    if 'active' in st.stdout.lower() or e.status:
                         _sp.run(['sudo', 'ufw', '--force', 'disable'], check=False)
                         e.status = False
                     else:
                         _sp.run(['sudo', 'ufw', '--force', 'enable'], check=False)
                         e.status = True
                 else:
-                    return JsonResponse({'status': 'error', 'message': 'No firewall installed. Use the Install button first.'})
+                    return JsonResponse({'status': 'error', 'message': 'No firewall engine installed. Click Install first.'})
+                    
                 e.save()
-                return JsonResponse({'status': 'success', 'message': 'Firewall toggled successfully.'})
+                return JsonResponse({'status': 'success', 'message': f"Firewall {'enabled' if e.status else 'disabled'} successfully."})
+                
             except Exception as ex:
                 return JsonResponse({'status': 'error', 'message': f'Toggle failed: {str(ex)}'})
-    return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
+    return JsonResponse({'status': 'error', 'message': 'Authentication required.'}, status=403)
 
 @login_required(login_url='/')
 def allowip(request):
