@@ -584,7 +584,7 @@ listener VoidHTTP {{
         return _run(['sudo', 'systemctl', 'reload', 'lsws'])
 
     def test_config(self) -> CommandResult:
-        return _run(['sudo', os.path.join(OLS_ROOT, 'bin', 'lswsctrl'), 'test'])
+        return _run(['sudo', os.path.join(OLS_ROOT, 'bin', 'openlitespeed'), '-t'])
 
     def reload(self) -> CommandResult:
         return _run(['sudo', 'systemctl', 'reload', 'lsws'])
