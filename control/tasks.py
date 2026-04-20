@@ -641,25 +641,30 @@ def run_ssl_task(self, domain_name: str, email: str):
     name='voidpanel.background_migration_task',
     acks_late=True,
 )
-def background_migration_task(self, source_type: str, auth_data: dict, target_user_id: str):
+def background_migration_task(self, source_type: str, auth_data: dict):
     """
     Celery task: Extracts backups or connects to remote panels (cPanel, Plesk, etc.),
     downloads configurations/data, and restores them to the local VoidPanel setup.
     """
-    logger.info('Migration task started: type=%s targeted_user=%s', source_type, target_user_id)
+    logger.info('Migration task started: type=%s', source_type)
     try:
-        from control.models import user as VUser
-        target_user = VUser.objects.get(id=target_user_id)
-        
-        target_path = os.path.join(paths.HOME_BASE, target_user.username)
+        from control.migration_parser import MigrationParser
         
         if source_type == 'file':
             backup_path = auth_data.get('file_path')
             logger.info('Extracting local backup file: %s', backup_path)
-            # Placeholder for extracting the file securely
-            # e.g., shutil.unpack_archive(backup_path, '/tmp/migration_extract')
-            # Followed by parsing logic to convert the backup format into VoidPanel configuration
             
+            parser = MigrationParser(archive_path=backup_path)
+            meta = parser.analyze()
+            
+            # Save into the database and create unix user
+            try:
+                c_user, c_domain, gen_pass = parser.build_system_account()
+                logger.info(f"Successfully configured account {c_user.username} with domain {c_domain.domain}. Pass: {gen_pass}")
+            except Exception as conf_err:
+                logger.error(f"Failed to build system account during migration: {conf_err}")
+                raise
+
             # Clean up temporary backup package
             if backup_path and os.path.exists(backup_path):
                 os.remove(backup_path)
@@ -672,11 +677,10 @@ def background_migration_task(self, source_type: str, auth_data: dict, target_us
             # 1. API Call to trigger backup generation on remote panel
             # 2. Polling remote panel until backup is ready
             # 3. Securely downloading the backup to a local temp folder
-            # 4. Extracting the backup
+            # 4. Use MigrationParser instance to extract the backup
             # 5. Iterating through the XML/JSON to recreate domains, users, db, and files.
         
-        logger.info('Migration task completed successfully for %s', target_user.username)
-        # Notify user (placeholder: could send an email or update a notification model)
+        logger.info('Migration task completed successfully')
         
     except Exception as e:
         logger.error('Migration task failed: %s', str(e))

@@ -7641,11 +7641,7 @@ def process_restore(request):
         
     if request.method == 'POST':
         source_type = request.POST.get('source_type')
-        target_user_id = request.POST.get('target_user')
         
-        if not target_user_id:
-            return JsonResponse({'status': 'error', 'message': 'You must select a target user.'}, status=400)
-            
         auth_data = {}
         if source_type == 'file':
             backup_file = request.FILES.get('backup_file')
@@ -7678,7 +7674,7 @@ def process_restore(request):
         # Dispatch the Celery task
         try:
             from control.tasks import background_migration_task
-            background_migration_task.delay(source_type, auth_data, target_user_id)
+            background_migration_task.delay(source_type, auth_data)
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': f'Failed to dispatch worker task: {str(e)}'}, status=500)
             
