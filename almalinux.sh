@@ -104,37 +104,32 @@ chmod 644 "$VOIDPANEL_ENGINE_FILE"
 #  INSTALL BOTH WEB SERVERS (one active, one installed-but-disabled for hot-swap)
 # =============================================================================
 
-# --- Install NGINX ---
+# --- Install NGINX (always required — serves as panel reverse proxy) ---
 status_msg "Installing NGINX"
 dnf install -y nginx
 
-# --- Install OpenLiteSpeed ---
-status_msg "Installing OpenLiteSpeed (OLS)"
-# Add LiteSpeed repositories
-rpm -Uvh https://rpms.litespeedtech.com/centos/litespeed-repo-1.1-1.el${RHEL_MAJOR}.noarch.rpm 2>/dev/null || \
-    rpm -Uvh https://rpms.litespeedtech.com/centos/litespeed-repo-1.1-1.el8.noarch.rpm 2>/dev/null || true
-dnf install -y openlitespeed 2>/dev/null || true
-
-# Set default OLS admin password
-if [[ -f /usr/local/lsws/admin/misc/admpass.sh ]]; then
-    echo -e "admin\nadmin\n" | /usr/local/lsws/admin/misc/admpass.sh 2>/dev/null || true
-fi
-
-# Enable/disable engines based on user choice
+# --- Install OpenLiteSpeed only if selected ---
 if [[ "$WEB_ENGINE" == "ols" ]]; then
+    status_msg "Installing OpenLiteSpeed (selected as active web engine)"
+    rpm -Uvh https://rpms.litespeedtech.com/centos/litespeed-repo-1.1-1.el${RHEL_MAJOR}.noarch.rpm 2>/dev/null || \
+        rpm -Uvh https://rpms.litespeedtech.com/centos/litespeed-repo-1.1-1.el8.noarch.rpm 2>/dev/null || true
+    dnf install -y openlitespeed 2>/dev/null || true
+
+    # Set default OLS admin password
+    if [[ -f /usr/local/lsws/admin/misc/admpass.sh ]]; then
+        echo -e "admin\nadmin\n" | /usr/local/lsws/admin/misc/admpass.sh 2>/dev/null || true
+    fi
+
     systemctl enable  lshttpd lsws   2>/dev/null || true
     systemctl disable nginx  2>/dev/null || true
     systemctl stop    nginx  2>/dev/null || true
-    NGINX_CONF_DIR="/usr/local/lsws/conf"           # OLS primary conf dir
-    status_msg "OpenLiteSpeed will be the primary web server"
+    NGINX_CONF_DIR="/usr/local/lsws/conf"
+    success_msg "OpenLiteSpeed installed and enabled as primary site engine (80/443)"
 else
+    # NGINX only — do NOT install OpenLiteSpeed at all
     systemctl enable  nginx  2>/dev/null || true
-    systemctl disable lshttpd lsws   2>/dev/null || true
-    systemctl stop    lshttpd lsws   2>/dev/null || true
-    /usr/local/lsws/bin/lswsctrl stop 2>/dev/null || true
-    pkill -9 litespeed 2>/dev/null || true
     NGINX_CONF_DIR="/etc/nginx/conf.d"
-    status_msg "NGINX will be the primary web server"
+    success_msg "NGINX selected — OpenLiteSpeed skipped"
 fi
 
 # Generate Dummy SSL for the active web server

@@ -4,339 +4,311 @@
 <head>
     <meta charset="UTF-8">
     <title>Client Portal | VoidPanel</title>
-    <meta name="description" content="Modern VoidPanel client portal for hosting operations, billing visibility, and support management.">
+    <meta name="description" content="VoidPanel client portal — manage your hosting, billing, and support.">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
     <link rel="stylesheet" href="/static/assets/css/void-modern.css">
     <style>
+        /* ─── Portal Layout ─────────────────────────────────── */
         .portal-page {
             min-height: 100vh;
-            padding: 108px 20px 40px;
+            padding: 80px 0 48px;
             background:
-                radial-gradient(circle at top left, rgba(89, 196, 188, 0.22), transparent 28%),
-                radial-gradient(circle at top right, rgba(245, 158, 11, 0.12), transparent 24%),
-                linear-gradient(180deg, #071018 0%, #0d1724 52%, #08111a 100%);
+                radial-gradient(ellipse 70% 40% at 80% 0%, rgba(89,196,188,0.12) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 30% at 10% 80%, rgba(99,102,241,0.07) 0%, transparent 60%),
+                #07101a;
         }
         .portal-layout {
-            max-width: 1500px;
+            width: 100%;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: 290px minmax(0, 1fr);
-            gap: 24px;
+            grid-template-columns: 260px minmax(0,1fr);
+            gap: 0;
+            min-height: calc(100vh - 80px);
         }
-        .portal-shell {
-            border: 1px solid rgba(255,255,255,0.08);
-            background: rgba(8, 14, 24, 0.86);
-            backdrop-filter: blur(18px);
-            box-shadow: 0 30px 90px rgba(0, 0, 0, 0.28);
-        }
-        .portal-sidebar {
-            border-radius: 30px;
-            padding: 24px;
+        /* ─── Sidebar ─────────────────────────────────────── */
+        .p-sidebar {
             position: sticky;
-            top: 106px;
-            height: fit-content;
-        }
-        .portal-main {
+            top: 80px;
+            height: calc(100vh - 80px);
+            overflow-y: auto;
+            background: rgba(8,13,22,0.92);
+            border-right: 1px solid rgba(255,255,255,0.06);
+            backdrop-filter: blur(24px);
             display: flex;
             flex-direction: column;
-            gap: 22px;
+            padding: 20px 16px 24px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(89,196,188,0.2) transparent;
         }
-        .brand-chip {
-            display: inline-flex;
+        .p-sidebar::-webkit-scrollbar { width: 4px; }
+        .p-sidebar::-webkit-scrollbar-thumb { background: rgba(89,196,188,0.2); border-radius: 2px; }
+        .p-logo {
+            display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
+            font-weight: 800;
+            font-size: 1rem;
+            color: var(--text-primary);
+            padding: 4px 8px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            margin-bottom: 16px;
+        }
+        .p-logo img { width: 30px; height: 30px; border-radius: 8px; }
+        /* User block */
+        .p-user {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            border-radius: 14px;
+            background: rgba(89,196,188,0.07);
+            border: 1px solid rgba(89,196,188,0.14);
             margin-bottom: 20px;
-            font-weight: 700;
-            color: var(--text-primary);
         }
-        .brand-chip img {
-            width: 42px;
-            height: 42px;
-            border-radius: 12px;
+        .p-avatar {
+            width: 36px; height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #59c4bc, #3de0d5);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 0.95rem; color: #04131a;
+            flex-shrink: 0;
         }
-        .profile-card, .side-card, .hero-card, .content-card, .service-card, .signal-card, .ticket-card, .activity-card {
-            border-radius: 28px;
-        }
-        .profile-card {
-            padding: 22px;
-            background: linear-gradient(180deg, rgba(89, 196, 188, 0.18), rgba(255,255,255,0.03));
-            border: 1px solid rgba(255,255,255,0.09);
-            margin-bottom: 18px;
-        }
-        .pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 12px;
-            border-radius: 999px;
-            background: rgba(255,255,255,0.09);
-            color: var(--text-primary);
-            font-size: 0.83rem;
-        }
-        .profile-card h2 {
-            margin: 14px 0 8px;
-            font-size: 1.4rem;
-            color: var(--text-primary);
-        }
-        .profile-card p {
-            margin: 0;
+        .p-user-info { min-width: 0; }
+        .p-user-name { font-weight: 700; font-size: 0.88rem; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .p-user-role { font-size: 0.72rem; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+        /* Nav */
+        .p-nav-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); padding: 0 8px; margin: 16px 0 6px; }
+        .p-nav-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 12px;
+            border-radius: 10px;
             color: var(--text-secondary);
-            line-height: 1.65;
+            font-size: 0.88rem; font-weight: 600;
+            transition: all 0.18s ease;
+            margin-bottom: 2px;
+            cursor: pointer;
         }
-        .menu-list {
+        .p-nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
+        .p-nav-item.active { background: rgba(89,196,188,0.12); color: #59c4bc; border-left: 2px solid #59c4bc; padding-left: 10px; }
+        .p-nav-item i { width: 16px; text-align: center; font-size: 0.85rem; opacity: 0.8; }
+        .p-nav-badge { margin-left: auto; background: rgba(245,158,11,0.2); color: #fbbf24; font-size: 0.68rem; font-weight: 700; padding: 2px 6px; border-radius: 999px; }
+        /* Quick stats in sidebar */
+        .p-sidebar-stats {
+            margin-top: 20px;
+            padding: 14px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.025);
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .p-stat-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
+        .p-stat-row + .p-stat-row { border-top: 1px solid rgba(255,255,255,0.04); }
+        .p-stat-label { font-size: 0.78rem; color: var(--text-muted); }
+        .p-stat-val { font-size: 0.85rem; font-weight: 700; color: var(--text-primary); }
+        .p-stat-val.warn { color: #fbbf24; }
+        .p-stat-val.ok { color: #4ade80; }
+        /* Quick actions */
+        .p-quick-btn {
+            display: flex; align-items: center; gap: 8px;
+            padding: 9px 12px;
+            border-radius: 10px;
+            font-size: 0.82rem; font-weight: 600;
+            margin-bottom: 6px;
+            transition: all 0.18s ease;
+        }
+        .p-quick-btn.primary { background: rgba(89,196,188,0.1); color: #59c4bc; border: 1px solid rgba(89,196,188,0.18); }
+        .p-quick-btn.primary:hover { background: rgba(89,196,188,0.18); }
+        .p-quick-btn.indigo { background: rgba(129,140,248,0.1); color: #a5b4fc; border: 1px solid rgba(129,140,248,0.18); }
+        .p-quick-btn.indigo:hover { background: rgba(129,140,248,0.18); }
+        .p-quick-btn.danger { background: rgba(255,255,255,0.03); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.06); }
+        .p-quick-btn.danger:hover { color: #f87171; border-color: rgba(248,113,113,0.2); }
+        .p-sidebar-spacer { flex: 1; }
+        /* ─── Main Panel ──────────────────────────────────── */
+        .p-main {
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            margin: 20px 0;
+            padding: 24px 28px 48px;
+            gap: 20px;
+            min-width: 0;
         }
-        .menu-list a {
+        /* Top greeting bar */
+        .p-topbar {
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 14px 16px;
-            border-radius: 18px;
-            color: var(--text-secondary);
-            background: rgba(255,255,255,0.025);
-            border: 1px solid rgba(255,255,255,0.04);
-        }
-        .menu-list a.active, .menu-list a:hover {
-            color: var(--text-primary);
-            background: rgba(89, 196, 188, 0.12);
-            border-color: rgba(89, 196, 188, 0.2);
-        }
-        .side-card {
-            padding: 18px;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.06);
-            margin-top: 14px;
-        }
-        .side-card strong, .content-card h3, .service-card h3, .signal-card h3 {
-            color: var(--text-primary);
-        }
-        .hero-card {
-            position: relative;
-            overflow: hidden;
-            padding: 32px;
-            background:
-                radial-gradient(circle at 85% 15%, rgba(89, 196, 188, 0.18), transparent 20%),
-                linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
-        }
-        .hero-grid {
-            display: grid;
-            grid-template-columns: 1.4fr .9fr;
-            gap: 22px;
-            align-items: end;
-        }
-        .eyebrow {
-            display: inline-flex;
-            padding: 8px 12px;
-            border-radius: 999px;
-            background: rgba(245, 158, 11, 0.12);
-            color: #fcd34d;
-            font-size: 0.82rem;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-        }
-        .hero-card h1 {
-            margin: 16px 0 12px;
-            font-size: clamp(2.1rem, 4vw, 3.6rem);
-            line-height: 1.05;
-            color: var(--text-primary);
-        }
-        .hero-card p {
-            max-width: 700px;
-            color: var(--text-secondary);
-            line-height: 1.8;
-            margin: 0;
-        }
-        .hero-actions {
-            display: flex;
+            justify-content: space-between;
+            gap: 16px;
             flex-wrap: wrap;
-            gap: 12px;
-            margin-top: 24px;
         }
-        .hero-actions a {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            padding: 14px 18px;
-            border-radius: 16px;
-            font-weight: 600;
+        .p-greeting { font-size: 1.35rem; font-weight: 800; color: var(--text-primary); }
+        .p-greeting span { color: #59c4bc; }
+        .p-greeting-sub { font-size: 0.84rem; color: var(--text-muted); margin-top: 2px; }
+        .p-topbar-actions { display: flex; gap: 10px; }
+        .p-btn {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 9px 16px; border-radius: 10px; font-size: 0.84rem; font-weight: 700;
+            transition: all 0.18s ease; cursor: pointer; border: none;
         }
-        .hero-primary {
-            background: linear-gradient(135deg, #59c4bc, #2dd4bf);
-            color: #04131a;
-        }
-        .hero-secondary {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.08);
-            color: var(--text-primary);
-        }
-        .mini-metric-grid {
+        .p-btn.teal { background: rgba(89,196,188,0.12); color: #59c4bc; border: 1px solid rgba(89,196,188,0.2); }
+        .p-btn.teal:hover { background: rgba(89,196,188,0.2); }
+        .p-btn.violet { background: rgba(129,140,248,0.12); color: #a5b4fc; border: 1px solid rgba(129,140,248,0.2); }
+        .p-btn.violet:hover { background: rgba(129,140,248,0.2); }
+        /* Flash messages */
+        .p-flash { padding: 12px 16px; border-radius: 10px; background: rgba(89,196,188,0.12); border: 1px solid rgba(89,196,188,0.2); color: var(--text-primary); font-size: 0.88rem; }
+        /* ─── KPI Strip ─────────────────────────────────── */
+        .kpi-strip {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+        .kpi-card {
+            background: rgba(13,20,33,0.7);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 14px;
+            padding: 18px 20px;
+            display: flex;
+            align-items: flex-start;
             gap: 14px;
+            transition: border-color 0.2s ease;
         }
-        .mini-metric, .content-card, .service-card, .signal-card, .ticket-card, .activity-card {
+        .kpi-card:hover { border-color: rgba(89,196,188,0.2); }
+        .kpi-icon {
+            width: 38px; height: 38px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.95rem; flex-shrink: 0;
+        }
+        .kpi-icon.teal { background: rgba(89,196,188,0.12); color: #59c4bc; }
+        .kpi-icon.amber { background: rgba(245,158,11,0.12); color: #fbbf24; }
+        .kpi-icon.green { background: rgba(74,222,128,0.12); color: #4ade80; }
+        .kpi-icon.violet { background: rgba(129,140,248,0.12); color: #a5b4fc; }
+        .kpi-icon.red { background: rgba(248,113,113,0.12); color: #f87171; }
+        .kpi-val { font-size: 1.55rem; font-weight: 800; color: var(--text-primary); line-height: 1; }
+        .kpi-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+        /* ─── Alert Banners ─────────────────────────────── */
+        .p-alerts { display: flex; flex-direction: column; gap: 10px; }
+        .p-alert {
+            display: flex; align-items: center; justify-content: space-between; gap: 14px;
+            padding: 13px 16px; border-radius: 12px; flex-wrap: wrap;
+        }
+        .p-alert.warn { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); }
+        .p-alert.danger { background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.2); }
+        .p-alert.info { background: rgba(89,196,188,0.08); border: 1px solid rgba(89,196,188,0.18); }
+        .p-alert-left { display: flex; align-items: center; gap: 10px; }
+        .p-alert-icon { font-size: 0.9rem; }
+        .p-alert.warn .p-alert-icon { color: #fbbf24; }
+        .p-alert.danger .p-alert-icon { color: #f87171; }
+        .p-alert.info .p-alert-icon { color: #59c4bc; }
+        .p-alert-text { font-size: 0.85rem; color: var(--text-primary); font-weight: 600; }
+        .p-alert-sub { font-size: 0.78rem; color: var(--text-muted); margin-top: 1px; }
+        /* ─── Two-column grid ──────────────────────────── */
+        .p-grid-2 { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; }
+        .p-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        /* ─── Panel Cards ───────────────────────────────── */
+        .p-card {
+            background: rgba(11,18,30,0.8);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 18px;
             padding: 22px;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.06);
         }
-        .mini-metric span {
-            display: block;
-            font-size: 0.84rem;
-            color: var(--text-muted);
+        .p-card-head {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 18px; gap: 10px;
+        }
+        .p-card-title { font-size: 0.95rem; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+        .p-card-title i { font-size: 0.8rem; color: var(--accent); }
+        .p-card-sub { font-size: 0.78rem; color: var(--text-muted); }
+        /* Service items */
+        .p-service-item {
+            padding: 14px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.025);
+            border: 1px solid rgba(255,255,255,0.05);
+            margin-bottom: 10px;
+            transition: border-color 0.18s ease;
+        }
+        .p-service-item:last-child { margin-bottom: 0; }
+        .p-service-item:hover { border-color: rgba(89,196,188,0.15); }
+        .p-service-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .p-service-name { font-weight: 700; font-size: 0.9rem; color: var(--text-primary); }
+        .p-service-domain { font-size: 0.8rem; color: var(--text-muted); margin-top: 3px; }
+        .p-service-meta { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.04); }
+        .p-meta-label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        .p-meta-val { font-size: 0.82rem; font-weight: 700; color: var(--text-primary); margin-top: 2px; }
+        /* Invoice items */
+        .p-invoice-item {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.05);
+            margin-bottom: 8px;
+        }
+        .p-invoice-item:last-child { margin-bottom: 0; }
+        .p-invoice-num { font-size: 0.82rem; font-weight: 700; color: var(--text-primary); }
+        .p-invoice-desc { font-size: 0.76rem; color: var(--text-muted); margin-top: 2px; }
+        .p-invoice-amt { font-size: 0.9rem; font-weight: 800; color: var(--text-primary); white-space: nowrap; }
+        /* Ticket items */
+        .p-ticket-item {
+            padding: 14px; border-radius: 12px;
+            background: rgba(255,255,255,0.025);
+            border: 1px solid rgba(255,255,255,0.05);
             margin-bottom: 10px;
         }
-        .mini-metric strong {
-            display: block;
-            font-size: 2rem;
-            color: var(--text-primary);
+        .p-ticket-item:last-child { margin-bottom: 0; }
+        .p-ticket-subject { font-weight: 700; font-size: 0.88rem; color: var(--text-primary); }
+        .p-ticket-meta { font-size: 0.76rem; color: var(--text-muted); margin-top: 4px; }
+        /* Activity items */
+        .p-activity-item {
+            display: flex; align-items: flex-start; gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
         }
-        .portal-row {
-            display: grid;
-            grid-template-columns: 1.35fr .95fr;
-            gap: 22px;
+        .p-activity-item:last-child { border-bottom: none; }
+        .p-activity-dot { width: 8px; height: 8px; border-radius: 50%; background: #59c4bc; flex-shrink: 0; margin-top: 5px; }
+        .p-activity-title { font-size: 0.84rem; font-weight: 600; color: var(--text-primary); }
+        .p-activity-time { font-size: 0.74rem; color: var(--text-muted); margin-top: 2px; }
+        /* Status badges */
+        .s-badge {
+            display: inline-flex; align-items: center;
+            padding: 4px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 700;
         }
-        .content-card h3, .service-card h3, .signal-card h3, .ticket-card h3, .activity-card h3 {
-            margin: 0 0 16px;
-            font-size: 1.18rem;
+        .s-active, .s-paid, .s-answered { background: rgba(74,222,128,0.12); color: #4ade80; }
+        .s-pending, .s-unpaid, .s-open, .s-in_progress { background: rgba(245,158,11,0.12); color: #fbbf24; }
+        .s-suspended, .s-overdue, .s-closed { background: rgba(248,113,113,0.12); color: #f87171; }
+        /* Empty state */
+        .p-empty {
+            text-align: center; padding: 32px 16px;
+            color: var(--text-muted); font-size: 0.88rem;
         }
-        .section-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            margin-bottom: 16px;
+        .p-empty i { font-size: 1.8rem; display: block; margin-bottom: 10px; opacity: 0.5; }
+        /* Services table */
+        .p-table { width: 100%; border-collapse: collapse; }
+        .p-table th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); padding: 10px 14px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.06); text-align: left; }
+        .p-table td { padding: 12px 14px; font-size: 0.84rem; color: var(--text-secondary); border-bottom: 1px solid rgba(255,255,255,0.04); }
+        .p-table tr:last-child td { border-bottom: none; }
+        .p-table tr:hover td { background: rgba(255,255,255,0.02); }
+        /* Link button micro */
+        .p-link-btn {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 5px 10px; border-radius: 8px; font-size: 0.76rem; font-weight: 700;
+            transition: all 0.15s ease;
         }
-        .section-top span {
-            color: var(--text-muted);
-            font-size: 0.84rem;
+        .p-link-btn.teal { background: rgba(89,196,188,0.08); color: #59c4bc; border: 1px solid rgba(89,196,188,0.15); }
+        .p-link-btn.teal:hover { background: rgba(89,196,188,0.16); }
+        .p-link-btn.violet { background: rgba(129,140,248,0.08); color: #a5b4fc; border: 1px solid rgba(129,140,248,0.15); }
+        .p-link-btn.violet:hover { background: rgba(129,140,248,0.16); }
+        .p-link-btn.ghost { background: rgba(255,255,255,0.04); color: var(--text-secondary); border: 1px solid rgba(255,255,255,0.07); }
+        .p-link-btn.ghost:hover { color: var(--text-primary); }
+        /* Responsive */
+        @media(max-width:1100px) { .kpi-strip { grid-template-columns: repeat(2,1fr); } }
+        @media(max-width:960px) {
+            .portal-layout { grid-template-columns: 1fr; }
+            .p-sidebar { position: static; height: auto; flex-direction: row; flex-wrap: wrap; padding: 14px; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); }
+            .p-grid-2, .p-grid-3 { grid-template-columns: 1fr; }
         }
-        .service-stack, .ticket-stack, .activity-stack {
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-        }
-        .service-card {
-            background:
-                linear-gradient(145deg, rgba(255,255,255,0.035), rgba(255,255,255,0.02)),
-                rgba(255,255,255,0.02);
-        }
-        .service-head, .ticket-head, .activity-head, .detail-line {
-            display: flex;
-            justify-content: space-between;
-            gap: 10px;
-            align-items: center;
-        }
-        .service-head strong, .ticket-head strong, .activity-head strong {
-            color: var(--text-primary);
-            font-size: 1rem;
-        }
-        .muted {
-            color: var(--text-muted);
-        }
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 7px 12px;
-            border-radius: 999px;
-            font-size: 0.78rem;
-            font-weight: 700;
-            text-transform: capitalize;
-        }
-        .status-active, .status-paid, .status-answered {
-            background: rgba(74, 222, 128, 0.14);
-            color: #86efac;
-        }
-        .status-pending, .status-unpaid, .status-open, .status-in_progress {
-            background: rgba(245, 158, 11, 0.14);
-            color: #fcd34d;
-        }
-        .status-overdue, .status-suspended, .status-closed {
-            background: rgba(248, 113, 113, 0.16);
-            color: #fca5a5;
-        }
-        .progress-bar {
-            height: 10px;
-            border-radius: 999px;
-            background: rgba(255,255,255,0.06);
-            overflow: hidden;
-            margin-top: 12px;
-        }
-        .progress-fill {
-            height: 100%;
-            border-radius: inherit;
-            background: linear-gradient(90deg, #59c4bc, #f59e0b);
-        }
-        .invoice-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        .invoice-item {
-            padding: 16px 18px;
-            border-radius: 18px;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.06);
-        }
-        .table-shell {
-            overflow-x: auto;
-            border-radius: 22px;
-            border: 1px solid rgba(255,255,255,0.06);
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            padding: 16px 18px;
-            text-align: left;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-            color: var(--text-secondary);
-            white-space: nowrap;
-        }
-        th {
-            color: var(--text-muted);
-            font-size: 0.77rem;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-        }
-        .message-banner {
-            margin-bottom: 16px;
-            padding: 14px 16px;
-            border-radius: 16px;
-            background: rgba(89, 196, 188, 0.14);
-            border: 1px solid rgba(89, 196, 188, 0.22);
-            color: var(--text-primary);
-        }
-        @media (max-width: 1200px) {
-            .portal-layout, .hero-grid, .portal-row {
-                grid-template-columns: 1fr;
-            }
-            .portal-sidebar {
-                position: static;
-            }
-        }
-        @media (max-width: 720px) {
-            .portal-page {
-                padding: 96px 14px 32px;
-            }
-            .hero-card, .content-card, .service-card, .signal-card, .ticket-card, .activity-card, .portal-sidebar {
-                padding: 18px;
-            }
-            .mini-metric-grid {
-                grid-template-columns: 1fr;
-            }
-            .hero-actions {
-                flex-direction: column;
-            }
-            .hero-actions a {
-                justify-content: center;
-            }
+        @media(max-width:600px) {
+            .kpi-strip { grid-template-columns: repeat(2,1fr); }
+            .p-main { padding: 16px 14px 32px; }
         }
     </style>
 </head>
@@ -345,353 +317,355 @@
 
 <main class="portal-page">
     <div class="portal-layout">
-        <aside class="portal-shell portal-sidebar">
-            <a class="brand-chip" href="/portal/">
-                <img src="/static/fav.png" alt="VoidPanel">
-                <span>Client Workspace</span>
+
+        <!-- ── Sidebar ─────────────────────────────────── -->
+        <aside class="p-sidebar">
+            <a href="/portal/" class="p-logo">
+                <img src="/static/fav.png" alt="VP">
+                <span>Client Portal</span>
             </a>
 
-            <div class="profile-card">
-                <span class="pill"><i class="fas fa-shield-heart"></i> {{ profile.portal_role }}</span>
-                <h2>{{ request.user.get_full_name|default:request.user.username }}</h2>
-                <p>{{ request.user.email }}</p>
-                <p style="margin-top:10px;">Customer since {{ stats.customer_since|date:"M d, Y" }}</p>
+            <div class="p-user">
+                <div class="p-avatar">{{ request.user.get_full_name|default:request.user.username|first|upper }}</div>
+                <div class="p-user-info">
+                    <div class="p-user-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+                    <div class="p-user-role">{{ profile.portal_role }}</div>
+                </div>
             </div>
 
-            <nav class="menu-list">
-                <a href="#overview" class="active"><i class="fas fa-chart-line"></i> Overview</a>
-                <a href="#services"><i class="fas fa-server"></i> Services</a>
-                <a href="#billing"><i class="fas fa-file-invoice-dollar"></i> Billing</a>
-                <a href="#support"><i class="fas fa-life-ring"></i> Support</a>
-                <a href="#activity"><i class="fas fa-clock-rotate-left"></i> Activity</a>
-            </nav>
+            <div class="p-nav-label">Navigation</div>
+            <a href="#overview" class="p-nav-item active" onclick="setActive(this)"><i class="fas fa-chart-line"></i> Overview</a>
+            <a href="#services" class="p-nav-item" onclick="setActive(this)"><i class="fas fa-server"></i> Services
+                {% if stats.total_services %}<span class="p-nav-badge">{{ stats.total_services }}</span>{% endif %}
+            </a>
+            <a href="#billing" class="p-nav-item" onclick="setActive(this)"><i class="fas fa-receipt"></i> Billing
+                {% if stats.unpaid_invoices and stats.unpaid_invoices > 0 %}<span class="p-nav-badge">{{ stats.unpaid_invoices }}</span>{% endif %}
+            </a>
+            <a href="#support" class="p-nav-item" onclick="setActive(this)"><i class="fas fa-life-ring"></i> Support
+                {% if stats.open_tickets and stats.open_tickets > 0 %}<span class="p-nav-badge">{{ stats.open_tickets }}</span>{% endif %}
+            </a>
+            <a href="#activity" class="p-nav-item" onclick="setActive(this)"><i class="fas fa-clock-rotate-left"></i> Activity</a>
 
-            <div class="side-card">
-                <strong>Account Snapshot</strong>
-                <p class="muted" style="margin:10px 0 0;line-height:1.7;">{{ profile.company_name|default:"Independent account" }}{% if profile.country %} • {{ profile.country }}{% endif %}</p>
+            <div class="p-nav-label" style="margin-top:20px;">Account</div>
+            <div class="p-sidebar-stats">
+                <div class="p-stat-row">
+                    <span class="p-stat-label">Monthly</span>
+                    <span class="p-stat-val">${{ stats.monthly_spend }}</span>
+                </div>
+                <div class="p-stat-row">
+                    <span class="p-stat-label">Balance Due</span>
+                    <span class="p-stat-val {% if stats.unpaid_total and stats.unpaid_total > 0 %}warn{% else %}ok{% endif %}">${{ stats.unpaid_total }}</span>
+                </div>
+                <div class="p-stat-row">
+                    <span class="p-stat-label">Since</span>
+                    <span class="p-stat-val">{{ stats.customer_since|date:"M Y" }}</span>
+                </div>
             </div>
 
-            <div class="side-card">
-                <strong>Outstanding Balance</strong>
-                <p style="margin:10px 0 0;font-size:1.6rem;color:var(--text-primary);">${{ stats.unpaid_total }}</p>
-                <p class="muted" style="margin:8px 0 0;line-height:1.7;">Renewals and provisioning tasks are easiest to manage when billing is current.</p>
-            </div>
+            <div class="p-nav-label" style="margin-top:20px;">Quick Actions</div>
+            <a href="/web-hosting/" class="p-quick-btn primary"><i class="fas fa-plus"></i> Order Hosting</a>
+            <a href="/portal/ticket/new/" class="p-quick-btn indigo"><i class="fas fa-headset"></i> Open Ticket</a>
+
+            <div class="p-sidebar-spacer"></div>
 
             {% if request.user.is_superuser %}
-                <div class="side-card">
-                    <strong>Internal Access</strong>
-                    <p class="muted" style="margin:10px 0 14px;">You can switch from the client view to the operations portal.</p>
-                    <a href="/super-admin/" class="btn-void btn-void-primary" style="width:100%;justify-content:center;">Open Super Admin</a>
-                </div>
+            <a href="/super-admin/" class="p-quick-btn primary" style="margin-top:12px;"><i class="fas fa-shield-halved"></i> Admin Console</a>
             {% endif %}
-            <div class="side-card">
-                <strong>Quick Actions</strong>
-                <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px;">
-                    <a href="/web-hosting/" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:16px;background:rgba(89,196,188,0.1);border:1px solid rgba(89,196,188,0.2);color:#59c4bc;font-size:0.86rem;font-weight:600;">
-                        <i class="fas fa-plus"></i> Order New Hosting
-                    </a>
-                    <a href="/portal/ticket/new/" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:16px;background:rgba(129,140,248,0.1);border:1px solid rgba(129,140,248,0.2);color:#a5b4fc;font-size:0.86rem;font-weight:600;">
-                        <i class="fas fa-life-ring"></i> Open Support Ticket
-                    </a>
-                    <a href="/logout/" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);color:var(--text-muted);font-size:0.86rem;">
-                        <i class="fas fa-right-from-bracket"></i> Sign Out
-                    </a>
-                </div>
-            </div>
+            <a href="/logout/" class="p-quick-btn danger" style="margin-top:6px;"><i class="fas fa-right-from-bracket"></i> Sign Out</a>
         </aside>
 
-
-        <section class="portal-main">
+        <!-- ── Main Content ──────────────────────────────── -->
+        <section class="p-main">
             {% if messages %}
-                {% for message in messages %}
-                    <div class="message-banner">{{ message }}</div>
-                {% endfor %}
+                {% for message in messages %}<div class="p-flash">{{ message }}</div>{% endfor %}
             {% endif %}
 
-            <section class="portal-shell hero-card" id="overview">
-                <div class="hero-grid">
+            <!-- Topbar greeting -->
+            <div class="p-topbar" id="overview">
+                <div>
+                    <div class="p-greeting">Hello, <span>{{ request.user.get_full_name|default:request.user.username }}</span> 👋</div>
+                    <div class="p-greeting-sub">{{ request.user.email }} &nbsp;•&nbsp; Member since {{ stats.customer_since|date:"M d, Y" }}</div>
+                </div>
+                <div class="p-topbar-actions">
+                    <a href="/web-hosting/" class="p-btn teal"><i class="fas fa-plus"></i> New Service</a>
+                    <a href="/portal/ticket/new/" class="p-btn violet"><i class="fas fa-headset"></i> Get Support</a>
+                </div>
+            </div>
+
+            <!-- KPI Strip -->
+            <div class="kpi-strip">
+                <div class="kpi-card">
+                    <div class="kpi-icon teal"><i class="fas fa-server"></i></div>
                     <div>
-                        <span class="eyebrow">Hosting Control Center</span>
-                        <h1>Modern client operations with a stronger WHMCS-style experience.</h1>
-                        <p>Track services, invoices, renewals, and support from one premium workspace. The portal is designed to feel less like a basic account page and more like a real customer operations console.</p>
-                        <div class="hero-actions">
-                            <a href="#services" class="hero-primary"><i class="fas fa-rocket"></i> Review Services</a>
-                            <a href="/whmcs/module/" class="hero-secondary"><i class="fas fa-plug"></i> WHMCS Module Docs</a>
-                            <a href="/docs/" class="hero-secondary"><i class="fas fa-book-open"></i> Deployment Docs</a>
-                        </div>
-                    </div>
-                    <div class="mini-metric-grid">
-                        <div class="mini-metric">
-                            <span>Monthly Spend</span>
-                            <strong>${{ stats.monthly_spend }}</strong>
-                        </div>
-                        <div class="mini-metric">
-                            <span>Paid to Date</span>
-                            <strong>${{ stats.paid_total }}</strong>
-                        </div>
-                        <div class="mini-metric">
-                            <span>Open Tickets</span>
-                            <strong>{{ stats.open_tickets }}</strong>
-                        </div>
-                        <div class="mini-metric">
-                            <span>Total Services</span>
-                            <strong>{{ stats.total_services }}</strong>
-                        </div>
+                        <div class="kpi-val">{{ stats.total_services }}</div>
+                        <div class="kpi-label">Services</div>
                     </div>
                 </div>
-            </section>
+                <div class="kpi-card">
+                    <div class="kpi-icon green"><i class="fas fa-circle-check"></i></div>
+                    <div>
+                        <div class="kpi-val">{{ service_mix.active }}</div>
+                        <div class="kpi-label">Active</div>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon {% if stats.unpaid_invoices and stats.unpaid_invoices > 0 %}amber{% else %}green{% endif %}">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                    </div>
+                    <div>
+                        <div class="kpi-val">${{ stats.unpaid_total }}</div>
+                        <div class="kpi-label">Balance Due</div>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon {% if stats.open_tickets and stats.open_tickets > 0 %}violet{% else %}teal{% endif %}">
+                        <i class="fas fa-life-ring"></i>
+                    </div>
+                    <div>
+                        <div class="kpi-val">{{ stats.open_tickets }}</div>
+                        <div class="kpi-label">Open Tickets</div>
+                    </div>
+                </div>
+            </div>
 
-            <section class="portal-row">
-                <div class="portal-shell content-card">
-                    <div class="section-top">
-                        <h3>Service Health</h3>
-                        <span>Performance and lifecycle view</span>
-                    </div>
-                    <div class="detail-line">
-                        <span class="muted">Active footprint</span>
-                        <strong>{{ service_mix.active }} active / {{ stats.total_services }} total</strong>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width:{% if stats.total_services %}{% widthratio service_mix.active stats.total_services 100 %}{% else %}0{% endif %}%;"></div>
-                    </div>
-                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px;">
-                        <div class="side-card" style="margin:0;">
-                            <strong>{{ service_mix.active }}</strong>
-                            <p class="muted" style="margin:8px 0 0;">Active</p>
-                        </div>
-                        <div class="side-card" style="margin:0;">
-                            <strong>{{ service_mix.pending }}</strong>
-                            <p class="muted" style="margin:8px 0 0;">Pending</p>
-                        </div>
-                        <div class="side-card" style="margin:0;">
-                            <strong>{{ service_mix.suspended }}</strong>
-                            <p class="muted" style="margin:8px 0 0;">Suspended</p>
+            <!-- Alert banners -->
+            {% if stats.unpaid_invoices and stats.unpaid_invoices > 0 %}
+            <div class="p-alerts">
+                <div class="p-alert warn">
+                    <div class="p-alert-left">
+                        <i class="fas fa-triangle-exclamation p-alert-icon"></i>
+                        <div>
+                            <div class="p-alert-text">{{ stats.unpaid_invoices }} unpaid invoice{{ stats.unpaid_invoices|pluralize }} — total ${{ stats.unpaid_total }}</div>
+                            <div class="p-alert-sub">Pay promptly to avoid service interruption</div>
                         </div>
                     </div>
-                    {% if active_service %}
-                        <div class="side-card" style="margin-top:18px;">
-                            <div class="service-head">
-                                <strong>{{ active_service.service_name }}</strong>
-                                <span class="status-badge status-{{ active_service.status }}">{{ active_service.get_status_display }}</span>
+                    {% if next_invoice %}<a href="/portal/invoice/{{ next_invoice.id }}/pay/" class="p-btn teal"><i class="fas fa-credit-card"></i> Pay Now</a>{% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Services + Priority -->
+            <div class="p-grid-2" id="services">
+                <!-- Services -->
+                <div class="p-card">
+                    <div class="p-card-head">
+                        <div class="p-card-title"><i class="fas fa-server"></i> My Services</div>
+                        <a href="/web-hosting/" class="p-link-btn teal"><i class="fas fa-plus"></i> Order New</a>
+                    </div>
+                    {% for service in services %}
+                    <div class="p-service-item">
+                        <div class="p-service-row">
+                            <div>
+                                <div class="p-service-name">{{ service.service_name }}</div>
+                                <div class="p-service-domain">{{ service.domain }}</div>
                             </div>
-                            <p class="muted" style="margin:10px 0 0;">{{ active_service.domain }} • {{ active_service.server_hostname }}</p>
-                            <p class="muted" style="margin:6px 0 0;">{{ active_service.storage_gb }} GB SSD / {{ active_service.bandwidth_gb }} GB bandwidth</p>
+                            <span class="s-badge s-{{ service.status }}">{{ service.get_status_display }}</span>
                         </div>
-                    {% endif %}
+                        <div class="p-service-meta">
+                            <div><div class="p-meta-label">Billing</div><div class="p-meta-val">${{ service.monthly_price }}/{{ service.get_billing_cycle_display }}</div></div>
+                            <div><div class="p-meta-label">Storage</div><div class="p-meta-val">{{ service.storage_gb }} GB</div></div>
+                            <div><div class="p-meta-label">Due</div><div class="p-meta-val">{{ service.next_due_date }}</div></div>
+                        </div>
+                        {% if service.status == 'active' and service.panel_url %}
+                        <div style="margin-top:10px;">
+                            <a href="{{ service.panel_url }}" target="_blank" class="p-link-btn teal"><i class="fas fa-external-link-alt"></i> Login to Panel</a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <div class="p-empty"><i class="fas fa-server"></i>No services yet<br><a href="/web-hosting/" style="color:#59c4bc;margin-top:8px;display:inline-block;">Browse hosting plans →</a></div>
+                    {% endfor %}
                 </div>
 
-                <div class="portal-shell signal-card">
-                    <div class="section-top">
-                        <h3>Priority Signals</h3>
-                        <span>What needs attention now</span>
+                <!-- Priority signals -->
+                <div class="p-card">
+                    <div class="p-card-head">
+                        <div class="p-card-title"><i class="fas fa-bolt"></i> Priority Actions</div>
+                        <span class="p-card-sub">Needs attention</span>
                     </div>
-                    <div class="invoice-list">
-                        <div class="invoice-item">
-                            <div class="detail-line">
-                                <strong>Billing Exposure</strong>
-                                <span class="status-badge status-{% if stats.unpaid_invoices %}unpaid{% else %}paid{% endif %}">{{ stats.unpaid_invoices }} unpaid</span>
+
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <!-- Invoices signal -->
+                        <div style="padding:12px;border-radius:10px;background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.05);">
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
+                                <span style="font-size:0.82rem;font-weight:700;color:var(--text-primary);">Billing Status</span>
+                                <span class="s-badge {% if stats.unpaid_invoices %}s-unpaid{% else %}s-paid{% endif %}">{{ stats.unpaid_invoices|default:0 }} unpaid</span>
                             </div>
-                            <p class="muted" style="margin:10px 0 0;">Outstanding balance across current invoices is ${{ stats.unpaid_total }}.</p>
+                            <p style="font-size:0.78rem;color:var(--text-muted);margin:0;">${{ stats.unpaid_total }} outstanding across {{ stats.unpaid_invoices|default:0 }} invoice{{ stats.unpaid_invoices|default:0|pluralize }}</p>
+                            {% if next_invoice %}<a href="/portal/invoice/{{ next_invoice.id }}/pay/" class="p-link-btn teal" style="margin-top:8px;display:inline-flex;"><i class="fas fa-credit-card"></i> Pay {{ next_invoice.invoice_number }}</a>{% endif %}
                         </div>
-                        <div class="invoice-item">
-                            <div class="detail-line">
-                                <strong>Latest Ticket</strong>
-                                {% if latest_ticket %}
-                                    <span class="status-badge status-{{ latest_ticket.status }}">{{ latest_ticket.get_status_display }}</span>
-                                {% else %}
-                                    <span class="status-badge status-answered">Clear</span>
-                                {% endif %}
+
+                        <!-- Latest ticket -->
+                        <div style="padding:12px;border-radius:10px;background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.05);">
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
+                                <span style="font-size:0.82rem;font-weight:700;color:var(--text-primary);">Latest Ticket</span>
+                                {% if latest_ticket %}<span class="s-badge s-{{ latest_ticket.status }}">{{ latest_ticket.get_status_display }}</span>
+                                {% else %}<span class="s-badge s-paid">All clear</span>{% endif %}
                             </div>
                             {% if latest_ticket %}
-                            <p class="muted" style="margin:10px 0 8px;">{{ latest_ticket.subject }}</p>
-                            <a href="/portal/ticket/{{ latest_ticket.id }}/" style="font-size:0.82rem;color:#818cf8;"><i class="fas fa-arrow-right"></i> View Thread</a>
+                            <p style="font-size:0.78rem;color:var(--text-muted);margin:0;">{{ latest_ticket.subject|truncatechars:55 }}</p>
+                            <a href="/portal/ticket/{{ latest_ticket.id }}/" class="p-link-btn violet" style="margin-top:8px;display:inline-flex;"><i class="fas fa-comments"></i> View Thread</a>
                             {% else %}
-                            <p class="muted" style="margin:10px 0 0;">No open support pressure right now.</p>
-                            {% endif %}
-                        </div>
-                        <div class="invoice-item">
-                            <div class="detail-line">
-                                <strong>Next Invoice Due</strong>
-                                <span>{% if next_invoice %}{{ next_invoice.due_date }}{% else %}None pending{% endif %}</span>
-                            </div>
-                            {% if next_invoice %}
-                            <p class="muted" style="margin:10px 0 8px;">{{ next_invoice.invoice_number }} for {{ next_invoice.currency }} {{ next_invoice.total }}</p>
-                            <a href="/portal/invoice/{{ next_invoice.id }}/pay/" style="font-size:0.82rem;color:#59c4bc;"><i class="fas fa-credit-card"></i> Pay Now</a>
-                            {% else %}
-                            <p class="muted" style="margin:10px 0 0;">Your account is clear for now.</p>
+                            <p style="font-size:0.78rem;color:var(--text-muted);margin:0;">No open tickets right now.</p>
+                            <a href="/portal/ticket/new/" class="p-link-btn ghost" style="margin-top:8px;display:inline-flex;"><i class="fas fa-plus"></i> Open Ticket</a>
                             {% endif %}
                         </div>
 
-                    </div>
-                </div>
-            </section>
-
-            <section class="portal-row" id="services">
-                <div class="portal-shell content-card">
-                    <div class="section-top">
-                        <h3>Service Portfolio</h3>
-                        <span>Provisioning, renewal, and infrastructure status</span>
-                    </div>
-                    <div class="service-stack">
-                        {% for service in services %}
-                            <div class="service-card">
-                                <div class="service-head">
-                                    <div>
-                                        <strong>{{ service.service_name }}</strong>
-                                        <div class="muted" style="margin-top:6px;">{{ service.product_type }} • {{ service.domain }}</div>
-                                    </div>
-                                    <span class="status-badge status-{{ service.status }}">{{ service.get_status_display }}</span>
-                                </div>
-                                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px;">
-                                    <div>
-                                        <div class="muted">Billing</div>
-                                        <strong>${{ service.monthly_price }} / {{ service.get_billing_cycle_display }}</strong>
-                                    </div>
-                                    <div>
-                                        <div class="muted">Resources</div>
-                                        <strong>{{ service.storage_gb }} GB / {{ service.bandwidth_gb }} GB</strong>
-                                    </div>
-                                    <div>
-                                        <div class="muted">Next Due</div>
-                                        <strong>{{ service.next_due_date }}</strong>
-                                    </div>
-                                </div>
-                                {% if service.status == 'active' and service.panel_url %}
-                                <div style="margin-top:14px;">
-                                    <a href="{{ service.panel_url }}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:12px;background:rgba(89,196,188,0.1);border:1px solid rgba(89,196,188,0.2);color:#59c4bc;font-size:0.84rem;font-weight:700;"><i class="fas fa-external-link-alt"></i> Login to Panel</a>
-                                </div>
-                                {% endif %}
-
+                        <!-- Service health mini -->
+                        <div style="padding:12px;border-radius:10px;background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.05);">
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;">
+                                <span style="font-size:0.82rem;font-weight:700;color:var(--text-primary);">Service Health</span>
                             </div>
-                        {% empty %}
-                            <div class="service-card"><strong>No services found.</strong></div>
-                        {% endfor %}
-                    </div>
-                </div>
-
-                <div class="portal-shell content-card" id="billing">
-                    <div class="section-top">
-                        <h3>Billing Queue</h3>
-                        <span>Recent invoice movement</span>
-                    </div>
-                    <div class="invoice-list">
-                        {% for invoice in invoices %}
-                            <div class="invoice-item">
-                                <div class="detail-line">
-                                    <strong>{{ invoice.invoice_number }}</strong>
-                                    <span class="status-badge status-{{ invoice.status }}">{{ invoice.get_status_display }}</span>
+                            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;">
+                                <div style="padding:8px;border-radius:8px;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.1);">
+                                    <div style="font-size:1.1rem;font-weight:800;color:#4ade80;">{{ service_mix.active }}</div>
+                                    <div style="font-size:0.68rem;color:var(--text-muted);margin-top:2px;">Active</div>
                                 </div>
-                                <p class="muted" style="margin:10px 0 0;">{{ invoice.description }}</p>
-                                <div class="detail-line" style="margin-top:14px;">
-                                    <span>{{ invoice.currency }} {{ invoice.total }} &bull; Due {{ invoice.due_date }}</span>
-                                    {% if invoice.status != 'paid' %}
-                                    <a href="/portal/invoice/{{ invoice.id }}/pay/" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:12px;background:rgba(89,196,188,0.12);border:1px solid rgba(89,196,188,0.22);color:#59c4bc;font-size:0.82rem;font-weight:700;"><i class="fas fa-credit-card"></i> Pay Now</a>
-                                    {% else %}
-                                    <a href="/portal/invoice/{{ invoice.id }}/pay/" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:12px;background:rgba(255,255,255,0.04);color:var(--text-muted);font-size:0.82rem;"><i class="fas fa-receipt"></i> View</a>
-                                    {% endif %}
+                                <div style="padding:8px;border-radius:8px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.1);">
+                                    <div style="font-size:1.1rem;font-weight:800;color:#fbbf24;">{{ service_mix.pending }}</div>
+                                    <div style="font-size:0.68rem;color:var(--text-muted);margin-top:2px;">Pending</div>
+                                </div>
+                                <div style="padding:8px;border-radius:8px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.1);">
+                                    <div style="font-size:1.1rem;font-weight:800;color:#f87171;">{{ service_mix.suspended }}</div>
+                                    <div style="font-size:0.68rem;color:var(--text-muted);margin-top:2px;">Suspended</div>
                                 </div>
                             </div>
-                        {% empty %}
-                            <div class="invoice-item" style="text-align:center;padding:28px;">
-                                <i class="fas fa-file-invoice" style="font-size:1.5rem;color:var(--text-muted);margin-bottom:10px;display:block;"></i>
-                                <strong style="color:var(--text-muted);">No invoices yet.</strong><br>
-                                <a href="/web-hosting/" style="color:#59c4bc;font-size:0.88rem;margin-top:8px;display:inline-block;">Browse hosting plans &rarr;</a>
-                            </div>
-                        {% endfor %}
-
+                        </div>
                     </div>
                 </div>
-            </section>
+            </div>
 
-            <section class="portal-row" id="support">
-                <div class="portal-shell content-card">
-                    <div class="section-top">
-                        <h3>Support Tickets</h3>
-                        <a href="/portal/ticket/new/" style="display:inline-flex;align-items:center;gap:6px;padding:9px 14px;border-radius:14px;background:rgba(129,140,248,0.12);border:1px solid rgba(129,140,248,0.22);color:#a5b4fc;font-size:0.82rem;font-weight:700;"><i class="fas fa-plus"></i> New Ticket</a>
+            <!-- Billing + Tickets -->
+            <div class="p-grid-2" id="billing">
+                <!-- Billing -->
+                <div class="p-card">
+                    <div class="p-card-head">
+                        <div class="p-card-title"><i class="fas fa-receipt"></i> Invoices</div>
+                        <span class="p-card-sub">Paid to date: ${{ stats.paid_total }}</span>
                     </div>
-                    <div class="ticket-stack">
-                        {% for ticket in tickets %}
-                            <div class="ticket-card">
-                                <div class="ticket-head">
-                                    <strong>{{ ticket.subject }}</strong>
-                                    <span class="status-badge status-{{ ticket.status }}">{{ ticket.get_status_display }}</span>
-                                </div>
-                                <p class="muted" style="margin:10px 0 0;">{{ ticket.ticket_number }} &bull; {{ ticket.department }} &bull; {{ ticket.get_priority_display }} priority</p>
-                                <div class="detail-line" style="margin-top:12px;">
-                                    <span class="muted" style="font-size:0.82rem;">Last reply {{ ticket.last_reply_at|date:"M d, Y H:i" }}</span>
-                                    <a href="/portal/ticket/{{ ticket.id }}/" style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:12px;background:rgba(255,255,255,0.05);color:var(--text-secondary);font-size:0.82rem;"><i class="fas fa-comments"></i> View Thread</a>
-                                </div>
-                            </div>
-                        {% empty %}
-                            <div class="ticket-card" style="text-align:center;padding:28px;">
-                                <i class="fas fa-headset" style="font-size:1.5rem;color:var(--text-muted);margin-bottom:10px;display:block;"></i>
-                                <strong style="color:var(--text-muted);">No tickets yet.</strong><br>
-                                <a href="/portal/ticket/new/" style="color:#818cf8;font-size:0.88rem;margin-top:8px;display:inline-block;">Open your first ticket &rarr;</a>
-                            </div>
-                        {% endfor %}
+                    {% for invoice in invoices %}
+                    <div class="p-invoice-item">
+                        <div>
+                            <div class="p-invoice-num">{{ invoice.invoice_number }}</div>
+                            <div class="p-invoice-desc">{{ invoice.description|truncatechars:42 }}</div>
+                            <div style="font-size:0.73rem;color:var(--text-muted);margin-top:2px;">Due {{ invoice.due_date }}</div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                            <span class="p-invoice-amt">${{ invoice.total }}</span>
+                            <span class="s-badge s-{{ invoice.status }}">{{ invoice.get_status_display }}</span>
+                            {% if invoice.status != 'paid' %}
+                            <a href="/portal/invoice/{{ invoice.id }}/pay/" class="p-link-btn teal"><i class="fas fa-credit-card"></i></a>
+                            {% else %}
+                            <a href="/portal/invoice/{{ invoice.id }}/pay/" class="p-link-btn ghost"><i class="fas fa-eye"></i></a>
+                            {% endif %}
+                        </div>
                     </div>
-
+                    {% empty %}
+                    <div class="p-empty"><i class="fas fa-file-invoice"></i>No invoices yet</div>
+                    {% endfor %}
                 </div>
 
-                <div class="portal-shell content-card" id="activity">
-                    <div class="section-top">
-                        <h3>Activity Feed</h3>
-                        <span>Latest account events</span>
+                <!-- Support -->
+                <div class="p-card" id="support">
+                    <div class="p-card-head">
+                        <div class="p-card-title"><i class="fas fa-life-ring"></i> Support</div>
+                        <a href="/portal/ticket/new/" class="p-link-btn violet"><i class="fas fa-plus"></i> New Ticket</a>
                     </div>
-                    <div class="activity-stack">
-                        {% for activity in activities %}
-                            <div class="activity-card">
-                                <div class="activity-head">
-                                    <strong>{{ activity.title }}</strong>
-                                    <span class="muted">{{ activity.created_at|date:"M d, H:i" }}</span>
-                                </div>
-                                <p class="muted" style="margin:10px 0 0;line-height:1.7;">{{ activity.description }}</p>
-                            </div>
-                        {% empty %}
-                            <div class="activity-card"><strong>No recent activity.</strong></div>
-                        {% endfor %}
+                    {% for ticket in tickets %}
+                    <div class="p-ticket-item">
+                        <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
+                            <div class="p-ticket-subject">{{ ticket.subject|truncatechars:48 }}</div>
+                            <span class="s-badge s-{{ ticket.status }}" style="flex-shrink:0;">{{ ticket.get_status_display }}</span>
+                        </div>
+                        <div class="p-ticket-meta">
+                            {{ ticket.ticket_number }} &nbsp;•&nbsp; {{ ticket.department }} &nbsp;•&nbsp; {{ ticket.get_priority_display }} priority
+                            <br>Last reply {{ ticket.last_reply_at|date:"M d, H:i" }}
+                        </div>
+                        <a href="/portal/ticket/{{ ticket.id }}/" class="p-link-btn ghost" style="margin-top:8px;display:inline-flex;"><i class="fas fa-comments"></i> View Thread</a>
                     </div>
+                    {% empty %}
+                    <div class="p-empty"><i class="fas fa-headset"></i>No open tickets<br><a href="/portal/ticket/new/" style="color:#a5b4fc;margin-top:8px;display:inline-block;font-size:0.82rem;">Open your first ticket →</a></div>
+                    {% endfor %}
                 </div>
-            </section>
+            </div>
 
-            <section class="portal-shell content-card">
-                <div class="section-top">
-                    <h3>Full Services Table</h3>
-                    <span>Structured account inventory</span>
-                </div>
-                <div class="table-shell">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Product</th>
-                                <th>Domain</th>
-                                <th>Status</th>
-                                <th>Billing</th>
-                                <th>Panel</th>
-                                <th>Next Due</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for service in services %}
+            <!-- Full services table + Activity -->
+            <div class="p-grid-2" id="activity">
+                <div class="p-card">
+                    <div class="p-card-head">
+                        <div class="p-card-title"><i class="fas fa-table-list"></i> All Services</div>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table class="p-table">
+                            <thead>
                                 <tr>
-                                    <td>{{ service.service_name }}</td>
+                                    <th>Product</th>
+                                    <th>Domain</th>
+                                    <th>Status</th>
+                                    <th>Billing</th>
+                                    <th>Due</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for service in services %}
+                                <tr>
+                                    <td><strong style="color:var(--text-primary);">{{ service.service_name }}</strong></td>
                                     <td>{{ service.domain }}</td>
-                                    <td><span class="status-badge status-{{ service.status }}">{{ service.get_status_display }}</span></td>
-                                    <td>${{ service.monthly_price }} / {{ service.get_billing_cycle_display }}</td>
-                                    <td>{{ service.server_hostname|default:"Pending assignment" }}</td>
+                                    <td><span class="s-badge s-{{ service.status }}">{{ service.get_status_display }}</span></td>
+                                    <td>${{ service.monthly_price }}/{{ service.get_billing_cycle_display }}</td>
                                     <td>{{ service.next_due_date }}</td>
                                 </tr>
-                            {% empty %}
-                                <tr><td colspan="6">No services found.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                                {% empty %}
+                                <tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted);">No services</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </section>
+
+                <div class="p-card">
+                    <div class="p-card-head">
+                        <div class="p-card-title"><i class="fas fa-clock-rotate-left"></i> Activity Log</div>
+                    </div>
+                    {% for activity in activities %}
+                    <div class="p-activity-item">
+                        <div class="p-activity-dot"></div>
+                        <div>
+                            <div class="p-activity-title">{{ activity.title }}</div>
+                            <div class="p-activity-time">{{ activity.created_at|date:"M d, H:i" }} &nbsp;•&nbsp; {{ activity.description|truncatechars:60 }}</div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="p-empty"><i class="fas fa-clock-rotate-left"></i>No recent activity</div>
+                    {% endfor %}
+                </div>
+            </div>
+
         </section>
     </div>
 </main>
 
 {% include 'footer.html' %}
+
+<script>
+function setActive(el) {
+    document.querySelectorAll('.p-nav-item').forEach(a => a.classList.remove('active'));
+    el.classList.add('active');
+}
+// Scroll-spy
+const sections = ['overview','services','billing','support','activity'];
+window.addEventListener('scroll', () => {
+    const scrollY = window.scrollY + 120;
+    let active = 'overview';
+    sections.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.offsetTop <= scrollY) active = id;
+    });
+    document.querySelectorAll('.p-nav-item').forEach(a => {
+        const href = a.getAttribute('href');
+        a.classList.toggle('active', href === '#' + active);
+    });
+});
+</script>
 </body>
 </html>

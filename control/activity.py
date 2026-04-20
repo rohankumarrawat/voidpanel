@@ -103,19 +103,22 @@ def api_activity_logs(request: HttpRequest) -> JsonResponse:
 
     # Filters
     domain_filter   = request.GET.get('domain', '').strip()
+    username_filter = request.GET.get('username', '').strip()
     level_filter    = request.GET.get('level', '').strip()
     category_filter = request.GET.get('category', '').strip()
     search          = request.GET.get('q', '').strip()
 
     if domain_filter:
         qs = qs.filter(domain__icontains=domain_filter)
+    if username_filter:
+        qs = qs.filter(username__icontains=username_filter)
     if level_filter:
         qs = qs.filter(level=level_filter)
     if category_filter:
         qs = qs.filter(category=category_filter)
     if search:
         from django.db.models import Q
-        qs = qs.filter(Q(action__icontains=search) | Q(detail__icontains=search) | Q(domain__icontains=search))
+        qs = qs.filter(Q(action__icontains=search) | Q(detail__icontains=search) | Q(domain__icontains=search) | Q(username__icontains=search))
 
     try:
         limit  = max(1, min(int(request.GET.get('limit', 100)), 500))

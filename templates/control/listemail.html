@@ -331,10 +331,9 @@
                 <button class="vp-btn" onclick="showSettings('{{ i.email }}')" style="color:#2dd4bf; border-color:rgba(45,212,191,0.25); background:rgba(45,212,191,0.1);" title="Routing & Limits">
                     <i class="fa fa-shield"></i> Limits
                 </button>
-                <a href="/deleteemai/{{ i.email }}" class="vp-btn vp-btn-delete"
-                   onclick="return confirm('Permanently delete {{ i.email }}? This cannot be undone.')">
-                    <i class="fa fa-trash"></i>
-                </a>
+                <button class="vp-btn vp-btn-delete" onclick="deleteEmail('{{ i.email }}', this)" title="Delete email account">
+                    <i class="fa fa-trash"></i> Delete
+                </button>
             </div>
         </div>
 
@@ -702,6 +701,43 @@
             } else {
                 showToast('Limit application failed: ' + (data.error || 'Unknown'), true);
             }
+        });
+    }
+
+    /* ─── Delete Email ─── */
+    function deleteEmail(email, btn) {
+        if (!confirm('Permanently delete ' + email + '?\nThis cannot be undone and will remove all associated mailbox data.')) return;
+        var origHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i>';
+        var fd = new FormData();
+        fetch('/control/deleteemai/' + encodeURIComponent(email) + '/', {
+            method: 'POST',
+            body: fd,
+            credentials: 'same-origin',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.status === 'success') {
+                showToast('\u2713 ' + email + ' deleted successfully.');
+                // Remove the card from the DOM
+                var card = btn.closest('.email-card');
+                if (card) {
+                    card.style.transition = 'opacity 0.3s';
+                    card.style.opacity = '0';
+                    setTimeout(function() { card.remove(); }, 320);
+                }
+            } else {
+                showToast('Delete failed: ' + (data.message || 'Unknown error'), true);
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+            }
+        })
+        .catch(function() {
+            showToast('Network error — please try again.', true);
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
         });
     }
 </script>

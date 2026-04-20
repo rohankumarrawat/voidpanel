@@ -48,6 +48,7 @@ urlpatterns = [
 
     # ── Super Admin ────────────────────────────────────────────────────────────
     path('super-admin/', views.super_admin_portal),
+    path('super-admin/servers/', views.super_admin_servers),
     path('super-admin/staff/', views.super_admin_staff),
     path('super-admin/roles/', views.super_admin_roles),
     path('super-admin/emails/', views.super_admin_emails),

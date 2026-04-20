@@ -28,6 +28,7 @@ from data.models import (
     Invoice,
     Message,
     OutboundEmailProfile,
+    VoidPanelServer,
     PortalActivity,
     StaffProfile,
     StaffRole,
@@ -869,6 +870,9 @@ def _handle_super_admin_post(request):
     if action == 'create_hosting_package':
         name = request.POST.get('name', '').strip()
         slug = slugify(request.POST.get('slug', '').strip() or name)
+        server_id = request.POST.get('server_id')
+        server_obj = VoidPanelServer.objects.filter(id=server_id).first() if server_id else None
+        
         if not name or not slug:
             messages.error(request, "Package name is required")
             return _super_admin_redirect(request, '/super-admin/hosting/')
@@ -878,6 +882,7 @@ def _handle_super_admin_post(request):
         HostingPackage.objects.create(
             name=name,
             slug=slug,
+            server=server_obj,
             short_description=request.POST.get('short_description', '').strip(),
             storage_gb=int(request.POST.get('storage_gb') or 25),
             ram_gb=int(request.POST.get('ram_gb') or 2),
@@ -891,6 +896,25 @@ def _handle_super_admin_post(request):
         )
         messages.success(request, "Hosting package created")
         return _super_admin_redirect(request, '/super-admin/hosting/')
+
+    if action == 'create_server':
+        name = request.POST.get('name', '').strip()
+        url = request.POST.get('url', '').strip()
+        api_key = request.POST.get('api_key', '').strip()
+        if VoidPanelServer.objects.filter(name=name).exists():
+            messages.error(request, "A server with that name already exists.")
+        else:
+            VoidPanelServer.objects.create(name=name, url=url, api_key=api_key, is_active=bool(request.POST.get('is_active')))
+            messages.success(request, f"Server {name} added successfully.")
+        return _super_admin_redirect(request, '/super-admin/servers/')
+
+    if action == 'delete_server':
+        server_id = request.POST.get('server_id')
+        server = VoidPanelServer.objects.filter(id=server_id).first()
+        if server:
+            server.delete()
+            messages.success(request, "Server deleted successfully.")
+        return _super_admin_redirect(request, '/super-admin/servers/')
 
     if action == 'update_pricing_settings':
         settings_obj = ensure_default_hosting_catalog()
@@ -958,6 +982,7 @@ def _build_super_admin_context(active_page):
         'email_profiles': email_profiles,
         'email_profiles_by_purpose': email_profiles_by_purpose,
         'hosting_packages': hosting_packages,
+        'servers': VoidPanelServer.objects.all(),
         'pricing_settings': pricing_settings,
         'builder_bandwidth_choices': _bandwidth_choices(pricing_settings),
         'roles': roles,
@@ -1001,6 +1026,18 @@ def super_admin_roles(request):
         if handled:
             return handled
     return render(request, 'super_admin_roles.html', _build_super_admin_context('roles'))
+
+
+@login_required(login_url='/login/')
+def super_admin_servers(request):
+    denied = _super_admin_guard(request)
+    if denied:
+        return denied
+    if request.method == 'POST':
+        handled = _handle_super_admin_post(request)
+        if handled:
+            return handled
+    return render(request, 'super_admin_servers.html', _build_super_admin_context('servers'))
 
 
 @login_required(login_url='/login/')
@@ -1235,11 +1272,15 @@ def invoice_pay(request, inv_id):
                 order.status = 'provisioning'
                 order.save(update_fields=['status'])
                 if order.service:
+                    # Assign server from package
+                    if hasattr(order, 'package') and order.package and order.package.server:
+                        order.service.server = order.package.server
+                        order.service.save(update_fields=['server'])
                     # Trigger provisioning bridge
                     from voidpanel.provisioner import provision_hosting_account
                     result = provision_hosting_account(order.service)
                     order.provision_response = result
-                    if result.get('status') == 'ok':
+                    if result.get('status') == 'ok' or result.get('status') == 'success':
                         order.service.status = 'active'
                         order.service.save(update_fields=['status'])
                         order.status = 'active'

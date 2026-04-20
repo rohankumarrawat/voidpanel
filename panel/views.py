@@ -499,6 +499,297 @@ def panel(request):
         return redirect('/')
     
 
+@login_required(login_url='/')
+def installed_services(request):
+    """Show all installed system services and their status."""
+    if not request.user.is_superuser:
+        return redirect('/')
+
+    import subprocess
+
+    def _run(cmd):
+        try:
+            return subprocess.check_output(cmd, shell=True, stderr=subprocess.DEVNULL, timeout=4).decode().strip()
+        except Exception:
+            return ''
+
+    def _is_running(svc):
+        try:
+            r = subprocess.run(['systemctl', 'is-active', svc], capture_output=True, text=True, timeout=4)
+            return r.stdout.strip() == 'active'
+        except Exception:
+            return False
+
+    def _is_installed(binary):
+        import shutil as _sh
+        return bool(_sh.which(binary))
+
+    def _ver(cmd):
+        out = _run(cmd)
+        return out.split('\n')[0][:60] if out else 'Unknown'
+
+    # Active web engine
+    try:
+        engine_file = '/etc/voidpanel/web_engine'
+        with open(engine_file) as _f:
+            active_engine = _f.read().strip()
+    except Exception:
+        active_engine = 'nginx'
+
+    services = [
+        {
+            'id': 'nginx',
+            'name': 'NGINX',
+            'role': 'Panel Reverse Proxy',
+            'icon': 'fa-brands fa-nginx',
+            'color': '#10b981',
+            'glow': 'rgba(16,185,129,0.35)',
+            'installed': _is_installed('nginx'),
+            'running': _is_running('nginx'),
+            'version': _ver('nginx -v 2>&1'),
+        },
+        {
+            'id': 'ols',
+            'name': 'OpenLiteSpeed',
+            'role': 'High-Performance Web Engine',
+            'icon': 'fa-solid fa-bolt',
+            'color': '#f59e0b',
+            'glow': 'rgba(245,158,11,0.35)',
+            'installed': _is_installed('/usr/local/lsws/bin/lswsctrl'),
+            'running': _is_running('lshttpd'),
+            'version': _ver('/usr/local/lsws/bin/lswsctrl version 2>&1 | head -1'),
+        },
+        {
+            'id': 'mysql',
+            'name': 'MySQL',
+            'role': 'Relational Database Server',
+            'icon': 'fa-solid fa-database',
+            'color': '#38bdf8',
+            'glow': 'rgba(56,189,248,0.35)',
+            'installed': _is_installed('mysql'),
+            'running': _is_running('mysql'),
+            'version': _ver('mysql --version'),
+        },
+        {
+            'id': 'redis',
+            'name': 'Redis',
+            'role': 'In-Memory Cache & Queue',
+            'icon': 'fa-solid fa-memory',
+            'color': '#f87171',
+            'glow': 'rgba(248,113,113,0.35)',
+            'installed': _is_installed('redis-server'),
+            'running': _is_running('redis-server'),
+            'version': _ver('redis-server --version'),
+        },
+        {
+            'id': 'postfix',
+            'name': 'Postfix',
+            'role': 'SMTP Mail Transfer Agent',
+            'icon': 'fa-solid fa-paper-plane',
+            'color': '#fbbf24',
+            'glow': 'rgba(251,191,36,0.35)',
+            'installed': _is_installed('postfix'),
+            'running': _is_running('postfix'),
+            'version': _ver('postconf mail_version 2>/dev/null | cut -d= -f2'),
+        },
+        {
+            'id': 'dovecot',
+            'name': 'Dovecot',
+            'role': 'IMAP / POP3 Mail Server',
+            'icon': 'fa-solid fa-inbox',
+            'color': '#818cf8',
+            'glow': 'rgba(129,140,248,0.35)',
+            'installed': _is_installed('dovecot'),
+            'running': _is_running('dovecot'),
+            'version': _ver('dovecot --version'),
+        },
+        {
+            'id': 'bind9',
+            'name': 'BIND9 DNS',
+            'role': 'Authoritative Name Server',
+            'icon': 'fa-solid fa-network-wired',
+            'color': '#ec4899',
+            'glow': 'rgba(236,72,153,0.35)',
+            'installed': _is_installed('named'),
+            'running': _is_running('named'),
+            'version': _ver('named -v'),
+        },
+        {
+            'id': 'vsftpd',
+            'name': 'vsftpd',
+            'role': 'FTP Server',
+            'icon': 'fa-solid fa-folder-open',
+            'color': '#a78bfa',
+            'glow': 'rgba(167,139,250,0.35)',
+            'installed': _is_installed('vsftpd'),
+            'running': _is_running('vsftpd'),
+            'version': _ver('vsftpd --version 2>&1'),
+        },
+        {
+            'id': 'php',
+            'name': 'PHP-FPM',
+            'role': 'PHP FastCGI Process Manager',
+            'icon': 'fa-solid fa-code',
+            'color': '#6366f1',
+            'glow': 'rgba(99,102,241,0.35)',
+            'installed': bool(_run('php --version 2>/dev/null')),
+            'running': bool(_run("systemctl list-units --state=running | grep php")),
+            'version': _ver('php --version 2>/dev/null | head -1'),
+        },
+        {
+            'id': 'certbot',
+            'name': 'Certbot',
+            'role': 'Let\'s Encrypt SSL Manager',
+            'icon': 'fa-solid fa-shield-halved',
+            'color': '#34d399',
+            'glow': 'rgba(52,211,153,0.35)',
+            'installed': _is_installed('certbot'),
+            'running': None,  # Not a daemon
+            'version': _ver('certbot --version'),
+        },
+        {
+            'id': 'opendkim',
+            'name': 'OpenDKIM',
+            'role': 'Email Authentication (DKIM)',
+            'icon': 'fa-solid fa-key',
+            'color': '#fb923c',
+            'glow': 'rgba(251,146,60,0.35)',
+            'installed': _is_installed('opendkim'),
+            'running': _is_running('opendkim'),
+            'version': _ver('opendkim --version 2>&1'),
+        },
+        {
+            'id': 'celery',
+            'name': 'Celery Worker',
+            'role': 'Async Task Queue',
+            'icon': 'fa-solid fa-gear',
+            'color': '#22d3ee',
+            'glow': 'rgba(34,211,238,0.35)',
+            'installed': _is_installed('celery'),
+            'running': _is_running('celery'),
+            'version': _ver('celery --version 2>/dev/null'),
+        },
+    ]
+
+    # Count stats
+    installed_count = sum(1 for s in services if s['installed'])
+    running_count   = sum(1 for s in services if s['running'])
+
+    # Get active web engine display name
+    engine_display = 'OpenLiteSpeed' if active_engine == 'ols' else 'NGINX'
+
+    d = {
+        'services': services,
+        'installed_count': installed_count,
+        'running_count': running_count,
+        'active_engine': active_engine,
+        'engine_display': engine_display,
+    }
+
+    # Also load docs for sidebar
+    docs_data = cache.get('voidpanel_docs') or []
+    d['docs'] = docs_data
+
+    return render(request, 'panel/services.html', d)
+
+
+@login_required(login_url='/')
+def processmanager(request):
+    """Render the Process Manager dashboard."""
+    if not request.user.is_superuser:
+        return redirect('/')
+
+    import psutil
+    import datetime
+
+    processes = []
+    total_mem = psutil.virtual_memory().total
+    cpu_cores = psutil.cpu_count()
+
+    for p in psutil.process_iter(['pid', 'name', 'username', 'memory_info', 'cpu_percent', 'create_time', 'cmdline']):
+        try:
+            info = p.info
+            # Formatting Data
+            cmd = " ".join(info['cmdline']) if info['cmdline'] else info['name']
+            if len(cmd) > 100:
+                cmd = cmd[:97] + "..."
+            
+            mem_bytes = info['memory_info'].rss if info['memory_info'] else 0
+            mem_pct = round((mem_bytes / total_mem) * 100, 1)
+            mem_mb = round(mem_bytes / (1024 * 1024), 1)
+
+            # CPU percentage across all cores
+            cpu_pct = round(info['cpu_percent'] / cpu_cores, 1) if info['cpu_percent'] is not None else 0.0
+
+            uptime_sec = datetime.datetime.now().timestamp() - info['create_time'] if info['create_time'] else 0
+            
+            processes.append({
+                'pid': info['pid'],
+                'name': info['name'],
+                'user': info['username'],
+                'cmd': cmd,
+                'mem_mb': mem_mb,
+                'mem_pct': mem_pct,
+                'cpu_pct': cpu_pct,
+                'uptime': round(uptime_sec),
+            })
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
+
+    # Sort down by memory usage initially
+    processes = sorted(processes, key=lambda i: i['mem_pct'], reverse=True)
+
+    d = {
+        'processes': processes,
+        'total_procs': len(processes),
+        'serverip': cache.get('server_ip') or get_server_ip()
+    }
+    
+    docs_data = cache.get('voidpanel_docs') or []
+    d['docs'] = docs_data
+
+    return render(request, 'panel/processmanager.html', d)
+
+
+@csrf_exempt
+@login_required(login_url='/')
+def process_action(request):
+    """Handle process termination gracefully or forcefully."""
+    if not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Access Denied'}, status=403)
+        
+    if request.method == 'POST':
+        import psutil
+        try:
+            pid = int(request.POST.get('pid'))
+            action = request.POST.get('action') # 'term' or 'kill'
+            
+            p = psutil.Process(pid)
+            proc_name = p.name()
+            
+            # Safeguard: prevent killing critical panel processes dynamically
+            if proc_name in ['uwsgi', 'nginx'] and p.username() in ['root', 'nginx', 'www-data']:
+                return JsonResponse({'status': 'error', 'message': f'Cannot kill core cluster process: {proc_name}'})
+            
+            if action == 'kill':
+                p.kill()
+            else:
+                p.terminate()
+                
+            return JsonResponse({'status': 'success', 'message': f'Process {pid} ({proc_name}) terminated.'})
+            
+        except (ValueError, TypeError):
+            return JsonResponse({'status': 'error', 'message': 'Invalid PID.'})
+        except psutil.NoSuchProcess:
+            return JsonResponse({'status': 'error', 'message': 'Process no longer exists.'})
+        except psutil.AccessDenied:
+            return JsonResponse({'status': 'error', 'message': 'Access denied to terminate this process.'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)})
+
+    return JsonResponse({'status': 'error', 'message': 'Invalid request.'})
+
+
 from django.http import JsonResponse
 
 

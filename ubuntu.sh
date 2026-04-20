@@ -117,37 +117,35 @@ chmod 644 "$VOIDPANEL_ENGINE_FILE"             # readable by www-data
 chmod 640 "$VOIDPANEL_STATE_DIR/ols_admin_pass"  # root-only (sensitive)
 
 # =============================================================================
-#  INSTALL OpenLiteSpeed (always — enables hot-swap from admin panel later)
+#  INSTALL OpenLiteSpeed — only when OLS is selected as the web engine
 # =============================================================================
-status_msg "Installing OpenLiteSpeed"
-wget -qO /tmp/ols-repo.sh https://rpms.litespeedtech.com/debian/enable_lst_debian_repo.sh 2>/dev/null || true
-if [[ -f /tmp/ols-repo.sh ]]; then
-    bash /tmp/ols-repo.sh > /dev/null 2>&1 || true
-    apt-get update -y  > /dev/null 2>&1 || true
-    apt-get install -y openlitespeed > /dev/null 2>&1 || true
-    rm -f /tmp/ols-repo.sh
-else
-    warn_msg "Could not reach LiteSpeed repo — OLS skipped (hot-swap install available from panel later)"
-fi
-
-if [[ -f /usr/local/lsws/admin/misc/admpass.sh ]]; then
-    printf "admin\n${OLS_ADMIN_PASS}\n${OLS_ADMIN_PASS}\n" | \
-        /usr/local/lsws/admin/misc/admpass.sh > /dev/null 2>&1 || true
-    echo "admin" > "$VOIDPANEL_STATE_DIR/ols_admin_user"
-    chmod 640 "$VOIDPANEL_STATE_DIR/ols_admin_user"
-fi
-
 if [[ "$WEB_ENGINE" == "ols" ]]; then
-    systemctl enable lshttpd lsws 2>/dev/null || true
-    systemctl start  lshttpd lsws 2>/dev/null || true
-    success_msg "OpenLiteSpeed enabled as primary site engine (80/443)"
+    status_msg "Installing OpenLiteSpeed (selected as active web engine)"
+    wget -qO /tmp/ols-repo.sh https://rpms.litespeedtech.com/debian/enable_lst_debian_repo.sh 2>/dev/null || true
+    if [[ -f /tmp/ols-repo.sh ]]; then
+        bash /tmp/ols-repo.sh > /dev/null 2>&1 || true
+        apt-get update -y  > /dev/null 2>&1 || true
+        apt-get install -y openlitespeed > /dev/null 2>&1 || true
+        rm -f /tmp/ols-repo.sh
+
+        if [[ -f /usr/local/lsws/admin/misc/admpass.sh ]]; then
+            printf "admin\n${OLS_ADMIN_PASS}\n${OLS_ADMIN_PASS}\n" | \
+                /usr/local/lsws/admin/misc/admpass.sh > /dev/null 2>&1 || true
+            echo "admin" > "$VOIDPANEL_STATE_DIR/ols_admin_user"
+            chmod 640 "$VOIDPANEL_STATE_DIR/ols_admin_user"
+        fi
+
+        systemctl enable lshttpd lsws 2>/dev/null || true
+        systemctl start  lshttpd lsws 2>/dev/null || true
+        success_msg "OpenLiteSpeed installed and enabled as primary site engine (80/443)"
+    else
+        warn_msg "Could not reach LiteSpeed repo — OLS skipped (install manually later if needed)"
+    fi
 else
-    systemctl disable lshttpd lsws 2>/dev/null || true
-    systemctl stop    lshttpd lsws 2>/dev/null || true
-    /usr/local/lsws/bin/lswsctrl stop 2>/dev/null || true
-    pkill -9 litespeed 2>/dev/null || true
-    success_msg "NGINX enabled as primary site engine"
+    # NGINX selected — do NOT install OpenLiteSpeed at all
+    success_msg "NGINX selected as primary web engine — OpenLiteSpeed skipped"
 fi
+
 
 # =============================================================================
 #  DUMMY SSL
@@ -631,6 +629,60 @@ EOF
         
     status_msg "Initializing Roundcube Database Schema"
     mysql ${DB_NAME} < SQL/mysql.initial.sql
+
+    status_msg "Installing VoidPanel SSO Plugin"
+    mkdir -p /var/www/roundcube/plugins/vp_autologin
+    cat > /var/www/roundcube/plugins/vp_autologin/vp_autologin.php <<'PHP'
+<?php
+class vp_autologin extends rcube_plugin
+{
+    public $task = 'login';
+    private $user = null;
+    private $pass = null;
+
+    function init()
+    {
+        if (!empty($_GET['vp_token'])) {
+            $token = preg_replace('/[^a-zA-Z0-9-]/', '', $_GET['vp_token']);
+            $file = "/var/www/roundcube/temp/rc_sso_" . $token;
+            if (file_exists($file)) {
+                $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+                if (count($lines) >= 2) {
+                    $this->user = $lines[0];
+                    $this->pass = $lines[1];
+                }
+                @unlink($file);
+            }
+        }
+
+        $this->add_hook('startup', array($this, 'startup'));
+        $this->add_hook('authenticate', array($this, 'authenticate'));
+    }
+
+    function startup($args)
+    {
+        if (empty($_SESSION['user_id']) && $this->user && $this->pass) {
+            $args['action'] = 'login';
+        }
+        return $args;
+    }
+
+    function authenticate($args)
+    {
+        if ($this->user && $this->pass) {
+            $args['user'] = $this->user;
+            $args['pass'] = $this->pass;
+            $args['cookiecheck'] = false;
+            $args['valid'] = true;
+            $args['abort'] = false;
+        }
+        return $args;
+    }
+}
+PHP
+    # Enable plugin in config.inc.php
+    sed -i "/'zipdownload',/a \ \ \ \ 'vp_autologin'," config/config.inc.php
+    chown -R www-data:www-data /var/www/roundcube/plugins/vp_autologin
 
     cat > /etc/nginx/sites-available/roundcube <<NGINXCONF
 server {

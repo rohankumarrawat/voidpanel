@@ -97,6 +97,7 @@ class HostingService(models.Model):
     next_due_date = models.DateField()
     server_hostname = models.CharField(max_length=120, blank=True)
     panel_url = models.URLField(blank=True)
+    server = models.ForeignKey('VoidPanelServer', on_delete=models.SET_NULL, null=True, blank=True, related_name='active_services')
     storage_gb = models.PositiveIntegerField(default=25)
     bandwidth_gb = models.PositiveIntegerField(default=250)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -258,7 +259,23 @@ class OutboundEmailProfile(models.Model):
         return self.profile_name
 
 
+class VoidPanelServer(models.Model):
+    name = models.CharField(max_length=120, unique=True, help_text="e.g., US-East Node 1")
+    url = models.URLField(help_text="e.g., http://178.18.250.134:8080")
+    api_key = models.CharField(max_length=255)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_connected = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class HostingPackage(models.Model):
+    server = models.ForeignKey(VoidPanelServer, on_delete=models.SET_NULL, null=True, blank=True, related_name='packages', help_text="Assigned server node for provisioning")
     name = models.CharField(max_length=80)
     slug = models.SlugField(max_length=90, unique=True)
     short_description = models.CharField(max_length=180, blank=True)

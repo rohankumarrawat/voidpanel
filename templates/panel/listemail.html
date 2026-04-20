@@ -144,9 +144,9 @@
                                                 Password</button>
 
 
-                                             <a href="/deleteemai/{{i.email}}"
-                                                class="btn btn-danger"> Delete Email
-                                          </a>
+                                             <button type="button" class="btn btn-danger m-2" onclick="deleteEmail('{{i.email}}', this)">
+                                                 <i class="fa fa-trash"></i> Delete Email
+                                             </button>
 
 
                                         </div>
@@ -1222,5 +1222,48 @@ document.getElementById('change').style.display='block';
 
 
 </body>
+
+<!-- CSRF helper for AJAX calls -->
+<form id="__csrfForm" style="display:none">{% csrf_token %}</form>
+
+<script>
+/* ─── Delete Email (admin panel) ─── */
+function deleteEmail(email, btn) {
+    if (!confirm('Permanently delete ' + email + '?\nThis will remove the mailbox and all its data.')) return;
+    var origHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i> Deleting...';
+    var csrf = document.querySelector('#__csrfForm [name=csrfmiddlewaretoken]').value;
+    var fd = new FormData();
+    fetch('/deleteemai/' + encodeURIComponent(email) + '/', {
+        method: 'POST',
+        body: fd,
+        credentials: 'same-origin',
+        headers: { 'X-CSRFToken': csrf }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.status === 'success') {
+            toastr.success(email + ' deleted successfully.');
+            // Fade out the row/card
+            var card = btn.closest('tr') || btn.closest('.card') || btn.parentElement;
+            if (card) {
+                card.style.transition = 'opacity 0.35s';
+                card.style.opacity = '0';
+                setTimeout(function() { card.remove(); }, 370);
+            }
+        } else {
+            toastr.error('Delete failed: ' + (data.message || 'Unknown error'));
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+        }
+    })
+    .catch(function() {
+        toastr.error('Network error \u2014 please try again.');
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+    });
+}
+</script>
 
 </html>

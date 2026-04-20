@@ -2208,3 +2208,95 @@ def user_api_save_site_config(request):
     else:
         return JsonResponse({'status': 'error', 'message': result.error}, status=400)
 
+
+@login_required(login_url="/")
+def activitylog_control(request, data):
+    """User-portal version of the activity log page."""
+    if request.user.is_superuser:
+        current = request.session.get("name", request.user.username)
+    else:
+        current = request.user.username
+
+    # Authorization Check
+    if not request.user.is_superuser:
+        owner = user.objects.filter(username=current).first()
+        if not owner or owner.domain != data:
+            return HttpResponse("Unauthorized.", status=403)
+
+    try:
+        with open(paths.MYSQL_PASSWORD_FILE, "r") as f:
+            adminpassword = f.read().strip()
+    except Exception:
+        adminpassword = ""
+
+    d = {}
+    d.update(get_user_dashboard_context(current, adminpassword))
+    d["is_control"] = True
+    d["domain"] = data
+    
+    return render(request, 'panel/activitylog.html', d)
+
+
+@login_required(login_url="/")
+@csrf_exempt
+def deleteemail_control(request, data):
+    """Delete an email account – user-portal route.
+    
+    Regular users may only delete emails belonging to their own domain.
+    Superusers may delete any email.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+
+    current = request.user.username
+
+    # Ownership check for non-superusers
+    if not request.user.is_superuser:
+        owner = user.objects.filter(username=current).first()
+        if not owner:
+            return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+        email_domain = data.split('@')[-1] if '@' in data else ''
+        if owner.domain != email_domain:
+            return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+
+    # Delegate to the shared panel view logic
+    import shutil
+    from control.models import allemail as allemail_model
+    try:
+        from voidplatform.config import paths as _paths
+        email_obj = allemail_model.objects.get(email=data)
+        domain_name = email_obj.domain
+        user_prefix = data.split('@')[0]
+
+        # Remove from Postfix maps
+        for _fpath in [_paths.POSTFIX_VIRTUAL_ALIAS, _paths.POSTFIX_VIRTUAL_MAILBOX]:
+            if os.path.exists(_fpath):
+                with open(_fpath, 'r') as _f:
+                    _lines = _f.readlines()
+                with open(_fpath, 'w') as _f:
+                    _f.writelines(l for l in _lines if not l.startswith(f'{data} '))
+        import subprocess as _sp
+        _sp.run(['postmap', _paths.POSTFIX_VIRTUAL_ALIAS],   capture_output=True)
+        _sp.run(['postmap', _paths.POSTFIX_VIRTUAL_MAILBOX], capture_output=True)
+
+        # Remove Dovecot user entry
+        if os.path.exists('/etc/dovecot/users'):
+            with open('/etc/dovecot/users', 'r') as _f:
+                _lines = _f.readlines()
+            with open('/etc/dovecot/users', 'w') as _f:
+                _f.writelines(l for l in _lines if not l.startswith(f'{data}:'))
+
+        # Remove maildir
+        owner_obj = user.objects.filter(domain=domain_name).first()
+        sys_owner = owner_obj.username if owner_obj else 'vmail'
+        home_path = os.path.join(paths.HOME_BASE, sys_owner, 'mail', domain_name, user_prefix)
+        old_path  = os.path.join(paths.MAIL_VHOSTS, domain_name, user_prefix)
+        if os.path.exists(home_path): shutil.rmtree(home_path, ignore_errors=True)
+        if os.path.exists(old_path):  shutil.rmtree(old_path,  ignore_errors=True)
+
+        email_obj.delete()
+        return JsonResponse({'status': 'success'})
+    except allemail_model.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Email account not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

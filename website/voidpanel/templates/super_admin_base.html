@@ -3,436 +3,351 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{% block title %}Super Admin Portal | VoidPanel{% endblock %}</title>
-    <meta name="description" content="Structured internal operations dashboard for VoidPanel super admins.">
+    <title>{% block title %}Admin Console | VoidPanel{% endblock %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
     <link rel="stylesheet" href="/static/assets/css/void-modern.css">
     <style>
-        .admin-page {
+        /* ─── Admin Layout ─────────────────────────────────── */
+        body { font-family: 'Nunito', sans-serif; }
+        .admin-wrap {
             min-height: 100vh;
-            padding: 108px 18px 36px;
+            padding-top: 70px;
             background:
-                radial-gradient(circle at top left, rgba(34, 197, 94, 0.12), transparent 24%),
-                radial-gradient(circle at top right, rgba(14, 165, 233, 0.14), transparent 22%),
-                linear-gradient(180deg, #07111b 0%, #09131d 48%, #071018 100%);
-        }
-        .admin-layout {
-            max-width: 1540px;
-            margin: 0 auto;
+                radial-gradient(ellipse 60% 40% at 90% 0%, rgba(34,197,94,0.08) 0%, transparent 55%),
+                radial-gradient(ellipse 40% 30% at 5% 90%, rgba(14,165,233,0.08) 0%, transparent 55%),
+                #060f18;
             display: grid;
-            grid-template-columns: 290px minmax(0, 1fr);
-            gap: 24px;
+            grid-template-columns: 240px 1fr;
         }
-        .surface {
-            background: rgba(8, 13, 22, 0.84);
-            border: 1px solid rgba(255,255,255,0.08);
-            backdrop-filter: blur(18px);
-            box-shadow: 0 26px 90px rgba(0, 0, 0, 0.28);
+        /* ─── Sidebar ─────────────────────────────────────── */
+        .a-sidebar {
+            position: fixed;
+            top: 70px;
+            left: 0;
+            width: 240px;
+            height: calc(100vh - 70px);
+            overflow-y: auto;
+            background: rgba(6,11,20,0.95);
+            border-right: 1px solid rgba(255,255,255,0.06);
+            backdrop-filter: blur(24px);
+            display: flex;
+            flex-direction: column;
+            padding: 18px 14px 24px;
+            z-index: 100;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(34,197,94,0.2) transparent;
         }
-        .sidebar {
-            position: sticky;
-            top: 104px;
-            height: fit-content;
-            border-radius: 30px;
-            padding: 24px;
+        .a-brand {
+            display: flex; align-items: center; gap: 10px;
+            font-weight: 800; font-size: 0.95rem; color: var(--text-primary);
+            padding: 4px 6px 18px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            margin-bottom: 14px;
         }
-        .brand {
-            display: inline-flex;
-            align-items: center;
-            gap: 12px;
-            color: var(--text-primary);
-            font-weight: 700;
-            margin-bottom: 20px;
-        }
-        .brand img {
-            width: 44px;
-            height: 44px;
-            border-radius: 14px;
-        }
-        .eyebrow {
-            display: inline-flex;
-            padding: 8px 12px;
-            border-radius: 999px;
-            background: rgba(255,255,255,0.08);
-            color: var(--text-primary);
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        .side-hero {
-            padding: 22px;
-            border-radius: 24px;
-            background: linear-gradient(180deg, rgba(34, 197, 94, 0.14), rgba(255,255,255,0.03));
-            border: 1px solid rgba(255,255,255,0.08);
+        .a-brand img { width: 28px; height: 28px; border-radius: 8px; }
+        .a-brand-tag { font-size: 0.65rem; color: #4ade80; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+        /* Admin user chip */
+        .a-user {
+            display: flex; align-items: center; gap: 9px;
+            padding: 10px; border-radius: 12px;
+            background: rgba(34,197,94,0.07);
+            border: 1px solid rgba(34,197,94,0.14);
             margin-bottom: 18px;
         }
-        .side-hero h2 {
-            margin: 14px 0 8px;
-            color: var(--text-primary);
-            font-size: 1.4rem;
+        .a-avatar {
+            width: 32px; height: 32px; border-radius: 8px;
+            background: linear-gradient(135deg, #22c55e, #059669);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 0.85rem; color: #021f0a; flex-shrink: 0;
         }
-        .muted, .side-hero p {
-            color: var(--text-secondary);
-            line-height: 1.7;
+        .a-user-name { font-size: 0.82rem; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .a-user-role { font-size: 0.68rem; color: #4ade80; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+        /* Nav groups */
+        .a-nav-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); padding: 0 6px; margin: 14px 0 5px; }
+        .a-nav-item {
+            display: flex; align-items: center; gap: 9px;
+            padding: 9px 10px; border-radius: 9px;
+            color: var(--text-secondary); font-size: 0.84rem; font-weight: 600;
+            transition: all 0.15s ease; margin-bottom: 2px;
         }
-        .nav-group {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin: 18px 0;
-        }
-        .nav-group a {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 14px 16px;
-            border-radius: 18px;
-            color: var(--text-secondary);
-            background: rgba(255,255,255,0.025);
-            border: 1px solid rgba(255,255,255,0.04);
-        }
-        .nav-group a.active, .nav-group a:hover {
-            color: var(--text-primary);
-            background: rgba(14, 165, 233, 0.12);
-            border-color: rgba(14, 165, 233, 0.22);
-        }
-        .side-card {
-            padding: 18px;
-            border-radius: 20px;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.06);
-            margin-top: 14px;
-        }
-        .side-card strong {
-            color: var(--text-primary);
-            display: block;
-            margin-bottom: 8px;
-        }
-        .main {
-            display: flex;
-            flex-direction: column;
-            gap: 22px;
-        }
-        .message-banner {
-            padding: 14px 16px;
-            border-radius: 16px;
-            background: rgba(34, 197, 94, 0.14);
-            border: 1px solid rgba(34, 197, 94, 0.2);
-            color: var(--text-primary);
-        }
-        .section {
-            border-radius: 28px;
-            padding: 24px;
-        }
-        .hero {
-            border-radius: 34px;
-            padding: 32px;
-            position: relative;
-            overflow: hidden;
-        }
-        .hero::after {
-            content: "";
-            position: absolute;
-            width: 340px;
-            height: 340px;
-            border-radius: 50%;
-            right: -110px;
-            top: -90px;
-            background: radial-gradient(circle, rgba(14, 165, 233, 0.18), transparent 68%);
-            pointer-events: none;
-        }
-        .hero-grid {
-            position: relative;
-            z-index: 1;
-            display: grid;
-            grid-template-columns: 1.3fr .95fr;
-            gap: 22px;
-        }
-        .hero-tag {
-            display: inline-flex;
-            padding: 8px 12px;
-            border-radius: 999px;
-            background: rgba(245, 158, 11, 0.12);
-            color: #fcd34d;
-            font-size: 0.82rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        .hero h1 {
-            margin: 16px 0 12px;
-            font-size: clamp(2rem, 4vw, 3.6rem);
-            line-height: 1.05;
-            color: var(--text-primary);
-        }
-        .hero p {
-            margin: 0;
-            color: var(--text-secondary);
-            line-height: 1.8;
-            max-width: 760px;
-        }
-        .hero-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-top: 24px;
-        }
-        .hero-actions a {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            padding: 14px 18px;
-            border-radius: 16px;
-            font-weight: 700;
-        }
-        .hero-primary {
-            background: linear-gradient(135deg, #22c55e, #59c4bc);
-            color: #02120f;
-        }
-        .hero-secondary {
-            background: rgba(255,255,255,0.04);
-            color: var(--text-primary);
-            border: 1px solid rgba(255,255,255,0.08);
-        }
-        .metric-grid, .three-grid, .two-grid, .form-grid, .check-grid {
-            display: grid;
-            gap: 14px;
-        }
-        .metric-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-        .three-grid {
-            grid-template-columns: repeat(3, 1fr);
-        }
-        .two-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-        .metric, .card, .form-card {
-            padding: 18px;
-            border-radius: 22px;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.06);
-        }
-        .metric span {
-            display: block;
-            margin-bottom: 10px;
-            color: var(--text-muted);
-            font-size: 0.84rem;
-        }
-        .metric strong {
-            display: block;
-            color: var(--text-primary);
-            font-size: 2rem;
-        }
-        .metric small {
-            display: block;
-            margin-top: 8px;
-            color: var(--text-muted);
-            line-height: 1.5;
-        }
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 16px;
-        }
-        .section-header h2, .section-header h3 {
-            margin: 0;
-            color: var(--text-primary);
-        }
-        .section-header span {
-            color: var(--text-muted);
-            font-size: 0.84rem;
-        }
-        .stack {
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-        }
-        .topline {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            align-items: flex-start;
-        }
-        .topline strong, .card strong {
-            color: var(--text-primary);
-        }
-        .badge-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 10px;
-        }
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 7px 12px;
-            border-radius: 999px;
-            font-size: 0.78rem;
-            font-weight: 700;
-        }
-        .badge.super {
-            background: rgba(245, 158, 11, 0.14);
-            color: #fcd34d;
-        }
-        .badge.staff {
-            background: rgba(34, 197, 94, 0.12);
-            color: #86efac;
-        }
-        .badge.role {
-            background: rgba(14, 165, 233, 0.12);
-            color: #7dd3fc;
-        }
-        .badge.soft {
-            background: rgba(255,255,255,0.06);
-            color: var(--text-secondary);
-        }
-        .form-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-        .form-grid.single {
-            grid-template-columns: 1fr;
-        }
-        .check-grid {
-            grid-template-columns: repeat(2, 1fr);
+        .a-nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
+        .a-nav-item.active { background: rgba(34,197,94,0.1); color: #4ade80; border-left: 2px solid #22c55e; padding-left: 8px; }
+        .a-nav-item i { width: 15px; text-align: center; font-size: 0.8rem; }
+        .a-nav-badge { margin-left: auto; background: rgba(245,158,11,0.2); color: #fbbf24; font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 999px; }
+        /* Quick stats in sidebar */
+        .a-sidebar-stats {
             margin-top: 12px;
+            padding: 12px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.05);
         }
-        label {
-            display: block;
-            color: var(--text-secondary);
-            font-size: 0.88rem;
-            margin-bottom: 8px;
+        .a-stat-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; }
+        .a-stat-row + .a-stat-row { border-top: 1px solid rgba(255,255,255,0.04); }
+        .a-stat-lbl { font-size: 0.72rem; color: var(--text-muted); }
+        .a-stat-val { font-size: 0.8rem; font-weight: 700; color: var(--text-primary); }
+        .a-stat-val.green { color: #4ade80; }
+        .a-stat-val.amber { color: #fbbf24; }
+        .a-sidebar-spacer { flex: 1; }
+        .a-portal-btn {
+            display: flex; align-items: center; gap: 8px;
+            padding: 9px 10px; border-radius: 9px; font-size: 0.8rem; font-weight: 600;
+            margin-bottom: 4px; transition: all 0.15s ease;
         }
-        input, textarea, select {
-            width: 100%;
-            border-radius: 14px;
-            border: 1px solid rgba(255,255,255,0.1);
-            background: rgba(255,255,255,0.03);
-            color: var(--text-primary);
-            padding: 13px 14px;
+        .a-portal-btn.green { background: rgba(34,197,94,0.08); color: #4ade80; border: 1px solid rgba(34,197,94,0.16); }
+        .a-portal-btn.green:hover { background: rgba(34,197,94,0.16); }
+        .a-portal-btn.ghost { background: rgba(255,255,255,0.02); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.05); }
+        .a-portal-btn.ghost:hover { color: #f87171; border-color: rgba(248,113,113,0.2); }
+        /* ─── Main Area ─────────────────────────────────── */
+        .a-main {
+            margin-left: 240px;
+            padding: 24px 28px 56px;
+            display: flex; flex-direction: column; gap: 22px;
+            min-width: 0;
         }
-        textarea {
-            min-height: 96px;
-            resize: vertical;
+        /* Page header */
+        .a-page-header {
+            display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: nowrap;
         }
-        .check-item {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            padding: 12px 14px;
-            border-radius: 14px;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.06);
-            color: var(--text-secondary);
+        .a-page-title { font-size: 1.4rem; font-weight: 800; color: var(--text-primary); }
+        .a-page-sub { font-size: 0.82rem; color: var(--text-muted); margin-top: 3px; }
+        .a-header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; flex-shrink: 0; }
+        .a-btn {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 9px 16px; border-radius: 10px; font-size: 0.82rem; font-weight: 700;
+            transition: all 0.15s ease; cursor: pointer; border: none;
         }
-        .check-item input {
-            width: auto;
-            margin: 0;
+        .a-btn.green { background: rgba(34,197,94,0.12); color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
+        .a-btn.green:hover { background: rgba(34,197,94,0.2); }
+        .a-btn.sky { background: rgba(14,165,233,0.12); color: #7dd3fc; border: 1px solid rgba(14,165,233,0.2); }
+        .a-btn.sky:hover { background: rgba(14,165,233,0.2); }
+        .a-btn.amber { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); }
+        /* Flash messages */
+        .a-flash { padding: 11px 14px; border-radius: 10px; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: var(--text-primary); font-size: 0.85rem; margin-bottom: 4px; }
+        /* ─── Card base ─────────────────────────────────── */
+        .a-card {
+            background: rgba(9,16,28,0.8);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 16px;
+            padding: 20px 22px;
         }
-        .actions, .inline-actions {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-top: 14px;
+        .a-card-head {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 16px; gap: 10px;
         }
-        .actions {
-            justify-content: flex-end;
+        .a-card-title { font-size: 0.92rem; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 7px; }
+        .a-card-title i { font-size: 0.78rem; color: #22c55e; }
+        .a-card-sub { font-size: 0.76rem; color: var(--text-muted); }
+        /* ─── KPI Strip ─────────────────────────────────── */
+        .a-kpi-strip { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+        .a-kpi {
+            background: rgba(9,16,28,0.8); border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 14px; padding: 16px 18px;
+            display: flex; align-items: center; gap: 14px;
+            transition: border-color 0.18s ease;
         }
-        .actions button, .inline-actions button {
-            border: none;
-            cursor: pointer;
-            padding: 12px 16px;
-            border-radius: 14px;
-            font-weight: 700;
+        .a-kpi:hover { border-color: rgba(34,197,94,0.25); }
+        .a-kpi-icon {
+            width: 36px; height: 36px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0;
         }
-        .actions button {
-            background: linear-gradient(135deg, #59c4bc, #22c55e);
-            color: #031016;
+        .a-kpi-icon.green { background: rgba(34,197,94,0.12); color: #4ade80; }
+        .a-kpi-icon.sky { background: rgba(14,165,233,0.12); color: #7dd3fc; }
+        .a-kpi-icon.amber { background: rgba(245,158,11,0.12); color: #fbbf24; }
+        .a-kpi-icon.violet { background: rgba(167,139,250,0.12); color: #c4b5fd; }
+        .a-kpi-icon.red { background: rgba(248,113,113,0.12); color: #f87171; }
+        .a-kpi-val { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); line-height: 1; }
+        .a-kpi-lbl { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+        /* ─── Grid helpers ──────────────────────────────── */
+        .a-grid-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 20px; }
+        .a-grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+        /* ─── Table ─────────────────────────────────────── */
+        .a-table { width: 100%; border-collapse: collapse; }
+        .a-table th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); padding: 9px 12px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.06); text-align: left; }
+        .a-table td { padding: 11px 12px; font-size: 0.82rem; color: var(--text-secondary); border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+        .a-table tr:last-child td { border-bottom: none; }
+        .a-table tr:hover td { background: rgba(255,255,255,0.02); }
+        .a-table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); }
+        /* Badge */
+        .a-badge {
+            display: inline-flex; align-items: center;
+            padding: 3px 9px; border-radius: 999px; font-size: 0.7rem; font-weight: 700;
         }
-        .inline-actions button {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.08);
-            color: var(--text-primary);
+        .a-badge.green { background: rgba(74,222,128,0.12); color: #4ade80; }
+        .a-badge.amber { background: rgba(245,158,11,0.12); color: #fbbf24; }
+        .a-badge.red { background: rgba(248,113,113,0.12); color: #f87171; }
+        .a-badge.sky { background: rgba(14,165,233,0.12); color: #7dd3fc; }
+        .a-badge.violet { background: rgba(167,139,250,0.12); color: #c4b5fd; }
+        .a-badge.gray { background: rgba(255,255,255,0.06); color: var(--text-secondary); }
+        /* ─── Form styles ───────────────────────────────── */
+        .f-label { display: block; font-size: 0.78rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; letter-spacing: 0.03em; }
+        .f-input {
+            width: 100%; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03); color: var(--text-primary);
+            padding: 10px 12px; font-size: 0.85rem; font-family: 'Nunito', sans-serif;
+            transition: border-color 0.18s ease;
         }
-        @media (max-width: 1280px) {
-            .admin-layout, .hero-grid, .two-grid {
-                grid-template-columns: 1fr;
-            }
-            .sidebar {
-                position: static;
-            }
+        .f-input:focus { outline: none; border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.04); }
+        .f-input::placeholder { color: var(--text-muted); }
+        textarea.f-input { min-height: 90px; resize: vertical; }
+        select.f-input { appearance: none; cursor: pointer; }
+        .f-grid-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; }
+        .f-grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+        .f-check {
+            display: flex; align-items: center; gap: 9px; padding: 10px 12px;
+            border-radius: 10px; background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06); color: var(--text-secondary); font-size: 0.84rem;
         }
-        @media (max-width: 900px) {
-            .metric-grid, .three-grid, .form-grid, .check-grid {
-                grid-template-columns: 1fr;
-            }
+        .f-check input[type=checkbox] { width: auto; margin: 0; accent-color: #22c55e; }
+        .f-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+        .f-btn {
+            border: none; cursor: pointer; padding: 10px 18px;
+            border-radius: 10px; font-weight: 700; font-size: 0.84rem; font-family: 'Nunito', sans-serif;
         }
-        @media (max-width: 760px) {
-            .admin-page {
-                padding: 96px 12px 28px;
-            }
-            .sidebar, .hero, .section {
-                padding: 18px;
-            }
-            .hero-actions {
-                flex-direction: column;
-            }
-            .hero-actions a {
-                justify-content: center;
-            }
+        .f-btn.primary { background: linear-gradient(135deg, #22c55e, #059669); color: #021f0a; }
+        .f-btn.ghost { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: var(--text-primary); }
+        .f-group { margin-bottom: 14px; }
+        /* ─── Staff / role cards ────────────────────────── */
+        .a-item {
+            padding: 14px 16px; border-radius: 12px;
+            background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
+            margin-bottom: 10px; transition: border-color 0.15s ease;
+        }
+        .a-item:last-child { margin-bottom: 0; }
+        .a-item:hover { border-color: rgba(34,197,94,0.15); }
+        .a-item-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .a-item-name { font-weight: 700; font-size: 0.88rem; color: var(--text-primary); }
+        .a-item-sub { font-size: 0.76rem; color: var(--text-muted); margin-top: 3px; }
+        .a-inline-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.04); }
+        .a-action-btn {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 6px 11px; border-radius: 8px; font-size: 0.75rem; font-weight: 700;
+            border: none; cursor: pointer; font-family: 'Nunito', sans-serif; transition: all 0.15s ease;
+        }
+        .a-action-btn.sky { background: rgba(14,165,233,0.1); color: #7dd3fc; border: 1px solid rgba(14,165,233,0.15); }
+        .a-action-btn.sky:hover { background: rgba(14,165,233,0.18); }
+        .a-action-btn.red { background: rgba(248,113,113,0.1); color: #f87171; border: 1px solid rgba(248,113,113,0.15); }
+        .a-action-btn.red:hover { background: rgba(248,113,113,0.18); }
+        .a-action-btn.green { background: rgba(34,197,94,0.1); color: #4ade80; border: 1px solid rgba(34,197,94,0.15); }
+        .a-action-btn.green:hover { background: rgba(34,197,94,0.18); }
+        .a-action-btn.ghost { background: rgba(255,255,255,0.04); color: var(--text-secondary); border: 1px solid rgba(255,255,255,0.08); }
+        /* Pill tags */
+        .a-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .a-tag { padding: 3px 10px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; }
+        .a-tag.sky { background: rgba(14,165,233,0.1); color: #7dd3fc; }
+        .a-tag.violet { background: rgba(167,139,250,0.1); color: #c4b5fd; }
+        .a-tag.green { background: rgba(34,197,94,0.1); color: #4ade80; }
+        .a-tag.amber { background: rgba(245,158,11,0.1); color: #fbbf24; }
+        .a-tag.gray { background: rgba(255,255,255,0.06); color: var(--text-secondary); }
+        /* Modal-style form areas */
+        .a-form-panel {
+            background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 14px; padding: 18px 20px;
+        }
+        .a-form-panel h3 { font-size: 0.88rem; font-weight: 800; color: var(--text-primary); margin-bottom: 14px; }
+        /* Empty state */
+        .a-empty { text-align: center; padding: 32px 16px; color: var(--text-muted); font-size: 0.85rem; }
+        .a-empty i { font-size: 2rem; display: block; margin-bottom: 10px; opacity: 0.4; }
+        /* Section divider label */
+        .a-section-label {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+            color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; gap: 10px;
+        }
+        .a-section-label::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.05); }
+        /* ─── Responsive ─────────────────────────────────── */
+        @media(max-width:1100px) { .a-kpi-strip { grid-template-columns: repeat(2,1fr); } }
+        @media(max-width:960px) {
+            .admin-wrap { grid-template-columns: 1fr; }
+            .a-sidebar { position: static; width: 100%; height: auto; flex-direction: row; flex-wrap: wrap; padding: 12px; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); }
+            .a-main { margin-left: 0; padding: 16px 14px 32px; }
+            .a-grid-2 { grid-template-columns: 1fr; }
+        }
+        @media(max-width:600px) {
+            .a-kpi-strip { grid-template-columns: repeat(2,1fr); }
+            .f-grid-2, .f-grid-3 { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
 {% include 'header.html' %}
-<main class="admin-page">
-    <div class="admin-layout">
-        <aside class="surface sidebar">
-            <a class="brand" href="/super-admin/">
-                <img src="/static/fav.png" alt="VoidPanel">
-                <span>VoidPanel Ops</span>
-            </a>
-            <div class="side-hero">
-                <span class="eyebrow">Executive Access</span>
-                <h2>Structured Admin</h2>
-                <p>Each feature now lives on its own page so dashboard, staff, roles, email routing, and live signals stay clean and easy to manage.</p>
+
+<div class="admin-wrap">
+    <!-- ── Sidebar ──────────────────────────────────────── -->
+    <aside class="a-sidebar">
+        <div class="a-brand">
+            <img src="/static/fav.png" alt="VP">
+            <div>
+                <div>VoidPanel</div>
+                <div class="a-brand-tag">Admin Console</div>
             </div>
-            <nav class="nav-group">
-                <a href="/super-admin/"{% if active_page == 'dashboard' %} class="active"{% endif %}><i class="fas fa-chart-pie"></i> Dashboard</a>
-                <a href="/super-admin/clients/"{% if active_page == 'clients' %} class="active"{% endif %}><i class="fas fa-users"></i> Clients</a>
-                <a href="/super-admin/billing/"{% if active_page == 'billing' %} class="active"{% endif %}><i class="fas fa-file-invoice-dollar"></i> Billing</a>
-                <a href="/super-admin/tickets/"{% if active_page == 'tickets' %} class="active"{% endif %}><i class="fas fa-ticket"></i> Support Tickets</a>
-                <a href="/super-admin/hosting/"{% if active_page == 'hosting' %} class="active"{% endif %}><i class="fas fa-cubes-stacked"></i> Hosting Packages</a>
-                <a href="/super-admin/staff/"{% if active_page == 'staff' %} class="active"{% endif %}><i class="fas fa-user-shield"></i> Staff</a>
-                <a href="/super-admin/roles/"{% if active_page == 'roles' %} class="active"{% endif %}><i class="fas fa-layer-group"></i> Roles</a>
-                <a href="/super-admin/emails/"{% if active_page == 'emails' %} class="active"{% endif %}><i class="fas fa-envelope-circle-check"></i> Email Config</a>
-                <a href="/super-admin/signals/"{% if active_page == 'signals' %} class="active"{% endif %}><i class="fas fa-satellite-dish"></i> Signals</a>
-            </nav>
-            <div class="side-card">
-                <strong>Revenue Snapshot</strong>
-                <p class="muted">Monthly recurring revenue: ${{ admin_stats.monthly_revenue }}</p>
-                <p class="muted" style="margin:8px 0 0;">Outstanding invoices: ${{ admin_stats.unpaid_total }}</p>
+        </div>
+
+        <div class="a-user">
+            <div class="a-avatar">A</div>
+            <div>
+                <div class="a-user-name">Super Admin</div>
+                <div class="a-user-role">Full Access</div>
             </div>
-            <div class="side-card">
-                <strong>Access Map</strong>
-                <p class="muted">{{ admin_stats.super_admin_count }} super admins • {{ admin_stats.portal_admin_count }} portal admins</p>
-                <p class="muted" style="margin:8px 0 0;">{{ admin_stats.billing_role_count }} billing roles • {{ admin_stats.support_role_count }} support roles</p>
+        </div>
+
+        <div class="a-nav-label">Operations</div>
+        <a href="/super-admin/" class="a-nav-item {% if active_page == 'dashboard' %}active{% endif %}"><i class="fas fa-gauge-high"></i> Dashboard</a>
+        <a href="/super-admin/clients/" class="a-nav-item {% if active_page == 'clients' %}active{% endif %}">
+            <i class="fas fa-users"></i> Clients
+            {% if admin_stats.client_count %}<span class="a-nav-badge">{{ admin_stats.client_count }}</span>{% endif %}
+        </a>
+        <a href="/super-admin/billing/" class="a-nav-item {% if active_page == 'billing' %}active{% endif %}">
+            <i class="fas fa-receipt"></i> Billing
+            {% if admin_stats.unpaid_total %}<span class="a-nav-badge">${{ admin_stats.unpaid_total }}</span>{% endif %}
+        </a>
+        <a href="/super-admin/tickets/" class="a-nav-item {% if active_page == 'tickets' %}active{% endif %}">
+            <i class="fas fa-headset"></i> Support
+            {% if admin_stats.open_ticket_count and admin_stats.open_ticket_count > 0 %}<span class="a-nav-badge">{{ admin_stats.open_ticket_count }}</span>{% endif %}
+        </a>
+
+        <div class="a-nav-label">Infrastructure</div>
+        <a href="/super-admin/hosting/" class="a-nav-item {% if active_page == 'hosting' %}active{% endif %}"><i class="fas fa-cube"></i> Hosting Packages</a>
+        <a href="/super-admin/servers/" class="a-nav-item {% if active_page == 'servers' %}active{% endif %}"><i class="fas fa-server"></i> Servers</a>
+
+        <div class="a-nav-label">Access</div>
+        <a href="/super-admin/staff/" class="a-nav-item {% if active_page == 'staff' %}active{% endif %}"><i class="fas fa-user-shield"></i> Staff</a>
+        <a href="/super-admin/roles/" class="a-nav-item {% if active_page == 'roles' %}active{% endif %}"><i class="fas fa-layer-group"></i> Roles</a>
+        <a href="/super-admin/emails/" class="a-nav-item {% if active_page == 'emails' %}active{% endif %}"><i class="fas fa-envelope-circle-check"></i> Email Config</a>
+        <a href="/super-admin/signals/" class="a-nav-item {% if active_page == 'signals' %}active{% endif %}"><i class="fas fa-satellite-dish"></i> Signals</a>
+
+        <div class="a-sidebar-spacer"></div>
+
+        <div class="a-sidebar-stats">
+            <div class="a-stat-row">
+                <span class="a-stat-lbl">MRR</span>
+                <span class="a-stat-val green">${{ admin_stats.monthly_revenue }}</span>
             </div>
-        </aside>
-        <section class="main">
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="message-banner">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-            {% block admin_content %}{% endblock %}
-        </section>
-    </div>
-</main>
-{% include 'footer.html' %}
+            <div class="a-stat-row">
+                <span class="a-stat-lbl">Outstanding</span>
+                <span class="a-stat-val {% if admin_stats.unpaid_total %}amber{% else %}green{% endif %}">${{ admin_stats.unpaid_total }}</span>
+            </div>
+            <div class="a-stat-row">
+                <span class="a-stat-lbl">Staff</span>
+                <span class="a-stat-val">{{ admin_stats.staff_count }}</span>
+            </div>
+        </div>
+
+        <a href="/portal/" class="a-portal-btn green" style="margin-top:12px;"><i class="fas fa-user-circle"></i> Client View</a>
+        <a href="/logout/" class="a-portal-btn ghost"><i class="fas fa-right-from-bracket"></i> Sign Out</a>
+    </aside>
+
+    <!-- ── Main ─────────────────────────────────────────── -->
+    <main class="a-main">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="a-flash">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        {% block admin_content %}{% endblock %}
+    </main>
+</div>
 </body>
 </html>

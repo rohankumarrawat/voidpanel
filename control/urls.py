@@ -56,6 +56,9 @@ urlpatterns = [
      path('ftp/<str:data>/', views.ftp122, name='ftp'),
      path('ftpadd/', views.ftpadd, name='ftpadd'),
     path('terminal/',views.domainterminal),
+    path('activitylog/<str:data>/', views.activitylog_control, name='activitylog_control'),
+     path('deleteemail/<str:data>/', views.deleteemail_control, name='ctrl_deleteemail'),
+     path('deleteemai/<str:data>/', views.deleteemail_control, name='ctrl_deleteemai'),
    
 
      path('chstorageftp/', views.chstorageftp, name='chstorageftp'),
