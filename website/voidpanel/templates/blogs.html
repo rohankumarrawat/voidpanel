@@ -1,0 +1,335 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>VoidPanel Blog — Hosting, Server Management &amp; Open-Source Articles</title>
+    <meta name="description" content="Read expert articles on web hosting, server management, cloud computing, DNS, SSL, and VoidPanel updates from the VoidPanel engineering team.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="canonical" href="https://voidpanel.com/blogs/">
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css?v=3.0">
+    <style>
+        /* ── Hero ── */
+        .blog-hero {
+            padding: 120px 5% 72px;
+            background: linear-gradient(160deg, #f0f7ff 0%, #f8fafc 50%, #eef2ff 100%);
+            position: relative;
+            overflow: hidden;
+            text-align: center;
+        }
+        .blog-hero::before {
+            content: '';
+            position: absolute; inset: 0;
+            background-image: radial-gradient(circle, rgba(15,23,42,0.055) 1px, transparent 1px);
+            background-size: 28px 28px;
+            pointer-events: none;
+        }
+        .blog-hero::after {
+            content: '';
+            position: absolute;
+            top: -20%; right: -10%;
+            width: 55%; height: 120%;
+            background: radial-gradient(ellipse, rgba(37,99,235,0.07), transparent 60%);
+            pointer-events: none;
+        }
+        .blog-hero-inner { position: relative; z-index: 1; }
+        .blog-hero h1 { font-size: clamp(2.4rem, 5vw, 4rem); font-weight: 900; letter-spacing: -0.035em; margin: 18px 0 16px; }
+        .blog-hero p { font-size: 1rem; color: var(--text-muted); max-width: 520px; margin: 0 auto 36px; line-height: 1.75; }
+
+        /* ── Category filter ── */
+        .blog-filters {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .blog-filter-btn {
+            padding: 7px 16px;
+            border-radius: var(--r-pill);
+            border: 1.5px solid var(--border-medium);
+            background: #ffffff;
+            color: var(--text-secondary);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.18s;
+        }
+        .blog-filter-btn:hover,
+        .blog-filter-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #ffffff;
+        }
+
+        /* ── Blog grid ── */
+        .blog-section { padding: 72px 5% 100px; background: #ffffff; min-height: 50vh; }
+        .blog-grid-wrap { max-width: 1200px; margin: 0 auto; }
+
+        /* Featured post */
+        .blog-featured {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 0;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: var(--shadow-md);
+            margin-bottom: 40px;
+            transition: all 0.25s var(--ease);
+            text-decoration: none;
+            color: inherit;
+        }
+        .blog-featured:hover { box-shadow: var(--shadow-xl); transform: translateY(-4px); border-color: var(--blue-200); }
+        @media(max-width: 860px) { .blog-featured { grid-template-columns: 1fr; } }
+        .bf-img { position: relative; overflow: hidden; min-height: 300px; background: var(--bg-subtle); }
+        .bf-img img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; transition: transform 0.5s var(--ease); }
+        .blog-featured:hover .bf-img img { transform: scale(1.04); }
+        .bf-img-placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #eff6ff, #eef2ff); }
+        .bf-img-placeholder i { font-size: 4rem; color: rgba(37,99,235,0.15); }
+        .bf-featured-badge { position: absolute; top: 18px; left: 18px; background: var(--accent); color: #fff; font-size: 0.7rem; font-weight: 800; padding: 5px 12px; border-radius: var(--r-pill); letter-spacing: 0.06em; text-transform: uppercase; }
+        .bf-body { padding: 36px 40px; display: flex; flex-direction: column; justify-content: center; }
+        .bf-cat { display: inline-flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 14px; }
+        .bf-title { font-size: clamp(1.3rem, 2.5vw, 1.8rem); font-weight: 900; letter-spacing: -0.025em; line-height: 1.25; color: var(--text-primary); margin-bottom: 14px; }
+        .bf-excerpt { font-size: 0.9rem; color: var(--text-muted); line-height: 1.7; margin-bottom: 22px; }
+        .bf-meta { display: flex; align-items: center; gap: 14px; font-size: 0.8rem; color: var(--text-faint); }
+        .bf-meta-item { display: flex; align-items: center; gap: 5px; }
+        .bf-read-link { margin-top: 24px; display: inline-flex; align-items: center; gap: 7px; font-size: 0.88rem; font-weight: 800; color: var(--accent); }
+        .bf-read-link i { transition: transform 0.2s; }
+        .blog-featured:hover .bf-read-link i { transform: translateX(4px); }
+
+        /* Regular card grid */
+        .blog-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+        @media(max-width: 1000px) { .blog-cards { grid-template-columns: repeat(2, 1fr); } }
+        @media(max-width: 640px)  { .blog-cards { grid-template-columns: 1fr; } }
+
+        .blog-card {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.25s var(--ease);
+            box-shadow: var(--shadow-xs);
+            text-decoration: none;
+            color: inherit;
+        }
+        .blog-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-4px); border-color: var(--blue-200); }
+        .bc-img { height: 200px; overflow: hidden; position: relative; background: var(--bg-subtle); flex-shrink: 0; }
+        .bc-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.45s var(--ease); }
+        .blog-card:hover .bc-img img { transform: scale(1.06); }
+        .bc-img-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #eff6ff, #eef2ff); }
+        .bc-img-placeholder i { font-size: 2.5rem; color: rgba(37,99,235,0.15); }
+        .bc-cat-badge { position: absolute; top: 14px; left: 14px; background: rgba(255,255,255,0.92); backdrop-filter: blur(8px); border: 1px solid var(--border); border-radius: var(--r-pill); padding: 4px 10px; font-size: 0.68rem; font-weight: 800; color: var(--accent); letter-spacing: 0.06em; text-transform: uppercase; }
+        .bc-body { padding: 22px; display: flex; flex-direction: column; flex: 1; }
+        .bc-title { font-size: 1.05rem; font-weight: 800; color: var(--text-primary); line-height: 1.35; margin-bottom: 10px; letter-spacing: -0.01em; transition: color 0.15s; }
+        .blog-card:hover .bc-title { color: var(--accent); }
+        .bc-excerpt { font-size: 0.82rem; color: var(--text-muted); line-height: 1.65; margin-bottom: 16px; flex: 1; }
+        .bc-meta { display: flex; align-items: center; justify-content: space-between; font-size: 0.76rem; color: var(--text-faint); border-top: 1px solid var(--border-subtle); padding-top: 12px; margin-top: auto; }
+        .bc-meta-left { display: flex; align-items: center; gap: 6px; }
+
+        /* No posts state */
+        .blog-empty { text-align: center; padding: 80px 20px; }
+        .blog-empty i { font-size: 3rem; color: var(--text-faint); margin-bottom: 18px; display: block; }
+        .blog-empty h3 { font-size: 1.3rem; font-weight: 800; margin-bottom: 8px; }
+        .blog-empty p { color: var(--text-muted); }
+
+        /* ── Newsletter ── */
+        .blog-newsletter {
+            margin-top: 72px;
+            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+            border-radius: 24px;
+            padding: 52px 48px;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 40px;
+            align-items: center;
+        }
+        @media(max-width: 700px) { .blog-newsletter { grid-template-columns: 1fr; padding: 36px 28px; } }
+        .blog-newsletter h3 { font-size: 1.6rem; font-weight: 900; letter-spacing: -0.025em; color: #ffffff; margin-bottom: 8px; }
+        .blog-newsletter p { color: rgba(255,255,255,0.72); font-size: 0.9rem; }
+        .nl-form { display: flex; gap: 10px; flex-wrap: wrap; }
+        .nl-input { padding: 13px 16px; border-radius: var(--r-pill); border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: #ffffff; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.88rem; outline: none; min-width: 240px; transition: all 0.2s; }
+        .nl-input::placeholder { color: rgba(255,255,255,0.55); }
+        .nl-input:focus { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.4); }
+        .nl-btn { padding: 13px 24px; border-radius: var(--r-pill); background: #ffffff; color: var(--accent); font-weight: 800; font-size: 0.88rem; border: none; cursor: pointer; font-family: 'Plus Jakarta Sans', sans-serif; transition: all 0.2s; white-space: nowrap; }
+        .nl-btn:hover { background: #f1f5f9; transform: translateY(-1px); }
+    </style>
+</head>
+<body>
+{% include 'header.html' %}
+
+<!-- HERO -->
+<section class="blog-hero">
+    <div class="blog-hero-inner animate-up">
+        <span class="section-eyebrow"><span class="dot"></span> VoidPanel Blog</span>
+        <h1>Latest from the Blog</h1>
+        <p>Expert insights, product updates, and tutorials on managing your Linux hosting environment.</p>
+        <div class="blog-filters">
+            <button class="blog-filter-btn active" onclick="filterBlog('all', this)">All Posts</button>
+            <button class="blog-filter-btn" onclick="filterBlog('Panel Updates', this)">Panel Updates</button>
+            <button class="blog-filter-btn" onclick="filterBlog('Hosting', this)">Hosting</button>
+            <button class="blog-filter-btn" onclick="filterBlog('Technology', this)">Technology</button>
+            <button class="blog-filter-btn" onclick="filterBlog('Infrastructure', this)">Infrastructure</button>
+        </div>
+    </div>
+</section>
+
+<!-- BLOG CONTENT -->
+<section class="blog-section">
+    <div class="blog-grid-wrap">
+
+        {% if posts %}
+            <!-- Featured first post -->
+            {% with posts.0 as featured %}
+            <a href="/blog/{{ featured.slug }}/" class="blog-featured reveal" id="blog-featured-{{ featured.slug }}">
+                <div class="bf-img">
+                    {% if featured.featured_image %}
+                    <img src="{{ featured.featured_image.url }}" alt="{{ featured.title }}" loading="eager">
+                    {% else %}
+                    <div class="bf-img-placeholder"><i class="fas fa-newspaper"></i></div>
+                    {% endif %}
+                    <span class="bf-featured-badge">Featured</span>
+                </div>
+                <div class="bf-body">
+                    <div class="bf-cat"><i class="fas fa-folder"></i> {% if featured.category %}{{ featured.category.name }}{% else %}VoidPanel{% endif %}</div>
+                    <div class="bf-title">{{ featured.title }}</div>
+                    <div class="bf-excerpt">{{ featured.content|striptags|truncatechars:180 }}</div>
+                    <div class="bf-meta">
+                        <div class="bf-meta-item"><i class="fas fa-user-circle"></i> {{ featured.author.get_full_name|default:featured.author.username }}</div>
+                        <div class="bf-meta-item"><i class="fas fa-calendar-alt"></i> {{ featured.published_at|date:"M j, Y" }}</div>
+                    </div>
+                    <div class="bf-read-link">Read Article <i class="fas fa-arrow-right"></i></div>
+                </div>
+            </a>
+            {% endwith %}
+
+            <!-- Remaining posts grid -->
+            {% if posts|length > 1 %}
+            <div class="blog-cards" data-stagger="60">
+                {% for post in posts %}
+                {% if not forloop.first %}
+                <a href="/blog/{{ post.slug }}/" class="blog-card" data-cat="{% if post.category %}{{ post.category.name }}{% endif %}" id="blog-card-{{ post.slug }}">
+                    <div class="bc-img">
+                        {% if post.featured_image %}
+                        <img src="{{ post.featured_image.url }}" alt="{{ post.title }}" loading="lazy">
+                        {% else %}
+                        <div class="bc-img-placeholder"><i class="fas fa-newspaper"></i></div>
+                        {% endif %}
+                        {% if post.category %}<span class="bc-cat-badge">{{ post.category.name }}</span>{% endif %}
+                    </div>
+                    <div class="bc-body">
+                        <div class="bc-title">{{ post.title }}</div>
+                        <div class="bc-excerpt">{{ post.content|striptags|truncatechars:120 }}</div>
+                        <div class="bc-meta">
+                            <div class="bc-meta-left"><i class="fas fa-calendar-alt"></i> {{ post.published_at|date:"M j, Y" }}</div>
+                            <span>{{ post.author.get_full_name|default:post.author.username }}</span>
+                        </div>
+                    </div>
+                </a>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+
+        {% else %}
+        <!-- Static fallback cards -->
+        <a href="/voidpanel-info" class="blog-featured reveal" id="blog-overview">
+            <div class="bf-img">
+                <img src="/static/assets/img/blog/t4.png" alt="VoidPanel Overview" onerror="this.parentElement.innerHTML='<div class=bf-img-placeholder><i class=fas fa-newspaper></i></div>'">
+                <span class="bf-featured-badge">Featured</span>
+            </div>
+            <div class="bf-body">
+                <div class="bf-cat"><i class="fas fa-folder"></i> Panel Updates</div>
+                <div class="bf-title">VoidPanel Overview — Open-Source Hosting Control Panel</div>
+                <div class="bf-excerpt">A complete overview of VoidPanel — the modern, open-source web hosting control panel that replaces cPanel with a clean, fast interface. Manage domains, email, DNS, SSL, and databases.</div>
+                <div class="bf-meta">
+                    <div class="bf-meta-item"><i class="fas fa-user-circle"></i> Rohan Kumar Rawat</div>
+                    <div class="bf-meta-item"><i class="fas fa-calendar-alt"></i> Dec 4, 2024</div>
+                </div>
+                <div class="bf-read-link">Read Article <i class="fas fa-arrow-right"></i></div>
+            </div>
+        </a>
+
+        <div class="blog-cards" data-stagger="60">
+            <a href="/blog1" class="blog-card" data-cat="Technology" id="blog-ml">
+                <div class="bc-img">
+                    <img src="/static/assets/img/blog/t1.png" alt="Machine Learning" onerror="this.parentElement.innerHTML='<div class=bc-img-placeholder><i class=fas fa-newspaper></i></div>'">
+                    <span class="bc-cat-badge">Technology</span>
+                </div>
+                <div class="bc-body">
+                    <div class="bc-title">Industrializing Machine Learning</div>
+                    <div class="bc-excerpt">Exploring how enterprises are scaling ML deployments into production environments with modern MLOps pipelines.</div>
+                    <div class="bc-meta">
+                        <div class="bc-meta-left"><i class="fas fa-calendar-alt"></i> Nov 29, 2024</div>
+                        <span>Rohan Kumar Rawat</span>
+                    </div>
+                </div>
+            </a>
+            <a href="/cloud-computing" class="blog-card" data-cat="Infrastructure" id="blog-cloud">
+                <div class="bc-img">
+                    <img src="/static/assets/img/blog/t2.png" alt="Cloud Computing" onerror="this.parentElement.innerHTML='<div class=bc-img-placeholder><i class=fas fa-newspaper></i></div>'">
+                    <span class="bc-cat-badge">Infrastructure</span>
+                </div>
+                <div class="bc-body">
+                    <div class="bc-title">Cloud Computing in 2024</div>
+                    <div class="bc-excerpt">The latest trends in cloud infrastructure and how hosting providers are adapting to multi-cloud and edge computing demands.</div>
+                    <div class="bc-meta">
+                        <div class="bc-meta-left"><i class="fas fa-calendar-alt"></i> Nov 29, 2024</div>
+                        <span>Rohan Kumar Rawat</span>
+                    </div>
+                </div>
+            </a>
+            <a href="/alternative-of-cpanel" class="blog-card" data-cat="Hosting" id="blog-cpanel">
+                <div class="bc-img">
+                    <img src="/static/assets/img/blog/thumbnilblog3.png" alt="Alternative to cPanel" onerror="this.parentElement.innerHTML='<div class=bc-img-placeholder><i class=fas fa-newspaper></i></div>'">
+                    <span class="bc-cat-badge">Hosting</span>
+                </div>
+                <div class="bc-body">
+                    <div class="bc-title">The Best Alternative to cPanel in 2024</div>
+                    <div class="bc-excerpt">Why more sysadmins are switching from cPanel to free, open-source alternatives like VoidPanel that offer modern interfaces without the licensing fees.</div>
+                    <div class="bc-meta">
+                        <div class="bc-meta-left"><i class="fas fa-calendar-alt"></i> Dec 2, 2024</div>
+                        <span>Rohan Kumar Rawat</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+
+        <!-- Newsletter signup -->
+        <div class="blog-newsletter reveal">
+            <div>
+                <h3>Stay in the loop</h3>
+                <p>Get the latest VoidPanel updates, hosting tutorials, and server management tips delivered to your inbox.</p>
+            </div>
+            <div>
+                <div class="nl-form">
+                    <input type="email" class="nl-input" placeholder="your@email.com">
+                    <button class="nl-btn">Subscribe</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+{% include 'footer.html' %}
+<script src="/static/assets/js/void-utils.js"></script>
+<script>
+function filterBlog(cat, btn) {
+    document.querySelectorAll('.blog-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const cards = document.querySelectorAll('.blog-card');
+    cards.forEach(card => {
+        const cardCat = card.dataset.cat || '';
+        card.style.display = (cat === 'all' || cardCat === cat) ? '' : 'none';
+    });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,294 @@
+{% extends "super_admin_base.html" %}
+{% load static %}
+
+{% block title %}Suite Plans — Super Admin | VoidPanel{% endblock %}
+{% block breadcrumb %}Suite Plans{% endblock %}
+
+{% block admin_content %}
+<style>
+    /* Grid layout */
+    .sa-grid-layout { display: grid; grid-template-columns: 1fr 380px; gap: 24px; align-items: start; }
+    @media(max-width:960px){ .sa-grid-layout { grid-template-columns: 1fr; } }
+
+    /* Card base */
+    .card { background: var(--bg-card); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; }
+    .card-head { padding: 18px 22px; border-bottom: 1px solid var(--border);
+        display: flex; justify-content: space-between; align-items: center; }
+    .card-head h2 { font-size: 1rem; font-weight: 700; color: var(--text-1); margin: 0; }
+    .card-body { padding: 22px; }
+
+    /* Table */
+    .tbl { width: 100%; border-collapse: collapse; }
+    .tbl th { text-align: left; font-size: .72rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .06em; color: var(--text-2); padding: 12px 14px; background: rgba(255,255,255,0.015);
+        border-bottom: 1px solid var(--border); }
+    .tbl td { padding: 12px 14px; font-size: .85rem; color: var(--text-1); border-bottom: 1px solid var(--border);
+        vertical-align: middle; }
+    .tbl tr:last-child td { border-bottom: none; }
+    .tbl tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px;
+        border-radius: 999px; font-size: .72rem; font-weight: 700; }
+    .badge-active  { background: rgba(34,197,94,0.12); color: var(--green-2); }
+    .badge-inactive{ background: rgba(255,255,255,0.05); color: var(--text-3); }
+    .badge-social   { background: rgba(219,39,119,0.12); color: #f472b6; }
+    .badge-seo      { background: rgba(79,70,229,0.15); color: #818cf8; }
+    .badge-marketing{ background: rgba(217,119,6,0.12); color: #fbbf24; }
+    .badge-featured { background: rgba(245,158,11,0.15); color: #fbbf24; }
+
+    /* Action buttons */
+    .btn-icon { display: inline-flex; align-items: center; justify-content: center;
+        width: 30px; height: 30px; border-radius: 8px; border: none; cursor: pointer;
+        font-size: .8rem; transition: all .15s; }
+    .btn-edit  { background: rgba(59,130,246,0.1); color: #60a5fa; }
+    .btn-edit:hover { background: rgba(59,130,246,0.2); }
+    .btn-del   { background: rgba(239,68,68,0.1); color: #f87171; }
+    .btn-del:hover { background: rgba(239,68,68,0.2); }
+
+    /* Form */
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: .8rem; font-weight: 600; color: var(--text-2); margin-bottom: 5px; }
+    .form-control {
+        width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px;
+        font-size: .88rem; font-family: inherit; color: var(--text-1); background: var(--bg-raised);
+        transition: border-color .15s; outline: none; }
+    .form-control:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(34,197,94,.1); }
+    select.form-control { cursor: pointer; }
+    textarea.form-control { resize: vertical; min-height: 70px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-check { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--text-1); }
+    .form-check input { width: 16px; height: 16px; cursor: pointer; }
+    .form-hint { font-size: .75rem; color: var(--text-3); margin-top: 4px; }
+
+    .btn-submit {
+        width: 100%; padding: 12px; background: var(--green); color: #fff; border: none;
+        border-radius: 12px; font-size: .95rem; font-weight: 700; cursor: pointer;
+        transition: all .2s; font-family: inherit; }
+    .btn-submit:hover { background: var(--green-2); }
+    .btn-reset { width: 100%; padding: 10px; background: rgba(255,255,255,0.05); color: var(--text-2); border: none;
+        border-radius: 12px; font-size: .88rem; font-weight: 600; cursor: pointer;
+        transition: all .2s; font-family: inherit; margin-top: 8px; }
+    .btn-reset:hover { background: rgba(255,255,255,0.08); }
+
+    #edit-mode-banner { display:none; background: rgba(59,130,246,0.1); border: 1.5px solid rgba(59,130,246,0.2);
+        border-radius:12px; padding:10px 14px; margin-bottom:14px; font-size:.83rem;
+        color: #60a5fa; font-weight:600; }
+</style>
+
+<div class="sa-page-header">
+    <div>
+        <div class="sa-page-title">Digital Suite Plans</div>
+        <div class="sa-page-sub">Create and manage packages for Social Media, SEO, and Marketing Suites.</div>
+    </div>
+</div>
+
+<div class="sa-grid-layout">
+
+    <!-- ── Plans Table ── -->
+    <div class="card">
+        <div class="card-head">
+            <h2>All Suite Plans ({{ plans.count }})</h2>
+            <span style="font-size:.78rem;color:#94a3b8;">Click ✏️ to edit a plan</span>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="tbl">
+                <thead>
+                    <tr>
+                        <th>Suite</th>
+                        <th>Plan Name</th>
+                        <th>Monthly</th>
+                        <th>Yearly</th>
+                        <th>Server</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for plan in plans %}
+                    <tr>
+                        <td>
+                            <span class="badge badge-{{ plan.suite }}">
+                                {% if plan.suite == 'social' %}<i class="fa-brands fa-instagram"></i>
+                                {% elif plan.suite == 'seo' %}<i class="fas fa-magnifying-glass-chart"></i>
+                                {% else %}<i class="fas fa-bullhorn"></i>{% endif %}
+                                {{ plan.get_suite_display }}
+                            </span>
+                            {% if plan.is_featured %}<span class="badge badge-featured" style="margin-left:4px;">⭐</span>{% endif %}
+                        </td>
+                        <td>
+                            <div style="font-weight:600;">{{ plan.name }}</div>
+                            <div style="font-size:.75rem;color:#94a3b8;">{{ plan.slug }}</div>
+                        </td>
+                        <td style="font-weight:700;">₹{{ plan.monthly_price }}</td>
+                        <td>{% if plan.yearly_price %}₹{{ plan.yearly_price }}{% else %}<span style="color:#cbd5e1;">—</span>{% endif %}</td>
+                        <td style="font-size:.8rem;">{{ plan.server.name|default:"—" }}</td>
+                        <td>
+                            <span class="badge {% if plan.is_active %}badge-active{% else %}badge-inactive{% endif %}">
+                                {% if plan.is_active %}Active{% else %}Inactive{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <div style="display:flex;gap:6px;">
+                                <button class="btn-icon btn-edit" onclick="loadEdit({{ plan.pk }}, '{{ plan.suite }}', '{{ plan.name|escapejs }}', '{{ plan.slug|escapejs }}', `{{ plan.short_description|escapejs }}`, '{{ plan.monthly_price }}', '{{ plan.yearly_price|default:'' }}', '{{ plan.server_id|default:'' }}', '{{ plan.panel_plan_slug|escapejs }}', {{ plan.sort_order }}, {% if plan.is_featured %}true{% else %}false{% endif %}, {% if plan.is_active %}true{% else %}false{% endif %}, `{{ plan.features|join:'\n'|escapejs }}`, `{% for k,v in plan.limits.items %}{{ k }}={{ v }}\n{% endfor %}`)" title="Edit">
+                                    <i class="fas fa-pen"></i>
+                                </button>
+                                <form method="POST" style="display:inline;" onsubmit="return confirm('Delete plan \'{{ plan.name|escapejs }}\'? This cannot be undone.')">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="plan_id" value="{{ plan.pk }}">
+                                    <button type="submit" class="btn-icon btn-del" title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;">
+                        <i class="fas fa-rocket" style="font-size:2rem;opacity:.3;display:block;margin-bottom:12px;"></i>
+                        No suite plans yet. Create one →
+                    </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ── Create / Edit Form ── -->
+    <div class="card" id="plan-form-card">
+        <div class="card-head">
+            <h2 id="form-title"><i class="fas fa-plus" style="color:#6366f1;margin-right:6px;"></i>New Plan</h2>
+        </div>
+        <div class="card-body">
+            <div id="edit-mode-banner">
+                <i class="fas fa-pen"></i> Editing existing plan — <a href="#plan-form-card" id="cancel-edit-link" onclick="resetForm()" style="color:#1d4ed8;font-weight:700;">Cancel &amp; create new</a>
+            </div>
+            <form method="POST" id="plan-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" id="form-action" value="create">
+                <input type="hidden" name="plan_id" id="form-plan-id" value="">
+
+                <div class="form-group">
+                    <label>Suite Type *</label>
+                    <select name="suite" id="f-suite" class="form-control" required>
+                        <option value="">— Select Suite —</option>
+                        {% for val, label in suite_choices %}
+                        <option value="{{ val }}" {% if val == current_suite %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Plan Name *</label>
+                        <input type="text" name="name" id="f-name" class="form-control" placeholder="e.g. Starter" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Slug</label>
+                        <input type="text" name="slug" id="f-slug" class="form-control" placeholder="auto-generated">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Short Description</label>
+                    <input type="text" name="short_description" id="f-desc" class="form-control" placeholder="Best for growing teams…">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Monthly Price (₹) *</label>
+                        <input type="number" name="monthly_price" id="f-mprice" class="form-control" step="0.01" min="0" value="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Yearly Price (₹)</label>
+                        <input type="number" name="yearly_price" id="f-yprice" class="form-control" step="0.01" min="0" value="">
+                        <div class="form-hint">Leave blank to disable</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Panel Server</label>
+                    <select name="server_id" id="f-server" class="form-control">
+                        <option value="">— No server (manual) —</option>
+                        {% for srv in servers %}
+                        <option value="{{ srv.pk }}">{{ srv.name }} ({{ srv.url }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Panel Plan Slug</label>
+                    <input type="text" name="panel_plan_slug" id="f-panel-slug" class="form-control" placeholder="e.g. social_starter">
+                    <div class="form-hint">Sent to panel API when provisioning</div>
+                </div>
+
+                <div class="form-group">
+                    <label>Features (one per line)</label>
+                    <textarea name="features" id="f-features" class="form-control" rows="5" placeholder="5 Social Accounts&#10;100 Posts/month&#10;Basic Analytics"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Limits (key=value per line)</label>
+                    <textarea name="limits" id="f-limits" class="form-control" rows="3" placeholder="accounts=5&#10;posts_per_month=100"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Sort Order</label>
+                        <input type="number" name="sort_order" id="f-sort" class="form-control" value="0" min="0">
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:20px;margin-bottom:16px;">
+                    <label class="form-check">
+                        <input type="checkbox" name="is_active" id="f-active" checked> Active
+                    </label>
+                    <label class="form-check">
+                        <input type="checkbox" name="is_featured" id="f-featured"> Featured / Popular
+                    </label>
+                </div>
+
+                <button type="submit" class="btn-submit" id="submit-btn">
+                    <i class="fas fa-plus"></i> Create Plan
+                </button>
+                <button type="button" class="btn-reset" onclick="resetForm()">
+                    Reset Form
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function loadEdit(id, suite, name, slug, desc, mprice, yprice, serverId, panelSlug, sortOrder, isFeatured, isActive, features, limits) {
+    document.getElementById('form-title').innerHTML = '<i class="fas fa-pen" style="color:#6366f1;margin-right:6px;"></i>Edit Plan';
+    document.getElementById('edit-mode-banner').style.display = 'block';
+    document.getElementById('form-action').value = 'edit';
+    document.getElementById('form-plan-id').value = id;
+    document.getElementById('f-suite').value = suite;
+    document.getElementById('f-name').value = name;
+    document.getElementById('f-slug').value = slug;
+    document.getElementById('f-desc').value = desc;
+    document.getElementById('f-mprice').value = mprice;
+    document.getElementById('f-yprice').value = yprice;
+    document.getElementById('f-server').value = serverId;
+    document.getElementById('f-panel-slug').value = panelSlug;
+    document.getElementById('f-sort').value = sortOrder;
+    document.getElementById('f-featured').checked = isFeatured;
+    document.getElementById('f-active').checked = isActive;
+    document.getElementById('f-features').value = features;
+    document.getElementById('f-limits').value = limits.trim();
+    document.getElementById('submit-btn').innerHTML = '<i class="fas fa-save"></i> Save Changes';
+    document.getElementById('plan-form-card').scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+function resetForm() {
+    document.getElementById('form-title').innerHTML = '<i class="fas fa-plus" style="color:#6366f1;margin-right:6px;"></i>New Plan';
+    document.getElementById('edit-mode-banner').style.display = 'none';
+    document.getElementById('form-action').value = 'create';
+    document.getElementById('form-plan-id').value = '';
+    document.getElementById('plan-form').reset();
+    document.getElementById('submit-btn').innerHTML = '<i class="fas fa-plus"></i> Create Plan';
+}
+</script>
+{% endblock %}

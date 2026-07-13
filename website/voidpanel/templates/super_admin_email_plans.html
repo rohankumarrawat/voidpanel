@@ -1,0 +1,341 @@
+{% extends "super_admin_base.html" %}
+{% block title %}Email Plans | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}Professional Email Plans{% endblock %}
+
+{% block admin_content %}
+
+<div class="sa-page-header">
+  <div>
+    <div class="sa-page-title">Professional Email Plans</div>
+    <div class="sa-page-sub">Manage the 3 default tiers and create unlimited custom email packages</div>
+  </div>
+  <div class="sa-header-actions">
+    <div class="sa-stat-chip green"><span class="val">{{ static_email_plans|length }}</span> Default</div>
+    <div class="sa-stat-chip sky"><span class="val">{{ custom_email_plans|length }}</span> Custom</div>
+    <button class="sa-btn primary" onclick="toggleSection('ep-create-form')">
+      <i class="fas fa-plus"></i> Create New Plan
+    </button>
+  </div>
+</div>
+
+{% if messages %}{% for m in messages %}
+<div class="sa-alert {% if m.tags == 'error' %}danger{% else %}success{% endif %}"
+     style="margin-bottom:16px;padding:12px 16px;border-radius:10px;font-size:.88rem;">{{ m }}</div>
+{% endfor %}{% endif %}
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- CREATE NEW EMAIL PLAN FORM (collapsible)                           -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<div id="ep-create-form" style="display:none;margin-bottom:24px;">
+  <div class="sa-card" style="border:1px solid rgba(56,189,248,.25);background:rgba(14,165,233,.06);">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+      <div style="width:36px;height:36px;border-radius:10px;background:rgba(14,165,233,.2);display:flex;align-items:center;justify-content:center;color:#38bdf8;font-size:.95rem;">
+        <i class="fas fa-plus"></i>
+      </div>
+      <div>
+        <div style="font-weight:800;color:var(--text-1);">Create New Email Plan</div>
+        <div style="font-size:.75rem;color:var(--text-3);">This plan will appear alongside the 3 default tiers</div>
+      </div>
+    </div>
+
+    <form method="POST" action="/super-admin/email-plans/">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create_email_plan">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+        <div class="sa-form-group">
+          <label class="sa-label">Plan Name <span style="color:#f87171;">*</span></label>
+          <input type="text" name="name" class="sa-input" placeholder="e.g. Business Pro" required>
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Slug <span style="color:var(--text-3);font-size:.72rem;">(auto-generated if blank)</span></label>
+          <input type="text" name="slug" class="sa-input" placeholder="e.g. business-pro">
+        </div>
+        <div class="sa-form-group" style="grid-column:1/-1;">
+          <label class="sa-label">Short Description</label>
+          <input type="text" name="short_description" class="sa-input" placeholder="e.g. Perfect for growing businesses with team collaboration needs">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Monthly Price (₹ INR)</label>
+          <input type="number" name="monthly_price" class="sa-input" step="0.01" min="0" value="0" placeholder="149.00">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Max Mailboxes</label>
+          <input type="number" name="max_mailboxes" class="sa-input" min="1" value="10">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Storage per Mailbox (GB)</label>
+          <input type="number" name="storage_per_mailbox_gb" class="sa-input" min="1" value="10">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Sort Order</label>
+          <input type="number" name="sort_order" class="sa-input" value="10">
+        </div>
+      </div>
+
+      <div style="display:flex;gap:18px;margin-bottom:16px;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="is_featured" style="accent-color:var(--violet-2);"> Featured plan
+        </label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="is_active" checked style="accent-color:var(--green);"> Active (visible to customers)
+        </label>
+      </div>
+
+      <div style="display:flex;gap:10px;">
+        <button type="submit" class="sa-btn primary"><i class="fas fa-plus"></i> Create Plan</button>
+        <button type="button" class="sa-btn secondary" onclick="toggleSection('ep-create-form')">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION A: DEFAULT (STATIC) PLANS                                  -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--text-3);margin-bottom:10px;">
+  <i class="fas fa-star" style="margin-right:4px;color:var(--amber, #f59e0b);"></i> Default Plans (3 Built-In Tiers)
+</div>
+
+<div style="display:flex;flex-direction:column;gap:14px;margin-bottom:28px;">
+{% for plan in static_email_plans %}
+<div class="sa-card" id="ep-card-{{ plan.id }}">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px;">
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div style="width:40px;height:40px;border-radius:10px;background:rgba(14,165,233,.15);display:flex;align-items:center;justify-content:center;color:#38bdf8;font-size:1rem;flex-shrink:0;">
+        <i class="fas fa-envelope"></i>
+      </div>
+      <div>
+        <div style="font-weight:800;color:var(--text-1);">{{ plan.name }}</div>
+        <div style="font-size:.73rem;color:var(--text-3);margin-top:2px;">{{ plan.short_description }}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;align-items:center;">
+      <span class="sa-badge gray">Default #{{ plan.id }}</span>
+      {% if plan.is_featured %}<span class="sa-badge violet">⭐ Featured</span>{% endif %}
+      {% if plan.is_active %}<span class="sa-badge green">Active</span>{% else %}<span class="sa-badge gray">Inactive</span>{% endif %}
+    </div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+    <span class="sa-badge gray"><i class="fas fa-envelope" style="margin-right:4px;"></i>{{ plan.max_mailboxes }} Mailboxes</span>
+    <span class="sa-badge gray"><i class="fas fa-hard-drive" style="margin-right:4px;"></i>{{ plan.storage_per_mailbox_gb }}GB / mailbox</span>
+    <span class="sa-badge green">₹{{ plan.monthly_price }}/mo</span>
+  </div>
+
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <button class="sa-btn primary" style="font-size:.8rem;padding:6px 14px;"
+            onclick="toggleSection('ep-edit-{{ plan.id }}')">
+      <i class="fas fa-pencil"></i> Edit
+    </button>
+    <form method="POST" action="/super-admin/email-plans/" style="display:inline;">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="toggle_email_plan">
+      <input type="hidden" name="plan_id" value="{{ plan.id }}">
+      <button type="submit" class="sa-btn {% if plan.is_active %}warning{% else %}secondary{% endif %}" style="font-size:.8rem;padding:6px 14px;">
+        {% if plan.is_active %}<i class="fas fa-pause"></i> Deactivate{% else %}<i class="fas fa-play"></i> Activate{% endif %}
+      </button>
+    </form>
+    <form method="POST" action="/super-admin/email-plans/" style="display:inline;"
+          onsubmit="return confirm('Reset Plan #{{ plan.id }} to factory defaults?')">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="reset_email_plan">
+      <input type="hidden" name="plan_id" value="{{ plan.id }}">
+      <button type="submit" class="sa-btn danger" style="font-size:.8rem;padding:6px 14px;">
+        <i class="fas fa-rotate-left"></i> Reset
+      </button>
+    </form>
+  </div>
+
+  <!-- Inline Edit Form -->
+  <div id="ep-edit-{{ plan.id }}" style="display:none;margin-top:18px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08);">
+    <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#38bdf8;margin-bottom:14px;">
+      <i class="fas fa-pencil"></i> Editing Default Plan — {{ plan.name }}
+    </div>
+    <form method="POST" action="/super-admin/email-plans/">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="edit_email_plan">
+      <input type="hidden" name="plan_id" value="{{ plan.id }}">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="sa-form-group" style="grid-column:1/-1;">
+          <label class="sa-label">Plan Name</label>
+          <input type="text" name="name" class="sa-input" value="{{ plan.name }}">
+        </div>
+        <div class="sa-form-group" style="grid-column:1/-1;">
+          <label class="sa-label">Short Description</label>
+          <input type="text" name="short_description" class="sa-input" value="{{ plan.short_description }}">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Monthly Price (₹)</label>
+          <input type="number" name="monthly_price" class="sa-input" step="0.01" min="0" value="{{ plan.monthly_price }}">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Max Mailboxes</label>
+          <input type="number" name="max_mailboxes" class="sa-input" min="1" value="{{ plan.max_mailboxes }}">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Storage / Mailbox (GB)</label>
+          <input type="number" name="storage_per_mailbox_gb" class="sa-input" min="1" value="{{ plan.storage_per_mailbox_gb }}">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Slug</label>
+          <input type="text" name="slug" class="sa-input" value="{{ plan.slug }}">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Sort Order</label>
+          <input type="number" name="sort_order" class="sa-input" value="{{ plan.sort_order|default:'0' }}">
+        </div>
+      </div>
+      <div style="display:flex;gap:18px;margin-bottom:14px;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="is_featured" style="accent-color:var(--violet-2);" {% if plan.is_featured %}checked{% endif %}> Featured
+        </label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="is_active" style="accent-color:var(--green);" {% if plan.is_active %}checked{% endif %}> Active
+        </label>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button type="submit" class="sa-btn primary"><i class="fas fa-save"></i> Save</button>
+        <button type="button" class="sa-btn secondary" onclick="toggleSection('ep-edit-{{ plan.id }}')">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endfor %}
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION B: CUSTOM PLANS                                            -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+  <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--text-3);">
+    <i class="fas fa-cubes" style="margin-right:4px;color:#38bdf8;"></i> Custom Plans
+    <span style="font-size:.65rem;margin-left:6px;color:var(--text-4);">(Created by you)</span>
+  </div>
+  <button class="sa-btn primary" style="font-size:.75rem;padding:5px 12px;" onclick="toggleSection('ep-create-form');window.scrollTo({top:0,behavior:'smooth'})">
+    <i class="fas fa-plus"></i> Add Custom Plan
+  </button>
+</div>
+
+{% if custom_email_plans %}
+<div style="display:flex;flex-direction:column;gap:14px;">
+{% for plan in custom_email_plans %}
+<div class="sa-card" id="cep-card-{{ plan.pk }}" style="border:1px solid rgba(56,189,248,.12);">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px;">
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div style="width:40px;height:40px;border-radius:10px;background:rgba(56,189,248,.12);display:flex;align-items:center;justify-content:center;color:#38bdf8;font-size:1rem;flex-shrink:0;">
+        <i class="fas fa-envelope-open-text"></i>
+      </div>
+      <div>
+        <div style="font-weight:800;color:var(--text-1);">{{ plan.name }}</div>
+        <div style="font-size:.73rem;color:var(--text-3);margin-top:2px;">{{ plan.short_description|default:"No description" }}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;align-items:center;">
+      <span class="sa-badge sky">Custom</span>
+      {% if plan.is_featured %}<span class="sa-badge violet">⭐ Featured</span>{% endif %}
+      {% if plan.is_active %}<span class="sa-badge green">Active</span>{% else %}<span class="sa-badge gray">Inactive</span>{% endif %}
+    </div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+    <span class="sa-badge gray"><i class="fas fa-envelope" style="margin-right:4px;"></i>{{ plan.max_mailboxes }} Mailboxes</span>
+    <span class="sa-badge gray"><i class="fas fa-hard-drive" style="margin-right:4px;"></i>{{ plan.storage_per_mailbox_gb }}GB / mailbox</span>
+    <span class="sa-badge green">₹{{ plan.monthly_price }}/mo</span>
+  </div>
+
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <button class="sa-btn primary" style="font-size:.8rem;padding:6px 14px;"
+            onclick="toggleSection('cep-edit-{{ plan.pk }}')">
+      <i class="fas fa-pencil"></i> Edit
+    </button>
+    <form method="POST" action="/super-admin/email-plans/" style="display:inline;"
+          onsubmit="return confirm('Delete custom plan &quot;{{ plan.name }}&quot;? This cannot be undone.')">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="delete_email_plan">
+      <input type="hidden" name="plan_id" value="{{ plan.pk }}">
+      <button type="submit" class="sa-btn danger" style="font-size:.8rem;padding:6px 14px;">
+        <i class="fas fa-trash"></i> Delete
+      </button>
+    </form>
+  </div>
+
+  <!-- Inline Edit Form -->
+  <div id="cep-edit-{{ plan.pk }}" style="display:none;margin-top:18px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08);">
+    <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#38bdf8;margin-bottom:14px;">
+      <i class="fas fa-pencil"></i> Editing Custom Plan — {{ plan.name }}
+    </div>
+    <form method="POST" action="/super-admin/email-plans/">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="edit_custom_email_plan">
+      <input type="hidden" name="plan_id" value="{{ plan.pk }}">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="sa-form-group" style="grid-column:1/-1;">
+          <label class="sa-label">Plan Name</label>
+          <input type="text" name="name" class="sa-input" value="{{ plan.name }}">
+        </div>
+        <div class="sa-form-group" style="grid-column:1/-1;">
+          <label class="sa-label">Short Description</label>
+          <input type="text" name="short_description" class="sa-input" value="{{ plan.short_description }}">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Monthly Price (₹)</label>
+          <input type="number" name="monthly_price" class="sa-input" step="0.01" min="0" value="{{ plan.monthly_price }}">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Max Mailboxes</label>
+          <input type="number" name="max_mailboxes" class="sa-input" min="1" value="{{ plan.max_mailboxes }}">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Storage / Mailbox (GB)</label>
+          <input type="number" name="storage_per_mailbox_gb" class="sa-input" min="1" value="{{ plan.storage_per_mailbox_gb }}">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Slug</label>
+          <input type="text" name="slug" class="sa-input" value="{{ plan.slug }}">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Sort Order</label>
+          <input type="number" name="sort_order" class="sa-input" value="{{ plan.sort_order }}">
+        </div>
+      </div>
+      <div style="display:flex;gap:18px;margin-bottom:14px;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="is_featured" style="accent-color:var(--violet-2);" {% if plan.is_featured %}checked{% endif %}> Featured
+        </label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="is_active" style="accent-color:var(--green);" {% if plan.is_active %}checked{% endif %}> Active
+        </label>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button type="submit" class="sa-btn primary"><i class="fas fa-save"></i> Save Changes</button>
+        <button type="button" class="sa-btn secondary" onclick="toggleSection('cep-edit-{{ plan.pk }}')">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endfor %}
+</div>
+
+{% else %}
+<div class="sa-card" style="border:2px dashed rgba(56,189,248,.2);background:rgba(14,165,233,.04);text-align:center;padding:32px 20px;">
+  <div style="font-size:2rem;margin-bottom:10px;opacity:.4;">📧</div>
+  <div style="font-weight:700;color:var(--text-2);margin-bottom:6px;">No custom plans yet</div>
+  <div style="font-size:.8rem;color:var(--text-3);margin-bottom:16px;">Create plans beyond the 3 built-in tiers — e.g. Enterprise, Reseller, etc.</div>
+  <button class="sa-btn primary" onclick="toggleSection('ep-create-form');window.scrollTo({top:0,behavior:'smooth'})">
+    <i class="fas fa-plus"></i> Create Your First Plan
+  </button>
+</div>
+{% endif %}
+
+<script>
+function toggleSection(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+</script>
+
+{% endblock %}

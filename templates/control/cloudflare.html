@@ -1,0 +1,983 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Cloudflare DNS Manager — {{ domain }} | VoidPanel</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="/static/static/css/plugins/fontawesome-all.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=3">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    
+    <script>(function(){var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body { background: #070b14; color: #e2e8f0; font-family: 'Inter', sans-serif; min-height: 100vh; }
+        
+        .page-container { padding: 30px 28px; max-width: 1100px; margin: 0 auto; }
+        
+        /* Header */
+        .page-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 32px; flex-wrap: wrap; gap: 16px;
+        }
+        .page-header-left { display: flex; align-items: center; gap: 16px; }
+        .cf-logo-icon {
+            width: 52px; height: 52px; border-radius: 14px;
+            background: linear-gradient(135deg, rgba(243, 128, 32, 0.2), rgba(217, 119, 6, 0.2));
+            border: 1px solid rgba(243, 128, 32, 0.3);
+            display: flex; align-items: center; justify-content: center; font-size: 1.6rem; color: #f38020;
+        }
+        .page-header h1 {
+            font-size: 1.5rem; font-weight: 700; margin: 0 0 4px;
+            background: linear-gradient(135deg, #f38020, #d97706);
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .breadcrumb-trail { font-size: 0.8rem; color: #64748b; }
+        .breadcrumb-trail a { color: #f38020; text-decoration: none; }
+        
+        /* Metrics Grid */
+        .metrics-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px; margin-bottom: 32px;
+        }
+        .metric-card {
+            background: linear-gradient(135deg, rgba(22,33,58,0.7), rgba(10,14,26,0.7));
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 16px; padding: 20px;
+            display: flex; align-items: center; gap: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        .metric-icon {
+            width: 44px; height: 44px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center; font-size: 1.25rem;
+        }
+        .metric-info h4 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin: 0 0 4px; }
+        .metric-info p { font-size: 1.35rem; font-weight: 700; color: #f8fafc; margin: 0; }
+        
+        /* Glass Card */
+        .glass-card {
+            background: linear-gradient(135deg, rgba(22,33,58,0.95), rgba(10,14,26,0.95));
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 18px; padding: 24px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+            margin-bottom: 24px;
+        }
+        .card-header-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+        }
+        .card-header-bar h3 { font-size: 1.1rem; font-weight: 700; color: #f8fafc; margin: 0; display: flex; align-items: center; gap: 10px; }
+        
+        /* Buttons */
+        .btn-cf {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 9px 18px; border-radius: 10px; font-size: 0.82rem; font-weight: 600;
+            cursor: pointer; transition: all 0.2s; border: none; text-decoration: none;
+        }
+        .btn-cf-primary {
+            background: linear-gradient(135deg, #f38020, #d97706); color: #fff;
+            box-shadow: 0 4px 12px rgba(243, 128, 32, 0.3);
+        }
+        .btn-cf-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(243, 128, 32, 0.45); color: #fff; }
+        
+        .btn-cf-outline {
+            background: rgba(255,255,255,0.05); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.1);
+        }
+        .btn-cf-outline:hover { background: rgba(255,255,255,0.09); color: #fff; }
+        
+        .btn-cf-danger {
+            background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.25);
+        }
+        .btn-cf-danger:hover { background: #ef4444; color: #fff; }
+
+        /* DNS Actions */
+        .act-btn {
+            width: 32px; height: 32px; border-radius: 8px; display: inline-flex;
+            align-items: center; justify-content: center; border: none; cursor: pointer;
+            transition: all 0.2s; font-size: 0.85rem; color: #fff;
+        }
+        .act-btn-delete { background: rgba(244,63,94,0.12); color: #fda4af; border: 1px solid rgba(244,63,94,0.2); }
+        .act-btn-delete:hover { background: #e11d48; color: #fff; }
+
+        .cf-proxy-badge {
+            display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+            padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;
+            border: 1px solid transparent; transition: all 0.2s;
+        }
+        .cf-proxy-badge.proxied {
+            background: rgba(243, 128, 32, 0.12); color: #f38020; border-color: rgba(243, 128, 32, 0.25);
+        }
+        .cf-proxy-badge.proxied:hover { background: #f38020; color: #fff; }
+        .cf-proxy-badge.unproxied {
+            background: rgba(255,255,255,0.05); color: #94a3b8; border-color: rgba(255,255,255,0.08);
+        }
+        .cf-proxy-badge.unproxied:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
+        /* Tables */
+        .cf-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .cf-table th {
+            text-align: left; padding: 12px 16px; font-size: 0.75rem; text-transform: uppercase;
+            letter-spacing: 0.05em; color: #64748b; border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .cf-table td {
+            padding: 14px 16px; font-size: 0.85rem; color: #cbd5e1; border-bottom: 1px solid rgba(255,255,255,0.04);
+            vertical-align: middle;
+        }
+        .cf-table tr:last-child td { border-bottom: none; }
+        
+        .status-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 3px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-badge.active { background: rgba(34,197,94,0.12); color: #4ade80; }
+        .status-badge.pending { background: rgba(245,158,11,0.1); color: #fbbf24; }
+        
+        /* Modal */
+        .modal-content {
+            background: #0f172a; border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 18px; color: #cbd5e1;
+        }
+        .modal-header { border-bottom: 1px solid rgba(255,255,255,0.06); padding: 20px 24px; }
+        .modal-header h5 { font-weight: 700; color: #f8fafc; }
+        .modal-footer { border-top: 1px solid rgba(255,255,255,0.06); padding: 16px 24px; }
+        
+        .cf-input {
+            width: 100%; background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+            padding: 10px 14px; color: #fff; font-size: 0.85rem; outline: none;
+            transition: border-color 0.2s;
+        }
+        .cf-input:focus { border-color: #f38020; }
+        select.cf-input {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            background-size: 16px;
+            padding-right: 40px !important;
+        }
+        .form-group label { font-size: 0.78rem; font-weight: 600; color: #94a3b8; margin-bottom: 6px; }
+        .act-btn {
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 6px; padding: 6px 10px; color: #fff; cursor: pointer; transition: all 0.2s;
+        }
+        .act-btn-edit {
+            background: rgba(243, 128, 32, 0.05); color: #f38020; border-color: rgba(243, 128, 32, 0.1);
+        }
+        .act-btn-edit:hover {
+            background: rgba(243, 128, 32, 0.15); color: #f38020; border-color: #f38020;
+        }
+        .act-btn-delete {
+            background: rgba(239, 68, 68, 0.05); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.1);
+        }
+        .act-btn-delete:hover {
+            background: rgba(239, 68, 68, 0.2); color: #ef4444; border-color: #ef4444;
+        }
+    </style>
+</head>
+<body>
+{% csrf_token %}
+
+<div class="page-container">
+    
+    <!-- ── Page Header ── -->
+    <div class="page-header">
+        <div class="page-header-left">
+            <div class="cf-logo-icon">
+                <i class="fa-brands fa-cloudflare"></i>
+            </div>
+            <div>
+                <h1>Cloudflare Integration</h1>
+                <div class="breadcrumb-trail">
+                    <a href="/control/">Dashboard</a> &gt; <span>Cloudflare CDN Service</span>
+                </div>
+            </div>
+        </div>
+        <div>
+            <a href="/control/" class="btn-cf btn-cf-outline">
+                <i class="fa-solid fa-arrow-left"></i> Back to Control Panel
+            </a>
+        </div>
+    </div>
+
+    {% if not cf_connected %}
+    <!-- ── DISCONNECTED WORKFLOW ── -->
+    <div class="glass-card" style="max-width: 650px; margin: 40px auto 0; padding: 40px 36px;">
+        <div class="text-center" style="margin-bottom: 28px;">
+            <i class="fa-brands fa-cloudflare" style="font-size: 4.5rem; color: #f38020; margin-bottom: 16px;"></i>
+            <h2 style="font-weight: 800; color: #fff; margin-bottom: 8px;">Connect to Cloudflare</h2>
+            <p style="color: #64748b; font-size: 0.88rem; line-height: 1.5;">
+                Directly sync and manage your DNS records, configure orange-cloud CDN proxying, and clear cache on Cloudflare from VoidPanel.
+            </p>
+        </div>
+
+        <!-- Connection Type Selector -->
+        <div style="display: flex; gap: 10px; margin-bottom: 24px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 12px;">
+            <button type="button" id="authTypeTokenBtn" onclick="setAuthType('token')" class="btn-cf btn-cf-primary" style="flex: 1; justify-content: center; font-size: 0.85rem;">
+                <i class="fa-solid fa-key"></i> Method 1: API Token
+            </button>
+            <button type="button" id="authTypeGlobalBtn" onclick="setAuthType('global')" class="btn-cf btn-cf-outline" style="flex: 1; justify-content: center; font-size: 0.85rem;">
+                <i class="fa-solid fa-shield-halved"></i> Method 2: Global API Key
+            </button>
+        </div>
+
+        <form id="connectForm" onsubmit="connectCloudflare(event)" style="display: flex; flex-direction: column; gap: 20px;">
+            <!-- Fields for Global API Key (hidden by default) -->
+            <div class="form-group" id="group_cf_email" style="display: none;">
+                <label>Cloudflare Account Email</label>
+                <input type="email" name="email" id="input_cf_email" class="cf-input" placeholder="e.g. user@example.com">
+            </div>
+
+            <div class="form-group">
+                <label id="label_api_token">Cloudflare API Token</label>
+                <input type="password" name="api_token" id="input_api_token" class="cf-input" placeholder="e.g. 84HfsxWp_7fJs8W94H..." required>
+                
+                <!-- Helper text for API Token -->
+                <small id="help_api_token" style="color: #64748b; font-size: 0.72rem; display: block; margin-top: 8px; line-height: 1.4;">
+                    <i class="fa-solid fa-info-circle"></i> Recommended. Create a token in your Cloudflare Profile under **API Tokens** with **Zone:DNS:Edit** permissions for <strong>{{ domain }}</strong>.
+                </small>
+
+                <!-- Helper text for Global Key -->
+                <small id="help_global_key" style="color: #64748b; font-size: 0.72rem; display: none; margin-top: 8px; line-height: 1.4;">
+                    <i class="fa-solid fa-circle-exclamation"></i> Paste your **Global API Key** from Cloudflare Profile > API Tokens. This gives absolute control and resolves token permissions errors instantly.
+                </small>
+            </div>
+            
+            <button type="submit" class="btn-cf btn-cf-primary w-100 justify-content-center" style="padding: 12px;">
+                <i class="fa-solid fa-plug"></i> Verify &amp; Connect Zone
+            </button>
+        </form>
+    </div>
+    
+    {% else %}
+    <!-- ── CONNECTED WORKFLOW ── -->
+
+    <!-- ── Metrics Grid ── -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-icon" style="background: rgba(34,197,94,0.12); color: #4ade80;">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <div class="metric-info">
+                <h4>Zone Status</h4>
+                <p>
+                    {% if zone_status == "active" %}
+                        Active
+                    {% else %}
+                        Pending
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon" style="background: rgba(243,128,32,0.12); color: #f38020;">
+                <i class="fa-solid fa-cloud"></i>
+            </div>
+            <div class="metric-info">
+                <h4>Active DNS Records</h4>
+                <p>{{ dns_records|length }}</p>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon" style="background: rgba(99,102,241,0.12); color: #818cf8;">
+                <i class="fa-solid fa-key"></i>
+            </div>
+            <div class="metric-info">
+                <h4>Authorized API Token</h4>
+                <p style="font-size: 0.8rem; font-family: monospace; word-break: break-all;">{{ api_token_obscured }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Cache & Actions Bar ── -->
+    <div class="glass-card" style="padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;">
+        <div>
+            <h4 style="font-size: 0.95rem; font-weight: 700; color: #fff; margin: 0 0 4px;">Zone ID: <code style="color: #f38020; font-size: 0.85rem;">{{ zone_id }}</code></h4>
+            <p style="color: #64748b; font-size: 0.75rem; margin: 0;">Configure direct Cloudflare features below.</p>
+        </div>
+        <div style="display: inline-flex; gap: 12px;">
+            <button onclick="purgeCache()" class="btn-cf btn-cf-outline">
+                <i class="fa-solid fa-bolt"></i> Purge CDN Cache
+            </button>
+            <button onclick="disconnectCloudflare()" class="btn-cf btn-cf-danger">
+                <i class="fa-solid fa-unlink"></i> Disconnect Zone
+            </button>
+        </div>
+    </div>
+
+    <!-- ── Nameservers Info ── -->
+    {% if zone_nameservers %}
+    <div class="glass-card" style="padding: 16px 24px; margin-bottom: 24px;">
+        <h4 style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 12px; letter-spacing: 0.05em;">Cloudflare Nameservers Assigned</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+            {% for ns in zone_nameservers %}
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 10px 14px; border-radius: 8px; font-family: monospace; font-size: 0.85rem; color: #fff;">
+                <i class="fa-solid fa-server" style="color: #f38020; margin-right: 6px;"></i> {{ ns }}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+
+    <!-- ── Cloudflare Analytics Section ── -->
+    {% if analytics_available %}
+    <div style="margin-bottom: 24px;">
+        <h4 style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 16px; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-chart-line" style="color: #f38020;"></i> Zone Web Analytics (Last 7 Days)
+        </h4>
+        
+        <!-- Stats cards grid -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px;">
+            <!-- Requests Card -->
+            <div class="glass-card" style="padding: 20px; display: flex; align-items: center; gap: 16px; margin-bottom: 0; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+                <div style="background: rgba(243, 128, 32, 0.1); border: 1px solid rgba(243, 128, 32, 0.2); width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: #f38020; box-shadow: 0 0 15px rgba(243, 128, 32, 0.1);">
+                    <i class="fa-solid fa-globe"></i>
+                </div>
+                <div>
+                    <h4 style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; margin: 0 0 4px; text-transform: uppercase;">Total Requests</h4>
+                    <p style="font-size: 1.35rem; font-weight: 800; color: #fff; margin: 0; font-family: monospace;">{{ analytics_totals.requests }}</p>
+                </div>
+            </div>
+
+            <!-- Page Views Card -->
+            <div class="glass-card" style="padding: 20px; display: flex; align-items: center; gap: 16px; margin-bottom: 0; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+                <div style="background: rgba(14, 165, 233, 0.1); border: 1px solid rgba(14, 165, 233, 0.2); width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: #0ea5e9; box-shadow: 0 0 15px rgba(14, 165, 233, 0.1);">
+                    <i class="fa-solid fa-eye"></i>
+                </div>
+                <div>
+                    <h4 style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; margin: 0 0 4px; text-transform: uppercase;">Page Views</h4>
+                    <p style="font-size: 1.35rem; font-weight: 800; color: #fff; margin: 0; font-family: monospace;">{{ analytics_totals.pageviews }}</p>
+                </div>
+            </div>
+
+            <!-- Bandwidth Card -->
+            <div class="glass-card" style="padding: 20px; display: flex; align-items: center; gap: 16px; margin-bottom: 0; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+                <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: #10b981; box-shadow: 0 0 15px rgba(16, 185, 129, 0.1);">
+                    <i class="fa-solid fa-arrow-down-up-lock"></i>
+                </div>
+                <div>
+                    <h4 style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; margin: 0 0 4px; text-transform: uppercase;">Bandwidth</h4>
+                    <p style="font-size: 1.35rem; font-weight: 800; color: #fff; margin: 0; font-family: monospace;">{{ analytics_totals.bytes_formatted }}</p>
+                </div>
+            </div>
+
+            <!-- Threats Card -->
+            <div class="glass-card" style="padding: 20px; display: flex; align-items: center; gap: 16px; margin-bottom: 0; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+                <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: #ef4444; box-shadow: 0 0 15px rgba(239, 68, 68, 0.1);">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div>
+                    <h4 style="font-size: 0.75rem; font-weight: 600; color: #94a3b8; margin: 0 0 4px; text-transform: uppercase;">Threats Blocked</h4>
+                    <p style="font-size: 1.35rem; font-weight: 800; color: #fff; margin: 0; font-family: monospace;">{{ analytics_totals.threats }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 20px; margin-bottom: 24px;">
+            <!-- Traffic Chart -->
+            <div class="glass-card" style="padding: 24px; margin-bottom: 0; display: flex; flex-direction: column;">
+                <h4 style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin-bottom: 16px; letter-spacing: 0.05em;">Traffic History</h4>
+                <div style="position: relative; flex: 1; min-height: 220px; max-height: 260px; width: 100%;">
+                    <canvas id="cloudflareAnalyticsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Daily breakdown table -->
+            <div class="glass-card" style="padding: 24px; margin-bottom: 0; display: flex; flex-direction: column; overflow: hidden;">
+                <h4 style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin-bottom: 16px; letter-spacing: 0.05em;">Daily Summary</h4>
+                <div class="table-responsive" style="flex: 1; overflow-y: auto; max-height: 260px;">
+                    <table class="cf-table" style="margin: 0; border: none; font-size: 0.8rem;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+                                <th style="padding: 8px 12px;">Date</th>
+                                <th style="padding: 8px 12px; text-align: right;">Requests</th>
+                                <th style="padding: 8px 12px; text-align: right;">Page Views</th>
+                                <th style="padding: 8px 12px; text-align: right;">Bandwidth</th>
+                                <th style="padding: 8px 12px; text-align: right;">Threats</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for d_item in analytics_daily %}
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+                                <td style="padding: 8px 12px; font-weight: 600; color: #fff;">{{ d_item.date }}</td>
+                                <td style="padding: 8px 12px; text-align: right; font-family: monospace;">{{ d_item.requests }}</td>
+                                <td style="padding: 8px 12px; text-align: right; font-family: monospace; color: #0ea5e9;">{{ d_item.pageviews }}</td>
+                                <td style="padding: 8px 12px; text-align: right; font-family: monospace; color: #10b981;">{{ d_item.bytes_formatted }}</td>
+                                <td style="padding: 8px 12px; text-align: right; font-family: monospace; color: #ef4444;">{{ d_item.threats }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+
+    <!-- ── DNS Records Management ── -->
+    <div class="glass-card">
+        <div class="card-header-bar">
+            <h3><i class="fa-solid fa-list" style="color: #f38020;"></i> Cloudflare DNS Zone Records</h3>
+            <div>
+                <button type="button" class="btn-cf btn-cf-primary" data-toggle="modal" data-target="#createRecordModal">
+                    <i class="fa-solid fa-plus"></i> Add DNS Record
+                </button>
+            </div>
+        </div>
+
+        {% if dns_error %}
+        <div class="alert alert-danger" style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: #f87171;">
+            <i class="fa-solid fa-triangle-exclamation"></i> Failed to retrieve records: {{ dns_error }}
+        </div>
+        {% endif %}
+
+        <div class="table-responsive">
+            <table class="cf-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Record Name</th>
+                        <th>Content / Target</th>
+                        <th>TTL</th>
+                        <th>Proxy Status</th>
+                        <th style="text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in dns_records %}
+                    <tr>
+                        <td>
+                            <span style="background: rgba(243, 128, 32, 0.1); color: #f38020; font-weight: 700; font-size: 0.72rem; padding: 3px 8px; border-radius: 6px;">
+                                {{ r.type }}
+                            </span>
+                        </td>
+                        <td style="font-weight: 700; color: #fff;">{{ r.name }}</td>
+                        <td style="font-family: monospace; font-size: 0.8rem; word-break: break-all; max-width: 320px;">{{ r.content }}</td>
+                        <td>{{ r.ttl }}</td>
+                        <td>
+                            {% if r.proxiable %}
+                                {% if r.proxied %}
+                                    <span onclick="toggleProxy('{{ r.id }}', false)" class="cf-proxy-badge proxied" title="Click to bypass proxy (DNS only)">
+                                        <i class="fa-solid fa-cloud"></i> Proxied (CDN Active)
+                                    </span>
+                                {% else %}
+                                    <span onclick="toggleProxy('{{ r.id }}', true)" class="cf-proxy-badge unproxied" title="Click to enable Cloudflare proxy CDN">
+                                        <i class="fa-solid fa-cloud-sun"></i> DNS Only
+                                    </span>
+                                {% endif %}
+                            {% else %}
+                                <span style="color: #64748b; font-size: 0.75rem;">Not Proxiable</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: right;">
+                            <button onclick="showEditModal('{{ r.id }}', '{{ r.type }}', '{{ r.name }}', '{{ r.content }}', '{{ r.ttl }}', {{ r.proxied|yesno:'true,false' }}, {{ r.proxiable|yesno:'true,false' }})" class="act-btn act-btn-edit" title="Edit Record" style="margin-right: 6px;">
+                                <i class="fa-solid fa-pencil"></i>
+                            </button>
+                            <button onclick="deleteRecord('{{ r.id }}')" class="act-btn act-btn-delete" title="Delete Record">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    {% if not dns_error %}
+                    <tr>
+                        <td colspan="6" class="text-center" style="padding: 40px; color: #64748b;">
+                            <i class="fa-solid fa-folder-open" style="font-size: 2rem; display: block; margin-bottom: 12px;"></i>
+                            No DNS records found inside this Cloudflare zone.
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% endif %}
+
+</div>
+
+<!-- ── MODAL: CREATE DNS RECORD ── -->
+<div class="modal fade" id="createRecordModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-plus-circle" style="color: #f38020;"></i> Add DNS Record</h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="createRecordForm" onsubmit="submitDnsRecord(event)">
+                <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+                    <div class="form-group">
+                        <label>Record Type</label>
+                        <select name="type" class="cf-input" onchange="toggleProxyCheckbox(this.value)">
+                            <option value="A">A (IPv4 Address)</option>
+                            <option value="AAAA">AAAA (IPv6 Address)</option>
+                            <option value="CNAME">CNAME (Alias)</option>
+                            <option value="MX">MX (Mail Server)</option>
+                            <option value="TXT">TXT (Text Record)</option>
+                            <option value="SRV">SRV (Service locator)</option>
+                            <option value="NS">NS (Nameserver)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Record Name</label>
+                        <input type="text" name="name" class="cf-input" placeholder="e.g. blog or @ (for root)" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Content / Destination Target</label>
+                        <input type="text" name="content" class="cf-input" placeholder="e.g. 192.168.1.1 or mailserver.com" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 form-group">
+                            <label>TTL (Seconds)</label>
+                            <select name="ttl" class="cf-input">
+                                <option value="1">Auto</option>
+                                <option value="60">60 seconds</option>
+                                <option value="300">5 minutes</option>
+                                <option value="3600" selected>1 hour</option>
+                                <option value="86400">24 hours</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 form-group" id="proxyCheckboxGroup" style="display: flex; flex-direction: column; justify-content: center; padding-top: 24px;">
+                            <label style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" name="proxied" value="true" checked style="accent-color: #f38020; width: 18px; height: 18px;">
+                                <span>Proxy CDN Traffic</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-cf btn-cf-outline" data-dismiss="modal">Close</button>
+                    <button type="submit" class="btn-cf btn-cf-primary">Create Record</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<!-- ── MODAL: EDIT DNS RECORD ── -->
+<div class="modal fade" id="editRecordModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-pencil-alt" style="color: #f38020;"></i> Edit DNS Record</h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="editRecordForm" onsubmit="submitEditDnsRecord(event)">
+                <input type="hidden" name="record_id" id="editRecordId">
+                <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+                    <div class="form-group">
+                        <label>Record Type</label>
+                        <select name="type" id="editRecordType" class="cf-input" onchange="toggleEditProxyCheckbox(this.value)">
+                            <option value="A">A (IPv4 Address)</option>
+                            <option value="AAAA">AAAA (IPv6 Address)</option>
+                            <option value="CNAME">CNAME (Alias)</option>
+                            <option value="MX">MX (Mail Server)</option>
+                            <option value="TXT">TXT (Text Record)</option>
+                            <option value="SRV">SRV (Service locator)</option>
+                            <option value="NS">NS (Nameserver)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Record Name</label>
+                        <input type="text" name="name" id="editRecordName" class="cf-input" placeholder="e.g. blog or @ (for root)" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Content / Destination Target</label>
+                        <input type="text" name="content" id="editRecordContent" class="cf-input" placeholder="e.g. 192.168.1.1 or mailserver.com" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 form-group">
+                            <label>TTL (Seconds)</label>
+                            <select name="ttl" id="editRecordTtl" class="cf-input">
+                                <option value="1">Auto</option>
+                                <option value="60">60 seconds</option>
+                                <option value="300">5 minutes</option>
+                                <option value="3600">1 hour</option>
+                                <option value="86400">24 hours</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 form-group" id="editProxyCheckboxGroup" style="display: flex; align-items: center; padding-top: 24px;">
+                            <label style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" name="proxied" id="editRecordProxied" value="true" style="accent-color: #f38020; width: 18px; height: 18px;">
+                                <span>Proxy CDN Traffic</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-cf btn-cf-outline" data-dismiss="modal">Close</button>
+                    <button type="submit" class="btn-cf btn-cf-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/vendor/toastr/toastr.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+function _getCookie(name) {
+    let val = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                val = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return val;
+}
+
+const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : _getCookie('csrftoken');
+
+// Connect
+async function connectCloudflare(e) {
+    e.preventDefault();
+    toastr.info("Connecting and verifying Cloudflare zone...");
+    const fd = new FormData(e.target);
+    const body = {};
+    fd.forEach((v, k) => body[k] = v);
+
+    try {
+        const res = await fetch("/control/cloudflare/{{ domain }}/config/save/", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            toastr.success(data.message);
+            setTimeout(() => window.location.reload(), 1200);
+        } else {
+            toastr.error(data.message);
+        }
+    } catch {
+        toastr.error("Network connection failure.");
+    }
+}
+
+// Disconnect
+async function disconnectCloudflare() {
+    if (!confirm("Are you sure you want to disconnect Cloudflare DNS integration for this domain? This will not delete records on Cloudflare but will disable sync views.")) {
+        return;
+    }
+    toastr.info("Disconnecting zone...");
+    try {
+        // Disconnecting is done by sending an empty config API key
+        const res = await fetch("/control/cloudflare/{{ domain }}/config/save/", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({ api_token: '' })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            toastr.success("Cloudflare integration cleared successfully.");
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            toastr.error(data.message);
+        }
+    } catch {
+        toastr.error("Error clearing configuration.");
+    }
+}
+
+// Purge Cache
+async function purgeCache() {
+    toastr.info("Triggering CDN cache flush...");
+    try {
+        const res = await fetch("/control/cloudflare/{{ domain }}/cache/purge/", {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrftoken }
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            toastr.success(data.message);
+        } else {
+            toastr.error(data.message);
+        }
+    } catch {
+        toastr.error("Cache purge failed.");
+    }
+}
+
+// Create DNS Record
+async function submitDnsRecord(e) {
+    e.preventDefault();
+    toastr.info("Creating DNS record...");
+    const fd = new FormData(e.target);
+    const body = {};
+    fd.forEach((v, k) => {
+        if (k === 'proxied') {
+            body[k] = v === 'true';
+        } else {
+            body[k] = v;
+        }
+    });
+    if (!body.hasOwnProperty('proxied')) {
+        body['proxied'] = false;
+    }
+
+    try {
+        const res = await fetch("/control/cloudflare/{{ domain }}/dns/create/", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            toastr.success(data.message);
+            $('#createRecordModal').modal('hide');
+            setTimeout(() => window.location.reload(), 1200);
+        } else {
+            toastr.error(data.message);
+        }
+    } catch {
+        toastr.error("Network Error.");
+    }
+}
+
+// Delete Record
+async function deleteRecord(recordId) {
+    if (!confirm("Are you sure you want to delete this DNS record? This action is permanent.")) {
+        return;
+    }
+    toastr.info("Deleting record from Cloudflare...");
+    try {
+        const res = await fetch(`/control/cloudflare/{{ domain }}/dns/delete/${recordId}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrftoken }
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            toastr.success(data.message);
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            toastr.error(data.message);
+        }
+    } catch {
+        toastr.error("Error executing delete.");
+    }
+}
+
+// Toggle Proxy (orange vs grey cloud)
+async function toggleProxy(recordId, proxiedState) {
+    toastr.info(`Changing proxy settings...`);
+    try {
+        const res = await fetch(`/control/cloudflare/{{ domain }}/dns/toggle-proxy/${recordId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({ proxied: proxiedState })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            toastr.success(data.message);
+            setTimeout(() => window.location.reload(), 800);
+        } else {
+            toastr.error(data.message);
+        }
+    } catch {
+        toastr.error("Failed to toggle proxy state.");
+    }
+}
+
+// Helper to hide proxy checkbox for non-proxy types (MX, TXT, SRV, NS)
+function toggleProxyCheckbox(val) {
+    const el = document.getElementById('proxyCheckboxGroup');
+    if (['A', 'AAAA', 'CNAME'].includes(val)) {
+        el.style.display = 'flex';
+    } else {
+        el.style.display = 'none';
+    }
+}
+
+// Edit DNS Record Modal Helpers
+function showEditModal(id, type, name, content, ttl, proxied, proxiable) {
+    document.getElementById('editRecordId').value = id;
+    document.getElementById('editRecordType').value = type;
+    document.getElementById('editRecordName').value = name;
+    document.getElementById('editRecordContent').value = content;
+    document.getElementById('editRecordTtl').value = ttl;
+    document.getElementById('editRecordProxied').checked = proxied;
+    
+    toggleEditProxyCheckbox(type);
+    $('#editRecordModal').modal('show');
+}
+
+function toggleEditProxyCheckbox(val) {
+    const el = document.getElementById('editProxyCheckboxGroup');
+    if (['A', 'AAAA', 'CNAME'].includes(val)) {
+        el.style.display = 'flex';
+    } else {
+        el.style.display = 'none';
+    }
+}
+
+async function submitEditDnsRecord(e) {
+    e.preventDefault();
+    toastr.info("Updating DNS record...");
+    const fd = new FormData(e.target);
+    const body = {};
+    fd.forEach((v, k) => {
+        if (k === 'proxied') {
+            body[k] = v === 'true';
+        } else {
+            body[k] = v;
+        }
+    });
+    if (!body.hasOwnProperty('proxied')) {
+        body['proxied'] = false;
+    }
+    const recordId = document.getElementById('editRecordId').value;
+
+    try {
+        const res = await fetch(`/control/cloudflare/{{ domain }}/dns/edit/${recordId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            toastr.success(data.message);
+            $('#editRecordModal').modal('hide');
+            setTimeout(() => window.location.reload(), 1200);
+        } else {
+            toastr.error(data.message);
+        }
+    } catch {
+        toastr.error("Network Error.");
+    }
+}
+
+// Switch between API Token and Global API Key authentication
+function setAuthType(type) {
+    const tokenBtn = document.getElementById('authTypeTokenBtn');
+    const globalBtn = document.getElementById('authTypeGlobalBtn');
+    const emailGroup = document.getElementById('group_cf_email');
+    const emailInput = document.getElementById('input_cf_email');
+    const tokenLabel = document.getElementById('label_api_token');
+    const tokenInput = document.getElementById('input_api_token');
+    const helpToken = document.getElementById('help_api_token');
+    const helpGlobal = document.getElementById('help_global_key');
+
+    if (type === 'global') {
+        tokenBtn.className = 'btn-cf btn-cf-outline';
+        globalBtn.className = 'btn-cf btn-cf-primary';
+        emailGroup.style.display = 'block';
+        emailInput.required = true;
+        tokenLabel.innerText = 'Cloudflare Global API Key';
+        tokenInput.placeholder = 'e.g. 0123456789abcdef0123456789abcdef';
+        helpToken.style.display = 'none';
+        helpGlobal.style.display = 'block';
+    } else {
+        tokenBtn.className = 'btn-cf btn-cf-primary';
+        globalBtn.className = 'btn-cf btn-cf-outline';
+        emailGroup.style.display = 'none';
+        emailInput.required = false;
+        tokenLabel.innerText = 'Cloudflare API Token';
+        tokenInput.placeholder = 'e.g. 84HfsxWp_7fJs8W94H...';
+        helpToken.style.display = 'block';
+        helpGlobal.style.display = 'none';
+    }
+}
+
+{% if analytics_available %}
+document.addEventListener("DOMContentLoaded", function() {
+    const ctx = document.getElementById('cloudflareAnalyticsChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ chart_labels_json|safe }},
+            datasets: [
+                {
+                    label: 'Total Requests',
+                    data: {{ chart_requests_json|safe }},
+                    borderColor: '#f38020',
+                    backgroundColor: 'rgba(243, 128, 32, 0.05)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: '#f38020',
+                    pointBorderColor: '#fff',
+                    pointHoverRadius: 6
+                },
+                {
+                    label: 'Page Views',
+                    data: {{ chart_pageviews_json|safe }},
+                    borderColor: '#0ea5e9',
+                    backgroundColor: 'rgba(14, 165, 233, 0.05)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: '#0ea5e9',
+                    pointBorderColor: '#fff',
+                    pointHoverRadius: 6
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: '#94a3b8',
+                        font: { size: 10, weight: '600' }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255, 255, 255, 0.04)' },
+                    ticks: { color: '#64748b', font: { size: 9 } }
+                },
+                y: {
+                    grid: { color: 'rgba(255, 255, 255, 0.04)' },
+                    ticks: { color: '#64748b', font: { size: 9 } }
+                }
+            }
+        }
+    });
+});
+{% endif %}
+</script>
+
+</body>
+</html>

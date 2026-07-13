@@ -14,7 +14,14 @@ PROJECT_NAME=$3
 # Set additional variables based on input
 VENV_DIR="$PROJECT_DIR/venv"
 UWSGI_INI="$PROJECT_DIR/${PROJECT_NAME}.ini"
-SERVICE_FILE="/etc/systemd/system/${PROJECT_NAME}.service"
+
+# Use a namespaced service name to prevent conflicts with reserved panel services
+# (e.g. if user names their app "voidpanel" it won't overwrite the panel service)
+SERVICE_NAME="app-${USER}-${PROJECT_NAME}"
+SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
+
+WEB_USER="www-data"
+if ! id -u www-data &>/dev/null && id -u nginx &>/dev/null; then WEB_USER="nginx"; fi
 
 # Create project directory
 echo "Creating project directory..."
@@ -31,10 +38,10 @@ python3 -m venv $VENV_DIR
 # Activate virtual environment
 source $VENV_DIR/bin/activate
 
-# Upgrade pip and install uWSGI
+# Upgrade pip and install uWSGI using venv's pip directly (don't rely on activation)
 echo "Upgrading pip and installing uWSGI..."
-pip install --upgrade pip
-pip install uwsgi
+$VENV_DIR/bin/pip install --upgrade pip
+$VENV_DIR/bin/pip install uwsgi
 
 # Create a simple WSGI application file
 echo "Creating a simple WSGI application..."
@@ -47,7 +54,7 @@ def application(environ, start_response):
 EOF
 
 # Deactivate virtual environment
-deactivate
+deactivate 2>/dev/null || true
 
 # Create uWSGI INI file using project name
 cat << EOF > $UWSGI_INI
@@ -64,25 +71,31 @@ vacuum = true
 die-on-term = true
 EOF
 
-# Create systemd service for uWSGI with project name
+# Create systemd service for uWSGI with namespaced service name
 echo "Creating uWSGI systemd service as $SERVICE_FILE..."
 sudo bash -c "cat > $SERVICE_FILE" << EOL
 [Unit]
-Description=uWSGI Emperor service for $PROJECT_NAME
+Description=uWSGI service for $USER/$PROJECT_NAME
 After=network.target
 
 [Service]
 ExecStartPre=/bin/rm -f $PROJECT_DIR/${PROJECT_NAME}.sock
 ExecStart=$VENV_DIR/bin/uwsgi --ini $UWSGI_INI
 Restart=always
-User=www-data
-Group=www-data
+User=$WEB_USER
+Group=$WEB_USER
 UMask=007
 
 [Install]
 WantedBy=multi-user.target
 EOL
-sudo chown -R www-data:www-data $PROJECT_DIR
+# Set ownership: user owns the files, WEB_USER is group (for Nginx/uWSGI access)
+sudo chown -R $USER:$WEB_USER $PROJECT_DIR
 
+# Set base permissions (750 = owner rwx, group r-x, others none)
+sudo chmod -R 750 $PROJECT_DIR
+sudo chmod g+ws $PROJECT_DIR
 
-
+# Explicitly ensure venv executables have +x AFTER chmod -R 750
+# (chmod -R 750 on files sets rwxr-x--- which already has +x for owner, but be explicit)
+sudo chmod +x $VENV_DIR/bin/pip $VENV_DIR/bin/pip3 $VENV_DIR/bin/pip3.10 $VENV_DIR/bin/uwsgi $VENV_DIR/bin/python $VENV_DIR/bin/python3 2>/dev/null || true

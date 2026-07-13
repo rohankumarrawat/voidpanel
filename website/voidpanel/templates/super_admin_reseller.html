@@ -1,0 +1,566 @@
+{% extends "super_admin_base.html" %}
+{% block title %}Reseller Accounts — Super Admin{% endblock %}
+{% block breadcrumb %}Reseller Accounts{% endblock %}
+
+{% block admin_content %}
+
+<style>
+/* Modal */
+.sa-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;align-items:center;justify-content:center;}
+.sa-modal-overlay.open{display:flex;}
+.sa-modal{background:#0f1c2e;border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:28px;width:min(680px,94vw);max-height:90vh;overflow-y:auto;}
+.sa-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+.sa-modal-title{font-size:1rem;font-weight:800;color:#f0f4ff;}
+.sa-modal-close{background:none;border:none;color:#64748b;font-size:1.2rem;cursor:pointer;padding:4px 8px;border-radius:6px;}
+.sa-modal-close:hover{color:#f87171;}
+</style>
+
+<div class="sa-page-header">
+  <div>
+    <div class="sa-page-title">Reseller Accounts</div>
+    <div class="sa-page-sub">Create and manage reseller hosting accounts — set global storage, max client slots, and company branding.</div>
+  </div>
+  <div class="sa-header-actions">
+    <button class="sa-btn primary" onclick="openModal('createResellerModal')">
+      <i class="fas fa-user-plus"></i> Create Reseller Account
+    </button>
+  </div>
+</div>
+
+<!-- KPI Row -->
+<div class="sa-kpi-grid-4">
+  <div class="sa-kpi">
+    <div class="sa-kpi-icon violet"><i class="fas fa-store"></i></div>
+    <div>
+      <div class="sa-kpi-val">{{ reseller_portal_packages.count }}</div>
+      <div class="sa-kpi-lbl">Reseller Plans</div>
+    </div>
+  </div>
+  <div class="sa-kpi">
+    <div class="sa-kpi-icon sky"><i class="fas fa-hard-drive"></i></div>
+    <div>
+      <div class="sa-kpi-val">
+        {% with total=0 %}
+          {{ reseller_portal_packages|length }}
+        {% endwith %}
+      </div>
+      <div class="sa-kpi-lbl">Active Plans</div>
+    </div>
+  </div>
+  <div class="sa-kpi">
+    <div class="sa-kpi-icon green"><i class="fas fa-users"></i></div>
+    <div>
+      <div class="sa-kpi-val">—</div>
+      <div class="sa-kpi-lbl">Total Sub-accounts</div>
+    </div>
+  </div>
+  <div class="sa-kpi">
+    <div class="sa-kpi-icon amber"><i class="fas fa-circle-check"></i></div>
+    <div>
+      <div class="sa-kpi-val">{{ admin_stats.client_count }}</div>
+      <div class="sa-kpi-lbl">Portal Clients</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Top: Reseller Plans Catalog ── -->
+  <div class="sa-card">
+    <div class="sa-card-head">
+      <div class="sa-card-title"><i class="fas fa-store"></i> Reseller Hosting Plans Catalog</div>
+      <div style="display:flex; gap:12px; align-items:center;">
+        <span class="sa-card-count">{{ reseller_portal_packages.count }} plan{{ reseller_portal_packages.count|pluralize }}</span>
+        <button class="sa-btn secondary" onclick="openModal('createPackageModal')">
+          <i class="fas fa-plus"></i> Create Plan
+        </button>
+      </div>
+    </div>
+    <div class="sa-table-wrap">
+      <table class="sa-table">
+        <thead>
+          <tr>
+            <th>Plan Name</th>
+            <th>Storage</th>
+            <th>Max Accounts</th>
+            <th>Monthly</th>
+            <th>Yearly</th>
+            <th>Status</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pkg in reseller_portal_packages %}
+          <tr>
+            <td>
+              <div style="font-weight:700;color:var(--text-1);">{{ pkg.name }}</div>
+              <div style="font-size:0.74rem;color:var(--text-3);">{{ pkg.short_description|truncatechars:50 }}</div>
+              {% if pkg.is_featured %}<span class="sa-badge violet" style="margin-top:4px;">⭐ Featured</span>{% endif %}
+              <div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:4px;">
+                {% if pkg.has_email_marketing %}<span class="sa-badge sky" style="font-size:0.6rem;padding:1px 4px;">📧 Email Mktg</span>{% endif %}
+                {% if pkg.has_whatsapp_marketing %}<span class="sa-badge green" style="font-size:0.6rem;padding:1px 4px;">💬 WhatsApp</span>{% endif %}
+                {% if pkg.has_automation %}<span class="sa-badge violet" style="font-size:0.6rem;padding:1px 4px;">⚙️ Auto</span>{% endif %}
+                {% if pkg.has_analytics %}<span class="sa-badge amber" style="font-size:0.6rem;padding:1px 4px;">📊 Analytics</span>{% endif %}
+                {% if pkg.has_seo_crm %}<span class="sa-badge sky" style="font-size:0.6rem;padding:1px 4px;background:rgba(14,165,233,0.15);color:#0ea5e9;">🔍 SEO CRM</span>{% endif %}
+              </div>
+            </td>
+            <td style="color:var(--text-1);font-weight:600;">{{ pkg.storage_gb }} GB</td>
+            <td style="color:var(--text-1);font-weight:600;">{{ pkg.max_accounts }}</td>
+            <td style="color:var(--green-2);font-weight:700;">₹{{ pkg.monthly_price }}</td>
+            <td style="color:var(--sky-2);font-weight:700;">₹{{ pkg.yearly_price }}</td>
+            <td>
+              <span class="sa-badge {% if pkg.is_active %}green{% else %}red{% endif %}">
+                {{ pkg.is_active|yesno:"Active,Inactive" }}
+              </span>
+            </td>
+            <td style="text-align:right; white-space:nowrap;">
+              <button class="sa-btn-icon sky" 
+                onclick="openEditPackageModal(this)" title="Edit Plan"
+                data-id="{{ pkg.id }}"
+                data-name="{{ pkg.name|escapejs }}"
+                data-slug="{{ pkg.slug|escapejs }}"
+                data-desc="{{ pkg.short_description|escapejs }}"
+                data-storage="{{ pkg.storage_gb }}"
+                data-accs="{{ pkg.max_accounts }}"
+                data-monthly="{{ pkg.monthly_price }}"
+                data-yearly="{{ pkg.yearly_price|default:'' }}"
+                data-featured="{{ pkg.is_featured|yesno:'true,false' }}"
+                data-active="{{ pkg.is_active|yesno:'true,false' }}"
+                data-sort="{{ pkg.sort_order|default:0 }}"
+                data-server="{{ pkg.server_id|default:'' }}"
+                data-email-marketing="{{ pkg.has_email_marketing|yesno:'true,false' }}"
+                data-whatsapp-marketing="{{ pkg.has_whatsapp_marketing|yesno:'true,false' }}"
+                data-automation="{{ pkg.has_automation|yesno:'true,false' }}"
+                data-analytics="{{ pkg.has_analytics|yesno:'true,false' }}"
+                data-seo-crm="{{ pkg.has_seo_crm|yesno:'true,false' }}">
+                <i class="fas fa-pen"></i>
+              </button>
+              <button class="sa-btn-icon red" onclick="openDeletePackageModal({{ pkg.id }}, '{{ pkg.name|escapejs }}')" title="Delete Plan">
+                <i class="fas fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7">
+              <div class="sa-empty">
+                <i class="fas fa-store"></i>
+                <div class="sa-empty-title">No reseller plans yet</div>
+                <div class="sa-empty-sub">Plans are auto-seeded when the reseller-hosting page is visited.</div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Bottom: Quick Create + Info ── -->
+  <div class="sa-grid-2" style="margin-top: 24px;">
+
+    <!-- Quick Create Form -->
+    <div class="sa-card">
+      <div class="sa-card-head">
+        <div class="sa-card-title"><i class="fas fa-user-plus"></i> Create Reseller Account</div>
+      </div>
+      <form method="POST" action="/super-admin/reseller/">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="create_reseller">
+        <div class="sa-form-group">
+          <label class="sa-label">Username</label>
+          <input name="username" class="sa-input" placeholder="e.g. johndoe" required>
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Email Address</label>
+          <input name="email" type="email" class="sa-input" placeholder="john@company.com" required>
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Company / Brand Name</label>
+          <input name="company_name" class="sa-input" placeholder="e.g. TechHost Solutions">
+        </div>
+        <div class="sa-form-grid-2">
+          <div class="sa-form-group">
+            <label class="sa-label">Global Storage (GB)</label>
+            <input name="storage_gb" type="number" class="sa-input" value="50" min="10" max="5000">
+            <div style="font-size:0.72rem;color:var(--text-3);margin-top:4px;">Total pool for all their client accounts</div>
+          </div>
+          <div class="sa-form-group">
+            <label class="sa-label">Max Client Accounts</label>
+            <input name="max_accounts" type="number" class="sa-input" value="10" min="1" max="1000">
+            <div style="font-size:0.72rem;color:var(--text-3);margin-top:4px;">Max hosting slots they can sell</div>
+          </div>
+        </div>
+        <div class="sa-form-actions">
+          <button type="submit" class="sa-btn primary"><i class="fas fa-rocket"></i> Provision Reseller</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Info Panel -->
+    <div class="sa-info-panel">
+      <div class="sa-info-icon"><i class="fas fa-circle-info"></i></div>
+      <div>
+        <div class="sa-info-title">How provisioning works</div>
+        <div class="sa-info-body">
+          Creating a reseller here:
+          <ol style="padding-left:16px;margin-top:6px;line-height:2;">
+            <li>Creates a <strong>portal login</strong> (username + auto-generated password)</li>
+            <li>Calls the <strong>control panel API</strong> to create a <code>ResellerProfile</code></li>
+            <li>Sets their <strong>storage pool</strong> and <strong>max account slots</strong></li>
+            <li>The password is shown in the success flash — copy it immediately</li>
+          </ol>
+          <div style="margin-top:8px;">The reseller then logs in and manages their clients at <code>/control/reseller/</code></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Modals ───────────────────────────────────────────────────────────── -->
+
+<!-- Create Package Modal -->
+<div class="sa-modal-overlay" id="createPackageModal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="sa-modal">
+    <div class="sa-modal-head">
+      <div class="sa-modal-title"><i class="fas fa-plus-circle"></i> Create Reseller Plan</div>
+      <button class="sa-modal-close" onclick="closeModal('createPackageModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <form method="POST" action="/super-admin/reseller/">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create_package">
+      <div class="sa-modal-body">
+        <div class="sa-form-grid-2">
+          <div class="sa-form-group">
+            <label class="sa-label">Plan Name</label>
+            <input type="text" name="name" class="sa-input" required placeholder="e.g. Startup Reseller">
+          </div>
+          <div class="sa-form-group">
+            <label class="sa-label">URL Slug (Optional)</label>
+            <input type="text" name="slug" class="sa-input" placeholder="e.g. startup-reseller">
+          </div>
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Short Description</label>
+          <input type="text" name="short_description" class="sa-input" placeholder="e.g. Perfect for freelancers">
+        </div>
+        <div class="sa-form-grid-2">
+          <div class="sa-form-group">
+            <label class="sa-label">Reseller Storage Pool (GB)</label>
+            <input type="number" name="storage_gb" class="sa-input" value="50" required>
+          </div>
+          <div class="sa-form-group">
+            <label class="sa-label">Max Client Accounts</label>
+            <input type="number" name="max_accounts" class="sa-input" value="20" required>
+          </div>
+        </div>
+        <div class="sa-form-grid-2">
+          <div class="sa-form-group">
+            <label class="sa-label">Monthly Price (₹)</label>
+            <input type="number" step="0.01" name="monthly_price" class="sa-input" value="0.00" required>
+          </div>
+          <div class="sa-form-group">
+            <label class="sa-label">Yearly Price (₹)</label>
+            <input type="number" step="0.01" name="yearly_price" class="sa-input" value="0.00">
+          </div>
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Assigned Server Node</label>
+          <select name="server_id" class="sa-select">
+            <option value="">Auto-assign (Default)</option>
+            {% for srv in servers %}
+              <option value="{{ srv.id }}">{{ srv.name }} ({{ srv.ip_address }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="sa-form-grid-2">
+          <div class="sa-form-group">
+            <label class="sa-label">Sort Order</label>
+            <input type="number" name="sort_order" class="sa-input" value="0">
+          </div>
+          <div class="sa-form-group" style="padding-top:28px;">
+            <label style="display:flex; gap:10px; align-items:center; color:var(--text-1); font-size:0.85rem;">
+              <input type="checkbox" name="is_featured" value="1" style="width:18px;height:18px;">
+              Highlight as Featured Plan
+            </label>
+            <label style="display:flex; gap:10px; align-items:center; color:var(--text-1); font-size:0.85rem; margin-top:10px;">
+              <input type="checkbox" name="is_active" value="1" checked style="width:18px;height:18px;">
+              Active &amp; Visible
+            </label>
+          </div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin:14px 0;padding:12px 16px;border-radius:10px;background:rgba(14,165,233,.06);border:1px solid rgba(14,165,233,.14);">
+          <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--sky-2);width:100%;margin-bottom:6px;"><i class="fas fa-rocket"></i> Premium Features</div>
+          <label style="display:flex;gap:8px;align-items:center;color:var(--text-1);font-size:0.82rem;cursor:pointer;">
+            <input type="checkbox" name="has_email_marketing" value="1" style="width:15px;height:15px;accent-color:#0ea5e9;">
+            📧 Email Marketing
+          </label>
+          <label style="display:flex;gap:8px;align-items:center;color:var(--text-1);font-size:0.82rem;cursor:pointer;">
+            <input type="checkbox" name="has_whatsapp_marketing" value="1" style="width:15px;height:15px;accent-color:#22c55e;">
+            💬 WhatsApp Marketing
+          </label>
+          <label style="display:flex;gap:8px;align-items:center;color:var(--text-1);font-size:0.82rem;cursor:pointer;">
+            <input type="checkbox" name="has_automation" value="1" style="width:15px;height:15px;accent-color:#a855f7;">
+            ⚙️ Automation
+          </label>
+           <label style="display:flex;gap:8px;align-items:center;color:var(--text-1);font-size:0.82rem;cursor:pointer;">
+             <input type="checkbox" name="has_analytics" value="1" style="width:15px;height:15px;accent-color:#f59e0b;">
+             📊 Analytics
+           </label>
+           <label style="display:flex;gap:8px;align-items:center;color:var(--text-1);font-size:0.82rem;cursor:pointer;">
+             <input type="checkbox" name="has_seo_crm" value="1" checked style="width:15px;height:15px;accent-color:#0ea5e9;">
+             🔍 SEO CRM
+           </label>
+        </div>
+        <!-- Per-client package settings -->
+        <div style="margin:18px 0 10px;padding:14px 16px;border-radius:12px;background:rgba(168,85,247,.07);border:1px solid rgba(168,85,247,.2);">
+          <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#a855f7;margin-bottom:14px;">
+            <i class="fas fa-box" style="margin-right:6px;"></i> Default Client Package (assigned to each client account)
+          </div>
+          <div class="sa-form-group">
+            <label class="sa-label">Package Name</label>
+            <input type="text" name="client_package_name" class="sa-input" value="Starter Client Plan" placeholder="e.g. Basic, Pro, Business">
+          </div>
+          <div class="sa-form-grid-2">
+            <div class="sa-form-group">
+              <label class="sa-label">Storage per Client (GB)</label>
+              <input type="number" name="client_storage_gb" class="sa-input" value="5" min="1">
+            </div>
+            <div class="sa-form-group">
+              <label class="sa-label">Bandwidth per Client (GB/mo)</label>
+              <input type="number" name="client_bandwidth_gb" class="sa-input" value="50" min="0">
+            </div>
+          </div>
+          <div class="sa-form-grid-2">
+            <div class="sa-form-group">
+              <label class="sa-label">Email Accounts per Client</label>
+              <input type="number" name="client_email_accounts" class="sa-input" value="5" min="0">
+            </div>
+            <div class="sa-form-group">
+              <label class="sa-label">MySQL DBs per Client</label>
+              <input type="number" name="client_databases" class="sa-input" value="3" min="0">
+            </div>
+          </div>
+          <div class="sa-form-grid-2">
+            <div class="sa-form-group">
+              <label class="sa-label">Subdomains per Client</label>
+              <input type="number" name="client_subdomains" class="sa-input" value="5" min="0">
+            </div>
+            <div class="sa-form-group">
+              <label class="sa-label">FTP Accounts per Client</label>
+              <input type="number" name="client_ftp_accounts" class="sa-input" value="2" min="0">
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div class="sa-modal-foot">
+        <button type="button" class="sa-btn secondary" onclick="closeModal('createPackageModal')">Cancel</button>
+        <button type="submit" class="sa-btn primary">Create Plan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Package Modal -->
+<div class="sa-modal-overlay" id="editPackageModal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="sa-modal">
+    <div class="sa-modal-head">
+      <div class="sa-modal-title"><i class="fas fa-pen"></i> Edit Reseller Plan</div>
+      <button class="sa-modal-close" onclick="closeModal('editPackageModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <form method="POST" action="/super-admin/reseller/">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="update_package">
+      <input type="hidden" name="package_id" id="editPkgId">
+      <div class="sa-modal-body">
+        <div class="sa-form-grid-2">
+          <div class="sa-form-group">
+            <label class="sa-label">Plan Name</label>
+            <input type="text" name="name" id="editPkgName" class="sa-input" required>
+          </div>
+          <div class="sa-form-group">
+            <label class="sa-label">URL Slug</label>
+            <input type="text" name="slug" id="editPkgSlug" class="sa-input">
+          </div>
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Short Description</label>
+          <input type="text" name="short_description" id="editPkgDesc" class="sa-input">
+        </div>
+        <div class="sa-form-grid-2">
+          <div class="sa-form-group">
+            <label class="sa-label">Reseller Storage Pool (GB)</label>
+            <input type="number" name="storage_gb" id="editPkgStorage" class="sa-input" required>
+          </div>
+          <div class="sa-form-group">
+            <label class="sa-label">Max Client Accounts</label>
+            <input type="number" name="max_accounts" id="editPkgAccounts" class="sa-input" required>
+          </div>
+        </div>
+        <div class="sa-form-grid-2">
+          <div class="sa-form-group">
+            <label class="sa-label">Monthly Price (₹)</label>
+            <input type="number" step="0.01" name="monthly_price" id="editPkgMonthly" class="sa-input" required>
+          </div>
+          <div class="sa-form-group">
+            <label class="sa-label">Yearly Price (₹)</label>
+            <input type="number" step="0.01" name="yearly_price" id="editPkgYearly" class="sa-input">
+          </div>
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Assigned Server Node</label>
+          <select name="server_id" id="editPkgServer" class="sa-select">
+            <option value="">Auto-assign (Default)</option>
+            {% for srv in servers %}
+              <option value="{{ srv.id }}">{{ srv.name }} ({{ srv.ip_address }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="sa-form-grid-2">
+          <div class="sa-form-group">
+            <label class="sa-label">Sort Order</label>
+            <input type="number" name="sort_order" id="editPkgSort" class="sa-input">
+          </div>
+          <div class="sa-form-group" style="padding-top:28px;">
+            <label style="display:flex; gap:10px; align-items:center; color:var(--text-1); font-size:0.85rem;">
+              <input type="checkbox" name="is_featured" id="editPkgFeatured" value="1" style="width:18px;height:18px;">
+              Highlight as Featured Plan
+            </label>
+            <label style="display:flex; gap:10px; align-items:center; color:var(--text-1); font-size:0.85rem; margin-top:10px;">
+              <input type="checkbox" name="is_active" id="editPkgActive" value="1" style="width:18px;height:18px;">
+              Active &amp; Visible
+            </label>
+          </div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin:14px 0;padding:12px 16px;border-radius:10px;background:rgba(14,165,233,.06);border:1px solid rgba(14,165,233,.14);">
+          <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--sky-2);width:100%;margin-bottom:6px;"><i class="fas fa-rocket"></i> Premium Features</div>
+          <label style="display:flex;gap:8px;align-items:center;color:var(--text-1);font-size:0.82rem;cursor:pointer;">
+            <input type="checkbox" name="has_email_marketing" id="editPkgEmailMktg" value="1" style="width:15px;height:15px;accent-color:#0ea5e9;">
+            📧 Email Marketing
+          </label>
+          <label style="display:flex;gap:8px;align-items:center;color:var(--text-1);font-size:0.82rem;cursor:pointer;">
+            <input type="checkbox" name="has_whatsapp_marketing" id="editPkgWhatsappMktg" value="1" style="width:15px;height:15px;accent-color:#22c55e;">
+            💬 WhatsApp Marketing
+          </label>
+          <label style="display:flex;gap:8px;align-items:center;color:var(--text-1);font-size:0.82rem;cursor:pointer;">
+            <input type="checkbox" name="has_automation" id="editPkgAutomation" value="1" style="width:15px;height:15px;accent-color:#a855f7;">
+            ⚙️ Automation
+          </label>
+          <label style="display:flex;gap:8px;align-items:center;color:var(--text-1);font-size:0.82rem;cursor:pointer;">
+            <input type="checkbox" name="has_analytics" id="editPkgAnalytics" value="1" style="width:15px;height:15px;accent-color:#f59e0b;">
+            📊 Analytics
+          </label>
+          <label style="display:flex;gap:8px;align-items:center;color:var(--text-1);font-size:0.82rem;cursor:pointer;">
+            <input type="checkbox" name="has_seo_crm" id="editPkgSeoCrm" value="1" style="width:15px;height:15px;accent-color:#0ea5e9;">
+            🔍 SEO CRM
+          </label>
+        </div>
+        <!-- Per-client package settings -->
+        <div style="margin:18px 0 10px;padding:14px 16px;border-radius:12px;background:rgba(168,85,247,.07);border:1px solid rgba(168,85,247,.2);">
+          <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#a855f7;margin-bottom:14px;">
+            <i class="fas fa-box" style="margin-right:6px;"></i> Default Client Package (assigned to each client account)
+          </div>
+          <div class="sa-form-group">
+            <label class="sa-label">Package Name</label>
+            <input type="text" name="client_package_name" id="editClientPkgName" class="sa-input" placeholder="e.g. Basic, Pro, Business">
+          </div>
+          <div class="sa-form-grid-2">
+            <div class="sa-form-group">
+              <label class="sa-label">Storage per Client (GB)</label>
+              <input type="number" name="client_storage_gb" id="editClientStorage" class="sa-input" min="1">
+            </div>
+            <div class="sa-form-group">
+              <label class="sa-label">Bandwidth per Client (GB/mo)</label>
+              <input type="number" name="client_bandwidth_gb" id="editClientBandwidth" class="sa-input" min="0">
+            </div>
+          </div>
+          <div class="sa-form-grid-2">
+            <div class="sa-form-group">
+              <label class="sa-label">Email Accounts per Client</label>
+              <input type="number" name="client_email_accounts" id="editClientEmails" class="sa-input" min="0">
+            </div>
+            <div class="sa-form-group">
+              <label class="sa-label">MySQL DBs per Client</label>
+              <input type="number" name="client_databases" id="editClientDBs" class="sa-input" min="0">
+            </div>
+          </div>
+          <div class="sa-form-grid-2">
+            <div class="sa-form-group">
+              <label class="sa-label">Subdomains per Client</label>
+              <input type="number" name="client_subdomains" id="editClientSubs" class="sa-input" min="0">
+            </div>
+            <div class="sa-form-group">
+              <label class="sa-label">FTP Accounts per Client</label>
+              <input type="number" name="client_ftp_accounts" id="editClientFTP" class="sa-input" min="0">
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div class="sa-modal-foot">
+        <button type="button" class="sa-btn secondary" onclick="closeModal('editPackageModal')">Cancel</button>
+        <button type="submit" class="sa-btn primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Delete Package Modal -->
+<div class="sa-modal-overlay" id="deletePackageModal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="sa-modal">
+    <div class="sa-modal-head">
+      <div class="sa-modal-title"><i class="fas fa-trash"></i> Delete Plan</div>
+      <button class="sa-modal-close" onclick="closeModal('deletePackageModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <form method="POST" action="/super-admin/reseller/">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="delete_package">
+      <input type="hidden" name="package_id" id="delPkgId">
+      <div class="sa-modal-body">
+        Are you sure you want to delete the plan <strong id="delPkgName" style="color:var(--text-1);"></strong>? 
+        This will hide it from the storefront. Existing services on this plan are not affected.
+      </div>
+      <div class="sa-modal-foot">
+        <button type="button" class="sa-btn secondary" onclick="closeModal('deletePackageModal')">Cancel</button>
+        <button type="submit" class="sa-btn danger">Yes, Delete</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+function openEditPackageModal(btn) {
+  const d = btn.dataset;
+  document.getElementById('editPkgId').value = d.id;
+  document.getElementById('editPkgName').value = d.name;
+  document.getElementById('editPkgSlug').value = d.slug;
+  document.getElementById('editPkgDesc').value = d.desc;
+  document.getElementById('editPkgStorage').value = d.storage;
+  document.getElementById('editPkgAccounts').value = d.accs;
+  document.getElementById('editPkgMonthly').value = d.monthly;
+  document.getElementById('editPkgYearly').value = d.yearly || '';
+  document.getElementById('editPkgFeatured').checked = (d.featured === 'true');
+  document.getElementById('editPkgActive').checked = (d.active === 'true');
+  document.getElementById('editPkgSort').value = d.sort;
+  document.getElementById('editPkgServer').value = d.server || '';
+  document.getElementById('editPkgEmailMktg').checked = (d.emailMarketing === 'true');
+  document.getElementById('editPkgWhatsappMktg').checked = (d.whatsappMarketing === 'true');
+  document.getElementById('editPkgAutomation').checked = (d.automation === 'true');
+  document.getElementById('editPkgAnalytics').checked = (d.analytics === 'true');
+  document.getElementById('editPkgSeoCrm').checked = (d.seoCrm === 'true');
+  openModal('editPackageModal');
+}
+function openDeletePackageModal(id, name) {
+  document.getElementById('delPkgId').value = id;
+  document.getElementById('delPkgName').innerText = name;
+  openModal('deletePackageModal');
+}
+</script>
+
+{% endblock %}

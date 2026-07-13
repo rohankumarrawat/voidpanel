@@ -1,0 +1,312 @@
+{% extends 'super_admin_base.html' %}
+{% block title %}WhatsApp Web Integration | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}WhatsApp Web{% endblock %}
+{% block admin_content %}
+
+<div class="sa-page-header">
+    <div>
+        <div class="sa-page-title">WhatsApp Web Integration</div>
+        <div class="sa-page-sub">Connect your phone via QR code scan to enable automated alerts and send sales broadcasts.</div>
+    </div>
+</div>
+
+<!-- Main Tabs -->
+<div class="sa-tabs" style="margin-bottom: 20px;">
+    <button class="sa-tab active-green" id="tabBtn-status" onclick="switchTab('status')">
+        <i class="fas fa-qrcode" style="margin-right: 6px;"></i> Connection Settings
+    </button>
+    <button class="sa-tab" id="tabBtn-broadcast" onclick="switchTab('broadcast')">
+        <i class="fas fa-bullhorn" style="margin-right: 6px;"></i> Bulk Broadcast
+    </button>
+    <button class="sa-tab" id="tabBtn-logs" onclick="switchTab('logs')">
+        <i class="fas fa-list" style="margin-right: 6px;"></i> Message Log
+    </button>
+</div>
+
+<!-- ==================== TAB: CONNECTION SETTINGS ==================== -->
+<div class="sa-card service-tab-panel" id="panel-status" style="margin-bottom: 20px;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 20px;">
+        <!-- Left Side: Status / QR -->
+        <div style="border-right: 1px solid var(--border); padding-right: 24px;">
+            <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-1); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-brands fa-whatsapp" style="color: #25d366; font-size: 1.4rem;"></i>
+                Connection Status
+            </div>
+
+            {% if state == 'connected' %}
+            <div style="background: rgba(34, 197, 94, 0.05); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                    <div style="width: 12px; height: 12px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;"></div>
+                    <span style="font-weight: 700; color: #22c55e;">CONNECTED</span>
+                </div>
+                <div style="font-size: 0.88rem; color: var(--text-2);">
+                    Your WhatsApp account is connected. System notifications and marketing messages will be dispatched automatically using this session.
+                </div>
+            </div>
+
+            <form method="POST" action="/super-admin/whatsapp/">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="logout">
+                <button type="submit" class="sa-btn red" style="width: 100%;">
+                    <i class="fas fa-right-from-bracket" style="margin-right: 6px;"></i> Disconnect Account
+                </button>
+            </form>
+            {% else %}
+            <div style="background: rgba(234, 179, 8, 0.05); border: 1px solid rgba(234, 179, 8, 0.2); border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                    <div style="width: 12px; height: 12px; border-radius: 50%; background: #eab308; box-shadow: 0 0 8px #eab308; animation: pulse 2s infinite;"></div>
+                    <span style="font-weight: 700; color: #eab308;">WAITING FOR SCAN ({{ state|upper }})</span>
+                </div>
+                <div style="font-size: 0.88rem; color: var(--text-2);">
+                    Scan the QR code on the right with your phone's WhatsApp application (**Linked Devices** → **Link a Device**) to authenticate.
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: center; background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid var(--border); max-width: 320px; margin: 0 auto 20px auto;">
+                {% if qr_code %}
+                <img src="data:image/png;base64,{{ qr_code }}" style="width: 240px; height: 240px; display: block;" alt="WhatsApp Scan QR">
+                {% else %}
+                <div style="width: 240px; height: 240px; display: flex; align-items: center; justify-content: center; flex-direction: column; color: #000;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--green-2); margin-bottom: 12px;"></i>
+                    <span style="font-size: 0.8rem; font-weight: 600;">Generating QR Code...</span>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Right Side: Preferences -->
+        <div>
+            <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-1); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-gears" style="color: var(--violet-2);"></i>
+                Settings & Alert Preferences
+            </div>
+
+            <form method="POST" action="/super-admin/whatsapp/">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_settings">
+
+                <div class="sa-form-group" style="margin-bottom: 16px;">
+                    <label class="sa-label" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" name="is_enabled" {% if config.is_enabled %}checked{% endif %} style="width: 18px; height: 18px; accent-color: #22c55e;">
+                        <span>Enable WhatsApp Dispatch (Global)</span>
+                    </label>
+                </div>
+
+                <div class="sa-form-group" style="margin-bottom: 20px;">
+                    <label class="sa-label">Admin Whatsapp Number (For test messages)</label>
+                    <input type="text" name="phone_number" value="{{ config.phone_number }}" class="sa-input" placeholder="e.g. +91XXXXXXXXXX or 91XXXXXXXXXX">
+                    <span style="font-size: 0.74rem; color: var(--text-3); margin-top: 4px; display: block;">Must include country code (e.g. 91 for India).</span>
+                </div>
+
+                <div style="border-top: 1px solid var(--border); padding-top: 16px; margin-bottom: 20px;">
+                    <div style="font-size: 0.88rem; font-weight: 700; color: var(--text-2); margin-bottom: 12px;">AUTOMATED ALERTS</div>
+                    
+                    <div class="sa-form-group" style="margin-bottom: 10px;">
+                        <label class="sa-label" style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: normal;">
+                            <input type="checkbox" name="alert_on_invoice_created" {% if config.alert_on_invoice_created %}checked{% endif %} style="width: 16px; height: 16px; accent-color: #22c55e;">
+                            <span>Send alert on new invoice creation</span>
+                        </label>
+                    </div>
+
+                    <div class="sa-form-group" style="margin-bottom: 10px;">
+                        <label class="sa-label" style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: normal;">
+                            <input type="checkbox" name="alert_on_service_suspend" {% if config.alert_on_service_suspend %}checked{% endif %} style="width: 16px; height: 16px; accent-color: #22c55e;">
+                            <span>Send alert on service suspension</span>
+                        </label>
+                    </div>
+
+                    <div class="sa-form-group" style="margin-bottom: 10px;">
+                        <label class="sa-label" style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: normal;">
+                            <input type="checkbox" name="alert_on_ticket_opened" {% if config.alert_on_ticket_opened %}checked{% endif %} style="width: 16px; height: 16px; accent-color: #22c55e;">
+                            <span>Send alert when a new support ticket is opened</span>
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" class="sa-btn green" style="width: 100%;">
+                    <i class="fas fa-save" style="margin-right: 6px;"></i> Save Preferences
+                </button>
+            </form>
+
+            <!-- Test Message Panel -->
+            {% if state == 'connected' %}
+            <div style="border-top: 1px solid var(--border); padding-top: 20px; margin-top: 24px;">
+                <div style="font-size: 0.95rem; font-weight: 700; color: var(--text-1); margin-bottom: 14px;">
+                    <i class="fas fa-paper-plane" style="color: var(--sky-2); margin-right: 6px;"></i> Send Quick Test Message
+                </div>
+                <form method="POST" action="/super-admin/whatsapp/">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="send_test">
+                    <div style="display: flex; gap: 10px; align-items: flex-end;">
+                        <div class="sa-form-group" style="flex: 1; margin-bottom: 0;">
+                            <label class="sa-label">Test Recipient Phone</label>
+                            <input type="text" name="phone_number" value="{{ config.phone_number }}" class="sa-input" required>
+                        </div>
+                        <div class="sa-form-group" style="flex: 2; margin-bottom: 0;">
+                            <label class="sa-label">Message Text</label>
+                            <input type="text" name="message" value="Hello! This is a test alert from VoidPanel WhatsApp Integration." class="sa-input" required>
+                        </div>
+                        <button type="submit" class="sa-btn sky" style="height: 38px; margin-bottom: 0;">Send Test</button>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- ==================== TAB: BULK BROADCAST ==================== -->
+<div class="sa-card service-tab-panel" id="panel-broadcast" style="display:none; padding:22px;">
+    <div style="max-width: 680px; margin: 0 auto;">
+        <div class="sa-card-title" style="margin-bottom: 6px;"><i class="fas fa-bullhorn" style="color: var(--amber-2);"></i> Create Mass Broadcast Message</div>
+        <div class="sa-card-count" style="margin-bottom: 24px;">Send a customized message to multiple clients. Recipients without mobile numbers registered will be skipped.</div>
+
+        {% if state != 'connected' %}
+        <div style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 16px; display: flex; align-items: center; gap: 12px;">
+            <i class="fas fa-circle-exclamation" style="font-size: 1.5rem; color: var(--red-2);"></i>
+            <div style="color: var(--text-2);">
+                **Broadcast service is locked**. You must connect your WhatsApp session in the Connection Settings tab before you can dispatch broadcast campaigns.
+            </div>
+        </div>
+        {% else %}
+        <form method="POST" action="/super-admin/whatsapp/">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="broadcast">
+
+            <div class="sa-form-group" style="margin-bottom: 18px;">
+                <label class="sa-label">Target Recipient Group</label>
+                <select name="target_group" class="sa-input" required>
+                    <option value="all">All Registered Clients (With phone number)</option>
+                    <option value="unpaid_invoices">Clients with active Unpaid Invoices</option>
+                    <option value="active_hosting">Clients with active Hosting Services</option>
+                </select>
+            </div>
+
+            <div class="sa-form-group" style="margin-bottom: 18px;">
+                <label class="sa-label">Broadcast Message Content</label>
+                <textarea name="message" class="sa-input" rows="6" placeholder="Write your broadcast message here..." required></textarea>
+                <div style="display: flex; justify-content: space-between; font-size: 0.74rem; color: var(--text-3); margin-top: 6px;">
+                    <span>Use line breaks to structure text naturally. Markdown (bold *text*, italic _text_) is supported on WhatsApp.</span>
+                </div>
+            </div>
+
+            <div style="background: rgba(245, 158, 11, 0.04); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 8px; padding: 14px; margin-bottom: 24px;">
+                <div style="font-weight: 700; color: var(--amber-2); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 0.88rem;">
+                    <i class="fas fa-circle-exclamation"></i> Bulk Dispatch Rate Limit Policy
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-2); line-height: 1.4;">
+                    To protect your WhatsApp number from automatic rate-limits and spam bans, a safety delay of **800ms** is inserted between each message. The sending executes in a background thread, letting you continue using VoidPanel.
+                </div>
+            </div>
+
+            <button type="submit" class="sa-btn amber" style="width:100%; font-weight: 700;">
+                <i class="fas fa-bullhorn" style="margin-right: 6px;"></i> Queue Broadcast Campaign
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ==================== TAB: LOGS ==================== -->
+<div class="sa-card service-tab-panel" id="panel-logs" style="display:none; padding:0; overflow:hidden;">
+    <div style="padding:16px 22px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+        <div class="sa-card-title"><i class="fas fa-list" style="color:var(--sky-2);"></i> Audit Logs (Last 20 messages)</div>
+    </div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>To (Phone)</th>
+                    <th>Recipient Client</th>
+                    <th>Type</th>
+                    <th>Message Details</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td style="font-size:0.8rem; color:var(--text-3);">{{ log.created_at|date:"M d, Y H:i:s" }}</td>
+                    <td style="font-family:monospace; font-weight:700;">{{ log.phone_to }}</td>
+                    <td>
+                        {% if log.user %}
+                        <div style="font-weight:700;">{{ log.user.username }}</div>
+                        <div style="font-size:0.7rem; color:var(--text-3);">ID: {{ log.user.id }} • {{ log.user.email }}</div>
+                        {% else %}
+                        <span style="color:var(--text-3);">System Alert (Anonymous)</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="sa-badge {% if log.msg_type == 'alert' %}sky{% else %}amber{% endif %}">
+                            {{ log.get_msg_type_display }}
+                        </span>
+                    </td>
+                    <td style="max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ log.message }}">
+                        {{ log.message }}
+                    </td>
+                    <td>
+                        {% if log.status == 'sent' %}
+                        <span class="sa-badge green"><i class="fas fa-circle-check"></i> Sent</span>
+                        {% else %}
+                        <span class="sa-badge red" title="{{ log.error_msg }}"><i class="fas fa-triangle-exclamation"></i> Failed</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6">
+                        <div class="sa-empty">
+                            <i class="fas fa-list"></i>
+                            <div class="sa-empty-title">No WhatsApp messages dispatched yet</div>
+                            <div class="sa-empty-sub">Once configured, logs of sent system alerts and bulk marketing messages will appear here.</div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Tab Switching Script -->
+<script>
+function switchTab(tabId) {
+    // Hide all panels
+    document.querySelectorAll('.service-tab-panel').forEach(p => p.style.display = 'none');
+    // Remove active style from all tab buttons
+    document.querySelectorAll('.sa-tab').forEach(b => {
+        b.classList.remove('active-green');
+    });
+
+    // Show selected panel
+    const targetPanel = document.getElementById('panel-' + tabId);
+    if(targetPanel) targetPanel.style.display = 'block';
+
+    // Highlight selected button
+    const targetBtn = document.getElementById('tabBtn-' + tabId);
+    if(targetBtn) targetBtn.classList.add('active-green');
+}
+
+// Auto-refresh QR Code page if waiting for scan
+{% if state != 'connected' %}
+setInterval(() => {
+    // Only refresh if the Connection Settings tab is active
+    const activeTab = document.getElementById('tabBtn-status');
+    if (activeTab && activeTab.classList.contains('active-green')) {
+        window.location.reload();
+    }
+}, 5000);
+{% endif %}
+</script>
+
+<style>
+@keyframes pulse {
+    0% { opacity: 0.4; }
+    50% { opacity: 1; }
+    100% { opacity: 0.4; }
+}
+</style>
+
+{% endblock %}

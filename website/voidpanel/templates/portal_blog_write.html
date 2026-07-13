@@ -1,0 +1,169 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Write a Blog | Client Portal | VoidPanel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css">
+    
+    <!-- Quill Rich Text Editor -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <style>
+        .portal-page {
+            min-height: 100vh;
+            padding: 80px 0 48px;
+            background: #07101a;
+        }
+        .b-container { max-width: 900px; margin: 0 auto; padding: 20px; }
+        .b-card {
+            background: rgba(11,18,30,0.8);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 18px;
+            padding: 32px;
+        }
+        .b-header { margin-bottom: 24px; }
+        .b-title { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin-bottom: 6px; }
+        .b-sub { font-size: 0.9rem; color: var(--text-muted); }
+        
+        .b-group { margin-bottom: 20px; }
+        .b-label { display: block; font-size: 0.85rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px; }
+        .b-input {
+            width: 100%; padding: 12px 14px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px; color: var(--text-primary);
+            font-size: 0.95rem; outline: none; transition: all 0.2s;
+        }
+        .b-input:focus { border-color: rgba(89,196,188,0.5); background: rgba(89,196,188,0.05); }
+        
+        /* Quill customization inside portal */
+        .ql-toolbar.ql-snow {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px 10px 0 0;
+        }
+        .ql-container.ql-snow {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-family: inherit;
+            min-height: 400px;
+        }
+        .ql-toolbar.ql-snow .ql-stroke { stroke: var(--text-muted); }
+        .ql-toolbar.ql-snow .ql-fill { fill: var(--text-muted); }
+        .ql-toolbar.ql-snow .ql-picker { color: var(--text-muted); }
+        
+        .b-alert {
+            padding: 16px; border-radius: 10px;
+            background: rgba(89,196,188,0.08); border: 1px solid rgba(89,196,188,0.2);
+            display: flex; gap: 12px; margin-bottom: 24px;
+        }
+        
+        .b-btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 12px 24px; border-radius: 10px; font-weight: 700; font-size: 0.95rem;
+            background: #59c4bc; color: #021f15; border: none; cursor: pointer; transition: all 0.2s;
+        }
+        .b-btn:hover { background: #4db3a8; transform: translateY(-1px); }
+        .b-back { color: var(--text-muted); text-decoration: none; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 20px; transition: color 0.2s; }
+        .b-back:hover { color: var(--text-primary); }
+    </style>
+</head>
+<body>
+{% include 'header.html' %}
+
+<main class="portal-page">
+    <div class="b-container">
+        
+        <a href="/portal/" class="b-back"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+        
+        <div class="b-card">
+            <div class="b-header">
+                <h1 class="b-title">Write a Tech Blog</h1>
+                <p class="b-sub">Share your knowledge with the VoidPanel community. Posts will be reviewed by our team before going live.</p>
+            </div>
+            
+            <div class="b-alert">
+                <i class="fas fa-info-circle" style="color:#59c4bc;font-size:1.2rem;margin-top:2px;"></i>
+                <div>
+                    <h4 style="margin:0 0 4px;font-size:0.9rem;color:var(--text-primary);">Submission Guidelines</h4>
+                    <p style="margin:0;font-size:0.85rem;color:var(--text-secondary);line-height:1.5;">Ensure your content is original, relevant to web hosting, operations, or development, and formatted nicely. Avoid overly promotional content.</p>
+                </div>
+            </div>
+
+            <form id="pBlogForm" method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <div class="b-group">
+                    <label class="b-label">Blog Title</label>
+                    <input type="text" name="title" class="b-input" required placeholder="e.g. 5 Nginx Tweaks for High Traffic Sites">
+                </div>
+                
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+                    <div class="b-group">
+                        <label class="b-label">Category</label>
+                        <select name="category_id" class="b-input">
+                            <option value="">-- Select Category --</option>
+                            {% for c in categories %}
+                            <option value="{{ c.id }}">{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="b-group">
+                        <label class="b-label">Featured Image (Optional)</label>
+                        <input type="file" name="featured_image" accept="image/*" class="b-input" style="padding:9px 14px;">
+                    </div>
+                </div>
+
+                <div class="b-group">
+                    <label class="b-label">Blog Content</label>
+                    <input type="hidden" name="content" id="realContent">
+                    <div id="editor"></div>
+                </div>
+                
+                <div style="text-align:right;border-top:1px solid rgba(255,255,255,0.05);padding-top:20px;">
+                    <button type="submit" class="b-btn"><i class="fas fa-paper-plane"></i> Submit for Review</button>
+                </div>
+            </form>
+        </div>
+        
+    </div>
+</main>
+
+{% include 'footer.html' %}
+
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<script>
+    var quill = new Quill('#editor', {
+        theme: 'snow',
+        placeholder: 'Share your insights here...',
+        modules: {
+            toolbar: [
+                [{ 'header': [1, 2, 3, false] }],
+                ['bold', 'italic', 'underline', 'strike'],
+                ['blockquote', 'code-block'],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                ['link', 'image'],
+                ['clean']
+            ]
+        }
+    });
+
+    document.getElementById('pBlogForm').onsubmit = function() {
+        var html = quill.root.innerHTML;
+        if(html === '<p><br></p>' || html.trim() === '') {
+            alert('Please write some content before submitting.');
+            return false;
+        }
+        document.getElementById('realContent').value = html;
+        return true;
+    };
+</script>
+</body>
+</html>

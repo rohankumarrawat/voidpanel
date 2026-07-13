@@ -1,0 +1,177 @@
+{% extends 'super_admin_base.html' %}
+{% block admin_content %}
+<div class="sa-page-header">
+    <div>
+        <h1 class="sa-page-title">Try VoidPanel</h1>
+        <p class="sa-page-sub">Configure the live demo credentials shown on the public "Try VoidPanel" page and header banner.</p>
+    </div>
+    <div class="sa-header-actions">
+        {% if config.is_enabled %}
+        <a href="/try-voidpanel/" target="_blank" class="sa-btn sky">
+            <i class="fas fa-external-link-alt"></i> Preview Page
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+
+<!-- Status banner -->
+<div class="sa-card" style="margin-bottom:20px;border-left:4px solid {% if config.is_enabled %}#10b981{% else %}#f59e0b{% endif %};">
+    <div style="display:flex;align-items:center;gap:14px;">
+        <div style="width:40px;height:40px;border-radius:12px;background:{% if config.is_enabled %}#d1fae5{% else %}#fef3c7{% endif %};display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">
+            {% if config.is_enabled %}✅{% else %}⚠️{% endif %}
+        </div>
+        <div>
+            <div style="font-weight:800;font-size:.95rem;color:var(--text-primary);">
+                {% if config.is_enabled %}Try VoidPanel is LIVE{% else %}Try VoidPanel is DISABLED{% endif %}
+            </div>
+            <div style="font-size:.82rem;color:var(--text-muted);margin-top:2px;">
+                {% if config.is_enabled %}
+                    The header banner and credentials page are visible to all visitors at <a href="/try-voidpanel/" target="_blank" style="color:var(--accent);">/try-voidpanel/</a>
+                {% else %}
+                    Enable the toggle below to show the banner and credentials page to visitors.
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<form method="POST" action="/super-admin/try-voidpanel/" class="sa-card">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="save_try_voidpanel">
+
+    <h3 class="sa-section-title" style="margin-bottom:24px;">
+        <i class="fas fa-sliders-h" style="color:var(--accent);margin-right:8px;"></i>Demo Configuration
+    </h3>
+
+    <!-- Enable toggle -->
+    <div class="sa-form-row" style="margin-bottom:24px;">
+        <label class="sa-label">Enable "Try VoidPanel" Feature</label>
+        <div style="display:flex;align-items:center;gap:12px;">
+            <label class="sa-toggle-label" style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                <div style="position:relative;">
+                    <input type="checkbox" name="is_enabled" id="id_is_enabled" {% if config.is_enabled %}checked{% endif %} style="opacity:0;position:absolute;width:0;height:0;">
+                    <div id="toggleTrack" onclick="toggleSwitch()" style="width:52px;height:28px;border-radius:999px;background:{% if config.is_enabled %}#2563eb{% else %}#cbd5e1{% endif %};cursor:pointer;transition:background .2s;position:relative;">
+                        <div id="toggleThumb" style="position:absolute;top:3px;left:{% if config.is_enabled %}25px{% else %}3px{% endif %};width:22px;height:22px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 2px 6px rgba(0,0,0,.15);"></div>
+                    </div>
+                </div>
+                <span id="toggleLabel" style="font-weight:700;color:{% if config.is_enabled %}#059669{% else %}#94a3b8{% endif %};">
+                    {% if config.is_enabled %}ENABLED — Visible to all visitors{% else %}DISABLED — Hidden from visitors{% endif %}
+                </span>
+            </label>
+        </div>
+        <div class="sa-help">When enabled, a glowing "Try VoidPanel" button appears in the site header.</div>
+    </div>
+
+    <div class="sa-grid-2" style="margin-bottom:20px;">
+        <div class="sa-form-group">
+            <label class="sa-label">Page Headline</label>
+            <input type="text" name="headline" class="sa-input" value="{{ config.headline }}" placeholder="Try VoidPanel Free — No Credit Card Needed">
+            <div class="sa-help">Main heading shown on the Try VoidPanel landing page.</div>
+        </div>
+        <div class="sa-form-group">
+            <label class="sa-label">Sub-Headline <span style="font-weight:400;color:var(--text-faint);">(optional)</span></label>
+            <input type="text" name="sub_headline" class="sa-input" value="{{ config.sub_headline }}" placeholder="Explore the live demo panel instantly...">
+            <div class="sa-help">One-line description below the headline.</div>
+        </div>
+    </div>
+
+    <div class="sa-grid-2" style="margin-bottom:20px;">
+        <div class="sa-form-group">
+            <label class="sa-label">Panel URL <span style="color:#ef4444;font-size:.8rem;">★ Important</span></label>
+            <input type="url" name="panel_url" class="sa-input" value="{{ config.panel_url }}" placeholder="https://demo.voidpanel.com">
+            <div class="sa-help">Full URL of the demo VoidPanel instance (where users click "Launch Panel").</div>
+        </div>
+        <div class="sa-form-group">
+            <label class="sa-label">Server IP <span style="font-weight:400;color:var(--text-faint);">(optional)</span></label>
+            <input type="text" name="server_ip" class="sa-input" value="{{ config.server_ip }}" placeholder="203.0.113.42">
+            <div class="sa-help">Optional IP address shown alongside the credentials (for SSH info, etc.).</div>
+        </div>
+    </div>
+
+    <div class="sa-grid-2" style="margin-bottom:20px;">
+        <div class="sa-form-group">
+            <label class="sa-label">Demo Username <span style="color:#ef4444;font-size:.8rem;">★</span></label>
+            <input type="text" name="demo_username" class="sa-input" value="{{ config.demo_username }}" placeholder="demo">
+            <div class="sa-help">Username shown to visitors for logging into the demo panel.</div>
+        </div>
+        <div class="sa-form-group">
+            <label class="sa-label">Demo Password <span style="color:#ef4444;font-size:.8rem;">★</span></label>
+            <div style="position:relative;">
+                <input type="text" name="demo_password" id="demoPassInput" class="sa-input" value="{{ config.demo_password }}" placeholder="demo@123" style="padding-right:48px;">
+                <button type="button" onclick="togglePassVis()" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:.85rem;" title="Show/hide">
+                    <i class="fas fa-eye" id="passEyeIcon"></i>
+                </button>
+            </div>
+            <div class="sa-help">Password shown to visitors (stored plaintext — this is a shared demo account).</div>
+        </div>
+    </div>
+
+    <div class="sa-form-group" style="margin-bottom:24px;">
+        <label class="sa-label">Note / Disclaimer <span style="font-weight:400;color:var(--text-faint);">(optional)</span></label>
+        <textarea name="note" class="sa-input" rows="3" placeholder="This demo resets every 24 hours. Do not upload sensitive data.">{{ config.note }}</textarea>
+        <div class="sa-help">Shown in a warning box on the credentials page below the launch button.</div>
+    </div>
+
+    <div style="display:flex;gap:12px;align-items:center;">
+        <button type="submit" class="sa-btn primary">
+            <i class="fas fa-save"></i> Save Configuration
+        </button>
+        {% if config.panel_url %}
+        <a href="{{ config.panel_url }}" target="_blank" class="sa-btn sky">
+            <i class="fas fa-external-link-alt"></i> Test Panel Link
+        </a>
+        {% endif %}
+        <a href="/try-voidpanel/" target="_blank" class="sa-btn">
+            <i class="fas fa-eye"></i> Preview Public Page
+        </a>
+    </div>
+</form>
+
+<!-- Preview section -->
+<div class="sa-card" style="margin-top:24px;">
+    <h3 class="sa-section-title" style="margin-bottom:16px;">
+        <i class="fas fa-info-circle" style="color:var(--accent);margin-right:8px;"></i>How It Works
+    </h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+        <div style="background:var(--bg-subtle);border:1px solid var(--border-subtle);border-radius:14px;padding:18px;">
+            <div style="font-size:1.4rem;margin-bottom:8px;">🎯</div>
+            <div style="font-weight:800;font-size:.88rem;color:var(--text-primary);margin-bottom:4px;">Header Banner</div>
+            <div style="font-size:.8rem;color:var(--text-muted);line-height:1.6;">A glowing "Try VoidPanel" button appears in the top navigation bar on all public pages when enabled.</div>
+        </div>
+        <div style="background:var(--bg-subtle);border:1px solid var(--border-subtle);border-radius:14px;padding:18px;">
+            <div style="font-size:1.4rem;margin-bottom:8px;">🔑</div>
+            <div style="font-weight:800;font-size:.88rem;color:var(--text-primary);margin-bottom:4px;">Credentials Page</div>
+            <div style="font-size:.8rem;color:var(--text-muted);line-height:1.6;">Visitors see the Panel URL, username, and password with one-click copy buttons at <code>/try-voidpanel/</code>.</div>
+        </div>
+        <div style="background:var(--bg-subtle);border:1px solid var(--border-subtle);border-radius:14px;padding:18px;">
+            <div style="font-size:1.4rem;margin-bottom:8px;">🚀</div>
+            <div style="font-weight:800;font-size:.88rem;color:var(--text-primary);margin-bottom:4px;">Launch Panel</div>
+            <div style="font-size:.8rem;color:var(--text-muted);line-height:1.6;">A "Launch Panel Now" CTA opens your demo server URL in a new tab — visitors experience VoidPanel live.</div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleSwitch(){
+    const cb=document.getElementById('id_is_enabled');
+    const track=document.getElementById('toggleTrack');
+    const thumb=document.getElementById('toggleThumb');
+    const lbl=document.getElementById('toggleLabel');
+    cb.checked=!cb.checked;
+    if(cb.checked){
+        track.style.background='#2563eb';thumb.style.left='25px';
+        lbl.textContent='ENABLED — Visible to all visitors';lbl.style.color='#059669';
+    } else {
+        track.style.background='#cbd5e1';thumb.style.left='3px';
+        lbl.textContent='DISABLED — Hidden from visitors';lbl.style.color='#94a3b8';
+    }
+}
+function togglePassVis(){
+    const inp=document.getElementById('demoPassInput');
+    const icon=document.getElementById('passEyeIcon');
+    if(inp.type==='text'){inp.type='password';icon.className='fas fa-eye';}
+    else{inp.type='text';icon.className='fas fa-eye-slash';}
+}
+</script>
+{% endblock %}

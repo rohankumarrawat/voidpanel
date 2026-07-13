@@ -1,92 +1,817 @@
+<!-- ★ Theme detection — runs before paint to prevent FOUC ★ -->
+<script>
+    (function () {
+        /* ── Dark theme is permanent default ── */
+        /* Always force dark; if user had 'light' stored, override it */
+        localStorage.setItem('vp-theme', 'dark');
+        document.documentElement.setAttribute('data-theme', 'dark');
+    })();
+</script>
+<style>
+    /* ─── Light theme (default) ─── */
+    html[data-theme="light"] {
+        --void-bg: #f1f5f9;
+        --void-surface: #ffffff;
+        --void-card: rgba(255, 255, 255, 0.90);
+        --void-border: rgba(99, 102, 241, 0.15);
+        --void-border-s: rgba(15, 23, 42, 0.08);
+        --void-accent: #4f46e5;
+        --void-accent-h: #6366f1;
+        --void-cyan: #0891b2;
+        --void-green: #059669;
+        --void-red: #dc2626;
+        --void-amber: #d97706;
+        --void-pink: #db2777;
+        --void-purple: #7c3aed;
+        --t-primary: #0f172a;
+        --t-secondary: #475569;
+        --t-muted: #64748b;
+        --radius: 14px;
+        --radius-sm: 10px;
+        --shadow: 0 4px 24px rgba(0, 0, 0, 0.10);
+        --nb-bg: rgba(255, 255, 255, 0.96);
+        --nb-border: rgba(15, 23, 42, 0.08);
+        --nb-text: #0f172a;
+    }
 
-    <!-- Top navbar div start -->
-    <nav class="navbar navbar-fixed-top">
-        <div class="container-fluid">
-            <div class="navbar-brand">
-                <button type="button" class="btn-toggle-offcanvas"><i class="fa fa-bars"></i></button>
-                <button type="button" class="btn-toggle-fullwidth"><i class="fa fa-bars"></i></button>
-                <a href="/">VoidPanel</a>                
-            </div>
-            
-            <div class="navbar-right">
-         
-                <form id="navbar-search" class="navbar-form search-form">
-                    <input value="" class="form-control" id="searchdata" placeholder="Search here..." type="text" list="search-options">
-                    
+    /* ─── Dark theme ─── */
+    html[data-theme="dark"] {
+        --void-bg: #07091a;
+        --void-surface: rgba(13, 17, 35, 0.85);
+        --void-card: rgba(16, 21, 44, 0.80);
+        --void-border: rgba(99, 102, 241, 0.18);
+        --void-border-s: rgba(255, 255, 255, 0.06);
+        --void-accent: #6366f1;
+        --void-accent-h: #818cf8;
+        --void-cyan: #22d3ee;
+        --void-green: #10b981;
+        --void-red: #ef4444;
+        --void-amber: #f59e0b;
+        --void-pink: #ec4899;
+        --void-purple: #a855f7;
+        --t-primary: #f1f5f9;
+        --t-secondary: #94a3b8;
+        --t-muted: #475569;
+        --radius: 14px;
+        --radius-sm: 10px;
+        --shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+        --nb-bg: rgba(8, 13, 26, 0.96);
+        --nb-border: rgba(255, 255, 255, 0.06);
+        --nb-text: #f1f5f9;
+    }
+
+    /* ─── Navbar theme override ─── */
+    .navbar.navbar-fixed-top {
+        background: var(--nb-bg) !important;
+        border-bottom: 1px solid var(--nb-border) !important;
+        backdrop-filter: blur(16px) !important;
+        box-shadow: var(--shadow) !important;
+    }
+
+    .navbar.navbar-fixed-top .navbar-brand a {
+        color: var(--nb-text) !important;
+    }
+
+    #searchdata {
+        background: var(--void-surface) !important;
+        color: var(--t-primary) !important;
+        border: 1px solid var(--void-border-s) !important;
+        border-radius: 8px !important;
+    }
+
+    /* ─── Theme toggle button ─── */
+    #panel-theme-toggle {
+        background: transparent;
+        border: 1px solid var(--void-border-s);
+        border-radius: 10px;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: var(--t-secondary);
+        transition: all 0.2s;
+        flex-shrink: 0;
+    }
+
+    #panel-theme-toggle:hover {
+        background: var(--void-surface);
+        color: var(--void-accent);
+        border-color: var(--void-accent);
+    }
+
+    /* Icon visibility based on theme */
+    html[data-theme="dark"] .pt-sun {
+        display: block !important;
+    }
+
+    html[data-theme="dark"] .pt-moon {
+        display: none !important;
+    }
+
+    html[data-theme="light"] .pt-sun {
+        display: none !important;
+    }
+
+    html[data-theme="light"] .pt-moon {
+        display: block !important;
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+   GLOBAL LIGHT-THEME TEXT RESET
+   Overrides main.css: "body, p, span, a, h1-h6 { color:#fff !important }"
+   Must be here (in navbar.html = included by all pages) so it applies
+   universally, not just on the dashboard.
+════════════════════════════════════════════════════════════════ */
+    body,
+    #wrapper,
+    #main-content {
+        background: var(--void-bg) !important;
+    }
+
+    html[data-theme="light"] body,
+    html[data-theme="light"] #wrapper,
+    html[data-theme="light"] #main-content {
+        color: var(--t-primary) !important;
+    }
+
+    html[data-theme="light"] p,
+    html[data-theme="light"] div,
+    html[data-theme="light"] h1,
+    html[data-theme="light"] h2,
+    html[data-theme="light"] h3,
+    html[data-theme="light"] h4,
+    html[data-theme="light"] h5,
+    html[data-theme="light"] h6,
+    html[data-theme="light"] label,
+    html[data-theme="light"] small,
+    html[data-theme="light"] li,
+    html[data-theme="light"] td,
+    html[data-theme="light"] th,
+    html[data-theme="light"] .list-group-item,
+    html[data-theme="light"] .text-muted,
+    html[data-theme="light"] .control-label,
+    html[data-theme="light"] .help-block {
+        color: var(--t-primary) !important;
+    }
+
+    html[data-theme="light"] .text-muted,
+    html[data-theme="light"] small,
+    html[data-theme="light"] .breadcrumb-item.active {
+        color: var(--t-muted) !important;
+    }
+
+    html[data-theme="light"] a:not(.btn):not(.nav-link):not(.sb-logout):not(.action-card):not(.util-card) {
+        color: var(--void-accent) !important;
+    }
+
+    html[data-theme="light"] span {
+        color: inherit !important;
+    }
+
+    /* Forms */
+    html[data-theme="light"] .form-control,
+    html[data-theme="light"] select,
+    html[data-theme="light"] input:not([type=checkbox]):not([type=radio]),
+    html[data-theme="light"] textarea {
+        color: var(--t-primary) !important;
+        background-color: #ffffff !important;
+        border-color: rgba(15, 23, 42, 0.15) !important;
+    }
+
+    html[data-theme="light"] .form-control::placeholder {
+        color: var(--t-muted) !important;
+    }
+
+    /* Page loader */
+    html[data-theme="light"] .page-loader-wrapper {
+        background: var(--void-bg) !important;
+    }
+
+    /* Card & Container overrides for light theme pages */
+    html[data-theme="light"] .card,
+    html[data-theme="light"] .section-card,
+    html[data-theme="light"] .stat-card,
+    html[data-theme="light"] .fw-card,
+    html[data-theme="light"] .master-card,
+    html[data-theme="light"] .term-card,
+    html[data-theme="light"] .stat-pill,
+    html[data-theme="light"] .glass-card,
+    html[data-theme="light"] .ols-box,
+    html[data-theme="light"] .ols-creds {
+        background: var(--void-surface) !important;
+        border-color: var(--void-border-s) !important;
+        color: var(--t-primary) !important;
+        box-shadow: var(--shadow) !important;
+    }
+
+    html[data-theme="light"] .fw-card.green:hover,
+    html[data-theme="light"] .fw-card.red:hover,
+    html[data-theme="light"] .fw-card.purple:hover,
+    html[data-theme="light"] .fw-card.amber:hover {
+        box-shadow: 0 8px 30px rgba(99, 102, 241, 0.15) !important;
+    }
+
+    /* Specific component overrides */
+    html[data-theme="light"] .term-card {
+        background: #f8fafc !important;
+        border-color: var(--void-border-s) !important;
+    }
+
+    html[data-theme="light"] .term-bar {
+        background: #f1f5f9 !important;
+        border-bottom-color: var(--void-border-s) !important;
+    }
+
+    html[data-theme="light"] .term-label {
+        color: var(--t-muted) !important;
+    }
+
+    html[data-theme="light"] .tmt {
+        color: var(--t-muted) !important;
+    }
+
+    html[data-theme="light"] .fw-input {
+        background: #ffffff !important;
+        border-color: rgba(15, 23, 42, 0.15) !important;
+        color: var(--t-primary) !important;
+    }
+
+    html[data-theme="light"] .fw-input::placeholder {
+        color: var(--t-muted) !important;
+    }
+
+    html[data-theme="light"] .engine-banner {
+        background: var(--void-surface) !important;
+        border-color: var(--void-border) !important;
+        color: var(--t-primary) !important;
+        box-shadow: var(--shadow) !important;
+    }
+
+    html[data-theme="light"] .engine-banner h2 {
+        color: var(--void-accent) !important;
+    }
+
+    html[data-theme="light"] .notice-box {
+        background: rgba(56, 189, 248, 0.08) !important;
+        border-color: rgba(56, 189, 248, 0.25) !important;
+        color: #0369a1 !important;
+    }
+
+    html[data-theme="light"] .notice-box strong {
+        color: #0c4a6e !important;
+    }
+
+    html[data-theme="light"] .feat-list li {
+        border-bottom-color: var(--void-border-s) !important;
+        color: var(--t-secondary) !important;
+    }
+
+    html[data-theme="light"] .svc-row {
+        background: var(--void-surface) !important;
+        border-color: var(--void-border-s) !important;
+        color: var(--t-primary) !important;
+    }
+
+    html[data-theme="light"] .svc-row:hover {
+        background: rgba(99, 102, 241, 0.04) !important;
+        border-color: var(--void-border) !important;
+    }
+
+    html[data-theme="light"] .svc-name {
+        color: var(--t-primary) !important;
+    }
+
+    html[data-theme="light"] .svc-desc {
+        color: var(--t-muted) !important;
+    }
+
+    html[data-theme="light"] .s-val {
+        color: var(--t-primary) !important;
+    }
+
+    html[data-theme="light"] .install-banner {
+        background: var(--void-surface) !important;
+        border-color: var(--void-border-s) !important;
+        box-shadow: var(--shadow) !important;
+    }
+
+    html[data-theme="light"] .install-banner h2 {
+        color: var(--t-primary) !important;
+    }
+
+    html[data-theme="light"] .gauge-svg text {
+        fill: var(--t-primary) !important;
+    }
+
+    html[data-theme="light"] .gauge-sub span {
+        color: var(--t-primary) !important;
+    }
+
+    html[data-theme="light"] .gauge-sub {
+        color: var(--t-muted) !important;
+    }
+
+    html[data-theme="light"] .vm-btn-cancel {
+        background: #f1f5f9 !important;
+        color: var(--t-secondary) !important;
+        border-color: rgba(15, 23, 42, 0.12) !important;
+    }
+
+    html[data-theme="light"] .vm-btn-cancel:hover {
+        background: #e2e8f0 !important;
+    }
+</style>
+
+<!-- Top navbar -->
+<nav class="navbar navbar-fixed-top">
+    <div class="container-fluid">
+        <div class="navbar-brand">
+            <button type="button" class="btn-toggle-offcanvas"><i class="fa fa-bars"></i></button>
+            <!-- <button type="button" class="btn-toggle-fullwidth"><i class="fa fa-bars"></i></button>
+                <a href="/" style="display:inline-flex;align-items:center;text-decoration:none;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="120" height="28" viewBox="0 0 180 40" aria-label="VoidPanel" style="display:block;">
+                      <rect x="0" y="4" width="34" height="34" rx="8" ry="8" fill="rgba(255,255,255,0.12)"/>
+                      <rect x="7" y="13" width="20" height="4" rx="1.5" fill="#ffffff" opacity="0.9"/>
+                      <rect x="7" y="19.5" width="14" height="4" rx="1.5" fill="#ffffff" opacity="0.65"/>
+                      <rect x="7" y="26" width="10" height="4" rx="1.5" fill="#60a5fa"/>
+                      <text x="43" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#ffffff">Void</text>
+                      <text x="91" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#60a5fa">Panel</text>
+                    </svg>
+                </a> -->
+        </div>
+
+        <div class="navbar-right">
+            <div style="display:flex; align-items:center; justify-content:flex-end; gap:12px;">
+
+                <form id="navbar-search" class="navbar-form search-form" style="margin:0;">
+                    <input value="" class="form-control" id="searchdata" placeholder="Search here..." type="text"
+                        list="search-options">
                     <datalist id="search-options">
-                      <option value="List Users"></option>
-                      <option value="Add Users"></option>
-                      <option value="DNS management"></option>
-                      <option value="Terminal"></option>
-                      <option value="Firewall"></option>
-                      <option value="Add Website"></option>
-                      <option value="List Websites"></option>
-                      <option value="Notifications"></option>
-                      <option value="Hostname Setup"></option>
-                      <option value="PHP Versions"></option>
-                      <option value="Auto SSL"></option>
-                      <option value="Email Wizard"></option>
-                      <option value="FileManager"></option>
-                      <option value="Server Status"></option>
-                      <option value="Change Password"></option>
-                      <option value="Cron Jobs"></option>
-                      <option value="Updates"></option>
-                      <option value="Convert Website Into User"></option>
-                      <option value="Package Manager"></option>
-                      <option value="DataBase Wizard"></option>
-                      <option value="FTP Wizard"></option>
-                      <option value="Dashboard"></option>
-                      
-                     
+                        <option value="List Users"></option>
+                        <option value="Add Users"></option>
+                        <option value="DNS management"></option>
+                        <option value="Terminal"></option>
+                        <option value="Firewall"></option>
+                        <option value="Add Website"></option>
+                        <option value="List Websites"></option>
+                        <option value="Notifications"></option>
+                        <option value="Hostname Setup"></option>
+                        <option value="PHP Versions"></option>
+                        <option value="Auto SSL"></option>
+                        <option value="Email Wizard"></option>
+                        <option value="FileManager"></option>
+                        <option value="Server Status"></option>
+                        <option value="Change Password"></option>
+                        <option value="Cron Jobs"></option>
+                        <option value="Updates"></option>
+                        <option value="Convert Website Into User"></option>
+                        <option value="Package Manager"></option>
+                        <option value="DataBase Wizard"></option>
+                        <option value="FTP Wizard"></option>
+                        <option value="Dashboard"></option>
+                        <option value="Process Manager"></option>
                     </datalist>
-                  
-                    <button type="button" class="btn btn-default"><i class="icon-magnifier"></i></button>
-                  </form>
-                  
-                  <script>
-                    document.getElementById('searchdata').addEventListener('input', function() {
-                      const selectedValue = this.value;
-                      
-                      // Define redirection URLs for different values
-                      const redirects = {
-                        "List Users": "/listusers/",
-                        "Add Users": "/adduser/",
-                        "DNS management": "/listdns/",
-               
-                        "Firewall": "/cpbruteforce/",
-                        "Terminal": "/terminal/",
-                        "Add Website": "/addwebsite/",
-                        "List Websites": "/listwebsite/",
-                        "Notifications": "https://voidpanel.com/notifications/",
-                        "Hostname Setup": "/hostname/",
-                        "PHP Versions": "/phpsetting/",
-                        "Auto SSL": "/runsslall/",
-                        "Email Wizard": "/allemailwizard/",
-                        "FileManager": "/filemanager/",
-                        "Server Status": "/serverstatus/",
-                        "Change Password": "/chpass/",
-                        "Cron Jobs": "/maincron/",
-                        "Updates": "/update/",
-                        "Convert Website Into User": "/convertwebsite/",
-                        "Package Manager": "/package/",
-                        "DataBase Wizard": "/fulldbwizard/",
-                        "FTP Wizard": "/ftpserver/",
-                        "Dashboard": "/panel/",
-                       
-                      };
-                  
-                      // Check if the selected value has a corresponding URL
-                      if (redirects[selectedValue]) {
-                        window.location.href = redirects[selectedValue];  // Redirect to the URL
-                      }
+                    <button type="button" class="btn btn-default"><i class="fa-solid fa-search"></i></button>
+                </form>
+
+                <script>
+                    document.getElementById('searchdata').addEventListener('input', function () {
+                        var v = this.value;
+                        var redirects = {
+                            "List Users": "/listusers/",
+                            "Add Users": "/adduser/",
+                            "DNS management": "/listdns/",
+                            "Firewall": "/cpbruteforce/",
+                            "Terminal": "/terminal/",
+                            "Add Website": "/addwebsite/",
+                            "List Websites": "/listwebsite/",
+                            "Notifications": "https://voidpanel.com/notifications/",
+                            "Hostname Setup": "/hostname/",
+                            "PHP Versions": "/phpsetting/",
+                            "Auto SSL": "/runsslall/",
+                            "Email Wizard": "/allemailwizard/",
+                            "FileManager": "/filemanager/",
+                            "Server Status": "/serverstatus/",
+                            "Change Password": "/chpass/",
+                            "Cron Jobs": "/maincron/",
+                            "Updates": "/update/",
+                            "Convert Website Into User": "/convertwebsite/",
+                            "Package Manager": "/package/",
+                            "DataBase Wizard": "/fulldbwizard/",
+                            "FTP Wizard": "/ftpserver/",
+                            "Dashboard": "/panel/",
+                            "Process Manager": "/processmanager/",
+                        };
+                        if (redirects[v]) window.location.href = redirects[v];
                     });
-                  </script>
-                  
+                </script>
 
-                  
-                               
+                <!-- ☀️ / 🌙  Theme Toggle Button -->
+                <button id="panel-theme-toggle" onclick="panelToggleTheme()" title="Switch Light / Dark Theme">
+                    <!-- Sun shown when dark mode is active -->
+                    <svg class="pt-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <circle cx="12" cy="12" r="5" />
+                        <line x1="12" y1="1" x2="12" y2="3" />
+                        <line x1="12" y1="21" x2="12" y2="23" />
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                        <line x1="1" y1="12" x2="3" y2="12" />
+                        <line x1="21" y1="12" x2="23" y2="12" />
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                    </svg>
+                    <!-- Moon shown when light mode is active -->
+                    <svg class="pt-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                    </svg>
+                </button>
 
-              
+                <ul class="nav navbar-nav" style="margin:0; padding:0; display:flex; align-items:center;">
+                    <li style="list-style:none;">
+                        <a href="/processmanager/" title="Process Manager"
+                            style="color:var(--nb-text); background:rgba(99,102,241,0.15); border-radius:10px; padding:8px 14px; display:flex; align-items:center; gap:8px; transition:all 0.2s; text-decoration:none; white-space:nowrap; border:1px solid rgba(99,102,241,0.20); height:40px;">
+                            <i class="fa-solid fa-microchip"></i>
+                            <span style="font-size:0.82rem; font-weight:700;">Task Manager</span>
+                        </a>
+                    </li>
+                </ul>
             </div>
         </div>
-    </nav>
+    </div>
+</nav>
+
+{% if license_features.ai_assistant %}{% include 'ai_widget.html' %}{% endif %}
+
+<script>
+    /* ── Theme toggle — Dark is permanent, Light is coming soon ── */
+    function panelToggleTheme() {
+        var current = document.documentElement.getAttribute('data-theme') || 'dark';
+        if (current === 'dark') {
+            /* Light theme is not yet available — show toast */
+            _vpShowComingSoon();
+        } else {
+            /* Already on light? Force back to dark */
+            document.documentElement.setAttribute('data-theme', 'dark');
+            localStorage.setItem('vp-theme', 'dark');
+        }
+        /* ── Original two-way toggle (kept for future use) ──
+        var next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('vp-theme', next);
+        ── end original ── */
+    }
+
+    function _vpShowComingSoon() {
+        /* Remove any existing toast */
+        var old = document.getElementById('vp-cs-toast');
+        if (old) old.remove();
+
+        var toast = document.createElement('div');
+        toast.id = 'vp-cs-toast';
+        toast.innerHTML = '<span style="font-size:1.1rem;">🌙</span> <span>Light Theme — <strong>Coming Soon</strong></span>';
+        Object.assign(toast.style, {
+            position: 'fixed',
+            bottom: '28px',
+            right: '28px',
+            background: 'linear-gradient(135deg, #1e1b4b, #312e81)',
+            color: '#e0e7ff',
+            padding: '13px 22px',
+            borderRadius: '12px',
+            boxShadow: '0 8px 32px rgba(99,102,241,0.35)',
+            border: '1px solid rgba(129,140,248,0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '0.88rem',
+            fontWeight: '600',
+            zIndex: '99999',
+            opacity: '0',
+            transform: 'translateY(12px)',
+            transition: 'opacity 0.28s ease, transform 0.28s ease',
+            pointerEvents: 'none',
+            letterSpacing: '0.01em',
+        });
+        document.body.appendChild(toast);
+
+        /* Animate in */
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateY(0)';
+            });
+        });
+
+        /* Animate out after 2.8 s */
+        setTimeout(function () {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(12px)';
+            setTimeout(function () { toast.remove(); }, 300);
+        }, 2800);
+    }
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     VOIDPANEL — GLOBAL RESPONSIVE CSS
+     Applied to every client portal page via this shared navbar include
+     ══════════════════════════════════════════════════════════════════ -->
+<style>
+/* ── Base: all tables scroll horizontally on small screens ── */
+.table-responsive,
+.table-wrap,
+.resp-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+/* Make any un-wrapped table still scroll */
+@media (max-width: 768px) {
+    table:not(.no-resp) {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+    }
+
+    /* ── Sidebar: hide on mobile, slide in via JS toggle ── */
+    #left-sidebar,
+    .sidebar,
+    .left-panel,
+    nav.sidebar,
+    .side-menu {
+        transform: translateX(-100%) !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        height: 100vh !important;
+        z-index: 9999 !important;
+        transition: transform 0.28s cubic-bezier(.4,0,.2,1) !important;
+        overflow-y: auto !important;
+        width: 260px !important;
+    }
+    #left-sidebar.sidebar-open,
+    .sidebar.sidebar-open,
+    .left-panel.sidebar-open {
+        transform: translateX(0) !important;
+    }
+
+    /* ── Main content: full width when sidebar is hidden ── */
+    #main-content,
+    .main-content,
+    .page-content,
+    #page-content-wrapper {
+        margin-left: 0 !important;
+        width: 100% !important;
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+
+    /* ── Stats / card grids: 1 column ── */
+    .stats-strip,
+    .stat-grid,
+    .cards-grid,
+    .dash-grid,
+    .grid-3,
+    .grid-4,
+    .row.row-cols-3,
+    .row.row-cols-4 {
+        grid-template-columns: 1fr 1fr !important;
+        display: grid !important;
+        gap: 10px !important;
+    }
+
+    /* ── Utility / quick-action grids: 2 columns on mobile ── */
+    .util-grid,
+    .quick-grid,
+    .action-grid {
+        grid-template-columns: 1fr 1fr !important;
+    }
+
+    /* ── Hero / header sections ── */
+    .dash-hero,
+    .page-hero,
+    .section-hero {
+        flex-direction: column !important;
+        gap: 12px !important;
+        padding: 16px !important;
+    }
+
+    /* ── Topbar / Navbar ── */
+    .top-bar,
+    .topbar,
+    .navbar-header,
+    .header-top {
+        padding: 8px 12px !important;
+    }
+
+    /* Show hamburger menu button on mobile */
+    .mobile-hamburger,
+    .sidebar-toggle,
+    .hamburger-btn {
+        display: flex !important;
+    }
+
+    /* Hide desktop-only breadcrumbs on very small screens */
+    .breadcrumb-desktop {
+        display: none !important;
+    }
+
+    /* ── Modals: full width on mobile ── */
+    .modal-dialog,
+    .void-modal,
+    .modal-glass,
+    .fm-modal,
+    .glass-card.modal {
+        width: 96vw !important;
+        max-width: 96vw !important;
+        margin: 12px auto !important;
+        padding: 20px 16px !important;
+    }
+
+    /* ── Buttons in button groups: wrap ── */
+    .btn-group,
+    .button-row,
+    .action-row {
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+    }
+
+    /* ── File manager toolbar: wrap ── */
+    .fm-toolbar,
+    .fm-actions,
+    .toolbar-btns {
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+    }
+    .fm-btn {
+        font-size: 0.78rem !important;
+        padding: 7px 10px !important;
+    }
+
+    /* ── Cards: reduce padding ── */
+    .section-card,
+    .stat-card,
+    .glass-card,
+    .fw-card,
+    .master-card,
+    .ols-box {
+        padding: 14px !important;
+    }
+
+    /* ── Form layouts: stack label + input ── */
+    .form-row,
+    .input-row {
+        flex-direction: column !important;
+    }
+
+    /* ── Toast position: bottom center on mobile ── */
+    #void-toasts,
+    .toasts-container {
+        bottom: 16px !important;
+        right: 50% !important;
+        transform: translateX(50%) !important;
+        width: 94vw !important;
+        max-width: 94vw !important;
+    }
+    .void-toast {
+        min-width: unset !important;
+        width: 100% !important;
+    }
+
+    /* ── Quota ring / progress: smaller ── */
+    .ring-card,
+    .quota-ring {
+        transform: scale(0.9);
+        transform-origin: center;
+    }
+
+    /* ── Page titles: smaller font ── */
+    h1, .page-title { font-size: 1.3rem !important; }
+    h2 { font-size: 1.1rem !important; }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+    .stats-strip,
+    .stat-grid,
+    .dash-grid,
+    .util-grid,
+    .quick-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .ctrl-grid {
+        grid-template-columns: 1fr 1fr !important;
+    }
+
+    /* Hide non-essential table columns on very small screens */
+    .col-hide-xs {
+        display: none !important;
+    }
+
+    /* Full-width buttons on small screens */
+    .btn-full-xs {
+        width: 100% !important;
+        margin: 4px 0 !important;
+    }
+}
+
+/* ── Hamburger button for sidebar (mobile) ── */
+.vp-hamburger {
+    display: none;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: rgba(99,102,241,0.12);
+    border: 1px solid rgba(99,102,241,0.2);
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #818cf8;
+    font-size: 1rem;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+.vp-hamburger:hover { background: rgba(99,102,241,0.22); }
+@media (max-width: 768px) {
+    .vp-hamburger { display: flex; }
+}
+
+/* ── Sidebar overlay backdrop (mobile) ── */
+.sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 9998;
+    backdrop-filter: blur(2px);
+}
+.sidebar-backdrop.active { display: block; }
+</style>
+
+<script>
+/* ── Mobile sidebar toggle ── */
+(function() {
+    function initMobileSidebar() {
+        var sidebar = document.getElementById('left-sidebar')
+                   || document.querySelector('.sidebar')
+                   || document.querySelector('.left-panel')
+                   || document.querySelector('nav.sidebar');
+        if (!sidebar) return;
+
+        /* Create backdrop */
+        var backdrop = document.createElement('div');
+        backdrop.className = 'sidebar-backdrop';
+        backdrop.id = 'sidebar-backdrop';
+        document.body.appendChild(backdrop);
+
+        /* Find or create hamburger button */
+        var hamburger = document.getElementById('vp-hamburger-btn');
+        if (!hamburger) {
+            hamburger = document.createElement('button');
+            hamburger.id = 'vp-hamburger-btn';
+            hamburger.className = 'vp-hamburger';
+            hamburger.setAttribute('aria-label', 'Toggle menu');
+            hamburger.innerHTML = '<i class="fa-solid fa-bars"></i>';
+            /* Prepend to topbar/navbar */
+            var topbar = document.querySelector('.topbar-content')
+                       || document.querySelector('.navbar-header')
+                       || document.querySelector('.top-bar')
+                       || document.querySelector('.header-inner');
+            if (topbar) topbar.prepend(hamburger);
+        }
+
+        function openSidebar() {
+            sidebar.classList.add('sidebar-open');
+            backdrop.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeSidebar() {
+            sidebar.classList.remove('sidebar-open');
+            backdrop.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        hamburger.addEventListener('click', function() {
+            if (sidebar.classList.contains('sidebar-open')) closeSidebar();
+            else openSidebar();
+        });
+        backdrop.addEventListener('click', closeSidebar);
+
+        /* Close sidebar on navigation link click (mobile UX) */
+        sidebar.querySelectorAll('a').forEach(function(link) {
+            link.addEventListener('click', function() {
+                if (window.innerWidth <= 768) closeSidebar();
+            });
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initMobileSidebar);
+    } else {
+        initMobileSidebar();
+    }
+})();
+</script>

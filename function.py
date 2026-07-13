@@ -2,31 +2,65 @@
 import subprocess
 import socket
 import os
+import sys
 import mimetypes
 import stat
 import random
+import re
+import shlex
 import requests
 import mysql.connector
 from mysql.connector import Error
+from voidplatform import get_platform
+from voidplatform.config import paths
+
+
+def _validate_sql_identifier(name):
+    """Validate a SQL identifier (database name, username) to prevent injection."""
+    if not name or not re.match(r'^[a-zA-Z0-9_.-]+$', name):
+        raise ValueError(f'Invalid SQL identifier: {name!r}')
+    return name
+
+
+_ALLOWED_MYSQL_PRIVILEGES = frozenset({
+    'ALL PRIVILEGES', 'SELECT', 'INSERT', 'UPDATE', 'DELETE',
+    'CREATE', 'DROP', 'ALTER', 'INDEX', 'REFERENCES', 'EXECUTE',
+    'CREATE TEMPORARY TABLES', 'LOCK TABLES', 'TRIGGER',
+})
 
 def is_website_live(url):
-    try:
-        response = requests.get(url, timeout=5)
-        # Check if the status code is 200 (OK)
-        if response.status_code == 200:
-            return True
-        else:
-            return False
-    except requests.ConnectionError:
-        # Website is unreachable
-        return False
-    except requests.Timeout:
-        # Website timed out
-        return False
-    except requests.RequestException as e:
-        # Any other exceptions like invalid URL
-        print(f"An error occurred: {e}")
-        return False
+    """
+    Check if a website is live. Tries HTTPS first, falls back to HTTP.
+    Accepts any non-server-error response as 'live'.
+    SSL cert verification is intentionally skipped — we only care if the
+    site responds, not whether its certificate chain is trusted.
+    """
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    domain = url.replace('http://', '').replace('https://', '').rstrip('/')
+    attempts = [
+        f"https://{domain}",
+        f"http://{domain}",
+        f"https://www.{domain}",
+        f"http://www.{domain}",
+    ]
+    for attempt_url in attempts:
+        try:
+            resp = requests.get(
+                attempt_url,
+                timeout=8,
+                allow_redirects=True,
+                verify=False,                         # skip SSL cert verification
+                stream=True,                          # avoid downloading full body
+                headers={'User-Agent': 'VoidPanel/1.0 SiteCheck'},
+            )
+            resp.close()
+            if resp.status_code < 600:                # any real response = live
+                return True
+        except Exception:
+            continue
+    return False
 def get_random_port(excluded_ports=None):
     # Define the range of ports
     min_port = 1024
@@ -52,7 +86,7 @@ def get_random_port(excluded_ports=None):
 def get_server_ip():
     """Get the server's IP address."""
     try:
-        response = requests.get('https://api.ipify.org')
+        response = requests.get('https://api.ipify.org', timeout=1.5)
         public_ip = response.text
         return public_ip
     except Exception as e:
@@ -61,9 +95,18 @@ def get_server_ip():
     
 
 def run_command(command, check=True):
-    """Run a shell command and optionally check for errors."""
-    print(f"Running command: {command}")
+    """Run a shell command and optionally check for errors.
+
+    SECURITY: Only pass *trusted* commands — never embed unsanitised user input.
+    For user-supplied arguments, use run_command_safe() or shlex.quote().
+    """
     result = subprocess.run(command, shell=True, check=check, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return result
+
+
+def run_command_safe(args, check=True):
+    """Run a command as a list (no shell) to avoid injection."""
+    result = subprocess.run(args, check=check, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     return result
 
 import subprocess
@@ -71,21 +114,30 @@ import sys
 
 def change_hostname(new_hostname):
     try:
-        # Change the hostname
-        subprocess.run(['sudo', 'hostnamectl', 'set-hostname', new_hostname], check=True)
+        # Validate hostname: only allow safe characters
+        import re
+        if not re.match(r'^[a-zA-Z0-9._-]{1,253}$', new_hostname):
+            print(f'Invalid hostname: {new_hostname!r}. Only alphanumeric, dots, underscores and hyphens allowed.')
+            return
 
-        # Update /etc/hosts file
-        with open('/etc/hosts', 'r') as file:
+        # Change the hostname (platform-aware)
+        if sys.platform == 'win32':
+            subprocess.run(['powershell', '-Command', f'Rename-Computer -NewName "{new_hostname}" -Force'], check=True)
+        else:
+            subprocess.run(['sudo', 'hostnamectl', 'set-hostname', new_hostname], check=True)
+
+        # Update hosts file
+        hosts_file = paths.HOSTS_FILE
+        with open(hosts_file, 'r') as file:
             lines = file.readlines()
 
-        with open('/var/www/panel/panel/settings.py', 'a+') as file:
+        settings_path = os.path.join(paths.PANEL_ROOT, 'panel', 'settings.py')
+        with open(settings_path, 'a+') as file:
             file.write('\n')
-            file.write(f'CSRF_TRUSTED_ORIGINS.append("https://{new_hostname}:8082")')
+            file.write(f'CSRF_TRUSTED_ORIGINS.extend(["http://{new_hostname}", "http://{new_hostname}:8080", "https://{new_hostname}", "https://{new_hostname}:8082"])')
 
-
-        with open('/etc/hosts', 'w') as file:
+        with open(hosts_file, 'w') as file:
             for line in lines:
-                # Replace the old hostname with the new one
                 if '127.0.1.1' in line:
                     file.write(f'127.0.1.1\t{new_hostname}\n')
                 else:
@@ -100,45 +152,36 @@ def change_hostname(new_hostname):
         print(f'An error occurred: {e}')
    
 def hostnamessl(hostname,email,xx):
-        run_command(f"certbot --nginx --non-interactive --agree-tos --email {email} -d {hostname} ")  
+        plat = get_platform()
+        get_platform().ssl.provision(hostname, email=email)
         old_hostname=socket.gethostname()
-        sed_command = f"sed -i 's/{old_hostname}/{hostname}/g' /etc/nginx/sites-available/panel"
-        run_command(sed_command)
-        sed_command = f"sed -i 's/{old_hostname}/{hostname}/g' /etc/nginx/sites-available/phpmyadmin"
-        run_command(sed_command)
-        sed_command = f"sed -i 's/{old_hostname}/{hostname}/g' /etc/nginx/sites-available/roundcube"
-        run_command(sed_command) 
-        if xx==0:
-            sed_command = f"sed -i 's|/etc/nginx/dummy.crt|/etc/letsencrypt/live/{hostname}/fullchain.pem|g' /etc/nginx/sites-available/panel"
-            run_command(sed_command)
-            sed_command = f"sed -i 's|/etc/nginx/dummy.key|/etc/letsencrypt/live/{hostname}/privkey.pem|g' /etc/nginx/sites-available/panel"
-            run_command(sed_command)
-
-            sed_command = f"sed -i 's|/etc/nginx/dummy.crt|/etc/letsencrypt/live/{hostname}/fullchain.pem|g' /etc/nginx/sites-available/phpmyadmin"
-            run_command(sed_command)
-            sed_command = f"sed -i 's|/etc/nginx/dummy.key|/etc/letsencrypt/live/{hostname}/privkey.pem|g' /etc/nginx/sites-available/phpmyadmin"
-            run_command(sed_command)
-
-            sed_command = f"sed -i 's|/etc/nginx/dummy.crt|/etc/letsencrypt/live/{hostname}/fullchain.pem|g' /etc/nginx/sites-available/roundcube"
-            run_command(sed_command)
-            sed_command = f"sed -i 's|/etc/nginx/dummy.key|/etc/letsencrypt/live/{hostname}/privkey.pem|g' /etc/nginx/sites-available/roundcube"
-            run_command(sed_command)
-        else:
-            sed_command = f"sed -i 's|/etc/letsencrypt/live/{old_hostname}/fullchain.pem|/etc/letsencrypt/live/{hostname}/fullchain.pem|g' /etc/nginx/sites-available/panel"
-            run_command(sed_command)
-            sed_command = f"sed -i 's|/etc/letsencrypt/live/{old_hostname}/privkey.pem|/etc/letsencrypt/live/{hostname}/privkey.pem|g' /etc/nginx/sites-available/panel"
-            run_command(sed_command)
-
-            sed_command = f"sed -i 's|/etc/letsencrypt/live/{old_hostname}/fullchain.pem|/etc/letsencrypt/live/{hostname}/fullchain.pem|g' /etc/nginx/sites-available/phpmyadmin"
-            run_command(sed_command)
-            sed_command = f"sed -i 's|/etc/letsencrypt/live/{old_hostname}/privkey.pem|/etc/letsencrypt/live/{hostname}/privkey.pem|g' /etc/nginx/sites-available/phpmyadmin"
-            run_command(sed_command)
-
-            sed_command = f"sed -i 's|/etc/letsencrypt/live/{old_hostname}/fullchain.pem|/etc/letsencrypt/live/{hostname}/fullchain.pem|g' /etc/nginx/sites-available/roundcube"
-            run_command(sed_command)
-            sed_command = f"sed -i 's|/etc/letsencrypt/live/{old_hostname}/privkey.pem|/etc/letsencrypt/live/{hostname}/privkey.pem|g' /etc/nginx/sites-available/roundcube"
-            run_command(sed_command)
-        run_command("sudo systemctl reload nginx")
+        sites_dir = paths.NGINX_SITES_AVAILABLE
+        for site in ['panel', 'phpmyadmin', 'roundcube']:
+            site_path = os.path.join(sites_dir, site)
+            if os.path.exists(site_path):
+                with open(site_path, 'r') as f:
+                    content = f.read()
+                content = content.replace(paths.SSL_DUMMY_CERT, f'{paths.LETSENCRYPT_LIVE}/{hostname}/fullchain.pem')
+                content = content.replace(paths.SSL_DUMMY_KEY, f'{paths.LETSENCRYPT_LIVE}/{hostname}/privkey.pem')
+                
+                if old_hostname and old_hostname != hostname:
+                    import re
+                    suffix = ""
+                    if hostname.startswith(old_hostname):
+                        suffix = hostname[len(old_hostname):]
+                    
+                    esc_old = re.escape(old_hostname)
+                    esc_suf = re.escape(suffix) if suffix else ""
+                    
+                    pattern = rf'\b{esc_old}\b'
+                    if esc_suf:
+                        pattern += rf'(?!{esc_suf})'
+                        
+                    content = re.sub(pattern, hostname, content)
+                    content = content.replace(f'{paths.LETSENCRYPT_LIVE}/{old_hostname}/', f'{paths.LETSENCRYPT_LIVE}/{hostname}/')
+                with open(site_path, 'w') as f:
+                    f.write(content)
+        plat.services.reload('nginx')
         import time
         time.sleep(2)
 
@@ -185,7 +228,37 @@ def get_file_info(directory):
         # others=others.sort()
     
     except PermissionError:
-        print(f"Permission denied for directory: {directory}")
+        print(f"Permission denied for directory: {directory}. Attempting sudo fallback...")
+        try:
+            import json, subprocess
+            py_code = """
+import sys, os, stat, mimetypes, json
+d = sys.argv[1]
+try:
+    files=[]; dirs=[]; others=[]
+    for i in os.listdir(d):
+        p = os.path.join(d, i)
+        try:
+            m = stat.filemode(os.stat(p).st_mode)
+            if os.path.isfile(p):
+                t = mimetypes.guess_type(p)[0] or 'Unknown'
+                files.append({'name': i, 'size': os.path.getsize(p)//1024, 'type': t, 'permissions': m})
+            elif os.path.isdir(p):
+                dirs.append({'name': i, 'size': '-', 'type': 'Directory', 'permissions': m})
+            else:
+                others.append({'name': i, 'permissions': m})
+        except Exception:
+            pass
+    print(json.dumps({'files': files, 'directories': dirs, 'others': others}))
+except Exception as e:
+    print(json.dumps({'error': str(e)}))
+"""
+            out = subprocess.run(['sudo', 'python3', '-c', py_code, directory], capture_output=True, text=True, check=True)
+            data = json.loads(out.stdout)
+            if 'error' not in data:
+                return data
+        except Exception as e:
+            print(f"Sudo fallback listdir failed: {e}")
     except OSError as e:
         print(f"Error accessing directory {directory}: {e}")
 
@@ -208,11 +281,12 @@ def zip_files_and_folders(zip_filename, paths):
                 zipf.write(path, arcname=os.path.basename(path))
             elif os.path.isdir(path):
                 # Add a directory
+                parent_dir = os.path.dirname(path)
                 for root, dirs, files in os.walk(path):
                     for file in files:
                         filepath = os.path.join(root, file)
                         # Write the file with relative path inside the zip
-                        zipf.write(filepath, arcname=os.path.relpath(filepath, path))
+                        zipf.write(filepath, arcname=os.path.relpath(filepath, parent_dir))
             else:
                 print(f"Skipping {path}, it is neither a file nor a directory.")
 
@@ -222,46 +296,56 @@ def extract_zip_with_error_handling(zip_filename, extract_to_folder):
         if not os.path.exists(extract_to_folder):
             os.makedirs(extract_to_folder)
 
+        abs_dest = os.path.realpath(extract_to_folder)
         with zipfile.ZipFile(zip_filename, 'r') as zip_ref:
+            for member in zip_ref.infolist():
+                member_path = os.path.realpath(os.path.join(extract_to_folder, member.filename))
+                if not member_path.startswith(abs_dest + os.sep) and member_path != abs_dest:
+                    raise ValueError(f'Zip entry would escape target directory: {member.filename}')
             zip_ref.extractall(extract_to_folder)
 
 
 
-def generate_ssl_certificates(domain, ssl_dir,logs):
-    # Paths for SSL certificate and key
+def generate_ssl_certificates(domain, ssl_dir, logs):
+    import subprocess, tempfile
     cert_path = os.path.join(ssl_dir, f"{domain}.crt")
     key_path = os.path.join(ssl_dir, f"{domain}.key")
 
-    # Ensure SSL directory exists
-    os.makedirs(ssl_dir, exist_ok=True)
+    # Ensure SSL directory exists — use sudo since dir may be root-owned
+    if sys.platform != 'win32':
+        subprocess.run(['sudo', 'mkdir', '-p', ssl_dir], check=False)
+        subprocess.run(['sudo', 'chown', 'www-data:www-data', ssl_dir], check=False)
+        subprocess.run(['sudo', 'mkdir', '-p', logs], check=False)
+        subprocess.run(['sudo', 'chown', 'www-data:www-data', logs], check=False)
+    else:
+        os.makedirs(ssl_dir, exist_ok=True)
 
-    # OpenSSL command to generate a self-signed SSL certificate
-    openssl_command = [
-        "openssl", "req", "-x509", "-nodes", "-days", "365", "-newkey", "rsa:2048",
-        "-keyout", key_path, "-out", cert_path, "-subj", f"/CN={domain}"
-    ]
-    f=open(f'{logs}/ssl.txt','a')
-
+    log_msg = ''
     try:
-        # Run OpenSSL command to generate the certificates
-        subprocess.run(openssl_command, check=True)
-        
-        f.write("\n")
-        f.write(f"SSL certificate and key generated for {domain} at {ssl_dir}")
-        print(f"SSL certificate and key generated for {domain} at {ssl_dir}")
-    except subprocess.CalledProcessError as e:
-        f.write("\n")
-        f.write(f"Failed to generate SSL certificate: {e}")
-        f.write(f"Cannot Write Nginx File")
-    
+        get_platform().ssl.generate_self_signed(domain, cert_path, key_path)
+        log_msg = f"\nSSL certificate and key generated for {domain} at {ssl_dir}"
+        print(log_msg)
+    except Exception as e:
+        log_msg = f"\nFailed to generate SSL certificate: {e}"
+        print(log_msg)
         return None, None
-    f.close()
+    finally:
+        try:
+            with open(os.path.join(logs, 'ssl.txt'), 'a') as _f:
+                _f.write(log_msg)
+        except Exception:
+            pass
 
     return cert_path, key_path
 
 
 def create_nginx_ssl_conf(file_path, domain, root_dir, cert_path, key_path):
-    # Nginx configuration content with SSL support
+    # Build PHP FastCGI directive based on platform
+    if sys.platform == 'win32':
+        php_fastcgi = f"fastcgi_pass 127.0.0.1:{paths.PHP_CGI_PORT};"
+    else:
+        php_fastcgi = f"fastcgi_pass unix:{paths.PHP_FPM_SOCK.format(version='8.3')};"
+
     nginx_ssl_conf = f"""
 server {{
     listen 443 ssl;
@@ -271,6 +355,9 @@ server {{
     ssl_certificate {cert_path};
     ssl_certificate_key {key_path};
 
+    access_log /var/log/nginx/{domain}.access.log;
+    error_log  /var/log/nginx/{domain}.error.log;
+
     # Security Headers
     add_header X-Content-Type-Options nosniff;
     add_header X-XSS-Protection "1; mode=block";
@@ -278,60 +365,55 @@ server {{
 
     root {root_dir};
     index index.php index.html index.htm;
-   location ~ \.php$ {{
+
+    location /vpanel {{
+        return 301 https://$host:8082;
+    }}
+
+    location /control/ {{
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }}
+
+    # Route all requests through index.php (required for WordPress, Laravel, etc.)
+    location / {{
+        try_files $uri $uri/ /index.php?$args;
+    }}
+
+    location ~ \\.php$ {{
         include snippets/fastcgi-php.conf;
-        fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;
+        {php_fastcgi}
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
         include fastcgi_params;
-         fastcgi_read_timeout 300;
+        fastcgi_read_timeout 300;
         fastcgi_connect_timeout 300;
         fastcgi_send_timeout 300;
     }}
 
-    location /phpmyadmin {{
-    alias /usr/share/phpmyadmin;  # This should point to your phpMyAdmin installation
-    index index.php;
-
-    location ~ ^/phpmyadmin/(.+\.php)$ {{
-        fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;
-        fastcgi_index index.php;
-        include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME /usr/share/phpmyadmin/$1;  # Ensure this is correct
-    }}
-
-    location ~ ^/phpmyadmin/(.+\.(gif|jpe?g|png|ico|css|js))$ {{
-        alias /usr/share/phpmyadmin/$1;  # This serves static assets
-    }}
-}}
-
-     location ~ /\.ht {{
+    location ~ /\\.ht {{
         deny all;
     }}
-     proxy_read_timeout 300;
-    proxy_connect_timeout 300;
-    proxy_send_timeout 300;
-    
-   
 }}
 
 
 server {{
     listen 80;
     server_name {domain};
-
-    # Redirect all HTTP traffic to HTTPS
     return 301 https://$host$request_uri;
-
-  
-
 }}
 """
 
     try:
-        # Write the configuration to the specified file path
-        with open(file_path, 'w') as f:
+        import tempfile, subprocess
+        with tempfile.NamedTemporaryFile('w', delete=False) as f:
             f.write(nginx_ssl_conf)
-            run_command('sudo systemctl restart nginx')
+            tmp = f.name
+        subprocess.run(f"sudo cp {tmp} {file_path}", shell=True, check=False)
+        subprocess.run(f"rm {tmp}", shell=True, check=False)
+        get_platform().services.reload('nginx')
         print(f"Nginx SSL configuration file created at: {file_path}")
     except OSError as e:
         print(f"Error creating Nginx configuration file: {e}")
@@ -357,20 +439,40 @@ server {{
 #     return private_key_path, public_key_path
 def generate_dkim_keys(domain, key_dir):
     """Generate DKIM keys for a domain and save them to the specified directory."""
-    os.makedirs(key_dir, exist_ok=True)
-    
-    # Paths for the private and public DKIM keys
+    import subprocess
+    subprocess.run(f"sudo mkdir -p {key_dir}", shell=True)
+
     private_key_path = os.path.join(key_dir, 'default.private')
     public_key_path = os.path.join(key_dir, 'default.txt')
 
-    # Generate DKIM keys using opendkim-genkey command
-    subprocess.run([
-        'opendkim-genkey', '-t', '-s', 'default', '-d', domain, '-b', '2048', '-r', '-v'
-    ], check=True)
-    
-    # Move generated keys to the specified directory
-    os.rename('default.private', private_key_path)
-    os.rename('default.txt', public_key_path)
+    if sys.platform == 'win32':
+        # On Windows use openssl to generate DKIM RSA key pair
+        subprocess.run([
+            'openssl', 'genrsa', '-out', private_key_path, '2048'
+        ], check=True)
+        subprocess.run([
+            'openssl', 'rsa', '-in', private_key_path, '-pubout', '-out', public_key_path
+        ], check=True)
+    else:
+        subprocess.run(f"sudo opendkim-genkey -t -s default -d {domain} -b 2048 -D {key_dir} -r -v", shell=True, check=True)
+        subprocess.run(f"sudo chown -R opendkim:opendkim {key_dir}", shell=True, check=False)
+        subprocess.run(f"sudo chmod 700 {key_dir}", shell=True, check=False)
+        subprocess.run(f"sudo chmod 600 {key_dir}/default.private", shell=True, check=False)
+        
+        # Determine the web server group dynamically (www-data or nginx)
+        web_group = 'www-data'
+        try:
+            import grp
+            grp.getgrnam('www-data')
+        except KeyError:
+            try:
+                grp.getgrnam('nginx')
+                web_group = 'nginx'
+            except KeyError:
+                web_group = 'opendkim'
+                
+        subprocess.run(f"sudo chown opendkim:{web_group} {key_dir}/default.txt", shell=True, check=False)
+        subprocess.run(f"sudo chmod 644 {key_dir}/default.txt", shell=True, check=False)
 
     print(f"DKIM keys generated for {domain}.")
     return private_key_path, public_key_path
@@ -419,7 +521,8 @@ def create_bind_records(domain, key_dir, zone_file_path):
     dkim_selector = "default._domainkey"
     dkim_record = "".join(dkim_record_lines).replace('" "', "").replace("\n", "")
     
-    with open(zone_file_path, 'w') as zone_file:
+    import tempfile, subprocess
+    with tempfile.NamedTemporaryFile('w', delete=False) as zone_file:
         # Write TTL and SOA records
         zone_file.write(f"$TTL 86400  ; Default TTL\n")
         zone_file.write(f"@   IN  SOA ns1.{domain}. admin.{domain}. (\n")
@@ -465,14 +568,23 @@ def create_bind_records(domain, key_dir, zone_file_path):
         
         for chunk in dkim_record_lines:
             zone_file.write(chunk)
+        tmp_zone = zone_file.name
+        
+    subprocess.run(f"sudo cp {tmp_zone} {zone_file_path}", shell=True)
+    subprocess.run(f"sudo chmod 644 {zone_file_path}", shell=True)
+    subprocess.run(f"rm {tmp_zone}", shell=True)
      
-    with open('/etc/bind/named.conf','a') as f:
+    with tempfile.NamedTemporaryFile('w', delete=False) as f:
         f.write("\n")
         f.write(f'zone "{domain}" ')
         f.write("{\n")
         f.write("type master; \n")
-        f.write(f'file "/etc/bind/db.{domain}"; \n')
+        zone_db = os.path.join(paths.BIND_ZONE_DIR, f'db.{domain}')
+        f.write(f'file "{zone_db}"; \n')
         f.write("};\n")
+        tmp_conf = f.name
+    subprocess.run(f"cat {tmp_conf} | sudo tee -a {paths.BIND_CONF}", shell=True)
+    subprocess.run(f"rm {tmp_conf}", shell=True)
     
 
     print(f"BIND zone file created and saved to {zone_file_path}.")
@@ -480,28 +592,28 @@ def create_bind_records(domain, key_dir, zone_file_path):
 def create_bind_recordsforsubdomain(name, zone_file_path):
     """Create BIND zone file records including DKIM, SOA, NS, A, MX, and other common DNS records."""
     
-   
-
+    import tempfile, subprocess
     
-    with open(zone_file_path, 'a') as zone_file:
-       
-
-
-
-        
-         # Write A record\zone_file.write(f"; A Record\n")
-         zone_file.write(f"\n")
-         zone_file.write(f"; A Record\n")
-         zone_file.write(f"{name}   IN  A    {get_server_ip()}\n\n")
-        
-
-       
+    record = f"\n; A Record\n{name}   IN  A    {get_server_ip()}\n\n"
+    
+    with tempfile.NamedTemporaryFile('w', delete=False, suffix='.zone') as tmp:
+        tmp.write(record)
+        tmp_path = tmp.name
+    
+    subprocess.run(f"cat {tmp_path} | sudo tee -a {zone_file_path}", shell=True, check=False)
+    subprocess.run(f"rm {tmp_path}", shell=True, check=False)
 
 def configure_opendkim(domain, key_dir):
     """Configure OpenDKIM for the domain."""
     try:
+        if sys.platform == 'win32':
+            # On Windows, DKIM is handled by hMailServer — no opendkim config
+            print(f"Skipping OpenDKIM config on Windows (handled by mail server) for {domain}.")
+            return
+
         # Update OpenDKIM configuration
-        with open('/etc/opendkim.conf', 'a') as f:
+        import tempfile, subprocess
+        with tempfile.NamedTemporaryFile('w', delete=False) as f:
             f.write(f"\nDomain          {domain}\n")
             f.write(f"KeyFile          {os.path.join(key_dir, 'default.private')}\n")
             f.write(f"Selector         default\n")
@@ -512,20 +624,29 @@ def configure_opendkim(domain, key_dir):
             f.write(f"Syslog           yes\n")
             f.write(f"LogWhy           yes\n")
             f.write(f"Canonicalization    relaxed/simple\n")
+            tmp1 = f.name
+        subprocess.run(f"cat {tmp1} | sudo tee -a /etc/opendkim.conf", shell=True)
 
         # Update KeyTable
-        with open('/etc/opendkim/KeyTable', 'a') as f:
+        with tempfile.NamedTemporaryFile('w', delete=False) as f:
             f.write(f"default._domainkey.{domain} {domain}:default:{os.path.join(key_dir, 'default.private')}\n")
-        
+            tmp2 = f.name
+        subprocess.run(f"cat {tmp2} | sudo tee -a {paths.OPENDKIM_KEYTABLE}", shell=True)
+
         # Update SigningTable
-        with open('/etc/opendkim/SigningTable', 'a') as f:
+        with tempfile.NamedTemporaryFile('w', delete=False) as f:
             f.write(f"*@{domain} default._domainkey.{domain}\n")
+            tmp3 = f.name
+        subprocess.run(f"cat {tmp3} | sudo tee -a {paths.OPENDKIM_SIGNINGTABLE}", shell=True)
 
         # Update TrustedHosts
-        with open('/etc/opendkim/TrustedHosts', 'a') as f:
+        with tempfile.NamedTemporaryFile('w', delete=False) as f:
             f.write(f"127.0.0.1\n")
             f.write(f"localhost\n")
             f.write(f"*.{domain}\n")
+            tmp4 = f.name
+        subprocess.run(f"cat {tmp4} | sudo tee -a {paths.OPENDKIM_TRUSTEDHOSTS}", shell=True)
+        subprocess.run(f"rm {tmp1} {tmp2} {tmp3} {tmp4}", shell=True)
 
         print(f"OpenDKIM configured for {domain}.")
     except IOError as e:
@@ -534,7 +655,7 @@ def configure_opendkim(domain, key_dir):
 
 
 
-BIND_ZONE_PATH = "/etc/bind/zones/"
+BIND_ZONE_PATH = paths.BIND_ZONE_DIR + os.sep
 ZONE_FILE = "example.com.zone"  # Replace with your zone file
 
 # import re
@@ -683,54 +804,67 @@ def parse_dns_zone_file(DNS_FILE):
     multiline_record = ""
     inside_multiline = False
 
-    with open(DNS_FILE, 'r') as file:
-        for line in file:
-            line = line.strip()
+    # Zone files are owned by bind:bind (mode 640).
+    # www-data can't read them directly, so use 'sudo cat'.
+    try:
+        import subprocess as _sp
+        result = _sp.run(['sudo', 'cat', DNS_FILE], capture_output=True, text=True, timeout=10)
+        if result.returncode != 0:
+            raise PermissionError(f'Permission denied reading zone file. Check server file permissions.')
+        content = result.stdout
+    except PermissionError:
+        raise
+    except Exception as e:
+        raise PermissionError(f'Could not read zone file: {e}')
 
-            if not line or line.startswith(';'):
-                continue  # Skip comments and empty lines
+    for line in content.splitlines():
+        line = line.strip()
 
-            # Check if it's a TTL line
-            ttl_match = re.match(r'^\$TTL\s+(?P<ttl>\d+)\s+;\s+(?P<data>.*)', line)
-            if ttl_match:
-                records.append({
-                    'name': '$TTL',
-                    'ttl': ttl_match.group('ttl'),
-                    'class': 'IN',
-                    'type': ';',
-                    'data': ttl_match.group('data')
-                })
-                continue
+        if not line or line.startswith(';'):
+            continue  # Skip comments and empty lines
 
-            # Check if the record is a multiline TXT/DKIM entry (inside parentheses)
-            if '(' in line:
-                inside_multiline = True
-                multiline_record = line
-                continue
-            elif inside_multiline:
-                multiline_record += " " + line
-                if ')' in line:
-                    inside_multiline = False
+        # Check if it's a TTL line
+        ttl_match = re.match(r'^\$TTL\s+(?P<ttl>\d+)', line)
+        if ttl_match:
+            records.append({
+                'name': '$TTL',
+                'ttl': ttl_match.group('ttl'),
+                'class': 'IN',
+                'type': ';',
+                'data': 'Default TTL'
+            })
+            continue
 
-                    # Process multiline record as one line
-                    multiline_record = multiline_record.replace('(', '').replace(')', '')
-                    match = re.match(r'(?P<name>\S+)\s+((?P<ttl>\d+)\s+)?IN\s+(?P<type>\S+)\s+(?P<data>.*)', multiline_record)
-                    if match:
-                        record_data = match.groupdict()
-                        record_data['ttl'] = record_data.get('ttl', None)
-                        records.append(record_data)
-                    multiline_record = ""
-                continue
+        # Check if the record is a multiline TXT/DKIM entry (inside parentheses)
+        if '(' in line:
+            inside_multiline = True
+            multiline_record = line
+            continue
+        elif inside_multiline:
+            multiline_record += " " + line
+            if ')' in line:
+                inside_multiline = False
 
-            # Match general DNS record lines
-            general_pattern = re.compile(
-                r'(?P<name>\S+)\s+((?P<ttl>\d+)\s+)?IN\s+(?P<type>\S+)\s+(?P<data>.*)'
-            )
-            match = general_pattern.match(line)
-            if match:
-                record_data = match.groupdict()
-                record_data['ttl'] = record_data.get('ttl', None)
-                records.append(record_data)
+                # Process multiline record as one line
+                multiline_record = multiline_record.replace('(', '').replace(')', '')
+                match = re.match(r'(?P<name>\S+)\s+((?P<ttl>\d+)\s+)?IN\s+(?P<type>\S+)\s+(?P<data>.*)', multiline_record)
+                if match:
+                    record_data = match.groupdict()
+                    record_data['ttl'] = record_data.get('ttl', None)
+                    records.append(record_data)
+                multiline_record = ""
+            continue
+
+        # Match general DNS record lines (with or without IN class keyword)
+        general_pattern = re.compile(
+            r'(?P<name>\S+)\s+((?P<ttl>\d+)\s+)?(?:IN\s+)?(?P<type>[A-Z]+)\s+(?P<data>.*)'
+        )
+        match = general_pattern.match(line)
+        if match:
+            record_data = match.groupdict()
+            record_data['ttl'] = record_data.get('ttl') or '86400'
+            record_data['class'] = 'IN'
+            records.append(record_data)
 
     return records
 
@@ -742,27 +876,21 @@ def parse_dns_zone_file(DNS_FILE):
 def create_database_and_table(db_name,password):
     connection = None
     try:
-        # Establish a connection to MySQL server
+        _validate_sql_identifier(db_name)
         connection = mysql.connector.connect(
-            host="localhost",  # Replace with your host
-            user="newuser", 
-             password=password # Replace with your MySQL username
-        # Replace with your MySQL password
+            host="localhost",
+            user="root", 
+            password=password
         )
-        print(connection)
         if connection.is_connected():
             cursor = connection.cursor()
-            
-
-            # Create a new database
-            cursor.execute(f"CREATE DATABASE IF NOT EXISTS {db_name}")
-            # Return True for successful creation
+            cursor.execute(f"CREATE DATABASE IF NOT EXISTS `{db_name}`")
             return True
         else:
             return False
 
-
-    except Error as e:
+    except (Error, ValueError) as e:
+        print(f"Error: {e}")
         return False
 
 
@@ -770,24 +898,19 @@ def create_database_and_table(db_name,password):
 def create_mysql_user(username,password,passw):
     connection = None
     try:
-        # Establish a connection to MySQL server
+        _validate_sql_identifier(username)
         connection = mysql.connector.connect(
-            host="localhost",  # Replace with your host
-            user="newuser",  # Replace with your MySQL admin username
-            password=passw # Replace with your MySQL admin password
+            host="localhost",
+            user="root",
+            password=passw
         )
 
         if connection.is_connected():
             cursor = connection.cursor()
-
-
-            create_user_query = f"CREATE USER '{username}'@'localhost' IDENTIFIED BY '{password}';"
-            cursor.execute(create_user_query)
-
-
+            cursor.execute("CREATE USER %s@'localhost' IDENTIFIED BY %s", (username, password))
             return True
 
-    except Error as e:
+    except (Error, ValueError) as e:
         print(f"Error: {e}")
         return False
 
@@ -803,7 +926,7 @@ def get_database_names(passw):
         # Establish a connection to MySQL server
         connection = mysql.connector.connect(
             host="localhost",  
-            user="newuser",  # Replace with your MySQL admin username
+            user="root",  # Replace with your MySQL admin username
             password=passw  # Replace with your MySQL admin password
         )
 
@@ -829,7 +952,7 @@ def get_database_users(passw):
         # Establish a connection to MySQL server
         connection = mysql.connector.connect(
             host="localhost",  
-            user="newuser",  # Replace with your MySQL admin username
+            user="root",  # Replace with your MySQL admin username
             password=passw  # Replace with your MySQL admin password
         )
 
@@ -855,7 +978,7 @@ def get_database_names_with_filter(passw, filter_string):
         # Establish a connection to MySQL server
         connection = mysql.connector.connect(
             host="localhost",  
-            user="newuser",  # Replace with your MySQL admin username
+            user="root",  # Replace with your MySQL admin username
             password=passw  # Replace with your MySQL admin password
         )
 
@@ -885,7 +1008,7 @@ def get_database_users_with_filter(passw, filter_string):
         # Establish a connection to MySQL server
         connection = mysql.connector.connect(
             host="localhost",  
-            user="newuser",  # Replace with your MySQL admin username
+            user="root",  # Replace with your MySQL admin username
             password=passw  # Replace with your MySQL admin password
         )
 
@@ -907,6 +1030,54 @@ def get_database_users_with_filter(passw, filter_string):
 
     return users
 
+def get_database_privileges_with_filter(passw, filter_string):
+    connection = None
+    mappings = []
+    try:
+        connection = mysql.connector.connect(
+            host="localhost",  
+            user="root",
+            password=passw
+        )
+        if connection.is_connected():
+            cursor = connection.cursor()
+            cursor.execute("SELECT User, Db FROM mysql.db;")
+            all_privs = cursor.fetchall()
+            
+            for user, db in all_privs:
+                if user.startswith(filter_string) or db.startswith(filter_string):
+                    mappings.append({"user": user, "database": db})
+
+    except Error as e:
+        print(f"Error fetched privs: {e}")
+    finally:
+        if connection and connection.is_connected():
+            cursor.close()
+            connection.close()
+
+    return mappings
+
+def revoke_mysql_user_privileges(username, database, passw):
+    connection = None
+    try:
+        connection = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password=passw
+        )
+        if connection.is_connected():
+            cursor = connection.cursor()
+            cursor.execute(f"REVOKE ALL PRIVILEGES ON `{database}`.* FROM '{username}'@'localhost'")
+            connection.commit()
+            return True
+        return False
+    except Error as e:
+        print(f"Error revoking privileges: {e}")
+        return False
+    finally:
+        if connection and connection.is_connected():
+            cursor.close()
+            connection.close()
 
 import mysql.connector
 from mysql.connector import Error
@@ -914,22 +1085,20 @@ from mysql.connector import Error
 def remove_database(db_name, passw):
     connection = None
     try:
-        # Establish a connection to MySQL server
+        _validate_sql_identifier(db_name)
         connection = mysql.connector.connect(
             host="localhost",  
-            user="newuser",  # Replace with your MySQL admin username
-            password=passw  # Replace with your MySQL admin password
+            user="root",
+            password=passw
         )
 
         if connection.is_connected():
             cursor = connection.cursor()
-            # Drop the database
-            cursor.execute(f"DROP DATABASE IF EXISTS {db_name};")
-            connection.commit()  # Commit the change
-            print(f"Database '{db_name}' has been removed.")
+            cursor.execute(f"DROP DATABASE IF EXISTS `{db_name}`")
+            connection.commit()
             return True
 
-    except Error as e:
+    except (Error, ValueError) as e:
         print(f"Error: {e}")
         return False
     finally:
@@ -940,23 +1109,20 @@ def remove_database(db_name, passw):
 def delete_mysql_user(username, passw):
     connection = None
     try:
-        # Establish a connection to MySQL server
+        _validate_sql_identifier(username)
         connection = mysql.connector.connect(
             host="localhost",  
-            user="newuser",  # Replace with your MySQL admin username
-            password=passw  # Replace with your MySQL admin password
+            user="root",
+            password=passw
         )
 
         if connection.is_connected():
             cursor = connection.cursor()
-            # Drop the user
-            delete_user_query = f"DROP USER IF EXISTS '{username}'@'localhost';"
-            cursor.execute(delete_user_query)
-            connection.commit()  # Commit the change
-            print(f"User '{username}' has been removed.")
+            cursor.execute("DROP USER IF EXISTS %s@'localhost'", (username,))
+            connection.commit()
             return True
 
-    except Error as e:
+    except (Error, ValueError) as e:
         print(f"Error: {e}")
         return False
     finally:
@@ -972,23 +1138,20 @@ from mysql.connector import Error
 def change_mysql_user_password(username, new_password, passw):
     connection = None
     try:
-        # Establish a connection to MySQL server
+        _validate_sql_identifier(username)
         connection = mysql.connector.connect(
             host="localhost",  
-            user="newuser",  # Replace with your MySQL admin username
-            password=passw  # Replace with your MySQL admin password
+            user="root",
+            password=passw
         )
 
         if connection.is_connected():
             cursor = connection.cursor()
-            # Change the user's password
-            change_password_query = f"ALTER USER '{username}'@'localhost' IDENTIFIED BY '{new_password}';"
-            cursor.execute(change_password_query)
-            connection.commit()  # Commit the change
-            print(f"Password for user '{username}' has been changed.")
+            cursor.execute("ALTER USER %s@'localhost' IDENTIFIED BY %s", (username, new_password))
+            connection.commit()
             return True
 
-    except Error as e:
+    except (Error, ValueError) as e:
         print(f"Error: {e}")
         return False
     finally:
@@ -1003,24 +1166,27 @@ def change_mysql_user_password(username, new_password, passw):
 def grant_mysql_user_privileges(username, database, privileges, admin_password):
     connection = None
     try:
-        # Establish a connection to the MySQL server
+        _validate_sql_identifier(username)
+        _validate_sql_identifier(database)
+        # Validate each privilege against the allowlist
+        for priv in privileges:
+            if priv.upper().strip() not in _ALLOWED_MYSQL_PRIVILEGES:
+                raise ValueError(f'Invalid MySQL privilege: {priv!r}')
         connection = mysql.connector.connect(
             host="localhost",  
-            user="newuser",  # Replace with your MySQL admin username
-            password=admin_password  # Replace with your MySQL admin password
+            user="root",
+            password=admin_password
         )
 
         if connection.is_connected():
             cursor = connection.cursor()
-            # Construct the GRANT statement for the specified database
-            privileges_string = ', '.join(privileges)
-            grant_privileges_query = f"GRANT {privileges_string} ON `{database}`.* TO '{username}'@'localhost';"
-            cursor.execute(grant_privileges_query)
-            connection.commit()  # Commit the change
-           
+            privileges_string = ', '.join(p.upper().strip() for p in privileges)
+            grant_privileges_query = f"GRANT {privileges_string} ON `{database}`.* TO %s@'localhost'"
+            cursor.execute(grant_privileges_query, (username,))
+            connection.commit()
             return True
 
-    except Error as e:
+    except (Error, ValueError) as e:
         print(f"Error: {e}")
         return False
     finally:
@@ -1054,31 +1220,95 @@ def zip_multiple_locations_backup(main_directory, locations, zip_filename):
                 else:
                     # If it's a file, add it directly
                     zipf.write(location, arcname=os.path.basename(location))
-         
-def zip_multiple_locations_backup_user(main_directory, locations, zip_filename,current):
+
+def zip_multiple_locations_backup_user(main_directory, locations, zip_filename, current, progress_file=None):
+    import time
+    import json
+
+    # Directories that should NEVER be backed up (regenerable, huge, or irrelevant)
+    EXCLUDED_DIRS = {
+        'node_modules', '__pycache__', '.git', '.svn', '.hg',
+        'venv', '.venv', 'env', '.env', '.tox',
+        '.npm', '.npm_cache', '.cache', '.next', '.nuxt',
+        'dist', 'bower_components', '.trash', '.backups', # .trash = Recycle Bin, .backups = Backup Quota Dir
+    }
+    # Files to explicitly skip
+    EXCLUDED_NAMES = {'.backup_progress', '.DS_Store', 'Thumbs.db', '.backup_done'}
+
     # Ensure the main directory exists
     if not os.path.exists(main_directory):
         os.makedirs(main_directory)
-    # Path to the zip file
+
     zip_filepath = os.path.join(main_directory, f"{zip_filename}.zip")
 
-    # Create a zip file in write mode
-    with zipfile.ZipFile(zip_filepath, 'w') as zipf:
-        for location in locations:
-            if os.path.exists(location):
-                if os.path.isdir(location):
-                    # If it's a directory, add all files recursively
-                    for root, dirs, files in os.walk(location):
-                        for file in files:
-                            file_path = os.path.join(root, file)
-                            arcname = os.path.relpath(file_path, start=location)
-                            zipf.write(file_path, arcname=os.path.join(os.path.basename(location), arcname))
-                    
-                else:
-                    # If it's a file, add it directly
-                    zipf.write(location, arcname=os.path.basename(location))
-    run_command(f'sudo chown {current}:{current} {zip_filepath}')
-                
+    # Write PID + start timestamp to progress file for stale detection
+    if progress_file:
+        try:
+            meta = json.dumps({'pct': 5, 'pid': os.getpid(), 'ts': time.time()})
+            with open(progress_file, 'w') as pf:
+                pf.write(meta)
+        except Exception:
+            pass
+
+    file_list = []
+    for location in locations:
+        if not os.path.exists(location):
+            continue
+        if os.path.isdir(location):
+            for root, dirs, files in os.walk(location, topdown=True):
+                # Prune excluded directories in-place (prevents os.walk from descending)
+                dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS]
+                for file in files:
+                    full_path = os.path.join(root, file)
+                    fname = os.path.basename(full_path)
+                    # Skip backup zips, progress files, and excluded names
+                    if fname in EXCLUDED_NAMES:
+                        continue
+                    if fname.startswith("backup_") and fname.endswith(".zip"):
+                        continue
+                    arcname = os.path.join(
+                        os.path.basename(location),
+                        os.path.relpath(full_path, start=location)
+                    )
+                    file_list.append((full_path, arcname))
+        else:
+            fname = os.path.basename(location)
+            if fname not in EXCLUDED_NAMES:
+                file_list.append((location, fname))
+
+    total_files = len(file_list)
+    processed = 0
+    # Update progress every 1% (min 1 file, max every 50 files) for smooth bar movement
+    update_interval = max(1, min(50, total_files // 100))
+    last_pct = 5
+
+    with zipfile.ZipFile(zip_filepath, 'w', compression=zipfile.ZIP_DEFLATED, allowZip64=True) as zipf:
+        for file_path, arcname in file_list:
+            if file_path == zip_filepath:
+                continue
+            try:
+                zipf.write(file_path, arcname=arcname)
+            except Exception:
+                continue
+
+            processed += 1
+            if progress_file and total_files > 0 and processed % update_interval == 0:
+                pct = max(5, min(99, int((processed / total_files) * 95) + 5))
+                if pct != last_pct:
+                    last_pct = pct
+                    try:
+                        meta = json.dumps({'pct': pct, 'pid': os.getpid(), 'ts': time.time()})
+                        with open(progress_file, 'w') as pf:
+                            pf.write(meta)
+                    except Exception:
+                        pass
+
+    if sys.platform != 'win32':
+        run_command(f'sudo chown {current}:{current} {zip_filepath}')
+    else:
+        run_command(f'icacls "{zip_filepath}" /grant {current}:F')
+
+          
 
 
 
@@ -1114,14 +1344,21 @@ import os
 
 def get_php_versions():
     versions = []
-    
-    # Check common installation paths for PHP versions
-    for php_bin in ['/usr/bin/php5', '/usr/bin/php7.0', '/usr/bin/php7.1', '/usr/bin/php7.2', 
-                    '/usr/bin/php7.3', '/usr/bin/php7.4', '/usr/bin/php8.0', '/usr/bin/php8.1', 
-                    '/usr/bin/php8.2', '/usr/bin/php8.3', '/usr/bin/php8.4']:
-        if os.path.exists(php_bin):
-            versions.append(php_bin)
-    
+    if sys.platform == 'win32':
+        # On Windows, check for PHP versions under C:\VoidPanel\php\
+        php_base = getattr(paths, 'PHP_DIR', os.path.join(os.environ.get('VOIDPANEL_BASE', r'C:\VoidPanel'), 'php'))
+        if os.path.isdir(php_base):
+            for entry in os.listdir(php_base):
+                php_exe = os.path.join(php_base, entry, 'php.exe')
+                if os.path.exists(php_exe):
+                    versions.append(php_exe)
+    else:
+        for php_bin in ['/usr/bin/php5', '/usr/bin/php7.0', '/usr/bin/php7.1', '/usr/bin/php7.2',
+                        '/usr/bin/php7.3', '/usr/bin/php7.4', '/usr/bin/php8.0', '/usr/bin/php8.1',
+                        '/usr/bin/php8.2', '/usr/bin/php8.3', '/usr/bin/php8.4']:
+            if os.path.exists(php_bin):
+                versions.append(php_bin)
+
     return versions
 
 def get_php_version(php_bin):
@@ -1162,36 +1399,33 @@ def get_php_extensions(php_bin):
 
 def get_service_status(service_name):
     try:
-        # Fetch the service status using systemctl
-        status = subprocess.check_output([ 'sudo' ,'systemctl', 'is-active', service_name], stderr=subprocess.STDOUT).decode('utf-8').strip()
-        return status
-    except :
+        plat = get_platform()
+        if plat.services.is_active(service_name):
+            return 'active'
+        return 'inactive'
+    except Exception:
         return False
-
-    
 
 
 def restart_service(service_name):
     try:
-        # Restart the service using systemctl
-        subprocess.run(['sudo', 'systemctl', 'restart', service_name], check=True)
-        return True
-    except :
+        result = get_platform().services.restart(service_name)
+        return result.success
+    except Exception:
         return False
+
 def start_service(service_name):
     try:
-        # Restart the service using systemctl
-        subprocess.run(['sudo', 'systemctl', 'start', service_name], check=True)
-        return True
-    except :
+        result = get_platform().services.start(service_name)
+        return result.success
+    except Exception:
         return False
-    
+
 def stop_service(service_name):
     try:
-        # Restart the service using systemctl
-        subprocess.run(['sudo', 'systemctl', 'stop', service_name], check=True)
-        return True
-    except :
+        result = get_platform().services.stop(service_name)
+        return result.success
+    except Exception:
         return False
 
 
@@ -1211,4 +1445,201 @@ def get_directory_size_in_mb(directory='.'):
     return size_in_mb
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Site Cloner — cross-platform, handles React/SPA sites
+# ─────────────────────────────────────────────────────────────────────────────
 
+def clone_website(target_url, destination_dir):
+    """
+    Clone an external website (including React/SPA) into destination_dir.
+    Works on both Linux and Windows (pure Python, no external binaries).
+
+    Steps:
+      1. Fetch the root HTML page.
+      2. Parse all <script>, <link>, <img>, <source>, <video>, <audio> tags.
+      3. Download every discovered asset and rewrite src/href to relative paths.
+      4. Also recursively discovers JS chunk imports for React split-code apps.
+
+    Returns: (True, "Success message") | (False, "Error message")
+    """
+    try:
+        from urllib.parse import urlparse, urljoin
+        import re as _re
+        import os as _os
+        import hashlib
+        import json
+
+        task_id = hashlib.md5(destination_dir.encode()).hexdigest()
+        status_path = f"/tmp/clone_{task_id}.json"
+
+        # Initialize/clean status file
+        if _os.path.exists(status_path):
+            try: _os.remove(status_path)
+            except: pass
+
+        def _update_status(percentage, current_file, log_msg=None, status="running", error=""):
+            try:
+                logs = []
+                if _os.path.exists(status_path):
+                    with open(status_path, 'r') as sf:
+                        try:
+                            data = json.load(sf)
+                            logs = data.get('logs', [])
+                        except:
+                            pass
+                if log_msg:
+                    logs.append(log_msg)
+                    logs = logs[-50:]
+                with open(status_path, 'w') as sf:
+                    json.dump({
+                        'status': status,
+                        'percentage': percentage,
+                        'current_file': current_file,
+                        'logs': logs,
+                        'error': error,
+                        'destination': destination_dir
+                    }, sf)
+            except:
+                pass
+
+        _update_status(5, target_url, log_msg=f"Fetching root HTML page from {target_url}...")
+
+        HEADERS = {
+            'User-Agent': (
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                'AppleWebKit/537.36 (KHTML, like Gecko) '
+                'Chrome/123.0.0.0 Safari/537.36'
+            ),
+            'Accept-Language': 'en-US,en;q=0.9',
+        }
+
+        _os.makedirs(destination_dir, exist_ok=True)
+        parsed_root = urlparse(target_url)
+        base_url = f"{parsed_root.scheme}://{parsed_root.netloc}"
+
+        downloaded = set()
+
+        def _safe_filename(url_path):
+            path = url_path.lstrip('/')
+            if not path or path.endswith('/'):
+                path = path + 'index.html'
+            if '?' in path:
+                base_p, qs = path.split('?', 1)
+                path = base_p + '_' + hashlib.md5(qs.encode()).hexdigest()[:8]
+            return path
+
+        def _download_asset(asset_url):
+            if asset_url in downloaded:
+                return None
+            downloaded.add(asset_url)
+            try:
+                resp = requests.get(asset_url, headers=HEADERS, timeout=15,
+                                    allow_redirects=True, stream=True)
+                if resp.status_code != 200:
+                    return None
+                rel_path = _safe_filename(urlparse(asset_url).path)
+                local_path = _os.path.join(destination_dir, rel_path)
+                _os.makedirs(_os.path.dirname(local_path), exist_ok=True)
+                with open(local_path, 'wb') as f:
+                    for chunk in resp.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                return rel_path
+            except Exception:
+                return None
+
+        def _discover_js_chunk_imports(js_content):
+            chunk_pattern = _re.findall(
+                r'["\']([^"\']*?static/[^"\']*?\.(?:js|css|woff2?|ttf|eot|png|jpg|jpeg|svg|gif|webp|ico)[^"\']*)["\']',
+                js_content
+            )
+            return chunk_pattern
+
+        # Fetch root HTML
+        root_resp = requests.get(target_url, headers=HEADERS, timeout=20, allow_redirects=True)
+        if root_resp.status_code != 200:
+            err_msg = f"Failed to fetch {target_url} (HTTP {root_resp.status_code})"
+            _update_status(100, "Failed", log_msg=err_msg, status="error", error=err_msg)
+            return False, err_msg
+
+        html_content = root_resp.text
+        downloaded.add(target_url)
+        _update_status(10, "Scanning assets", log_msg="Root HTML page loaded successfully. Scanning for assets...")
+
+        # Discover assets from HTML
+        asset_tags = _re.findall(
+            r'(?:src|href|data-src|srcset)\s*=\s*["\']([^"\']+)["\']',
+            html_content
+        )
+        css_urls = _re.findall(r'url\(["\']?([^"\')\s]+)["\']?\)', html_content)
+        all_refs = asset_tags + css_urls
+
+        assets_to_download = []
+        for ref in all_refs:
+            if ref.startswith('data:') or ref.startswith('#') or ref.startswith('mailto:'):
+                continue
+            full_url = urljoin(base_url, ref) if not ref.startswith('http') else ref
+            if urlparse(full_url).netloc == parsed_root.netloc or not ref.startswith('http'):
+                assets_to_download.append(full_url)
+
+        url_to_local = {}
+        js_contents_to_scan = []
+
+        total_assets = len(assets_to_download)
+        _update_status(15, "Downloading assets", log_msg=f"Discovered {total_assets} main assets to download. Starting download...")
+
+        for idx, asset_url in enumerate(assets_to_download):
+            progress = 15 + int(60 * ((idx + 1) / max(1, total_assets)))
+            asset_name = asset_url.split('/')[-1] or asset_url
+            _update_status(progress, asset_name, log_msg=f"[{progress}%] Downloading asset {idx+1}/{total_assets}: {asset_name}")
+            local_path = _download_asset(asset_url)
+            if local_path:
+                url_to_local[asset_url] = local_path
+                if asset_url.endswith('.js'):
+                    try:
+                        with open(_os.path.join(destination_dir, local_path), 'r',
+                                  encoding='utf-8', errors='ignore') as jf:
+                            js_contents_to_scan.append((asset_url, jf.read()))
+                    except Exception:
+                        pass
+
+        # Scan JS bundles for React chunks
+        _update_status(80, "Scanning React Chunks", log_msg="Scanning JavaScript bundles for dynamic React chunk imports...")
+        
+        js_scanned_count = 0
+        for js_url, js_text in js_contents_to_scan:
+            js_scanned_count += 1
+            js_base = f"{urlparse(js_url).scheme}://{urlparse(js_url).netloc}"
+            chunks = list(_discover_js_chunk_imports(js_text))
+            total_chunks = len(chunks)
+            if total_chunks > 0:
+                _update_status(82, f"JS bundle {js_scanned_count}", log_msg=f"Discovered {total_chunks} dynamic chunks in {js_url.split('/')[-1]}")
+            for idx, chunk_ref in enumerate(chunks):
+                progress = 80 + int(10 * ((idx + 1) / max(1, total_chunks)))
+                chunk_name = chunk_ref.split('/')[-1] or chunk_ref
+                _update_status(progress, chunk_name, log_msg=f"[{progress}%] Downloading dynamic React chunk: {chunk_name}")
+                lp = _download_asset(full_chunk := (urljoin(js_base, chunk_ref) if not chunk_ref.startswith('http') else chunk_ref))
+                if lp:
+                    url_to_local[full_chunk] = lp
+
+        # Rewrite HTML to use local paths
+        _update_status(92, "Rewriting HTML", log_msg="Re-linking discovered assets to local paths in index.html...")
+        rewritten_html = html_content
+        for orig_url, local_rel in url_to_local.items():
+            orig_path = urlparse(orig_url).path
+            rewritten_html = rewritten_html.replace(orig_url, local_rel)
+            if orig_path and orig_path != '/':
+                rewritten_html = rewritten_html.replace(orig_path, local_rel)
+
+        index_path = _os.path.join(destination_dir, 'index.html')
+        with open(index_path, 'w', encoding='utf-8') as f:
+            f.write(rewritten_html)
+
+        total = len(downloaded)
+        success_msg = f"Site cloned successfully! {total} assets downloaded."
+        _update_status(100, "Completed", log_msg=success_msg, status="success")
+        return True, success_msg
+
+    except Exception as e:
+        err_msg = f"Clone failed: {str(e)}"
+        _update_status(100, "Failed", log_msg=err_msg, status="error", error=err_msg)
+        return False, err_msg

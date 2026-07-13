@@ -16,7 +16,7 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('domain', models.CharField(max_length=100)),
                 ('name', models.CharField(max_length=100)),
-                ('main', models.CharField(default=None, max_length=100)),
+                ('main', models.CharField(max_length=100, null=True, blank=True)),
             ],
         ),
     ]

@@ -1,0 +1,94 @@
+{% extends "super_admin_base.html" %}
+{% block title %}Signals | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}Signals{% endblock %}
+
+{% block admin_content %}
+
+<div class="sa-page-header">
+    <div>
+        <div class="sa-page-title">Live Signals</div>
+        <div class="sa-page-sub">Recent customer movement and support pressure at a glance</div>
+    </div>
+</div>
+
+<!-- KPI Row -->
+<div class="sa-kpi-grid-3">
+    <div class="sa-kpi" style="border-color:rgba(167,139,250,0.2);">
+        <div class="sa-kpi-icon violet"><i class="fas fa-headset"></i></div>
+        <div>
+            <div class="sa-kpi-val" style="color:var(--violet-2);">{{ admin_stats.open_ticket_count }}</div>
+            <div class="sa-kpi-lbl">Open Tickets</div>
+        </div>
+    </div>
+    <div class="sa-kpi" style="border-color:rgba(34,197,94,0.2);">
+        <div class="sa-kpi-icon green"><i class="fas fa-dollar-sign"></i></div>
+        <div>
+            <div class="sa-kpi-val">₹{{ admin_stats.monthly_revenue }}</div>
+            <div class="sa-kpi-lbl">Monthly Revenue</div>
+        </div>
+    </div>
+    <div class="sa-kpi" style="border-color:rgba(245,158,11,{% if admin_stats.unpaid_total %}0.25{% else %}0.1{% endif %});">
+        <div class="sa-kpi-icon amber"><i class="fas fa-file-invoice-dollar"></i></div>
+        <div>
+            <div class="sa-kpi-val" style="{% if admin_stats.unpaid_total %}color:var(--amber-2);{% endif %}">₹{{ admin_stats.unpaid_total }}</div>
+            <div class="sa-kpi-lbl">Outstanding Billing</div>
+        </div>
+    </div>
+</div>
+
+<!-- Signals Feed -->
+<div class="sa-grid-2">
+    <!-- Recent Clients -->
+    <div class="sa-card" style="padding:0;overflow:hidden;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);">
+            <div class="sa-card-title"><i class="fas fa-user-clock"></i> Recent Clients</div>
+        </div>
+        <div style="padding:12px 20px;display:flex;flex-direction:column;gap:8px;">
+            {% for user in recent_clients %}
+            <div style="padding:10px 12px;border-radius:9px;background:var(--bg-raised);border:1px solid var(--border);">
+                <div style="font-weight:700;color:var(--text-1);font-size:0.84rem;">{{ user.get_full_name|default:user.username }}</div>
+                <div style="font-size:0.73rem;color:var(--text-3);">{{ user.email }}</div>
+                <div style="font-size:0.72rem;color:var(--text-3);margin-top:3px;">Joined {{ user.date_joined|date:"M d, Y" }}</div>
+            </div>
+            {% empty %}
+            <div class="sa-empty" style="padding:24px 0;"><i class="fas fa-users"></i><div class="sa-empty-title">No recent clients</div></div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Support Pressure -->
+    <div class="sa-card" style="padding:0;overflow:hidden;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);">
+            <div class="sa-card-title"><i class="fas fa-fire-flame-curved"></i> Support Pressure</div>
+        </div>
+        <div style="padding:12px 20px;display:flex;flex-direction:column;gap:8px;">
+            {% for ticket in recent_tickets %}
+            <div style="padding:10px 12px;border-radius:9px;background:var(--bg-raised);border:1px solid var(--border);">
+                <div style="font-weight:700;color:var(--text-1);font-size:0.84rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ ticket.subject }}</div>
+                <div style="font-size:0.73rem;color:var(--text-3);">{{ ticket.ticket_number }} · {{ ticket.user.email }}</div>
+                <div style="margin-top:5px;">
+                    <span class="sa-badge {% if ticket.status == 'open' %}amber{% elif ticket.status == 'answered' %}green{% elif ticket.status == 'in_progress' %}sky{% else %}gray{% endif %}">
+                        {{ ticket.get_status_display }}
+                    </span>
+                </div>
+            </div>
+            {% empty %}
+            <div class="sa-empty" style="padding:24px 0;"><i class="fas fa-check-circle"></i><div class="sa-empty-title">No tickets</div></div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Info note -->
+<div class="sa-info-panel">
+    <div class="sa-info-icon"><i class="fas fa-circle-info"></i></div>
+    <div>
+        <div class="sa-info-title">Email Routing Note</div>
+        <div class="sa-info-body">
+            Purpose-based sender accounts live in the <a href="/super-admin/emails/" style="color:var(--green-2);font-weight:700;">Email Config</a> section so billing,
+            support, security, and update mail can stay separate and easy to manage.
+        </div>
+    </div>
+</div>
+
+{% endblock %}

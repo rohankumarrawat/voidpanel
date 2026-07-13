@@ -1,0 +1,954 @@
+{% load static %}
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+    <title>:: VoidPanel :: App Installer</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="VoidPanel App Installer — Install WordPress, Ghost, and more in one click.">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/static/css/plugins/fontawesome-all.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+
+    <!-- ★ Dark theme — static attribute + JS guard prevents any FOUC ★ -->
+    <script>
+    (function() {
+        localStorage.setItem('vp-theme', 'dark');
+        document.documentElement.setAttribute('data-theme', 'dark');
+    })();
+    </script>
+
+    <style>
+    /* ── Design Tokens ── */
+    html[data-theme="dark"] {
+        --vp-bg:          #080d1a;
+        --vp-topbar-bg:   rgba(8,13,26,0.95);
+        --vp-body-bg:     linear-gradient(-45deg,#070c1b,#0f1729,#1a0533,#0c1a2e);
+        --vp-surface:     #0e1628;
+        --vp-surface2:    #131f36;
+        --vp-border:      rgba(255,255,255,0.07);
+        --vp-accent:      #6366f1;
+        --vp-accent2:     #8b5cf6;
+        --vp-text:        #cbd5e1;
+        --vp-text-bright: #f8fafc;
+        --vp-muted:       #64748b;
+        --vp-green:       #10b981;
+        --vp-red:         #ef4444;
+        --vp-card-bg:     rgba(15,23,42,0.6);
+        --vp-card-border: rgba(255,255,255,0.07);
+        --vp-topbar-h:    58px;
+        --vp-sidebar-w:   240px;
+        --vp-loader-bg:   #070c1b;
+    }
+    html[data-theme="light"] {
+        --vp-bg:          #f1f5f9;
+        --vp-topbar-bg:   rgba(255,255,255,0.92);
+        --vp-body-bg:     linear-gradient(-45deg,#f1f5f9,#e8edf5,#f8fafc,#eef2f7);
+        --vp-surface:     #ffffff;
+        --vp-surface2:    #f1f5f9;
+        --vp-border:      rgba(15,23,42,0.09);
+        --vp-accent:      #4f46e5;
+        --vp-accent2:     #7c3aed;
+        --vp-text:        #475569;
+        --vp-text-bright: #0f172a;
+        --vp-muted:       #64748b;
+        --vp-green:       #10b981;
+        --vp-red:         #ef4444;
+        --vp-card-bg:     rgba(255,255,255,0.8);
+        --vp-card-border: rgba(15,23,42,0.07);
+        --vp-topbar-h:    58px;
+        --vp-sidebar-w:   240px;
+        --vp-loader-bg:   #f1f5f9;
+    }
+
+    /* ── Base ── */
+    *, *::before, *::after { box-sizing: border-box; }
+    body, html { font-family: 'Inter', sans-serif !important; }
+
+    html[data-theme="dark"] body,
+    html[data-theme="light"] body {
+        background: var(--vp-body-bg) !important;
+        background-size: 400% 400% !important;
+        animation: gradientBG 18s ease infinite !important;
+        min-height: 100vh;
+        color: var(--vp-text) !important;
+    }
+    html[data-theme="dark"] #wrapper,
+    html[data-theme="dark"] #main-content { background: transparent !important; }
+
+    @keyframes gradientBG {
+        0%   { background-position: 0% 50%; }
+        50%  { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    /* ── Layout ── */
+    #main-content {
+        margin-left: var(--vp-sidebar-w);
+        margin-top: var(--vp-topbar-h);
+        padding: 28px 28px 60px;
+        min-height: calc(100vh - var(--vp-topbar-h));
+    }
+
+    /* ── Hero Banner ── */
+    .ai-hero {
+        background: linear-gradient(135deg, rgba(99,102,241,0.14) 0%, rgba(139,92,246,0.08) 50%, transparent 100%);
+        border: 1px solid rgba(99,102,241,0.2);
+        border-radius: 20px;
+        padding: 28px 32px;
+        margin-bottom: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 16px;
+        backdrop-filter: blur(20px);
+        position: relative;
+        overflow: hidden;
+    }
+    .ai-hero::before {
+        content: '';
+        position: absolute;
+        top: -50%; right: -5%;
+        width: 320px; height: 320px;
+        background: radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%);
+        pointer-events: none;
+    }
+    .ai-hero-icon {
+        width: 58px; height: 58px;
+        background: linear-gradient(135deg, #6366f1, #a855f7);
+        border-radius: 16px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.5rem; color: #fff;
+        box-shadow: 0 0 30px rgba(99,102,241,0.4);
+        flex-shrink: 0;
+    }
+
+    /* ── Section label ── */
+    .section-label {
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: #6366f1;
+        margin-bottom: 16px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(99,102,241,0.2);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* ── App Cards ── */
+    .app-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 16px;
+        margin-bottom: 32px;
+    }
+    .app-card {
+        background: var(--vp-card-bg);
+        border: 1px solid var(--vp-card-border);
+        border-radius: 18px;
+        padding: 24px 20px 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 10px;
+        backdrop-filter: blur(14px);
+        transition: transform 0.28s cubic-bezier(0.4,0,0.2,1),
+                    box-shadow 0.28s cubic-bezier(0.4,0,0.2,1),
+                    border-color 0.28s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    .app-card::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 18px;
+        background: linear-gradient(135deg, rgba(255,255,255,0.03), transparent 60%);
+        pointer-events: none;
+    }
+    .app-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 20px 48px rgba(0,0,0,0.35), 0 0 0 1px var(--card-accent, #6366f1);
+        border-color: var(--card-accent, #6366f1);
+    }
+    .app-card-logo {
+        width: 72px; height: 72px;
+        border-radius: 20px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 2rem;
+        flex-shrink: 0;
+        transition: transform 0.3s ease;
+    }
+    .app-card:hover .app-card-logo { transform: scale(1.08); }
+    .app-card h5 {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--vp-text-bright);
+        margin: 0;
+        line-height: 1.2;
+    }
+    .app-card p {
+        font-size: 0.73rem;
+        color: var(--vp-muted);
+        line-height: 1.5;
+        margin: 0;
+        flex: 1;
+    }
+    .app-card-btn {
+        width: 100%;
+        padding: 9px 0;
+        border-radius: 10px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: all 0.2s ease;
+        margin-top: 4px;
+    }
+    .app-card-btn.active {
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: #fff;
+        border: none;
+        box-shadow: 0 4px 16px rgba(99,102,241,0.35);
+    }
+    .app-card-btn.active:hover {
+        opacity: 0.88;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 22px rgba(99,102,241,0.45);
+    }
+    .app-card-btn.soon {
+        background: rgba(255,255,255,0.04);
+        color: var(--vp-muted);
+        border: 1px solid rgba(255,255,255,0.08);
+        cursor: not-allowed;
+    }
+    .coming-soon-badge {
+        position: absolute;
+        top: 12px; right: 12px;
+        background: rgba(99,102,241,0.15);
+        color: #818cf8;
+        border: 1px solid rgba(99,102,241,0.25);
+        border-radius: 6px;
+        padding: 2px 8px;
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+
+    /* ── Installations Table ── */
+    .inst-panel {
+        background: var(--vp-card-bg);
+        border: 1px solid var(--vp-card-border);
+        border-radius: 20px;
+        overflow: hidden;
+        backdrop-filter: blur(14px);
+        margin-bottom: 20px;
+    }
+    .inst-header {
+        padding: 18px 24px;
+        border-bottom: 1px solid var(--vp-card-border);
+        display: flex; align-items: center; gap: 12px;
+    }
+    .inst-table { width: 100%; border-collapse: collapse; text-align: left; }
+    .inst-table th {
+        padding: 13px 20px;
+        color: var(--vp-muted);
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-weight: 700;
+        background: rgba(0,0,0,0.15);
+        border-bottom: 1px solid var(--vp-card-border);
+    }
+    .inst-table td {
+        padding: 14px 20px;
+        border-bottom: 1px solid rgba(255,255,255,0.03);
+        color: var(--vp-text);
+        font-size: 0.84rem;
+    }
+    .inst-table tbody tr:hover td { background: rgba(255,255,255,0.02); }
+    .inst-table tbody tr:last-child td { border-bottom: none; }
+
+    /* Badges */
+    .badge-pill {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 3px 10px; border-radius: 20px;
+        font-size: 0.73rem; font-weight: 600;
+    }
+    .badge-green  { background: rgba(16,185,129,0.15); color: #34d399; }
+    .badge-amber  { background: rgba(245,158,11,0.15);  color: #fbbf24; }
+    .badge-red    { background: rgba(239,68,68,0.15);   color: #f87171; }
+
+    /* Table Action Btns */
+    .tbl-btn {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 5px 12px; border-radius: 8px;
+        font-size: 0.75rem; font-weight: 600;
+        cursor: pointer; border: none;
+        transition: all 0.18s ease;
+        text-decoration: none;
+    }
+    .tbl-btn-purple {
+        background: rgba(99,102,241,0.15);
+        color: #a5b4fc;
+        border: 1px solid rgba(99,102,241,0.25);
+    }
+    .tbl-btn-purple:hover { background: rgba(99,102,241,0.28); color: #c4b5fd; }
+    .tbl-btn-red {
+        background: rgba(239,68,68,0.1);
+        color: #f87171;
+        border: 1px solid rgba(239,68,68,0.25);
+    }
+    .tbl-btn-red:hover { background: rgba(239,68,68,0.22); }
+
+    /* ── Install Form ── */
+    .install-panel {
+        background: var(--vp-card-bg);
+        border: 1px solid var(--vp-card-border);
+        border-radius: 20px;
+        padding: 32px;
+        backdrop-filter: blur(14px);
+        margin-bottom: 28px;
+    }
+    .form-field { margin-bottom: 18px; }
+    .form-field label {
+        display: block;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--vp-text);
+        margin-bottom: 7px;
+        letter-spacing: 0.02em;
+    }
+    .form-input {
+        width: 100%;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 10px;
+        color: var(--vp-text-bright);
+        padding: 10px 14px;
+        font-size: 0.87rem;
+        font-family: 'Inter', sans-serif;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        appearance: none;
+        -webkit-appearance: none;
+    }
+    .form-input:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+    }
+    select.form-input {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 16px;
+        padding-right: 40px;
+        cursor: pointer;
+    }
+    .btn-install {
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: #fff;
+        border: none;
+        padding: 11px 28px;
+        border-radius: 11px;
+        font-size: 0.88rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 4px 20px rgba(99,102,241,0.35);
+        transition: all 0.2s ease;
+        letter-spacing: 0.02em;
+    }
+    .btn-install:hover { opacity: 0.88; transform: translateY(-1px); box-shadow: 0 6px 24px rgba(99,102,241,0.45); }
+    .btn-install:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+    .btn-back {
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.1);
+        color: var(--vp-text);
+        padding: 7px 16px;
+        border-radius: 9px;
+        font-size: 0.82rem;
+        font-weight: 500;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        transition: all 0.18s ease;
+    }
+    .btn-back:hover { background: rgba(255,255,255,0.1); color: var(--vp-text-bright); text-decoration: none; }
+
+    /* ── Toast ── */
+    #toastContainer { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+    .vp-toast {
+        background: rgba(15,20,40,0.96);
+        border: 1px solid rgba(99,102,241,0.3);
+        color: #e2e8f0;
+        padding: 12px 18px;
+        border-radius: 12px;
+        font-size: 0.84rem;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        display: flex; align-items: center; gap: 10px;
+        animation: slideInToast 0.25s ease;
+        max-width: 300px;
+    }
+    @keyframes slideInToast { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+
+    /* ── Settings Modal ── */
+    #settingsModal {
+        display: none; position: fixed; inset: 0;
+        background: rgba(4,7,20,0.85);
+        backdrop-filter: blur(8px);
+        z-index: 10000; align-items: center; justify-content: center;
+    }
+    #settingsModal.open { display: flex; }
+    .sm-card {
+        background: linear-gradient(145deg, #0f172a, #1a2340);
+        border: 1px solid rgba(99,102,241,0.2);
+        border-radius: 22px;
+        padding: 32px 36px;
+        width: min(520px, 94vw);
+        max-height: 92vh;
+        overflow-y: auto;
+        box-shadow: 0 32px 80px rgba(0,0,0,0.7);
+        position: relative;
+        animation: popIn 0.22s ease;
+    }
+    @keyframes popIn { from { transform:scale(0.92); opacity:0; } to { transform:scale(1); opacity:1; } }
+    .sm-info-box {
+        background: rgba(0,0,0,0.25);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 14px;
+        padding: 16px;
+        margin-bottom: 14px;
+    }
+    .sm-info-label {
+        font-size: 0.66rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.08em; color: var(--vp-muted);
+        margin-bottom: 12px;
+    }
+    .sm-row {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 6px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .sm-row:last-child { border-bottom: none; }
+    .sm-row-key { font-size: 0.8rem; color: #94a3b8; }
+    .sm-row-val {
+        font-family: monospace;
+        font-size: 0.8rem;
+        color: var(--vp-text-bright);
+        background: rgba(255,255,255,0.05);
+        padding: 3px 10px;
+        border-radius: 6px;
+    }
+    .sm-pass-field {
+        display: flex; gap: 8px; align-items: center; margin-top: 12px;
+    }
+    .sm-input {
+        flex: 1;
+        background: rgba(0,0,0,0.3);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 10px;
+        padding: 10px 14px;
+        color: #fff;
+        font-size: 0.85rem;
+        font-family: 'Inter', sans-serif;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+    .sm-input:focus { border-color: #6366f1; }
+    .sm-update-btn {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        border: none; color: #fff;
+        padding: 10px 18px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.82rem;
+        cursor: pointer;
+        white-space: nowrap;
+        display: flex; align-items: center; gap: 6px;
+    }
+    .sm-update-btn:hover { opacity: 0.88; }
+    .sm-close-btn {
+        background: rgba(255,255,255,0.07);
+        border: 1px solid rgba(255,255,255,0.1);
+        color: #94a3b8;
+        width: 34px; height: 34px;
+        border-radius: 10px;
+        cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.1rem;
+        transition: all 0.18s;
+    }
+    .sm-close-btn:hover { background: rgba(255,255,255,0.13); color: #fff; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.35); border-radius: 999px; }
+    </style>
+</head>
+
+<body>
+{% csrf_token %}
+<div id="wrapper">
+    {% include 'control/navbar.html' %}
+    {% include 'control/left.html' %}
+    {% include 'control/right.html' %}
+
+    <div id="main-content">
+
+    {% if selected_app %}
+    <!-- ─── INSTALL FORM ─────────────────────────────────────── -->
+    <div class="ai-hero">
+        <div style="display:flex;align-items:center;gap:20px;">
+            <div style="width:72px;height:72px;border-radius:20px;background:{{ selected_app.bg }};display:flex;align-items:center;justify-content:center;font-size:2.2rem;color:{{ selected_app.color }};flex-shrink:0;box-shadow:0 8px 28px rgba(0,0,0,0.3);">
+                <i class="{{ selected_app.icon }}"></i>
+            </div>
+            <div>
+                <div style="font-size:1.5rem;font-weight:800;color:var(--vp-text-bright);letter-spacing:-0.3px;">Install {{ selected_app.name }}</div>
+                <div style="font-size:0.83rem;color:var(--vp-muted);margin-top:4px;">{{ selected_app.desc }}</div>
+            </div>
+        </div>
+        <a href="/control/app-installer/{{ domain }}/" class="btn-back">
+            <i class="fa-solid fa-arrow-left"></i> Back to Catalog
+        </a>
+    </div>
+
+    <div class="install-panel">
+        <div class="section-label"><i class="fa-solid fa-wrench"></i> Software Setup</div>
+        <form id="installForm" onsubmit="submitInstall(event)">
+            {% csrf_token %}
+            <input type="hidden" name="app_name" value="{{ selected_app.id }}">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-field">
+                        <label>Installation URL</label>
+                        <select name="install_domain" class="form-input" required>
+                            {% for opt in domain_options %}
+                            <option value="{{ opt.value }}" style="color:#000;">https://{{ opt.label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-field">
+                        <label>Admin Email</label>
+                        <input type="email" name="admin_email" class="form-input" placeholder="admin@{{ domain }}" required>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-field">
+                        <label>Admin Username</label>
+                        <input type="text" name="admin_user" class="form-input" value="admin" required>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-field">
+                        <label>Admin Password</label>
+                        <input type="text" name="admin_pass" class="form-input" placeholder="Enter a strong password" required>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top:8px;">
+                <button type="submit" class="btn-install" id="btn-install-submit">
+                    <i class="fa-solid fa-rocket"></i> Install {{ selected_app.name }}
+                </button>
+            </div>
+        </form>
+    </div>
+
+    {% else %}
+    <!-- ─── APP CATALOG ────────────────────────────────────────── -->
+    <div class="ai-hero">
+        <div style="display:flex;align-items:center;gap:18px;">
+            <div class="ai-hero-icon"><i class="fa-solid fa-rocket"></i></div>
+            <div>
+                <div style="font-size:1.5rem;font-weight:800;color:var(--vp-text-bright);letter-spacing:-0.3px;">VoidApp Installer</div>
+                <div style="font-size:0.83rem;color:var(--vp-muted);margin-top:4px;">Install and manage popular CMS, eCommerce, and DevOps scripts in one click.</div>
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span style="background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.25);border-radius:8px;padding:6px 14px;font-size:0.78rem;font-weight:600;">
+                <i class="fa-solid fa-layer-group" style="margin-right:5px;"></i>{{ catalog|length }} Apps Available
+            </span>
+        </div>
+    </div>
+
+    <div class="section-label"><i class="fa-solid fa-grid-2"></i> Application Catalog</div>
+    <div class="app-grid">
+        {% for app in catalog %}
+        <div class="app-card" style="--card-accent:{{ app.color }};">
+            {% if app.id != 'wordpress' %}
+            <span class="coming-soon-badge">Soon</span>
+            {% endif %}
+            <div class="app-card-logo" style="background:{{ app.bg }};color:{{ app.color }};box-shadow:0 8px 24px {{ app.bg }};">
+                <i class="{{ app.icon }}"></i>
+            </div>
+            <h5>{{ app.name }}</h5>
+            <p>{{ app.desc }}</p>
+            {% if app.id == 'wordpress' %}
+            <a href="?app={{ app.id }}" class="app-card-btn active">
+                <i class="fa-solid fa-download"></i> Install Now
+            </a>
+            {% else %}
+            <span class="app-card-btn soon">
+                <i class="fa-solid fa-clock"></i> Coming Soon
+            </span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- ─── CURRENT INSTALLATIONS ─────────────────────────────── -->
+    <div class="section-label" style="margin-top:8px;"><i class="fa-solid fa-server"></i> Current Installations</div>
+    <div class="inst-panel">
+        <div class="inst-header">
+            <i class="fa-solid fa-cubes" style="color:#10b981;font-size:1.1rem;"></i>
+            <span style="font-size:0.95rem;font-weight:700;color:var(--vp-text-bright);">Installed Applications</span>
+            <span class="badge-pill badge-green" style="margin-left:auto;">{{ installed_count }} Total</span>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="inst-table">
+                <thead>
+                    <tr>
+                        <th>Software</th>
+                        <th>Domain / URL</th>
+                        <th>Admin Panel</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inst in installed %}
+                    <tr id="row-{{ inst.pk }}">
+                        <td>
+                            <div style="font-weight:600;color:var(--vp-text-bright);">{{ inst.script_display_name }}</div>
+                            <div style="font-size:0.72rem;color:var(--vp-muted);margin-top:2px;">{{ inst.installed_at|date:"M d, Y" }}</div>
+                        </td>
+                        <td>
+                            <a href="https://{{ inst.install_url }}" target="_blank" style="color:#818cf8;text-decoration:none;display:flex;align-items:center;gap:5px;">
+                                <i class="fa-solid fa-globe" style="font-size:0.75rem;"></i> {{ inst.install_url }}
+                            </a>
+                        </td>
+                        <td>
+                            {% if inst.admin_url %}
+                            <a href="{{ inst.admin_url }}" target="_blank" class="tbl-btn tbl-btn-purple">
+                                <i class="fa-solid fa-user-shield"></i> Admin
+                            </a>
+                            {% else %}
+                            <span style="color:var(--vp-muted);">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if inst.status == 'installing' %}
+                            <span class="badge-pill badge-amber" id="badge-{{ inst.pk }}">
+                                <i class="fa-solid fa-spinner fa-spin"></i> Installing
+                            </span>
+                            {% elif inst.status == 'active' %}
+                            <span class="badge-pill badge-green" id="badge-{{ inst.pk }}">
+                                <span style="width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block;"></span> Active
+                            </span>
+                            {% else %}
+                            <span class="badge-pill badge-red" id="badge-{{ inst.pk }}">{{ inst.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div style="display:flex;gap:8px;">
+                                <button onclick="openSettings({{ inst.pk }}, this)" class="tbl-btn tbl-btn-purple">
+                                    <i class="fa-solid fa-gear"></i> Settings
+                                </button>
+                                <button onclick="deleteInstall({{ inst.pk }}, this)" class="tbl-btn tbl-btn-red">
+                                    <i class="fa-solid fa-trash"></i> Delete
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" style="padding:48px 24px;text-align:center;">
+                            <div style="width:64px;height:64px;border-radius:20px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                                <i class="fa-solid fa-box-open" style="font-size:1.8rem;color:#6366f1;opacity:0.7;"></i>
+                            </div>
+                            <div style="font-weight:600;color:var(--vp-text-bright);margin-bottom:6px;">No installations yet</div>
+                            <div style="font-size:0.82rem;color:var(--vp-muted);">Choose an app from the catalog above to get started!</div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    </div><!-- /main-content -->
+</div><!-- /wrapper -->
+
+<!-- ─── Toast ────────────────────────────────────────────────── -->
+<div id="toastContainer"></div>
+
+<!-- ─── Settings Modal ────────────────────────────────────────── -->
+<div id="settingsModal">
+  <div class="sm-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;">
+      <div>
+        <div style="font-size:1.1rem;font-weight:700;color:#fff;display:flex;align-items:center;gap:8px;">
+            <span style="width:34px;height:34px;border-radius:10px;background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.25);display:flex;align-items:center;justify-content:center;color:#a855f7;font-size:0.9rem;"><i class="fa-solid fa-gear"></i></span>
+            <span id="sm-title">Installation Settings</span>
+        </div>
+        <div style="font-size:0.78rem;color:var(--vp-muted);margin-top:4px;margin-left:42px;" id="sm-subtitle">Manage your application</div>
+      </div>
+      <button onclick="closeSettings()" class="sm-close-btn">&times;</button>
+    </div>
+
+    <div class="sm-info-box">
+      <div class="sm-info-label"><i class="fa-solid fa-database" style="margin-right:5px;color:#f59e0b;"></i> Database Info</div>
+      <div class="sm-row"><span class="sm-row-key">DB Name</span><span class="sm-row-val" id="sm-db-name">—</span></div>
+      <div class="sm-row"><span class="sm-row-key">DB Username</span><span class="sm-row-val" id="sm-db-user">—</span></div>
+      <div class="sm-row">
+        <span class="sm-row-key">DB Password</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span class="sm-row-val" id="sm-db-pass" style="filter:blur(4px);cursor:pointer;transition:.2s;" onclick="this.style.filter=this.style.filter?'':'blur(4px)'">loading</span>
+          <button onclick="copyText('sm-db-pass')" style="background:none;border:none;color:#6366f1;cursor:pointer;font-size:0.82rem;" title="Copy"><i class="fa-solid fa-copy"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sm-info-box">
+      <div class="sm-info-label"><i class="fa-solid fa-key" style="margin-right:5px;color:#22d3ee;"></i> Access Info</div>
+      <div class="sm-row"><span class="sm-row-key">Admin User</span><span class="sm-row-val" id="sm-admin-user">—</span></div>
+      <div class="sm-row"><span class="sm-row-key">Admin Email</span><span class="sm-row-val" id="sm-admin-email">—</span></div>
+      <div class="sm-row">
+        <span class="sm-row-key">Admin URL</span>
+        <a id="sm-admin-url" href="#" target="_blank" style="font-size:0.8rem;color:#60a5fa;text-decoration:none;">—</a>
+      </div>
+      <div class="sm-row"><span class="sm-row-key">Install Dir</span><span id="sm-install-dir" style="font-family:monospace;font-size:0.76rem;color:#94a3b8;">—</span></div>
+    </div>
+
+    <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.18);border-radius:14px;padding:16px;">
+      <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#f87171;margin-bottom:10px;"><i class="fa-solid fa-lock"></i> Change Admin Password</div>
+      <div class="sm-pass-field">
+        <input type="password" id="sm-new-pass" placeholder="New password (min 8 chars)" class="sm-input"
+               onfocus="this.style.borderColor='#6366f1'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'">
+        <button onclick="changePassword()" id="sm-change-btn" class="sm-update-btn">
+          <i class="fa-solid fa-lock"></i> Update
+        </button>
+      </div>
+      <div id="sm-pass-msg" style="font-size:0.77rem;margin-top:8px;color:var(--vp-muted);"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+
+<script>
+async function submitInstall(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btn-install-submit');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Installing...';
+    const form = document.getElementById('installForm');
+    const data = new FormData(form);
+    try {
+        const res = await fetch('/control/app-installer/install/', {
+            method: 'POST', body: data,
+            headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+        });
+        const result = await res.json();
+        if (res.ok && result.status === 'success') {
+            showToastMsg('✅ Installation started!', false);
+            setTimeout(() => { window.location.href = '/control/app-installer/{{ domain }}/'; }, 1200);
+        } else {
+            showToastMsg('❌ ' + (result.message || 'Installation failed.'), true);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Retry Install';
+        }
+    } catch (err) {
+        showToastMsg('❌ Network error. Please try again.', true);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Install';
+    }
+}
+
+function pollStatus(recordId) {
+    const interval = setInterval(async () => {
+        try {
+            const res  = await fetch(`/control/app-installer/status/${recordId}/`);
+            const data = await res.json();
+            const badge = document.getElementById(`badge-${recordId}`);
+            if (data.status === 'active') {
+                clearInterval(interval);
+                if (badge) {
+                    badge.className = 'badge-pill badge-green';
+                    badge.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block;"></span> Active';
+                }
+                location.reload();
+            } else if (data.status === 'failed') {
+                clearInterval(interval);
+                if (badge) { badge.className = 'badge-pill badge-red'; badge.textContent = 'Failed'; }
+            }
+        } catch (_) {}
+    }, 5000);
+    setTimeout(() => clearInterval(interval), 600000);
+}
+
+document.querySelectorAll('[id^="badge-"]').forEach(badge => {
+    if (badge.textContent.includes('Installing')) {
+        const id = badge.id.replace('badge-', '');
+        pollStatus(parseInt(id));
+    }
+});
+
+async function deleteInstall(recordId, btn) {
+    if (!confirm('Permanently delete this installation? All files and databases will be wiped.')) return;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    try {
+        const res = await fetch(`/control/app-installer/delete/${recordId}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            const row = document.getElementById(`row-${recordId}`);
+            if (row) { row.style.opacity='0.3'; row.style.pointerEvents='none'; }
+            showToastMsg('🗑 Installation deleted.', false);
+        } else {
+            showToastMsg('❌ ' + data.message, true);
+            btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-trash"></i> Delete';
+        }
+    } catch (_) {
+        showToastMsg('❌ Network error.', true);
+        btn.disabled = false;
+    }
+}
+
+let _currentSettingsId = null;
+
+async function openSettings(recordId) {
+    _currentSettingsId = recordId;
+    const modal = document.getElementById('settingsModal');
+    modal.classList.add('open');
+    ['sm-db-name','sm-db-user','sm-db-pass','sm-admin-user','sm-admin-email','sm-install-dir'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = 'Loading...';
+    });
+    const adminUrl = document.getElementById('sm-admin-url');
+    adminUrl.textContent = 'Loading...'; adminUrl.href = '#';
+    document.getElementById('sm-pass-msg').textContent = '';
+    document.getElementById('sm-new-pass').value = '';
+
+    try {
+        const res = await fetch(`/control/app-installer/settings/${recordId}/`);
+        const d = await res.json();
+        if (d.status === 'success') {
+            document.getElementById('sm-title').textContent = d.script + ' Settings';
+            document.getElementById('sm-subtitle').textContent = d.install_url;
+            document.getElementById('sm-db-name').textContent = d.db_name || '—';
+            document.getElementById('sm-db-user').textContent = d.db_user || '—';
+            const dbPass = document.getElementById('sm-db-pass');
+            dbPass.textContent = d.db_pass || '(not stored)';
+            dbPass.style.filter = 'blur(4px)';
+            document.getElementById('sm-admin-user').textContent = d.admin_user || '—';
+            document.getElementById('sm-admin-email').textContent = d.admin_email || '—';
+            adminUrl.textContent = d.admin_url || '—';
+            adminUrl.href = d.admin_url || '#';
+            document.getElementById('sm-install-dir').textContent = d.install_dir || '—';
+        } else {
+            showToastMsg('❌ Failed to load settings: ' + d.message, true);
+            closeSettings();
+        }
+    } catch(e) {
+        showToastMsg('❌ Network error loading settings', true);
+        closeSettings();
+    }
+}
+
+function closeSettings() {
+    document.getElementById('settingsModal').classList.remove('open');
+    _currentSettingsId = null;
+}
+
+document.getElementById('settingsModal').addEventListener('click', function(e) {
+    if (e.target === this) closeSettings();
+});
+
+async function changePassword() {
+    const newPass = document.getElementById('sm-new-pass').value.trim();
+    const msgEl = document.getElementById('sm-pass-msg');
+    const btn = document.getElementById('sm-change-btn');
+    if (newPass.length < 8) {
+        msgEl.style.color = '#f87171';
+        msgEl.textContent = '⚠ Password must be at least 8 characters.';
+        return;
+    }
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Updating...';
+    msgEl.textContent = '';
+    const fd = new FormData();
+    fd.append('new_password', newPass);
+    fd.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    try {
+        const res = await fetch(`/control/app-installer/change-password/${_currentSettingsId}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
+            body: fd
+        });
+        const d = await res.json();
+        if (d.status === 'success') {
+            msgEl.style.color = '#34d399';
+            msgEl.textContent = '✅ ' + d.message;
+            document.getElementById('sm-new-pass').value = '';
+        } else {
+            msgEl.style.color = '#f87171';
+            msgEl.textContent = '❌ ' + d.message;
+        }
+    } catch(e) {
+        msgEl.style.color = '#f87171';
+        msgEl.textContent = '❌ Network error.';
+    }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-lock"></i> Update';
+}
+
+function copyText(elId) {
+    const el = document.getElementById(elId);
+    navigator.clipboard.writeText(el.textContent).then(() => showToastMsg('📋 Copied to clipboard!', false));
+}
+
+function showToastMsg(msg, isError) {
+    const t = document.createElement('div');
+    t.className = 'vp-toast';
+    t.style.borderColor = isError ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)';
+    const icon = document.createElement('span');
+    icon.style.cssText = `width:28px;height:28px;border-radius:8px;background:${isError ? 'rgba(239,68,68,0.15)' : 'rgba(16,185,129,0.15)'};display:flex;align-items:center;justify-content:center;font-size:0.85rem;flex-shrink:0;`;
+    icon.innerHTML = isError ? '<i class="fa-solid fa-circle-xmark" style="color:#f87171"></i>' : '<i class="fa-solid fa-circle-check" style="color:#34d399"></i>';
+    t.appendChild(icon);
+    const txt = document.createElement('span');
+    txt.textContent = msg.replace(/^[✅❌📋🗑]\s*/, '');
+    t.appendChild(txt);
+    document.getElementById('toastContainer').appendChild(t);
+    setTimeout(() => { t.style.opacity='0'; t.style.transform='translateY(8px)'; t.style.transition='.25s ease'; setTimeout(() => t.remove(), 260); }, 3200);
+}
+</script>
+</body>
+</html>

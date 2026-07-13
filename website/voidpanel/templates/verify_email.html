@@ -1,0 +1,229 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Verify Email — VoidPanel</title>
+    <meta name="description" content="Verify your email address to activate your VoidPanel account and claim your free registration credit.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css?v=3.0">
+    <style>
+        /* Split layout */
+        .auth-page { min-height: 100vh; display: grid; grid-template-columns: 1fr 1.2fr; }
+        @media(max-width: 960px) { .auth-page { grid-template-columns: 1fr; } .auth-panel { display: none; } }
+
+        /* Left blue panel */
+        .auth-panel { background: linear-gradient(160deg, #1e3a8a 0%, #2563eb 60%, #1d4ed8 100%); display: flex; flex-direction: column; justify-content: space-between; padding: 52px 56px; position: relative; overflow: hidden; }
+        .auth-panel::before { content: ''; position: absolute; inset: 0; background-image: radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px); background-size: 24px 24px; }
+        .auth-panel-logo { position: relative; z-index: 1; }
+        .auth-panel-content { position: relative; z-index: 1; }
+        .auth-panel h2 { font-size: 2.2rem; font-weight: 900; letter-spacing: -0.03em; color: #ffffff; line-height: 1.15; margin-bottom: 14px; }
+        .auth-panel p  { color: rgba(255,255,255,0.72); font-size: 0.95rem; line-height: 1.7; margin-bottom: 30px; }
+        .auth-panel-features { display: flex; flex-direction: column; gap: 12px; }
+        .auth-panel-feat { display: flex; align-items: center; gap: 12px; color: rgba(255,255,255,0.85); font-size: 0.86rem; }
+        .auth-panel-feat i { width: 28px; height: 28px; border-radius: 8px; background: rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: #93c5fd; flex-shrink: 0; }
+        .auth-panel-footer { position: relative; z-index: 1; font-size: 0.75rem; color: rgba(255,255,255,0.4); }
+
+        /* Bonus callout inside left panel */
+        .panel-bonus-card {
+            position: relative; z-index: 1;
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 18px;
+            padding: 20px 24px;
+            margin-bottom: 32px;
+            backdrop-filter: blur(6px);
+        }
+        .panel-bonus-card .bonus-tag {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: rgba(251,191,36,0.2); border: 1px solid rgba(251,191,36,0.4);
+            color: #fcd34d; font-size: 0.7rem; font-weight: 800;
+            letter-spacing: 0.08em; text-transform: uppercase;
+            padding: 3px 10px; border-radius: 20px; margin-bottom: 10px;
+        }
+        .panel-bonus-card .bonus-amount {
+            font-size: 2.6rem; font-weight: 900; color: #ffffff; line-height: 1;
+            display: flex; align-items: baseline; gap: 6px;
+        }
+        .panel-bonus-card .bonus-amount span { font-size: 1.1rem; font-weight: 700; color: rgba(255,255,255,0.7); }
+        .panel-bonus-card p { color: rgba(255,255,255,0.7); font-size: 0.82rem; margin: 8px 0 0; }
+
+        /* Right form side */
+        .auth-form-side { display: flex; align-items: center; justify-content: center; padding: 50px 40px 60px; background: #f8fafc; overflow-y: auto; }
+        .auth-form-box { width: 100%; max-width: 460px; }
+        .auth-form-title { font-size: 1.75rem; font-weight: 900; color: var(--text-primary); letter-spacing: -0.025em; margin-bottom: 6px; }
+        .auth-form-sub { font-size: 0.88rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 20px; }
+        .auth-form-card { background: #ffffff; border: 1px solid var(--border); border-radius: 20px; padding: 30px; box-shadow: var(--shadow-lg); text-align: center; }
+        .form-group { margin-bottom: 20px; }
+        .form-label { display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 12px; text-align: left; }
+        .form-control-otp { width: 100%; padding: 14px; border: 1.5px solid var(--border-medium); border-radius: 12px; background: #f8fafc; color: var(--text-primary); font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.75rem; font-weight: 800; text-align: center; letter-spacing: 0.4em; outline: none; transition: all 0.18s; }
+        .form-control-otp:focus { border-color: var(--accent); background: #ffffff; box-shadow: 0 0 0 4px rgba(37,99,235,0.12); }
+        .alert-msg { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 10px; background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; font-size: 0.86rem; font-weight: 600; margin-bottom: 16px; text-align: left; }
+        .success-msg { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; color: #16a34a; font-size: 0.86rem; font-weight: 600; margin-bottom: 16px; text-align: left; }
+        .auth-divider { text-align: center; font-size: 0.78rem; color: var(--text-faint); margin: 18px 0; display: flex; align-items: center; gap: 12px; }
+        .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+        /* Credit Claim Banner */
+        .credit-banner {
+            background: linear-gradient(135deg, #fef3c7 0%, #fff7ed 100%);
+            border: 1.5px solid #fbbf24;
+            border-radius: 16px;
+            padding: 16px 20px;
+            margin-bottom: 22px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            animation: bannerPulse 2.8s ease-in-out infinite;
+        }
+        @keyframes bannerPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(251,191,36,0); }
+            50%       { box-shadow: 0 0 0 6px rgba(251,191,36,0.18); }
+        }
+        .credit-banner-icon {
+            width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem; color: #fff;
+            box-shadow: 0 4px 12px rgba(245,158,11,0.4);
+        }
+        .credit-banner-text { flex: 1; text-align: left; }
+        .credit-banner-title {
+            font-size: 0.88rem; font-weight: 900; color: #92400e;
+            letter-spacing: -0.01em; margin-bottom: 2px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .credit-banner-title .badge {
+            background: #f59e0b; color: #fff;
+            font-size: 0.65rem; font-weight: 800;
+            letter-spacing: 0.06em; text-transform: uppercase;
+            padding: 1px 7px; border-radius: 20px;
+        }
+        .credit-banner-sub { font-size: 0.78rem; color: #b45309; }
+        .credit-banner-amount {
+            font-size: 1.35rem; font-weight: 900; color: #b45309;
+            letter-spacing: -0.03em; white-space: nowrap;
+        }
+    </style>
+</head>
+<body style="margin:0;">
+<div class="auth-page">
+    <!-- Left brand panel -->
+    <div class="auth-panel">
+        <div class="auth-panel-logo">
+            <img src="/static/logo-white.svg" alt="VoidPanel" height="34" style="height:34px;width:auto;">
+        </div>
+        <div class="auth-panel-content">
+            <!-- Bonus highlight card (shown when signup bonus is configured) -->
+            {% if signup_bonus_chips %}
+            <div class="panel-bonus-card">
+                <div class="bonus-tag"><i class="fas fa-gift"></i> Signup Reward</div>
+                <div class="bonus-amount">
+                    {% if bonus_rupees %}&#x20B9;{{ bonus_rupees }}{% else %}{{ signup_bonus_chips }} Chips{% endif %}
+                    <span>free credit</span>
+                </div>
+                <p>Automatically added to your wallet the moment you verify your email below.</p>
+            </div>
+            {% endif %}
+            <h2>Almost there —<br>verify &amp; claim.</h2>
+            <p>Enter the 6-digit code we sent you to activate your account and unlock your free credit instantly.</p>
+            <div class="auth-panel-features">
+                <div class="auth-panel-feat"><i class="fas fa-server"></i> High-speed cloud infrastructure</div>
+                <div class="auth-panel-feat"><i class="fas fa-envelope"></i> Professional email hosting</div>
+                <div class="auth-panel-feat"><i class="fas fa-lock"></i> Free SSL via Let's Encrypt</div>
+                <div class="auth-panel-feat"><i class="fas fa-receipt"></i> Billing &amp; invoice management</div>
+                <div class="auth-panel-feat"><i class="fas fa-headset"></i> Ticketed support system</div>
+            </div>
+        </div>
+        <div class="auth-panel-footer">© 2024 VoidPanel. Free &amp; Open Source.</div>
+    </div>
+
+    <!-- Right form side -->
+    <div class="auth-form-side">
+        <div class="auth-form-box">
+            <div style="margin-bottom:24px;">
+                <div class="auth-form-title">Verify your email</div>
+                <div class="auth-form-sub">We've sent a 6-digit OTP code to <strong style="color:var(--text-primary);">{{ email }}</strong>. Please check your inbox.</div>
+            </div>
+
+            <!-- FREE CREDIT BANNER -->
+            {% if signup_bonus_chips %}
+            <div class="credit-banner" id="credit-claim-banner">
+                <div class="credit-banner-icon"><i class="fas fa-coins"></i></div>
+                <div class="credit-banner-text">
+                    <div class="credit-banner-title">
+                        Free Credit &#8212; Claim Now
+                        <span class="badge">New User</span>
+                    </div>
+                    <div class="credit-banner-sub">
+                        Verify to receive <strong>{{ signup_bonus_chips }} Void Chips</strong>
+                        {% if bonus_rupees %}(worth &#x20B9;{{ bonus_rupees }}){% endif %} in your wallet.
+                    </div>
+                </div>
+                <div class="credit-banner-amount">
+                    {% if bonus_rupees %}&#x20B9;{{ bonus_rupees }}{% else %}{{ signup_bonus_chips }}{% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="auth-form-card">
+                <!-- Mobile logo (hidden on desktop) -->
+                <div style="display:none;margin-bottom:24px;" class="mobile-logo">
+                    <img src="/static/logo.svg" alt="VoidPanel" height="34" style="height:34px;width:auto;">
+                </div>
+                <style>
+                    @media(max-width:960px){
+                        .auth-form-box .mobile-logo { display:block !important; }
+                    }
+                </style>
+
+                {% if messages %}
+                    {% for message in messages %}
+                        {% if message.tags == 'success' %}
+                            <div class="success-msg">
+                                <i class="fas fa-circle-check"></i> {{ message }}
+                            </div>
+                        {% else %}
+                            <div class="alert-msg">
+                                <i class="fas fa-circle-exclamation"></i> {{ message }}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+
+                <form method="POST" action="/register/verify/">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label class="form-label" for="otp-code-input">Verification Code</label>
+                        <input
+                            type="text"
+                            id="otp-code-input"
+                            name="otp"
+                            class="form-control-otp"
+                            placeholder="000000"
+                            required
+                            maxlength="6"
+                            pattern="\d{6}"
+                            inputmode="numeric"
+                            autocomplete="one-time-code"
+                            autofocus
+                        >
+                    </div>
+
+                    <button type="submit" class="btn-void btn-void-primary w-100" style="justify-content:center;margin-top:16px;">
+                        <i class="fas fa-shield-halved"></i> Verify &amp; Claim Credit
+                    </button>
+                </form>
+
+                <div class="auth-divider">Didn't receive it?</div>
+                <p style="text-align:center;font-size:0.86rem;color:var(--text-muted);margin:0;">
+                    <a href="/register/resend/" style="color:var(--accent);font-weight:700;">Resend OTP Code</a> or
+                    <a href="/register/" style="color:var(--text-secondary);font-weight:600;margin-left:5px;">Change email</a>
+                </p>
+            </div><!-- .auth-form-card -->
+        </div><!-- .auth-form-box -->
+    </div><!-- .auth-form-side -->
+</div><!-- .auth-page -->
+</body>
+</html>

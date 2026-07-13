@@ -1,223 +1,371 @@
+{% load static %}
 <!doctype html>
 <html lang="en">
-
 <head>
-    <title>:: VoidPanel :: BackUp</title>
+    <title>:: VoidPanel :: Backup Manager</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="VoidPanel Backup ">
-    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
-    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
-
-    <!-- VENDOR CSS -->
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    
+    
+    
+    <link rel="stylesheet" href="/static/static/css/plugins/fontawesome-all.min.css">
     <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
 
-    <!-- MAIN Project CSS file -->
-    <link rel="stylesheet" href="/static/assets/css/main.css">
-
-    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
     <style>
-        /* Basic styling for the p tag */
-        p.processing {
-            font-size: 18px;
-            font-weight: bold;
-
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f1f5f9; }
+        
+        .vp-glass-panel {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            padding: 24px;
+            margin-bottom: 24px;
         }
 
-        /* Animation for the dots */
-        .dots::after {
-            content: '';
-            display: inline-block;
-            width: 1em;
-            text-align: left;
-            animation: dots 1.5s steps(4, end) infinite;
+        .vp-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
 
-        /* Keyframes for the dots animation */
-        @keyframes dots {
-
-            0%,
-            100% {
-                content: '';
-            }
-
-            25% {
-                content: '.';
-            }
-
-            50% {
-                content: '..';
-            }
-
-            75% {
-                content: '...';
-            }
+        .vp-panel-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #fff;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
+
+        .vp-btn-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+            cursor: pointer;
+            width: 100%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .vp-btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(99, 102, 241, 0.35); }
+        .vp-btn-primary:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+
+        .vp-btn-success {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .vp-btn-success:hover { background: rgba(16, 185, 129, 0.25); text-decoration: none; color: #34d399;}
+
+        .vp-btn-danger {
+            background: rgba(239, 68, 68, 0.12);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .vp-btn-danger:hover { background: rgba(239, 68, 68, 0.22); color: #ef4444; }
+
+        .vp-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; }
+        .vp-table th {
+            color: #94a3b8;
+            font-weight: 500;
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 10px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .vp-table td {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 12px 16px;
+            color: #e2e8f0;
+            vertical-align: middle;
+            font-size: 0.88rem;
+        }
+        .vp-table tr td:first-child { border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
+        .vp-table tr td:last-child { border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
+        .vp-table tr:hover td { background: rgba(255, 255, 255, 0.04); }
+
+        /* Progress bar */
+        .vp-progress-wrap {
+            background: rgba(255,255,255,0.08);
+            border-radius: 6px;
+            height: 10px;
+            width: 100%;
+            overflow: hidden;
+        }
+        .vp-progress-bar {
+            background: linear-gradient(90deg, #6366f1, #818cf8);
+            height: 100%;
+            border-radius: 6px;
+            width: 0%;
+            transition: width 0.4s ease;
+        }
+
+        /* Toasts */
+        .vp-toast-container { position: fixed; bottom: 24px; left: 24px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; }
+        .vp-toast {
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(12px);
+            border-left: 4px solid #6366f1;
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transform: translateX(-120%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            min-width: 280px;
+        }
+        .vp-toast.show { transform: translateX(0); }
+        .vp-toast.success { border-color: #10b981; }
+        .vp-toast.error { border-color: #ef4444; }
+        .vp-toast.info { border-color: #6366f1; }
+        
+        .backup-hero { text-align: center; padding: 20px 0; }
+        .backup-hero img { height: 100px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+
+        .badge-size {
+            background: rgba(99, 102, 241, 0.15);
+            color: #818cf8;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 500;
+        }
+
+        #processingSection {
+            display: none;
+            margin-bottom: 16px;
+            background: rgba(99, 102, 241, 0.08);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 12px;
+            padding: 16px 20px;
+        }
+        .processing-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .processing-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #818cf8;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .processing-pct {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #a5b4fc;
+        }
+
+
+        /* Tab navigation */
+        .vp-tabs { display:flex; gap:4px; margin-bottom:24px; background:rgba(255,255,255,0.04); padding:6px; border-radius:14px; width:fit-content; }
+        .vp-tab-btn { padding:10px 22px; border:none; border-radius:10px; font-size:.88rem; font-weight:600; cursor:pointer; transition:all .2s; background:transparent; color:#64748b; }
+        .vp-tab-btn.active { background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; box-shadow:0 4px 12px rgba(99,102,241,.3); }
+        .vp-tab-btn:hover:not(.active) { color:#94a3b8; background:rgba(255,255,255,0.06); }
+        .vp-btn-ghost { background:rgba(255,255,255,0.06); color:#cbd5e1; border:1px solid rgba(255,255,255,0.1); padding:8px 20px; border-radius:8px; font-weight:500; cursor:pointer; transition:all .2s; font-size:.88rem; }
+        .vp-btn-ghost:hover { background:rgba(255,255,255,0.1); }
+
+        /* Confirm modal */
+        .vp-modal-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 9000;
+            align-items: center;
+            justify-content: center;
+        }
+        .vp-modal-backdrop.show { display: flex; }
+        .vp-modal {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            padding: 28px;
+            max-width: 420px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        .vp-modal h4 { color: #fff; margin-bottom: 8px; font-size: 1.1rem; }
+        .vp-modal p { color: #94a3b8; font-size: 0.9rem; margin-bottom: 24px; }
+        .vp-modal-actions { display: flex; gap: 12px; justify-content: flex-end; }
+        .vp-btn-ghost {
+            background: rgba(255,255,255,0.06);
+            color: #cbd5e1;
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .vp-btn-ghost:hover { background: rgba(255,255,255,0.1); }
+        .vp-modal .vp-btn-danger { padding: 8px 20px; border-radius: 8px; font-weight: 600; }
     </style>
-    <style>
-        .myname {
-            border-radius: 30px;
-            box-shadow: inset;
-            border-width: 4px;
-
-
-        }
-
-        .text-container {
-
-            border: 1px solid #ccc;
-
-            word-wrap: break-word;
-            /* Force text to wrap */
-            white-space: normal;
-            /* Ensure normal wrapping */
-            overflow-wrap: break-word;
-            /* Ensure long words break */
-        }
-    </style>
-
 </head>
 
-<body data-theme="light" class="font-nunito">
-
-    <div id="wrapper" class="theme-cyan">
-
-        <!-- Page Loader -->
-        <div class="page-loader-wrapper">
-            <div class="loader">
-                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
-
-                </div>
-                <p>Please wait...</p>
-            </div>
-        </div>
-
-
-
+<body>
+    {% csrf_token %}
+    <div id="wrapper">
         {% include 'control/navbar.html' %}
-
-        <!-- main left menu -->
         {% include 'control/left.html' %}
-        <!-- rightbar icon div -->
         {% include 'control/right.html' %}
 
-
-        <!-- mani page content body part -->
-
         <div id="main-content">
+            <div class="container-fluid" style="padding: 24px;">
+                
 
-            <div class="container-fluid">
-                <div class="block-header">
-                    <div class="row">
-                        <div class="col-lg-10 col-md-6 col-sm-12">
-                            <h2>Create Backup</h2>
-                            <ul class="breadcrumb">
-                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
-                                </li>
-                                <li class="breadcrumb-item">Dashboard</li>
-                                <li class="breadcrumb-item">Create Backup</li>
-
-                            </ul>
-                        </div>
-
-
-
-
-
-
-
-                    </div>
-                </div>
-
-                <div class="row clearfix">
-                    <div class="col-lg-12">
-
-                        <div class="">
-                            <div class="header">
-                                <h2 style="display: inline-block;">Backup Wizard</h2>
-
-                                <img src="/static/icons/re.png" style="height: 80px; width: 80px; border-radius: 5%;">
-
-
+        <!-- Tab Navigation -->
+        <div class="vp-tabs">
+            <button class="vp-tab-btn active" id="tabBtnLocalBackups" onclick="showTab('LocalBackups')">
+                <i class="fa fa-archive"></i> Local Backups
+            </button>
+            <button class="vp-tab-btn" id="tabBtnCloudSync" onclick="showTab('CloudSync')">
+                <i class="fa fa-cloud"></i> Cloud Sync
+            </button>
+            <button class="vp-tab-btn" id="tabBtnAutomation" onclick="showTab('Automation')">
+                <i class="fa fa-clock"></i> Automation
+            </button>
+        </div>
+        <div id="tabLocalBackups" class="vp-tab-panel">
+        <div class="row">
+                    <!-- Backup Trigger Section -->
+                    <div class="col-lg-4">
+                        <div class="vp-glass-panel">
+                            <div class="vp-panel-header">
+                                <h2 class="vp-panel-title">
+                                    <i class="fa fa-database" style="color: #6366f1;"></i> Data Integrity
+                                </h2>
+                            </div>
+                            
+                            <div class="backup-hero">
+                                <img src="/static/icons/re.png" alt="Backup Manager">
+                                <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 8px;">
+                                    Generate a complete snapshot of your web payload, email boxes, and security keys.
+                                </p>
+                                <p style="color: #64748b; font-size: 0.82rem; margin-bottom: 20px;">
+                                    <i class="fa fa-info-circle"></i> Multiple backups are allowed. Each has a unique timestamp.
+                                </p>
+                                <button onclick="triggerBackup(event, '{{domain}}')" id="btnDeploy" class="vp-btn-primary">
+                                    <i class="fa fa-cloud-upload"></i> Backup Data Now
+                                </button>
                             </div>
 
-
+                            <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.05);">
+                                <a href="/control/filemanager/" class="vp-btn-success" style="width:100%; justify-content: center;">
+                                    <i class="fa fa-folder-open"></i> Open File Manager
+                                </a>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="row clearfix " style="margin-top: 30px;">
+                    <!-- Backup List Section -->
+                    <div class="col-lg-8">
+                        <div class="vp-glass-panel">
+                            <div class="vp-panel-header">
+                                <h2 class="vp-panel-title">
+                                    <i class="fa fa-history" style="color: #10b981;"></i> Archival History
+                                </h2>
+                                <span style="color: #64748b; font-size: 0.85rem;">{{ folder|length }} backup{{ folder|length|pluralize }}</span>
+                            </div>
 
-                   
-
-
-
-                </div>
-
-
-                <div class="row clearfix" style="margin-top: 30px;">
-                    <div class="col-lg-4 col-md-12">
-                        <div style="margin-left: 20px;" class="p-2 m-2">
-                            <form method="post" action="">{% csrf_token %}
-
-                         
-                                <button onclick="backup(event,'{{domain}}');"
-                                    class="btn btn-primary p-2 m-2">Backup Data Now</button>
-                                       </form>
-                        </div>
-                        <div class="modal animated fadeIn show" id="pro1" style="display: none; margin-top: 300px;">
-                            <div class="modal-dialog modal-sm" role="document">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <p class="processing">Processing<span class="dots"></span></p>
-                
-                                    </div>
-                
+                            <!-- Live Progress Section (shown only while backup is running) -->
+                            <div id="processingSection">
+                                <div class="processing-header">
+                                    <span class="processing-label">
+                                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                                        Archiving in progress...
+                                    </span>
+                                    <span class="processing-pct" id="processLabel">0%</span>
                                 </div>
+                                <div class="vp-progress-wrap">
+                                    <div class="vp-progress-bar" id="processBar"></div>
+                                </div>
+                                <p style="color: #64748b; font-size: 0.8rem; margin-top: 8px; margin-bottom: 0;">
+                                    The page will refresh automatically when the backup completes.
+                                </p>
                             </div>
-                        </div>
-                    </div>
 
-                    <div class="col-lg-8 col-md-12">
-                        <div class="">
-                            <div class="header">
-                                <h4>Backup Info</h4>
-                            </div>
-                            <div class="body table-responsive social_media_table"
-                                style="max-height: 300px; overflow-y: auto;">
-                                <table class="table table-hover">
+                            <div style="overflow-x: auto; max-height: 480px;">
+                                <table class="vp-table" id="backupTable">
                                     <thead>
                                         <tr>
-
-                                            <th>Domain</th>
+                                            <th>Filename</th>
                                             <th>Date</th>
-                                            <th> Time</th>
-                                            <th>Download</th>
-
+                                            <th>Time (UTC)</th>
+                                            <th>Size</th>
+                                            <th style="text-align: right;">Actions</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
-
-                                      
-
-                                        {% for i,j in folder.items %}
-                                        <tr>
-
-
-                                            <td>{{ j.0 }}</td>
-
+                                    <tbody id="backupTableBody">
+                                        {% for key, j in folder.items %}
+                                        <tr id="row-{{ forloop.counter }}">
+                                            <td style="color: #f59e0b; font-family: monospace; font-size: 0.8rem;">{{ key }}</td>
                                             <td>{{ j.1 }}</td>
-                                    
                                             <td>{{ j.2 }}</td>
-
-                                            <td>
-
-                                               <a href="/download_zip_backup/{{ j.3 }}/{{dire}}"> <button 
-                                                    class="btn btn-success"> Download  Your Backup
-                                                        </button></a>
+                                            <td><span class="badge-size">{{ j.4 }}</span></td>
+                                            <td style="text-align: right;">
+                                                <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                                                    <a href="/control/download_backup/{{ key }}/" class="vp-btn-success" title="Download this backup">
+                                                        <i class="fa fa-download"></i> Download
+                                                    </a>
+                                                    <button onclick="syncToCloud('{{ key }}')" class="vp-btn-ghost" title="Sync to cloud" style="padding:6px 12px;font-size:.82rem;display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(99,102,241,.3);color:#818cf8;">
+                                                        <i class="fa fa-cloud-upload-alt"></i> Sync
+                                                    </button>
+                                                    <button onclick="confirmDelete('{{ key }}', '{{domain}}')" class="vp-btn-danger" title="Delete this backup">
+                                                        <i class="fa fa-trash"></i> Delete
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr id="emptyRow">
+                                            <td colspan="5" style="text-align: center; color: #94a3b8; padding: 40px;">
+                                                <i class="fa fa-archive" style="font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 12px;"></i>
+                                                No backups have been generated yet for this domain.
                                             </td>
                                         </tr>
                                         {% endfor %}
@@ -226,138 +374,458 @@
                             </div>
                         </div>
                     </div>
-
-                </div>
-
-
-
+                </div><!-- /col-lg-8 -->
+        </div><!-- /row -->
+        </div><!-- /tabLocalBackups -->
 
 
+    <!-- Toast Notifications -->
+    <div class="vp-toast-container" id="toastContainer"></div>
 
-
-
-
-
-
-            </div>
-
-        </div>
-        <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Status</h6>
-                    </div>
-
-                    <div class="modal-body">
-                        <div class="col-md-12 col-sm-12">
-                            <div id="statusemail" style="text-align: center;" class="row clearfix">
-
-
-
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button  onclick="closeelol();"
-                                class="btn btn-danger">Close</button>
-                        </div>
-                    </div>
-
-                </div>
+    <!-- Delete Confirm Modal -->
+    <div class="vp-modal-backdrop" id="deleteModal">
+        <div class="vp-modal">
+            <h4><i class="fa fa-exclamation-triangle" style="color: #f59e0b; margin-right:8px;"></i>Delete Backup?</h4>
+            <p id="deleteModalFilename" style="font-family: monospace; font-size: 0.85rem; color: #94a3b8; word-break: break-all; margin-bottom: 12px;"></p>
+            <p>This backup file will be permanently removed and cannot be recovered.</p>
+            <div class="vp-modal-actions">
+                <button class="vp-btn-ghost" onclick="closeDeleteModal()">Cancel</button>
+                <button class="vp-btn-danger" id="confirmDeleteBtn" onclick="executeDelete()"><i class="fa fa-trash"></i> Delete Permanently</button>
             </div>
         </div>
+    </div>
+
+    <script>
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        let pendingDeleteFile = null;
+        let pendingDeleteDomain = null;
+
+        /* ─── Toast ─────────────────────────────────────────── */
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `vp-toast ${type}`;
+            const icons = { success: 'check-circle', error: 'times-circle', info: 'info-circle' };
+            toast.innerHTML = `<i class="fa fa-${icons[type] || 'info-circle'}"></i> <span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
+        /* ─── Backup Trigger ─────────────────────────────────── */
+        async function triggerBackup(event, domain) {
+            event.preventDefault();
+            const btn = document.getElementById('btnDeploy');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i> Starting...';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/control/backupdata/', {
+                    method: 'POST',
+                    body: JSON.stringify({ domain }),
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken 
+                    }
+                });
+                
+                const result = await response.json();
+                if (result.status === 'success') {
+                    showToast('Backup job started! Tracking progress below.', 'success');
+                    startPolling(domain);
+                } else if (result.status === 'exceed') {
+                    showToast('Storage Quota Limit Reached. Free up space first.', 'error');
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+                } else {
+                    showToast(result.message || 'Failed to start backup.', 'error');
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                showToast('Network error. Please try again.', 'error');
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
+        }
+
+        /* ─── Polling ─────────────────────────────────────────── */
+        let pollingTimer = null;
+        let _seenProcessing = false;  // true once we get at least one 'processing' response
+        let _idleAfterStart = 0;      // count of idle responses AFTER we have seen processing
+
+        function startPolling(domain) {
+            if (pollingTimer) return; // already polling
+            _seenProcessing = false;
+            _idleAfterStart = 0;
+            showProcessingSection(true);
+            const btn = document.getElementById('btnDeploy');
+
+            pollingTimer = setInterval(async () => {
+                try {
+                    const resp = await fetch(`/control/backup_status/${domain}/`);
+                    const data = await resp.json();
+                    
+                    if (data.status === 'processing') {
+                        _seenProcessing = true;
+                        _idleAfterStart = 0;
+                        let pct = parseInt(data.progress) || 0;
+                        pct = Math.min(pct, 99); // never show 100% until truly done
+                        setProgress(pct);
+                        if (btn) btn.innerHTML = `<i class="fa fa-circle-o-notch fa-spin"></i> Backing up... ${pct}%`;
+                    } else if (data.status === 'completed') {
+                        // Server explicitly signals completion
+                        clearInterval(pollingTimer); pollingTimer = null;
+                        setProgress(100);
+                        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-cloud-upload"></i> Backup Data Now'; }
+                        showProcessingSection(false);
+                        showToast('✅ Backup completed successfully!', 'success');
+                        setTimeout(() => window.location.reload(), 2000);
+                    } else {
+                        // status === 'idle'
+                        if (_seenProcessing) {
+                            // We saw processing before → this idle means it just finished
+                            _idleAfterStart++;
+                            if (_idleAfterStart >= 2) {
+                                // Confirm it's really done (2 consecutive idle responses)
+                                clearInterval(pollingTimer); pollingTimer = null;
+                                setProgress(100);
+                                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-cloud-upload"></i> Backup Data Now'; }
+                                showProcessingSection(false);
+                                showToast('✅ Backup completed!', 'success');
+                                setTimeout(() => window.location.reload(), 2000);
+                            }
+                        } else {
+                            // Never saw processing yet — backup likely still starting up (first ~3 seconds)
+                            // Keep polling, do nothing yet
+                            _idleAfterStart++;
+                            if (_idleAfterStart > 10) {
+                                // 10 polls (20s) with never seeing processing = backup failed to start
+                                clearInterval(pollingTimer); pollingTimer = null;
+                                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-cloud-upload"></i> Backup Data Now'; }
+                                showProcessingSection(false);
+                                showToast('❌ Backup failed to start. Check server logs.', 'error');
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error("Polling error:", e);
+                }
+            }, 2000);
+        }
+
+        function setProgress(pct) {
+            document.getElementById('processBar').style.width = pct + '%';
+            document.getElementById('processLabel').textContent = pct + '%';
+        }
+
+        function showProcessingSection(show) {
+            document.getElementById('processingSection').style.display = show ? 'block' : 'none';
+        }
+
+        /* ─── Auto-poll on page load if a backup is already running ─ */
+        (async function checkOnLoad() {
+            const domain = '{{domain}}';
+            try {
+                const resp = await fetch(`/control/backup_status/${domain}/`);
+                const data = await resp.json();
+                if (data.status === 'processing') {
+                    const btn = document.getElementById('btnDeploy');
+                    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i> Backup Running...'; }
+                    startPolling(domain);
+                }
+            } catch(e) {}
+        })();
+
+        /* ─── Delete Backup ─────────────────────────────────── */
+        function confirmDelete(filename, domain) {
+            pendingDeleteFile = filename;
+            pendingDeleteDomain = domain;
+            document.getElementById('deleteModalFilename').textContent = filename;
+            document.getElementById('deleteModal').classList.add('show');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.remove('show');
+            pendingDeleteFile = null;
+            pendingDeleteDomain = null;
+        }
+
+        async function executeDelete() {
+            if (!pendingDeleteFile) return;
+            const btn = document.getElementById('confirmDeleteBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i> Deleting...';
+
+            try {
+                const resp = await fetch('/control/delete_backup/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({ filename: pendingDeleteFile, domain: pendingDeleteDomain })
+                });
+                const result = await resp.json();
+
+                if (result.status === 'success') {
+                    closeDeleteModal();
+                    showToast('Backup deleted successfully.', 'success');
+                    // Remove row from DOM without full reload
+                    const allRows = document.querySelectorAll('#backupTableBody tr');
+                    allRows.forEach(row => {
+                        if (row.innerHTML.includes(pendingDeleteFile)) row.remove();
+                    });
+                    // Show empty state if no rows left
+                    const remaining = document.querySelectorAll('#backupTableBody tr:not(#emptyRow)').length;
+                    if (remaining === 0) {
+                        let emptyRow = document.getElementById('emptyRow');
+                        if (!emptyRow) {
+                            emptyRow = document.createElement('tr');
+                            emptyRow.id = 'emptyRow';
+                            emptyRow.innerHTML = '<td colspan="5" style="text-align:center;color:#94a3b8;padding:40px;"><i class="fa fa-archive" style="font-size:2rem;opacity:0.3;display:block;margin-bottom:12px;"></i>No backups have been generated yet for this domain.</td>';
+                            document.getElementById('backupTableBody').appendChild(emptyRow);
+                        }
+                    }
+                } else {
+                    showToast(result.message || 'Failed to delete backup.', 'error');
+                }
+            } catch(e) {
+                showToast('Network error. Could not delete backup.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa fa-trash"></i> Delete Permanently';
+                pendingDeleteFile = null;
+            }
+        }
+
+        // Close modal on backdrop click
+        document.getElementById('deleteModal').addEventListener('click', function(e) {
+            if (e.target === this) closeDeleteModal();
+        });
+    </script>
+
+<!-- CLOUD SYNC TAB PANEL -->
+<div id="tabCloudSync" class="vp-tab-panel" style="display:none;">
+  <div class="vp-glass-panel">
+    <div class="vp-panel-header">
+      <h2 class="vp-panel-title"><i class="fa fa-cloud" style="color:#6366f1;"></i> Cloud Sync Credentials</h2>
+      <div id="cloudConfigStatus"></div>
+    </div>
+    <div style="display:flex;gap:12px;margin-bottom:20px;">
+      <button onclick="setProvider('gcs')" id="providerGcs" class="vp-btn-primary" style="width:auto;padding:10px 20px;">
+        <i class="fab fa-google"></i> Google Cloud
+      </button>
+      <button onclick="setProvider('s3')" id="providerS3" class="vp-btn-ghost" style="padding:10px 20px;">
+        <i class="fab fa-aws"></i> Amazon S3
+      </button>
+    </div>
+    <div id="gcsFields">
+      <div style="margin-bottom:14px;">
+        <label style="color:#94a3b8;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;">GCS Bucket Name</label>
+        <input type="text" id="gcsBucket" placeholder="my-backup-bucket" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#f1f5f9;font-size:.9rem;outline:none;">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="color:#94a3b8;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;">Service Account JSON Key</label>
+        <textarea id="gcsKeyJson" rows="6" placeholder='Paste full service account JSON here...' style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#f1f5f9;font-size:.78rem;font-family:monospace;outline:none;resize:vertical;"></textarea>
+      </div>
+    </div>
+    <div id="s3Fields" style="display:none;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+        <div>
+          <label style="color:#94a3b8;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;">S3 Bucket Name</label>
+          <input type="text" id="s3Bucket" placeholder="my-backup-bucket" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#f1f5f9;font-size:.9rem;outline:none;">
+        </div>
+        <div>
+          <label style="color:#94a3b8;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;">Region</label>
+          <select id="s3Region" style="width:100%;background:#1e293b;border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#f1f5f9;font-size:.9rem;outline:none;">
+            <option value="us-east-1">us-east-1</option><option value="us-west-2">us-west-2</option>
+            <option value="eu-west-1">eu-west-1</option><option value="eu-central-1">eu-central-1</option>
+            <option value="ap-south-1">ap-south-1</option><option value="ap-southeast-1">ap-southeast-1</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+        <div>
+          <label style="color:#94a3b8;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;">Access Key ID</label>
+          <input type="text" id="s3AccessKey" placeholder="AKIA..." style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#f1f5f9;font-size:.9rem;outline:none;font-family:monospace;">
+        </div>
+        <div>
+          <label style="color:#94a3b8;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;">Secret Access Key</label>
+          <input type="password" id="s3SecretKey" placeholder="Secret key..." style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#f1f5f9;font-size:.9rem;outline:none;font-family:monospace;">
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button onclick="saveCloudConfig()" class="vp-btn-primary" style="width:auto;padding:10px 24px;"><i class="fa fa-save"></i> Save Credentials</button>
+    </div>
+  </div>
+</div>
+
+<div id="tabAutomation" class="vp-tab-panel" style="display:none;">
+  <div class="vp-glass-panel">
+    <div class="vp-panel-header">
+      <h2 class="vp-panel-title"><i class="fa fa-clock" style="color:#f59e0b;"></i> Automation Settings</h2>
+    </div>
+    <div style="display:grid;gap:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:16px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid rgba(255,255,255,0.06);">
+        <div>
+          <div style="font-weight:600;color:#f1f5f9;margin-bottom:4px;">Enable Auto-Backup</div>
+          <div style="font-size:.82rem;color:#64748b;">Automatically create backups on a schedule</div>
+        </div>
+        <label style="position:relative;display:inline-block;width:52px;height:28px;cursor:pointer;">
+          <input type="checkbox" id="autoEnabled" onchange="updateAutoSettings()" style="opacity:0;width:0;height:0;">
+          <span style="position:absolute;inset:0;background:#334155;border-radius:28px;transition:.3s;" id="autoSlider"></span>
+        </label>
+      </div>
+      <div style="padding:16px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid rgba(255,255,255,0.06);">
+        <div style="font-weight:600;color:#f1f5f9;margin-bottom:12px;">Backup Schedule</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button onclick="setSchedule('daily')" id="schedDaily" class="vp-btn-primary" style="width:auto;padding:8px 18px;font-size:.85rem;">Daily 2AM</button>
+          <button onclick="setSchedule('weekly')" id="schedWeekly" class="vp-btn-ghost" style="padding:8px 18px;font-size:.85rem;">Weekly</button>
+          <button onclick="setSchedule('custom')" id="schedCustom" class="vp-btn-ghost" style="padding:8px 18px;font-size:.85rem;">Custom</button>
+        </div>
+        <div id="customCronWrap" style="margin-top:12px;display:none;">
+          <input type="text" id="customCron" placeholder="0 2 * * *" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#f1f5f9;font-size:.9rem;outline:none;font-family:monospace;width:260px;">
+          <div style="font-size:.75rem;color:#64748b;margin-top:4px;">Standard cron expression (UTC)</div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:16px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid rgba(255,255,255,0.06);">
+        <div>
+          <div style="font-weight:600;color:#f1f5f9;margin-bottom:4px;">Auto-Sync to Cloud</div>
+          <div style="font-size:.82rem;color:#64748b;">Push every new backup to cloud immediately after creation</div>
+        </div>
+        <label style="position:relative;display:inline-block;width:52px;height:28px;cursor:pointer;">
+          <input type="checkbox" id="autoSync" onchange="updateAutoSettings()" style="opacity:0;width:0;height:0;">
+          <span style="position:absolute;inset:0;background:#334155;border-radius:28px;transition:.3s;" id="syncSlider"></span>
+        </label>
+      </div>
+      <button onclick="saveAutoSettings()" class="vp-btn-primary" style="width:auto;padding:10px 24px;"><i class="fa fa-save"></i> Save Automation</button>
+    </div>
+  </div>
+</div>
 
 <script>
-    function closeelol(){
-        document.getElementById('eeee').style.display='none';
+var DOMAIN_CLOUD = '{{domain}}';
+var activeProvider = 'gcs';
+var activeSchedule = 'daily';
+const CSRF = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+// Tabs
+function showTab(tab) {
+  document.querySelectorAll('.vp-tab-panel').forEach(p => p.style.display='none');
+  document.querySelectorAll('.vp-tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab'+tab).style.display='block';
+  document.getElementById('tabBtn'+tab).classList.add('active');
+}
+
+// Provider toggle
+function setProvider(p) {
+  activeProvider = p;
+  document.getElementById('gcsFields').style.display = p==='gcs'?'block':'none';
+  document.getElementById('s3Fields').style.display  = p==='s3'?'block':'none';
+  document.getElementById('providerGcs').className = p==='gcs'?'vp-btn-primary':'vp-btn-ghost';
+  document.getElementById('providerS3').className  = p==='s3'?'vp-btn-primary':'vp-btn-ghost';
+  document.getElementById('providerGcs').style = p==='gcs'?'width:auto;padding:10px 20px;':'padding:10px 20px;';
+  document.getElementById('providerS3').style  = p==='s3'?'width:auto;padding:10px 20px;':'padding:10px 20px;';
+}
+
+// Schedule toggle
+function setSchedule(s) {
+  activeSchedule = s;
+  ['daily','weekly','custom'].forEach(x => {
+    document.getElementById('sched'+x.charAt(0).toUpperCase()+x.slice(1)).className = x===s?'vp-btn-primary':'vp-btn-ghost';
+    if(x===s && x!='daily') document.getElementById('sched'+x.charAt(0).toUpperCase()+x.slice(1)).style='width:auto;padding:8px 18px;font-size:.85rem;';
+    else document.getElementById('sched'+x.charAt(0).toUpperCase()+x.slice(1)).style='padding:8px 18px;font-size:.85rem;';
+  });
+  document.getElementById('customCronWrap').style.display = s==='custom'?'block':'none';
+}
+
+// Toggle slider style
+function styleToggle(inputId, sliderId, checked) {
+  document.getElementById(sliderId).style.background = checked ? '#6366f1' : '#334155';
+}
+
+document.getElementById('autoEnabled').addEventListener('change', function() { styleToggle('autoEnabled','autoSlider',this.checked); });
+document.getElementById('autoSync').addEventListener('change', function() { styleToggle('autoSync','syncSlider',this.checked); });
+
+// Load existing config
+async function loadCloudConfig() {
+  try {
+    const r = await fetch('/control/cloud-backup-config/'+DOMAIN_CLOUD+'/');
+    const d = await r.json();
+    if(d.status==='success') {
+      setProvider(d.provider||'gcs');
+      document.getElementById('gcsBucket').value   = d.gcs_bucket||'';
+      document.getElementById('gcsKeyJson').value  = d.gcs_key_json||'';
+      document.getElementById('s3Bucket').value    = d.s3_bucket||'';
+      document.getElementById('s3AccessKey').value = d.s3_access_key||'';
+      document.getElementById('s3SecretKey').value = d.s3_secret_key||'';
+      if(d.s3_region) document.getElementById('s3Region').value = d.s3_region;
+      document.getElementById('autoEnabled').checked = d.auto_backup_enabled;
+      document.getElementById('autoSync').checked    = d.sync_after_backup;
+      styleToggle('autoEnabled','autoSlider', d.auto_backup_enabled);
+      styleToggle('autoSync','syncSlider', d.sync_after_backup);
+      if(d.auto_schedule_preset) setSchedule(d.auto_schedule_preset);
+      if(d.auto_schedule_cron) document.getElementById('customCron').value = d.auto_schedule_cron;
+      if(d.is_configured) document.getElementById('cloudConfigStatus').innerHTML = '<span style="color:#10b981;font-size:.8rem;font-weight:600;"><i class="fa fa-check-circle"></i> Configured</span>';
     }
+  } catch(e){}
+}
+loadCloudConfig();
+
+// Save credentials
+async function saveCloudConfig() {
+  const body = {
+    provider: activeProvider,
+    gcs_bucket: document.getElementById('gcsBucket').value,
+    gcs_key_json: document.getElementById('gcsKeyJson').value,
+    s3_bucket: document.getElementById('s3Bucket').value,
+    s3_access_key: document.getElementById('s3AccessKey').value,
+    s3_secret_key: document.getElementById('s3SecretKey').value,
+    s3_region: document.getElementById('s3Region').value,
+  };
+  const r = await fetch('/control/cloud-backup-config/'+DOMAIN_CLOUD+'/', {
+    method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF}, body:JSON.stringify(body)
+  });
+  const d = await r.json();
+  showToast(d.message, d.status==='success'?'success':'error');
+}
+
+// Save automation
+async function saveAutoSettings() {
+  const body = {
+    auto_backup_enabled: document.getElementById('autoEnabled').checked,
+    auto_schedule_preset: activeSchedule,
+    auto_schedule_cron: document.getElementById('customCron').value,
+    sync_after_backup: document.getElementById('autoSync').checked,
+  };
+  const r = await fetch('/control/cloud-backup-auto/'+DOMAIN_CLOUD+'/', {
+    method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF}, body:JSON.stringify(body)
+  });
+  const d = await r.json();
+  showToast(d.message, d.status==='success'?'success':'error');
+}
+
+// Sync a specific file to cloud
+async function syncToCloud(filename) {
+  showToast('Uploading '+filename+' to cloud...', 'info');
+  const r = await fetch('/control/cloud-backup-sync/'+DOMAIN_CLOUD+'/'+filename+'/', {
+    method:'POST', headers:{'X-CSRFToken':CSRF}
+  });
+  const d = await r.json();
+  showToast(d.message, d.status==='success'?'success':'error');
+}
 </script>
 
-        <script>
+            </div><!-- /container-fluid -->
+        </div><!-- /main-content -->
+    </div><!-- /wrapper -->
 
-       async function backup(event,domain) {
-                event.preventDefault();  // Prevent the default form submission behavior
-             
-              
-                document.getElementById('pro1').style.display = "block";
-                
-                // Get the form data
-          
-                const data = {
-                    domain:domain,
-                  
-
-                };
-               
-      
-
-
-                try {
-                    // Make the fetch request to change the password
-                    const response = await fetch('/control/backupdata/', {  // Replace with your actual API endpoint
-                        method: 'POST',
-                        body: JSON.stringify(data),
-                        headers: {
-                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-                        }
-                    });
-                    const result = await response.json();
-            
-                    // Handle the server response
-                    if (response.ok && result.status === 'success') {
-                        document.getElementById('pro1').style.display = "none";
-                        location.reload(true);
-                    }
-                    else if (response.ok && result.status === 'exceed') {
-                        document.getElementById('pro1').style.display = "none";
-                      
-                        document.getElementById('eeee').style.display = "block";
-                        document.getElementById('statusemail').innerHTML = "Limit Exceeded";
-                        location.reload(true);
-                    }
-
-                 
-                } catch (error) {
-
-                    document.getElementById('pro1').style.display = "none";
-                    location.reload(true);
-                }
-            }
-
-        </script>
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-        <!-- Javascript -->
-        <script src="/static/assets/bundles/libscripts.bundle.js"></script>
-        <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
-
-        <!-- page vendor js file -->
-        <script src="/static/assets/vendor/toastr/toastr.js"></script>
-        <script src="/static/assets/bundles/c3.bundle.js"></script>
-
-
-        <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
-        <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
-
-
-        <!-- page js file -->
-        <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
-        <script src="/static/assets/bundles/chartjs.js"></script>
-        <script src="/static/assets/index2.js"></script>
-
+    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
 
 </body>
-
 </html>

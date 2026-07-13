@@ -1,0 +1,574 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>White-Label Branding — {{ panel_name }}</title>
+    <link rel="stylesheet" href="{% static 'assets/plugins/bootstrap/css/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'assets/css/style.min.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --ba: {{ panel_primary_color|default:"#6366f1" }};
+            --ba-glow: {{ panel_primary_color|default:"#6366f1" }}28;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #07091c; color: #e2e8f0; }
+        /* Offset fixed navbar */
+        #main-content { padding-top: 60px; min-height: 100vh; }
+
+
+        /* ── PAGE HERO ── */
+        .page-hero {
+            background: linear-gradient(135deg, #0c1030 0%, #0f1535 60%, #0c1030 100%);
+            border-bottom: 1px solid rgba(99,102,241,0.15);
+            padding: 1.75rem 0 1.5rem;
+        }
+        .page-hero h1 {
+            font-size: 1.55rem; font-weight: 800;
+            background: linear-gradient(135deg, #ffffff 40%, #a5b4fc);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+        .page-hero p { color: #64748b; font-size: 0.875rem; margin: 0; }
+
+        /* ── TIER BADGE ── */
+        .tier-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 10px; border-radius: 20px;
+            font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+        }
+        .tier-badge.unlimited { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+        .tier-badge.advanced  { background: rgba(139,92,246,0.12); color: #a78bfa; border: 1px solid rgba(139,92,246,0.3); }
+        .tier-badge.pro       { background: rgba(59,130,246,0.12); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+        .tier-badge.starter   { background: rgba(100,116,139,0.12); color: #94a3b8; border: 1px solid rgba(100,116,139,0.25); }
+
+        /* ── UPGRADE BANNER ── */
+        .upgrade-banner {
+            background: linear-gradient(135deg, rgba(245,158,11,0.07), rgba(251,191,36,0.04));
+            border: 1px solid rgba(245,158,11,0.2);
+            border-radius: 12px; padding: 14px 18px;
+            display: flex; align-items: center; gap: 14px;
+            margin-bottom: 1.25rem;
+        }
+        .upgrade-banner .ub-icon {
+            width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+            background: rgba(245,158,11,0.12);
+            border: 1px solid rgba(245,158,11,0.25);
+            display: flex; align-items: center; justify-content: center;
+            color: #fbbf24; font-size: 0.9rem;
+        }
+        .upgrade-banner .ub-text { flex: 1; }
+        .upgrade-banner .ub-text strong { font-size: 0.875rem; color: #fde68a; }
+        .upgrade-banner .ub-text p { font-size: 0.78rem; color: #92400e; color: #d97706; margin: 2px 0 0; }
+        .upgrade-banner .btn-upgrade {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 8px 18px; border-radius: 8px; flex-shrink: 0;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #000; font-size: 0.8rem; font-weight: 700;
+            text-decoration: none; transition: all 0.15s; border: none;
+            white-space: nowrap;
+        }
+        .upgrade-banner .btn-upgrade:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(245,158,11,0.35); color: #000; }
+
+        /* ── BRANDING CARDS ── */
+        .b-card {
+            background: rgba(11,15,34,0.9);
+            border: 1px solid rgba(99,102,241,0.12);
+            border-radius: 14px; overflow: hidden;
+            margin-bottom: 1.25rem;
+            transition: border-color 0.2s;
+        }
+        .b-card:hover { border-color: rgba(99,102,241,0.22); }
+        .b-card.locked { opacity: 0.72; pointer-events: none; position: relative; }
+        .b-card-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid rgba(99,102,241,0.10);
+            display: flex; align-items: center; gap: 10px;
+        }
+        .b-card-header .hicon {
+            width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+            background: rgba(99,102,241,0.1);
+            border: 1px solid rgba(99,102,241,0.18);
+            display: flex; align-items: center; justify-content: center;
+            color: var(--ba); font-size: 0.82rem;
+        }
+        .b-card-header h5 { margin: 0; font-size: 0.925rem; font-weight: 700; color: #e2e8f0; }
+        .b-card-header p  { margin: 0; font-size: 0.75rem; color: #475569; }
+        .b-card-header .lock-chip {
+            margin-left: auto;
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 9px; border-radius: 20px;
+            font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em;
+            background: rgba(245,158,11,0.1); color: #f59e0b;
+            border: 1px solid rgba(245,158,11,0.22);
+        }
+        .b-card-body { padding: 1.25rem; }
+
+        /* ── FORM ELEMENTS ── */
+        .f-label {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.06em; color: #64748b; margin-bottom: 5px; display: block;
+        }
+        .f-input, .f-select {
+            width: 100%;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(99,102,241,0.18);
+            border-radius: 9px; color: #e2e8f0;
+            font-size: 0.875rem; padding: 0.55rem 0.9rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+        .f-input:focus, .f-select:focus {
+            background: rgba(255,255,255,0.06);
+            border-color: var(--ba);
+            box-shadow: 0 0 0 3px var(--ba-glow);
+            outline: none; color: #fff;
+        }
+        .f-input:disabled, .f-select:disabled {
+            opacity: 0.45; cursor: not-allowed;
+        }
+        .f-hint { font-size: 0.72rem; color: #334155; margin-top: 4px; }
+
+        /* Color picker row */
+        .color-row { display: flex; align-items: center; gap: 10px; }
+        .color-row input[type="color"] {
+            width: 42px; height: 38px; border-radius: 8px;
+            border: 1px solid rgba(99,102,241,0.25);
+            background: transparent; cursor: pointer; padding: 2px; flex-shrink: 0;
+        }
+        .color-row .f-input { flex: 1; }
+
+        /* Toggle */
+        .toggle-wrap { display: flex; align-items: center; gap: 10px; }
+        .tog {
+            width: 40px; height: 22px; appearance: none;
+            background: rgba(255,255,255,0.1); border-radius: 11px;
+            cursor: pointer; position: relative;
+            transition: background 0.2s;
+            border: 1px solid rgba(255,255,255,0.08);
+            flex-shrink: 0;
+        }
+        .tog:checked { background: var(--ba); }
+        .tog::after {
+            content: ''; position: absolute;
+            top: 2px; left: 2px; width: 16px; height: 16px;
+            background: #fff; border-radius: 50%; transition: left 0.2s;
+        }
+        .tog:checked::after { left: 20px; }
+        .tog:disabled { opacity: 0.35; cursor: not-allowed; }
+
+        /* ── BUTTONS ── */
+        .btn-save {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 10px 26px; border-radius: 9px; border: none;
+            background: linear-gradient(135deg, var(--ba), #818cf8);
+            color: #fff; font-size: 0.875rem; font-weight: 700;
+            cursor: pointer; transition: all 0.15s; font-family: 'Inter', sans-serif;
+        }
+        .btn-save:hover { transform: translateY(-1px); box-shadow: 0 5px 20px var(--ba-glow); }
+        .btn-save:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+        /* ── PREVIEW SIDEBAR ── */
+        .prev-wrap {
+            background: linear-gradient(180deg, #0b1140 0%, #070922 100%);
+            border: 1px solid rgba(99,102,241,0.18);
+            border-radius: 12px; overflow: hidden; min-height: 260px;
+        }
+        .prev-head {
+            padding: 12px 16px; display: flex; align-items: center; gap: 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .prev-head span {
+            font-weight: 800; font-size: 0.95rem;
+            background: linear-gradient(135deg, #fff 30%, #a5b4fc);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .prev-nav-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 16px; font-size: 0.8rem; color: #64748b;
+            border-left: 3px solid transparent;
+            transition: all 0.15s;
+        }
+        .prev-nav-item.act { color: #fff; border-left-color: var(--ba); background: rgba(99,102,241,0.08); }
+        .prev-nav-item i { width: 15px; text-align: center; font-size: 0.78rem; }
+
+        /* ── RIGHT SIDEBAR CARDS ── */
+        .info-card {
+            background: rgba(11,15,34,0.9);
+            border: 1px solid rgba(99,102,241,0.12);
+            border-radius: 14px; overflow: hidden;
+        }
+        .info-card-header {
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid rgba(99,102,241,0.10);
+            display: flex; align-items: center; gap: 8px;
+        }
+        .info-card-header i { color: var(--ba); font-size: 0.85rem; }
+        .info-card-header span { font-weight: 700; font-size: 0.875rem; color: #e2e8f0; }
+        .info-card-body { padding: 1.1rem; }
+        .info-row {
+            display: flex; align-items: center; justify-content: space-between;
+            font-size: 0.8rem; color: #475569; margin-bottom: 8px;
+        }
+        .info-row:last-child { margin-bottom: 0; }
+        .info-row .val { font-weight: 600; color: #94a3b8; }
+        .info-row .val.ok  { color: #10b981; }
+        .info-row .val.bad { color: #ef4444; }
+        .btn-upgrade-sm {
+            width: 100%; display: flex; align-items: center; justify-content: center; gap: 7px;
+            padding: 9px; border-radius: 8px; margin-top: 12px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #000; font-size: 0.8rem; font-weight: 700;
+            text-decoration: none; transition: all 0.15s; border: none;
+        }
+        .btn-upgrade-sm:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(245,158,11,0.35); color: #000; }
+
+        /* ── TOAST ── */
+        .toast-custom {
+            position: fixed; bottom: 24px; right: 24px;
+            background: rgba(10,14,36,0.97);
+            border: 1px solid rgba(99,102,241,0.3);
+            border-radius: 12px; padding: 13px 18px;
+            z-index: 9999; font-size: 0.85rem; color: #fff;
+            min-width: 260px;
+            display: flex; align-items: center; gap: 10px;
+            transform: translateY(80px); opacity: 0;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(14px);
+        }
+        .toast-custom.show { transform: translateY(0); opacity: 1; }
+        .toast-custom .ti { font-size: 1rem; }
+        .toast-custom.success .ti { color: #10b981; }
+        .toast-custom.error   .ti { color: #ef4444; }
+    </style>
+</head>
+<body>
+{% include 'left.html' %}
+{% include 'navbar.html' %}
+
+<div id="main-content">
+
+    <!-- ── Hero ── -->
+    <div class="page-hero">
+        <div class="container-fluid" style="max-width:1200px;">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <div>
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <h1><i class="fa-solid fa-paintbrush" style="font-size:1.1rem;"></i> White-Label Branding</h1>
+                        <span class="tier-badge {{ current_tier }}">
+                            <i class="fa-solid fa-star"></i> {{ current_tier|title }}
+                        </span>
+                    </div>
+                    <p>Customise your panel's name, logo, and colours for your brand.</p>
+                </div>
+                {% if not white_label_licensed %}
+                <div class="ms-auto">
+                    <a href="https://voidpanel.com/get-voidpanel/" target="_blank"
+                       style="display:inline-flex;align-items:center;gap:7px;padding:9px 20px;border-radius:9px;
+                              background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;font-size:0.8rem;
+                              font-weight:700;text-decoration:none;transition:all 0.15s;">
+                        <i class="fa-solid fa-crown"></i> Upgrade Plan
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Body ── -->
+    <div class="container-fluid py-4" style="max-width:1200px;">
+
+        <!-- Upgrade banner for non-unlimited users -->
+        {% if not white_label_licensed %}
+        <div class="upgrade-banner">
+            <div class="ub-icon"><i class="fa-solid fa-lock"></i></div>
+            <div class="ub-text">
+                <strong>White-label branding requires the Unlimited plan</strong>
+                <p>Your current plan is <strong>{{ current_tier|title }}</strong>.
+                   <a href="https://voidpanel.com/get-voidpanel/" target="_blank" style="color:#fbbf24;text-decoration:none;">Upgrade at voidpanel.com →</a>
+                </p>
+            </div>
+            <a href="https://voidpanel.com/get-voidpanel/" target="_blank" class="btn-upgrade">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Upgrade Now
+            </a>
+        </div>
+        {% endif %}
+
+        <div class="row g-4">
+
+            <!-- ════ LEFT: Form ════ -->
+            <div class="col-lg-8">
+                <form id="brandingForm">
+                    {% csrf_token %}
+
+                    <!-- Brand Identity -->
+                    <div class="b-card {% if not white_label_licensed %}locked{% endif %}">
+                        <div class="b-card-header">
+                            <div class="hicon"><i class="fa-solid fa-id-card"></i></div>
+                            <div>
+                                <h5>Brand Identity</h5>
+                                <p>Panel name and logo URL</p>
+                            </div>
+                            {% if not white_label_licensed %}
+                            <span class="lock-chip"><i class="fa-solid fa-lock"></i> Unlimited</span>
+                            {% endif %}
+                        </div>
+                        <div class="b-card-body">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="f-label">Panel Name</label>
+                                    <input type="text" class="f-input" id="panel_name" name="panel_name"
+                                           value="{{ branding.panel_name|default:'VoidPanel' }}"
+                                           placeholder="Your Company Panel"
+                                           {% if not white_label_licensed %}disabled{% endif %}>
+                                    <div class="f-hint">Shown in the sidebar and browser tab.</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="f-label">Logo URL</label>
+                                    <input type="url" class="f-input" id="panel_logo_url" name="panel_logo_url"
+                                           value="{{ branding.panel_logo_url|default:'' }}"
+                                           placeholder="https://example.com/logo.png"
+                                           {% if not white_label_licensed %}disabled{% endif %}>
+                                    <div class="f-hint">PNG/SVG, transparent background optional, max 160×40px.</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="f-label">Favicon URL</label>
+                                    <input type="url" class="f-input" id="favicon_url" name="favicon_url"
+                                           value="{{ branding.favicon_url|default:'' }}"
+                                           placeholder="https://example.com/fav.ico"
+                                           {% if not white_label_licensed %}disabled{% endif %}>
+                                    <div class="f-hint">32×32 or 64×64 ICO/PNG.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Accent Colour -->
+                    <div class="b-card {% if not white_label_licensed %}locked{% endif %}">
+                        <div class="b-card-header">
+                            <div class="hicon"><i class="fa-solid fa-palette"></i></div>
+                            <div>
+                                <h5>Accent Colour</h5>
+                                <p>Buttons, active states, and highlights</p>
+                            </div>
+                            {% if not white_label_licensed %}
+                            <span class="lock-chip"><i class="fa-solid fa-lock"></i> Unlimited</span>
+                            {% endif %}
+                        </div>
+                        <div class="b-card-body">
+                            <label class="f-label">Primary Colour</label>
+                            <div class="color-row">
+                                <input type="color" id="primary_color_picker"
+                                       value="{{ branding.primary_color|default:'#6366f1' }}"
+                                       {% if not white_label_licensed %}disabled{% endif %}
+                                       oninput="syncColor(this.value)">
+                                <input type="text" class="f-input" id="primary_color" name="primary_color"
+                                       value="{{ branding.primary_color|default:'#6366f1' }}"
+                                       placeholder="#6366f1"
+                                       {% if not white_label_licensed %}disabled{% endif %}
+                                       oninput="syncColorFromText(this.value)">
+                            </div>
+                            <div class="f-hint mt-2">Used for buttons, active nav items, and accent elements.</div>
+                        </div>
+                    </div>
+
+                    <!-- Support & Links -->
+                    <div class="b-card {% if not white_label_licensed %}locked{% endif %}">
+                        <div class="b-card-header">
+                            <div class="hicon"><i class="fa-solid fa-headset"></i></div>
+                            <div>
+                                <h5>Support & Links</h5>
+                                <p>Custom support URL and sidebar link</p>
+                            </div>
+                            {% if not white_label_licensed %}
+                            <span class="lock-chip"><i class="fa-solid fa-lock"></i> Unlimited</span>
+                            {% endif %}
+                        </div>
+                        <div class="b-card-body">
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label class="f-label">Support URL</label>
+                                    <input type="url" class="f-input" id="support_url" name="support_url"
+                                           value="{{ branding.support_url|default:'' }}"
+                                           placeholder="https://support.yourcompany.com"
+                                           {% if not white_label_licensed %}disabled{% endif %}>
+                                    <div class="f-hint">Replaces the default support sidebar link.</div>
+                                </div>
+                                <div class="col-12">
+                                    <label class="f-label">Hide "Powered by VoidPanel" Badge</label>
+                                    <div class="toggle-wrap">
+                                        <input type="checkbox" class="tog" id="hide_voidpanel_badge" name="hide_voidpanel_badge"
+                                               {% if branding.hide_voidpanel_badge %}checked{% endif %}
+                                               {% if not white_label_licensed %}disabled{% endif %}>
+                                        <label for="hide_voidpanel_badge" style="font-size:0.83rem;color:#64748b;cursor:pointer;">
+                                            Remove VoidPanel attribution from the panel footer
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if white_label_licensed %}
+                    <div class="d-flex justify-content-end">
+                        <button type="submit" class="btn-save" id="saveBtn">
+                            <i class="fa-solid fa-floppy-disk"></i> Save Branding
+                        </button>
+                    </div>
+                    {% else %}
+                    <div style="text-align:center;padding:12px 0 4px;">
+                        <a href="https://voidpanel.com/get-voidpanel/" target="_blank"
+                           class="btn-save" style="text-decoration:none;">
+                            <i class="fa-solid fa-crown"></i> Upgrade to Unlock Branding
+                        </a>
+                    </div>
+                    {% endif %}
+                </form>
+            </div>
+
+            <!-- ════ RIGHT: Preview + Info ════ -->
+            <div class="col-lg-4">
+                <div style="position:sticky;top:88px;">
+
+                    <!-- Live Preview -->
+                    <div class="info-card mb-3">
+                        <div class="info-card-header">
+                            <i class="fa-solid fa-eye"></i>
+                            <span>Live Preview</span>
+                        </div>
+                        <div class="info-card-body" style="padding:1rem;">
+                            <div class="prev-wrap">
+                                <div class="prev-head">
+                                    <div id="previewLogoWrap">
+                                        <span id="previewName">{{ branding.panel_name|default:"VoidPanel" }}</span>
+                                    </div>
+                                </div>
+                                <div class="prev-nav-item act" id="previewActive">
+                                    <i class="fa-solid fa-house"></i> Dashboard
+                                </div>
+                                <div class="prev-nav-item"><i class="fa-solid fa-globe"></i> Domains</div>
+                                <div class="prev-nav-item"><i class="fa-solid fa-envelope"></i> Email</div>
+                                <div class="prev-nav-item"><i class="fa-solid fa-database"></i> Databases</div>
+                                <div class="prev-nav-item"><i class="fa-solid fa-shield"></i> SSL</div>
+                                <div class="prev-nav-item"><i class="fa-solid fa-chart-bar"></i> SEO</div>
+                            </div>
+                            <p style="font-size:0.72rem;color:#334155;text-align:center;margin:8px 0 0;">Preview updates as you type ↑</p>
+                        </div>
+                    </div>
+
+                    <!-- License Info -->
+                    <div class="info-card">
+                        <div class="info-card-header">
+                            <i class="fa-solid fa-receipt"></i>
+                            <span>License Info</span>
+                        </div>
+                        <div class="info-card-body">
+                            <div class="info-row">
+                                <span>Current Plan</span>
+                                <span class="tier-badge {{ current_tier }} val">{{ current_tier|title }}</span>
+                            </div>
+                            {% if license.is_trial %}
+                            <div class="info-row">
+                                <span>Trial Days Left</span>
+                                <span class="val" style="color:#f59e0b;">{{ license.days_remaining }}d</span>
+                            </div>
+                            {% endif %}
+                            <div class="info-row">
+                                <span>White-Label</span>
+                                {% if white_label_licensed %}
+                                <span class="val ok"><i class="fa-solid fa-circle-check"></i> Enabled</span>
+                                {% else %}
+                                <span class="val bad"><i class="fa-solid fa-circle-xmark"></i> Locked</span>
+                                {% endif %}
+                            </div>
+                            <div class="info-row">
+                                <span>Manage License</span>
+                                <a href="/license/" style="font-size:0.78rem;color:#818cf8;font-weight:600;text-decoration:none;">
+                                    License Page →
+                                </a>
+                            </div>
+                            {% if not white_label_licensed %}
+                            <a href="https://voidpanel.com/get-voidpanel/" target="_blank" class="btn-upgrade-sm">
+                                <i class="fa-solid fa-crown"></i> Upgrade to Unlimited
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-custom" id="toastMsg">
+    <i class="fa-solid fa-circle-check ti" id="toastIcon"></i>
+    <span id="toastText"></span>
+</div>
+
+<script src="{% static 'assets/plugins/jquery/jquery.min.js' %}"></script>
+<script>
+function showToast(msg, type='success') {
+    const t = document.getElementById('toastMsg');
+    document.getElementById('toastText').textContent = msg;
+    document.getElementById('toastIcon').className = `fa-solid ${type==='success'?'fa-circle-check':'fa-circle-xmark'} ti`;
+    t.className = `toast-custom ${type} show`;
+    setTimeout(()=>{ t.classList.remove('show'); }, 4000);
+}
+
+function syncColor(hex) {
+    document.getElementById('primary_color').value = hex;
+    document.documentElement.style.setProperty('--ba', hex);
+    // Update live preview active item
+    document.querySelectorAll('.prev-nav-item.act').forEach(el => {
+        el.style.borderLeftColor = hex;
+    });
+}
+function syncColorFromText(hex) {
+    if (/^#[0-9a-f]{6}$/i.test(hex)) {
+        document.getElementById('primary_color_picker').value = hex;
+        document.documentElement.style.setProperty('--ba', hex);
+    }
+}
+
+// Live preview: panel name
+document.getElementById('panel_name')?.addEventListener('input', function(){
+    document.getElementById('previewName').textContent = this.value || 'VoidPanel';
+});
+
+// Save form
+document.getElementById('brandingForm')?.addEventListener('submit', function(e){
+    e.preventDefault();
+    const btn = document.getElementById('saveBtn');
+    if (btn) btn.disabled = true;
+
+    const data = {
+        panel_name:           document.getElementById('panel_name')?.value || '',
+        panel_logo_url:       document.getElementById('panel_logo_url')?.value || '',
+        favicon_url:          document.getElementById('favicon_url')?.value || '',
+        primary_color:        document.getElementById('primary_color')?.value || '#6366f1',
+        support_url:          document.getElementById('support_url')?.value || '',
+        hide_voidpanel_badge: document.getElementById('hide_voidpanel_badge')?.checked || false,
+    };
+
+    fetch('/branding/save/', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+        body: JSON.stringify(data),
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.status === 'success') showToast(d.message || 'Saved!', 'success');
+        else showToast(d.message || 'Error saving branding.', 'error');
+    })
+    .catch(() => showToast('Network error. Please try again.', 'error'))
+    .finally(() => { if (btn) btn.disabled = false; });
+});
+</script>
+</body>
+</html>

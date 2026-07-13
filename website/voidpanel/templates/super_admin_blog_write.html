@@ -1,0 +1,138 @@
+{% extends "super_admin_base.html" %}
+{% load static %}
+{% block title %}Write Blog | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}<a href="/super-admin/blogs/">Blog Posts</a> / Write{% endblock %}
+
+{% block admin_content %}
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<!-- Custom CSS to make Quill fit the dark admin theme -->
+<style>
+.ql-toolbar.ql-snow {
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 10px 10px 0 0;
+    font-family: inherit;
+}
+.ql-container.ql-snow {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    color: var(--text-1);
+    font-size: 1rem;
+    font-family: 'Inter', sans-serif;
+    min-height: 400px;
+}
+.ql-toolbar.ql-snow .ql-stroke { stroke: var(--text-2); }
+.ql-toolbar.ql-snow .ql-fill { fill: var(--text-2); }
+.ql-toolbar.ql-snow .ql-picker { color: var(--text-2); }
+.ql-snow .ql-editor pre.ql-syntax {
+    background-color: var(--bg-1);
+    color: var(--text-1);
+    border: 1px solid var(--border);
+}
+</style>
+
+<div class="sa-page-header">
+    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+        <div>
+            <div class="sa-page-title">Write New Post</div>
+            <div class="sa-page-sub">Create and publish an official blog post</div>
+        </div>
+        <div>
+            <button type="submit" form="blogForm" class="sa-btn green"><i class="fas fa-paper-plane"></i> Publish Now</button>
+        </div>
+    </div>
+</div>
+
+<form id="blogForm" method="POST" enctype="multipart/form-data" class="sa-form-grid" style="grid-template-columns: 2fr 1fr; align-items:start;">
+    {% csrf_token %}
+    
+    <!-- Main Content Col -->
+    <div class="sa-card" style="display:flex;flex-direction:column;gap:20px;">
+        <div class="sa-form-group">
+            <label>Post Title</label>
+            <input type="text" name="title" required placeholder="Build a web host from scratch..." class="sa-input">
+        </div>
+        
+        <div class="sa-form-group">
+            <label>URL Slug <span style="font-size:0.75rem;font-weight:normal;color:var(--text-3);">(Optional, auto-generated if left blank)</span></label>
+            <input type="text" name="slug" placeholder="build-a-web-host" class="sa-input">
+        </div>
+
+        <div class="sa-form-group">
+            <label>Body Content</label>
+            <!-- Hidden real input -->
+            <input type="hidden" name="content" id="realContent">
+            <!-- Quill Editor Container -->
+            <div id="editor"></div>
+        </div>
+    </div>
+    
+    <!-- Sidebar Col -->
+    <div class="sa-card" style="display:flex;flex-direction:column;gap:20px;">
+        <div class="sa-form-group">
+            <label>Status</label>
+            <select name="status" class="sa-input">
+                <option value="published">Published (Live)</option>
+                <option value="draft">Draft (Hidden)</option>
+            </select>
+        </div>
+
+        <div class="sa-form-group">
+            <label>Category</label>
+            <select name="category_id" class="sa-input">
+                <option value="">-- Uncategorized --</option>
+                {% for c in categories %}
+                <option value="{{ c.id }}">{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="sa-form-group">
+            <label>Tags <span style="font-size:0.75rem;font-weight:normal;color:var(--text-3);">(Comma separated)</span></label>
+            <input type="text" name="tags" placeholder="nginx, config, server..." class="sa-input">
+        </div>
+
+        <div class="sa-form-group">
+            <label>Featured Image</label>
+            <div style="border: 2px dashed var(--border);border-radius:10px;padding:24px;text-align:center;background:var(--bg-1);">
+                <i class="fas fa-cloud-upload-alt" style="font-size:2rem;color:var(--text-3);margin-bottom:12px;"></i>
+                <br>
+                <input type="file" name="featured_image" accept="image/*" style="font-size:0.85rem;color:var(--text-2);">
+            </div>
+        </div>
+        
+        <hr style="border-color:var(--border);margin:10px 0;">
+        
+        <button type="submit" class="sa-btn green" style="width:100%;justify-content:center;"><i class="fas fa-check-circle"></i> Save Post</button>
+    </div>
+</form>
+
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<script>
+    var quill = new Quill('#editor', {
+        theme: 'snow',
+        placeholder: 'Write your masterpiece here...',
+        modules: {
+            toolbar: [
+                [{ 'header': [1, 2, 3, false] }],
+                ['bold', 'italic', 'underline', 'strike'],
+                ['blockquote', 'code-block'],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                ['link', 'image'],
+                ['clean']
+            ]
+        }
+    });
+
+    document.getElementById('blogForm').onsubmit = function() {
+        // Populate hidden form on submit
+        var html = quill.root.innerHTML;
+        // Don't submit empty
+        if(html === '<p><br></p>') html = '';
+        document.getElementById('realContent').value = html;
+        return true;
+    };
+</script>
+{% endblock %}

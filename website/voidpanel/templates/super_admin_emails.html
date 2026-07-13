@@ -1,0 +1,269 @@
+{% extends "super_admin_base.html" %}
+{% block title %}Email Config | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}Email Config{% endblock %}
+
+{% block admin_content %}
+
+<div class="sa-page-header">
+    <div>
+        <div class="sa-page-title">Email Center</div>
+        <div class="sa-page-sub">Use different senders for different purposes — billing, support, security, and more</div>
+    </div>
+    <div class="sa-header-actions">
+        <div class="sa-stat-chip green"><span class="val">{{ email_profiles|length }}</span> Profiles</div>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="sa-kpi-grid-3">
+    <div class="sa-kpi">
+        <div class="sa-kpi-icon sky"><i class="fas fa-envelope-open-text"></i></div>
+        <div>
+            <div class="sa-kpi-val">{{ email_profiles|length }}</div>
+            <div class="sa-kpi-lbl">Total Profiles</div>
+        </div>
+    </div>
+    <div class="sa-kpi">
+        <div class="sa-kpi-icon violet"><i class="fas fa-layer-group"></i></div>
+        <div>
+            <div class="sa-kpi-val">{{ email_profiles_by_purpose|length }}</div>
+            <div class="sa-kpi-lbl">Purpose Groups</div>
+        </div>
+    </div>
+    <div class="sa-kpi">
+        <div class="sa-kpi-icon green"><i class="fas fa-star"></i></div>
+        <div>
+            <div class="sa-kpi-val" style="font-size:1rem;">
+                {% for profile in email_profiles %}{% if profile.is_default %}{{ profile.profile_name }}{% endif %}{% empty %}None{% endfor %}
+            </div>
+            <div class="sa-kpi-lbl">Default Sender</div>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Profile -->
+<div class="sa-card" id="form_card">
+    <div class="sa-card-head">
+        <div class="sa-card-title" id="form_title"><i class="fas fa-plus-circle"></i> Add Email Profile</div>
+        <div class="sa-card-count">Create multiple mail accounts for billing, support, security, and updates</div>
+    </div>
+    <form method="POST" action="/super-admin/emails/" id="profile_form">
+        {% csrf_token %}
+        <input type="hidden" name="action" id="form_action" value="create_email_profile">
+        <input type="hidden" name="profile_id" id="edit_profile_id" value="">
+        <input type="hidden" name="next" value="/super-admin/emails/">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px;">
+            <div class="sa-form-group"><label class="sa-label">Profile Name</label><input type="text" name="profile_name" id="field_profile_name" class="sa-input" required></div>
+            <div class="sa-form-group">
+                <label class="sa-label">Primary Purpose</label>
+                <select name="purpose_category" id="field_purpose_category" class="sa-input">
+                    {% for value, label in email_purpose_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="sa-form-group"><label class="sa-label">From Name</label><input type="text" name="from_name" id="field_from_name" class="sa-input"></div>
+            <div class="sa-form-group"><label class="sa-label">From Email</label><input type="email" name="from_email" id="field_from_email" class="sa-input" required></div>
+            <div class="sa-form-group"><label class="sa-label">Reply-To Email</label><input type="email" name="reply_to_email" id="field_reply_to_email" class="sa-input"></div>
+            <div class="sa-form-group"><label class="sa-label">SMTP Host</label><input type="text" name="smtp_host" id="field_smtp_host" class="sa-input" required></div>
+            <div class="sa-form-group"><label class="sa-label">SMTP Port</label><input type="number" name="smtp_port" id="field_smtp_port" class="sa-input" value="587" min="1" required></div>
+            <div class="sa-form-group"><label class="sa-label">SMTP Username</label><input type="text" name="smtp_username" id="field_smtp_username" class="sa-input"></div>
+            <div class="sa-form-group"><label class="sa-label" id="label_smtp_password">SMTP Password</label><input type="password" name="smtp_password" id="field_smtp_password" class="sa-input"></div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px;">
+            <label style="display:flex;align-items:center;gap:7px;font-size:0.8rem;color:var(--text-2);cursor:pointer;"><input type="checkbox" name="use_tls" id="field_use_tls" checked style="accent-color:var(--green);"> Use TLS</label>
+            <label style="display:flex;align-items:center;gap:7px;font-size:0.8rem;color:var(--text-2);cursor:pointer;"><input type="checkbox" name="use_ssl" id="field_use_ssl" style="accent-color:var(--green);"> Use SSL</label>
+            <label style="display:flex;align-items:center;gap:7px;font-size:0.8rem;color:var(--text-2);cursor:pointer;"><input type="checkbox" name="is_active" id="field_is_active" checked style="accent-color:var(--green);"> Profile active</label>
+            <label style="display:flex;align-items:center;gap:7px;font-size:0.8rem;color:var(--text-2);cursor:pointer;"><input type="checkbox" name="is_default" id="field_is_default" style="accent-color:var(--green);"> Make default profile</label>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+            {% for field, label in email_event_fields %}
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--text-2);cursor:pointer;background:var(--bg-raised);border:1px solid var(--border);padding:6px 10px;border-radius:8px;">
+                <input type="checkbox" name="{{ field }}" id="field_event_{{ field }}" style="accent-color:var(--green);"> {{ label }}
+            </label>
+            {% endfor %}
+        </div>
+        <div class="sa-form-actions">
+            <button type="submit" class="sa-btn primary"><i class="fas fa-save"></i> Save Email Profile</button>
+            <button type="button" class="sa-btn ghost" id="cancel_edit_btn" style="display:none;" onclick="cancelEdit()">Cancel Edit</button>
+        </div>
+    </form>
+</div>
+
+<!-- Profiles by Purpose -->
+<div class="sa-card" style="padding:0;overflow:hidden;">
+    <div style="padding:16px 22px;border-bottom:1px solid var(--border);">
+        <div class="sa-card-title"><i class="fas fa-envelope-circle-check"></i> Profiles by Purpose</div>
+    </div>
+    <div style="padding:16px 22px;display:flex;flex-direction:column;gap:12px;">
+        {% for purpose_label, profiles in email_profiles_by_purpose.items %}
+        <div>
+            <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3);margin-bottom:8px;">{{ purpose_label }}</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                {% for email_profile in profiles %}
+                <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px;">
+                        <div>
+                            <div style="font-weight:700;color:var(--text-1);">{{ email_profile.profile_name }}</div>
+                            <div style="font-size:0.74rem;color:var(--text-3);">{{ email_profile.from_name|default:"Sender" }} · {{ email_profile.from_email }}</div>
+                            <div style="font-size:0.73rem;color:var(--text-3);">{{ email_profile.smtp_host }}:{{ email_profile.smtp_port }}</div>
+                        </div>
+                        <div style="display:flex;gap:5px;">
+                            {% if email_profile.is_default %}<span class="sa-badge green">Default</span>{% endif %}
+                            {% if email_profile.is_active %}<span class="sa-badge sky">Active</span>{% else %}<span class="sa-badge gray">Paused</span>{% endif %}
+                        </div>
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">
+                        {% for permission in email_profile.permission_summary %}<span class="sa-badge gray">{{ permission }}</span>{% empty %}<span style="font-size:0.74rem;color:var(--text-3);">No event permissions selected</span>{% endfor %}
+                    </div>
+                    <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;">
+                        <form method="POST" action="/super-admin/emails/" style="display:inline;">
+                            {% csrf_token %}<input type="hidden" name="action" value="email_profile_action"><input type="hidden" name="profile_id" value="{{ email_profile.id }}"><input type="hidden" name="mode" value="test_connection"><input type="hidden" name="next" value="/super-admin/emails/">
+                            <button type="submit" class="sa-btn ghost sm"><i class="fas fa-plug"></i> Test</button>
+                        </form>
+                        <form method="POST" action="/super-admin/emails/" style="display:inline;">
+                            {% csrf_token %}<input type="hidden" name="action" value="email_profile_action"><input type="hidden" name="profile_id" value="{{ email_profile.id }}"><input type="hidden" name="mode" value="make_default"><input type="hidden" name="next" value="/super-admin/emails/">
+                            <button type="submit" class="sa-btn sky sm"><i class="fas fa-star"></i> Make Default</button>
+                        </form>
+                        <form method="POST" action="/super-admin/emails/" style="display:inline;">
+                            {% csrf_token %}<input type="hidden" name="action" value="email_profile_action"><input type="hidden" name="profile_id" value="{{ email_profile.id }}"><input type="hidden" name="mode" value="toggle_active"><input type="hidden" name="next" value="/super-admin/emails/">
+                            <button type="submit" class="sa-btn {% if email_profile.is_active %}amber{% else %}green{% endif %} sm">{% if email_profile.is_active %}<i class="fas fa-pause"></i> Pause{% else %}<i class="fas fa-play"></i> Activate{% endif %}</button>
+                        </form>
+                        <button type="button" class="sa-btn blue sm" onclick="editProfile({
+                            id: {{ email_profile.id }},
+                            profile_name: '{{ email_profile.profile_name|escapejs }}',
+                            purpose_category: '{{ email_profile.purpose_category|escapejs }}',
+                            from_name: '{{ email_profile.from_name|escapejs }}',
+                            from_email: '{{ email_profile.from_email|escapejs }}',
+                            reply_to_email: '{{ email_profile.reply_to_email|escapejs }}',
+                            smtp_host: '{{ email_profile.smtp_host|escapejs }}',
+                            smtp_port: {{ email_profile.smtp_port }},
+                            smtp_username: '{{ email_profile.smtp_username|escapejs }}',
+                            use_tls: {% if email_profile.use_tls %}true{% else %}false{% endif %},
+                            use_ssl: {% if email_profile.use_ssl %}true{% else %}false{% endif %},
+                            is_active: {% if email_profile.is_active %}true{% else %}false{% endif %},
+                            is_default: {% if email_profile.is_default %}true{% else %}false{% endif %},
+                            events: [
+                                {% if email_profile.send_on_purchase %}'send_on_purchase',{% endif %}
+                                {% if email_profile.send_on_invoice_created %}'send_on_invoice_created',{% endif %}
+                                {% if email_profile.send_on_payment_received %}'send_on_payment_received',{% endif %}
+                                {% if email_profile.send_on_service_activated %}'send_on_service_activated',{% endif %}
+                                {% if email_profile.send_on_service_suspended %}'send_on_service_suspended',{% endif %}
+                                {% if email_profile.send_on_service_unsuspended %}'send_on_service_unsuspended',{% endif %}
+                                {% if email_profile.send_on_service_terminated %}'send_on_service_terminated',{% endif %}
+                                {% if email_profile.send_on_ticket_opened %}'send_on_ticket_opened',{% endif %}
+                                {% if email_profile.send_on_ticket_reply %}'send_on_ticket_reply',{% endif %}
+                                {% if email_profile.send_on_login_success %}'send_on_login_success',{% endif %}
+                                {% if email_profile.send_on_password_reset %}'send_on_password_reset',{% endif %}
+                                {% if email_profile.send_on_account_created %}'send_on_account_created',{% endif %}
+                                {% if email_profile.send_on_security_alert %}'send_on_security_alert',{% endif %}
+                                {% if email_profile.send_on_system_update %}'send_on_system_update',{% endif %}
+                                {% if email_profile.send_on_domain_expiry_warning %}'send_on_domain_expiry_warning',{% endif %}
+                                {% if email_profile.send_on_ssl_expiry_warning %}'send_on_ssl_expiry_warning',{% endif %}
+                                {% if email_profile.send_on_live_chat %}'send_on_live_chat',{% endif %}
+                            ]
+                        })"><i class="fas fa-edit"></i> Edit</button>
+                        <form method="POST" action="/super-admin/emails/" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete the profile &quot;{{ email_profile.profile_name|escapejs }}&quot;?');">
+                            {% csrf_token %}<input type="hidden" name="action" value="email_profile_action"><input type="hidden" name="profile_id" value="{{ email_profile.id }}"><input type="hidden" name="mode" value="delete"><input type="hidden" name="next" value="/super-admin/emails/">
+                            <button type="submit" class="sa-btn red sm"><i class="fas fa-trash"></i> Delete</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="sa-empty"><i class="fas fa-envelope"></i><div class="sa-empty-title">No email profiles yet</div><div class="sa-empty-sub">Create your first outbound sender profile above.</div></div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+var all_events = [
+    'send_on_purchase',
+    'send_on_invoice_created',
+    'send_on_payment_received',
+    'send_on_service_activated',
+    'send_on_service_suspended',
+    'send_on_service_unsuspended',
+    'send_on_service_terminated',
+    'send_on_ticket_opened',
+    'send_on_ticket_reply',
+    'send_on_login_success',
+    'send_on_password_reset',
+    'send_on_account_created',
+    'send_on_security_alert',
+    'send_on_system_update',
+    'send_on_domain_expiry_warning',
+    'send_on_ssl_expiry_warning',
+    'send_on_live_chat'
+];
+
+function editProfile(data) {
+    document.getElementById('form_title').innerHTML = '<i class="fas fa-edit"></i> Edit Email Profile: ' + data.profile_name;
+    document.getElementById('form_action').value = 'edit_email_profile';
+    document.getElementById('edit_profile_id').value = data.id;
+    
+    document.getElementById('field_profile_name').value = data.profile_name;
+    document.getElementById('field_purpose_category').value = data.purpose_category;
+    document.getElementById('field_from_name').value = data.from_name;
+    document.getElementById('field_from_email').value = data.from_email;
+    document.getElementById('field_reply_to_email').value = data.reply_to_email;
+    document.getElementById('field_smtp_host').value = data.smtp_host;
+    document.getElementById('field_smtp_port').value = data.smtp_port;
+    document.getElementById('field_smtp_username').value = data.smtp_username;
+    
+    document.getElementById('label_smtp_password').innerText = 'SMTP Password (leave blank to keep current)';
+    document.getElementById('field_smtp_password').value = '';
+    
+    document.getElementById('field_use_tls').checked = data.use_tls;
+    document.getElementById('field_use_ssl').checked = data.use_ssl;
+    document.getElementById('field_is_active').checked = data.is_active;
+    document.getElementById('field_is_default').checked = data.is_default;
+    
+    all_events.forEach(function(field) {
+        var chk = document.getElementById('field_event_' + field);
+        if (chk) {
+            chk.checked = data.events.includes(field);
+        }
+    });
+
+    document.getElementById('cancel_edit_btn').style.display = 'inline-block';
+    window.scrollTo({
+        top: document.getElementById('form_card').offsetTop - 30,
+        behavior: 'smooth'
+    });
+}
+
+function cancelEdit() {
+    document.getElementById('form_title').innerHTML = '<i class="fas fa-plus-circle"></i> Add Email Profile';
+    document.getElementById('form_action').value = 'create_email_profile';
+    document.getElementById('edit_profile_id').value = '';
+    
+    document.getElementById('field_profile_name').value = '';
+    document.getElementById('field_purpose_category').selectedIndex = 0;
+    document.getElementById('field_from_name').value = '';
+    document.getElementById('field_from_email').value = '';
+    document.getElementById('field_reply_to_email').value = '';
+    document.getElementById('field_smtp_host').value = '';
+    document.getElementById('field_smtp_port').value = '587';
+    document.getElementById('field_smtp_username').value = '';
+    
+    document.getElementById('label_smtp_password').innerText = 'SMTP Password';
+    document.getElementById('field_smtp_password').value = '';
+    
+    document.getElementById('field_use_tls').checked = true;
+    document.getElementById('field_use_ssl').checked = false;
+    document.getElementById('field_is_active').checked = true;
+    document.getElementById('field_is_default').checked = false;
+    
+    all_events.forEach(function(field) {
+        var chk = document.getElementById('field_event_' + field);
+        if (chk) {
+            chk.checked = false;
+        }
+    });
+    
+    document.getElementById('cancel_edit_btn').style.display = 'none';
+}
+</script>
+
+{% endblock %}

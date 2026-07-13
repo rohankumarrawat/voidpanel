@@ -1,301 +1,644 @@
+<!-- VoidPanel Sidebar — Fixed Layout + Feature Gating -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <!-- ★ Theme init — Dark is permanent default ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');document.documentElement.setAttribute('data-theme','dark');})();</script>
 <style>
-    /* Basic styling for the p tag */
-    p.processing {
-        font-size: 18px;
-        font-weight: bold;
+/* ════════════════════════════════════════════════════════════
+   SIDEBAR TOKENS
+════════════════════════════════════════════════════════════ */
+html[data-theme="light"] {
+    --sb-bg:         #ffffff;
+    --sb-surface:    #f8fafc;
+    --sb-border:     rgba(15,23,42,0.08);
+    --sb-accent:     #4f46e5;
+    --sb-accent-dim: rgba(79,70,229,0.10);
+    --sb-text:       #1e293b;
+    --sb-text-sub:   #64748b;
+    --sb-text-dim:   #94a3b8;
+    --sb-hover-bg:   rgba(79,70,229,0.07);
+    --sb-active-bg:  rgba(79,70,229,0.12);
+    --sb-active-brd: rgba(79,70,229,0.30);
+    --sb-icon-bg:    rgba(79,70,229,0.08);
+    --sb-muted:      #64748b;
+    --sb-w:          270px;
+}
+html[data-theme="dark"] {
+    --sb-bg:         #07091c;
+    --sb-surface:    #0b0f22;
+    --sb-border:     rgba(99,102,241,0.10);
+    --sb-accent:     #818cf8;
+    --sb-accent2:    #a78bfa;
+    --sb-accent-dim: rgba(129,140,248,0.12);
+    --sb-text:       rgba(218,228,245,0.92);
+    --sb-text-sub:   rgba(160,178,210,0.70);
+    --sb-text-dim:   rgba(100,120,160,0.50);
+    --sb-hover-bg:   rgba(129,140,248,0.07);
+    --sb-active-bg:  rgba(129,140,248,0.13);
+    --sb-active-brd: rgba(129,140,248,0.28);
+    --sb-icon-bg:    rgba(129,140,248,0.09);
+    --sb-muted:      rgba(129,140,248,0.55);
+    --sb-w:          268px;
+}
 
-    }
+/* ── Reset ── */
+#left-sidebar, #left-sidebar * { box-sizing: border-box; }
 
-    /* Animation for the dots */
-    .dots::after {
-        content: '';
-        display: inline-block;
-        width: 1em;
-        text-align: left;
-        animation: dots 1.5s steps(4, end) infinite;
-    }
+/* ── FIXED SIDEBAR SHELL — flex column, no overflow ── */
+#left-sidebar {
+    background: var(--sb-bg) !important;
+    border-right: 1px solid var(--sb-border) !important;
+    width: var(--sb-w) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    position: fixed !important;
+    top: 0 !important; left: 0 !important;
+    height: 100vh !important;
+    z-index: 1000 !important;
+    box-shadow: 4px 0 32px rgba(0,0,0,0.35) !important;
+}
 
-    /* Keyframes for the dots animation */
-    @keyframes dots {
+/* ── Brand header — FIXED top, never scrolls ── */
+.sb-brand {
+    display: flex; align-items: center; gap: 10px;
+    padding: 15px 14px 13px;
+    border-bottom: 1px solid var(--sb-border);
+    background: linear-gradient(180deg, rgba(99,102,241,0.05) 0%, transparent 100%);
+    flex-shrink: 0;        /* <-- never shrink */
+}
+.sb-brand-pulse {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #22c55e; flex-shrink: 0;
+    box-shadow: 0 0 8px rgba(34,197,94,0.7);
+    animation: pulse-dot 2.4s ease infinite;
+}
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.35} }
 
-        0%,
-        100% {
-            content: '';
-        }
+/* ── Nav tabs — FIXED below brand, never scrolls ── */
+#left-sidebar .sb-tabs {
+    border-bottom: 1px solid var(--sb-border) !important;
+    background: var(--sb-surface) !important;
+    padding: 0 10px !important;
+    display: flex !important;
+    flex-shrink: 0;        /* <-- never shrink */
+}
+#left-sidebar .sb-tabs .nav-item { margin: 0 !important; }
+#left-sidebar .sb-tabs .nav-link {
+    padding: 9px 11px !important;
+    color: var(--sb-text-dim) !important;
+    font-size: .72rem !important;
+    font-weight: 600 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    border-bottom: 2px solid transparent !important;
+    background: transparent !important;
+    transition: all .18s !important;
+}
+#left-sidebar .sb-tabs .nav-link.active {
+    color: var(--sb-accent) !important;
+    border-bottom-color: var(--sb-accent) !important;
+    background: transparent !important;
+}
+#left-sidebar .sb-tabs .nav-link:hover { color: var(--sb-accent) !important; }
 
-        25% {
-            content: '.';
-        }
+/* ── Tab content wrapper — takes remaining space ── */
+#left-sidebar .sb-tab-content {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
 
-        50% {
-            content: '..';
-        }
+/* ── Scrollable nav pane ── */
+#left-sidebar .sb-scroll-pane {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 6px 0 8px;
+    min-height: 0;
+}
+#left-sidebar .sb-scroll-pane::-webkit-scrollbar { width: 3px; }
+#left-sidebar .sb-scroll-pane::-webkit-scrollbar-thumb {
+    background: rgba(129,140,248,0.18);
+    border-radius: 99px;
+}
+#left-sidebar .sb-scroll-pane::-webkit-scrollbar-track { background: transparent; }
 
-        75% {
-            content: '...';
-        }
-    }
+/* ── Logout strip — FIXED bottom, never scrolls ── */
+.sb-footer {
+    border-top: 1px solid var(--sb-border);
+    padding: 8px 8px 10px;
+    background: linear-gradient(0deg, rgba(99,102,241,0.04) 0%, transparent 100%);
+    flex-shrink: 0;        /* <-- never shrink */
+}
+.sb-logout {
+    display: flex; align-items: center; gap: 9px;
+    padding: 8px 10px; border-radius: 9px; cursor: pointer;
+    color: #ef4444 !important;
+    font-size: .81rem; font-weight: 600;
+    text-decoration: none !important;
+    transition: all .18s ease;
+    border: 1px solid transparent;
+}
+.sb-logout:hover {
+    background: rgba(239,68,68,.07);
+    border-color: rgba(239,68,68,.18);
+}
+.sb-logout i {
+    width: 27px; height: 27px; border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: .72rem;
+    background: rgba(239,68,68,.10);
+    color: #ef4444;
+    flex-shrink: 0;
+}
+
+/* ── Section labels ── */
+.sb-section {
+    font-size: .56rem; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 1.4px;
+    color: var(--sb-text-dim);
+    padding: 14px 16px 5px;
+    user-select: none;
+    display: flex; align-items: center; gap: 8px;
+}
+.sb-section::after {
+    content: '';
+    flex: 1; height: 1px;
+    background: var(--sb-border);
+    margin-left: 4px;
+}
+
+/* ── Divider ── */
+.sb-divider { height: 1px; background: var(--sb-border); margin: 4px 12px; }
+
+/* ═══════════════════════════════════════════
+   METISMENU — Full override
+═══════════════════════════════════════════ */
+#left-sidebar .metismenu {
+    padding: 2px 8px 0 !important;
+    list-style: none !important;
+    margin: 0 !important;
+}
+#left-sidebar .metismenu li { margin-bottom: 1px !important; }
+
+/* ── TOP-LEVEL LINKS ── */
+html #left-sidebar .metismenu > li > a,
+html #left-sidebar .metismenu > li > a:link,
+html #left-sidebar .metismenu > li > a:visited {
+    display: flex !important;
+    align-items: center !important;
+    gap: 9px !important;
+    padding: 7px 9px !important;
+    border-radius: 10px !important;
+    color: var(--sb-text) !important;
+    font-size: .81rem !important;
+    font-weight: 600 !important;
+    text-decoration: none !important;
+    transition: all .17s ease !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    position: relative !important;
+}
+html #left-sidebar .metismenu > li > a span {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+    color: var(--sb-text) !important;
+    font-size: .81rem !important;
+    font-weight: 600 !important;
+}
+html #left-sidebar .metismenu > li > a::before { display: none !important; }
+
+/* ── Arrow on has-arrow ── */
+html #left-sidebar .metismenu > li > a.has-arrow::after {
+    content: '\f054' !important; /* fa-chevron-right */
+    font-family: 'Font Awesome 6 Free' !important;
+    font-weight: 900 !important;
+    font-size: 0.55rem !important;
+    color: var(--sb-text-dim) !important;
+    margin-left: auto !important;
+    transition: transform .22s ease !important;
+    flex-shrink: 0 !important;
+}
+html #left-sidebar .metismenu > li.mm-active > a.has-arrow::after,
+html #left-sidebar .metismenu > li > a.has-arrow[aria-expanded="true"]::after {
+    transform: rotate(90deg) !important;
+    color: var(--sb-accent) !important;
+}
+
+/* Icon pill — top level */
+html #left-sidebar .metismenu > li > a > i {
+    width: 27px !important; height: 27px !important;
+    border-radius: 8px !important;
+    background: var(--sb-icon-bg) !important;
+    border: 1px solid var(--sb-border) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: .72rem !important;
+    flex-shrink: 0 !important;
+    transition: all .17s !important;
+}
+
+/* HOVER */
+html #left-sidebar .metismenu > li > a:hover {
+    background: var(--sb-hover-bg) !important;
+    border-color: var(--sb-border) !important;
+    color: var(--sb-accent) !important;
+}
+html #left-sidebar .metismenu > li > a:hover span { color: var(--sb-accent) !important; }
+html #left-sidebar .metismenu > li > a:hover::after { color: var(--sb-accent) !important; }
+
+/* ACTIVE / OPEN */
+html #left-sidebar .metismenu > li.mm-active > a,
+html #left-sidebar .metismenu > li > a.active {
+    background: var(--sb-active-bg) !important;
+    border-color: var(--sb-active-brd) !important;
+    color: var(--sb-accent) !important;
+}
+html #left-sidebar .metismenu > li.mm-active > a span,
+html #left-sidebar .metismenu > li > a.active span { color: var(--sb-accent) !important; }
+
+/* ── SUB-MENU ── */
+html #left-sidebar .metismenu ul {
+    padding: 2px 0 4px 12px !important;
+    list-style: none !important;
+    margin: 0 !important;
+    border-left: 1px solid var(--sb-border) !important;
+    margin-left: 20px !important;
+}
+html #left-sidebar .metismenu ul a,
+html #left-sidebar .metismenu ul a:link,
+html #left-sidebar .metismenu ul a:visited {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 5px 8px !important;
+    border-radius: 7px !important;
+    color: var(--sb-text-sub) !important;
+    font-size: .78rem !important;
+    font-weight: 500 !important;
+    text-decoration: none !important;
+    transition: all .15s !important;
+    background: transparent !important;
+}
+html #left-sidebar .metismenu ul a:hover,
+html #left-sidebar .metismenu ul a:hover span {
+    color: var(--sb-accent) !important;
+    background: var(--sb-hover-bg) !important;
+}
+html #left-sidebar .metismenu ul a i {
+    width: 22px !important; height: 22px !important;
+    border-radius: 6px !important;
+    background: var(--sb-icon-bg) !important;
+    border: 1px solid var(--sb-border) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: .62rem !important;
+    flex-shrink: 0 !important;
+    color: var(--sb-accent) !important;
+}
+html #left-sidebar .metismenu ul a span {
+    color: var(--sb-text-sub) !important;
+    flex: 1 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+html #left-sidebar .metismenu ul a:hover span { color: var(--sb-accent) !important; }
+
+/* ── Sub-menus hidden by default (replaces metismenu collapse) ── */
+#left-sidebar .metismenu ul {
+    display: none;
+}
+#left-sidebar .metismenu li.mm-active > ul {
+    display: block !important;
+}
+
+/* ── Toggle button (mobile) ── */
+.btn-toggle-offcanvas { display: none; }
+
+/* ── Main content offset ── */
+#main-content {
+    margin-left: var(--sb-w) !important;
+}
 </style>
+
 <div id="left-sidebar" class="sidebar">
     <button type="button" class="btn-toggle-offcanvas"><i class="fa fa-arrow-left"></i></button>
-    <div class="sidebar-scroll">
-        <div class="user-account">
-            <img  src="/static/icons/fav.png" class="rounded-circle user-photo" style="border-radius: 20% !important;" alt="User Profile Picture">
-            <div class="dropdown">
-                <span>Welcome to,</span>
-                <a href="javascript:void(0);" class="dropdown-toggle user-name" data-toggle="dropdown"><strong>Void Panel</strong></a>
-                <ul class="dropdown-menu dropdown-menu-right account">
-              
-                    <li><a href="/logout"><i class="icon-power"></i>Logout</a></li>
-                </ul>
-            </div>
-            <hr>
-            
+
+    <!-- ① BRAND HEADER — fixed top -->
+    <div class="sb-brand">
+        <a href="/" style="display:inline-flex;align-items:center;gap:10px;text-decoration:none;">
+            {% if white_label_active and panel_logo_url %}
+                <img src="{{ panel_logo_url }}" alt="{{ panel_name }}" style="height:30px;max-width:140px;object-fit:contain;">
+            {% elif white_label_active %}
+                <span style="font-weight:800;font-size:1.1rem;color:#fff;letter-spacing:-0.02em;">{{ panel_name|default:"VoidPanel" }}</span>
+            {% else %}
+                <svg xmlns="http://www.w3.org/2000/svg" width="130" height="30" viewBox="0 0 180 40" role="img" aria-label="VoidPanel" style="display:block;">
+                  <rect x="0" y="4" width="34" height="34" rx="8" ry="8" fill="rgba(255,255,255,0.12)"/>
+                  <rect x="7" y="13" width="20" height="4" rx="1.5" fill="#ffffff" opacity="0.9"/>
+                  <rect x="7" y="19.5" width="14" height="4" rx="1.5" fill="#ffffff" opacity="0.65"/>
+                  <rect x="7" y="26" width="10" height="4" rx="1.5" fill="#60a5fa" opacity="0.95"/>
+                  <text x="43" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#ffffff">Void</text>
+                  <text x="91" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#60a5fa">Panel</text>
+                </svg>
+            {% endif %}
+        </a>
+        <div style="margin-left:auto;font-size:0.65rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--sb-muted);">
+            {% if is_reseller %}Reseller{% elif request.user.is_superuser %}Super Admin{% else %}Client{% endif %}
         </div>
-        <!-- Nav tabs -->
-        <ul class="nav nav-tabs">
-            <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#menu">Menu</a></li>
-            <li class="nav-item"><a class="nav-link" href="/serverstatus"><i class="fa fa-life-bouy "></i></a></li>
-            <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#setting"><i class="icon-settings"></i></a></li>
-            <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#question"><i class="icon-question"></i></a></li>                
-        </ul>
-            
-        <!-- Tab panes -->
-        <div class="tab-content padding-0">
-            <div class="tab-pane active" id="menu">
-                <nav id="left-sidebar-nav" class="sidebar-nav">
-                    <ul id="main-menu" class="metismenu li_animation_delay">
-                        <li class="active">
-                            <a href="#Dashboard" class="has-arrow"><i class="fa fa-dashboard"></i><span>Dashboard</span></a>
-                            <ul>
-                                <li><a href="/panel">Dashboard</a></li>
-                                <li><a href="/hostname">Set Hostname</a></li>
-                                <li><a href="/phpsetting">PHP Settings</a></li>
-                 
-                                <li><a href="/runsslall">Auto SSL</a></li>
-                                <li><a href="/chpass">Change Password</a></li>
-                                <li><a href="/maincron">Void Cronjob</a></li>
-                                <li><a href="/update">Updates</a></li>
-                                </ul>
-                        </li>
-
-                        <li >
-                            <a href="#AddWebsite" class="has-arrow"><i class="fa icon-globe"></i><span> Website Functions</span></a>
-                            <ul>
-                                <li><a href="/addwebsite">Add Website</a></li>
-                                <li><a href="/listwebsite">List Websites</a></li>
-                                <li><a href="/convertwebsite">Convert Website to User</a></li>
-                        
-                                
-                                </ul>
-                        </li>
-                     
-                        <li>
-                            <a href="#App" class="has-arrow"><i class="fa icon-users"></i><span>Users</span></a>
-                            <ul>
-                                <li><a href="/adduser">Add User</a></li>
-                                <li><a href="/listusers">List User</a></li>
-                                <!-- <li><a href="app-calendar.html">Suspend/UnSuspend Accounts</a></li>                                    
-                                <li><a href="app-contact.html">Terminate Accrounts</a></li> -->
-                                <!-- <li><a href="app-contact-grid.html">Account Over Quota</a></li>
-                                <li><a href="app-taskboard.html">Manage Shell Acees</a></li> -->
-                            
-                                
-                            </ul>
-                        </li>
-
-                        <li>
-                            <a href="/terminal/"><i class="fa fa-code "></i><span>Terminal</span></a>
-                           
-                        </li>
-
-                        <li>
-                            <a target="_blank" href="/filemanager/"><i class="fa fa-files-o "></i><span>File manager</span></a>
-                           
-                        </li>
-                     
-                        <li>
-                            <a href="#Widgets" class="has-arrow"><i class="fa icon-call-out"></i><span>Support Center</span></a>
-                            <ul>
-                                <li><a target="_blank" href="https://voidpanel.com">Generate Ticket</a></li>
-                                <li><a target="_blank" href="https://voidpanel.com">Support Center</a></li>
-                               
-                            </ul>
-                        </li>
-
-                        <li>
-                            <a href="#uiElements" class="has-arrow"><i class="fa  icon-lock"></i><span>Security</span></a>
-                            <ul>
-                              
-         
-                                <li><a href="/cpbruteforce">CSF Firewall</a></li>
-                                
-                            </ul>
-                        </li>
-
-                        <li>
-                            <a href="/serverstatus"><i class="fa  fa-life-bouy "></i><span>Server Status</span></a>
-                           
-                        </li>
-                        <li>
-                            <a href="#charts" class="has-arrow"><i class="fa fa-suitcase"></i><span>Package</span></a>
-                            <ul>
-                                <li><a href="/package"> Package Manager</a> </li>
-                         
-            
-                
-                            </ul>
-                        </li>
-                        <li>
-                            <a href="#forms" class="has-arrow"><i class="fa fa-globe"></i><span>DNS Functions</span></a>
-                            <ul>
-                            
-                                <li><a href="/listdns">List DNS</a></li>
-                       
-                       
-                                
-                            </ul>
-                        </li>
-                        <li>
-                            <a href="#Tables" class="has-arrow"><i class="fa fa-database"></i><span>SQL Database</span></a>
-                            <ul>
-                            
-                                <li><a href="/fulldbwizard"> Database Wizard</a> </li>
-                               
-                                </ul>
-                        </li>
-                        <li>
-                            <a href="#Authentication" class="has-arrow"><i class="fa fa-send"></i><span>Email</span></a>
-                            <ul>
-                                <li><a href="/allemailwizard">Email WIzard</a></li>
-                            
-                               
-                            </ul>
-                        </li>
-                        <li>
-                            <a href="#Pages" class="has-arrow"><i class="fa fa-paste"></i><span>FTP</span></a>
-                            <ul>
-                                <li><a href="/ftpserver">Enable FTP Servie</a> </li>
-                                
-                               
-                            </ul>
-                        </li>
-                        <!-- <li>
-                            <a href="#Maps" ><i class="fa  icon-mouse"></i><span>One Click Installer</span></a>
-                            
-                        </li> -->
-                    </ul>
-                </nav>
-            </div>
-          
-            <div class="tab-pane" id="setting">
-                <h6>Choose Skin</h6>
-                <ul class="choose-skin list-unstyled">
-                    <li data-theme="purple"><div class="purple"></div></li>
-                    <li data-theme="blue"><div class="blue"></div></li>
-                    <li data-theme="cyan" class="active"><div class="cyan"></div></li>
-                    <li data-theme="green"><div class="green"></div></li>
-                    <li data-theme="orange"><div class="orange"></div></li>
-                    <li data-theme="blush"><div class="blush"></div></li>
-                    <li data-theme="red"><div class="red"></div></li>
-                </ul>
-
-                <ul class="list-unstyled font_setting mt-3">
-                    <li>
-                        <label class="custom-control custom-radio custom-control-inline">
-                            <input type="radio" class="custom-control-input" name="font" value="font-nunito" checked="">
-                            <span class="custom-control-label">Nunito Google Font</span>
-                        </label>
-                    </li>
-                    <li>
-                        <label class="custom-control custom-radio custom-control-inline">
-                            <input type="radio" class="custom-control-input" name="font" value="font-ubuntu">
-                            <span class="custom-control-label">Ubuntu Font</span>
-                        </label>
-                    </li>
-                    <li>
-                        <label class="custom-control custom-radio custom-control-inline">
-                            <input type="radio" class="custom-control-input" name="font" value="font-raleway">
-                            <span class="custom-control-label">Raleway Google Font</span>
-                        </label>
-                    </li>
-                    <li>
-                        <label class="custom-control custom-radio custom-control-inline">
-                            <input type="radio" class="custom-control-input" name="font" value="font-IBMplex">
-                            <span class="custom-control-label">IBM Plex Google Font</span>
-                        </label>
-                    </li>
-                </ul>
-
-                <ul class="list-unstyled mt-3">
-                    <li class="d-flex align-items-center mb-2">
-                        <label class="toggle-switch theme-switch">
-                            <input type="checkbox" >
-                            <span class="toggle-switch-slider"></span>
-                        </label>
-                        <span class="ml-3">Enable Dark Mode!</span>
-                    </li>
-                    <li class="d-flex align-items-center mb-2">
-                        <label class="toggle-switch theme-rtl">
-                            <input type="checkbox">
-                            <span class="toggle-switch-slider"></span>
-                        </label>
-                        <span class="ml-3">Enable RTL Mode!</span>
-                    </li>
-                    <li class="d-flex align-items-center mb-2">
-                        <label class="toggle-switch theme-high-contrast">
-                            <input type="checkbox">
-                            <span class="toggle-switch-slider"></span>
-                        </label>
-                        <span class="ml-3">Enable High Contrast Mode!</span>
-                    </li>
-                </ul>                    
-
-                <hr>
-                   </div>
-            <div class="tab-pane" id="question">
-                <form>
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text"><i class="icon-magnifier"></i></span>
-                        </div>
-                        <input type="text" class="form-control" placeholder="Search..." id="searchBox">
-                    </div>
-                </form>
-                
-                <ul class="list-unstyled question">
-                    <br>
-                    <li class="menu-heading">Documentation</li>
-                    {% for i in docs %}
-                    <li class="doc-item"><a target="_blank" href="{{i.link}}">{{i.text}}</a></li>
-                    {% endfor %}
-                    <a target="_blank" href="https://voidpanel.com/docs" class="btn btn-primary btn-block">Documentation</a>
-                </ul>
-                
-                <script>
-                    // Get the input element and the list items
-                    const searchBox = document.getElementById('searchBox');
-                    const docItems = document.querySelectorAll('.doc-item');
-                
-                    // Add an input event listener to the search box
-                    searchBox.addEventListener('input', function() {
-                        const searchText = searchBox.value.toLowerCase();
-                
-                        // Filter the list items based on the search text
-                        docItems.forEach(function(item) {
-                            const itemText = item.textContent.toLowerCase();
-                
-                            // Show or hide the item based on whether it matches the search text
-                            if (itemText.includes(searchText)) {
-                                item.style.display = 'block'; // Show the item
-                            } else {
-                                item.style.display = 'none';  // Hide the item
-                            }
-                        });
-                    });
-                </script>
-                
-            </div>    
-        </div>          
+        <div class="sb-brand-pulse"></div>
     </div>
+
+    <!-- ② NAV TABS — fixed below brand -->
+    <ul class="nav sb-tabs">
+        <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#sb-menu">Menu</a></li>
+        <li class="nav-item"><a class="nav-link" href="/serverstatus"><i class="fa-solid fa-chart-line"></i></a></li>
+        <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#sb-docs"><i class="fa-solid fa-circle-question"></i></a></li>
+    </ul>
+
+    <!-- ③ TAB CONTENT — flex:1, scrollable pane inside -->
+    <div class="sb-tab-content tab-content padding-0">
+
+        <!-- MENU TAB -->
+        <div class="tab-pane active sb-scroll-pane" id="sb-menu">
+            <nav id="left-sidebar-nav" class="sidebar-nav">
+                <ul id="main-menu" class="metismenu li_animation_delay">
+
+                    <!-- GENERAL -->
+                    <div class="sb-section">General</div>
+                    <li class="active">
+                        <a href="#Dashboard" class="has-arrow">
+                            <i class="fa-solid fa-gauge-high"></i><span>Dashboard</span>
+                        </a>
+                        <ul>
+                            {% if is_reseller %}
+                            <li><a href="/control/reseller/"><i class="fa-solid fa-home"></i><span>Overview</span></a></li>
+                            {% else %}
+                            <li><a href="/panel/"><i class="fa-solid fa-home"></i><span>Home</span></a></li>
+                            <li><a href="/hostname/"><i class="fa-solid fa-server"></i><span>Set Hostname</span></a></li>
+                            <li><a href="/phpsetting/"><i class="fa-solid fa-cogs"></i><span>PHP Settings</span></a></li>
+                            <li><a href="/runsslall/"><i class="fa-solid fa-shield-halved"></i><span>Auto SSL</span></a></li>
+                            <li><a href="/maincron/"><i class="fa-solid fa-clock"></i><span>Void Cronjob</span></a></li>
+                            <li><a href="/update/"><i class="fa-solid fa-rotate"></i><span>Updates</span></a></li>
+                            <li><a href="/notify/"><i class="fa-solid fa-bell"></i><span>Notify</span></a></li>
+                            <li><a href="/branding/"><i class="fa-solid fa-paintbrush"></i><span>White-Label</span></a></li>
+                            {% endif %}
+                            {% if request.user.is_superuser %}
+                            <li><a href="/license/"><i class="fa-solid fa-id-card" style="color:#f59e0b;"></i><span>License</span></a></li>
+                            {% endif %}
+                            <li><a href="/chpass/"><i class="fa-solid fa-key"></i><span>Change Password</span></a></li>
+                        </ul>
+                    </li>
+
+                    {% if not is_reseller %}
+
+                    <!-- MANAGEMENT -->
+                    <div class="sb-section">Management</div>
+
+                    <li>
+                        <a href="#Users" class="has-arrow">
+                            <i class="fa-solid fa-users"></i><span>Users</span>
+                        </a>
+                        <ul>
+                            <li><a href="/adduser"><i class="fa-solid fa-user-plus"></i><span>Add User</span></a></li>
+                            <li><a href="/listusers"><i class="fa-solid fa-list"></i><span>List Users</span></a></li>
+                        </ul>
+                    </li>
+
+                    {% if license_features.reseller %}
+                    <li>
+                        <a href="#Resellers" class="has-arrow">
+                            <i class="fa-solid fa-handshake"></i><span>Resellers</span>
+                        </a>
+                        <ul>
+                            <li><a href="/control/reseller/"><i class="fa-solid fa-store"></i><span>Manage Resellers</span></a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+
+                    <!-- INFRASTRUCTURE -->
+                    <div class="sb-section">Infrastructure</div>
+
+                    <li>
+                        <a href="#Security" class="has-arrow">
+                            <i class="fa-solid fa-shield"></i><span>Security</span>
+                        </a>
+                        <ul>
+                            <li><a href="/cpbruteforce/"><i class="fa-solid fa-fire"></i><span>Brute Force Protection</span></a></li>
+                            <li><a href="/installcsf/"><i class="fa-solid fa-lock"></i><span>CSF Firewall</span></a></li>
+                        </ul>
+                    </li>
+
+                    <li><a href="/serverstatus/"><i class="fa-solid fa-chart-bar"></i><span>Server Status</span></a></li>
+                    <li><a href="/services/"><i class="fa-solid fa-server"></i><span>Installed Services</span></a></li>
+
+                    <!-- TOOLS -->
+                    <div class="sb-section">Tools</div>
+
+                    <li><a href="/terminal/"><i class="fa-solid fa-terminal"></i><span>Terminal</span></a></li>
+                    <li><a href="/filemanager/"><i class="fa-solid fa-folder-open"></i><span>File Manager</span></a></li>
+                    <li><a href="/support/"><i class="fa-solid fa-headset"></i><span>Support</span></a></li>
+                    <li><a href="/api-tokens/"><i class="fa-solid fa-code-commit" style="color:#22d3ee;"></i><span>API Tokens</span></a></li>
+                    <li><a href="/activitylog/"><i class="fa-solid fa-clock-rotate-left"></i><span>Activity Log</span></a></li>
+
+                    <li>
+                        <a href="#DNSFunctions" class="has-arrow">
+                            <i class="fa-solid fa-globe"></i><span>DNS Functions</span>
+                        </a>
+                        <ul>
+                            <li><a href="/listdns"><i class="fa-solid fa-list"></i><span>List DNS</span></a></li>
+                        </ul>
+                    </li>
+
+                    <li>
+                        <a href="#SQLDatabase" class="has-arrow">
+                            <i class="fa-solid fa-database"></i><span>SQL Database</span>
+                        </a>
+                        <ul>
+                            <li><a href="/fulldbwizard/"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Database Wizard</span></a></li>
+                        </ul>
+                    </li>
+
+                    <li>
+                        <a href="#Email" class="has-arrow">
+                            <i class="fa-solid fa-envelope"></i><span>Email</span>
+                        </a>
+                        <ul>
+                            <li><a href="/listwebsite/"><i class="fa-solid fa-envelope-open-text"></i><span>Email Accounts</span></a></li>
+                            <li><a href="/email-services/"><i class="fa-solid fa-cog"></i><span>Email Services</span></a></li>
+                        </ul>
+                    </li>
+
+                    <li>
+                        <a href="#FTP" class="has-arrow">
+                            <i class="fa-solid fa-arrow-up-from-bracket"></i><span>FTP</span>
+                        </a>
+                        <ul>
+                            <li><a href="/ftp/"><i class="fa-solid fa-toggle-on"></i><span>Manage FTP</span></a></li>
+                        </ul>
+                    </li>
+
+                    <!-- Package -->
+                     <li>
+                         <a href="/package/">
+                             <i class="fa-solid fa-box-open"></i><span>Manage Package</span>
+                         </a>
+                     </li>
+
+                    {% else %}
+                    <!-- RESELLER: back link -->
+                    <div class="sb-divider"></div>
+                    <div class="sb-section">My Hosting</div>
+                    <li><a href="/control/"><i class="fa-solid fa-arrow-left"></i><span>My Control Panel</span></a></li>
+                    <li><a href="/support/"><i class="fa-solid fa-headset"></i><span>Support</span></a></li>
+                    <li><a href="/api-tokens/"><i class="fa-solid fa-code-commit" style="color:#22d3ee;"></i><span>API Tokens</span></a></li>
+                    {% endif %}
+
+                </ul>
+            </nav>
+        </div>
+
+        <!-- DOCS TAB -->
+        <div class="tab-pane sb-scroll-pane" id="sb-docs">
+            <form style="padding:12px 14px 8px;">
+                <div class="input-group">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text"><i class="icon-magnifier"></i></span>
+                    </div>
+                    <input type="text" class="form-control" placeholder="Search docs..." id="searchBox">
+                </div>
+            </form>
+            <ul class="list-unstyled question" style="padding:0 14px;">
+                <br>
+                <li class="menu-heading">Documentation</li>
+                {% for i in docs %}
+                <li class="doc-item"><a target="_blank" href="{{i.link}}">{{i.text}}</a></li>
+                {% endfor %}
+                <a target="_blank" href="https://voidpanel.com/docs" class="btn btn-primary btn-block">Documentation</a>
+            </ul>
+            <script>
+                const searchBox = document.getElementById('searchBox');
+                const docItems = document.querySelectorAll('.doc-item');
+                searchBox.addEventListener('input', function() {
+                    const q = searchBox.value.toLowerCase();
+                    docItems.forEach(el => {
+                        el.style.display = el.textContent.toLowerCase().includes(q) ? 'block' : 'none';
+                    });
+                });
+            </script>
+        </div>
+
+    </div>{# /sb-tab-content #}
+
+    <!-- ④ SIGN OUT — fixed bottom, always visible -->
+    <div class="sb-footer">
+        <a href="/logout" class="sb-logout">
+            <i class="fa-solid fa-power-off"></i> Sign Out
+        </a>
+    </div>
+
 </div>
+
+<script>
+(function() {
+    /* ─── Self-contained Sidebar JS ─────────────────────────────────────────
+       Works on every page with NO jQuery / metismenu dependency.
+    ──────────────────────────────────────────────────────────────────────── */
+
+    /* 1. DROPDOWN TOGGLE — replaces metismenu */
+    var menu = document.getElementById('main-menu');
+    if (menu) {
+        menu.addEventListener('click', function(e) {
+            var link = e.target.closest('a.has-arrow');
+            if (!link) return;
+            e.preventDefault();
+            e.stopPropagation();
+
+            var li = link.closest('li');
+            var sub = li.querySelector(':scope > ul');
+            if (!sub) return;
+
+            var isOpen = li.classList.contains('mm-active');
+
+            /* Close all top-level siblings */
+            var siblings = menu.querySelectorAll(':scope > li');
+            siblings.forEach(function(sib) {
+                if (sib !== li) {
+                    sib.classList.remove('mm-active');
+                    var s = sib.querySelector(':scope > ul');
+                    if (s) s.style.display = 'none';
+                    var a = sib.querySelector(':scope > a.has-arrow');
+                    if (a) a.removeAttribute('aria-expanded');
+                }
+            });
+
+            /* Toggle current */
+            if (isOpen) {
+                li.classList.remove('mm-active');
+                sub.style.display = 'none';
+                link.removeAttribute('aria-expanded');
+            } else {
+                li.classList.add('mm-active');
+                sub.style.display = 'block';
+                link.setAttribute('aria-expanded', 'true');
+            }
+        });
+    }
+
+    /* 2. TAB SWITCHER — replaces Bootstrap tab JS */
+    var tabLinks = document.querySelectorAll('#left-sidebar .sb-tabs .nav-link[data-toggle="tab"]');
+    tabLinks.forEach(function(tab) {
+        tab.addEventListener('click', function(e) {
+            e.preventDefault();
+            var target = document.querySelector(this.getAttribute('href'));
+            if (!target) return;
+
+            /* Deactivate all tabs + panes */
+            tabLinks.forEach(function(t) { t.classList.remove('active'); });
+            document.querySelectorAll('#left-sidebar .sb-tab-content .tab-pane').forEach(function(p) {
+                p.classList.remove('active');
+                p.style.display = 'none';
+            });
+
+            /* Activate clicked tab + matching pane */
+            this.classList.add('active');
+            target.classList.add('active');
+            target.style.display = '';
+        });
+    });
+    /* Ensure only active pane is visible on load */
+    document.querySelectorAll('#left-sidebar .sb-tab-content .tab-pane:not(.active)').forEach(function(p) {
+        p.style.display = 'none';
+    });
+    document.querySelectorAll('#left-sidebar .sb-tab-content .tab-pane.active').forEach(function(p) {
+        p.style.display = '';
+    });
+
+    /* 3. ACTIVE LINK DETECTION — highlight menu item matching current URL */
+    var currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+    var allLinks = document.querySelectorAll('#main-menu a:not(.has-arrow)');
+    allLinks.forEach(function(a) {
+        var href = (a.getAttribute('href') || '').replace(/\/$/, '');
+        if (href && href !== '#' && href.length > 1 && currentPath.startsWith(href)) {
+            a.classList.add('active');
+            /* Open parent accordion */
+            var parentLi = a.closest('ul')?.closest('li');
+            if (parentLi) {
+                parentLi.classList.add('mm-active');
+                var sub = parentLi.querySelector(':scope > ul');
+                if (sub) sub.style.display = 'block';
+                var arrow = parentLi.querySelector(':scope > a.has-arrow');
+                if (arrow) arrow.setAttribute('aria-expanded', 'true');
+            }
+        }
+    });
+})();
+</script>

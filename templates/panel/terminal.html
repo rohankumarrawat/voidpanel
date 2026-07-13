@@ -5,260 +5,294 @@
     <title>:: VoidPanel :: Terminal</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="VoidPanel Terminal ">
+    <meta name="description" content="VoidPanel Modern Terminal">
     <meta name="author" content="Voidpanel, design by: Voidpanel.com">
-    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
 
     <!-- VENDOR CSS -->
     <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
-
+    
     <!-- MAIN Project CSS file -->
-    <link rel="stylesheet" href="/static/assets/css/main.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
 
-    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+    <!-- XTERM CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+    <style>
+        /* Dark Glassmorphism Styling */
+        .glass-card {
+            background: rgba(25, 25, 25, 0.6) !important;
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 12px !important;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+            color: #ffffff !important;
+            padding: 20px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .glass-card h4, .glass-card h2, .glass-card li, .glass-card strong {
+            color: #ffffff !important;
+        }
+        
+        #terminal-container {
+            width: 100%;
+            height: 550px;
+            border-radius: 12px;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.8) !important; /* Xterm default is black, blending with glass */
+            padding: 15px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Loading Overlay */
+        #term-loader {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #00c6ff;
+            text-align: center;
+            z-index: 10;
+        }
+        
+        .status-dot {
+            height: 12px;
+            width: 12px;
+            background-color: #28a745;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            box-shadow: 0 0 10px #28a745;
+        }
+        .status-dot.disconnected {
+            background-color: #dc3545;
+            box-shadow: 0 0 10px #dc3545;
+        }
+    </style>
 </head>
 
-<body  data-theme="light" class="font-nunito">
+<body class="font-nunito active-dark-mode">
 
     <div id="wrapper" class="theme-cyan">
-
-        <!-- Page Loader -->
-        <div class="page-loader-wrapper">
-            <div class="loader">
-                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
-
-                </div>
-                <p>Please wait...</p>
+            <div class="page-loader-wrapper" style="background: var(--void-bg, #080c14) !important;">
+        <div class="loader">
+            <div class="m-t-30" style="display: flex; justify-content: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="130" height="30" viewBox="0 0 180 40" role="img" aria-label="VoidPanel">
+                  <rect x="0" y="4" width="34" height="34" rx="8" ry="8" fill="rgba(255,255,255,0.12)"/>
+                  <rect x="7" y="13" width="20" height="4" rx="1.5" fill="#ffffff" opacity="0.9"/>
+                  <rect x="7" y="19.5" width="14" height="4" rx="1.5" fill="#ffffff" opacity="0.65"/>
+                  <rect x="7" y="26" width="10" height="4" rx="1.5" fill="#60a5fa" opacity="0.95"/>
+                  <text x="43" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#ffffff">Void</text>
+                  <text x="91" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#60a5fa">Panel</text>
+                </svg>
             </div>
+            <div class="loading-bar-container">
+                <div class="loading-bar"></div>
+            </div>
+            <p style="color: var(--text-secondary, #475569) !important;">Please wait...</p>
         </div>
-
-
+    </div>
 
         {% include 'navbar.html' %}
-
-        <!-- main left menu -->
         {% include 'left.html' %}
-        <!-- rightbar icon div -->
         {% include 'right.html' %}
 
-
-        <!-- mani page content body part -->
-
         <div id="main-content">
-
             <div class="container-fluid">
                 <div class="block-header">
-                    <div class="row">
+                    <div class="row align-items-center">
                         <div class="col-lg-6 col-md-6 col-sm-12">
-                            <h2>Terminal</h2>
+                            <h2 style="color: #ffffff !important;">Server Terminal</h2>
                             <ul class="breadcrumb">
-                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a></li>                            
-                                <li class="breadcrumb-item">Dashboard</li>
-                                <li class="breadcrumb-item active">Terminal</li>
+                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard" style="color: #ffffff !important;"></i></a></li>
+                                <li class="breadcrumb-item" style="color: #ffffff !important;">Dashboard</li>
+                                <li class="breadcrumb-item active" style="color: #ffffff !important;">Terminal</li>
                             </ul>
                         </div>
-                       
+                        <div class="col-lg-6 col-md-6 col-sm-12 text-right">
+                            <span style="color: white; font-weight: bold; margin-right: 15px;">
+                                <span id="conn-status" class="status-dot"></span> <span id="conn-text">Connected</span>
+                            </span>
+                            <button onclick="connectWebsocket()" class="btn btn-primary btn-sm" style="border-radius: 20px; background: linear-gradient(45deg, #007bff, #00c6ff); border: none;">
+                                <i class="fa fa-refresh"></i> Reconnect
+                            </button>
+                        </div>
                     </div>
-                    <div class="row">
-                        <div  id="if" style="margin-top: 5%; display: block;" class="col-lg-8 col-md-12 col-sm-12">
-                            {% if securehai %}
-                            <div  class="card" type="button" style="height: 620; width: 100%;">
-                                <div class="body" >
-                                    <a target="_blank"   href="http://{{ip}}:{{port}}">
-                                    <div class="currency_state d-flex" style="align-items: center; justify-content: center; margin: 193px;">
-                                        <div><img src="/static/assets/images/coin/stellar.svg" width="80"></div>
-                                        <div class="ml-3">
-                                            <div class="name">Teminal</div>
-                                            <h5 class="mb-0">Open</h5>
-                                        </div>
-                                    </div>
-                                </a>
+                </div>
+
+                <div class="row">
+                    <!-- Terminal Wrapper -->
+                    <div class="col-lg-8 col-md-12 col-sm-12" style="position: relative;">
+                        <!-- Loader overlay -->
+                        <div id="term-loader">
+                            <i class="fa fa-circle-o-notch fa-spin fa-3x fa-fw mb-3"></i>
+                            <h5>Establishing secure SSH tunnel...</h5>
+                        </div>
+                        
+                        <!-- Real Xterm.js Container -->
+                        <div id="terminal-container"></div>
+                    </div>
+
+                    <!-- Server Specs Widget -->
+                    <div class="col-lg-4">
+                        <div class="card glass-card profile-header h-100">
+                            <div class="body">
+                                <div class="text-center mb-4">
+                                    <h4 class="mb-0"><strong>Server</strong> Information</h4>
                                 </div>
-                            </div>  
-                            
-
-                        {% else %}
-<iframe id="iframe" style="margin: 0; padding: 0; border-radius: 2%; width: 100%; height: 510px;"   src="http://{{ip}}:{{port}}" height="640" ></iframe>
-{% endif %}
-
-<div id="noframe" class="card" type="button" style="height: 620; width: 100%; display: none;">
-    <div class="body" >
-        <a href="/terminal/">
-        <div class="currency_state d-flex" style="align-items: center; justify-content: center; margin: 193px;">
-            <div><img src="/static/assets/images/coin/stellar.svg" width="80"></div>
-            <div class="ml-3">
-                <div class="name">Teminal</div>
-                <h5 class="mb-0">Connect/Reconnect</h5>
-            </div>
-        </div>
-    </a>
-    </div>
-</div>                 
-</div>
-<div class="col-lg-4" style="margin-top: 5%;">
-    <div class="card profile-header">
-        <div class="body">
-            <div class="text-center">
-               
-                <div>
-                    <h4 class="mb-0"><strong>Server</strong> Informaton</h4>
-                    
-                
-                </div>
-               
-                
-            </div>
-         
-            <ul class="pricing body">
-           
-                <li>Hostname : <strong>{{hostname}}</strong></li>
-                <li>Server IP: <strong>{{ip}}</strong> </li>
-                <li>Operating System: <strong>{{os}}</strong></li>
-                <li>Panel Name :<strong> Void Panel </strong></li>
-                <li>Ram :<strong>{{ram}}</strong> </li>
-                <li>Disk Storage:<strong>{{storage}}</strong></li>
-                <li>Processor : <strong>{{cpu}}</strong></li>
-             
-                
-            </ul>
-            
-            
-            
-        </div>
-    </div>
-</div>
-                       
-
+                                <ul class="list-unstyled" style="line-height: 2.5;">
+                                    <li><i class="fa fa-server" style="color: #00c6ff; width: 25px;"></i> Hostname: <strong>{{hostname}}</strong></li>
+                                    <li><i class="fa fa-globe" style="color: #00c6ff; width: 25px;"></i> Server IP: <strong>{{ip}}</strong> </li>
+                                    <li><i class="fa fa-linux" style="color: #00c6ff; width: 25px;"></i> Operating System: <strong>{{os}}</strong></li>
+                                    <li><i class="fa fa-microchip" style="color: #00c6ff; width: 25px;"></i> Processor: <strong>{{cpu}}</strong></li>
+                                    <li><i class="fa fa-memory" style="color: #00c6ff; width: 25px;"></i> Memory (RAM): <strong>{{ram}}</strong> </li>
+                                    <li><i class="fa fa-hdd-o" style="color: #00c6ff; width: 25px;"></i> Disk Storage: <strong>{{storage}}</strong></li>
+                                    <li><i class="fa fa-shield" style="color: #00c6ff; width: 25px;"></i> Connection: <strong style="color: #28a745;">Encrypted WSS</strong></li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-
-
-
-
-
-
-
-
-
-
-
             </div>
         </div>
+    </div>
 
-        <!-- Javascript -->
-        <script src="/static/assets/bundles/libscripts.bundle.js"></script>
-        <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+    <!-- Javascript -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+    <script src="/static/assets/vendor/toastr/toastr.js"></script>
+    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
 
-        <!-- page vendor js file -->
-        <script src="/static/assets/vendor/toastr/toastr.js"></script>
-        <script src="/static/assets/bundles/c3.bundle.js"></script>
+    <!-- XTERM JS -->
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
 
+    <script>
+        let term;
+        let fitAddon;
+        let socket;
 
-        <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
-        <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
+        // Initialize xterm on load
+        function initTerminal() {
+            // Clean container for reconnects
+            document.getElementById('terminal-container').innerHTML = '';
+            
+            term = new Terminal({
+                cursorBlink: true,
+                fontFamily: '"Fira Code", monospace',
+                fontSize: 14,
+                theme: {
+                    background: 'transparent',
+                    foreground: '#f8f8f2',
+                    cursor: '#00c6ff'
+                }
+            });
+            
+            fitAddon = new FitAddon.FitAddon();
+            term.loadAddon(fitAddon);
+            
+            term.open(document.getElementById('terminal-container'));
+            fitAddon.fit();
+            
+            // Connect to Django Channels WebSocket
+            connectWebsocket();
 
+            // Read from xterm, write to socket (JSON wrapped) - bound ONCE
+            term.onData(data => {
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({
+                        action: "input",
+                        data: data
+                    }));
+                }
+            });
 
-        <!-- page js file -->
-        <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
-        <script src="/static/assets/bundles/chartjs.js"></script>
-        <script src="/static/assets/index2.js"></script>
+            // Handle window resize dynamically
+            window.addEventListener('resize', () => {
+                if(fitAddon && socket && socket.readyState === WebSocket.OPEN) {
+                    fitAddon.fit();
+                    const dim = fitAddon.proposeDimensions();
+                    if(dim) {
+                        socket.send(JSON.stringify({
+                            action: "resize",
+                            rows: dim.rows,
+                            cols: dim.cols
+                        }));
+                    }
+                }
+            });
+        }
 
-
-</body>
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-    function refreshIframe() {
-    var iframe = document.getElementById('iframe');
-    iframe.src = iframe.src;
-}
-    function active(){
-        location.reload(true);
-    }
-     
-    document.addEventListener("DOMContentLoaded", function () {
-    var iframe = document.getElementById("iframe");
-    var noiframe = document.getElementById("noframe");
-
-    function checkStatus() {
-        var url = iframe.src;
-
-        $.ajax({
-            url: '/checkstatus/?url=' + url,  // URL for your Django view
-            method: 'GET',
-            success: function(response) {
-                iframe.style.display = "block";
-                noiframe.style.display = "none";
-            },
-            error: function(xhr, status, error) {
-                iframe.style.display = "none";
-                noiframe.style.display = "block";
+        function updateStatus(connected) {
+            const dot = document.getElementById('conn-status');
+            const txt = document.getElementById('conn-text');
+            if(connected) {
+                dot.classList.remove('disconnected');
+                txt.innerText = 'Connected';
+                $('#term-loader').hide();
+            } else {
+                dot.classList.add('disconnected');
+                txt.innerText = 'Disconnected';
             }
-        });
-    }
+        }
 
-    // Call the function once when the page loads
-    checkStatus();
+        function connectWebsocket() {
+            if(socket && socket.readyState !== WebSocket.CLOSED) {
+                socket.close(); // close existing if any
+            }
+            
+            $('#term-loader').show();
+            updateStatus(false);
 
-    // Reload the function every 5 seconds
-    setInterval(checkStatus, 10000);
-});
-</script>
-<script>
-    
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            socket = new WebSocket(protocol + '//' + window.location.host + '/ws/terminal/');
 
-let inactivityTime = function () {
-    let time;
-    window.onload = resetTimer;
-    document.onmousemove = resetTimer;
-    document.onkeypress = resetTimer;
-    document.ontouchstart = resetTimer; // For mobile devices
+            socket.onopen = () => {
+                updateStatus(true);
+                term.write('\x1b[36;1mConnected to VoidPanel Secure WebSocket Shell...\x1b[0m\r\n');
+                
+                // Immediately align size
+                fitAddon.fit();
+                const dim = fitAddon.proposeDimensions();
+                if(dim) {
+                     socket.send(JSON.stringify({
+                        action: "resize",
+                        rows: dim.rows,
+                        cols: dim.cols
+                    }));
+                }
+            };
 
-    function logout() {
-        // Make an AJAX request to Django when user is inactive
-     
-        $.ajax({
-                    url: '/webshell/?action=user_inactive&port={{port}}',  // URL for your Django view
-                    method: 'GET',
-                    success: function(response) {
-                        $('#response').text(response.message);
-                    },
-                    error: function(xhr, status, error) {
-                        $('#response').text('An error occurred.');
-                    }
-                });
-    }
+            socket.onerror = (e) => {
+                console.error("WebSocket Error:", e);
+                toastr.error("Secure connection failed. Trying to reconnect...");
+                updateStatus(false);
+            };
 
-    function resetTimer() {
-        clearTimeout(time);
-        time = setTimeout(logout, 1000000);  // Set inactivity time to 1 minute (60000 ms)
-    }
-};
+            socket.onclose = () => {
+                updateStatus(false);
+                term.write('\r\n\x1b[31;1mConnection lost. Process terminated.\x1b[0m\r\n');
+            };
 
-inactivityTime();  // Initialize the inactivity timer
+            // Read from socket, write to xterm
+            socket.onmessage = (event) => {
+                term.write(event.data);
+            };
+        }
 
-window.addEventListener('beforeunload', function (event) {
-
-      
-    $.ajax({
-                    url: '/webshell/?action=tab_close&port={{port}}',  // URL for your Django view
-                    method: 'GET',
-                    success: function(response) {
-                        $('#response').text(response.message);
-                    },
-                    error: function(xhr, status, error) {
-                        $('#response').text('An error occurred.');
-                    }
-                });
-    event.preventDefault();
-    event.returnValue = '';
-});
-
-
-
-</script>
-
+        // Boot
+        document.addEventListener("DOMContentLoaded", initTerminal);
+    </script>
+</body>
 </html>

@@ -1,0 +1,306 @@
+{% extends "super_admin_base.html" %}
+{% block title %}Auto-Suspend Settings — Super Admin{% endblock %}
+{% block admin_content %}
+<style>
+    :root {
+        --accent: #6366f1; --cyan: #22d3ee; --green: #10b981;
+        --yellow: #f59e0b; --red: #ef4444;
+        --card: rgba(255,255,255,0.04); --border: rgba(255,255,255,0.08);
+        --t1: #f1f5f9; --t2: #94a3b8; --t3: #475569;
+    }
+    .as-root { padding: 32px 28px 80px; max-width: 1100px; }
+    .as-header { margin-bottom: 28px; }
+    .as-header h1 { font-size:1.5rem; font-weight:900; color:var(--t1); }
+    .as-header p  { color:var(--t2); font-size:0.88rem; margin-top:4px; }
+
+    /* Settings Card */
+    .settings-card {
+        background: var(--card); border: 1px solid var(--border);
+        border-radius: 18px; padding: 28px 32px; margin-bottom: 28px;
+    }
+    .settings-card h2 { font-size:1rem; font-weight:800; color:var(--t1); margin-bottom:20px; display:flex; align-items:center; gap:8px; }
+    .form-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:18px; }
+    .form-group label { font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--t3); letter-spacing:0.06em; display:block; margin-bottom:6px; }
+    .form-group input[type="number"] {
+        width:100%; background:rgba(255,255,255,0.06); border:1px solid var(--border);
+        color:var(--t1); padding:10px 14px; border-radius:10px;
+        font-size:0.9rem; font-family:inherit; outline:none; transition:0.2s;
+    }
+    .form-group input:focus { border-color:rgba(99,102,241,0.5); box-shadow:0 0 0 3px rgba(99,102,241,0.1); }
+    .form-group small { color:var(--t3); font-size:0.72rem; margin-top:4px; display:block; }
+
+    /* Toggle switch */
+    .toggle-row { display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid var(--border); }
+    .toggle-row:last-child { border-bottom:none; }
+    .toggle-label h4 { font-size:0.9rem; font-weight:600; color:var(--t1); }
+    .toggle-label p  { font-size:0.78rem; color:var(--t2); margin-top:2px; }
+    .switch { position:relative; display:inline-block; width:48px; height:26px; }
+    .switch input { opacity:0; width:0; height:0; }
+    .slider {
+        position:absolute; cursor:pointer; inset:0;
+        background:rgba(255,255,255,0.1); border-radius:26px; transition:0.3s;
+    }
+    .slider:before {
+        content:''; position:absolute; height:20px; width:20px; left:3px; bottom:3px;
+        background:#fff; border-radius:50%; transition:0.3s;
+    }
+    input:checked + .slider { background: var(--green); }
+    input:checked + .slider:before { transform:translateX(22px); }
+
+    /* Master toggle hero */
+    .master-toggle-card {
+        background: linear-gradient(135deg,
+            {% if settings.enabled %}rgba(16,185,129,0.12){% else %}rgba(239,68,68,0.08){% endif %},
+            rgba(0,0,0,0));
+        border: 1px solid {% if settings.enabled %}rgba(16,185,129,0.3){% else %}rgba(239,68,68,0.2){% endif %};
+        border-radius: 18px; padding: 24px 28px; margin-bottom: 28px;
+        display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px;
+    }
+    .master-info h2 { font-size:1.1rem; font-weight:800; color: {% if settings.enabled %}#34d399{% else %}#f87171{% endif %}; }
+    .master-info p  { color:var(--t2); font-size:0.85rem; margin-top:4px; }
+    .master-badge {
+        display:inline-flex; align-items:center; gap:6px;
+        padding:5px 14px; border-radius:20px; font-size:0.8rem; font-weight:700;
+        {% if settings.enabled %}
+        background: rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); color:#34d399;
+        {% else %}
+        background: rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.25); color:#f87171;
+        {% endif %}
+    }
+
+    /* Overdue table */
+    .overdue-table { width:100%; border-collapse:separate; border-spacing:0 6px; }
+    .overdue-table th { font-size:0.72rem; text-transform:uppercase; color:var(--t3); padding:0 14px 8px; font-weight:700; }
+    .overdue-table td { background:var(--card); padding:14px; border:1px solid transparent; vertical-align:middle; }
+    .overdue-table tr td:first-child { border-left:1px solid var(--border); border-radius:12px 0 0 12px; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+    .overdue-table tr td:last-child  { border-right:1px solid var(--border); border-radius:0 12px 12px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+    .overdue-table tr td:not(:first-child):not(:last-child) { border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+
+    .days-badge {
+        display:inline-flex; align-items:center; gap:4px;
+        padding:3px 10px; border-radius:20px; font-size:0.75rem; font-weight:700;
+    }
+    .days-badge.critical { background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.25); color:#f87171; }
+    .days-badge.warning  { background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.25); color:#fbbf24; }
+    .days-badge.safe     { background:rgba(16,185,129,0.1);  border:1px solid rgba(16,185,129,0.2);  color:#34d399; }
+
+    .btn-suspend {
+        background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); color:#f87171;
+        padding:6px 12px; border-radius:8px; cursor:pointer; font-size:0.78rem; font-weight:600; transition:0.2s;
+    }
+    .btn-suspend:hover { background:rgba(239,68,68,0.2); }
+    .btn-unsuspend {
+        background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.2); color:#34d399;
+        padding:6px 12px; border-radius:8px; cursor:pointer; font-size:0.78rem; font-weight:600; transition:0.2s;
+    }
+    .btn-unsuspend:hover { background:rgba(16,185,129,0.2); }
+    .btn-primary {
+        background:linear-gradient(135deg,var(--accent),var(--cyan)); border:none; color:#fff;
+        padding:10px 22px; border-radius:10px; cursor:pointer; font-size:0.85rem; font-weight:700;
+    }
+</style>
+
+<div class="as-root">
+    <div class="as-header">
+        <h1><i class="fa-solid fa-shield-halved" style="color:var(--accent);margin-right:10px;"></i>Auto-Suspend Control</h1>
+        <p>Configure automatic suspension of overdue hosting services. All changes are applied immediately.</p>
+    </div>
+
+    {% if messages %}
+    {% for msg in messages %}
+    <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);color:#34d399;padding:12px 18px;border-radius:12px;margin-bottom:20px;">
+        <i class="fa-solid fa-check-circle"></i> {{ msg }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- Master Status Card -->
+    <div class="master-toggle-card">
+        <div class="master-info">
+            <h2>{% if settings.enabled %}🟢 Auto-Suspension ACTIVE{% else %}🔴 Auto-Suspension DISABLED{% endif %}</h2>
+            <p>
+                {% if settings.enabled %}
+                Services will be suspended <strong style="color:var(--t1);">{{ settings.overdue_days }} days</strong> after invoice due date.
+                Warning emails sent at <strong style="color:var(--t1);">{{ settings.warning_days }} days</strong>.
+                {% else %}
+                No automatic suspensions will occur. You must manually suspend overdue services.
+                {% endif %}
+            </p>
+        </div>
+        <div class="master-badge">
+            {% if settings.enabled %}
+            <i class="fa-solid fa-circle" style="font-size:0.6rem;"></i> AUTO-SUSPEND ON
+            {% else %}
+            <i class="fa-solid fa-circle" style="font-size:0.6rem;"></i> AUTO-SUSPEND OFF
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Settings Form -->
+    <div class="settings-card">
+        <h2><i class="fa-solid fa-sliders" style="color:var(--accent);"></i> Configuration</h2>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update_settings">
+
+            <!-- Toggles -->
+            <div style="margin-bottom:24px;">
+                <div class="toggle-row">
+                    <div class="toggle-label">
+                        <h4>Enable Auto-Suspension</h4>
+                        <p>Master switch — disabling this prevents ALL automatic suspensions.</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" name="enabled" value="1" {% if settings.enabled %}checked{% endif %}
+                               onchange="this.form.submit()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-row">
+                    <div class="toggle-label">
+                        <h4>Send Warning Email</h4>
+                        <p>Email customer before suspension threshold is reached.</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" name="send_warning_email" value="1" {% if settings.send_warning_email %}checked{% endif %}>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-row">
+                    <div class="toggle-label">
+                        <h4>Send Suspension Email</h4>
+                        <p>Notify customer when service is suspended.</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" name="send_suspension_email" value="1" {% if settings.send_suspension_email %}checked{% endif %}>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-grid" style="margin-bottom:24px;">
+                <div class="form-group">
+                    <label>Suspend After (days overdue)</label>
+                    <input type="number" name="overdue_days" value="{{ settings.overdue_days }}" min="1" max="90">
+                    <small>Services are suspended this many days after the invoice due date. Default: 15</small>
+                </div>
+                <div class="form-group">
+                    <label>Warning Email At (days overdue)</label>
+                    <input type="number" name="warning_days" value="{{ settings.warning_days }}" min="1" max="60">
+                    <small>Send a warning email this many days after the due date. Default: 10</small>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-primary">
+                <i class="fa-solid fa-save"></i> Save Settings
+            </button>
+            {% if settings.updated_by %}
+            <span style="color:var(--t3);font-size:0.78rem;margin-left:14px;">
+                Last updated by <strong>{{ settings.updated_by }}</strong> — {{ settings.updated_at|date:"M d, Y H:i" }}
+            </span>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Overdue Services Table -->
+    <div class="settings-card">
+        <h2><i class="fa-solid fa-triangle-exclamation" style="color:var(--yellow);"></i>
+            Overdue Services
+            {% if overdue_services %}
+            <span style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);color:#fbbf24;padding:2px 10px;border-radius:12px;font-size:0.75rem;margin-left:8px;">
+                {{ overdue_services|length }} service{{ overdue_services|length|pluralize }}
+            </span>
+            {% endif %}
+        </h2>
+
+        {% if overdue_services %}
+        <table class="overdue-table">
+            <thead>
+                <tr>
+                    <th>Service / Domain</th>
+                    <th>Customer</th>
+                    <th>Invoice</th>
+                    <th>Days Overdue</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for item in overdue_services %}
+            <tr>
+                <td>
+                    <div style="font-weight:700;color:var(--t1);">{{ item.service.domain }}</div>
+                    <div style="font-size:0.78rem;color:var(--t2);">{{ item.service.product_type }}</div>
+                </td>
+                <td>
+                    <div style="color:var(--t1);font-size:0.85rem;">{{ item.service.user.get_full_name|default:item.service.user.username }}</div>
+                    <div style="font-size:0.75rem;color:var(--t2);">{{ item.service.user.email }}</div>
+                </td>
+                <td>
+                    <div style="color:var(--t1);font-size:0.85rem;">{{ item.invoice.invoice_number }}</div>
+                    <div style="font-size:0.75rem;color:var(--red);">Due: {{ item.invoice.due_date|date:"M d, Y" }}</div>
+                </td>
+                <td>
+                    {% if item.will_suspend %}
+                    <span class="days-badge critical"><i class="fa-solid fa-circle-xmark"></i> {{ item.days_overdue }} days</span>
+                    <div style="font-size:0.7rem;color:var(--red);margin-top:3px;">Will suspend</div>
+                    {% elif item.days_overdue >= settings.warning_days %}
+                    <span class="days-badge warning"><i class="fa-solid fa-triangle-exclamation"></i> {{ item.days_overdue }} days</span>
+                    <div style="font-size:0.7rem;color:var(--yellow);margin-top:3px;">Warning sent</div>
+                    {% else %}
+                    <span class="days-badge safe">{{ item.days_overdue }} days</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if item.service.status == 'suspended' %}
+                    <span style="color:#f87171;font-size:0.82rem;font-weight:600;">Suspended</span>
+                    {% else %}
+                    <span style="color:#34d399;font-size:0.82rem;font-weight:600;">Active</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div style="display:flex;gap:6px;">
+                    {% if item.service.status != 'suspended' %}
+                    <form method="post" style="display:inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="manual_suspend">
+                        <input type="hidden" name="service_id" value="{{ item.service.id }}">
+                        <button type="submit" class="btn-suspend" onclick="return confirm('Suspend {{ item.service.domain }}?')">
+                            <i class="fa-solid fa-ban"></i> Suspend
+                        </button>
+                    </form>
+                    {% else %}
+                    <form method="post" style="display:inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="manual_unsuspend">
+                        <input type="hidden" name="service_id" value="{{ item.service.id }}">
+                        <button type="submit" class="btn-unsuspend">
+                            <i class="fa-solid fa-check"></i> Reactivate
+                        </button>
+                    </form>
+                    {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="text-align:center;padding:40px 0;color:var(--t3);">
+            <i class="fa-solid fa-circle-check" style="font-size:2.5rem;color:rgba(16,185,129,0.3);display:block;margin-bottom:12px;"></i>
+            <p style="font-size:0.9rem;">No overdue services right now. Great job!</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Cron Setup Info -->
+    <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:14px;padding:20px 24px;">
+        <h3 style="font-size:0.9rem;font-weight:700;color:var(--t1);margin-bottom:8px;"><i class="fa-solid fa-clock" style="color:var(--accent);margin-right:8px;"></i>Cron Job Setup</h3>
+        <p style="font-size:0.82rem;color:var(--t2);margin-bottom:10px;">Add this cron job to your server to run auto-suspension daily at 6 AM:</p>
+        <code style="background:rgba(0,0,0,0.4);border:1px solid var(--border);padding:10px 14px;border-radius:8px;display:block;font-size:0.82rem;color:#a5b4fc;font-family:monospace;">
+            0 6 * * * cd /var/www/voidpanel-web &amp;&amp; python manage.py check_overdue &gt;&gt; /var/log/voidpanel_overdue.log 2&gt;&amp;1
+        </code>
+    </div>
+</div>
+{% endblock admin_content %}
+

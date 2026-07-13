@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+{% block title %}Update Manager — VoidPanel Super Admin{% endblock %}
+
+{% block content %}
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+<style>
+:root{--bg:#07091a;--card:rgba(13,17,35,.9);--border:rgba(99,102,241,.15);--bs:rgba(255,255,255,.06);--accent:#6366f1;--green:#10b981;--red:#ef4444;--amber:#f59e0b;--t1:#f1f5f9;--t2:#94a3b8;--t3:#475569;--r:14px}
+.um-wrap{padding:28px 28px 60px;max-width:1200px;margin:0 auto}
+.um-hero{background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(34,211,238,.06));border:1px solid var(--border);border-radius:20px;padding:26px 30px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px}
+.um-hero h1{font-size:1.4rem;font-weight:800;color:var(--t1);margin:0 0 4px}
+.um-hero p{font-size:.83rem;color:var(--t2);margin:0}
+.um-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:.75rem;font-weight:700;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#a5b4fc}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+@media(max-width:900px){.kpi-row{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--card);border:1px solid var(--bs);border-radius:var(--r);padding:18px 20px;display:flex;align-items:center;gap:14px;backdrop-filter:blur(16px)}
+.kpi-ico{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.kpi-val{font-size:1.8rem;font-weight:800;color:var(--t1);line-height:1}
+.kpi-lbl{font-size:.72rem;color:var(--t3);margin-top:3px;text-transform:uppercase;letter-spacing:.5px}
+.sec-hd{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin:0 0 14px;display:flex;align-items:center;gap:8px}
+.sec-hd::after{content:'';flex:1;height:1px;background:var(--bs)}
+.server-table{width:100%;border-collapse:separate;border-spacing:0 8px}
+.server-table th{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--t3);padding:0 16px 6px;text-align:left}
+.server-row{background:var(--card);border:1px solid var(--bs);border-radius:var(--r);transition:border-color .2s,transform .2s}
+.server-row:hover{border-color:var(--border);transform:translateX(2px)}
+.server-row td{padding:14px 16px;color:var(--t1);font-size:.85rem;vertical-align:middle}
+.server-row td:first-child{border-radius:var(--r) 0 0 var(--r)}
+.server-row td:last-child{border-radius:0 var(--r) var(--r) 0}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:.7rem;font-weight:700;padding:3px 10px;border-radius:20px}
+.pill-ok{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.25)}
+.pill-warn{background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.25)}
+.pill-err{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.25)}
+.pill-off{background:rgba(71,85,105,.15);color:#64748b;border:1px solid rgba(71,85,105,.2)}
+.bdot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.bdot-green{background:#34d399;box-shadow:0 0 6px #34d399;animation:pulse 2s ease infinite}
+.bdot-red{background:#f87171}
+.bdot-off{background:#475569}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.btn-push{display:inline-flex;align-items:center;gap:7px;padding:7px 16px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:#fff;font-size:.78rem;font-weight:700;cursor:pointer;transition:opacity .2s;white-space:nowrap}
+.btn-push:hover{opacity:.85}
+.btn-push:disabled{opacity:.45;cursor:not-allowed}
+.btn-push-all{padding:10px 22px;font-size:.85rem;border-radius:12px}
+.btn-push-single{padding:6px 14px;font-size:.75rem;border-radius:8px;background:linear-gradient(135deg,rgba(99,102,241,.7),rgba(139,92,246,.7))}
+.result-box{display:none;margin-top:18px;background:rgba(0,0,0,.35);border:1px solid var(--bs);border-radius:12px;padding:16px;font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--t2);max-height:280px;overflow-y:auto;line-height:1.8}
+.result-ok{color:#34d399}.result-err{color:#f87171}.result-inf{color:#a5b4fc}
+</style>
+
+<div class="um-wrap">
+
+  <!-- Hero -->
+  <div class="um-hero">
+    <div>
+      <h1><i class="fa-solid fa-cloud-arrow-up" style="color:#6366f1;margin-right:10px;"></i>Update Manager</h1>
+      <p>Push VoidPanel updates to all registered servers with one click.</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span class="um-badge"><i class="fa-solid fa-tag"></i> Latest: <strong style="margin-left:4px;">{{ latest }}</strong></span>
+      <button class="btn-push btn-push-all" id="btnPushAll" onclick="pushUpdate()">
+        <i class="fa-solid fa-rotate" id="pushIcon"></i> Push Update to All Servers
+      </button>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  {% with total=servers|length %}
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="kpi-ico" style="background:rgba(99,102,241,.15);color:#818cf8;"><i class="fa-solid fa-server"></i></div>
+      <div><div class="kpi-val">{{ total }}</div><div class="kpi-lbl">Total Servers</div></div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-ico" style="background:rgba(16,185,129,.15);color:#34d399;"><i class="fa-solid fa-circle-check"></i></div>
+      <div><div class="kpi-val" style="color:#34d399;">{% for s in servers %}{% if s.version != 'Unreachable' and s.version != '—' %}{% if not s.needs_update %}1{% endif %}{% endif %}{% endfor %}</div><div class="kpi-lbl">Up to Date</div></div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-ico" style="background:rgba(245,158,11,.15);color:#fbbf24;"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <div><div class="kpi-val" style="color:#fbbf24;">{% for s in servers %}{% if s.needs_update %}1{% endif %}{% endfor %}</div><div class="kpi-lbl">Need Update</div></div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-ico" style="background:rgba(239,68,68,.15);color:#f87171;"><i class="fa-solid fa-plug-circle-xmark"></i></div>
+      <div><div class="kpi-val" style="color:#f87171;">{% for s in servers %}{% if s.version == 'Unreachable' %}1{% endif %}{% endfor %}</div><div class="kpi-lbl">Unreachable</div></div>
+    </div>
+  </div>
+  {% endwith %}
+
+  <!-- Server Table -->
+  <p class="sec-hd"><i class="fa-solid fa-server"></i> Registered Servers</p>
+  <table class="server-table">
+    <thead>
+      <tr>
+        <th>Server</th>
+        <th>URL</th>
+        <th>Installed</th>
+        <th>Latest</th>
+        <th>Status</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in servers %}
+      <tr class="server-row">
+        <td>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:36px;height:36px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;color:#818cf8;font-size:.95rem;flex-shrink:0;">
+              <i class="fa-solid fa-server"></i>
+            </div>
+            <div>
+              <div style="font-weight:700;">{{ s.name }}</div>
+              <div style="font-size:.72rem;color:var(--t3);">
+                {% if s.is_active %}<span class="bdot bdot-green" style="margin-right:3px;"></span>Active{% else %}<span class="bdot bdot-off" style="margin-right:3px;"></span>Inactive{% endif %}
+              </div>
+            </div>
+          </div>
+        </td>
+        <td style="font-family:monospace;font-size:.78rem;color:var(--t2);">{{ s.url }}</td>
+        <td>
+          {% if s.version == 'Unreachable' %}
+            <span class="pill pill-err"><span class="bdot bdot-red"></span>Unreachable</span>
+          {% elif s.version == '—' %}
+            <span class="pill pill-off">—</span>
+          {% else %}
+            <code style="font-size:.8rem;color:#a5b4fc;">{{ s.version }}</code>
+          {% endif %}
+        </td>
+        <td><code style="font-size:.8rem;color:#34d399;">{{ s.latest }}</code></td>
+        <td>
+          {% if s.version == 'Unreachable' %}
+            <span class="pill pill-err"><i class="fa-solid fa-xmark"></i>Offline</span>
+          {% elif s.needs_update %}
+            <span class="pill pill-warn"><i class="fa-solid fa-arrow-up"></i>Update Available</span>
+          {% elif s.version == '—' %}
+            <span class="pill pill-off">Unknown</span>
+          {% else %}
+            <span class="pill pill-ok"><i class="fa-solid fa-check"></i>Up to Date</span>
+          {% endif %}
+        </td>
+        <td>
+          <button class="btn-push btn-push-single" onclick="pushUpdate({{ s.id }}, this)" {% if s.version == 'Unreachable' %}disabled{% endif %}>
+            <i class="fa-solid fa-cloud-arrow-up"></i> Update
+          </button>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--t3);">
+        <i class="fa-solid fa-server" style="font-size:2rem;display:block;margin-bottom:10px;opacity:.3;"></i>
+        No servers registered yet. Add a server in <a href="/super-admin/servers/" style="color:#818cf8;">Servers</a>.
+      </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Result Log -->
+  <div id="resultBox" class="result-box"></div>
+
+</div>
+
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+const CSRF = '{{ csrf_token }}';
+
+async function pushUpdate(serverId, btn) {
+  const pushAll = !serverId;
+  const icon  = document.getElementById('pushIcon');
+  const allBtn = document.getElementById('btnPushAll');
+  const box   = document.getElementById('resultBox');
+
+  if (pushAll) {
+    allBtn.disabled = true;
+    icon.className = 'fa-solid fa-circle-notch fa-spin';
+    allBtn.querySelector('span') && (allBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Pushing…');
+  } else {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+  }
+
+  box.style.display = 'block';
+  box.innerHTML += `<span class="result-inf">[${new Date().toLocaleTimeString()}] 🚀 Pushing update${pushAll ? ' to ALL servers' : ` to server #${serverId}`}…</span>\n`;
+  box.scrollTop = box.scrollHeight;
+
+  try {
+    const r = await fetch('/super-admin/push-update/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify(serverId ? { server_id: serverId } : {})
+    });
+    const d = await r.json();
+
+    if (d.results) {
+      d.results.forEach(res => {
+        const cls = res.status === 'ok' ? 'result-ok' : 'result-err';
+        const ico = res.status === 'ok' ? '✅' : '❌';
+        box.innerHTML += `<span class="${cls}">${ico} ${res.server}: ${res.message || res.status}</span>\n`;
+      });
+      box.innerHTML += `<span class="result-inf">─── Done: ${d.pushed} pushed, ${d.errors} error(s). Panel will restart on each server.</span>\n\n`;
+    } else {
+      box.innerHTML += `<span class="result-err">❌ Unexpected response: ${JSON.stringify(d)}</span>\n`;
+    }
+  } catch(e) {
+    box.innerHTML += `<span class="result-err">❌ Network error: ${e.message}</span>\n`;
+  }
+
+  box.scrollTop = box.scrollHeight;
+  if (pushAll) {
+    allBtn.disabled = false;
+    allBtn.innerHTML = '<i class="fa-solid fa-rotate" id="pushIcon"></i> Push Update to All Servers';
+  } else {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Update';
+  }
+}
+</script>
+{% endblock %}

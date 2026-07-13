@@ -1,0 +1,294 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SSL Certificates — Free Let's Encrypt SSL | VoidPanel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Secure your website with free Let's Encrypt SSL. Auto-provisioned via certbot, auto-renewable, HTTPS live in minutes.">
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css">
+    <style>
+        .ssl-page {
+            padding: 112px 18px 60px;
+            min-height: 100vh;
+            background:
+                radial-gradient(circle at 10% 10%, rgba(34,197,94,.08), transparent 28%),
+                radial-gradient(circle at 88% 85%, rgba(37,99,235,.04), transparent 24%),
+                #f8fafc;
+        }
+        .ssl-wrap { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 26px; }
+ 
+        .surface { background: #ffffff; border: 1px solid var(--border-subtle); box-shadow: 0 10px 30px rgba(15,23,42,0.05); border-radius: 28px; padding: 30px; }
+        .hero { display: grid; grid-template-columns: 1.2fr .8fr; gap: 24px; align-items: stretch; }
+        .hero-copy h1 { margin: 14px 0 12px; color: var(--text-primary); font-size: clamp(2.2rem,4vw,4rem); line-height: 1.04; }
+        .hero-copy h1 span { background: linear-gradient(135deg,#22c55e,#0ea5e9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .hero-copy p, .muted { color: var(--text-secondary); line-height: 1.75; }
+        .eyebrow-green { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; background: rgba(34,197,94,.08); color: #16a34a; font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; }
+        .hero-points { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; margin-top: 22px; }
+        .hero-points div { padding: 15px 16px; border-radius: 18px; background: var(--bg-card-2); border: 1px solid var(--border-subtle); color: var(--text-secondary); }
+        .hero-points strong { display: block; color: var(--text-primary); font-size: .95rem; margin-bottom: 4px; }
+        .hero-note { display: flex; flex-direction: column; justify-content: space-between; gap: 14px; }
+        .hero-note > div { padding: 20px; border-radius: 18px; background: var(--bg-card-2); border: 1px solid var(--border-subtle); color: var(--text-secondary); }
+        .hero-note strong { display: block; color: var(--text-primary); font-size: .95rem; margin-bottom: 6px; }
+        .hero-btns { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+ 
+        .section-head { display: flex; justify-content: space-between; gap: 18px; align-items: flex-end; margin-bottom: 22px; }
+        .section-head h2 { margin: 0; color: var(--text-primary); font-size: clamp(1.45rem,2vw,2rem); }
+ 
+        /* plans */
+        .plans-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
+        @media(max-width: 900px) { .plans-grid { grid-template-columns: 1fr; } .hero { grid-template-columns: 1fr; } }
+        .plan-card { position: relative; border-radius: 22px; padding: 26px; background: #ffffff; border: 1px solid var(--border-subtle); display: flex; flex-direction: column; transition: .25s; }
+        .plan-card:hover { border-color: rgba(34,197,94,.3); transform: translateY(-4px); box-shadow: 0 12px 24px rgba(15,23,42,0.08); }
+        .plan-card.featured { border-color: rgba(34,197,94,.25); background: linear-gradient(160deg,rgba(34,197,94,.06),#ffffff); }
+        .plan-badge { display: inline-block; font-size: .72rem; font-weight: 700; padding: 3px 12px; border-radius: 999px; margin-bottom: 12px; }
+        .plan-badge.featured { background: linear-gradient(135deg,#22c55e,#0ea5e9); color: #fff; }
+        .plan-badge.standard { background: var(--bg-card-2); color: var(--text-secondary); }
+ 
+        /* ssl type icon */
+        .ssl-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: .95rem; margin-bottom: 12px; }
+        .icon-dv       { background: rgba(34,197,94,.1); color: #16a34a; }
+        .icon-wildcard { background: rgba(124,58,237,.1); color: #7c3aed; }
+        .icon-multi    { background: rgba(37,99,235,.1); color: #2563eb; }
+        .type-tag { display: inline-block; font-size: .72rem; font-weight: 700; padding: 2px 10px; border-radius: 6px; margin-bottom: 10px; }
+        .tag-dv       { background: rgba(34,197,94,.08); color: #16a34a; border: 1px solid rgba(34,197,94,.15); }
+        .tag-wildcard { background: rgba(124,58,237,.08); color: #7c3aed; border: 1px solid rgba(124,58,237,.15); }
+        .tag-multi    { background: rgba(37,99,235,.08); color: #2563eb; border: 1px solid rgba(37,99,235,.15); }
+ 
+        .plan-card h3 { font-size: 1.15rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
+        .plan-card > .muted { font-size: .83rem; margin-bottom: 14px; }
+        .plan-price { font-size: 2.2rem; font-weight: 900; color: var(--text-primary); margin-bottom: 4px; }
+        .plan-price span { font-size: .85rem; font-weight: 400; color: var(--text-secondary); }
+        .free-tag { display: inline-block; font-size: .82rem; font-weight: 700; background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.2); color: #15803d; padding: 5px 14px; border-radius: 8px; margin-bottom: 4px; }
+        .plan-specs { display: flex; flex-direction: column; gap: 0; margin: 14px 0 20px; border-top: 1px solid var(--border-subtle); flex: 1; }
+        .plan-specs div { display: flex; align-items: center; gap: 9px; padding: 8px 0; font-size: .83rem; color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle); }
+        .plan-specs div:last-child { border-bottom: none; }
+        .plan-specs .ok   { color: #16a34a; font-size: .78rem; flex-shrink: 0; }
+        .plan-specs .warn { color: #d97706; font-size: .78rem; flex-shrink: 0; }
+ 
+        /* steps */
+        .steps-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }
+        @media(max-width: 768px) { .steps-grid { grid-template-columns: repeat(2,1fr); } }
+        .step-box { background: #ffffff; border: 1px solid var(--border-subtle); border-radius: 18px; padding: 22px 18px; text-align: center; }
+        .step-num { width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg,#22c55e,#0ea5e9); color: #fff; font-weight: 900; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; font-size: 1rem; }
+        .step-box h4 { font-size: .9rem; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
+        .step-box p { font-size: .78rem; color: var(--text-secondary); line-height: 1.5; }
+ 
+        /* SSL types */
+        .types-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+        @media(max-width: 768px) { .types-grid { grid-template-columns: 1fr; } }
+        .type-card { background: #ffffff; border: 1px solid var(--border-subtle); border-radius: 18px; padding: 22px 18px; }
+        .type-card h4 { font-size: .95rem; font-weight: 800; color: var(--text-primary); margin-bottom: 6px; }
+        .type-card p { font-size: .8rem; color: var(--text-secondary); margin-bottom: 10px; line-height: 1.5; }
+        .code-pill { font-family: monospace; font-size: .78rem; color: #15803d; background: rgba(34,197,94,.07); border: 1px solid rgba(34,197,94,.12); padding: 4px 10px; border-radius: 6px; display: inline-block; }
+ 
+        /* faq */
+        .faq-list { display: flex; flex-direction: column; gap: 10px; }
+        .faq-item { background: #ffffff; border: 1px solid var(--border-subtle); border-radius: 14px; overflow: hidden; }
+        .faq-q { padding: 15px 18px; font-weight: 700; font-size: .86rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; color: var(--text-primary); user-select: none; }
+        .faq-q i { transition: .2s; color: var(--text-secondary); }
+        .faq-item.open .faq-q i { transform: rotate(180deg); color: #16a34a; }
+        .faq-a { max-height: 0; overflow: hidden; transition: max-height .3s ease; }
+        .faq-item.open .faq-a { max-height: 200px; }
+        .faq-a p { padding: 0 18px 15px; font-size: .82rem; color: var(--text-secondary); line-height: 1.6; }
+ 
+        /* trust strip */
+        .trust-strip { display: grid; grid-template-columns: repeat(5,1fr); }
+        @media(max-width: 700px) { .trust-strip { grid-template-columns: repeat(2,1fr); } }
+        .trust-item { padding: 20px 14px; text-align: center; border-right: 1px solid var(--border-subtle); }
+        .trust-item:last-child { border-right: none; }
+        .trust-item .ti { font-size: 1.3rem; color: #16a34a; margin-bottom: 8px; }
+        .trust-item strong { display: block; font-size: .85rem; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
+        .trust-item span { font-size: .73rem; color: var(--text-secondary); }
+ 
+        /* empty */
+        .empty-box { text-align: center; padding: 48px 20px; }
+        .empty-box i { font-size: 2.6rem; opacity: .2; display: block; margin-bottom: 12px; }
+        .empty-box p { color: var(--text-secondary); font-size: .9rem; }
+    </style>
+</head>
+<body>
+{% include 'header.html' %}
+
+<main class="ssl-page">
+  <div class="ssl-wrap">
+
+    <!-- Hero -->
+    <section class="surface hero">
+      <div class="hero-copy">
+        <span class="eyebrow-green"><i class="fas fa-lock"></i> SSL Certificate Service</span>
+        <h1>Secure Every Site<br>with <span>Free SSL</span></h1>
+        <p>Auto-provisioned Let's Encrypt certificates via certbot. HTTPS live on your domain in minutes — fully managed from your client portal.</p>
+        <div class="hero-points">
+          <div><strong>Auto-Issued</strong>certbot runs automatically on your server the moment payment clears.</div>
+          <div><strong>Auto-Renewable</strong>Our system renews before expiry — 90-day certs, always fresh.</div>
+        </div>
+        <div class="hero-btns">
+          <a href="#plans" class="btn-void btn-void-primary"><i class="fas fa-lock"></i> View SSL Plans</a>
+          <a href="/portal/" class="btn-void btn-void-outline"><i class="fas fa-user-circle"></i> My Account</a>
+        </div>
+      </div>
+      <div class="hero-note">
+        <div>
+          <strong>🛡️ Let's Encrypt — Trusted Everywhere</strong>
+          Recognised by 99.9% of browsers and devices. Same certificate authority used by millions of websites worldwide.
+        </div>
+        <div>
+          <strong>⚙️ NGINX Auto-Configured</strong>
+          certbot updates your NGINX config automatically. No manual editing — HTTP redirects to HTTPS instantly.
+        </div>
+        <div>
+          <strong>📊 Expiry Monitoring</strong>
+          Track expiry dates in your portal. Get alerts before a cert expires. Renew with one click anytime.
+        </div>
+      </div>
+    </section>
+
+    <!-- Trust strip -->
+    <section class="surface" style="padding: 0; overflow: hidden;">
+      <div class="trust-strip">
+        <div class="trust-item"><div class="ti"><i class="fas fa-bolt"></i></div><strong>Auto-Issued</strong><span>On payment</span></div>
+        <div class="trust-item"><div class="ti"><i class="fas fa-rotate"></i></div><strong>Auto-Renewal</strong><span>Before expiry</span></div>
+        <div class="trust-item"><div class="ti"><i class="fas fa-shield-halved"></i></div><strong>Let's Encrypt</strong><span>All browsers trust it</span></div>
+        <div class="trust-item"><div class="ti"><i class="fas fa-network-wired"></i></div><strong>NGINX Ready</strong><span>Config auto-updated</span></div>
+        <div class="trust-item"><div class="ti"><i class="fas fa-eye"></i></div><strong>Expiry Monitor</strong><span>Portal dashboard</span></div>
+      </div>
+    </section>
+
+    <!-- Plans -->
+    <section class="surface" id="plans">
+      <div class="section-head">
+        <div>
+          <h2>SSL Certificate Plans</h2>
+          <p class="muted">All plans use Let's Encrypt — trusted by 99.9% of browsers worldwide</p>
+        </div>
+      </div>
+
+      {% if plans %}
+      <div class="plans-grid">
+        {% for plan in plans %}
+        <div class="plan-card {% if plan.is_featured %}featured{% endif %}">
+          <span class="plan-badge {% if plan.is_featured %}featured{% else %}standard{% endif %}">
+            {% if plan.is_featured %}⭐ Most Popular{% else %}{{ plan.get_ssl_type_display }}{% endif %}
+          </span>
+
+          <div class="ssl-icon {% if plan.ssl_type == 'dv' %}icon-dv{% elif plan.ssl_type == 'wildcard' %}icon-wildcard{% else %}icon-multi{% endif %}">
+            <i class="fas fa-lock"></i>
+          </div>
+
+          {% if plan.ssl_type == 'dv' %}<span class="type-tag tag-dv">Single Domain</span>
+          {% elif plan.ssl_type == 'wildcard' %}<span class="type-tag tag-wildcard">Wildcard</span>
+          {% else %}<span class="type-tag tag-multi">Multi-Domain</span>{% endif %}
+
+          <h3>{{ plan.name }}</h3>
+          <p class="muted">{{ plan.short_description|default:"Secure your domain with HTTPS" }}</p>
+
+          {% if plan.monthly_price == 0 %}
+            <div class="free-tag"><i class="fas fa-gift"></i> Free</div>
+          {% else %}
+            <div class="plan-price">₹{{ plan.monthly_price }}<span>/month</span></div>
+          {% endif %}
+
+          <div class="plan-specs">
+            <div><i class="fas fa-check-circle ok"></i> {{ plan.max_domains }} domain{% if plan.max_domains != 1 %}s{% endif %} covered</div>
+            <div><i class="fas fa-check-circle ok"></i> {{ plan.validity_days }}-day validity</div>
+            <div><i class="fas fa-check-circle ok"></i> HTTPS + NGINX auto-configured</div>
+            <div><i class="fas fa-check-circle ok"></i> certbot auto-provisioning</div>
+            {% if plan.auto_renew %}<div><i class="fas fa-check-circle ok"></i> Auto-renewal</div>{% endif %}
+            <div><i class="fas fa-check-circle ok"></i> Expiry monitoring &amp; alerts</div>
+            <div><i class="fas fa-check-circle ok"></i> Client portal management</div>
+            <div><i class="fas fa-triangle-exclamation warn"></i> A record Required</div>
+            {% if plan.ssl_type == 'wildcard' %}
+            <div><i class="fas fa-triangle-exclamation warn"></i> DNS TXT record required</div>
+            {% endif %}
+          </div>
+          <a href="{% url 'ssl_configure' plan.id %}" class="btn-void btn-void-primary" style="text-align:center;justify-content:center;margin-top:auto;">
+            Get SSL Now &rarr;
+          </a>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-box">
+        <i class="fas fa-lock"></i>
+        <p><strong style="color:var(--text-primary);">Plans Coming Soon</strong><br>We're finalising our SSL plans. <a href="/portal/" style="color:#4ade80;">Check your portal</a> or contact support.</p>
+      </div>
+      {% endif %}
+    </section>
+
+    <!-- SSL Type Guide -->
+    <section class="surface">
+      <div class="section-head"><div><h2>Which SSL Type?</h2><p class="muted">Choose based on your use case</p></div></div>
+      <div class="types-grid">
+        <div class="type-card">
+          <div class="ssl-icon icon-dv" style="margin-bottom:12px;"><i class="fas fa-lock"></i></div>
+          <h4>Domain Validated (DV)</h4>
+          <p>Best for single websites. Covers one domain exactly. Fully automated HTTP-01 challenge.</p>
+          <span class="code-pill">example.com</span>
+        </div>
+        <div class="type-card">
+          <div class="ssl-icon icon-wildcard" style="margin-bottom:12px;"><i class="fas fa-star"></i></div>
+          <h4>Wildcard SSL</h4>
+          <p>Covers your root domain and all subdomains. Perfect for SaaS, multi-tenant, and subdomain setups.</p>
+          <span class="code-pill">*.example.com</span>
+        </div>
+        <div class="type-card">
+          <div class="ssl-icon icon-multi" style="margin-bottom:12px;"><i class="fas fa-layer-group"></i></div>
+          <h4>Multi-Domain SSL</h4>
+          <p>One certificate covering multiple different domains. Great for agencies managing multiple clients.</p>
+          <span class="code-pill">site1.com + site2.com</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="surface">
+      <div class="section-head"><div><h2>How Auto-Provisioning Works</h2><p class="muted">certbot does the heavy lifting — you just point your domain</p></div></div>
+      <div class="steps-grid">
+        <div class="step-box"><div class="step-num">1</div><h4>Buy a Plan</h4><p>Choose your SSL type and enter your domain name at checkout.</p></div>
+        <div class="step-box"><div class="step-num">2</div><h4>Point DNS</h4><p>Ensure your domain A record points to our server IP address.</p></div>
+        <div class="step-box"><div class="step-num">3</div><h4>Auto-Issued</h4><p>certbot runs automatically and issues your Let's Encrypt certificate.</p></div>
+        <div class="step-box"><div class="step-num">4</div><h4>HTTPS Live!</h4><p>NGINX config updates. Your site is fully secured over HTTPS.</p></div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="surface">
+      <div class="section-head"><div><h2>Frequently Asked Questions</h2></div></div>
+      <div class="faq-list">
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">Is Let's Encrypt really free? <i class="fas fa-chevron-down"></i></div>
+          <div class="faq-a"><p>Yes — Let's Encrypt certificates are completely free. You pay for our automated management service: provisioning, renewal tracking, portal dashboard, and priority support.</p></div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">How long does issuance take? <i class="fas fa-chevron-down"></i></div>
+          <div class="faq-a"><p>Usually 1–3 minutes after payment, as long as your domain DNS points to our server. certbot's HTTP-01 challenge verifies domain ownership automatically without any manual steps.</p></div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">What happens when the cert expires? <i class="fas fa-chevron-down"></i></div>
+          <div class="faq-a"><p>Let's Encrypt certs are valid for 90 days. With auto-renewal enabled, our system renews before expiry. You can also renew manually anytime from your client portal with one click.</p></div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="toggleFaq(this)">Does my domain need to point to VoidPanel servers? <i class="fas fa-chevron-down"></i></div>
+          <div class="faq-a"><p>Yes. Your domain's A record must point to the assigned VoidPanel server IP so certbot's HTTP-01 challenge can verify ownership. If you're already hosting with us, this is pre-configured.</p></div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+{% include 'footer.html' %}
+
+<script>
+function toggleFaq(el) {
+    const item = el.closest('.faq-item');
+    const wasOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+    if (!wasOpen) item.classList.add('open');
+}
+</script>
+</body>
+</html>

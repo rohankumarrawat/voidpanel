@@ -1,0 +1,93 @@
+{% extends "super_admin_base.html" %}
+{% block title %}Roles | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}Roles{% endblock %}
+
+{% block admin_content %}
+
+<div class="sa-page-header">
+    <div>
+        <div class="sa-page-title">Role Library</div>
+        <div class="sa-page-sub">Keep permission architecture separate from user management</div>
+    </div>
+    <div class="sa-header-actions">
+        <div class="sa-stat-chip green"><span class="val">{{ admin_stats.role_count }}</span> Roles</div>
+    </div>
+</div>
+
+<div class="sa-grid-2">
+    <!-- Create Role -->
+    <div class="sa-card">
+        <div class="sa-card-head">
+            <div class="sa-card-title"><i class="fas fa-plus-circle"></i> Create Role</div>
+        </div>
+        <form method="POST" action="/super-admin/roles/">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create_role">
+            <input type="hidden" name="next" value="/super-admin/roles/">
+            <div class="sa-form-group"><label class="sa-label">Role Name</label><input type="text" name="role_name" class="sa-input" required></div>
+            <div class="sa-form-group"><label class="sa-label">Description</label><textarea name="description" class="sa-input"></textarea></div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+                <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--text-2);cursor:pointer;"><input type="checkbox" name="can_manage_clients" style="accent-color:var(--green);"> Manage clients</label>
+                <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--text-2);cursor:pointer;"><input type="checkbox" name="can_manage_billing" style="accent-color:var(--green);"> Manage billing</label>
+                <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--text-2);cursor:pointer;"><input type="checkbox" name="can_manage_support" style="accent-color:var(--green);"> Manage support</label>
+                <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--text-2);cursor:pointer;"><input type="checkbox" name="can_manage_infrastructure" style="accent-color:var(--green);"> Manage infrastructure</label>
+                <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--text-2);cursor:pointer;"><input type="checkbox" name="can_manage_staff" style="accent-color:var(--green);"> Manage staff</label>
+            </div>
+            <div class="sa-form-actions">
+                <button type="submit" class="sa-btn primary"><i class="fas fa-plus"></i> Create Role</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Overview -->
+    <div class="sa-card">
+        <div class="sa-card-head">
+            <div class="sa-card-title"><i class="fas fa-chart-pie"></i> Role Stats</div>
+        </div>
+        <div class="sa-kpi-grid-3" style="gap:10px;">
+            <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:1.5rem;font-weight:900;color:var(--text-1);">{{ admin_stats.role_count }}</div>
+                <div style="font-size:0.68rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px;">Total Roles</div>
+            </div>
+            <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:1.5rem;font-weight:900;color:var(--amber-2);">{{ admin_stats.billing_role_count }}</div>
+                <div style="font-size:0.68rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px;">Billing Roles</div>
+            </div>
+            <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:1.5rem;font-weight:900;color:var(--violet-2);">{{ admin_stats.support_role_count }}</div>
+                <div style="font-size:0.68rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px;">Support Roles</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Existing Roles -->
+<div class="sa-card" style="padding:0;overflow:hidden;">
+    <div style="padding:16px 22px;border-bottom:1px solid var(--border);">
+        <div class="sa-card-title"><i class="fas fa-layer-group"></i> Existing Roles</div>
+    </div>
+    <div style="padding:16px 22px;display:flex;flex-direction:column;gap:10px;">
+        {% for role in roles %}
+        <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:12px;padding:14px 16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <div>
+                    <div style="font-weight:800;color:var(--text-1);">{{ role.name }}</div>
+                    <div style="font-size:0.74rem;color:var(--text-3);margin-top:2px;">{{ role.description|default:"No description provided." }}</div>
+                </div>
+                <span class="sa-badge sky">{{ role.staff_members.count }} staff</span>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px;">
+                {% if role.can_manage_clients %}<span class="sa-badge green">Clients</span>{% endif %}
+                {% if role.can_manage_billing %}<span class="sa-badge amber">Billing</span>{% endif %}
+                {% if role.can_manage_support %}<span class="sa-badge violet">Support</span>{% endif %}
+                {% if role.can_manage_infrastructure %}<span class="sa-badge sky">Infrastructure</span>{% endif %}
+                {% if role.can_manage_staff %}<span class="sa-badge gray">Staff</span>{% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="sa-empty"><i class="fas fa-layer-group"></i><div class="sa-empty-title">No roles defined yet</div></div>
+        {% endfor %}
+    </div>
+</div>
+
+{% endblock %}

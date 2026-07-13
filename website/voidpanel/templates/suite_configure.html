@@ -1,0 +1,237 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Configure {{ plan.name }} | VoidPanel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css">
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f1f5f9; min-height: 100vh; }
+        .cfg-page { padding: 112px 20px 60px; max-width: 780px; margin: 0 auto; }
+        .cfg-card { background: #fff; border-radius: 20px; border: 1.5px solid #e2e8f0; overflow: hidden; box-shadow: 0 8px 40px rgba(0,0,0,.07); }
+        .cfg-header { padding: 32px 36px 24px; border-bottom: 1px solid #f1f5f9; }
+        .cfg-header h1 { font-size: 1.5rem; font-weight: 800; color: #0f172a; margin: 0 0 4px; }
+        .cfg-header p { color: #64748b; font-size: .9rem; margin: 0; }
+        .cfg-body { padding: 32px 36px; }
+
+        /* Plan summary bar */
+        .plan-bar {
+            display: flex; align-items: center; gap: 16px; background: #f8fafc;
+            border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 18px 20px; margin-bottom: 28px;
+        }
+        .plan-bar-icon { width: 44px; height: 44px; border-radius: 12px; display: flex;
+            align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
+        .plan-bar-info { flex: 1; }
+        .plan-bar-info strong { display: block; font-size: .95rem; font-weight: 700; color: #0f172a; }
+        .plan-bar-info span { font-size: .82rem; color: #64748b; }
+        .plan-bar-price { font-size: 1.4rem; font-weight: 800; color: #0f172a; }
+        .plan-bar-price small { font-size: .75rem; color: #94a3b8; font-weight: 500; }
+
+        /* Billing selector */
+        .billing-label { font-size: .85rem; font-weight: 700; color: #374151; margin-bottom: 12px; display: block; }
+        .billing-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 28px; }
+        .billing-opt { position: relative; }
+        .billing-opt input[type="radio"] { position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; z-index: 2; margin: 0; }
+        .billing-opt-card {
+            display: flex; flex-direction: column; gap: 4px; padding: 18px 20px;
+            border: 2px solid #e2e8f0; border-radius: 14px; cursor: pointer; transition: all .2s;
+        }
+        .billing-opt input:checked + .billing-opt-card { border-color: #6366f1; background: #f5f3ff; }
+        .billing-opt-card strong { font-size: .95rem; font-weight: 700; color: #0f172a; }
+        .billing-opt-card .b-price { font-size: 1.3rem; font-weight: 800; color: #0f172a; }
+        .billing-opt-card .b-desc { font-size: .78rem; color: #64748b; }
+        .save-pill { display: inline-block; background: #10b98120; color: #059669; border-radius: 999px;
+            padding: 2px 10px; font-size: .72rem; font-weight: 700; margin-left: 8px; }
+
+        .btn-proceed {
+            display: block; width: 100%; padding: 16px; background: #6366f1; color: #fff;
+            border: none; border-radius: 14px; font-size: 1rem; font-weight: 700; cursor: pointer;
+            transition: all .2s; font-family: inherit; text-align: center;
+        }
+        .btn-proceed:hover { background: #4f46e5; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(99,102,241,.35); }
+
+        @media (max-width: 560px) {
+            .cfg-header, .cfg-body { padding: 20px; }
+            .billing-options { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+{% include "header.html" %}
+
+<div class="cfg-page">
+
+    <!-- Breadcrumb -->
+    <p style="margin-bottom:20px;font-size:.85rem;color:#64748b;">
+        <a href="/{{ suite|lower }}-suite/" style="color:#6366f1;text-decoration:none;">
+            {{ plan.get_suite_display }}</a> &rsaquo; Configure Plan
+    </p>
+
+    <div class="cfg-card">
+        <div class="cfg-header">
+            <h1>Configure your plan</h1>
+            <p>Choose your billing cycle to continue</p>
+        </div>
+        <div class="cfg-body">
+
+            <!-- Plan Summary -->
+            <div class="plan-bar">
+                <div class="plan-bar-icon" style="background:{{ plan.suite_color }}20;color:{{ plan.suite_color }};">
+                    <i class="{{ plan.suite_icon }}"></i>
+                </div>
+                <div class="plan-bar-info">
+                    <strong>{{ plan.name }}</strong>
+                    <span>{{ plan.get_suite_display }}</span>
+                </div>
+                <div class="plan-bar-price">
+                    ₹{{ plan.monthly_price|floatformat:0 }}
+                    <small>/mo</small>
+                </div>
+            </div>
+
+            <form method="POST">
+                {% csrf_token %}
+                <span class="billing-label">Select Billing Cycle</span>
+                <div class="billing-options">
+                    <label class="billing-opt">
+                        <input type="radio" name="billing_cycle" value="monthly" onchange="validateCoupon()" checked>
+                        <div class="billing-opt-card">
+                            <strong>Monthly</strong>
+                            <div class="b-price">₹{{ plan.monthly_price|floatformat:0 }}</div>
+                            <div class="b-desc">Billed every month. Cancel anytime.</div>
+                        </div>
+                    </label>
+                    {% if plan.yearly_price %}
+                    <label class="billing-opt">
+                        <input type="radio" name="billing_cycle" value="annually" onchange="validateCoupon()">
+                        <div class="billing-opt-card">
+                            <strong>Yearly <span class="save-pill">Save ₹{{ plan.yearly_savings|floatformat:0 }}</span></strong>
+                            <div class="b-price">₹{{ plan.yearly_price|floatformat:0 }}</div>
+                            <div class="b-desc">Billed once per year — best value.</div>
+                        </div>
+                    </label>
+                    {% else %}
+                    <div style="background:#f8fafc;border:1.5px dashed #e2e8f0;border-radius:14px;padding:18px 20px;display:flex;align-items:center;gap:12px;color:#94a3b8;font-size:.85rem;">
+                        <i class="fa-solid fa-clock"></i> Yearly billing coming soon
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Promo / Coupon Code -->
+                <div style="margin-bottom: 28px;">
+                    <span class="billing-label">Promo / Coupon Code</span>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" name="coupon_code" id="coupon_code" placeholder="Optional" style="flex: 1; border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px 16px; font-size: .95rem; outline: none; background: #fff; color: #0f172a; transition: all 0.2s;" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();validateCoupon();}">
+                        <button type="button" id="btn-apply-coupon" onclick="validateCoupon()" style="padding: 12px 24px; border: none; border-radius: 12px; background: #f1f5f9; color: #475569; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: inherit;">Apply</button>
+                    </div>
+                    <div id="coupon_msg" style="margin-top: 8px; font-size: 0.82rem; font-weight: 600; display: none;"></div>
+                </div>
+
+                <button type="submit" class="btn-proceed">
+                    Continue to Checkout &rarr;
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    const baseMonthlyPrice = parseFloat("{{ plan.monthly_price }}");
+    const baseYearlyPrice = parseFloat("{{ plan.yearly_price|default:'0' }}");
+    
+    function updatePrices(discountType, discountValue) {
+        let monthlyPrice = baseMonthlyPrice;
+        let yearlyPrice = baseYearlyPrice;
+        
+        if (discountType && discountValue) {
+            if (discountType === 'percentage') {
+                monthlyPrice = baseMonthlyPrice * (1 - (discountValue / 100));
+                yearlyPrice = baseYearlyPrice * (1 - (discountValue / 100));
+            } else {
+                monthlyPrice = Math.max(0, baseMonthlyPrice - discountValue);
+                yearlyPrice = Math.max(0, baseYearlyPrice - discountValue);
+            }
+        }
+        
+        // Update monthly price card
+        const monthlyCardPriceEl = document.querySelector('.billing-opt:nth-child(1) .b-price');
+        if (monthlyCardPriceEl) {
+            if (discountType && discountValue) {
+                monthlyCardPriceEl.innerHTML = `<span style="text-decoration: line-through; font-size: 0.95rem; color: #94a3b8; font-weight: 600; margin-right: 6px;">₹${baseMonthlyPrice.toFixed(0)}</span>₹${monthlyPrice.toFixed(2)}`;
+            } else {
+                monthlyCardPriceEl.innerHTML = `₹${baseMonthlyPrice.toFixed(0)}`;
+            }
+        }
+        
+        // Update yearly price card
+        const yearlyCardPriceEl = document.querySelector('.billing-opt:nth-child(2) .b-price');
+        if (yearlyCardPriceEl && baseYearlyPrice > 0) {
+            if (discountType && discountValue) {
+                yearlyCardPriceEl.innerHTML = `<span style="text-decoration: line-through; font-size: 0.95rem; color: #94a3b8; font-weight: 600; margin-right: 6px;">₹${baseYearlyPrice.toFixed(0)}</span>₹${yearlyPrice.toFixed(2)}`;
+            } else {
+                yearlyCardPriceEl.innerHTML = `₹${baseYearlyPrice.toFixed(0)}`;
+            }
+        }
+    }
+
+    async function validateCoupon() {
+        const codeInput = document.getElementById('coupon_code');
+        const btn = document.getElementById('btn-apply-coupon');
+        const msg = document.getElementById('coupon_msg');
+        const code = codeInput.value.trim();
+
+        if (!code) {
+            msg.style.display = 'none';
+            updatePrices(null, null);
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerText = 'Verifying...';
+
+        try {
+            const CSRF = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            const cycleInput = document.querySelector('input[name="billing_cycle"]:checked');
+            const billingCycle = cycleInput ? cycleInput.value : 'monthly';
+            const res = await fetch('/api/coupon/validate/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': CSRF,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ code: code, billing_cycle: billingCycle })
+            });
+            const data = await res.json();
+
+            if (data.status === 'ok') {
+                msg.style.color = '#059669';
+                let discountStr = data.discount_type === 'percentage' ? `${data.discount_value}%` : `₹${data.discount_value}`;
+                msg.innerText = `✓ Code "${data.code}" applied successfully! (${discountStr} off)`;
+                msg.style.display = 'block';
+                updatePrices(data.discount_type, data.discount_value);
+            } else {
+                msg.style.color = '#ef4444';
+                msg.innerText = `✗ ${data.error || 'Invalid coupon code.'}`;
+                msg.style.display = 'block';
+                updatePrices(null, null);
+            }
+        } catch (e) {
+            msg.style.color = '#ef4444';
+            msg.innerText = '✗ Error verifying coupon.';
+            msg.style.display = 'block';
+            updatePrices(null, null);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'Apply';
+        }
+    }
+</script>
+
+{% include "footer.html" %}
+</body>
+</html>

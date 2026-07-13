@@ -1,0 +1,355 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ suite_title }} | VoidPanel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{{ suite_tagline }}">
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css">
+    <style>
+        :root {
+            --suite-color: {{ suite_color }};
+            --suite-glow: {{ suite_color }}40;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; margin: 0; }
+
+        /* ── Hero ── */
+        .sh-hero {
+            padding: 130px 20px 80px;
+            text-align: center;
+            background:
+                radial-gradient(ellipse at 20% 0%, var(--suite-glow), transparent 55%),
+                radial-gradient(ellipse at 80% 100%, var(--suite-glow), transparent 50%),
+                linear-gradient(160deg, #0f0f1a 0%, #0c0c18 100%);
+            color: #fff;
+            position: relative;
+            overflow: hidden;
+        }
+        .sh-hero::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            pointer-events: none;
+        }
+        .sh-hero-badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12);
+            border-radius: 999px; padding: 6px 18px; font-size: .82rem; font-weight: 600;
+            color: rgba(255,255,255,.8); margin-bottom: 24px; backdrop-filter: blur(8px);
+        }
+        .sh-hero-badge i { color: var(--suite-color); font-size: 1rem; }
+        .sh-hero h1 { color: #fff; font-size: clamp(2.4rem, 5vw, 3.8rem); font-weight: 900; margin: 0 0 18px; letter-spacing: -.02em; }
+        .sh-hero h1 span { color: var(--suite-color); }
+        .sh-hero p { font-size: 1.15rem; color: rgba(255,255,255,.65); max-width: 600px; margin: 0 auto 36px; line-height: 1.7; }
+
+        /* toggle */
+        .billing-toggle-wrap { display: flex; justify-content: center; margin-bottom: 48px; }
+        .billing-toggle { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+            border-radius: 999px; display: inline-flex; padding: 4px; gap: 4px; }
+        .billing-toggle button {
+            background: none; border: none; color: rgba(255,255,255,.55); cursor: pointer;
+            padding: 8px 24px; border-radius: 999px; font-size: .88rem; font-weight: 600;
+            transition: all .2s; font-family: inherit; }
+        .billing-toggle button.active { background: var(--suite-color); color: #fff; box-shadow: 0 0 16px var(--suite-glow); }
+        .save-badge { background: #10b981; color: #fff; border-radius: 999px; font-size: .72rem;
+            font-weight: 700; padding: 2px 8px; margin-left: 6px; vertical-align: middle; }
+
+        /* ── Plans Grid ── */
+        .sh-plans-section { padding: 0 20px 80px; background: #f8fafc; }
+        .sh-plans-inner { max-width: 1100px; margin: 0 auto; }
+        .sh-plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 24px; }
+
+        .plan-card {
+            background: #fff; border: 1.5px solid #e2e8f0; border-radius: 20px; padding: 32px 28px;
+            position: relative; transition: all .25s; display: flex; flex-direction: column;
+        }
+        .plan-card:hover { transform: translateY(-4px); box-shadow: 0 20px 60px rgba(0,0,0,.1); border-color: var(--suite-color); }
+        .plan-card.featured {
+            border-color: var(--suite-color); box-shadow: 0 0 0 3px var(--suite-glow), 0 20px 60px rgba(0,0,0,.1);
+            transform: scale(1.02);
+        }
+        .plan-card.featured:hover { transform: scale(1.02) translateY(-4px); }
+        .featured-badge {
+            position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+            background: var(--suite-color); color: #fff; border-radius: 999px; padding: 4px 16px;
+            font-size: .75rem; font-weight: 700; white-space: nowrap; letter-spacing: .02em;
+        }
+        .plan-name { font-size: 1.2rem; font-weight: 800; color: #1e293b; margin-bottom: 6px; }
+        .plan-desc { font-size: .85rem; color: #64748b; line-height: 1.5; margin-bottom: 20px; min-height: 48px; }
+        .plan-price-wrap { margin-bottom: 24px; }
+        .plan-price { font-size: 2.6rem; font-weight: 900; color: #0f172a; }
+        .plan-price sup { font-size: 1.2rem; vertical-align: super; }
+        .plan-price-period { font-size: .85rem; color: #94a3b8; margin-left: 2px; }
+        .plan-price-yearly { font-size: .82rem; color: var(--suite-color); font-weight: 600; margin-top: 4px; display: none; }
+        .show-yearly .plan-price-yearly { display: block; }
+        .show-yearly .plan-price-monthly { display: none; }
+
+        .plan-features { list-style: none; padding: 0; margin: 0 0 24px; flex: 1; }
+        .plan-features li { display: flex; align-items: flex-start; gap: 10px; font-size: .88rem;
+            color: #374151; padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
+        .plan-features li:last-child { border-bottom: none; }
+        .plan-features li i { color: var(--suite-color); font-size: .8rem; margin-top: 3px; flex-shrink: 0; }
+
+        .btn-suite {
+            display: block; width: 100%; text-align: center; padding: 14px;
+            border-radius: 12px; font-weight: 700; font-size: .95rem; text-decoration: none;
+            background: var(--suite-color); color: #fff; border: none; cursor: pointer;
+            transition: all .2s; box-shadow: 0 4px 20px var(--suite-glow);
+        }
+        .btn-suite:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .plan-card.featured .btn-suite { background: var(--suite-color); }
+
+        .no-plans { text-align: center; padding: 60px 20px; color: #64748b; }
+        .no-plans i { font-size: 3rem; margin-bottom: 16px; display: block; opacity: .3; }
+
+        /* ── Features list ── */
+        .sh-features-section { padding: 60px 20px 80px; background: linear-gradient(160deg,#0f0f1a,#12122a); }
+        .sh-features-inner { max-width: 960px; margin: 0 auto; }
+        .sh-section-label { text-align: center; margin-bottom: 48px; }
+        .sh-section-label h2 { font-size: 2rem; font-weight: 800; color: #fff; margin: 0 0 8px; }
+        .sh-section-label p { color: rgba(255,255,255,.5); margin: 0; }
+        .sh-feat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+        .sh-feat-card { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
+            border-radius: 16px; padding: 24px; transition: all .2s; }
+        .sh-feat-card:hover { background: rgba(255,255,255,.08); border-color: var(--suite-color); }
+        .sh-feat-icon { width: 44px; height: 44px; border-radius: 12px; background: var(--suite-glow);
+            display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+        .sh-feat-icon i { color: var(--suite-color); font-size: 1.1rem; }
+        .sh-feat-card h4 { font-size: .95rem; font-weight: 700; color: #fff; margin: 0 0 6px; }
+        .sh-feat-card p { font-size: .83rem; color: rgba(255,255,255,.5); margin: 0; line-height: 1.5; }
+
+        /* ── CTA ── */
+        .sh-cta { padding: 80px 20px; text-align: center; background: #f8fafc; }
+        .sh-cta h2 { font-size: 2rem; font-weight: 800; color: #0f172a; margin-bottom: 12px; }
+        .sh-cta p { color: #64748b; margin-bottom: 28px; }
+    </style>
+</head>
+<body>
+{% include "header.html" %}
+
+<!-- ── Hero ── -->
+<section class="sh-hero">
+    <div class="sh-hero-badge">
+        <i class="{{ suite_icon }}"></i>
+        VoidPanel {{ suite_title }}
+    </div>
+    <h1>Grow Faster with<br><span>{{ suite_title }}</span></h1>
+    <p>{{ suite_tagline }}</p>
+
+    {% if plans %}
+    <div class="billing-toggle-wrap">
+        <div class="billing-toggle">
+            <button class="active" id="btn-monthly" onclick="setBilling('monthly')">Monthly</button>
+            <button id="btn-yearly" onclick="setBilling('yearly')">
+                Yearly <span class="save-badge">Save 20%</span>
+            </button>
+        </div>
+    </div>
+    {% endif %}
+</section>
+
+<!-- ── Plans ── -->
+<section class="sh-plans-section" id="pricing">
+    <div class="sh-plans-inner">
+        {% if plans %}
+        <div class="sh-plans-grid" id="plans-grid">
+            {% for plan in plans %}
+            <div class="plan-card {% if plan.is_featured %}featured{% endif %}">
+                {% if plan.is_featured %}<div class="featured-badge">⭐ Most Popular</div>{% endif %}
+                <div class="plan-name">{{ plan.name }}</div>
+                <div class="plan-desc">{{ plan.short_description }}</div>
+
+                <div class="plan-price-wrap">
+                    <div class="plan-price-monthly">
+                        <span class="plan-price"><sup>₹</sup>{{ plan.monthly_price|floatformat:0 }}</span>
+                        <span class="plan-price-period">/month</span>
+                    </div>
+                    {% if plan.yearly_price %}
+                    <div class="plan-price-yearly">
+                        <span class="plan-price"><sup>₹</sup>{{ plan.yearly_price|floatformat:0 }}</span>
+                        <span class="plan-price-period">/year</span>
+                        {% if plan.yearly_savings > 0 %}
+                        <span style="display:inline-block;margin-left:8px;background:#10b98120;color:#059669;border-radius:999px;padding:2px 10px;font-size:.75rem;font-weight:700;">
+                            Save ₹{{ plan.yearly_savings|floatformat:0 }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if plan.features %}
+                <ul class="plan-features">
+                    {% for feat in plan.features %}
+                    <li><i class="fa-solid fa-check"></i> {{ feat }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+
+                <a href="/suite/{{ suite }}/order/{{ plan.pk }}/" class="btn-suite" id="plan-btn-{{ plan.pk }}">
+                    Get Started
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="no-plans">
+            <i class="{{ suite_icon }}"></i>
+            <h3>Plans coming soon</h3>
+            <p>We're building the perfect plans for you. Check back shortly!</p>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<!-- ── Why Choose Section ── -->
+<section class="sh-features-section">
+    <div class="sh-features-inner">
+        <div class="sh-section-label">
+            <h2>Why Choose VoidPanel {{ suite_title }}?</h2>
+            <p>Everything you need, fully integrated with your hosting</p>
+        </div>
+        <div class="sh-feat-grid">
+            {% if suite == 'social' %}
+            <div class="sh-feat-card">
+                <div class="sh-feat-icon"><i class="fa-solid fa-calendar-check"></i></div>
+                <h4>Visual Content Calendar</h4>
+                <p>Plan and schedule posts across Instagram, Facebook, Twitter/X, LinkedIn and more from one dashboard.</p>
+            </div>
+            <div class="sh-feat-card">
+                <div class="sh-feat-icon"><i class="fa-solid fa-robot"></i></div>
+                <h4>AI Caption Generator</h4>
+                <p>Generate platform-optimised captions, hashtags and CTAs in seconds with built-in AI.</p>
+            </div>
+            <div class="sh-feat-card">
+                <div class="sh-feat-icon"><i class="fa-solid fa-chart-line"></i></div>
+                <h4>Advanced Analytics</h4>
+                <p>Track reach, engagement, followers, and top-performing posts with beautiful visual reports.</p>
+            </div>
+            <div class="sh-feat-card">
+                <div class="sh-feat-icon"><i class="fa-solid fa-users"></i></div>
+                <h4>Team Collaboration</h4>
+                <p>Invite team members, assign roles and approve content before it goes live.</p>
+            </div>
+            <div class="sh-feat-card">
+                <div class="sh-feat-icon"><i class="fa-solid fa-inbox"></i></div>
+                <h4>Unified Inbox</h4>
+                <p>Manage comments and DMs from all platforms in one inbox — never miss an engagement.</p>
+            </div>
+            <div class="sh-feat-card">
+                <div class="sh-feat-icon"><i class="fa-solid fa-bolt"></i></div>
+                <h4>Bulk Scheduling</h4>
+                <p>Upload a CSV or drag-and-drop to queue dozens of posts at once and save hours every week.</p>
+            </div>
+            {% elif suite == 'seo' %}
+            <div class="sh-feat-card">
+                <div class="sh-feat-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
+                <h4>Keyword Rank Tracker</h4>
+                <p>Track daily rankings for your target keywords across Google and Bing — with trend charts.</p>
+            </div>
+            <div class="sh-feat-card">
+                <div class="sh-feat-icon"><i class="fa-solid fa-spider"></i></div>
+                <h4>Technical Site Audit</h4>
+                <p>Crawl your site to find broken links, slow pages, missing meta tags, and Core Web Vital issues.</p>
+            </div>
+            <div class="sh-feat-card">
+                <div class="sh-feat-icon"><i class="fa-solid fa-link"></i></div>
+                <h4>Backlink Analysis</h4>
+                <p>Discover who links to you (and your competitors), track authority scores and spot toxic links.</p>
+            </div>
+            <div class="sh-feat-card">
+                <div class="sh-feat-icon"><i class="fa-solid fa-robot"></i></div>
+                <h4>AI Content Optimizer</h4>
+                <p>Get real-time on-page SEO suggestions and AI-powered content rewrites to rank faster.</p>
+            </div>
+            <div class="sh-feat-card">
+                <div class="sh-feat-icon"><i class="fa-solid fa-globe"></i></div>
+                <h4>Multi-Domain Monitoring</h4>
+                <p>Manage and compare SEO metrics across multiple domains or client websites from one dashboard.</p>
+            </div>
+            <div class="sh-feat-card">
+                <div class="sh-feat-icon"><i class="fa-solid fa-file-pdf"></i></div>
+                <h4>White-Label Reports</h4>
+                <p>Generate branded PDF SEO reports to impress clients with one click.</p>
+            </div>
+            {% else %}
+            <div class="sh-feat-card">
+                <div class="sh-feat-icon"><i class="fa-solid fa-envelope-open-text"></i></div>
+                <h4>Email Campaign Builder</h4>
+                <p>Design beautiful drag-and-drop email campaigns with smart segmentation and personalisation.</p>
+            </div>
+            <div class="sh-feat-card">
+                <div class="sh-feat-icon"><i class="fa-solid fa-address-book"></i></div>
+                <h4>Lead Management</h4>
+                <p>Capture, organise, score and nurture leads with an integrated CRM-style pipeline.</p>
+            </div>
+            <div class="sh-feat-card">
+                <div class="sh-feat-icon"><i class="fa-solid fa-robot"></i></div>
+                <h4>AI Copywriting</h4>
+                <p>Generate high-converting email subject lines, body copy, and ad text with AI in seconds.</p>
+            </div>
+            <div class="sh-feat-card">
+                <div class="sh-feat-icon"><i class="fa-solid fa-gear"></i></div>
+                <h4>Marketing Automation</h4>
+                <p>Build drip sequences, trigger-based emails and WhatsApp automations without coding.</p>
+            </div>
+            <div class="sh-feat-card">
+                <div class="sh-feat-icon"><i class="fa-solid fa-flask"></i></div>
+                <h4>A/B Testing</h4>
+                <p>Split-test subject lines, content, and send times to maximise open rates and conversions.</p>
+            </div>
+            <div class="sh-feat-card">
+                <div class="sh-feat-icon"><i class="fa-solid fa-chart-bar"></i></div>
+                <h4>Real-Time Analytics</h4>
+                <p>Track opens, clicks, bounces, conversions and revenue attributed to every campaign.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<!-- ── CTA ── -->
+<section class="sh-cta">
+    <h2>Ready to get started?</h2>
+    <p>Join thousands of businesses growing with VoidPanel {{ suite_title }}.</p>
+    {% if plans %}
+    <a href="#pricing" class="btn-suite" style="display:inline-block;width:auto;padding:14px 40px;">
+        View Plans <i class="fa-solid fa-arrow-down" style="margin-left:8px;"></i>
+    </a>
+    {% endif %}
+</section>
+
+{% include "footer.html" %}
+
+<script>
+let currentBilling = 'monthly';
+
+function setBilling(type) {
+    currentBilling = type;
+    const grid = document.getElementById('plans-grid');
+    const btnM = document.getElementById('btn-monthly');
+    const btnY = document.getElementById('btn-yearly');
+    if (!grid) return;
+    if (type === 'yearly') {
+        grid.classList.add('show-yearly');
+        btnY.classList.add('active'); btnM.classList.remove('active');
+        // Update all "Get Started" links to pass billing cycle
+        document.querySelectorAll('[id^="plan-btn-"]').forEach(a => {
+            if (!a.href.includes('?')) a.href = a.getAttribute('href').split('?')[0] + '?billing=annually';
+        });
+    } else {
+        grid.classList.remove('show-yearly');
+        btnM.classList.add('active'); btnY.classList.remove('active');
+        document.querySelectorAll('[id^="plan-btn-"]').forEach(a => {
+            a.href = a.getAttribute('href').split('?')[0];
+        });
+    }
+}
+</script>
+</body>
+</html>

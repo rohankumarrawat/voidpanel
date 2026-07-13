@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Approve Device Link - VoidPanel</title>
+  <!-- Google Fonts & FontAwesome -->
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --bg: #090d16;
+      --surface: #111827;
+      --surface2: #1f2937;
+      --border: #374151;
+      --txt-1: #f3f4f6;
+      --txt-2: #9ca3af;
+      --green: #10b981;
+      --green-bg: rgba(16, 185, 129, 0.12);
+      --red: #ef4444;
+      --indigo: #6366f1;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--txt-1);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .auth-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px 24px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);
+      text-align: center;
+    }
+    .logo-area {
+      margin-bottom: 24px;
+    }
+    .logo-icon {
+      font-size: 48px;
+      color: var(--green);
+      background: var(--green-bg);
+      width: 80px;
+      height: 80px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      margin-bottom: 12px;
+    }
+    .title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--txt-1);
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: var(--txt-2);
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+    .device-info {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 28px;
+      text-align: left;
+    }
+    .info-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--txt-2);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+    .info-detail {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--txt-1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 15px;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      margin-bottom: 12px;
+    }
+    .btn-approve {
+      background: var(--green);
+      color: #fff;
+    }
+    .btn-approve:hover { background: #059669; }
+    .btn-reject {
+      background: transparent;
+      color: var(--txt-2);
+      border: 1px solid var(--border);
+    }
+    .btn-reject:hover { background: rgba(255,255,255,0.05); color: var(--txt-1); }
+    
+    /* Success Screen */
+    .success-screen {
+      display: none;
+    }
+    .success-icon {
+      font-size: 54px;
+      color: var(--green);
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="auth-card" id="authCard">
+    <!-- Initial Screen -->
+    <div id="screenInit">
+      <div class="logo-area">
+        <div class="logo-icon"><i class="fa-brands fa-whatsapp"></i></div>
+        <div class="title">Link WhatsApp Device</div>
+        <div class="subtitle">VoidPanel is requesting to pair with your WhatsApp account for campaign broadcasting and inbox services.</div>
+      </div>
+
+      <div class="device-info">
+        <div class="info-title">Requesting Domain</div>
+        <div class="info-detail" style="margin-bottom:14px;"><i class="fa-solid fa-globe" style="color:var(--indigo);"></i> {{ domain }}</div>
+        
+        <div class="info-title">Your Mobile Device</div>
+        <div class="info-detail"><i class="fa-solid fa-mobile-screen-button"></i> {{ device_name }}</div>
+      </div>
+
+      <button class="btn btn-approve" onclick="approveLink()"><i class="fa-solid fa-circle-check"></i> Approve & Link Device</button>
+      <button class="btn btn-reject" onclick="rejectLink()">Cancel</button>
+    </div>
+
+    <!-- Success Screen -->
+    <div class="success-screen" id="screenSuccess">
+      <i class="fa-solid fa-circle-check success-icon"></i>
+      <div class="title" style="color:var(--green)">Connection Approved!</div>
+      <div class="subtitle" style="margin-bottom:0; margin-top:10px;">Your device is now linked to your CRM workspace. You can close this tab and return to your desktop browser.</div>
+    </div>
+  </div>
+
+  <script>
+    function getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim();
+          if (cookie.substring(0, name.length + 1) === (name + '=')) {
+            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+            break;
+          }
+        }
+      }
+      return cookieValue;
+    }
+
+    function approveLink() {
+      const btn = document.querySelector('.btn-approve');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Linking...';
+
+      fetch('/control/marketing/{{ domain }}/settings/whatsapp-web/qr-auth/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCookie('csrftoken') || ''
+        },
+        body: JSON.stringify({
+          action: 'approve',
+          session_id: '{{ session_id }}',
+          device_name: '{{ device_name }}'
+        })
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (d.status === 'success') {
+          document.getElementById('screenInit').style.display = 'none';
+          document.getElementById('screenSuccess').style.display = 'block';
+        } else {
+          alert(d.error || 'Failed to approve connection.');
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Approve & Link Device';
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Network error approving connection request.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Approve & Link Device';
+      });
+    }
+
+    function rejectLink() {
+      if (confirm('Are you sure you want to reject this pairing request?')) {
+        window.close();
+      }
+    }
+  </script>
+</body>
+</html>

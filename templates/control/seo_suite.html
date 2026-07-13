@@ -1,0 +1,1396 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <title>SEO Suite — VoidPanel</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="Professional SEO analysis suite — keywords, backlinks, site audit, rank tracking and more.">
+  <link rel="icon" href="/static/fav.png" type="image/x-icon">
+  <link rel="stylesheet" href="/static/static/css/plugins/fontawesome-all.min.css">
+  <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script>(function(){var t=localStorage.getItem('vp-theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: #080c14; color: #e2e8f0; }
+
+    /* ── Layout ────────────────────────────── */
+    .seo-shell { display: flex; height: calc(100vh - 60px); overflow: hidden; }
+    .seo-sidebar {
+      width: 220px; flex-shrink: 0;
+      background: linear-gradient(180deg, #0d1117 0%, #090d14 100%);
+      border-right: 1px solid rgba(255,255,255,0.06);
+      display: flex; flex-direction: column;
+      padding: 20px 0; overflow-y: auto;
+    }
+    .seo-main { flex: 1; min-width: 0; overflow-y: auto; background: #080c14; }
+    .seo-content { padding: 24px; max-width: 1400px; }
+
+    /* ── Sidebar ───────────────────────────── */
+    .sb-brand {
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 18px 20px; border-bottom: 1px solid rgba(255,255,255,0.05);
+      margin-bottom: 12px;
+    }
+    .sb-brand-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; color: #fff; flex-shrink: 0;
+    }
+    .sb-brand-text { font-size: 13px; font-weight: 800; color: #fff; line-height: 1.2; }
+    .sb-brand-sub { font-size: 10px; color: #4b5563; font-weight: 500; }
+
+    .sb-section { font-size: 9px; font-weight: 800; color: #374151;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      padding: 14px 18px 6px; }
+
+    .sb-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 18px; font-size: 13px; font-weight: 500;
+      color: #6b7280; border: none; background: transparent;
+      width: 100%; cursor: pointer; text-align: left;
+      border-left: 3px solid transparent;
+      transition: all 0.15s;
+    }
+    .sb-item:hover { color: #d1d5db; background: rgba(255,255,255,0.025); }
+    .sb-item.active {
+      color: #fff; background: rgba(99,102,241,0.12);
+      border-left-color: #6366f1; font-weight: 600;
+    }
+    .sb-item .sb-icon { width: 18px; text-align: center; font-size: 13px; }
+    .sb-badge {
+      margin-left: auto; font-size: 9px; font-weight: 700;
+      padding: 2px 6px; border-radius: 20px;
+      background: rgba(99,102,241,0.2); color: #818cf8;
+    }
+
+    /* ── Top Bar ───────────────────────────── */
+    .seo-topbar {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(8,12,20,0.9); backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding: 14px 24px; display: flex; align-items: center;
+      gap: 12px; flex-wrap: wrap;
+    }
+    .seo-domain-input {
+      flex: 1; min-width: 260px; max-width: 420px;
+      display: flex; align-items: center; gap: 0;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px; overflow: hidden;
+    }
+    .seo-domain-input i { padding: 0 12px; color: #4b5563; font-size: 13px; }
+    .seo-domain-input input {
+      flex: 1; background: transparent; border: none; outline: none;
+      color: #fff; font-size: 13px; font-family: 'Inter', sans-serif;
+      padding: 10px 0; font-weight: 500;
+    }
+    .seo-domain-input input::placeholder { color: #374151; }
+    .btn-analyze {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 20px; border-radius: 10px; border: none; cursor: pointer;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #fff; font-size: 13px; font-weight: 700;
+      font-family: 'Inter', sans-serif;
+      transition: all 0.2s; box-shadow: 0 4px 14px rgba(99,102,241,0.3);
+    }
+    .btn-analyze:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,0.5); }
+    .btn-outline {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 9px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+      background: transparent; color: #9ca3af; font-size: 12px; font-weight: 600;
+      cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s;
+    }
+    .btn-outline:hover { border-color: rgba(255,255,255,0.2); color: #fff; background: rgba(255,255,255,0.04); }
+
+    /* ── Panels ────────────────────────────── */
+    .seo-panel { display: none; }
+    .seo-panel.active { display: block; }
+
+    /* ── Cards ─────────────────────────────── */
+    .card {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px; padding: 20px;
+    }
+    .card-title {
+      font-size: 13px; font-weight: 700; color: #fff;
+      display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+    }
+    .card-title i { font-size: 14px; }
+
+    /* ── KPI Grid ──────────────────────────── */
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px,1fr)); gap: 14px; margin-bottom: 20px; }
+    .kpi {
+      background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px; padding: 18px; position: relative; overflow: hidden;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .kpi:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.1); }
+    .kpi-label { font-size: 11px; font-weight: 600; color: #4b5563; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+    .kpi-val { font-size: 26px; font-weight: 900; color: #fff; line-height: 1; margin-bottom: 4px; }
+    .kpi-sub { font-size: 11px; color: #374151; font-weight: 500; }
+    .kpi-glow {
+      position: absolute; top: -20px; right: -20px;
+      width: 70px; height: 70px; border-radius: 50%;
+      opacity: 0.08; filter: blur(20px);
+    }
+    .kpi-badge {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 10px; font-weight: 700; padding: 2px 7px;
+      border-radius: 20px; margin-top: 4px;
+    }
+    .kpi-badge.up { background: rgba(16,185,129,0.15); color: #10b981; }
+    .kpi-badge.down { background: rgba(239,68,68,0.15); color: #ef4444; }
+
+    /* ── Grid Layouts ──────────────────────── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .grid-3-7 { display: grid; grid-template-columns: 3fr 7fr; gap: 16px; margin-bottom: 16px; }
+    .grid-4-6 { display: grid; grid-template-columns: 4fr 6fr; gap: 16px; margin-bottom: 16px; }
+    @media(max-width:900px) { .grid-2,.grid-3,.grid-3-7,.grid-4-6 { grid-template-columns: 1fr; } }
+
+    /* ── Table ─────────────────────────────── */
+    .tbl-wrap { overflow-x: auto; }
+    .seo-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .seo-table th {
+      text-align: left; padding: 10px 14px;
+      background: rgba(255,255,255,0.03); color: #4b5563;
+      font-weight: 700; font-size: 10.5px; text-transform: uppercase;
+      letter-spacing: 0.06em; border-bottom: 1px solid rgba(255,255,255,0.05);
+      white-space: nowrap; cursor: pointer; user-select: none;
+    }
+    .seo-table th:hover { color: #9ca3af; }
+    .seo-table td {
+      padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.03);
+      color: #d1d5db; vertical-align: middle;
+    }
+    .seo-table tr:hover td { background: rgba(255,255,255,0.015); }
+
+    /* ── Badges ────────────────────────────── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700;
+    }
+    .badge-easy { background: rgba(16,185,129,0.15); color: #10b981; }
+    .badge-medium { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .badge-hard { background: rgba(239,68,68,0.15); color: #ef4444; }
+    .badge-info { background: rgba(59,130,246,0.15); color: #60a5fa; }
+    .badge-comm { background: rgba(168,85,247,0.15); color: #c084fc; }
+    .badge-nav { background: rgba(6,182,212,0.15); color: #22d3ee; }
+    .badge-dofollow { background: rgba(16,185,129,0.12); color: #10b981; }
+    .badge-nofollow { background: rgba(100,116,139,0.15); color: #94a3b8; }
+    .badge-toxic { background: rgba(239,68,68,0.15); color: #f87171; }
+    .badge-passed { background: rgba(16,185,129,0.12); color: #10b981; }
+    .badge-warning { background: rgba(245,158,11,0.12); color: #fbbf24; }
+    .badge-failed { background: rgba(239,68,68,0.12); color: #f87171; }
+
+    /* ── KD Bar ────────────────────────────── */
+    .kd-wrap { display: flex; align-items: center; gap: 8px; }
+    .kd-track { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; }
+    .kd-fill { height: 100%; border-radius: 2px; }
+
+    /* ── Score Ring ────────────────────────── */
+    .score-ring-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 12px 0; }
+    .score-ring-svg { transform: rotate(-90deg); }
+    .score-ring-track { fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 10; }
+    .score-ring-fill { fill: none; stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 1.5s cubic-bezier(0.4,0,0.2,1); }
+
+    /* ── Issue Count Cards ─────────────────── */
+    .issue-counts { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .issue-cnt {
+      text-align: center; padding: 16px 10px;
+      border-radius: 12px; border: 1px solid transparent;
+    }
+    .issue-cnt.fail { background: rgba(239,68,68,0.06); border-color: rgba(239,68,68,0.15); }
+    .issue-cnt.warn { background: rgba(245,158,11,0.06); border-color: rgba(245,158,11,0.15); }
+    .issue-cnt.pass { background: rgba(16,185,129,0.06); border-color: rgba(16,185,129,0.15); }
+    .issue-num { font-size: 28px; font-weight: 900; }
+    .issue-lbl { font-size: 11px; font-weight: 600; margin-top: 2px; }
+    .issue-cnt.fail .issue-num, .issue-cnt.fail .issue-lbl { color: #f87171; }
+    .issue-cnt.warn .issue-num, .issue-cnt.warn .issue-lbl { color: #fbbf24; }
+    .issue-cnt.pass .issue-num, .issue-cnt.pass .issue-lbl { color: #34d399; }
+
+    /* ── Audit Check Item ──────────────────── */
+    .audit-item {
+      padding: 14px 16px; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.04);
+      background: rgba(255,255,255,0.015);
+      margin-bottom: 8px; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .audit-item:hover { background: rgba(255,255,255,0.03); }
+    .audit-row { display: flex; align-items: center; gap: 12px; }
+    .audit-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .audit-status-dot.passed { background: #10b981; }
+    .audit-status-dot.warning { background: #f59e0b; }
+    .audit-status-dot.failed { background: #ef4444; }
+    .audit-name { font-size: 13px; font-weight: 600; color: #e2e8f0; flex: 1; }
+    .audit-cat { font-size: 10px; color: #4b5563; font-weight: 600;
+      background: rgba(255,255,255,0.04); padding: 2px 7px; border-radius: 20px; }
+    .audit-detail { font-size: 12px; color: #6b7280; margin-top: 8px; padding-left: 20px; display: none; }
+    .audit-fix { font-size: 11.5px; color: #818cf8; margin-top: 6px; padding-left: 20px;
+      display: none; line-height: 1.5; }
+    .audit-item.open .audit-detail, .audit-item.open .audit-fix { display: block; }
+
+    /* ── Sparkline ─────────────────────────── */
+    .sparkline { display: inline-block; vertical-align: middle; }
+    .spark-svg polyline { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* ── Position Delta ────────────────────── */
+    .pos-delta { display: inline-flex; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; }
+    .pos-delta.up { color: #10b981; }
+    .pos-delta.down { color: #ef4444; }
+    .pos-delta.neu { color: #4b5563; }
+
+    /* ── Search / Filter bar ───────────────── */
+    .tbl-toolbar {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 14px; flex-wrap: wrap;
+    }
+    .tbl-search {
+      flex: 1; min-width: 180px; max-width: 280px;
+      padding: 8px 12px; border-radius: 8px;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+      color: #fff; font-size: 12px; font-family: 'Inter', sans-serif; outline: none;
+    }
+    .tbl-search:focus { border-color: rgba(99,102,241,0.5); }
+    .tbl-search::placeholder { color: #374151; }
+    .filter-pill {
+      padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700;
+      border: 1px solid rgba(255,255,255,0.07); background: transparent;
+      color: #6b7280; cursor: pointer; transition: all 0.15s;
+      font-family: 'Inter', sans-serif;
+    }
+    .filter-pill.active, .filter-pill:hover {
+      border-color: #6366f1; background: rgba(99,102,241,0.12); color: #a5b4fc;
+    }
+
+    /* ── SERP Preview ──────────────────────── */
+    .serp-box {
+      background: #fff; border-radius: 12px; padding: 20px 24px;
+      font-family: Arial, sans-serif; max-width: 600px;
+    }
+    .serp-url { font-size: 13px; color: #1a0dab; margin-bottom: 2px; }
+    .serp-title { font-size: 19px; color: #1a0dab; font-weight: 400;
+      cursor: pointer; line-height: 1.3; margin-bottom: 4px;
+      text-decoration: none; display: block; }
+    .serp-title:hover { text-decoration: underline; }
+    .serp-desc { font-size: 13px; color: #4d5156; line-height: 1.58; }
+    .char-ok { color: #10b981; }
+    .char-warn { color: #f59e0b; }
+    .char-err { color: #ef4444; }
+
+    /* ── Country Bar ───────────────────────── */
+    .country-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .country-name { font-size: 12px; color: #9ca3af; font-weight: 500; min-width: 110px; }
+    .country-track { flex: 1; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; }
+    .country-fill { height: 100%; border-radius: 3px; }
+    .country-pct { font-size: 11px; color: #6b7280; font-weight: 700; min-width: 35px; text-align: right; }
+
+    /* ── Top Pages ─────────────────────────── */
+    .tp-row { display: flex; align-items: center; gap: 12px; padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .tp-row:last-child { border-bottom: none; }
+    .tp-url { font-size: 12px; color: #60a5fa; font-weight: 500; flex: 1;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tp-traffic { font-size: 13px; font-weight: 700; color: #fff; min-width: 70px; text-align: right; }
+    .tp-kw { font-size: 11px; color: #4b5563; min-width: 60px; text-align: right; }
+
+    /* ── Loader ────────────────────────────── */
+    .seo-loader {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 300px; gap: 16px;
+    }
+    .loader-ring {
+      width: 56px; height: 56px; border-radius: 50%;
+      border: 4px solid rgba(99,102,241,0.15);
+      border-top-color: #6366f1;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Empty State ───────────────────────── */
+    .empty-state { text-align: center; padding: 60px 20px; }
+    .empty-state i { font-size: 48px; color: rgba(255,255,255,0.05); margin-bottom: 16px; display: block; }
+    .empty-state h4 { font-size: 16px; font-weight: 700; color: #374151; margin-bottom: 8px; }
+    .empty-state p { font-size: 13px; color: #1f2937; max-width: 340px; margin: 0 auto; line-height: 1.6; }
+
+    /* ── Competitor compare ────────────────── */
+    .comp-table { width: 100%; border-collapse: collapse; }
+    .comp-table th, .comp-table td { padding: 12px 14px; font-size: 12.5px; }
+    .comp-table thead th { color: #4b5563; font-weight: 700; font-size: 10.5px;
+      text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .comp-table tr td:first-child { font-weight: 600; color: #fff; }
+    .comp-table tr:hover td { background: rgba(255,255,255,0.01); }
+    .comp-domain-you { color: #818cf8; font-weight: 700; }
+    .comp-bar-wrap { width: 120px; }
+    .comp-bar-track { height: 5px; background: rgba(255,255,255,0.06); border-radius: 2px; }
+    .comp-bar-fill { height: 5px; border-radius: 2px; background: linear-gradient(90deg,#6366f1,#8b5cf6); }
+
+    /* ── Scrollbar ─────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+    /* ── Section header ────────────────────── */
+    .sec-header { margin-bottom: 20px; }
+    .sec-header h2 { font-size: 18px; font-weight: 800; color: #fff; margin-bottom: 4px; }
+    .sec-header p { font-size: 12.5px; color: #374151; }
+  </style>
+</head>
+<body>
+  <div id="wrapper">
+    {% include 'control/navbar.html' %}
+    {% include 'control/left.html' %}
+    {% include 'control/right.html' %}
+
+    <div id="main-content" style="padding:0;">
+      <div class="seo-shell">
+
+        <!-- ═══ SIDEBAR ═══════════════════════════════════ -->
+        <aside class="seo-sidebar">
+          <div class="sb-brand">
+            <div class="sb-brand-icon"><i class="fa-solid fa-magnifying-glass-chart"></i></div>
+            <div>
+              <div class="sb-brand-text">SEO Suite</div>
+              <div class="sb-brand-sub">Powered by Common Crawl</div>
+            </div>
+          </div>
+
+          <div class="sb-section">Analytics</div>
+          <button class="sb-item active" onclick="switchPanel('overview',this)" id="sb-overview">
+            <i class="sb-icon fa-solid fa-chart-pie"></i> Overview
+          </button>
+          <button class="sb-item" onclick="switchPanel('keywords',this)" id="sb-keywords">
+            <i class="sb-icon fa-solid fa-tags"></i> Keywords
+          </button>
+          <button class="sb-item" onclick="switchPanel('backlinks',this)" id="sb-backlinks">
+            <i class="sb-icon fa-solid fa-link"></i> Backlinks
+          </button>
+          <button class="sb-item" onclick="switchPanel('rank',this)" id="sb-rank">
+            <i class="sb-icon fa-solid fa-chart-line"></i> Rank Tracker
+          </button>
+
+          <div class="sb-section">Diagnostics</div>
+          <button class="sb-item" onclick="switchPanel('audit',this)" id="sb-audit">
+            <i class="sb-icon fa-solid fa-gauge-high"></i> Site Auditor
+          </button>
+          <button class="sb-item" onclick="switchPanel('crawl',this)" id="sb-crawl">
+            <i class="sb-icon fa-solid fa-spider"></i> Crawl Explorer
+          </button>
+          <button class="sb-item" onclick="switchPanel('serp',this)" id="sb-serp">
+            <i class="sb-icon fa-solid fa-eye"></i> SERP Preview
+          </button>
+
+          <div class="sb-section">Competitive</div>
+          <button class="sb-item" onclick="switchPanel('competitor',this)" id="sb-competitor">
+            <i class="sb-icon fa-solid fa-users-viewfinder"></i> Competitors
+          </button>
+          <button class="sb-item" onclick="switchPanel('gap',this)" id="sb-gap">
+            <i class="sb-icon fa-solid fa-crosshairs"></i> Content Gap
+          </button>
+        </aside>
+
+        <!-- ═══ MAIN ══════════════════════════════════════ -->
+        <main class="seo-main">
+
+          <!-- Top Search Bar -->
+          <div class="seo-topbar">
+            <div class="seo-domain-input">
+              <i class="fa-solid fa-globe"></i>
+              <input type="text" id="targetDomain" placeholder="Enter domain (e.g. github.com)" value="{{ domain }}" autocomplete="off">
+            </div>
+            <button class="btn-analyze" onclick="runAnalysis()">
+              <i class="fa-solid fa-bolt" id="analyzeIcon"></i> Analyze Domain
+            </button>
+            <button class="btn-outline" onclick="exportCSV()" title="Export current table as CSV">
+              <i class="fa-solid fa-file-csv"></i> Export CSV
+            </button>
+            <span id="indexBadge" style="font-size:10px;color:#374151;font-weight:700;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);padding:4px 10px;border-radius:20px;white-space:nowrap;">CC-MAIN-2026-16</span>
+          </div>
+
+          <div class="seo-content">
+
+            <!-- Initial empty state -->
+            <div id="stateEmpty">
+              <div class="empty-state">
+                <i class="fa-solid fa-magnifying-glass-chart"></i>
+                <h4>No Domain Analyzed Yet</h4>
+                <p>Enter any domain above and click "Analyze Domain" to get keyword data, backlinks, site audit score, crawl logs and more.</p>
+              </div>
+            </div>
+
+            <!-- Loader -->
+            <div id="stateLoader" style="display:none;">
+              <div class="seo-loader">
+                <div class="loader-ring"></div>
+                <div style="text-align:center;">
+                  <div style="font-size:15px;font-weight:700;color:#fff;margin-bottom:4px;">Querying Common Crawl index...</div>
+                  <div style="font-size:12px;color:#374151;">Mapping backlinks, keywords, crawl stats and audit signals</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Results -->
+            <div id="stateResults" style="display:none;">
+
+              <!-- Global KPIs row -->
+              <div class="kpi-grid" id="kpiGrid">
+                <div class="kpi">
+                  <div class="kpi-glow" style="background:#6366f1;"></div>
+                  <div class="kpi-label">Authority Score</div>
+                  <div class="kpi-val" id="kpiAuth">—</div>
+                  <div class="kpi-sub">Domain strength 0-100</div>
+                </div>
+                <div class="kpi">
+                  <div class="kpi-glow" style="background:#10b981;"></div>
+                  <div class="kpi-label">Monthly Traffic</div>
+                  <div class="kpi-val" id="kpiTraffic">—</div>
+                  <div class="kpi-sub">Organic visits/mo</div>
+                </div>
+                <div class="kpi">
+                  <div class="kpi-glow" style="background:#3b82f6;"></div>
+                  <div class="kpi-label">Ranked Keywords</div>
+                  <div class="kpi-val" id="kpiKws">—</div>
+                  <div class="kpi-sub">Total organic keywords</div>
+                </div>
+                <div class="kpi">
+                  <div class="kpi-glow" style="background:#f59e0b;"></div>
+                  <div class="kpi-label">Backlinks</div>
+                  <div class="kpi-val" id="kpiBl">—</div>
+                  <div class="kpi-sub">Total inbound links</div>
+                </div>
+                <div class="kpi">
+                  <div class="kpi-glow" style="background:#ec4899;"></div>
+                  <div class="kpi-label">Referring Domains</div>
+                  <div class="kpi-val" id="kpiRd">—</div>
+                  <div class="kpi-sub">Unique linking domains</div>
+                </div>
+                <div class="kpi">
+                  <div class="kpi-glow" style="background:#8b5cf6;"></div>
+                  <div class="kpi-label">Traffic Value</div>
+                  <div class="kpi-val" id="kpiTv">—</div>
+                  <div class="kpi-sub">Equivalent paid traffic $</div>
+                </div>
+              </div>
+
+              <!-- ══ OVERVIEW ═══════════════════════════════ -->
+              <div class="seo-panel active" id="panel-overview">
+                <div class="grid-3-7">
+                  <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-earth-americas" style="color:#3b82f6;"></i> Traffic by Country</div>
+                    <div id="countryBars"></div>
+                  </div>
+                  <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-chart-line" style="color:#10b981;"></i> 12-Month Traffic Trend</div>
+                    <canvas id="trafficChart" height="120"></canvas>
+                  </div>
+                </div>
+                <div class="grid-2">
+                  <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-list-ul" style="color:#f59e0b;"></i> Top Pages by Traffic</div>
+                    <div id="topPagesWrap"></div>
+                  </div>
+                  <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-circle-half-stroke" style="color:#8b5cf6;"></i> Keyword Position Distribution</div>
+                    <div style="display:flex;align-items:center;gap:20px;">
+                      <canvas id="posDonut" width="140" height="140" style="flex-shrink:0;"></canvas>
+                      <div id="posLegend" style="flex:1;"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ══ KEYWORDS ═══════════════════════════════ -->
+              <div class="seo-panel" id="panel-keywords">
+                <div class="card">
+                  <div class="card-title"><i class="fa-solid fa-tags" style="color:#10b981;"></i> Organic Keyword Explorer</div>
+                  <div class="tbl-toolbar">
+                    <input type="text" class="tbl-search" id="kwSearch" placeholder="Search keywords..." oninput="filterKeywords()">
+                    <button class="filter-pill active" onclick="setIntentFilter(this,'All')">All</button>
+                    <button class="filter-pill" onclick="setIntentFilter(this,'Informational')">Informational</button>
+                    <button class="filter-pill" onclick="setIntentFilter(this,'Commercial')">Commercial</button>
+                    <button class="filter-pill" onclick="setIntentFilter(this,'Navigational')">Navigational</button>
+                    <button class="btn-outline" onclick="exportTableCSV('kwTable','keywords')" style="margin-left:auto;">
+                      <i class="fa-solid fa-download"></i> CSV
+                    </button>
+                  </div>
+                  <div class="tbl-wrap">
+                    <table class="seo-table" id="kwTable">
+                      <thead>
+                        <tr>
+                          <th onclick="sortTable('kwTable',0)">Keyword <i class="fa-solid fa-sort" style="font-size:9px;"></i></th>
+                          <th onclick="sortTable('kwTable',1)">Volume <i class="fa-solid fa-sort" style="font-size:9px;"></i></th>
+                          <th onclick="sortTable('kwTable',2)">KD% <i class="fa-solid fa-sort" style="font-size:9px;"></i></th>
+                          <th onclick="sortTable('kwTable',3)">CPC</th>
+                          <th onclick="sortTable('kwTable',4)">Position <i class="fa-solid fa-sort" style="font-size:9px;"></i></th>
+                          <th>Traffic %</th>
+                          <th>Intent</th>
+                          <th>SERP Feature</th>
+                        </tr>
+                      </thead>
+                      <tbody id="kwBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ══ BACKLINKS ══════════════════════════════ -->
+              <div class="seo-panel" id="panel-backlinks">
+                <div class="grid-3" style="margin-bottom:16px;">
+                  <div class="card" style="text-align:center;">
+                    <div class="kpi-label" style="margin-bottom:8px;">New (30d)</div>
+                    <div style="font-size:28px;font-weight:900;color:#10b981;" id="blNew">—</div>
+                    <div style="font-size:11px;color:#374151;">Gained backlinks</div>
+                  </div>
+                  <div class="card" style="text-align:center;">
+                    <div class="kpi-label" style="margin-bottom:8px;">Lost (30d)</div>
+                    <div style="font-size:28px;font-weight:900;color:#ef4444;" id="blLost">—</div>
+                    <div style="font-size:11px;color:#374151;">Removed backlinks</div>
+                  </div>
+                  <div class="card" style="text-align:center;">
+                    <div class="kpi-label" style="margin-bottom:8px;">Toxic Links</div>
+                    <div style="font-size:28px;font-weight:900;color:#f59e0b;" id="blToxic">—</div>
+                    <div style="font-size:11px;color:#374151;">Low-quality domains</div>
+                  </div>
+                </div>
+                <div class="grid-4-6">
+                  <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-circle-half-stroke" style="color:#6366f1;"></i> Link Type Split</div>
+                    <canvas id="blDonut" width="160" height="160"></canvas>
+                    <div id="blLegend" style="margin-top:14px;"></div>
+                  </div>
+                  <div class="card" style="overflow:visible;">
+                    <div class="card-title"><i class="fa-solid fa-link" style="color:#06b6d4;"></i> Backlink Reference Table</div>
+                    <div class="tbl-toolbar">
+                      <input type="text" class="tbl-search" id="blSearch" placeholder="Search domains..." oninput="filterBacklinks()">
+                      <button class="btn-outline" onclick="exportTableCSV('blTable','backlinks')" style="margin-left:auto;">
+                        <i class="fa-solid fa-download"></i> CSV
+                      </button>
+                    </div>
+                    <div class="tbl-wrap">
+                      <table class="seo-table" id="blTable">
+                        <thead><tr>
+                          <th>Domain</th><th>Anchor</th><th>Target</th><th>DA</th><th>Type</th><th>First Seen</th>
+                        </tr></thead>
+                        <tbody id="blBody"></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ══ RANK TRACKER ════════════════════════════ -->
+              <div class="seo-panel" id="panel-rank">
+                <div class="card">
+                  <div class="card-title"><i class="fa-solid fa-chart-line" style="color:#6366f1;"></i> Keyword Position History (6 Months)</div>
+                  <div class="tbl-wrap">
+                    <table class="seo-table" id="rtTable">
+                      <thead><tr>
+                        <th>Keyword</th><th>Volume</th><th>KD</th>
+                        <th>Position</th><th>Change</th><th>Est. Traffic</th>
+                        <th>Trend (6mo)</th><th>Intent</th><th>SERP Feature</th>
+                      </tr></thead>
+                      <tbody id="rtBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ══ SITE AUDIT ═════════════════════════════ -->
+              <div class="seo-panel" id="panel-audit">
+                <div class="grid-4-6">
+                  <div class="card" style="text-align:center;">
+                    <div class="card-title" style="justify-content:center;"><i class="fa-solid fa-gauge-high" style="color:#6366f1;"></i> SEO Health Score</div>
+                    <div class="score-ring-wrap">
+                      <svg width="130" height="130" class="score-ring-svg">
+                        <circle class="score-ring-track" cx="65" cy="65" r="52"></circle>
+                        <circle class="score-ring-fill" id="auditRingFill" cx="65" cy="65" r="52"
+                          stroke="#6366f1" stroke-dasharray="326.7" stroke-dashoffset="326.7"></circle>
+                      </svg>
+                      <div style="margin-top:-85px;font-size:32px;font-weight:900;color:#fff;z-index:1;" id="auditScoreNum">0</div>
+                      <div style="margin-top:60px;font-size:12px;color:#374151;font-weight:600;">out of 100</div>
+                    </div>
+                    <div class="issue-counts" id="issueCounts"></div>
+                    <div style="font-size:11px;color:#1f2937;line-height:1.6;">
+                      Scores are derived from header audits and Common Crawl signals.
+                    </div>
+                  </div>
+                  <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-list-check" style="color:#10b981;"></i> Audit Checks (click to expand fix)</div>
+                    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;" id="auditFilterBar">
+                      <button class="filter-pill active" onclick="setAuditFilter(this,'All')">All</button>
+                      <button class="filter-pill" onclick="setAuditFilter(this,'Failed')">Failed</button>
+                      <button class="filter-pill" onclick="setAuditFilter(this,'Warning')">Warnings</button>
+                      <button class="filter-pill" onclick="setAuditFilter(this,'Passed')">Passed</button>
+                      <button class="filter-pill" onclick="setAuditFilter(this,'Performance')">Performance</button>
+                      <button class="filter-pill" onclick="setAuditFilter(this,'On-Page')">On-Page</button>
+                    </div>
+                    <div id="auditList" style="max-height:480px;overflow-y:auto;padding-right:4px;"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ══ CRAWL EXPLORER ═════════════════════════ -->
+              <div class="seo-panel" id="panel-crawl">
+                <div class="grid-3" style="margin-bottom:16px;">
+                  <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-circle-nodes" style="color:#10b981;"></i> Status Code Distribution</div>
+                    <canvas id="statusChart" height="160"></canvas>
+                  </div>
+                  <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-file-code" style="color:#f59e0b;"></i> MIME Type Breakdown</div>
+                    <canvas id="mimeChart" height="160"></canvas>
+                  </div>
+                  <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-sitemap" style="color:#8b5cf6;"></i> URL Depth Distribution</div>
+                    <canvas id="depthChart" height="160"></canvas>
+                  </div>
+                </div>
+                <div class="card">
+                  <div class="card-title"><i class="fa-solid fa-spider" style="color:#ef4444;"></i> Common Crawl Index Logs</div>
+                  <div class="tbl-toolbar">
+                    <input type="text" class="tbl-search" id="ccSearch" placeholder="Filter URLs..." oninput="filterCrawl()">
+                    <span id="crawlIndexBadge" style="font-size:10px;color:#374151;font-weight:700;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);padding:4px 10px;border-radius:20px;"></span>
+                    <span style="margin-left:auto;font-size:11px;color:#4b5563;" id="crawlPathCount"></span>
+                  </div>
+                  <div class="tbl-wrap">
+                    <table class="seo-table" id="ccTable">
+                      <thead><tr>
+                        <th>Crawled URL</th><th>Timestamp</th><th>Status</th><th>MIME</th><th>Size</th>
+                      </tr></thead>
+                      <tbody id="ccBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ══ SERP PREVIEW ════════════════════════════ -->
+              <div class="seo-panel" id="panel-serp">
+                <div class="grid-2">
+                  <div class="card">
+                    <div class="card-title"><i class="fa-solid fa-pen-to-square" style="color:#6366f1;"></i> Edit Snippet Fields</div>
+                    <div style="display:flex;flex-direction:column;gap:14px;">
+                      <div>
+                        <label style="font-size:11px;font-weight:700;color:#4b5563;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:6px;">Page URL</label>
+                        <input type="text" id="serpUrl" class="tbl-search" style="width:100%;max-width:none;" placeholder="https://yourdomain.com/page" oninput="updateSerp()">
+                      </div>
+                      <div>
+                        <label style="font-size:11px;font-weight:700;color:#4b5563;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:6px;">
+                          SEO Title <span id="titleCharCount" class="char-ok">0/60</span>
+                        </label>
+                        <input type="text" id="serpTitle" class="tbl-search" style="width:100%;max-width:none;" placeholder="Your Page Title Here" oninput="updateSerp()">
+                      </div>
+                      <div>
+                        <label style="font-size:11px;font-weight:700;color:#4b5563;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:6px;">
+                          Meta Description <span id="descCharCount" class="char-ok">0/160</span>
+                        </label>
+                        <textarea id="serpDesc" class="tbl-search" rows="3" style="width:100%;max-width:none;resize:vertical;" placeholder="Your meta description here..." oninput="updateSerp()"></textarea>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="card">
+                    <div class="card-title"><i class="fa-brands fa-google" style="color:#ea4335;"></i> Google SERP Preview</div>
+                    <div style="margin-bottom:10px;font-size:11px;color:#374151;">Mobile + Desktop</div>
+                    <div class="serp-box" id="serpPreviewBox">
+                      <div class="serp-url" id="serpPreviewUrl">https://yourdomain.com › page</div>
+                      <a class="serp-title" id="serpPreviewTitle">Your Page Title Here</a>
+                      <div class="serp-desc" id="serpPreviewDesc">Your meta description will appear here. Make it compelling and within 160 characters to avoid truncation in search results.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ══ COMPETITORS ════════════════════════════ -->
+              <div class="seo-panel" id="panel-competitor">
+                <div class="card">
+                  <div class="card-title"><i class="fa-solid fa-users-viewfinder" style="color:#ec4899;"></i> Competitor Comparison</div>
+                  <div class="tbl-wrap">
+                    <table class="comp-table">
+                      <thead><tr>
+                        <th>Domain</th>
+                        <th>Authority Score</th>
+                        <th>Monthly Traffic</th>
+                        <th>Keywords</th>
+                        <th>Backlinks</th>
+                        <th>Traffic Value</th>
+                      </tr></thead>
+                      <tbody id="compBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+                <div class="card" style="margin-top:16px;">
+                  <div class="card-title"><i class="fa-solid fa-chart-bar" style="color:#6366f1;"></i> Authority Score Comparison</div>
+                  <canvas id="compChart" height="100"></canvas>
+                </div>
+              </div>
+
+              <!-- ══ CONTENT GAP ════════════════════════════ -->
+              <div class="seo-panel" id="panel-gap">
+                <div class="card">
+                  <div class="card-title"><i class="fa-solid fa-crosshairs" style="color:#f59e0b;"></i> Content Gap — Keywords Competitors Rank For</div>
+                  <p style="font-size:12px;color:#374151;margin-bottom:14px;">These are keyword opportunities where your competitors rank but you currently don't. Target these to close traffic gaps.</p>
+                  <div class="tbl-toolbar">
+                    <input type="text" class="tbl-search" id="gapSearch" placeholder="Search gap keywords..." oninput="filterGap()">
+                    <button class="filter-pill active" onclick="setGapFilter(this,'All')">All Intents</button>
+                    <button class="filter-pill" onclick="setGapFilter(this,'Informational')">Informational</button>
+                    <button class="filter-pill" onclick="setGapFilter(this,'Commercial')">Commercial</button>
+                    <button class="btn-outline" onclick="exportTableCSV('gapTable','content-gap')" style="margin-left:auto;">
+                      <i class="fa-solid fa-download"></i> CSV
+                    </button>
+                  </div>
+                  <div class="tbl-wrap">
+                    <table class="seo-table" id="gapTable">
+                      <thead><tr>
+                        <th>Keyword</th><th>Volume</th><th>KD%</th><th>CPC</th><th>Intent</th><th>Competitor Ranking</th><th>Their Position</th>
+                      </tr></thead>
+                      <tbody id="gapBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+            </div><!-- /stateResults -->
+          </div><!-- /seo-content -->
+        </main>
+      </div><!-- /seo-shell -->
+    </div><!-- /main-content -->
+  </div><!-- /wrapper -->
+
+  <script src="/static/assets/vendor/jquery/jquery.min.js"></script>
+  <script src="/static/assets/vendor/bootstrap/js/bootstrap.min.js"></script>
+  <script>
+  // ═══════════════════════════════════════════════════════════════
+  //  GLOBALS
+  // ═══════════════════════════════════════════════════════════════
+  let SEO_DATA = null;
+  let AUDIT_FILTER = 'All';
+  let INTENT_FILTER = 'All';
+  let GAP_FILTER = 'All';
+  let trafficChartInst = null, posDonutInst = null, blDonutInst = null;
+  let statusChartInst = null, mimeChartInst = null, depthChartInst = null, compChartInst = null;
+
+  const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const POS_COLORS = ['#10b981','#6366f1','#f59e0b','#94a3b8'];
+
+  // ═══════════════════════════════════════════════════════════════
+  //  UTILITY
+  // ═══════════════════════════════════════════════════════════════
+  function fmt(n) {
+    if (!n && n !== 0) return '—';
+    n = parseInt(n);
+    if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n/1000).toFixed(1) + 'K';
+    return n.toString();
+  }
+  function fmtUSD(n) {
+    if (!n) return '$0';
+    n = parseInt(n);
+    if (n >= 1000000) return '$' + (n/1000000).toFixed(1) + 'M';
+    if (n >= 1000) return '$' + (n/1000).toFixed(0) + 'K';
+    return '$' + n;
+  }
+  function kdClass(d) {
+    if (d >= 70) return 'hard';
+    if (d >= 40) return 'medium';
+    return 'easy';
+  }
+  function kdColor(d) {
+    if (d >= 70) return '#ef4444';
+    if (d >= 40) return '#f59e0b';
+    return '#10b981';
+  }
+  function intentBadge(intent) {
+    const cls = intent === 'Commercial' ? 'badge-comm' : (intent === 'Navigational' ? 'badge-nav' : 'badge-info');
+    const icon = intent === 'Commercial' ? 'fa-cart-shopping' : (intent === 'Navigational' ? 'fa-compass' : 'fa-circle-info');
+    return `<span class="badge ${cls}"><i class="fa-solid ${icon}"></i> ${intent}</span>`;
+  }
+  function getCookie(name) {
+    let v = null;
+    if (document.cookie) document.cookie.split(';').forEach(c => {
+      c = c.trim();
+      if (c.startsWith(name + '=')) v = decodeURIComponent(c.slice(name.length + 1));
+    });
+    return v;
+  }
+  function destroyChart(inst) { if (inst) { try { inst.destroy(); } catch(e){} } return null; }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  PANEL SWITCHING
+  // ═══════════════════════════════════════════════════════════════
+  function switchPanel(name, btn) {
+    document.querySelectorAll('.sb-item').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.seo-panel').forEach(p => p.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    const p = document.getElementById('panel-' + name);
+    if (p) p.classList.add('active');
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  ANALYSIS
+  // ═══════════════════════════════════════════════════════════════
+  function runAnalysis() {
+    const domain = document.getElementById('targetDomain').value.trim();
+    if (!domain) { alert('Enter a valid domain first.'); return; }
+
+    document.getElementById('stateEmpty').style.display = 'none';
+    document.getElementById('stateLoader').style.display = 'flex';
+    document.getElementById('stateResults').style.display = 'none';
+    document.getElementById('analyzeIcon').className = 'fa-solid fa-circle-notch fa-spin';
+
+    fetch('/control/seo/{{ domain }}/analyze/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') || '' },
+      body: JSON.stringify({ domain })
+    })
+    .then(r => r.json())
+    .then(res => {
+      document.getElementById('stateLoader').style.display = 'none';
+      document.getElementById('analyzeIcon').className = 'fa-solid fa-bolt';
+      if (res.status === 'success') {
+        SEO_DATA = res.data;
+        renderAll(SEO_DATA);
+        document.getElementById('stateResults').style.display = 'block';
+      } else {
+        alert(res.error || 'Analysis failed.');
+      }
+    })
+    .catch(err => {
+      document.getElementById('stateLoader').style.display = 'none';
+      document.getElementById('analyzeIcon').className = 'fa-solid fa-bolt';
+      alert('Network error: ' + err.message);
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  RENDER ALL
+  // ═══════════════════════════════════════════════════════════════
+  function renderAll(d) {
+    renderKPIs(d);
+    renderOverview(d);
+    renderKeywords(d);
+    renderBacklinks(d);
+    renderRankTracker(d);
+    renderAudit(d);
+    renderCrawl(d);
+    renderCompetitor(d);
+    renderContentGap(d);
+    // Pre-fill SERP with analyzed domain
+    const dom = d.domain;
+    document.getElementById('serpUrl').value = 'https://' + dom;
+    document.getElementById('serpTitle').value = d.brand + ' — Official Website';
+    document.getElementById('serpDesc').value = 'Explore ' + d.brand + ' — the leading platform. Get started for free today with all premium features included.';
+    updateSerp();
+  }
+
+  // ── KPIs ──────────────────────────────────────────────────────
+  function renderKPIs(d) {
+    document.getElementById('kpiAuth').textContent = d.metrics.authority_score;
+    document.getElementById('kpiTraffic').textContent = fmt(d.metrics.organic_traffic);
+    document.getElementById('kpiKws').textContent = fmt(d.metrics.organic_keywords);
+    document.getElementById('kpiBl').textContent = fmt(d.metrics.backlinks);
+    document.getElementById('kpiRd').textContent = fmt(d.metrics.referring_domains);
+    document.getElementById('kpiTv').textContent = fmtUSD(d.metrics.traffic_value);
+  }
+
+  // ── OVERVIEW ──────────────────────────────────────────────────
+  function renderOverview(d) {
+    // Country bars
+    const cb = document.getElementById('countryBars');
+    cb.innerHTML = '';
+    d.country_dist.forEach(c => {
+      cb.innerHTML += `
+        <div class="country-row">
+          <div class="country-name">${c.name}</div>
+          <div class="country-track"><div class="country-fill" style="width:${c.pct}%;background:${c.color};"></div></div>
+          <div class="country-pct">${c.pct}%</div>
+        </div>`;
+    });
+
+    // Traffic trend chart
+    trafficChartInst = destroyChart(trafficChartInst);
+    const ctx = document.getElementById('trafficChart').getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 0, 200);
+    grad.addColorStop(0, 'rgba(99,102,241,0.25)');
+    grad.addColorStop(1, 'rgba(99,102,241,0)');
+    trafficChartInst = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: MONTHS_SHORT,
+        datasets: [{
+          label: 'Organic Traffic',
+          data: d.traffic_trend,
+          borderColor: '#6366f1', borderWidth: 2.5,
+          backgroundColor: grad, fill: true,
+          tension: 0.45, pointRadius: 3,
+          pointBackgroundColor: '#6366f1',
+          pointBorderColor: '#0d1117', pointBorderWidth: 2,
+        }]
+      },
+      options: {
+        responsive: true, plugins: { legend: { display: false }, tooltip: {
+          callbacks: { label: ctx => ' ' + fmt(ctx.parsed.y) + ' visits' }
+        }},
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#4b5563', font: { size: 10 } } },
+          y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#4b5563', font: { size: 10 }, callback: v => fmt(v) } }
+        }
+      }
+    });
+
+    // Top pages
+    const tp = document.getElementById('topPagesWrap');
+    tp.innerHTML = '';
+    d.top_pages.forEach(pg => {
+      const url = pg.url.replace('https://', '').replace('http://','');
+      tp.innerHTML += `
+        <div class="tp-row">
+          <div class="tp-url" title="${pg.url}">${url}</div>
+          <div class="tp-kw" title="${pg.keywords} keywords"><i class="fa-solid fa-key" style="font-size:9px;color:#4b5563;"></i> ${pg.keywords}</div>
+          <div class="tp-traffic">${fmt(pg.traffic)}</div>
+        </div>`;
+    });
+
+    // Position distribution donut
+    posDonutInst = destroyChart(posDonutInst);
+    const pd = d.metrics.pos_dist;
+    const pdLabels = Object.keys(pd);
+    const pdData = Object.values(pd);
+    const pdCtx = document.getElementById('posDonut').getContext('2d');
+    posDonutInst = new Chart(pdCtx, {
+      type: 'doughnut',
+      data: { labels: pdLabels, datasets: [{ data: pdData, backgroundColor: POS_COLORS, borderWidth: 0 }] },
+      options: { responsive: false, cutout: '68%', plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: c => ` ${c.label}: ${fmt(c.parsed)} kws` }
+      }}}
+    });
+    const pl = document.getElementById('posLegend');
+    pl.innerHTML = '';
+    pdLabels.forEach((lbl, i) => {
+      pl.innerHTML += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <div style="width:10px;height:10px;border-radius:50%;background:${POS_COLORS[i]};flex-shrink:0;"></div>
+        <div style="font-size:12px;color:#9ca3af;">Pos ${lbl}</div>
+        <div style="margin-left:auto;font-size:12px;font-weight:700;color:#fff;">${fmt(pdData[i])}</div>
+      </div>`;
+    });
+  }
+
+  // ── KEYWORDS ──────────────────────────────────────────────────
+  function renderKeywords(d) {
+    renderKwRows(d.keywords);
+  }
+  function renderKwRows(kws) {
+    const body = document.getElementById('kwBody');
+    body.innerHTML = '';
+    const search = (document.getElementById('kwSearch').value || '').toLowerCase();
+    kws.filter(kw => {
+      if (INTENT_FILTER !== 'All' && kw.intent !== INTENT_FILTER) return false;
+      if (search && !kw.keyword.toLowerCase().includes(search)) return false;
+      return true;
+    }).forEach(kw => {
+      const sf = kw.serp_feature ? `<span class="badge badge-info" style="font-size:9px;">${kw.serp_feature}</span>` : '<span style="color:#374151;font-size:11px;">—</span>';
+      body.innerHTML += `
+        <tr>
+          <td style="font-weight:600;color:#fff;">${kw.keyword}</td>
+          <td>${fmt(kw.volume)}</td>
+          <td>
+            <div class="kd-wrap">
+              <div class="kd-track"><div class="kd-fill" style="width:${kw.difficulty}%;background:${kdColor(kw.difficulty)};"></div></div>
+              <span class="badge badge-${kdClass(kw.difficulty)}">${kw.difficulty}</span>
+            </div>
+          </td>
+          <td style="color:#a5b4fc;">$${kw.cpc.toFixed(2)}</td>
+          <td style="font-weight:700;color:#60a5fa;">#${kw.position}</td>
+          <td>${kw.traffic_share}%</td>
+          <td>${intentBadge(kw.intent)}</td>
+          <td>${sf}</td>
+        </tr>`;
+    });
+    if (!body.innerHTML) body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#374151;padding:24px;">No keywords match current filter.</td></tr>`;
+  }
+  function filterKeywords() { if (SEO_DATA) renderKwRows(SEO_DATA.keywords); }
+  function setIntentFilter(btn, val) {
+    document.querySelectorAll('#panel-keywords .filter-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    INTENT_FILTER = val;
+    filterKeywords();
+  }
+
+  // ── BACKLINKS ─────────────────────────────────────────────────
+  function renderBacklinks(d) {
+    document.getElementById('blNew').textContent = d.metrics.new_backlinks_30d;
+    document.getElementById('blLost').textContent = d.metrics.lost_backlinks_30d;
+    document.getElementById('blToxic').textContent = d.metrics.toxic_count;
+
+    blDonutInst = destroyChart(blDonutInst);
+    const blCtx = document.getElementById('blDonut').getContext('2d');
+    blDonutInst = new Chart(blCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Dofollow', 'Nofollow'],
+        datasets: [{ data: [d.metrics.dofollow_count, d.metrics.nofollow_count],
+          backgroundColor: ['#10b981', '#374151'], borderWidth: 0 }]
+      },
+      options: { responsive: false, cutout: '68%', plugins: { legend: { display: false } } }
+    });
+    document.getElementById('blLegend').innerHTML = `
+      <div style="display:flex;justify-content:space-around;font-size:12px;">
+        <div style="text-align:center;"><div style="color:#10b981;font-weight:800;font-size:18px;">${d.metrics.dofollow_count}</div><div style="color:#4b5563;">Dofollow</div></div>
+        <div style="text-align:center;"><div style="color:#6b7280;font-weight:800;font-size:18px;">${d.metrics.nofollow_count}</div><div style="color:#4b5563;">Nofollow</div></div>
+      </div>`;
+
+    renderBlRows(d.backlinks);
+  }
+  function renderBlRows(bls) {
+    const body = document.getElementById('blBody');
+    body.innerHTML = '';
+    const s = (document.getElementById('blSearch').value || '').toLowerCase();
+    bls.filter(b => !s || b.source_domain.toLowerCase().includes(s) || b.anchor_text.toLowerCase().includes(s)).forEach(bl => {
+      const toxBadge = bl.is_toxic ? `<span class="badge badge-toxic" style="margin-left:4px;"><i class="fa-solid fa-skull-crossbones"></i> Toxic</span>` : '';
+      body.innerHTML += `
+        <tr>
+          <td><span style="font-weight:600;color:#fff;">${bl.source_domain}</span>${toxBadge}</td>
+          <td style="font-size:11px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#6b7280;">"${bl.anchor_text}"</td>
+          <td style="font-size:11px;color:#4b5563;">${bl.target_url || '/'}</td>
+          <td><span class="badge badge-${bl.authority >= 50 ? 'passed' : 'warning'}">${bl.authority} DA</span></td>
+          <td><span class="badge badge-${bl.type === 'Dofollow' ? 'dofollow' : 'nofollow'}">${bl.type}</span></td>
+          <td style="font-size:11px;color:#4b5563;">${bl.first_seen}</td>
+        </tr>`;
+    });
+  }
+  function filterBacklinks() { if (SEO_DATA) renderBlRows(SEO_DATA.backlinks); }
+
+  // ── RANK TRACKER ──────────────────────────────────────────────
+  function renderRankTracker(d) {
+    const body = document.getElementById('rtBody');
+    body.innerHTML = '';
+    d.rank_tracking.forEach(rt => {
+      const delta = rt.delta;
+      const deltaHtml = delta > 0
+        ? `<span class="pos-delta up"><i class="fa-solid fa-arrow-up"></i> +${delta}</span>`
+        : (delta < 0 ? `<span class="pos-delta down"><i class="fa-solid fa-arrow-down"></i> ${delta}</span>`
+          : `<span class="pos-delta neu">—</span>`);
+
+      const sf = rt.serp_feature
+        ? `<span class="badge badge-info" style="font-size:9px;">${rt.serp_feature}</span>`
+        : '—';
+
+      // Sparkline
+      const pts = rt.history;
+      const maxP = Math.max(...pts), minP = Math.min(...pts);
+      const range = maxP - minP || 1;
+      const W = 120, H = 36;
+      const sparkPts = pts.map((p, i) => `${(i/(pts.length-1))*W},${H - ((p-minP)/range)*H}`).join(' ');
+
+      body.innerHTML += `
+        <tr>
+          <td style="font-weight:600;color:#fff;">${rt.keyword}</td>
+          <td>${fmt(rt.search_volume)}</td>
+          <td><span class="badge badge-${kdClass(rt.difficulty)}">${rt.difficulty}%</span></td>
+          <td style="font-size:15px;font-weight:900;color:#a5b4fc;">#${rt.current_position}</td>
+          <td>${deltaHtml}</td>
+          <td style="color:#10b981;font-weight:600;">${fmt(rt.est_traffic)}</td>
+          <td>
+            <svg width="${W}" height="${H}" class="sparkline">
+              <polyline points="${sparkPts}" style="stroke:#6366f1;"/>
+            </svg>
+          </td>
+          <td>${intentBadge(rt.intent)}</td>
+          <td>${sf}</td>
+        </tr>`;
+    });
+  }
+
+  // ── AUDIT ─────────────────────────────────────────────────────
+  function renderAudit(d) {
+    const a = d.audit;
+    // Ring animation
+    const circumference = 2 * Math.PI * 52;
+    const offset = circumference - (a.health_score / 100) * circumference;
+    const ring = document.getElementById('auditRingFill');
+    const scoreNum = document.getElementById('auditScoreNum');
+    const color = a.health_score >= 80 ? '#10b981' : (a.health_score >= 60 ? '#f59e0b' : '#ef4444');
+    ring.style.stroke = color;
+    setTimeout(() => { ring.style.strokeDashoffset = offset; scoreNum.textContent = a.health_score; }, 100);
+
+    document.getElementById('issueCounts').innerHTML = `
+      <div class="issue-cnt fail"><div class="issue-num">${a.fail_count}</div><div class="issue-lbl">Errors</div></div>
+      <div class="issue-cnt warn"><div class="issue-num">${a.warn_count}</div><div class="issue-lbl">Warnings</div></div>
+      <div class="issue-cnt pass"><div class="issue-num">${a.pass_count}</div><div class="issue-lbl">Passed</div></div>`;
+
+    renderAuditList(a.checks);
+  }
+  function renderAuditList(checks) {
+    const container = document.getElementById('auditList');
+    container.innerHTML = '';
+    const catFilter = ['Performance','On-Page','Crawlability','Technical','Security','Social','Mobile','Accessibility','International','Content','Rich Results'];
+    checks.filter(c => {
+      if (AUDIT_FILTER === 'All') return true;
+      if (AUDIT_FILTER === 'Failed') return c.status === 'Failed';
+      if (AUDIT_FILTER === 'Warning') return c.status === 'Warning';
+      if (AUDIT_FILTER === 'Passed') return c.status === 'Passed';
+      return c.category === AUDIT_FILTER;
+    }).forEach(c => {
+      const statusLower = c.status.toLowerCase();
+      const fixHtml = c.fix ? `<div class="audit-fix"><i class="fa-solid fa-screwdriver-wrench" style="font-size:10px;"></i> <strong>Fix:</strong> ${c.fix}</div>` : '';
+      container.innerHTML += `
+        <div class="audit-item" onclick="this.classList.toggle('open')">
+          <div class="audit-row">
+            <div class="audit-status-dot ${statusLower}"></div>
+            <div class="audit-name">${c.name}</div>
+            <span class="badge badge-${statusLower}" style="margin-right:6px;">${c.status}</span>
+            <span class="audit-cat">${c.category}</span>
+            <i class="fa-solid fa-chevron-down" style="font-size:9px;color:#374151;margin-left:6px;"></i>
+          </div>
+          <div class="audit-detail">${c.detail}</div>
+          ${fixHtml}
+        </div>`;
+    });
+    if (!container.innerHTML) container.innerHTML = `<div style="text-align:center;color:#374151;padding:24px;font-size:13px;">No items match current filter.</div>`;
+  }
+  function setAuditFilter(btn, val) {
+    document.querySelectorAll('#auditFilterBar .filter-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    AUDIT_FILTER = val;
+    if (SEO_DATA) renderAuditList(SEO_DATA.audit.checks);
+  }
+
+  // ── CRAWL ─────────────────────────────────────────────────────
+  function renderCrawl(d) {
+    document.getElementById('crawlIndexBadge').textContent = d.metrics.index_version;
+    document.getElementById('crawlPathCount').textContent = `${fmt(d.metrics.crawled_urls_count)} pages indexed`;
+
+    const chartDefaults = {
+      responsive: true,
+      plugins: { legend: { labels: { color: '#6b7280', font: { size: 10 }, boxWidth: 10 } } },
+      scales: { x: { ticks: { color: '#4b5563', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.03)' } },
+                y: { ticks: { color: '#4b5563', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.03)' } } }
+    };
+
+    statusChartInst = destroyChart(statusChartInst);
+    statusChartInst = new Chart(document.getElementById('statusChart').getContext('2d'), {
+      type: 'bar',
+      data: { labels: Object.keys(d.crawldist.status), datasets: [{
+        label: 'Pages', data: Object.values(d.crawldist.status),
+        backgroundColor: ['#10b981','#6366f1','#8b5cf6','#ef4444','#f59e0b'],
+        borderRadius: 6, borderSkipped: false,
+      }]},
+      options: { ...chartDefaults, plugins: { legend: { display: false } } }
+    });
+
+    mimeChartInst = destroyChart(mimeChartInst);
+    mimeChartInst = new Chart(document.getElementById('mimeChart').getContext('2d'), {
+      type: 'bar',
+      data: { labels: Object.keys(d.crawldist.mime), datasets: [{
+        label: 'Count', data: Object.values(d.crawldist.mime),
+        backgroundColor: '#6366f1', borderRadius: 6, borderSkipped: false,
+      }]},
+      options: { ...chartDefaults, plugins: { legend: { display: false } } }
+    });
+
+    depthChartInst = destroyChart(depthChartInst);
+    depthChartInst = new Chart(document.getElementById('depthChart').getContext('2d'), {
+      type: 'bar',
+      data: { labels: Object.keys(d.crawldist.url_depth).map(k => 'Depth ' + k),
+              datasets: [{ label: 'URLs', data: Object.values(d.crawldist.url_depth),
+        backgroundColor: '#8b5cf6', borderRadius: 6, borderSkipped: false }]},
+      options: { ...chartDefaults, plugins: { legend: { display: false } } }
+    });
+
+    renderCrawlRows(d.crawled_samples);
+  }
+  function renderCrawlRows(samples) {
+    const body = document.getElementById('ccBody');
+    body.innerHTML = '';
+    const s = (document.getElementById('ccSearch').value || '').toLowerCase();
+    const rows = s ? samples.filter(r => r.url.toLowerCase().includes(s)) : samples;
+    if (!rows.length) {
+      body.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#374151;padding:20px;">No crawl records found in Common Crawl index for this domain.</td></tr>`;
+      return;
+    }
+    rows.forEach(r => {
+      const sc = parseInt(r.status);
+      const scColor = sc === 200 ? '#10b981' : (sc >= 300 && sc < 400 ? '#f59e0b' : '#ef4444');
+      const displayUrl = r.url.length > 65 ? r.url.substring(0, 65) + '…' : r.url;
+      body.innerHTML += `
+        <tr>
+          <td style="font-family:monospace;font-size:11px;"><a href="${r.url}" target="_blank" style="color:#60a5fa;" title="${r.url}">${displayUrl}</a></td>
+          <td style="font-size:11px;color:#4b5563;white-space:nowrap;">${r.timestamp}</td>
+          <td><span style="font-size:11px;font-weight:700;color:${scColor};">${r.status}</span></td>
+          <td style="font-size:11px;color:#6b7280;">${r.mime}</td>
+          <td style="font-size:11px;color:#6b7280;">${r.length ? parseInt(r.length).toLocaleString() + ' B' : '—'}</td>
+        </tr>`;
+    });
+  }
+  function filterCrawl() { if (SEO_DATA) renderCrawlRows(SEO_DATA.crawled_samples); }
+
+  // ── SERP PREVIEW ──────────────────────────────────────────────
+  function updateSerp() {
+    const url = document.getElementById('serpUrl').value || 'https://yourdomain.com';
+    const title = document.getElementById('serpTitle').value || 'Your Page Title';
+    const desc = document.getElementById('serpDesc').value || 'Your meta description...';
+
+    // URL breadcrumb format
+    const urlParts = url.replace('https://','').replace('http://','').split('/');
+    const breadcrumb = urlParts.join(' › ');
+    document.getElementById('serpPreviewUrl').textContent = breadcrumb;
+    document.getElementById('serpPreviewTitle').textContent = title.substring(0, 60) + (title.length > 60 ? '…' : '');
+    document.getElementById('serpPreviewDesc').textContent = desc.substring(0, 160) + (desc.length > 160 ? '…' : '');
+
+    // Char counters
+    const tEl = document.getElementById('titleCharCount');
+    tEl.textContent = `${title.length}/60`;
+    tEl.className = title.length <= 60 ? 'char-ok' : 'char-err';
+
+    const dEl = document.getElementById('descCharCount');
+    dEl.textContent = `${desc.length}/160`;
+    dEl.className = desc.length <= 160 ? (desc.length >= 140 ? 'char-ok' : 'char-warn') : 'char-err';
+  }
+
+  // ── COMPETITORS ───────────────────────────────────────────────
+  function renderCompetitor(d) {
+    const body = document.getElementById('compBody');
+    body.innerHTML = '';
+    const myDomain = d.domain;
+    const myAuth = d.metrics.authority_score;
+    const myTraffic = d.metrics.organic_traffic;
+    const myKws = d.metrics.organic_keywords;
+    const myBl = d.metrics.backlinks;
+    const myTv = d.metrics.traffic_value;
+
+    // "You" row first
+    body.innerHTML += `
+      <tr>
+        <td class="comp-domain-you">${myDomain} <span class="badge badge-info" style="font-size:9px;">You</span></td>
+        <td><div class="comp-bar-wrap"><div class="comp-bar-track"><div class="comp-bar-fill" style="width:${myAuth}%;"></div></div></div> ${myAuth}</td>
+        <td>${fmt(myTraffic)}</td><td>${fmt(myKws)}</td><td>${fmt(myBl)}</td><td>${fmtUSD(myTv)}</td>
+      </tr>`;
+
+    const allDomains = [myDomain, ...d.competitors.map(c => c.domain)];
+    const allAuth = [myAuth, ...d.competitors.map(c => c.authority)];
+    const compColors = ['#6366f1','#10b981','#f59e0b','#ec4899'];
+
+    d.competitors.forEach(c => {
+      body.innerHTML += `
+        <tr>
+          <td style="color:#d1d5db;">${c.domain}</td>
+          <td><div class="comp-bar-wrap"><div class="comp-bar-track"><div class="comp-bar-fill" style="width:${c.authority}%;background:#374151;"></div></div></div> ${c.authority}</td>
+          <td>${fmt(c.traffic)}</td><td>${fmt(c.keywords)}</td><td>${fmt(c.backlinks)}</td><td>${fmtUSD(c.traffic_value)}</td>
+        </tr>`;
+    });
+
+    compChartInst = destroyChart(compChartInst);
+    compChartInst = new Chart(document.getElementById('compChart').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: allDomains,
+        datasets: [{ label: 'Authority Score', data: allAuth,
+          backgroundColor: compColors, borderRadius: 8, borderSkipped: false }]
+      },
+      options: {
+        responsive: true, indexAxis: 'y',
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { max: 100, ticks: { color: '#4b5563', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.03)' } },
+          y: { ticks: { color: '#9ca3af', font: { size: 11 } }, grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  // ── CONTENT GAP ───────────────────────────────────────────────
+  function renderContentGap(d) {
+    renderGapRows(d.content_gap);
+  }
+  function renderGapRows(gaps) {
+    const body = document.getElementById('gapBody');
+    body.innerHTML = '';
+    const s = (document.getElementById('gapSearch').value || '').toLowerCase();
+    gaps.filter(g => {
+      if (GAP_FILTER !== 'All' && g.intent !== GAP_FILTER) return false;
+      if (s && !g.keyword.toLowerCase().includes(s)) return false;
+      return true;
+    }).forEach(g => {
+      body.innerHTML += `
+        <tr>
+          <td style="font-weight:600;color:#fff;">${g.keyword}</td>
+          <td>${fmt(g.volume)}</td>
+          <td><div class="kd-wrap"><div class="kd-track"><div class="kd-fill" style="width:${g.difficulty}%;background:${kdColor(g.difficulty)};"></div></div><span class="badge badge-${kdClass(g.difficulty)}">${g.difficulty}</span></div></td>
+          <td style="color:#a5b4fc;">$${g.cpc.toFixed(2)}</td>
+          <td>${intentBadge(g.intent)}</td>
+          <td style="color:#60a5fa;font-size:12px;">${g.competitor}</td>
+          <td style="font-weight:700;color:#f59e0b;">#${g.competitor_position}</td>
+        </tr>`;
+    });
+    if (!body.innerHTML) body.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#374151;padding:24px;">No gaps found for current filter.</td></tr>`;
+  }
+  function filterGap() { if (SEO_DATA) renderGapRows(SEO_DATA.content_gap); }
+  function setGapFilter(btn, val) {
+    document.querySelectorAll('#panel-gap .filter-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    GAP_FILTER = val;
+    filterGap();
+  }
+
+  // ── SORT TABLE ────────────────────────────────────────────────
+  function sortTable(tableId, colIdx) {
+    const table = document.getElementById(tableId);
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const isNum = val => !isNaN(parseFloat(val.replace(/[$,#%K M]/gi, '')));
+    const parseVal = val => {
+      val = val.replace(/[$,#%]/g, '').trim();
+      if (val.endsWith('M')) return parseFloat(val) * 1000000;
+      if (val.endsWith('K')) return parseFloat(val) * 1000;
+      return parseFloat(val) || val;
+    };
+    const asc = table.dataset.sortDir !== 'asc';
+    table.dataset.sortDir = asc ? 'asc' : 'desc';
+    rows.sort((a, b) => {
+      const aV = a.cells[colIdx]?.textContent.trim() || '';
+      const bV = b.cells[colIdx]?.textContent.trim() || '';
+      if (isNum(aV) && isNum(bV)) return asc ? parseVal(aV) - parseVal(bV) : parseVal(bV) - parseVal(aV);
+      return asc ? aV.localeCompare(bV) : bV.localeCompare(aV);
+    });
+    rows.forEach(r => tbody.appendChild(r));
+  }
+
+  // ── CSV EXPORT ────────────────────────────────────────────────
+  function exportTableCSV(tableId, filename) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    const rows = Array.from(table.querySelectorAll('tr'));
+    const csv = rows.map(r =>
+      Array.from(r.querySelectorAll('th,td'))
+        .map(c => '"' + c.textContent.trim().replace(/"/g,'""') + '"')
+        .join(',')
+    ).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename + '-export.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }
+  function exportCSV() {
+    const active = document.querySelector('.seo-panel.active');
+    if (!active) return;
+    const tbl = active.querySelector('table');
+    if (tbl) exportTableCSV(tbl.id, 'seo-export');
+  }
+
+  // ── AUTO TRIGGER ──────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('targetDomain').value.trim()) {
+      runAnalysis();
+    }
+    // Init SERP listener
+    updateSerp();
+  });
+  </script>
+</body>
+</html>

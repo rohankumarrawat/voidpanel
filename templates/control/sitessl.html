@@ -1,533 +1,383 @@
+{% load static %}
 <!doctype html>
 <html lang="en">
-
 <head>
-    <title>:: VoidPanel :: SSL</title>
+    <title>:: VoidPanel :: SSL Manager</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="VoidPanel SSL ">
-    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
-    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
-
-    <!-- VENDOR CSS -->
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    
+    
+    
+    <link rel="stylesheet" href="/static/static/css/plugins/fontawesome-all.min.css">
     <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
 
-    <!-- MAIN Project CSS file -->
-    <link rel="stylesheet" href="/static/assets/css/main.css">
-
-    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
     <style>
-        /* Basic styling for the p tag */
-        p.processing {
-            font-size: 18px;
-            font-weight: bold;
-
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f1f5f9; }
+        
+        .vp-glass-panel {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            padding: 24px;
+            margin-bottom: 24px;
         }
 
-        /* Animation for the dots */
-        .dots::after {
-            content: '';
-            display: inline-block;
-            width: 1em;
-            text-align: left;
-            animation: dots 1.5s steps(4, end) infinite;
+        .vp-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
 
-        /* Keyframes for the dots animation */
-        @keyframes dots {
+        .vp-panel-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #fff;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
 
-            0%,
-            100% {
-                content: '';
-            }
+        .vp-domain-badge {
+            background: rgba(99, 102, 241, 0.15);
+            color: #818cf8;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+        }
 
-            25% {
-                content: '.';
-            }
+        .vp-btn-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
 
-            50% {
-                content: '..';
-            }
+        .vp-btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(99, 102, 241, 0.35);
+        }
 
-            75% {
-                content: '...';
-            }
+        .vp-btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .vp-btn-success:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+        .vp-btn-success:disabled { opacity: 0.6; cursor: not-allowed; }
+        .vp-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .vp-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 4px;
+        }
+
+        .vp-table th {
+            color: #94a3b8;
+            font-weight: 500;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .vp-table td {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 14px 16px;
+            color: #e2e8f0;
+            vertical-align: middle;
+            transition: all 0.2s;
+        }
+
+        .vp-table tr td:first-child { border-top-left-radius: 8px; border-bottom-left-radius: 8px; font-weight: 500; }
+        .vp-table tr td:last-child { border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
+        .vp-table tr:hover td { background: rgba(255, 255, 255, 0.04); }
+
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .status-active { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
+        .status-inactive { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
+
+        /* Hacker-style Terminal */
+        .terminal-box {
+            background: #000;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 12px;
+            padding: 16px;
+            font-family: 'Courier New', Courier, monospace;
+            color: #4ade80;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            box-shadow: inset 0 0 10px rgba(0,255,0,0.05);
+        }
+
+        /* Toasts */
+        .vp-toast-container { position: fixed; bottom: 24px; left: 24px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; }
+        .vp-toast {
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(12px);
+            border-left: 4px solid #6366f1;
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transform: translateX(-120%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .vp-toast.show { transform: translateX(0); }
+        .vp-toast.success { border-color: #10b981; }
+        .vp-toast.error { border-color: #ef4444; }
+
+        @media (max-width: 991px) {
+            #main-content { margin-left: 0; padding: 15px; }
+            .vp-table { display: block; overflow-x: auto; }
         }
     </style>
-    <style>
-        .myname {
-            border-radius: 30px;
-            box-shadow: inset;
-            border-width: 4px;
-
-
-        }
-
-        .text-container {
-
-            border: 1px solid #ccc;
-
-            word-wrap: break-word;
-            /* Force text to wrap */
-            white-space: normal;
-            /* Ensure normal wrapping */
-            overflow-wrap: break-word;
-            /* Ensure long words break */
-        }
-    </style>
-
 </head>
 
-<body data-theme="light" class="font-nunito">
-
-    <div id="wrapper" class="theme-cyan">
-
-        <!-- Page Loader -->
-        <div class="page-loader-wrapper">
-            <div class="loader">
-                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
-                </div>
-                <p>Please wait...</p>
-            </div>
-        </div>
-
-
-
+<body>
+    {% csrf_token %}
+    <div id="wrapper">
         {% include 'control/navbar.html' %}
-
-        <!-- main left menu -->
         {% include 'control/left.html' %}
-        <!-- rightbar icon div -->
         {% include 'control/right.html' %}
 
-
-        <!-- mani page content body part -->
-
         <div id="main-content">
-
-            <div class="container-fluid">
-                <div class="block-header">
-                    <div class="row">
-                        <div class="col-lg-10 col-md-6 col-sm-12">
-                            <h2>Edit/Add SSL</h2>
-                            <ul class="breadcrumb">
-                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
-                                </li>
-                                <li class="breadcrumb-item">Dashboard</li>
-                                <li class="breadcrumb-item">Edit/Add SSL</li>
-
-                            </ul>
-                        </div>
-
-
-
-
-
-
-
-                    </div>
-                </div>
-
-                <div class="row clearfix">
-                    <div class="col-lg-12">
-
-                        <div class="">
-                            <div class="header">
-                                <h2>SSL Wizard</h2>
-
-
+            <div class="container-fluid" style="padding: 24px;">
+                
+                <div class="row">
+                    <!-- Table Section -->
+                    <div class="col-lg-7">
+                        <div class="vp-glass-panel">
+                            <div class="vp-panel-header">
+                                <h2 class="vp-panel-title">
+                                    <i class="fa fa-lock" style="color: #6366f1;"></i>
+                                    SSL Certificates
+                                </h2>
+                                <button onclick="runGlobalSSL(event)" id="globalSSLBtn" class="vp-btn-primary">
+                                    <i class="fa fa-refresh"></i>
+                                    AutoSSL All Domains
+                                </button>
                             </div>
-
-
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row clearfix " style="margin-top: 30px;">
-
-
-                    <div class="col-lg-1 col-md-6 col-sm-12">
-                        <img src="/static/icons/ssl.png" style="height: 80px; width: 80px; border-radius: 5%;">
-
-                    </div>
-
-                    <div class="col-lg-1 col-md-6 col-sm-12">
-
-
-                    </div>
-                    <form id="sslform" method="post" action="">{% csrf_token %}
-                        <input type="text" name="domain" hidden value="{{domain}}">
-
-                    </form>
-
-
-
-
-                    <div class="col-lg-6 col-md-6 col-sm-12">
-                        <div class="form-group">
-                            <button style="margin-top: 20px;" onclick="runssl(event);" type="button"
-                                class="btn btn-primary"> Run AutoSSL for {{domain}}</button>
-                        </div>
-
-
-
-                    </div>
-                    <div class="modal animated fadeIn show" id="pro1" style="display: none; margin-top: 300px;">
-                        <div class="modal-dialog modal-sm" role="document">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <p class="processing">Processing<span class="dots"></span></p>
-
-                                </div>
-
-                            </div>
-                        </div>
-                    </div>
-
-
-                </div>
-
-
-
-                <div class="row clearfix" style="margin-top: 30px;">
-                    <div class="col-lg-6 col-md-12">
-                        <div class="">
-                            <div class="header">
-                                <h4>SSL Logs</h4>
-                            </div>
-                            <div class="card">
-                                <div class="body table-responsive">
-                                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
-                                        <table class="table  mb-0">
-
-                                            <tbody>
-                                                {% for i in logs %}
-                                                <tr>
-                                                    <td>
-                                                        {{i}}
-                                                    </td>
-
-
-                                                </tr>
-                                                {% endfor %}
-                                            </tbody>
-                                        </table>
-                                    </div>
-
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-6 col-md-12">
-                        <div class="">
-                            <div class="header">
-                                <h4>SSL Info</h4>
-                            </div>
-                            <div class="body table-responsive social_media_table"
-                                style="max-height: 300px; overflow-y: auto;">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-
-                                            <th>Domain</th>
-                                            <th>Status</th>
-
-                                            <th>Run SSL</th>
-
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-
-                                        <tr>
-
-
-                                            <td>{{main.domain}}</td>
-
+                            
+                            <table class="vp-table">
+                                <thead>
+                                    <tr>
+                                        <th>Domain / Subdomain</th>
+                                        <th>Status</th>
+                                        <th style="width: 130px;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Main Domain -->
+                                    <tr>
+                                        <td>{{ main.domain }}</td>
+                                        <td>
                                             {% if main.sslstatus %}
-
-
-                                            <td><img src="/static/icons/wrong.png"></td>
+                                                <span class="status-badge status-active"><i class="fa fa-check-circle"></i> Active</span>
                                             {% else %}
-                                            <td><img src="/static/icons/correct.png"></td>
+                                                <span class="status-badge status-inactive"><i class="fa fa-times-circle"></i> Unsecured</span>
                                             {% endif %}
-
-                                            <td>
-
-                                                <button onclick="sslfor(event,'{{main.domain}}');"
-                                                    class="btn btn-success"> Click For SSL <i
-                                                        class="fa fa-edit"></i></button>
-                                            </td>
-                                        </tr>
-
-                                        {% for i in subdomain %}
-                                        <tr>
-
-
-                                            <td>{{i.subdomain}}</td>
-
-                                            {% if i.sslstatus %}
-
-
-                                            <td><img src="/static/icons/wrong.png"></td>
+                                        </td>
+                                        <td>
+                                            <button onclick="runSingleSSL(event, '{{ main.domain }}')" class="vp-btn-success action-btn">
+                                                <i class="fa fa-shield"></i> Secure
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- Subdomains -->
+                                    {% for sub in subdomain %}
+                                    <tr>
+                                        <td>{{ sub.subdomain }}</td>
+                                        <td>
+                                            {% if sub.sslstatus %}
+                                                <span class="status-badge status-active"><i class="fa fa-check-circle"></i> Active</span>
                                             {% else %}
-                                            <td><img src="/static/icons/correct.png"></td>
+                                                <span class="status-badge status-inactive"><i class="fa fa-times-circle"></i> Unsecured</span>
                                             {% endif %}
+                                        </td>
+                                        <td>
+                                            <button onclick="runSingleSSL(event, '{{ sub.subdomain }}')" class="vp-btn-success action-btn">
+                                                <i class="fa fa-shield"></i> Secure
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="3" style="text-align: center; color: #94a3b8; padding: 30px;">
+                                            No subdomains found.
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
 
-                                            <td>
-
-                                                <button onclick="sslfor(event,'{{i.subdomain}} ');"
-                                                    class="btn btn-success"> Click For SSL <i
-                                                        class="fa fa-edit"></i></button>
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
+                    <!-- Logs Section -->
+                    <div class="col-lg-5">
+                        <div class="vp-glass-panel" style="height: 100%;">
+                            <div class="vp-panel-header" style="margin-bottom: 16px;">
+                                <h2 class="vp-panel-title">
+                                    <i class="fa fa-terminal" style="color: #4ade80;"></i>
+                                    Live Event Logs
+                                </h2>
+                            </div>
+                            <div class="terminal-box" id="terminalBox">
+                                {% for log_line in logs %}
+                                    <div>{{ log_line }}</div>
+                                {% empty %}
+                                    <div style="opacity: 0.5;">> Waiting for SSL events...</div>
+                                {% endfor %}
                             </div>
                         </div>
                     </div>
-
                 </div>
 
-
-
-
-
-
-
-
-
-
-
-            </div>
-
-        </div>
-        <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Status</h6>
-                    </div>
-
-                    <div class="modal-body">
-                        <div class="col-md-12 col-sm-12">
-                            <div id="statusemail" style="text-align: center;" class="row clearfix">
-
-
-
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button  onclick="closeelol();"
-                                class="btn btn-danger">Close</button>
-                        </div>
-                    </div>
-
-                </div>
             </div>
         </div>
+    </div>
 
-<script>
-    function closeelol(){
-        document.getElementById('eeee').style.display='none';
-    }
-</script>
+    <!-- Toast Notifications -->
+    <div class="vp-toast-container" id="toastContainer"></div>
 
-        <script>
+    <script>
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const mainDomain = "{{ domain }}";
 
-            async function sslfor(event,my) {
-                event.preventDefault();  // Prevent the default form submission behavior
-                document.getElementById('pro1').style.display = "block";
-                // Get the form data
-                const data = {
-                    name: my,
+        // Scroll terminal to bottom automatically
+        const terminal = document.getElementById('terminalBox');
+        terminal.scrollTop = terminal.scrollHeight;
 
-                };
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `vp-toast ${type}`;
+            
+            const icon = type === 'success' ? 'check-circle' : 'exclamation-circle';
+            toast.innerHTML = `<i class="fa fa-${icon}"></i> <span>${message}</span>`;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
 
+        async function runGlobalSSL(event) {
+            event.preventDefault();
+            const btn = document.getElementById('globalSSLBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i> Initiating...';
+            btn.disabled = true;
 
-                try {
-                    // Make the fetch request to change the password
-                    const response = await fetch('/control/runsslfordomain1/', {  // Replace with your actual API endpoint
-                        method: 'POST',
-                        body: JSON.stringify(data),
-                        headers: {
-                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-                        }
-                    });
-                    const result = await response.json();
-                    // Handle the server response
-                    if (response.ok && result.status === 'success') {
-                        document.getElementById('pro1').style.display = "none";
-                        location.reload(true);
-                    }
-                } catch (error) {
+            const formData = new FormData();
+            formData.append('domain', mainDomain);
 
-                    document.getElementById('pro1').style.display = "none";
-                    location.reload(true);
-                }
-            }
-
-
-            async function runssl(event) {
-                event.preventDefault();  // Prevent the default form submission behavior
-                document.getElementById('pro1').style.display = "block";
-                // Get the form data
-                const form = document.getElementById('sslform');
-                const formData = new FormData(form);
-
-
-                try {
-                    // Make the fetch request to change the password
-                    const response = await fetch('/control/runsslfordomain/', {  // Replace with your actual API endpoint
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-                        }
-                    });
-                    const result = await response.json();
-                    // Handle the server response
-                    if (response.ok && result.status === 'success') {
-                        document.getElementById('pro1').style.display = "none";
-                        location.reload(true);
-                    }
-                } catch (error) {
-
-                    document.getElementById('pro1').style.display = "none";
-                    location.reload(true);
-                }
-            }
-
-        </script>
-
-        <div class="modal animated fadeIn show" id="changepassword" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Change Password</h6>
-                    </div>
-                    <form id="chpForm" method="post" action="">{% csrf_token %}
-                        <div class="modal-body">
-                            <div class="row clearfix">
-
-
-                                <div class="col-md-12 col-sm-12">
-
-                                    <div class="input-group mb-3">
-                                        <input required type="password" id="textInput" name="password"
-                                            class="form-control" placeholder="**********"
-                                            aria-label="Recipient's username" aria-describedby="basic-addon2" required>
-                                        <input id="dbusername" type="text" name="databaseuser" value="" hidden
-                                            class="form-control" required>
-
-                                    </div>
-
-                                    <div id="match" class="form-group">
-
-
-                                    </div>
-
-
-                                </div>
-
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button id="addemailbtn" onclick="chp(event);" style="display: block;"
-                                class="btn btn-primary">Change Password</button>
-                            <button type="button" class="btn btn-secondary" onclick="changepassword1();">CLOSE</button>
-
-                            </p>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-
-
-       
-
-
-        <script>
-            document.getElementById('select-all').addEventListener('change', function () {
-                const checkboxes = document.querySelectorAll('.individual-checkbox');
-                checkboxes.forEach(checkbox => {
-                    checkbox.checked = this.checked; // Set each checkbox's checked state to match the "Select ALL" checkbox
+            try {
+                const response = await fetch('/control/runsslfordomain/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-CSRFToken': csrfToken }
                 });
-            });
-
-
-          
-            function showp() {
-                const selectElement = document.getElementById('dbSelect');
-                const dbname = selectElement.value;
-                const u = document.getElementById('dbSelect1');
-                const uname = u.value;
-
-                if (dbname !== "Select Database Name" && uname !== "Select User Name") {
-                    document.getElementById('addpri').style.display = "block";
-                    document.getElementById('databasename').value = dbname;
-                    document.getElementById('databaseusername').value = uname;
-
-
-
-
-
-                    // Perform delete operation (you can add your fetch request here to delete the database)
+                
+                const result = await response.json();
+                if (response.ok && result.status === 'success') {
+                    showToast('Background Task Started! Processing SSL issuance...', 'success');
+                    // Add local log visual update
+                    terminal.innerHTML += `\n<div>> [System] Deployed background worker for domain tree.</div>`;
+                    terminal.scrollTop = terminal.scrollHeight;
                 } else {
-                   
-                    document.getElementById('eeee').style.display = "block";
-                    document.getElementById('statusemail').innerHTML = "Please select a valid database";
+                    showToast(result.message || 'Verification Error', 'error');
                 }
-
-
-
-
+            } catch (error) {
+                showToast('Network error while scheduling tasks.', 'error');
+            } finally {
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }, 2000);
             }
+        }
 
-            function rpri() {
+        async function runSingleSSL(event, targetDomain) {
+            event.preventDefault();
+            const btn = event.currentTarget;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i> Wait';
+            btn.disabled = true;
 
-
-
-                document.getElementById('addpri').style.display = "none";
-
-
-
-
-
-
+            try {
+                const response = await fetch('/control/runsslfordomain1/', {
+                    method: 'POST',
+                    body: JSON.stringify({ name: targetDomain }),
+                    headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' }
+                });
+                
+                const result = await response.json();
+                if (response.ok && result.status === 'success') {
+                    showToast(`SSL task queued for ${targetDomain}`, 'success');
+                    terminal.innerHTML += `\n<div>> [System] Spawning thread to secure ${targetDomain}.</div>`;
+                    terminal.scrollTop = terminal.scrollHeight;
+                } else {
+                    showToast(result.message || 'Error scheduling SSL', 'error');
+                }
+            } catch (error) {
+                showToast('Network error while scheduling task.', 'error');
+            } finally {
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }, 2000);
             }
-        </script>
-
-
-
-
-
-
-        <!-- Javascript -->
-        <script src="/static/assets/bundles/libscripts.bundle.js"></script>
-        <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
-
-        <!-- page vendor js file -->
-        <script src="/static/assets/vendor/toastr/toastr.js"></script>
-        <script src="/static/assets/bundles/c3.bundle.js"></script>
-
-
-        <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
-        <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
-
-
-        <!-- page js file -->
-        <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
-        <script src="/static/assets/bundles/chartjs.js"></script>
-        <script src="/static/assets/index2.js"></script>
-
-
+        }
+    </script>
 </body>
-
 </html>

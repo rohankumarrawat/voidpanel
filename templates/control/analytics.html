@@ -1,0 +1,985 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Analytics — {{ domain }} | VoidPanel</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <!-- Font Awesome 6 -- local -->
+    <link rel="stylesheet" href="/static/static/css/plugins/fontawesome-all.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+    <style>
+        :root {
+            --bg: #070c1b;
+            --neon: #6366f1;
+            --neon2: #8b5cf6;
+            --glass: rgba(15, 23, 42, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.07);
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(-45deg, #070c1b, #0f1729, #1a0533, #0c1a2e);
+            background-size: 400% 400%;
+            animation: gradientBG 18s ease infinite;
+            min-height: 100vh;
+            color: var(--text);
+        }
+
+        @keyframes gradientBG {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        #main-content {
+            padding: 28px 0 60px;
+        }
+
+        /* ── Page header ── */
+        .page-header {
+            padding: 20px 0 18px;
+        }
+
+        .page-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+
+        .breadcrumb {
+            background: transparent;
+            padding: 0;
+            margin: 0;
+        }
+
+        .breadcrumb-item,
+        .breadcrumb-item a {
+            font-size: .78rem;
+            color: var(--muted);
+        }
+
+        .breadcrumb-item.active {
+            color: var(--neon);
+        }
+
+        .breadcrumb-item+.breadcrumb-item::before {
+            color: var(--muted);
+        }
+
+        /* ── Stat cards ── */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 26px;
+        }
+
+        .stat-card {
+            background: var(--glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 20px 22px;
+            position: relative;
+            overflow: hidden;
+            transition: transform .18s, border-color .18s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(99, 102, 241, .3);
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(99, 102, 241, .06) 0%, transparent 70%);
+        }
+
+        .stat-label {
+            font-size: .7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
+        .stat-val {
+            font-size: 1.9rem;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1;
+        }
+
+        .stat-sub {
+            font-size: .75rem;
+            color: var(--muted);
+            margin-top: 5px;
+        }
+
+        .stat-icon {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        .si-indigo {
+            background: rgba(99, 102, 241, .15);
+            color: #818cf8;
+            border: 1px solid rgba(99, 102, 241, .2);
+        }
+
+        .si-cyan {
+            background: rgba(0, 229, 255, .1);
+            color: #00e5ff;
+            border: 1px solid rgba(0, 229, 255, .2);
+        }
+
+        .si-green {
+            background: rgba(34, 197, 94, .1);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, .2);
+        }
+
+        .si-amber {
+            background: rgba(245, 158, 11, .1);
+            color: #f59e0b;
+            border: 1px solid rgba(245, 158, 11, .2);
+        }
+
+        .si-purple {
+            background: rgba(168, 85, 247, .1);
+            color: #a855f7;
+            border: 1px solid rgba(168, 85, 247, .2);
+        }
+
+        .si-rose {
+            background: rgba(239, 68, 68, .1);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, .2);
+        }
+
+        /* ── Chart cards ── */
+        .chart-card {
+            background: var(--glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 22px 24px;
+            margin-bottom: 24px;
+        }
+
+        .chart-title {
+            font-size: .75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--neon);
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .chart-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(99, 102, 241, .15);
+        }
+
+        /* ── Info table ── */
+        .info-list {
+            margin: 0;
+        }
+
+        .info-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, .04);
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-key {
+            font-size: .78rem;
+            color: var(--muted);
+            width: 160px;
+            flex-shrink: 0;
+        }
+
+        .info-val {
+            font-size: .84rem;
+            color: #e4eaf8;
+            font-weight: 500;
+            word-break: break-all;
+        }
+
+        /* ── DNS list ── */
+        .dns-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: .68rem;
+            font-weight: 700;
+            margin-right: 4px;
+        }
+
+        .dns-A {
+            background: rgba(99, 102, 241, .15);
+            color: #818cf8;
+        }
+
+        .dns-MX {
+            background: rgba(34, 197, 94, .15);
+            color: #22c55e;
+        }
+
+        .dns-CNAME {
+            background: rgba(0, 229, 255, .12);
+            color: #00e5ff;
+        }
+
+        .dns-TXT {
+            background: rgba(245, 158, 11, .12);
+            color: #f59e0b;
+        }
+
+        .dns-NS {
+            background: rgba(168, 85, 247, .12);
+            color: #a855f7;
+        }
+
+        /* ── Email list ── */
+        .email-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(99, 102, 241, .1);
+            border: 1px solid rgba(99, 102, 241, .2);
+            padding: 5px 12px;
+            border-radius: 999px;
+            font-size: .78rem;
+            color: #c4c8ff;
+            margin: 4px;
+        }
+
+        /* ── Python/MERN banners ── */
+        .app-chip {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(255, 255, 255, .03);
+            border: 1px solid rgba(255, 255, 255, .07);
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 10px;
+        }
+
+        .app-chip-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .9rem;
+        }
+
+        .aci-py {
+            background: rgba(59, 130, 246, .15);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, .2);
+        }
+
+        .aci-mern {
+            background: rgba(0, 229, 255, .1);
+            color: #00e5ff;
+            border: 1px solid rgba(0, 229, 255, .2);
+        }
+
+        .app-chip-name {
+            color: #e4eaf8;
+            font-size: .84rem;
+            font-weight: 600;
+        }
+
+        .app-chip-meta {
+            color: var(--muted);
+            font-size: .72rem;
+        }
+
+        /* ── Back button ── */
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 8px 18px;
+            border-radius: 10px;
+            font-size: .82rem;
+            font-weight: 500;
+            background: rgba(255, 255, 255, .06);
+            border: 1px solid rgba(255, 255, 255, .12);
+            color: #e4eaf8;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background .2s;
+            margin-bottom: 20px;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, .12);
+            color: #fff;
+        }
+
+        /* status dot */
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            animation: pulse 1.5s infinite;
+            display: inline-block;
+            margin-right: 5px;
+        }
+
+        .dead-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ef4444;
+            display: inline-block;
+            margin-right: 5px;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: .3
+            }
+        }
+    </style>
+</head>
+
+<body class="font-nunito active-dark-mode">
+    <div id="wrapper" class="theme-cyan">
+
+        {% include 'navbar.html' %}
+        {% include 'left.html' %}
+        {% include 'right.html' %}
+
+        <div id="main-content">
+            <div class="container-fluid">
+
+                <!-- Header -->
+                <div class="page-header">
+                    <div>
+                        <h2><i class="fa-solid fa-chart-line" style="color:#6366f1;margin-right:10px;"></i>Analytics —
+                            {{ domain }}</h2>
+                        <ul class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="/control/"><i class="fa fa-home"></i></a></li>
+                            <li class="breadcrumb-item active">Analytics</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <a href="/control/" class="back-btn"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
+
+                <!-- ── Stat Cards ── -->
+                <div class="stat-grid">
+                    <!-- Website Status -->
+                    <div class="stat-card">
+                        <div class="stat-icon si-green"><i class="fa-solid fa-globe"></i></div>
+                        <div class="stat-label">Website</div>
+                        <div class="stat-val" style="font-size:1.1rem;padding-top:4px;">
+                            {% if live %}<span class="live-dot"></span>Online{% else %}<span
+                                class="dead-dot"></span>Offline{% endif %}
+                        </div>
+                        <div class="stat-sub">{{ domain }}</div>
+                    </div>
+
+                    <!-- Disk Usage -->
+                    <div class="stat-card">
+                        <div class="stat-icon si-amber"><i class="fa-solid fa-hard-drive"></i></div>
+                        <div class="stat-label">Disk Usage</div>
+                        <div class="stat-val">{{ disk_used }} <span style="font-size:1rem;color:#94a3b8;">MB</span>
+                        </div>
+                        <div class="stat-sub">
+                            {% if disk_quota_mb and disk_quota_mb != '0' %}
+                            of {{ disk_quota_mb }} MB ({{ disk_percent }}% used)
+                            {% else %}
+                            Unlimited plan
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Email Accounts -->
+                    <div class="stat-card">
+                        <div class="stat-icon si-indigo"><i class="fa-solid fa-envelope"></i></div>
+                        <div class="stat-label">Email Accounts</div>
+                        <div class="stat-val">{{ emails|length }}</div>
+                        <div class="stat-sub">Active mailboxes</div>
+                    </div>
+
+                    <!-- Subdomains -->
+                    <div class="stat-card">
+                        <div class="stat-icon si-cyan"><i class="fa-solid fa-sitemap"></i></div>
+                        <div class="stat-label">Subdomains</div>
+                        <div class="stat-val">{{ subdomains|length }}</div>
+                        <div class="stat-sub">Active subdomains</div>
+                    </div>
+
+                    <!-- DNS Records -->
+                    <div class="stat-card">
+                        <div class="stat-icon si-purple"><i class="fa-solid fa-network-wired"></i></div>
+                        <div class="stat-label">DNS Records</div>
+                        <div class="stat-val">{{ dns_count }}</div>
+                        <div class="stat-sub">A, MX, CNAME, TXT…</div>
+                    </div>
+
+                    <!-- Databases -->
+                    <div class="stat-card">
+                        <div class="stat-icon si-rose"><i class="fa-solid fa-database"></i></div>
+                        <div class="stat-label">Databases</div>
+                        <div class="stat-val">{{ db_count }}</div>
+                        <div class="stat-sub">MySQL databases</div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <!-- Left column -->
+                    <div class="col-lg-8">
+
+                        <!-- Disk usage chart -->
+                        <div class="chart-card">
+                            <div class="chart-title"><i class="fa-solid fa-hard-drive"></i> Disk Usage</div>
+                            <canvas id="diskChart" height="80"></canvas>
+                        </div>
+
+                        <!-- DNS Records table -->
+                        <div class="chart-card">
+                            <div class="chart-title"><i class="fa-solid fa-network-wired"></i> DNS Records</div>
+                            {% if dns_records %}
+                            <div style="overflow-x:auto;">
+                                <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+                                    <thead>
+                                        <tr style="border-bottom:1px solid rgba(255,255,255,.08);">
+                                            <th
+                                                style="padding:10px 8px;color:var(--muted);font-weight:600;text-align:left;">
+                                                Name</th>
+                                            <th
+                                                style="padding:10px 8px;color:var(--muted);font-weight:600;text-align:left;">
+                                                Type</th>
+                                            <th
+                                                style="padding:10px 8px;color:var(--muted);font-weight:600;text-align:left;">
+                                                Data</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for r in dns_records %}
+                                        <tr style="border-bottom:1px solid rgba(255,255,255,.03);">
+                                            <td style="padding:9px 8px;color:#e4eaf8;">{{ r.name }}</td>
+                                            <td style="padding:9px 8px;">
+                                                <span class="dns-tag dns-{{ r.type }}">{{ r.type }}</span>
+                                            </td>
+                                            <td
+                                                style="padding:9px 8px;color:var(--muted);max-width:320px;word-break:break-all;">
+                                                {{ r.data }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <p style="color:var(--muted);font-size:.82rem;">No DNS zone file found. DNS may be managed
+                                externally.</p>
+                            {% endif %}
+                        </div>
+
+                        <!-- Python & MERN Apps -->
+                        {% if python_apps or mern_apps %}
+                        <div class="chart-card">
+                            <div class="chart-title"><i class="fa-solid fa-layer-group"></i> Hosted Applications</div>
+                            {% for app in python_apps %}
+                            <div class="app-chip">
+                                <div class="app-chip-icon aci-py"><i class="fa-brands fa-python"></i></div>
+                                <div>
+                                    <div class="app-chip-name">{{ app.name }}</div>
+                                    <div class="app-chip-meta">Python App · Port {{ app.port }}</div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% for app in mern_apps %}
+                            <div class="app-chip">
+                                <div class="app-chip-icon aci-mern"><i class="fa-brands fa-react"></i></div>
+                                <div>
+                                    <div class="app-chip-name">{{ app.name }}</div>
+                                    <div class="app-chip-meta">MERN Stack · Port {{ app.port }}</div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                    </div>
+
+                    <!-- Right column -->
+                    <div class="col-lg-4">
+
+                        <!-- Domain info -->
+                        <div class="chart-card">
+                            <div class="chart-title"><i class="fa-solid fa-circle-info"></i> Domain Info</div>
+                            <div class="info-list">
+                                <div class="info-row"><span class="info-key">Domain</span><span class="info-val">{{ domain }}</span></div>
+                                <div class="info-row"><span class="info-key">Username</span><span class="info-val">{{ username }}</span></div>
+                                <div class="info-row"><span class="info-key">Home Dir</span><span
+                                        class="info-val">/home/{{ homedir }}</span></div>
+                                <div class="info-row"><span class="info-key">PHP Version</span><span class="info-val">{{ php_version }}</span></div>
+                                <div class="info-row"><span class="info-key">Package</span><span class="info-val">{{ package_name }}</span></div>
+                                <div class="info-row"><span class="info-key">SSL</span>
+                                    <span class="info-val">{% if ssl_active %}<span style="color:#22c55e;"><i
+                                                class="fa-solid fa-lock"></i> Active</span>{% else %}<span
+                                            style="color:#f59e0b;"><i class="fa-solid fa-lock-open"></i> Not
+                                            active</span>{% endif %}</span>
+                                </div>
+                                <div class="info-row"><span class="info-key">Status</span>
+                                    <span class="info-val">{% if domain_status %}<span
+                                            style="color:#22c55e;">Active</span>{% else %}<span
+                                            style="color:#ef4444;">Suspended</span>{% endif %}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Email accounts -->
+                        <div class="chart-card">
+                            <div class="chart-title"><i class="fa-solid fa-envelope"></i> Email Accounts</div>
+                            {% if emails %}
+                            {% for em in emails %}
+                            <span class="email-chip"><i class="fa-solid fa-at" style="font-size:.7rem;"></i> {{ em.email }}</span>
+                            {% endfor %}
+                            {% else %}
+                            <p style="color:var(--muted);font-size:.82rem;">No email accounts created yet.</p>
+                            {% endif %}
+                        </div>
+
+                        <!-- Subdomains -->
+                        <div class="chart-card">
+                            <div class="chart-title"><i class="fa-solid fa-sitemap"></i> Subdomains</div>
+                            {% if subdomains %}
+                            <div class="info-list">
+                                {% for s in subdomains %}
+                                <div class="info-row">
+                                    <span class="info-key" style="font-size:.8rem;">{{ s.subdomain }}</span>
+                                    <span class="info-val" style="font-size:.75rem;color:var(--muted);">PHP {{ s.php }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <p style="color:var(--muted);font-size:.82rem;">No subdomains configured.</p>
+                            {% endif %}
+                        </div>
+
+                        <!-- Resource distribution donut -->
+                        <div class="chart-card">
+                            <div class="chart-title"><i class="fa-solid fa-circle-half-stroke"></i> Resource Summary
+                            </div>
+                            <canvas id="donutChart" height="200"></canvas>
+                        </div>
+
+                    </div>
+                </div>
+
+
+                <!-- ======= TRAFFIC ANALYTICS SECTION ======= -->
+                <div style="margin-top:30px;">
+
+                  <!-- Traffic stat cards -->
+                  <div class="stat-grid" style="grid-template-columns:repeat(auto-fill,minmax(190px,1fr));margin-bottom:20px;">
+                    <div class="stat-card">
+                      <div class="stat-icon si-indigo"><i class="fa-solid fa-users"></i></div>
+                      <div class="stat-label">Total Requests</div>
+                      <div class="stat-val">{{ traffic.total_requests|default:0 }}</div>
+                      <div class="stat-sub">Last 30 days</div>
+                    </div>
+                    <div class="stat-card">
+                      <div class="stat-icon si-cyan"><i class="fa-solid fa-user-check"></i></div>
+                      <div class="stat-label">Unique Visitors</div>
+                      <div class="stat-val">{{ traffic.unique_visitors|default:0 }}</div>
+                      <div class="stat-sub">Distinct IPs</div>
+                    </div>
+                    <div class="stat-card">
+                      <div class="stat-icon si-green"><i class="fa-solid fa-download"></i></div>
+                      <div class="stat-label">Bandwidth</div>
+                      <div class="stat-val">{{ traffic.bandwidth_mb|default:0 }} <span style="font-size:1rem;color:#94a3b8;">MB</span></div>
+                      <div class="stat-sub">Data served</div>
+                    </div>
+                    <div class="stat-card">
+                      <div class="stat-icon si-amber"><i class="fa-solid fa-robot"></i></div>
+                      <div class="stat-label">Bot Requests</div>
+                      <div class="stat-val">{{ traffic.bot_requests|default:0 }}</div>
+                      <div class="stat-sub">Crawlers &amp; bots</div>
+                    </div>
+                    <div class="stat-card">
+                      <div class="stat-icon si-rose"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                      <div class="stat-label">4xx Errors</div>
+                      <div class="stat-val">{{ traffic.http_4xx|default:0 }}</div>
+                      <div class="stat-sub">Client errors</div>
+                    </div>
+                    <div class="stat-card">
+                      <div class="stat-icon si-purple"><i class="fa-solid fa-server"></i></div>
+                      <div class="stat-label">5xx Errors</div>
+                      <div class="stat-val">{{ traffic.http_5xx|default:0 }}</div>
+                      <div class="stat-sub">Server errors</div>
+                    </div>
+                  </div>
+
+                  <!-- Engine badge -->
+                  <div style="margin-bottom:18px;">
+                    <span style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:999px;padding:4px 14px;font-size:.75rem;color:#818cf8;">
+                      <i class="fa-solid fa-gear"></i> Active Engine: <strong>{{ traffic.active_engine|upper|default:"NGINX" }}</strong>
+                    </span>
+                    {% if not traffic.geoip_available %}
+                    <span style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:999px;padding:4px 14px;font-size:.75rem;color:#f59e0b;margin-left:8px;">
+                      <i class="fa-solid fa-circle-info"></i> GeoIP: Visit your domain to start collecting geo data
+                    </span>
+                    {% endif %}
+                  </div>
+
+                  <div class="row">
+                    <div class="col-lg-8">
+
+                      <!-- 7-day traffic chart -->
+                      <div class="chart-card">
+                        <div class="chart-title"><i class="fa-solid fa-chart-line"></i> Traffic — Last 7 Days</div>
+                        <canvas id="trafficChart" height="90"></canvas>
+                      </div>
+
+                      <!-- Status codes -->
+                      <div class="chart-card">
+                        <div class="chart-title"><i class="fa-solid fa-circle-check"></i> HTTP Status Distribution</div>
+                        <div class="row align-items-center">
+                          <div class="col-md-5">
+                            <canvas id="statusChart" height="180"></canvas>
+                          </div>
+                          <div class="col-md-7">
+                            <div style="padding-left:12px;display:flex;flex-direction:column;gap:10px;">
+                              <div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(34,197,94,.08);border-radius:10px;border:1px solid rgba(34,197,94,.15);">
+                                <span style="font-size:.8rem;color:#22c55e;"><i class="fa-solid fa-circle-check"></i> 2xx Success</span>
+                                <strong style="color:#e4eaf8;">{{ traffic.http_2xx|default:0 }}</strong>
+                              </div>
+                              <div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(59,130,246,.08);border-radius:10px;border:1px solid rgba(59,130,246,.15);">
+                                <span style="font-size:.8rem;color:#60a5fa;"><i class="fa-solid fa-arrow-right-arrow-left"></i> 3xx Redirect</span>
+                                <strong style="color:#e4eaf8;">{{ traffic.http_3xx|default:0 }}</strong>
+                              </div>
+                              <div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(245,158,11,.08);border-radius:10px;border:1px solid rgba(245,158,11,.15);">
+                                <span style="font-size:.8rem;color:#f59e0b;"><i class="fa-solid fa-triangle-exclamation"></i> 4xx Client Error</span>
+                                <strong style="color:#e4eaf8;">{{ traffic.http_4xx|default:0 }}</strong>
+                              </div>
+                              <div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(239,68,68,.08);border-radius:10px;border:1px solid rgba(239,68,68,.15);">
+                                <span style="font-size:.8rem;color:#ef4444;"><i class="fa-solid fa-xmark-circle"></i> 5xx Server Error</span>
+                                <strong style="color:#e4eaf8;">{{ traffic.http_5xx|default:0 }}</strong>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Top paths -->
+                      <div class="chart-card">
+                        <div class="chart-title"><i class="fa-solid fa-ranking-star"></i> Top Pages / Paths</div>
+                        {% if traffic.top_paths %}
+                        <div style="overflow-x:auto;">
+                          <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+                            <thead>
+                              <tr style="border-bottom:1px solid rgba(255,255,255,.08);">
+                                <th style="padding:8px;color:var(--muted);text-align:left;">#</th>
+                                <th style="padding:8px;color:var(--muted);text-align:left;">Path</th>
+                                <th style="padding:8px;color:var(--muted);text-align:right;">Hits</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {% for path,hits in traffic.top_paths %}
+                              <tr style="border-bottom:1px solid rgba(255,255,255,.03);">
+                                <td style="padding:8px;color:var(--muted);">{{ forloop.counter }}</td>
+                                <td style="padding:8px;color:#c4c8ff;word-break:break-all;">{{ path }}</td>
+                                <td style="padding:8px;color:#e4eaf8;text-align:right;">{{ hits }}</td>
+                              </tr>
+                              {% endfor %}
+                            </tbody>
+                          </table>
+                        </div>
+                        {% else %}
+                        <p style="color:var(--muted);font-size:.82rem;margin:0;">No page traffic recorded yet. Data will appear after visitors access your site.</p>
+                        {% endif %}
+                      </div>
+
+                    </div>
+
+                    <div class="col-lg-4">
+
+                      <!-- Device breakdown -->
+                      <div class="chart-card">
+                        <div class="chart-title"><i class="fa-solid fa-mobile-screen-button"></i> Visitor Devices</div>
+                        <canvas id="deviceChart" height="180"></canvas>
+                        <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px;">
+                          <div style="display:flex;justify-content:space-between;font-size:.8rem;">
+                            <span style="color:#818cf8;"><i class="fa-solid fa-desktop"></i> Desktop</span>
+                            <span style="color:#e4eaf8;">{{ traffic.desktop_count|default:0 }}</span>
+                          </div>
+                          <div style="display:flex;justify-content:space-between;font-size:.8rem;">
+                            <span style="color:#22c55e;"><i class="fa-solid fa-mobile"></i> Mobile</span>
+                            <span style="color:#e4eaf8;">{{ traffic.mobile_count|default:0 }}</span>
+                          </div>
+                          <div style="display:flex;justify-content:space-between;font-size:.8rem;">
+                            <span style="color:#f59e0b;"><i class="fa-solid fa-robot"></i> Bots</span>
+                            <span style="color:#e4eaf8;">{{ traffic.bot_requests|default:0 }}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Top Countries -->
+                      <div class="chart-card">
+                        <div class="chart-title"><i class="fa-solid fa-earth-asia"></i> Top Countries</div>
+                        {% if traffic.countries %}
+                        <div style="display:flex;flex-direction:column;gap:12px;">
+                          {% for country,count in traffic.countries %}
+                          <div>
+                            <div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:4px;">
+                              <span style="color:#e4eaf8;">{{ country }}</span>
+                              <span style="color:var(--muted);">{{ count }}</span>
+                            </div>
+                            <div style="background:rgba(255,255,255,.05);border-radius:999px;height:5px;">
+                              <div style="background:linear-gradient(90deg,#6366f1,#a855f7);height:100%;border-radius:999px;{% if traffic.unique_visitors %}width:{% widthratio count traffic.unique_visitors 100 %}%;{% else %}width:0%{% endif %}"></div>
+                            </div>
+                          </div>
+                          {% endfor %}
+                        </div>
+                        {% else %}
+                        <p style="color:var(--muted);font-size:.82rem;margin:0;">No geo data yet. Visit your domain to generate traffic data.</p>
+                        {% endif %}
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+                <!-- ======= END TRAFFIC ANALYTICS ======= -->
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+// Disk usage bar chart
+const diskCtx = document.getElementById('diskChart').getContext('2d');
+const usedDisk  = {{ disk_used|default:0 }};
+const totalDisk = Math.max({{ disk_quota_mb|default:1000 }}, usedDisk + 1);
+const freeDisk  = Math.max(totalDisk - usedDisk, 0);
+
+new Chart(diskCtx, {
+    type: 'bar',
+    data: {
+        labels: ['Storage'],
+        datasets: [
+            {
+                label: 'Used (MB)',
+                data: [usedDisk],
+                backgroundColor: 'rgba(99,102,241,0.7)',
+                borderColor: '#6366f1',
+                borderWidth: 1,
+                borderRadius: 6,
+            },
+            {
+                label: 'Free (MB)',
+                data: [freeDisk],
+                backgroundColor: 'rgba(255,255,255,0.05)',
+                borderColor: 'rgba(255,255,255,0.1)',
+                borderWidth: 1,
+                borderRadius: 6,
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { labels: { color: '#94a3b8', font: { size: 12 } } },
+            tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.raw} MB` } }
+        },
+        scales: {
+            x: { stacked: true, grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#94a3b8' } },
+            y: { stacked: true, grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#94a3b8' } }
+        }
+    }
+});
+
+
+// ── Traffic Analytics Charts ─────────────────────────────────────────────────
+const _labels7  = {{ traffic.last7_labels|safe|default:"[]" }};
+const _data7    = {{ traffic.last7_data|safe|default:"[]" }};
+const _devLbl   = {{ traffic.device_labels|safe|default:"[]" }};
+const _devData  = {{ traffic.device_data|safe|default:"[]" }};
+const _stLbl    = {{ traffic.status_labels|safe|default:"[]" }};
+const _stData   = {{ traffic.status_data|safe|default:"[]" }};
+
+const chartDefaults = {
+    color: "#94a3b8",
+    grid: { color: "rgba(255,255,255,.04)" },
+    ticks: { color: "#94a3b8" }
+};
+
+// 7-day line chart
+if (document.getElementById("trafficChart")) {
+    new Chart(document.getElementById("trafficChart").getContext("2d"), {
+        type: "line",
+        data: {
+            labels: _labels7,
+            datasets: [{
+                label: "Requests",
+                data: _data7,
+                borderColor: "#6366f1",
+                backgroundColor: "rgba(99,102,241,0.12)",
+                pointBackgroundColor: "#818cf8",
+                pointRadius: 4,
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: chartDefaults.grid, ticks: chartDefaults.ticks },
+                y: { beginAtZero: true, grid: chartDefaults.grid, ticks: chartDefaults.ticks }
+            }
+        }
+    });
+}
+
+// Device doughnut
+if (document.getElementById("deviceChart")) {
+    new Chart(document.getElementById("deviceChart").getContext("2d"), {
+        type: "doughnut",
+        data: {
+            labels: _devLbl,
+            datasets: [{
+                data: _devData,
+                backgroundColor: ["rgba(99,102,241,0.8)","rgba(34,197,94,0.75)","rgba(245,158,11,0.7)"],
+                borderColor: "rgba(255,255,255,.05)",
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            cutout: "68%",
+            plugins: { legend: { position: "bottom", labels: { color: "#94a3b8", boxWidth: 12, font: { size: 11 } } } }
+        }
+    });
+}
+
+// Status code doughnut
+if (document.getElementById("statusChart")) {
+    new Chart(document.getElementById("statusChart").getContext("2d"), {
+        type: "doughnut",
+        data: {
+            labels: _stLbl,
+            datasets: [{
+                data: _stData,
+                backgroundColor: ["rgba(34,197,94,0.8)","rgba(59,130,246,0.75)","rgba(245,158,11,0.7)","rgba(239,68,68,0.7)"],
+                borderColor: "rgba(255,255,255,.05)",
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            cutout: "68%",
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+
+// Resource donut chart
+const donutCtx = document.getElementById('donutChart').getContext('2d');
+new Chart(donutCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Disk Used', 'Emails', 'Subdomains', 'DNS Records', 'Databases'],
+        datasets: [{
+            data: [
+                {{ disk_used|default:1 }},
+                {{ emails|length|default:0 }} || 0.1,
+                {{ subdomains|length|default:0 }} || 0.1,
+                {{ dns_count|default:0 }} || 0.1,
+                {{ db_count|default:0 }} || 0.1,
+            ],
+            backgroundColor: [
+                'rgba(99,102,241,0.8)',
+                'rgba(59,130,246,0.7)',
+                'rgba(0,229,255,0.6)',
+                'rgba(168,85,247,0.65)',
+                'rgba(239,68,68,0.65)',
+            ],
+            borderColor: 'rgba(255,255,255,.05)',
+            borderWidth: 2,
+        }]
+    },
+    options: {
+        responsive: true,
+        cutout: '68%',
+        plugins: {
+            legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 12, font: { size: 11 } } }
+        }
+    }
+});
+    </script>
+
+    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+</body>
+
+</html>

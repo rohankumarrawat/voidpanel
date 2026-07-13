@@ -1,639 +1,943 @@
 <!doctype html>
 <html lang="en">
-
 <head>
-    <title>:: VoidPanel :: ListUsers</title>
+    <title>:: VoidPanel :: Users</title>
+    <!-- ★ Early theme detection — prevents flash/mix on load ★ -->
+    <script>
+    (function() {
+        var t = 'light';
+        try { t = localStorage.getItem('vp-theme') || 'dark'; } catch(e) {}
+        document.documentElement.setAttribute('data-theme', t);
+    })();
+    </script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="VoidPanel List Users ">
-    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
-    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
-
-    <!-- VENDOR CSS -->
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
-
-    <!-- MAIN Project CSS file -->
-    <link rel="stylesheet" href="/static/assets/css/main.css">
-
-    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
     <style>
-        .myname {
-            border-radius: 30px;
-            box-shadow: inset;
-            border-width: 4px;
-
-
+        html[data-theme="light"] {
+            --neon: #4f46e5;
+            --neon-purple: #7c3aed;
+            --glass-bg: rgba(255, 255, 255, 0.90);
+            --glass-border: rgba(99, 102, 241, 0.15);
+            --text-dim: #475569;
+            --body-bg: #f1f5f9;
+            --text-main: #0f172a;
+            --row-hover: rgba(79, 70, 229, 0.04);
+            --input-bg: #ffffff;
+            --input-border: rgba(15, 23, 42, 0.15);
+            --border-subtle: rgba(15, 23, 42, 0.08);
+            --overlay-bg: rgba(241, 245, 249, 0.85);
+            --strength-bg: rgba(0, 0, 0, 0.05);
         }
 
-        .text-container {
-
-            border: 1px solid #ccc;
-
-            word-wrap: break-word;
-            /* Force text to wrap */
-            white-space: normal;
-            /* Ensure normal wrapping */
-            overflow-wrap: break-word;
-            /* Ensure long words break */
+        html[data-theme="dark"] {
+            --neon: #00e5ff;
+            --neon-purple: #a855f7;
+            --glass-bg: rgba(15,20,40,0.82);
+            --glass-border: rgba(0,229,255,0.15);
+            --text-dim: rgba(180,200,230,0.7);
+            --body-bg: #080c1a;
+            --text-main: #ffffff;
+            --row-hover: rgba(0,229,255,0.04);
+            --input-bg: rgba(0, 229, 255, 0.06);
+            --input-border: rgba(0, 229, 255, 0.2);
+            --border-subtle: rgba(255,255,255,.04);
+            --overlay-bg: rgba(8,12,26,.88);
+            --strength-bg: rgba(255,255,255,.05);
         }
-    </style>
 
-</head>
-
-<body data-theme="light" class="font-nunito">
-
-    <div id="wrapper" class="theme-cyan">
-
-        <!-- Page Loader -->
-        <div class="page-loader-wrapper">
-            <div class="loader">
-                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
-
-                </div>
-                <p>Please wait...</p>
-            </div>
-        </div>
-
-
-
-        {% include 'navbar.html' %}
-
-        <!-- main left menu -->
-        {% include 'left.html' %}
-        <!-- rightbar icon div -->
-        {% include 'right.html' %}
-
-
-        <!-- mani page content body part -->
-
-        <div id="main-content">
-
-            <div class="container-fluid">
-                <div class="block-header">
-                    <div class="row">
-                        <div class="col-lg-10 col-md-6 col-sm-12">
-                            <h2>Edit/Add Websites</h2>
-                            <ul class="breadcrumb">
-                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
-                                </li>
-                                <li class="breadcrumb-item">Dashboard</li>
-                                <li class="breadcrumb-item">Edit/Add Websites</li>
-
-                            </ul>
-                        </div>
-
-
-
-
-                    </div>
-                </div>
-
-
-                <div class="row clearfix">
-                    <div class="col-lg-12">
-
-                        <div class="">
-                            <div class="header">
-                                <h2>Edit/Add Users </h2>
-
-                                <form class="navbar-form search-form" style="margin: 20px;">
-                                    <input id="searchInput" class="form-control" onkeyup="searchTable();"
-                                        placeholder="Search here..." type="text">
-                                    <button type="button" class="btn btn-default"><i
-                                            class="icon-magnifier"></i></button>
-                                </form>
-                            </div>
-
-                            <div class="body p-2">
-                                <div class="table-responsive">
-                                    <table class="table table-hover mb-0 c_list p-2">
-                                        <thead>
-                                            <tr>
-                                                <th>UserName</th>
-
-                                                <th>Primary Domain</th>
-                                                <th>Email</th>
-                                                <th>View</th>
-                                                <th> Package</th>
-                                                <th> Password</th>
-                                                <th>Suspend</th>
-                                                <th>Delete</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="domainTableBody">
-                                            {% for i in domain %}
-                                            <tr>
-
-                                                <td>
-
-                                                    <p class="c_name">{{i.username}}</p>
-                                                </td>
-
-                                                <td>
-
-                                                    <p class="c_name">{{i.domain}}</p>
-                                                </td>
-                                                <td>
-                                                    <span class="phone"><i
-                                                            class="zmdi zmdi-phone m-r-10"></i>{{i.email}}</span>
-                                                </td>
-                                                <td>
-                                                    <a target="_blank" href="/loginuser/?user={{i.username}}"><button
-                                                            class="btn btn-success">Login as User <i
-                                                                class="fa fa-eye"></i></button></a>
-                                                </td>
-
-                                                <td>
-                                                    <button onclick="chpackage('{{i.username}}');"
-                                                             class="btn btn-secondary">Change</button>
-                                                 </td>
-
-                                                <td>
-                                                   <button onclick="chpass('{{i.username}}');"
-                                                            class="btn btn-secondary">Change</button>
-                                                </td>
-                                                <td>
-
-
-                                              
-                                        
-
-                                              
-                                                    {% if i.status %}
-
-                                                    <button type="button" onclick="suspend('{{i.domain}}');"
-                                                        class="btn btn-warning js-sweetalert"
-                                                        title="Suspend">Suspend</i></button>
-                                                    {% else %}
-                                                    <a href="/unsuspend/{{i.domain}}/">
-                                                        <button type="button" data-type="confirm"
-                                                            class="btn btn-warning js-sweetalert"
-                                                            title="Suspend">Un-Suspend</i></button></a>
-                                                    {% endif %}
-
-                                                 
-                                                </td>
-
-                                                <td>
-
-                                              
-                                                    
-
-                                            
-
-
-
-                                                    <button type="button" onclick="terminate('{{i.domain}}');"
-                                                        class="btn btn-danger js-sweetalert" title="Delete">Terminate <i
-                                                            class="fa fa-trash-o"></i></button>
-                                                        
-
-                                                </td>
-                                            </tr>
-                                            {% endfor %}
-
-
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-
-
-                </div>
-
-
-
-
-
-
-
-
-
-
-
-            </div>
-
-        </div>
-
-
-
-
-
-
-
-
-
-
-
-
-
+        body { font-family: 'Inter', sans-serif; background: var(--body-bg) !important; color: var(--text-main); }
+
+        /* Page header */
+        .page-header { padding: 28px 0 16px; }
+        .page-header h2 { font-size:1.5rem; font-weight:700; color:var(--text-main); margin-bottom:4px; }
+        .page-header .breadcrumb { background:transparent; padding:0; margin:0; }
+        .page-header .breadcrumb-item, .page-header .breadcrumb-item a { font-size:.8rem; color:var(--text-dim); }
+        .page-header .breadcrumb-item.active { color:var(--neon); }
+        .page-header .breadcrumb-item+.breadcrumb-item::before { color:var(--text-dim); }
+
+        /* Stats row */
+        .stats-row { display:flex; gap:16px; margin-bottom:24px; flex-wrap:wrap; }
+        .stat-card {
+            flex:1; min-width:140px;
+            background:var(--glass-bg);
+            border:1px solid var(--glass-border);
+            border-radius:14px;
+            padding:18px 20px;
+            display:flex; align-items:center; gap:14px;
+        }
+        .stat-icon {
+            width:42px; height:42px; border-radius:10px;
+            display:flex; align-items:center; justify-content:center;
+            font-size:1.1rem;
+        }
+        .stat-icon.cyan   { background:rgba(0,229,255,.12); color:var(--neon); border:1px solid rgba(0,229,255,.2); }
+        .stat-icon.purple { background:rgba(168,85,247,.12); color:#a855f7; border:1px solid rgba(168,85,247,.2); }
+        .stat-icon.green  { background:rgba(34,197,94,.12); color:#22c55e; border:1px solid rgba(34,197,94,.2); }
+        .stat-icon.amber  { background:rgba(245,158,11,.12); color:#f59e0b; border:1px solid rgba(245,158,11,.2); }
         
-        <div class="modal animated fadeIn show" id="chpass" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Change Password</h6>
+        html[data-theme="light"] .stat-icon.cyan { background: rgba(79, 70, 229, 0.1); color: var(--neon); border-color: rgba(79, 70, 229, 0.2); }
+        html[data-theme="light"] .stat-icon.purple { background: rgba(124, 58, 237, 0.1); color: var(--neon-purple); border-color: rgba(124, 58, 237, 0.2); }
+
+        .stat-val { font-size:1.5rem; font-weight:700; color:var(--text-main); line-height:1; }
+        .stat-lbl { font-size:.72rem; color:var(--text-dim); margin-top:3px; }
+
+        /* Glass table card */
+        .glass-card {
+            background:var(--glass-bg);
+            border:1px solid var(--glass-border);
+            border-radius:18px;
+            overflow:hidden;
+        }
+        .card-toolbar {
+            display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;
+            padding:20px 24px;
+            border-bottom:1px solid var(--border-subtle);
+        }
+        .card-toolbar-title { font-size:1rem; font-weight:600; color:var(--text-main); }
+        .search-wrap { position:relative; }
+        .search-wrap i { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--neon); opacity:0.6; font-size:.82rem; }
+        .search-wrap input {
+            background:var(--input-bg); border:1px solid var(--input-border);
+            border-radius:10px; color:var(--text-main); font-size:.84rem;
+            padding:8px 14px 8px 34px; outline:none; width:230px;
+            font-family:'Inter',sans-serif;
+            transition:border-color .2s, box-shadow .2s;
+        }
+        .search-wrap input::placeholder { color:rgba(150,170,210,.4); }
+        .search-wrap input:focus { border-color:var(--neon); box-shadow:0 0 0 3px rgba(0,229,255,.1); }
+
+        .btn-add {
+            display:inline-flex; align-items:center; gap:7px;
+            background:linear-gradient(135deg,var(--neon),var(--neon-purple));
+            color:#fff; border:none; border-radius:10px;
+            padding:8px 18px; font-size:.83rem; font-weight:600;
+            text-decoration:none; cursor:pointer; transition:opacity .2s;
+        }
+        .btn-add:hover { opacity:.85; color:#fff; }
+
+        /* Table */
+        .users-table { width:100%; border-collapse:collapse; }
+        .users-table thead th {
+            padding:12px 20px;
+            font-size:.72rem; font-weight:600; letter-spacing:1px; text-transform:uppercase;
+            color:var(--text-dim);
+            border-bottom:1px solid var(--border-subtle);
+            background:var(--strength-bg);
+        }
+        .users-table tbody tr {
+            border-bottom:1px solid var(--border-subtle);
+            transition:background .18s;
+        }
+        .users-table tbody tr:hover { background:var(--row-hover); }
+        .users-table tbody tr:last-child { border-bottom:none; }
+        .users-table td { padding:14px 20px; vertical-align:middle; }
+
+        /* User cell */
+        .user-cell { display:flex; align-items:center; gap:12px; }
+        .user-avatar {
+            width:36px; height:36px; border-radius:9px;
+            background:linear-gradient(135deg,rgba(0,229,255,.2),rgba(168,85,247,.2));
+            border:1px solid rgba(0,229,255,.2);
+            display:flex; align-items:center; justify-content:center;
+            font-size:.85rem; font-weight:700; color:var(--neon);
+            flex-shrink:0;
+        }
+        html[data-theme="light"] .user-avatar {
+            background:linear-gradient(135deg,rgba(79,70,229,.2),rgba(124,58,237,.2));
+            border-color:rgba(79,70,229,.2);
+            color:var(--neon);
+        }
+        .user-name { font-size:.88rem; font-weight:600; color:var(--text-main); }
+        .user-domain { font-size:.74rem; color:var(--text-dim); margin-top:1px; }
+
+        .email-cell { font-size:.82rem; color:var(--text-dim); }
+
+        /* Status badge */
+        .status-badge {
+            display:inline-flex; align-items:center; gap:5px;
+            padding:3px 10px; border-radius:999px; font-size:.72rem; font-weight:500;
+        }
+        .status-badge.active { background:rgba(34,197,94,.12); color:#22c55e; border:1px solid rgba(34,197,94,.2); }
+        .status-badge.suspended { background:rgba(245,158,11,.12); color:#f59e0b; border:1px solid rgba(245,158,11,.2); }
+        .status-badge .dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
+
+        /* Action buttons */
+        .action-wrap { display:flex; gap:7px; flex-wrap:wrap; }
+        .act-btn {
+            display:inline-flex; align-items:center; gap:5px;
+            padding:5px 11px; border-radius:8px; font-size:.74rem; font-weight:500;
+            border:1px solid; cursor:pointer; transition:all .18s; text-decoration:none;
+            background:transparent;
+        }
+        .act-btn.view  { color:#22c55e; border-color:rgba(34,197,94,.3); }
+        .act-btn.view:hover { background:rgba(34,197,94,.1); color:#22c55e; }
+        .act-btn.pkg   { color:var(--neon); border-color:var(--glass-border); }
+        .act-btn.pkg:hover { background:var(--strength-bg); }
+        .act-btn.pass  { color:var(--neon-purple); border-color:var(--glass-border); }
+        .act-btn.pass:hover { background:var(--strength-bg); }
+        .act-btn.susp  { color:#f59e0b; border-color:rgba(245,158,11,.3); }
+        .act-btn.susp:hover { background:rgba(245,158,11,.1); }
+        .act-btn.del   { color:#ef4444; border-color:rgba(239,68,68,.3); }
+        .act-btn.del:hover { background:rgba(239,68,68,.1); color:#ef4444; }
+        .act-btn.term  { color:var(--neon-purple); border-color:var(--glass-border); }
+        .act-btn.term:hover { background:var(--strength-bg); }
+        .act-btn.reseller { color:#f59e0b; border-color:rgba(245,158,11,.3); }
+        .act-btn.reseller:hover { background:rgba(245,158,11,.1); }
+        .act-btn.demote   { color:#ef4444; border-color:rgba(239,68,68,.3); font-size:.7rem; padding:3px 8px; }
+        .act-btn.demote:hover { background:rgba(239,68,68,.1); }
+        .reseller-badge {
+            display:inline-flex; align-items:center; gap:4px;
+            padding:2px 9px; border-radius:999px; font-size:.68rem; font-weight:600;
+            background:rgba(245,158,11,.12); color:#f59e0b; border:1px solid rgba(245,158,11,.25);
+        }
+
+        /* Empty state */
+        .empty-state { text-align:center; padding:60px 20px; color:var(--text-dim); }
+        .empty-state i { font-size:2.5rem; color:var(--neon); opacity:0.3; margin-bottom:14px; display:block; }
+        .empty-state p { font-size:.9rem; }
+
+        /* ── Overlay modals ───────────────────────── */
+        .modal-overlay {
+            display:none; position:fixed; inset:0;
+            background:var(--overlay-bg); backdrop-filter:blur(10px);
+            z-index:9999; align-items:center; justify-content:center;
+        }
+        .modal-overlay.show { display:flex; }
+        .modal-glass {
+            background:var(--glass-bg); border:1px solid var(--glass-border);
+            border-radius:20px; padding:32px 36px; width:100%; max-width:420px;
+            animation:popIn .22s ease;
+        }
+        @keyframes popIn { from{transform:scale(.92);opacity:0} to{transform:scale(1);opacity:1} }
+        .modal-head { display:flex; align-items:center; gap:12px; margin-bottom:24px; }
+        .modal-head-icon {
+            width:40px; height:40px; border-radius:10px;
+            display:flex; align-items:center; justify-content:center; font-size:1rem;
+        }
+        .modal-head-icon.cyan   { background:rgba(0,229,255,.15); color:var(--neon); border:1px solid rgba(0,229,255,.2); }
+        .modal-head-icon.purple { background:rgba(168,85,247,.15); color:var(--neon-purple); border:1px solid rgba(168,85,247,.2); }
+        .modal-head-icon.amber  { background:rgba(245,158,11,.15); color:#f59e0b; border:1px solid rgba(245,158,11,.2); }
+        .modal-head-icon.red    { background:rgba(239,68,68,.15); color:#ef4444; border:1px solid rgba(239,68,68,.2); }
+        
+        html[data-theme="light"] .modal-head-icon.cyan { background:rgba(79,70,229,.15); color:var(--neon); border-color:rgba(79,70,229,.2); }
+        html[data-theme="light"] .modal-head-icon.purple { background:rgba(124,58,237,.15); color:var(--neon-purple); border-color:rgba(124,58,237,.2); }
+
+        .modal-title { font-size:1rem; font-weight:600; color:var(--text-main); }
+        .modal-sub   { font-size:.76rem; color:var(--text-dim); margin-top:2px; }
+
+        .modal-field { margin-bottom:16px; }
+        .modal-field label { display:block; font-size:.76rem; color:var(--text-dim); margin-bottom:6px; font-weight:500; }
+        .modal-field input,
+        .modal-field select {
+            width:100%; background:var(--input-bg); border:1px solid var(--input-border);
+            border-radius:9px; color:var(--text-main); font-size:.86rem; padding:10px 14px;
+            outline:none; font-family:'Inter',sans-serif; transition:border-color .2s;
+            -webkit-appearance:none; appearance:none;
+        }
+        .modal-field input:focus,
+        .modal-field select:focus { border-color:var(--neon); box-shadow:0 0 0 3px rgba(0,229,255,.1); }
+        .modal-field select option { background:var(--body-bg); color:var(--text-main); }
+
+        .modal-warn {
+            background:rgba(239,68,68,.07); border:1px solid rgba(239,68,68,.2);
+            border-radius:10px; padding:12px 16px; font-size:.8rem; color:#fca5a5;
+            margin-bottom:20px; display:flex; align-items:center; gap:9px;
+        }
+        html[data-theme="light"] .modal-warn { background: rgba(239,68,68, 0.04); color: #dc2626; border-color: rgba(239,68,68, 0.15); }
+        .modal-warn i { color:#ef4444; flex-shrink:0; }
+
+        .modal-footer-btns { display:flex; gap:10px; margin-top:22px; }
+        .btn-modal-cancel {
+            flex:1; padding:10px; border-radius:10px;
+            background:var(--strength-bg); border:1px solid var(--border-subtle);
+            color:var(--text-main); font-size:.84rem; cursor:pointer; transition:background .2s;
+        }
+        .btn-modal-cancel:hover { background:rgba(255,255,255,.1); }
+        html[data-theme="light"] .btn-modal-cancel:hover { background: rgba(0,0,0,0.05); }
+
+        .btn-modal-confirm {
+            flex:1; padding:10px; border-radius:10px; border:none;
+            font-size:.84rem; font-weight:600; cursor:pointer; color:#fff;
+            transition:opacity .2s;
+        }
+        .btn-modal-confirm:hover { opacity:.82; }
+        .btn-modal-confirm.cyan   { background:linear-gradient(135deg,var(--neon),#0ea5e9); }
+        .btn-modal-confirm.purple { background:linear-gradient(135deg,var(--neon-purple),#8b5cf6); }
+        .btn-modal-confirm.amber  { background:linear-gradient(135deg,#f59e0b,#d97706); }
+        .btn-modal-confirm.red    { background:linear-gradient(135deg,#ef4444,#dc2626); }
+
+        /* Result overlay */
+        .result-overlay {
+            display:none; position:fixed; inset:0;
+            background:var(--overlay-bg); backdrop-filter:blur(10px);
+            z-index:10000; align-items:center; justify-content:center;
+        }
+        .result-overlay.show { display:flex; }
+        .result-glass {
+            background:var(--glass-bg); border:1px solid var(--glass-border);
+            border-radius:20px; padding:36px 40px; text-align:center; max-width:340px;
+            animation:popIn .22s ease;
+        }
+        .result-icon { font-size:2.6rem; margin-bottom:14px; }
+        .result-msg  { font-size:.9rem; color:var(--text-main); margin-bottom:20px; line-height:1.6; }
+        .btn-result-close {
+            background:var(--strength-bg); border:1px solid var(--border-subtle);
+            color:var(--text-main); border-radius:999px; padding:9px 28px;
+            font-size:.84rem; cursor:pointer; transition:background .2s;
+        }
+        .btn-result-close:hover { background:rgba(255,255,255,.12); }
+        html[data-theme="light"] .btn-result-close:hover { background: rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body class="font-nunito active-dark-mode">
+<script>
+    document.body.setAttribute('data-theme', localStorage.getItem('vp-theme') || 'dark');
+</script>
+<div id="wrapper" class="theme-cyan">
+
+    <!-- Page Loader -->
+        <div class="page-loader-wrapper" style="background: var(--void-bg, #080c14) !important;">
+        <div class="loader">
+            <div class="m-t-30" style="display: flex; justify-content: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="130" height="30" viewBox="0 0 180 40" role="img" aria-label="VoidPanel">
+                  <rect x="0" y="4" width="34" height="34" rx="8" ry="8" fill="rgba(255,255,255,0.12)"/>
+                  <rect x="7" y="13" width="20" height="4" rx="1.5" fill="#ffffff" opacity="0.9"/>
+                  <rect x="7" y="19.5" width="14" height="4" rx="1.5" fill="#ffffff" opacity="0.65"/>
+                  <rect x="7" y="26" width="10" height="4" rx="1.5" fill="#60a5fa" opacity="0.95"/>
+                  <text x="43" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#ffffff">Void</text>
+                  <text x="91" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#60a5fa">Panel</text>
+                </svg>
+            </div>
+            <div class="loading-bar-container">
+                <div class="loading-bar"></div>
+            </div>
+            <p style="color: var(--text-secondary, #475569) !important;">Please wait...</p>
+        </div>
+    </div>
+
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
+
+    <div id="main-content">
+        <div class="container-fluid">
+
+            <!-- Header -->
+            <div class="page-header">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <h2>User Management</h2>
+                        <ul class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="/panel/"><i class="fa fa-home"></i></a></li>
+                            <li class="breadcrumb-item">Dashboard</li>
+                            <li class="breadcrumb-item active">Users</li>
+                        </ul>
                     </div>
-
-                    <div class="modal-body">
-                        <div class="col-md-12 col-sm-12">
-                            <div id="statusemail" style="text-align: center;" >
-                                <p >Change Password For</p>
-                                <strong style="margin-left: 10px;" class="title" id="domaindata"></strong>
-
-                                <form id="chpassform" method="post" action="">{% csrf_token %}
-                                    <input type="password" name="password" id="myInput" class="form-control" placeholder="Password" required="">
-                                
-                                <input type="text" hidden id="domaindata69" value="" required name="user">
-                               
-
-                            </form>
-
-
-                            </div>
-                        </div>
-                        <div style="margin-top: 10px;" class="modal-footer">
-                             <button onclick="chpassuser(event);" class="btn btn-danger">Confirm
-                                    Change</button>
-                            
-                            <button id="addemailbtn" onclick="closeterminate();" class="btn btn-success">Close</button>
-
-                        </div>
-
-
-                    </div>
-
+                    <a href="/adduser/" class="btn-add">
+                        <i class="fa fa-user-plus"></i> Add New User
+                    </a>
                 </div>
             </div>
-        </div>
 
-
-        <div class="modal animated fadeIn show" id="chpackage" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Change Package(<strong style="margin-left: 10px;"  id="domaindata1"></strong>)</h6>
+            <!-- Stats -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon cyan"><i class="fa fa-users"></i></div>
+                    <div>
+                        <div class="stat-val" id="totalCount">{{ domain|length }}</div>
+                        <div class="stat-lbl">Total Users</div>
                     </div>
-
-                    <div class="modal-body">
-                        <div class="col-lg-12 col-md-12 col-sm-12">
-                            <div id="statusemail" style="text-align: center;">
-                        
-                           
-
-
-                                <form id="chpackageform" method="post" action="">{% csrf_token %}
-                                    <select  name="package"  class="form-control"  required="">
-                                        {% for i in package %}
-                                        <option value="{{i.name}}">{{i.name}}</option>
-                                        {% endfor %}
-                                    </select>
-                                
-                                <input type="text" hidden id="domaindata68" value="" required name="user">
-                               
-
-                            </form>
-
-
-                            </div>
-                        </div>
-                        <div style="margin-top: 10px;" class="modal-footer">
-                         <button onclick="chpackageuser(event);" class="btn btn-danger">Confirm
-                                    Change</button>
-                           
-                            <button id="addemailbtn" onclick="closeterminate1();" class="btn btn-success">Close</button>
-
-                        </div>
-
-
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green"><i class="fa fa-check-circle"></i></div>
+                    <div>
+                        <div class="stat-val" id="activeCount">—</div>
+                        <div class="stat-lbl">Active</div>
                     </div>
-
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon amber"><i class="fa fa-pause-circle"></i></div>
+                    <div>
+                        <div class="stat-val" id="suspendedCount">—</div>
+                        <div class="stat-lbl">Suspended</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon purple"><i class="fa fa-cube"></i></div>
+                    <div>
+                        <div class="stat-val">{{ package|length }}</div>
+                        <div class="stat-lbl">Packages</div>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <div class="modal animated fadeIn show" id="suspend34" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Suspend</h6>
+            <!-- Table card -->
+            <div class="glass-card">
+                <div class="card-toolbar">
+                    {% if is_reseller_filter %}
+                    <div class="card-toolbar-title"><i class="fa fa-crown" style="color:#f59e0b;margin-right:8px;"></i>Reseller Accounts</div>
+                    {% else %}
+                    <div class="card-toolbar-title"><i class="fa fa-users" style="color:var(--neon);margin-right:8px;"></i>All Users</div>
+                    {% endif %}
+                    <div class="search-wrap">
+                        <i class="fa fa-search"></i>
+                        <input id="searchInput" onkeyup="searchTable();" placeholder="Search user or domain…" type="text">
                     </div>
+                </div>
 
-                    <div class="modal-body">
-                        <div class="col-md-12 col-sm-12">
-                            <div id="statusemail" style="text-align: center;" class="row clearfix">
-                                <p>Are You Sure you want to Suspend </p>
-                                <p id="domaindata134"></p>
+                <div class="table-responsive">
+                    {% if is_reseller_filter %}
+                    <!-- ── Reseller Accounts Table ── -->
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>Reseller</th>
+                                <th>Email</th>
+                                <th>Company</th>
+                                <th>Storage Pool</th>
+                                <th>Max Accounts</th>
+                                <th>Status</th>
+                                <th>Quick Login</th>
+                            </tr>
+                        </thead>
+                        <tbody id="domainTableBody">
+                            {% for r in resellers %}
+                            <tr data-status="{% if r.is_active %}active{% else %}suspended{% endif %}">
+                                <td>
+                                    <div class="user-cell">
+                                        <div class="user-avatar" style="background:linear-gradient(135deg,rgba(245,158,11,.2),rgba(168,85,247,.2));border-color:rgba(245,158,11,.2);color:#f59e0b;">{{ r.username|slice:":1"|upper }}</div>
+                                        <div>
+                                            <div class="user-name c_name">{{ r.username }}</div>
+                                            <div class="user-domain"><i class="fa fa-crown" style="font-size:.6rem;color:#f59e0b;margin-right:3px;"></i>Reseller</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span class="email-cell">{{ r.email }}</span></td>
+                                <td><span style="color:var(--text-main);font-size:.84rem;">{{ r.company_name }}</span></td>
+                                <td><span style="color:var(--neon);font-weight:600;">{{ r.storage_gb }} GB</span></td>
+                                <td><span style="color:#a855f7;font-weight:600;">{{ r.max_accounts }}</span></td>
+                                <td>
+                                    {% if r.is_active %}
+                                    <span class="status-badge active"><span class="dot"></span>Active</span>
+                                    {% else %}
+                                    <span class="status-badge suspended"><span class="dot"></span>Suspended</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="/loginuser/?user={{ r.username }}" target="_blank" class="act-btn view">
+                                        <i class="fa fa-sign-in"></i> Login
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="7">
+                                <div class="empty-state">
+                                    <i class="fa fa-crown"></i>
+                                    <p>No reseller accounts found. Provision a reseller from the billing website or promote a user.</p>
+                                </div>
+                            </td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
 
-
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <a id="newone34"> <button class="btn btn-danger">Confirm Suspend</button>
-                            </a>
-                            <button id="addemailbtn" onclick="closesuspend34();" class="btn btn-success">Close</button>
-
-                        </div>
-
-
-                    </div>
-
+                    {% else %}
+                    <!-- ── Regular Users Table ── -->
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Email</th>
+                                <th>Status</th>
+                                <th>Quick Login</th>
+                                <th>Activity</th>
+                                <th>Package</th>
+                                <th>Password</th>
+                                <th>Shell</th>
+                                <th>Reseller</th>
+                                <th>Suspend</th>
+                                <th>Terminate</th>
+                            </tr>
+                        </thead>
+                        <tbody id="domainTableBody">
+                            {% for i in domain %}
+                            <tr data-status="{% if i.status %}active{% else %}suspended{% endif %}">
+                                <td>
+                                    <div class="user-cell">
+                                        <div class="user-avatar">{{ i.username|slice:":1"|upper }}</div>
+                                        <div>
+                                            <div class="user-name c_name">{{ i.username }}</div>
+                                            <div class="user-domain">{{ i.domain }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span class="email-cell">{{ i.email }}</span></td>
+                                <td>
+                                    {% if i.status %}
+                                    <span class="status-badge active"><span class="dot"></span>Active</span>
+                                    {% else %}
+                                    <span class="status-badge suspended"><span class="dot"></span>Suspended</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="/loginuser/?user={{ i.username }}" target="_blank" class="act-btn view">
+                                        <i class="fa fa-sign-in"></i> Login
+                                    </a>
+                                </td>
+                                <td>
+                                    <a href="/activitylog/?domain={{ i.domain }}" class="act-btn" style="color:#a855f7; border-color:rgba(168,85,247,.3);">
+                                        <i class="fa fa-list-ul"></i> Logs
+                                    </a>
+                                </td>
+                                <td>
+                                    <button onclick="openChpackage('{{ i.username }}');" class="act-btn pkg">
+                                        <i class="fa fa-cube"></i> Change
+                                    </button>
+                                </td>
+                                <td>
+                                    <button onclick="openChpass('{{ i.username }}');" class="act-btn pass">
+                                        <i class="fa fa-key"></i> Change
+                                    </button>
+                                </td>
+                                <td>
+                                    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                                        {% if i.shell %}
+                                        <a href="/user-terminal/{{ i.username }}/" target="_blank" class="act-btn" style="color:#a855f7;border-color:rgba(168,85,247,.3);">
+                                            <i class="fa fa-terminal"></i> Open
+                                        </a>
+                                        <button onclick="openShellToggle('{{ i.username }}', true)" class="act-btn" style="color:#ef4444;border-color:rgba(239,68,68,.3);font-size:.68rem;padding:3px 8px;">
+                                            <i class="fa fa-times"></i> Revoke
+                                        </button>
+                                        {% else %}
+                                        <button onclick="openShellToggle('{{ i.username }}', false)" class="act-btn" style="color:#22c55e;border-color:rgba(34,197,94,.3);">
+                                            <i class="fa fa-terminal"></i> Enable Shell
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                                        {% if i.has_reseller_profile %}
+                                        <span class="reseller-badge"><i class="fa fa-star" style="font-size:.6rem;"></i> Reseller</span>
+                                        <button onclick="openDemote('{{ i.username }}')" class="act-btn demote">
+                                            <i class="fa fa-times"></i> Demote
+                                        </button>
+                                        {% else %}
+                                        <button onclick="openPromote('{{ i.username }}')" class="act-btn reseller">
+                                            <i class="fa fa-arrow-up"></i> Make Reseller
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if i.status %}
+                                    <button onclick="openSuspend('{{ i.domain }}');" class="act-btn susp">
+                                        <i class="fa fa-pause"></i> Suspend
+                                    </button>
+                                    {% else %}
+                                    <a href="/unsuspend/{{ i.domain }}/" class="act-btn view">
+                                        <i class="fa fa-play"></i> Unsuspend
+                                    </a>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button onclick="openTerminate('{{ i.domain }}');" class="act-btn del">
+                                        <i class="fa fa-trash-o"></i> Delete
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="11">
+                                <div class="empty-state">
+                                    <i class="fa fa-users"></i>
+                                    <p>No users found. <a href="/adduser/" style="color:var(--neon);">Add your first user →</a></p>
+                                </div>
+                            </td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% endif %}
                 </div>
             </div>
+
         </div>
+    </div>
+</div><!-- /#wrapper -->
 
-        <div class="modal animated fadeIn show" id="terminate34" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Terminate</h6>
-                    </div>
-
-                    <div class="modal-body">
-                        <div class="col-md-12 col-sm-12">
-                            <div id="statusemail" style="text-align: center;" class="row clearfix">
-                                <p>Are You Sure you want to terminate </p>
-                                <p id="domaindata3434"></p>
-
-
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <a id="rohan34" href="/terminate/{{domain}}"> <button class="btn btn-danger">Confirm
-                                    Terminate</button>
-                            </a>
-                            <button id="addemailbtn" onclick="closeterminate34();" class="btn btn-success">Close</button>
-
-                        </div>
-
-
-                    </div>
-
-                </div>
+<!-- ── Change Password Modal ── -->
+<div class="modal-overlay" id="modal-chpass">
+    <div class="modal-glass">
+        <div class="modal-head">
+            <div class="modal-head-icon purple"><i class="fa fa-key"></i></div>
+            <div>
+                <div class="modal-title">Change Password</div>
+                <div class="modal-sub">User: <strong id="chpass-username" style="color:#a855f7;"></strong></div>
             </div>
         </div>
-        <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Status</h6>
-                    </div>
+        <div class="modal-field">
+            <label>New Password</label>
+            <input type="password" id="chpass-input" placeholder="Enter new password" required>
+        </div>
+        <input type="hidden" id="chpass-user">
+        <form id="chpassform" style="display:none">{% csrf_token %}</form>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-chpass')">Cancel</button>
+            <button class="btn-modal-confirm purple" onclick="submitChpass()">
+                <i class="fa fa-check" style="margin-right:6px;"></i>Confirm Change
+            </button>
+        </div>
+    </div>
+</div>
 
-                    <div class="modal-body">
-                        <div class="col-md-12 col-sm-12">
-                            <div id="statusemail" style="text-align: center;" class="row clearfix">
-
-
-
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button  onclick="closeelol();"
-                                class="btn btn-danger">Close</button>
-                        </div>
-                    </div>
-
-                </div>
+<!-- ── Change Package Modal ── -->
+<div class="modal-overlay" id="modal-chpackage">
+    <div class="modal-glass">
+        <div class="modal-head">
+            <div class="modal-head-icon cyan"><i class="fa fa-cube"></i></div>
+            <div>
+                <div class="modal-title">Change Package</div>
+                <div class="modal-sub">User: <strong id="chpkg-username" style="color:var(--neon);"></strong></div>
             </div>
         </div>
+        <div class="modal-field">
+            <label>Select New Package</label>
+            <select id="chpkg-select" name="package">
+                {% for i in package %}
+                <option value="{{ i.name }}">{{ i.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <input type="hidden" id="chpkg-user">
+        <form id="chpackageform" style="display:none">{% csrf_token %}</form>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-chpackage')">Cancel</button>
+            <button class="btn-modal-confirm cyan" onclick="submitChpackage()">
+                <i class="fa fa-check" style="margin-right:6px;"></i>Update Package
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Suspend Modal ── -->
+<div class="modal-overlay" id="modal-suspend">
+    <div class="modal-glass">
+        <div class="modal-head">
+            <div class="modal-head-icon amber"><i class="fa fa-pause-circle"></i></div>
+            <div>
+                <div class="modal-title">Suspend Account</div>
+                <div class="modal-sub">This will disable the website immediately</div>
+            </div>
+        </div>
+        <div class="modal-warn">
+            <i class="fa fa-exclamation-triangle"></i>
+            Are you sure you want to suspend <strong id="susp-domain"></strong>? The site will go offline.
+        </div>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-suspend')">Cancel</button>
+            <a id="susp-link" href="#" class="btn-modal-confirm amber" style="text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;">
+                <i class="fa fa-pause"></i>Confirm Suspend
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- ── Terminate Modal ── -->
+<div class="modal-overlay" id="modal-terminate">
+    <div class="modal-glass">
+        <div class="modal-head">
+            <div class="modal-head-icon red"><i class="fa fa-trash-o"></i></div>
+            <div>
+                <div class="modal-title">Terminate Account</div>
+                <div class="modal-sub">This action is permanent and cannot be undone</div>
+            </div>
+        </div>
+        <div class="modal-warn">
+            <i class="fa fa-exclamation-triangle"></i>
+            Terminating <strong id="term-domain"></strong> will permanently delete all files, databases, emails, and DNS records.
+        </div>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-terminate')">Cancel</button>
+            <a id="term-link" href="#" class="btn-modal-confirm red" style="text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;">
+                <i class="fa fa-trash-o"></i>Confirm Terminate
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- ── Shell Toggle Modal ── -->
+<div class="modal-overlay" id="modal-shell">
+    <div class="modal-glass">
+        <div class="modal-head">
+            <div class="modal-head-icon purple"><i class="fa fa-terminal"></i></div>
+            <div>
+                <div class="modal-title" id="shell-modal-title">Enable Shell Access</div>
+                <div class="modal-sub">User: <strong id="shell-username" style="color:#a855f7;"></strong></div>
+            </div>
+        </div>
+        <div class="modal-warn" id="shell-modal-warn">
+            <i class="fa fa-exclamation-triangle"></i>
+            <span id="shell-modal-msg">Granting shell access allows this user to run terminal commands inside their home directory via system bash (/bin/bash).</span>
+        </div>
+        <input type="hidden" id="shell-user">
+        <input type="hidden" id="shell-current-state">
+        <form id="shellform" style="display:none">{% csrf_token %}</form>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-shell')">Cancel</button>
+            <button class="btn-modal-confirm" id="shell-confirm-btn" onclick="submitShellToggle()" style="background:linear-gradient(135deg,#a855f7,#8b5cf6);">
+                <i class="fa fa-check" style="margin-right:6px;"></i><span id="shell-confirm-label">Enable Shell</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Promote to Reseller Modal ── -->
+<div class="modal-overlay" id="modal-reseller">
+    <div class="modal-glass" style="max-width:460px;">
+        <div class="modal-head">
+            <div class="modal-head-icon amber"><i class="fa fa-star"></i></div>
+            <div>
+                <div class="modal-title" id="reseller-modal-title">Promote to Reseller</div>
+                <div class="modal-sub">User: <strong id="reseller-username-display" style="color:#f59e0b;"></strong></div>
+            </div>
+        </div>
+        <div class="modal-field">
+            <label>Storage Quota (GB)</label>
+            <input type="number" id="reseller-storage" value="50" min="1" max="10000" placeholder="e.g. 50">
+        </div>
+        <div class="modal-field">
+            <label>Max Sub-Accounts</label>
+            <input type="number" id="reseller-accounts" value="20" min="1" max="1000" placeholder="e.g. 20">
+        </div>
+        <div class="modal-field">
+            <label>Company Name <span style="color:var(--text-dim);font-weight:400;">(optional)</span></label>
+            <input type="text" id="reseller-company" placeholder="e.g. Acme Hosting">
+        </div>
+        <input type="hidden" id="reseller-username">
+        <form id="resellerform" style="display:none">{% csrf_token %}</form>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-reseller')">Cancel</button>
+            <button class="btn-modal-confirm amber" id="reseller-confirm-btn" onclick="submitReseller()">
+                <i class="fa fa-arrow-up" style="margin-right:6px;"></i>
+                <span id="reseller-confirm-label">Promote to Reseller</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Result Modal ── -->
+<div class="result-overlay" id="result-overlay">
+    <div class="result-glass">
+        <div class="result-icon" id="result-icon">✓</div>
+        <div class="result-msg" id="result-msg"></div>
+        <button class="btn-result-close" onclick="closeResult()">Close</button>
+    </div>
+</div>
 
 <script>
-    function closeelol(){
-        document.getElementById('eeee').style.display='none';
+    /* ── Stats calculation ── */
+    (function(){
+        const rows = document.querySelectorAll('#domainTableBody tr[data-status]');
+        let active = 0, suspended = 0;
+        rows.forEach(r => { r.dataset.status === 'active' ? active++ : suspended++; });
+        document.getElementById('activeCount').textContent = active;
+        document.getElementById('suspendedCount').textContent = suspended;
+    })();
+
+    /* ── Search ── */
+    function searchTable() {
+        const q = document.getElementById('searchInput').value.toLowerCase();
+        document.querySelectorAll('#domainTableBody tr[data-status]').forEach(row => {
+            row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
+    }
+
+    /* ── Modal helpers ── */
+    function openModal(id)  { document.getElementById(id).classList.add('show'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+    /* ── Open modals ── */
+    function openChpass(user) {
+        document.getElementById('chpass-username').textContent = user;
+        document.getElementById('chpass-user').value = user;
+        document.getElementById('chpass-input').value = '';
+        openModal('modal-chpass');
+    }
+    function openChpackage(user) {
+        document.getElementById('chpkg-username').textContent = user;
+        document.getElementById('chpkg-user').value = user;
+        openModal('modal-chpackage');
+    }
+    function openSuspend(domain) {
+        document.getElementById('susp-domain').textContent = domain;
+        document.getElementById('susp-link').href = '/suspend/' + domain;
+        openModal('modal-suspend');
+    }
+    function openTerminate(domain) {
+        document.getElementById('term-domain').textContent = domain;
+        document.getElementById('term-link').href = '/terminate/' + domain;
+        openModal('modal-terminate');
+    }
+    function openShellToggle(username, currentlyEnabled) {
+        document.getElementById('shell-username').textContent = username;
+        document.getElementById('shell-user').value = username;
+        document.getElementById('shell-current-state').value = currentlyEnabled ? '1' : '0';
+        if (currentlyEnabled) {
+            document.getElementById('shell-modal-title').textContent = 'Revoke Shell Access';
+            document.getElementById('shell-modal-msg').textContent = 'This will disable terminal access for ' + username + '. Their system shell will be reset to /bin/false.';
+            document.getElementById('shell-confirm-label').textContent = 'Revoke Shell';
+            document.getElementById('shell-confirm-btn').style.background = 'linear-gradient(135deg,#ef4444,#dc2626)';
+        } else {
+            document.getElementById('shell-modal-title').textContent = 'Enable Shell Access';
+            document.getElementById('shell-modal-msg').textContent = 'Granting shell access allows ' + username + ' to run terminal commands inside their home directory via system bash (/bin/bash).';
+            document.getElementById('shell-confirm-label').textContent = 'Enable Shell';
+            document.getElementById('shell-confirm-btn').style.background = 'linear-gradient(135deg,#a855f7,#8b5cf6)';
+        }
+        openModal('modal-shell');
+    }
+    async function submitShellToggle() {
+        const user = document.getElementById('shell-user').value;
+        const enable = document.getElementById('shell-current-state').value === '0';
+        closeModal('modal-shell');
+        const csrf = document.querySelector('#shellform [name=csrfmiddlewaretoken]').value;
+        const fd = new FormData();
+        fd.append('username', user);
+        fd.append('enable', enable ? '1' : '0');
+        try {
+            const res = await fetch('/api/toggle-shell/', { method: 'POST', body: fd, headers: { 'X-CSRFToken': csrf } });
+            const data = await res.json();
+            if (data.status === 'success') {
+                showResult('✓', '#22c55e', enable ? 'Shell access enabled for ' + user + '. Refresh to see the terminal button.' : 'Shell access revoked for ' + user + '.');
+                setTimeout(() => location.reload(), 1800);
+            } else {
+                showResult('✕', '#ef4444', data.message || 'Failed to update shell access.');
+            }
+        } catch(e) {
+            showResult('✕', '#ef4444', 'Network error. Please try again.');
+        }
+    }
+
+    /* ── Result overlay ── */
+    function showResult(icon, iconClass, msg) {
+        const el = document.getElementById('result-icon');
+        el.textContent = icon; el.style.color = iconClass;
+        document.getElementById('result-msg').textContent = msg;
+        openModal('result-overlay');
+    }
+    function closeResult() { closeModal('result-overlay'); }
+
+    /* ── Submit change password ── */
+    async function submitChpass() {
+        const user = document.getElementById('chpass-user').value;
+        const pass = document.getElementById('chpass-input').value;
+        if (!pass) return;
+        closeModal('modal-chpass');
+        const csrf = document.querySelector('#chpassform [name=csrfmiddlewaretoken]').value;
+        const fd = new FormData();
+        fd.append('user', user); fd.append('password', pass);
+        try {
+            const res = await fetch('/chpassuser/', { method:'POST', body:fd, headers:{'X-CSRFToken':csrf} });
+            const data = await res.json();
+            if (data.status === 'success') showResult('✓', '#22c55e', 'Password updated successfully!');
+            else showResult('✕', '#ef4444', data.message || 'Failed to update password.');
+        } catch(e) {
+            showResult('✕', '#ef4444', 'Network error. Please try again.');
+        }
+    }
+
+    /* ── Submit change package ── */
+    async function submitChpackage() {
+        const user = document.getElementById('chpkg-user').value;
+        const pkg  = document.getElementById('chpkg-select').value;
+        closeModal('modal-chpackage');
+        const csrf = document.querySelector('#chpackageform [name=csrfmiddlewaretoken]').value;
+        const fd = new FormData();
+        fd.append('user', user); fd.append('package', pkg);
+        try {
+            const res = await fetch('/chpackageuser/', { method:'POST', body:fd, headers:{'X-CSRFToken':csrf} });
+            const data = await res.json();
+            if (data.status === 'success') showResult('✓', '#22c55e', `Package updated to "${pkg}" for ${user}.`);
+            else showResult('✕', '#ef4444', data.message || 'Failed to update package.');
+        } catch(e) {
+            showResult('✕', '#ef4444', 'Network error. Please try again.');
+        }
+    }
+
+    /* ── Close overlay on bg click ── */
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+        el.addEventListener('click', function(e){ if(e.target===this) this.classList.remove('show'); });
+    });
+    document.querySelector('.result-overlay')?.addEventListener('click', function(e){ if(e.target===this) this.classList.remove('show'); });
+
+    /* ── Reseller: Promote ── */
+    function openPromote(username) {
+        document.getElementById('reseller-username').value = username;
+        document.getElementById('reseller-username-display').textContent = username;
+        document.getElementById('reseller-modal-title').textContent = 'Promote to Reseller';
+        document.getElementById('reseller-confirm-label').textContent = 'Promote to Reseller';
+        document.getElementById('reseller-confirm-btn').style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
+        document.getElementById('reseller-confirm-btn').dataset.action = 'promote';
+        document.getElementById('reseller-storage').value = 50;
+        document.getElementById('reseller-accounts').value = 20;
+        document.getElementById('reseller-company').value = '';
+        openModal('modal-reseller');
+    }
+    /* ── Reseller: Demote ── */
+    function openDemote(username) {
+        document.getElementById('reseller-username').value = username;
+        document.getElementById('reseller-username-display').textContent = username;
+        document.getElementById('reseller-modal-title').textContent = 'Demote from Reseller';
+        document.getElementById('reseller-confirm-label').textContent = 'Confirm Demote';
+        document.getElementById('reseller-confirm-btn').style.background = 'linear-gradient(135deg,#ef4444,#dc2626)';
+        document.getElementById('reseller-confirm-btn').dataset.action = 'demote';
+        openModal('modal-reseller');
+    }
+    async function submitReseller() {
+        const username = document.getElementById('reseller-username').value;
+        const action   = document.getElementById('reseller-confirm-btn').dataset.action || 'promote';
+        const storage  = parseInt(document.getElementById('reseller-storage').value) || 50;
+        const accounts = parseInt(document.getElementById('reseller-accounts').value) || 20;
+        const company  = document.getElementById('reseller-company').value.trim();
+        const csrf     = document.querySelector('#resellerform [name=csrfmiddlewaretoken]').value;
+        closeModal('modal-reseller');
+        try {
+            const res = await fetch('/api/admin/set-reseller/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+                body: JSON.stringify({ username, action, storage_quota_gb: storage, max_accounts: accounts, company_name: company })
+            });
+            const data = await res.json();
+            if (data.status === 'promoted') {
+                showResult('⭐', '#f59e0b', `${username} is now a Reseller — ${storage}GB pool, ${accounts} max accounts.`);
+                setTimeout(() => location.reload(), 2000);
+            } else if (data.status === 'demoted') {
+                showResult('✓', '#22c55e', `${username} has been demoted from Reseller.`);
+                setTimeout(() => location.reload(), 2000);
+            } else {
+                showResult('✕', '#ef4444', data.error || 'Operation failed.');
+            }
+        } catch(e) {
+            showResult('✕', '#ef4444', 'Network error. Please try again.');
+        }
     }
 </script>
 
-
-        <script>
-            function closeterminate34() {
-                document.getElementById('terminate34').style.display = "none"
-            }
-            function terminate(data) {
-                var anchor = document.getElementById('rohan34');
-
-                // Change the href attribute
-                anchor.href = '/terminate/' + data;
-                document.getElementById('domaindata3434').innerHTML = data;
-                document.getElementById('terminate34').style.display = "block"
-            }
-        </script>
-
-        <script>
-            function closesuspend34() {
-                document.getElementById('suspend34').style.display = "none"
-            }
-            function suspend(data) {
-                document.getElementById('domaindata134').innerHTML = data;
-                var anchor =document.getElementById('newone34');
-                anchor.href = "/suspend/"+data;
-                document.getElementById('suspend34').style.display = "block"
-            }
-        </script>
-       
-        <script>
-
-
-
-
-
-async function chpackageuser(event) {
-                // Prevent the default action (e.g., form submission)
-                if (event) {
-                    event.preventDefault();
-                }
-     
-                const form = document.getElementById('chpackageform');
-                const formData = new FormData(form);
-
-
-
-                try {
-                    // Fetch request to submit form data
-                    const response = await fetch('/chpackageuser/', {
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-                        }
-                    });
-
-                    // Parse the JSON response
-                    const result = await response.json();
-
-
-                    // Handle response
-                    if (response.ok && result.status === 'success') {
-                   
-                
-                        document.getElementById('eeee').style.display = "block";
-                        
-                        document.getElementById('statusemail').innerHTML = "Package Updated!";
-                 
-                        document.getElementById('chpackage').style.display = "none"
-     
-                        
-                 
-                        
-                    } else {
-              
-                    
-                        document.getElementById('eeee').style.display = "block";
-                        document.getElementById('statusemail').innerHTML = "Package Updated!";
-       
-                            document.getElementById('chpackage').style.display = "none"
-                    
-
-                       
-                    }
-                } catch (error) {
-   
-             
-                    document.getElementById('eeee').style.display = "block";
-                    document.getElementById('statusemail').innerHTML = "Something Went Wrong";
-             
-
-                  
-                }
-            }
-            
-         async function chpassuser(event) {
-                // Prevent the default action (e.g., form submission)
-                if (event) {
-                    event.preventDefault();
-                }
-     
-                const form = document.getElementById('chpassform');
-                const formData = new FormData(form);
-
-
-
-                try {
-                    // Fetch request to submit form data
-                    const response = await fetch('/chpassuser/', {
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-                        }
-                    });
-
-                    // Parse the JSON response
-                    const result = await response.json();
-
-
-                    // Handle response
-                    if (response.ok && result.status === 'success') {
-                   
-                      
-                        document.getElementById('eeee').style.display = "block";
-                        document.getElementById('statusemail').innerHTML = "Password Updated!";
-                         document.getElementById('chpass').style.display = "none"
-                 
-                        
-                    } else {
-              
-                  
-                        document.getElementById('eeee').style.display = "block";
-                        document.getElementById('statusemail').innerHTML = "Password Updated!";
-                         document.getElementById('chpass').style.display = "none"
-                    
-
-                       
-                    }
-                } catch (error) {
-   
-             
-                    document.getElementById('eeee').style.display = "block";
-                    document.getElementById('statusemail').innerHTML = "Something Went Wrong";
-             
-
-                  
-                }
-            }
-
-
-
-
-            function closeterminate() {
-                document.getElementById('chpass').style.display = "none"
-            }
-            function chpass(data) {
-                
-                document.getElementById('domaindata').innerHTML = data;
-                document.getElementById('domaindata69').value =data;
-                
-
-                document.getElementById('chpass').style.display = "block"
-            }
-        </script>
-
-<script>
-    function closeterminate1() {
-        document.getElementById('chpackage').style.display = "none"
-    }
-    function chpackage(data) {
-       
-        document.getElementById('domaindata1').innerHTML = data;
-        document.getElementById('domaindata68').value =data;
-        document.getElementById('chpackage').style.display = "block"
-    }
-</script>
-      
-
-
-
-
-
-
-        <script>
-            function searchTable() {
-                // Get the search query
-                const searchQuery = document.getElementById('searchInput').value.toLowerCase();
-
-                // Get all the rows in the table body
-                const rows = document.querySelectorAll('#domainTableBody tr');
-
-                // Loop through the rows
-                rows.forEach(row => {
-                    // Get the domain name from the first column (assuming domain is in the first <td>)
-                    const domainName = row.querySelector('.c_name').textContent.toLowerCase();
-
-                    // Check if the domain name includes the search query
-                    if (domainName.includes(searchQuery)) {
-                        row.style.display = ''; // Show the row
-                    } else {
-                        row.style.display = 'none'; // Hide the row
-                    }
-                });
-            }
-        </script>
-
-
-        <!-- Javascript -->
-        <script src="/static/assets/bundles/libscripts.bundle.js"></script>
-        <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
-
-        <!-- page vendor js file -->
-        <script src="/static/assets/vendor/toastr/toastr.js"></script>
-        <script src="/static/assets/bundles/c3.bundle.js"></script>
-
-
-        <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
-        <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
-
-
-        <!-- page js file -->
-        <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
-        <script src="/static/assets/bundles/chartjs.js"></script>
-        <script src="/static/assets/index2.js"></script>
-
-
+<!-- Javascript -->
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/vendor/toastr/toastr.js"></script>
+<script src="/static/assets/bundles/c3.bundle.js"></script>
+<script src="/static/assets/bundles/jvectormap.bundle.js"></script>
+<script src="/static/assets/bundles/knob.bundle.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+<script src="/static/assets/bundles/chartjs.js"></script>
+<script src="/static/assets/index2.js"></script>
 </body>
-
 </html>

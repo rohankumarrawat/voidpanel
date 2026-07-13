@@ -1,0 +1,401 @@
+{% extends "super_admin_base.html" %}
+{% block title %}SSL Certificate Plans | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}SSL Certificate Plans{% endblock %}
+
+{% block admin_content %}
+<div class="sa-page-header">
+  <div>
+    <div class="sa-page-title">SSL Certificate Plans</div>
+    <div class="sa-page-sub">
+      <i class="fas fa-lock" style="color:var(--green);margin-right:5px;"></i>
+      Manage Let's Encrypt 3-month renewal plans and custom SSL packages.
+    </div>
+  </div>
+  <div class="sa-header-actions">
+    <div class="sa-stat-chip green"><span class="val">{{ static_ssl_plans|length }}</span> Default</div>
+    <div class="sa-stat-chip sky"><span class="val">{{ custom_ssl_plans|length }}</span> Custom</div>
+    <button class="sa-btn primary" onclick="toggleSection('ssl-create-form')">
+      <i class="fas fa-plus"></i> Create New Plan
+    </button>
+  </div>
+</div>
+
+{% if messages %}{% for m in messages %}
+<div class="sa-alert {% if m.tags == 'error' %}danger{% else %}success{% endif %}"
+     style="margin-bottom:16px;padding:12px 16px;border-radius:10px;font-size:.88rem;">{{ m }}</div>
+{% endfor %}{% endif %}
+
+<!-- Let's Encrypt info banner -->
+<div style="display:flex;align-items:flex-start;gap:14px;background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.2);border-radius:14px;padding:16px 20px;margin-bottom:24px;">
+  <div style="font-size:1.4rem;margin-top:2px;">🔒</div>
+  <div>
+    <div style="font-weight:700;color:#22c55e;margin-bottom:4px;">Let's Encrypt — 90-Day Certificates</div>
+    <div style="font-size:.82rem;color:var(--text-3);line-height:1.6;">
+      All SSL certificates on VoidPanel are issued via <strong style="color:var(--text-2);">Let's Encrypt</strong> using Certbot.
+      Certificates are valid for <strong style="color:var(--text-2);">90 days</strong> and auto-renewed.
+      You sell these as <strong style="color:var(--text-2);">3-month plans</strong> — set the <em>3-Month Price (₹)</em> per plan below.
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- CREATE NEW SSL PLAN FORM (collapsible)                             -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<div id="ssl-create-form" style="display:none;margin-bottom:24px;">
+  <div class="sa-card" style="border:1px solid rgba(34,197,94,.25);background:rgba(34,197,94,.04);">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+      <div style="width:36px;height:36px;border-radius:10px;background:rgba(34,197,94,.2);display:flex;align-items:center;justify-content:center;color:#22c55e;font-size:.95rem;">
+        <i class="fas fa-plus"></i>
+      </div>
+      <div>
+        <div style="font-weight:800;color:var(--text-1);">Create New SSL Plan</div>
+        <div style="font-size:.75rem;color:var(--text-3);">Add a custom Let's Encrypt billing structure</div>
+      </div>
+    </div>
+
+    <form method="POST" action="/super-admin/ssl-plans/">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create_ssl_plan">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+        <div class="sa-form-group">
+          <label class="sa-label">Plan Name <span style="color:#f87171;">*</span></label>
+          <input type="text" name="name" class="sa-input" placeholder="e.g. Enterprise SSL Multi" required>
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Slug <span style="color:var(--text-3);font-size:.72rem;">(auto-generated if blank)</span></label>
+          <input type="text" name="slug" class="sa-input" placeholder="e.g. enterprise-ssl-multi">
+        </div>
+        <div class="sa-form-group" style="grid-column:1/-1;">
+          <label class="sa-label">Short Description</label>
+          <input type="text" name="short_description" class="sa-input" placeholder="e.g. Secure up to 10 subdomains or distinct domains on a single cert">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">3-Month Price (₹ INR)</label>
+          <input type="number" name="quarterly_price" class="sa-input" step="0.01" min="0" value="0" placeholder="199.00">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">SSL Type</label>
+          <select name="ssl_type" class="sa-input">
+            <option value="dv" selected>Domain Validated (DV) — Single Domain</option>
+            <option value="wildcard">Wildcard — *.domain.com</option>
+            <option value="multi">Multi-Domain — Up to N SANs</option>
+          </select>
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Max Domains (SANs)</label>
+          <input type="number" name="max_domains" class="sa-input" min="1" value="1">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Sort Order</label>
+          <input type="number" name="sort_order" class="sa-input" value="10">
+        </div>
+      </div>
+
+      <div style="display:flex;gap:18px;margin-bottom:16px;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="auto_renew" checked style="accent-color:var(--green);"> Auto-Renew (Certbot cron)
+        </label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="is_featured" style="accent-color:var(--violet-2);"> Featured plan
+        </label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="is_active" checked style="accent-color:var(--green);"> Active (visible to customers)
+        </label>
+      </div>
+
+      <div style="display:flex;gap:10px;">
+        <button type="submit" class="sa-btn primary"><i class="fas fa-plus"></i> Create Plan</button>
+        <button type="button" class="sa-btn secondary" onclick="toggleSection('ssl-create-form')">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION A: DEFAULT (STATIC) PLANS                                  -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--text-3);margin-bottom:10px;">
+  <i class="fas fa-star" style="margin-right:4px;color:var(--amber, #f59e0b);"></i> Default Plans (3 Built-In Tiers)
+</div>
+
+<div style="display:flex;flex-direction:column;gap:14px;margin-bottom:28px;">
+{% for plan in static_ssl_plans %}
+
+<div class="sa-card" id="ssl-card-{{ plan.id }}">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px;">
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div style="width:40px;height:40px;border-radius:10px;background:rgba(34,197,94,.12);display:flex;align-items:center;justify-content:center;color:#22c55e;font-size:1rem;flex-shrink:0;">
+        <i class="fas fa-lock"></i>
+      </div>
+      <div>
+        <div style="font-weight:800;color:var(--text-1);">{{ plan.name }}</div>
+        <div style="font-size:.73rem;color:var(--text-3);margin-top:2px;">{{ plan.short_description }}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;align-items:center;">
+      {% if plan.ssl_type == 'dv' %}<span class="sa-badge sky">DV SSL</span>
+      {% elif plan.ssl_type == 'wildcard' %}<span class="sa-badge violet">Wildcard</span>
+      {% else %}<span class="sa-badge amber">Multi-Domain</span>{% endif %}
+      {% if plan.is_featured %}<span class="sa-badge violet">⭐ Featured</span>{% endif %}
+      {% if plan.is_active %}<span class="sa-badge green">Active</span>{% else %}<span class="sa-badge gray">Inactive</span>{% endif %}
+    </div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+    <span class="sa-badge gray"><i class="fas fa-shield-halved" style="margin-right:4px;"></i>Let's Encrypt · 90 days</span>
+    <span class="sa-badge gray">{{ plan.max_domains }} domain{% if plan.max_domains != 1 %}s{% endif %}</span>
+    {% if plan.quarterly_price %}
+      <span class="sa-badge green">₹{{ plan.quarterly_price }} / 3 months</span>
+    {% else %}
+      <span class="sa-badge green">Free</span>
+    {% endif %}
+    {% if plan.auto_renew %}<span class="sa-badge sky"><i class="fas fa-sync-alt" style="margin-right:3px;"></i>Auto-Renew</span>{% endif %}
+  </div>
+
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <button class="sa-btn primary" style="font-size:.8rem;padding:6px 14px;"
+            onclick="toggleSection('ssl-edit-{{ plan.id }}')">
+      <i class="fas fa-pencil"></i> Edit
+    </button>
+
+    <form method="POST" action="/super-admin/ssl-plans/" style="display:inline;">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="toggle_ssl_plan">
+      <input type="hidden" name="plan_id" value="{{ plan.id }}">
+      <button type="submit" class="sa-btn {% if plan.is_active %}warning{% else %}secondary{% endif %}"
+              style="font-size:.8rem;padding:6px 14px;">
+        {% if plan.is_active %}<i class="fas fa-pause"></i> Deactivate{% else %}<i class="fas fa-play"></i> Activate{% endif %}
+      </button>
+    </form>
+
+    <form method="POST" action="/super-admin/ssl-plans/" style="display:inline;"
+          onsubmit="return confirm('Reset SSL Plan #{{ plan.id }} to factory defaults?')">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="reset_ssl_plan">
+      <input type="hidden" name="plan_id" value="{{ plan.id }}">
+      <button type="submit" class="sa-btn danger" style="font-size:.8rem;padding:6px 14px;">
+        <i class="fas fa-rotate-left"></i> Reset to Default
+      </button>
+    </form>
+  </div>
+
+  <!-- Inline Edit Form for Static Plans -->
+  <div id="ssl-edit-{{ plan.id }}" style="display:none;margin-top:18px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08);">
+    <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--green);margin-bottom:14px;">
+      <i class="fas fa-pencil"></i> Editing Default SSL Plan — {{ plan.name }}
+    </div>
+
+    <form method="POST" action="/super-admin/ssl-plans/">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="edit_ssl_plan">
+      <input type="hidden" name="plan_id" value="{{ plan.id }}">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="sa-form-group" style="grid-column:1/-1;">
+          <label class="sa-label">Plan Name</label>
+          <input type="text" name="name" class="sa-input" value="{{ plan.name }}">
+        </div>
+
+        <div class="sa-form-group" style="grid-column:1/-1;">
+          <label class="sa-label">Short Description</label>
+          <input type="text" name="short_description" class="sa-input" value="{{ plan.short_description }}">
+        </div>
+
+        <div class="sa-form-group">
+          <label class="sa-label">3-Month Price (₹ INR)</label>
+          <input type="number" name="quarterly_price" class="sa-input" step="0.01" min="0"
+                 value="{{ plan.quarterly_price|default:'0' }}">
+        </div>
+
+        <div class="sa-form-group">
+          <label class="sa-label">SSL Type</label>
+          <select name="ssl_type" class="sa-input">
+            <option value="dv" {% if plan.ssl_type == 'dv' %}selected{% endif %}>Domain Validated (DV)</option>
+            <option value="wildcard" {% if plan.ssl_type == 'wildcard' %}selected{% endif %}>Wildcard</option>
+            <option value="multi" {% if plan.ssl_type == 'multi' %}selected{% endif %}>Multi-Domain</option>
+          </select>
+        </div>
+
+        <div class="sa-form-group">
+          <label class="sa-label">Max Domains</label>
+          <input type="number" name="max_domains" class="sa-input" min="1" value="{{ plan.max_domains }}">
+        </div>
+
+        <div class="sa-form-group">
+          <label class="sa-label">Slug</label>
+          <input type="text" name="slug" class="sa-input" value="{{ plan.slug }}">
+        </div>
+
+        <div class="sa-form-group">
+          <label class="sa-label">Sort Order</label>
+          <input type="number" name="sort_order" class="sa-input" value="{{ plan.sort_order|default:'0' }}">
+        </div>
+      </div>
+
+      <div style="display:flex;gap:18px;margin-bottom:14px;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="auto_renew" style="accent-color:var(--green);" {% if plan.auto_renew %}checked{% endif %}> Auto-Renew
+        </label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="is_featured" style="accent-color:var(--violet-2);" {% if plan.is_featured %}checked{% endif %}> Featured
+        </label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="is_active" style="accent-color:var(--green);" {% if plan.is_active %}checked{% endif %}> Active
+        </label>
+      </div>
+
+      <div style="display:flex;gap:10px;">
+        <button type="submit" class="sa-btn primary"><i class="fas fa-save"></i> Save Changes</button>
+        <button type="button" class="sa-btn secondary" onclick="toggleSection('ssl-edit-{{ plan.id }}')">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endfor %}
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- SECTION B: CUSTOM PLANS                                            -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+  <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--text-3);">
+    <i class="fas fa-cubes" style="margin-right:4px;color:#38bdf8;"></i> Custom SSL Plans
+    <span style="font-size:.65rem;margin-left:6px;color:var(--text-4);">(Created by you)</span>
+  </div>
+  <button class="sa-btn primary" style="font-size:.75rem;padding:5px 12px;" onclick="toggleSection('ssl-create-form');window.scrollTo({top:0,behavior:'smooth'})">
+    <i class="fas fa-plus"></i> Add Custom Plan
+  </button>
+</div>
+
+{% if custom_ssl_plans %}
+<div style="display:flex;flex-direction:column;gap:14px;">
+{% for plan in custom_ssl_plans %}
+<div class="sa-card" id="cssl-card-{{ plan.pk }}" style="border:1px solid rgba(34,197,94,.12);">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px;">
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div style="width:40px;height:40px;border-radius:10px;background:rgba(34,197,94,.12);display:flex;align-items:center;justify-content:center;color:#22c55e;font-size:1rem;flex-shrink:0;">
+        <i class="fas fa-lock"></i>
+      </div>
+      <div>
+        <div style="font-weight:800;color:var(--text-1);">{{ plan.name }}</div>
+        <div style="font-size:.73rem;color:var(--text-3);margin-top:2px;">{{ plan.short_description|default:"No description" }}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;align-items:center;">
+      <span class="sa-badge sky">Custom</span>
+      {% if plan.ssl_type == 'dv' %}<span class="sa-badge sky">DV SSL</span>
+      {% elif plan.ssl_type == 'wildcard' %}<span class="sa-badge violet">Wildcard</span>
+      {% else %}<span class="sa-badge amber">Multi-Domain</span>{% endif %}
+      {% if plan.is_featured %}<span class="sa-badge violet">⭐ Featured</span>{% endif %}
+      {% if plan.is_active %}<span class="sa-badge green">Active</span>{% else %}<span class="sa-badge gray">Inactive</span>{% endif %}
+    </div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+    <span class="sa-badge gray"><i class="fas fa-shield-halved" style="margin-right:4px;"></i>Let's Encrypt · 90 days</span>
+    <span class="sa-badge gray">{{ plan.max_domains }} domain{% if plan.max_domains != 1 %}s{% endif %}</span>
+    <span class="sa-badge green">₹{{ plan.quarterly_price }} / 3 months</span>
+    {% if plan.auto_renew %}<span class="sa-badge sky"><i class="fas fa-sync-alt" style="margin-right:3px;"></i>Auto-Renew</span>{% endif %}
+  </div>
+
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <button class="sa-btn primary" style="font-size:.8rem;padding:6px 14px;"
+            onclick="toggleSection('cssl-edit-{{ plan.pk }}')">
+      <i class="fas fa-pencil"></i> Edit
+    </button>
+    <form method="POST" action="/super-admin/ssl-plans/" style="display:inline;"
+          onsubmit="return confirm('Delete custom SSL plan &quot;{{ plan.name }}&quot;? This cannot be undone.')">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="delete_ssl_plan">
+      <input type="hidden" name="plan_id" value="{{ plan.pk }}">
+      <button type="submit" class="sa-btn danger" style="font-size:.8rem;padding:6px 14px;">
+        <i class="fas fa-trash"></i> Delete
+      </button>
+    </form>
+  </div>
+
+  <!-- Inline Edit Form for Custom Plans -->
+  <div id="cssl-edit-{{ plan.pk }}" style="display:none;margin-top:18px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08);">
+    <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--green);margin-bottom:14px;">
+      <i class="fas fa-pencil"></i> Editing Custom SSL Plan — {{ plan.name }}
+    </div>
+    <form method="POST" action="/super-admin/ssl-plans/">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="edit_custom_ssl_plan">
+      <input type="hidden" name="plan_id" value="{{ plan.pk }}">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div class="sa-form-group" style="grid-column:1/-1;">
+          <label class="sa-label">Plan Name</label>
+          <input type="text" name="name" class="sa-input" value="{{ plan.name }}">
+        </div>
+        <div class="sa-form-group" style="grid-column:1/-1;">
+          <label class="sa-label">Short Description</label>
+          <input type="text" name="short_description" class="sa-input" value="{{ plan.short_description }}">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">3-Month Price (₹)</label>
+          <input type="number" name="quarterly_price" class="sa-input" step="0.01" min="0" value="{{ plan.quarterly_price }}">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">SSL Type</label>
+          <select name="ssl_type" class="sa-input">
+            <option value="dv" {% if plan.ssl_type == 'dv' %}selected{% endif %}>Domain Validated (DV)</option>
+            <option value="wildcard" {% if plan.ssl_type == 'wildcard' %}selected{% endif %}>Wildcard</option>
+            <option value="multi" {% if plan.ssl_type == 'multi' %}selected{% endif %}>Multi-Domain</option>
+          </select>
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Max Domains</label>
+          <input type="number" name="max_domains" class="sa-input" min="1" value="{{ plan.max_domains }}">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Slug</label>
+          <input type="text" name="slug" class="sa-input" value="{{ plan.slug }}">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Sort Order</label>
+          <input type="number" name="sort_order" class="sa-input" value="{{ plan.sort_order }}">
+        </div>
+      </div>
+      <div style="display:flex;gap:18px;margin-bottom:14px;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="auto_renew" style="accent-color:var(--green);" {% if plan.auto_renew %}checked{% endif %}> Auto-Renew
+        </label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="is_featured" style="accent-color:var(--violet-2);" {% if plan.is_featured %}checked{% endif %}> Featured
+        </label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="is_active" style="accent-color:var(--green);" {% if plan.is_active %}checked{% endif %}> Active
+        </label>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button type="submit" class="sa-btn primary"><i class="fas fa-save"></i> Save Changes</button>
+        <button type="button" class="sa-btn secondary" onclick="toggleSection('cssl-edit-{{ plan.pk }}')">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endfor %}
+</div>
+
+{% else %}
+<div class="sa-card" style="border:2px dashed rgba(34,197,94,.2);background:rgba(34,197,94,.04);text-align:center;padding:32px 20px;">
+  <div style="font-size:2rem;margin-bottom:10px;opacity:.4;">🔒</div>
+  <div style="font-weight:700;color:var(--text-2);margin-bottom:6px;">No custom SSL plans yet</div>
+  <div style="font-size:.8rem;color:var(--text-3);margin-bottom:16px;">Create custom Let's Encrypt SSL packages beyond the 3 built-in tiers</div>
+  <button class="sa-btn primary" onclick="toggleSection('ssl-create-form');window.scrollTo({top:0,behavior:'smooth'})">
+    <i class="fas fa-plus"></i> Create Your First SSL Plan
+  </button>
+</div>
+{% endif %}
+
+<script>
+function toggleSection(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+</script>
+
+{% endblock %}

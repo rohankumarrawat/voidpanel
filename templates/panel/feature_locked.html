@@ -1,0 +1,112 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Feature Locked — {{ panel_name|default:"VoidPanel" }}</title>
+<link rel="icon" href="/static/fav.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%; font-family: 'Inter', system-ui, sans-serif;
+    background: #060b18; color: #e2e8f0;
+    display: flex; align-items: center; justify-content: center; min-height: 100vh;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 20% 20%, rgba(99,102,241,0.12) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 80% 80%, rgba(139,92,246,0.10) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  .lock-card {
+    position: relative;
+    background: linear-gradient(135deg, rgba(13,20,40,0.95), rgba(20,28,50,0.90));
+    border: 1px solid rgba(99,102,241,0.20); border-radius: 24px;
+    padding: 56px 52px; max-width: 500px; width: 90%; text-align: center;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+    animation: fadeUp 0.5s ease both;
+  }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+  .lock-icon {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.20));
+    border: 2px solid rgba(99,102,241,0.30);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 28px; font-size: 2rem; color: #818cf8;
+    animation: pulse 2.5s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.3); }
+    50% { box-shadow: 0 0 0 16px rgba(99,102,241,0); }
+  }
+  .lock-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 14px; border-radius: 20px;
+    background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.25);
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: #818cf8; margin-bottom: 20px;
+  }
+  h1 { font-size: 1.8rem; font-weight: 800; color: #f1f5f9; margin-bottom: 14px; line-height: 1.2; }
+  .sub { font-size: 0.95rem; color: rgba(160,174,210,0.80); line-height: 1.65; margin-bottom: 32px; }
+  .feature-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(245,158,11,0.10); border: 1px solid rgba(245,158,11,0.25);
+    border-radius: 8px; padding: 8px 16px; font-size: 0.85rem; font-weight: 600;
+    color: #fbbf24; margin-bottom: 32px;
+  }
+  .tier-row {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; margin-bottom: 32px; font-size: 0.85rem; color: rgba(160,174,210,0.70);
+  }
+  .tier-badge { padding: 3px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+  .tier-badge.current { background: rgba(100,116,139,0.20); color: #94a3b8; border: 1px solid rgba(100,116,139,0.3); }
+  .tier-badge.required { background: rgba(99,102,241,0.15); color: #818cf8; border: 1px solid rgba(99,102,241,0.3); }
+  .btn-row { display: flex; flex-direction: column; gap: 12px; }
+  .btn-upgrade {
+    display: block; padding: 15px 28px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff; font-size: 0.95rem; font-weight: 700; border-radius: 12px;
+    text-decoration: none; transition: all 0.2s;
+    box-shadow: 0 4px 20px rgba(99,102,241,0.35);
+  }
+  .btn-upgrade:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(99,102,241,0.50); }
+  .btn-back {
+    display: block; padding: 13px 28px;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10);
+    color: rgba(210,222,243,0.80); font-size: 0.90rem; font-weight: 500;
+    border-radius: 12px; text-decoration: none; transition: all 0.2s;
+  }
+  .btn-back:hover { background: rgba(255,255,255,0.08); color: #e2e8f0; }
+</style>
+</head>
+<body>
+<div class="lock-card">
+  <div class="lock-icon"><i class="fa-solid fa-lock"></i></div>
+  <div class="lock-badge"><i class="fa-solid fa-shield-halved"></i> Premium Feature</div>
+  <h1>Feature Not Included</h1>
+  <p class="sub">This module is not available on your current license plan. Upgrade to unlock it along with all other premium features.</p>
+  <div class="feature-pill">
+    <i class="fa-solid fa-cube"></i>
+    {{ feature|default:"Unknown"|title }}
+  </div>
+  <div class="tier-row">
+    <span>Your plan:</span>
+    <span class="tier-badge current">{{ license_tier|default:"Starter"|upper }}</span>
+    <i class="fa-solid fa-arrow-right" style="font-size:0.7rem;"></i>
+    <span class="tier-badge required">UNLIMITED</span>
+  </div>
+  <div class="btn-row">
+    <a href="https://voidpanel.com/pricing" target="_blank" class="btn-upgrade">
+      <i class="fa-solid fa-rocket"></i> &nbsp;Upgrade Plan
+    </a>
+    <a href="javascript:history.back()" class="btn-back">
+      <i class="fa-solid fa-arrow-left"></i> &nbsp;Go Back
+    </a>
+  </div>
+</div>
+</body>
+</html>

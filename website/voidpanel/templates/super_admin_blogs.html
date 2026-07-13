@@ -1,0 +1,122 @@
+{% extends "super_admin_base.html" %}
+{% load static %}
+{% block title %}Blog Management | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}<a href="/super-admin/blogs/">Blog Posts</a> / Overview{% endblock %}
+
+{% block admin_content %}
+<div class="sa-page-header">
+    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+        <div>
+            <div class="sa-page-title">Blog Posts</div>
+            <div class="sa-page-sub">Manage, approve, and publish content</div>
+        </div>
+        <div>
+            <a href="/super-admin/blogs/write/" class="sa-btn green"><i class="fas fa-plus"></i> Write New Post</a>
+        </div>
+    </div>
+</div>
+
+<div class="sa-metrics">
+    <div class="sa-metric">
+        <div class="sa-metric-title">Total Posts</div>
+        <div class="sa-metric-value">{{ stats.total }}</div>
+    </div>
+    <div class="sa-metric">
+        <div class="sa-metric-title">Published</div>
+        <div class="sa-metric-value" style="color:var(--green-2);">{{ stats.published }}</div>
+    </div>
+    <div class="sa-metric">
+        <div class="sa-metric-title">Pending Approval</div>
+        <div class="sa-metric-value" style="color:var(--amber-2);">{{ stats.pending }}</div>
+    </div>
+</div>
+
+<div class="sa-card" style="padding:0;overflow:hidden;">
+    <div style="padding:16px 24px;border-bottom:1px solid var(--border);display:flex;gap:12px;">
+        <a href="?status=" class="sa-btn sm {% if not request.GET.status %}ghost{% endif %}">All</a>
+        <a href="?status=published" class="sa-btn sm {% if request.GET.status == 'published' %}ghost{% endif %}">Published</a>
+        <a href="?status=pending_approval" class="sa-btn sm {% if request.GET.status == 'pending_approval' %}amber{% endif %}">Pending <span class="sa-badge">{{ stats.pending }}</span></a>
+        <a href="?status=rejected" class="sa-btn sm {% if request.GET.status == 'rejected' %}red{% endif %}">Rejected</a>
+    </div>
+
+    <table class="sa-table">
+        <thead>
+            <tr>
+                <th>Title & Category</th>
+                <th>Author</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for post in posts %}
+            <tr>
+                <td>
+                    <div style="font-weight:600;color:var(--text-1);margin-bottom:4px;">{{ post.title }}</div>
+                    {% if post.category %}
+                    <span class="sa-badge sm">{{ post.category.name }}</span>
+                    {% else %}
+                    <span class="sa-badge sm gray">Uncategorized</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <strong style="color:var(--text-1);">{{ post.author.username }}</strong><br>
+                    <span style="font-size:0.75rem;color:var(--text-3);">{{ post.author.email }}</span>
+                </td>
+                <td>
+                    {% if post.status == 'published' %}
+                    <span class="sa-badge green">Published</span>
+                    {% elif post.status == 'pending_approval' %}
+                    <span class="sa-badge amber">Pending Approval</span>
+                    {% elif post.status == 'rejected' %}
+                    <span class="sa-badge red">Rejected</span>
+                    {% else %}
+                    <span class="sa-badge gray">Draft</span>
+                    {% endif %}
+                </td>
+                <td style="color:var(--text-3);font-size:0.85rem;">
+                    Updated: {{ post.updated_at|date:"M d, Y" }}
+                    {% if post.published_at %}
+                    <br>Live: {{ post.published_at|date:"M d, Y" }}
+                    {% endif %}
+                </td>
+                <td>
+                    <div style="display:flex;gap:8px;">
+                        <a href="/blog/{{ post.slug }}/" target="_blank" class="sa-btn sm" title="Preview"><i class="fas fa-eye"></i></a>
+                        <!-- Publish action -->
+                        {% if post.status == 'pending_approval' or post.status == 'draft' %}
+                        <form method="POST" action="/super-admin/blogs/{{ post.id }}/action/" style="display:inline;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="publish">
+                            <button type="submit" class="sa-btn sm green" title="Publish" onclick="return confirm('Publish this post?')"><i class="fas fa-check"></i></button>
+                        </form>
+                        {% endif %}
+                        <!-- Reject/Draft action -->
+                        {% if post.status == 'pending_approval' %}
+                        <form method="POST" action="/super-admin/blogs/{{ post.id }}/action/" style="display:inline;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="reject">
+                            <button type="submit" class="sa-btn sm amber" title="Reject" onclick="return confirm('Reject this post?')"><i class="fas fa-ban"></i></button>
+                        </form>
+                        {% endif %}
+                        <!-- Delete action -->
+                        <form method="POST" action="/super-admin/blogs/{{ post.id }}/action/" style="display:inline;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete">
+                            <button type="submit" class="sa-btn sm red" title="Delete" onclick="return confirm('Permanently delete this post?')"><i class="fas fa-trash"></i></button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align:center;padding:40px;color:var(--text-3);">
+                    No blog posts found.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

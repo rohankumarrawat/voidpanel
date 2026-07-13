@@ -1,0 +1,470 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Email Manager — {{ email_svc.domain }} | VoidPanel</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+:root{--bg:#0a0f1e;--card:#111827;--card2:#1e2a3a;--border:rgba(255,255,255,.08);--text:#e2e8f0;--muted:#94a3b8;--blue:#0ea5e9;--blue2:#38bdf8;--green:#22c55e;--red:#ef4444;--yellow:#f59e0b;--purple:#7c3aed;--radius:14px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+.topbar{background:var(--card);border-bottom:1px solid var(--border);padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.back-btn{display:flex;align-items:center;gap:8px;color:var(--muted);text-decoration:none;font-size:.85rem;padding:6px 12px;border-radius:8px;border:1px solid var(--border);transition:.2s;}
+.back-btn:hover{color:var(--text);background:var(--card2);}
+.topbar-brand{display:flex;align-items:center;gap:10px;}
+.email-icon{width:30px;height:30px;background:linear-gradient(135deg,var(--blue),var(--purple));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.9rem;}
+.domain-pill{background:var(--card2);border:1px solid var(--border);padding:4px 14px;border-radius:20px;font-size:.8rem;color:var(--muted);}
+.page{max-width:1000px;margin:0 auto;padding:28px 20px 60px;}
+.quota-bar-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin-bottom:22px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
+.quota-info{flex:1;}
+.quota-label{font-size:.8rem;color:var(--muted);margin-bottom:6px;}
+.quota-bar{height:8px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;flex:1;}
+.quota-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--blue),var(--blue2));transition:width .6s ease;}
+.quota-fill.warn{background:linear-gradient(90deg,var(--yellow),#fbbf24);}
+.quota-fill.full{background:linear-gradient(90deg,var(--red),#f87171);}
+.quota-text{font-size:.78rem;color:var(--muted);white-space:nowrap;margin-left:10px;}
+.webmail-btn{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff;text-decoration:none;padding:9px 18px;border-radius:10px;font-size:.85rem;font-weight:600;transition:.2s;}
+.webmail-btn:hover{transform:translateY(-1px);opacity:.9;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:22px;}
+@media(max-width:640px){.grid2{grid-template-columns:1fr;}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.card-head{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.card-icon{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:.85rem;}
+.ci-blue{background:rgba(14,165,233,.15);color:var(--blue2);}
+.ci-green{background:rgba(34,197,94,.15);color:var(--green);}
+.ci-red{background:rgba(239,68,68,.15);color:var(--red);}
+.card-title{font-size:.88rem;font-weight:700;}
+.card-body{padding:18px 20px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+@media(max-width:500px){.form-row{grid-template-columns:1fr;}}
+.fg{display:flex;flex-direction:column;gap:5px;}
+.fg label{font-size:.75rem;color:var(--muted);font-weight:500;}
+.fg input{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:.85rem;outline:none;transition:.2s;width:100%;}
+.fg input:focus{border-color:var(--blue);}
+.input-group{display:flex;gap:0;}
+.input-prefix{background:var(--card2);border:1px solid var(--border);border-right:none;border-radius:8px 0 0 8px;padding:9px 12px;font-size:.85rem;color:var(--muted);white-space:nowrap;}
+.input-group input{border-radius:0 8px 8px 0;}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:9px;font-size:.85rem;font-weight:600;cursor:pointer;border:none;transition:.2s;}
+.btn:hover{transform:translateY(-1px);}
+.btn-blue{background:linear-gradient(135deg,var(--blue),#0284c7);color:#fff;}
+.btn-green{background:linear-gradient(135deg,#16a34a,var(--green));color:#fff;}
+.btn-red{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.25);}
+.btn-red:hover{background:rgba(239,68,68,.2);}
+.btn-sm{padding:5px 12px;font-size:.78rem;border-radius:7px;}
+.btn:disabled{opacity:.5;pointer-events:none;}
+.spin{width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:none;}
+@keyframes spin{to{transform:rotate(360deg);}}
+/* Mailbox table */
+.mb-table{width:100%;border-collapse:collapse;}
+.mb-table th{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);}
+.mb-table td{padding:10px 12px;font-size:.84rem;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle;}
+.mb-table tr:last-child td{border-bottom:none;}
+.mb-table tr:hover td{background:rgba(255,255,255,.02);}
+.pass-cell{display:flex;align-items:center;gap:6px;}
+.pass-mask{font-family:monospace;color:var(--muted);}
+.eye-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:.8rem;padding:2px 4px;}
+.eye-btn:hover{color:var(--text);}
+.actions-cell{display:flex;gap:6px;align-items:center;}
+.webmail-link{font-size:.78rem;color:var(--blue2);text-decoration:none;display:inline-flex;align-items:center;gap:4px;}
+.webmail-link:hover{text-decoration:underline;}
+.empty-state{text-align:center;padding:30px 20px;color:var(--muted);}
+.empty-state i{font-size:2rem;margin-bottom:10px;display:block;opacity:.4;}
+.smtp-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.smtp-item .slbl{font-size:.72rem;color:var(--muted);margin-bottom:3px;}
+.smtp-item .sval{font-size:.85rem;font-weight:600;font-family:monospace;}
+.sval.green{color:var(--green);}
+.alert{border-radius:9px;padding:10px 14px;font-size:.82rem;margin-bottom:14px;display:none;}
+.alert.success{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#4ade80;}
+.alert.error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#f87171;}
+#toast{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
+.toast-item{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 18px;font-size:.84rem;display:flex;align-items:center;gap:10px;min-width:260px;box-shadow:0 8px 32px rgba(0,0,0,.4);animation:slideIn .3s ease;}
+.toast-item.success{border-color:rgba(34,197,94,.4);}
+.toast-item.error{border-color:rgba(239,68,68,.4);}
+@keyframes slideIn{from{transform:translateX(120%);opacity:0;}to{transform:translateX(0);opacity:1;}}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:420px;}
+.modal h3{font-size:1rem;font-weight:700;margin-bottom:16px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <a href="/portal/" class="back-btn"><i class="fa fa-arrow-left"></i> Portal</a>
+    <div class="topbar-brand">
+      <div class="email-icon"><i class="fas fa-envelope" style="color:#fff;"></i></div>
+      <div>
+        <div style="font-size:.92rem;font-weight:700;">Email Manager</div>
+        <div style="font-size:.75rem;color:var(--muted);">Professional Email</div>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div class="domain-pill"><i class="fa fa-at" style="margin-right:5px;"></i>{{ email_svc.domain }}</div>
+    {% if webmail_url %}
+    <a href="{{ webmail_url }}" target="_blank" class="webmail-btn">
+      <i class="fas fa-globe"></i> Open Webmail
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="page">
+
+  {% if api_error %}
+  <div class="alert error" style="display:flex;align-items:center;gap:8px;margin-bottom:18px;">
+    <i class="fa fa-triangle-exclamation"></i> Could not reach panel server: {{ api_error }}. Showing cached data.
+  </div>
+  {% endif %}
+
+  <!-- Quota Bar -->
+  <div class="quota-bar-wrap">
+    <div class="quota-info">
+      <div class="quota-label">Mailbox Quota</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="quota-bar" style="flex:1;">
+          <div class="quota-fill {% if quota_pct >= 100 %}full{% elif quota_pct >= 80 %}warn{% endif %}"
+               style="width:{{ quota_pct }}%;"></div>
+        </div>
+        <div class="quota-text">{{ email_svc.mailbox_count }} / {{ email_svc.max_mailboxes }} mailboxes</div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:2px;">Plan</div>
+      <div style="font-size:.88rem;font-weight:700;">{{ email_svc.plan.name|default:"Professional Email" }}</div>
+    </div>
+  </div>
+
+  <!-- Top grid: Add mailbox + IMAP/SMTP settings -->
+  <div class="grid2">
+
+    <!-- Add Mailbox -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-icon ci-blue"><i class="fas fa-plus"></i></div>
+        <div class="card-title">Add Mailbox</div>
+      </div>
+      <div class="card-body">
+        <div id="add-alert" class="alert"></div>
+        {% if email_svc.mailbox_count >= email_svc.max_mailboxes %}
+        <div style="text-align:center;padding:20px;color:var(--yellow);font-size:.88rem;">
+          <i class="fas fa-triangle-exclamation" style="font-size:1.5rem;display:block;margin-bottom:8px;"></i>
+          Quota reached ({{ email_svc.max_mailboxes }}/{{ email_svc.max_mailboxes }}).<br>
+          <span style="color:var(--muted);font-size:.8rem;">Upgrade your plan to add more mailboxes.</span>
+        </div>
+        {% else %}
+        <form id="add-form">
+          <div class="fg" style="margin-bottom:12px;">
+            <label>Email Address</label>
+            <div class="input-group">
+              <div class="input-prefix">@{{ email_svc.domain }}</div>
+              <input type="text" id="add-local" placeholder="info, sales, support…" autocomplete="off">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="fg">
+              <label>Password</label>
+              <input type="password" id="add-pass" placeholder="Min 8 chars" minlength="8">
+            </div>
+            <div class="fg">
+              <label>Confirm</label>
+              <input type="password" id="add-pass2" placeholder="Repeat">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-blue" id="add-btn">
+            <span class="spin" id="add-spin"></span>
+            <i class="fas fa-plus" id="add-icon"></i> Create Mailbox
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- IMAP / SMTP Settings -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-icon ci-blue"><i class="fas fa-gear"></i></div>
+        <div class="card-title">IMAP / SMTP Settings</div>
+      </div>
+      <div class="card-body">
+        <div class="smtp-grid">
+          <div class="smtp-item">
+            <div class="slbl">IMAP Server</div>
+            <div class="sval green">{{ panel_host }}</div>
+          </div>
+          <div class="smtp-item">
+            <div class="slbl">IMAP Port</div>
+            <div class="sval">993 (SSL)</div>
+          </div>
+          <div class="smtp-item">
+            <div class="slbl">SMTP Server</div>
+            <div class="sval green">{{ panel_host }}</div>
+          </div>
+          <div class="smtp-item">
+            <div class="slbl">SMTP Port</div>
+            <div class="sval">587 / 465</div>
+          </div>
+          <div class="smtp-item">
+            <div class="slbl">POP3 Server</div>
+            <div class="sval green">{{ panel_host }}</div>
+          </div>
+          <div class="smtp-item">
+            <div class="slbl">POP3 Port</div>
+            <div class="sval">995 (SSL)</div>
+          </div>
+          <div class="smtp-item" style="grid-column:1/-1;">
+            <div class="slbl">Webmail</div>
+            {% if webmail_url %}
+            <div class="sval"><a href="{{ webmail_url }}" target="_blank" style="color:var(--blue2);">{{ webmail_url }}</a></div>
+            {% else %}
+            <div class="sval" style="color:var(--muted);">Not configured</div>
+            {% endif %}
+          </div>
+        </div>
+        <p style="font-size:.75rem;color:var(--muted);margin-top:14px;">
+          Use <strong>SSL/TLS</strong> for all connections. Your username is your full email address.
+        </p>
+      </div>
+    </div>
+
+  </div><!-- /grid2 -->
+
+  <!-- Mailbox List -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-icon ci-blue"><i class="fas fa-inbox"></i></div>
+      <div class="card-title">Mailboxes ({{ live_mailboxes|length }})</div>
+    </div>
+    <div class="card-body" style="padding:0;">
+      {% if live_mailboxes %}
+      <table class="mb-table">
+        <thead>
+          <tr>
+            <th>Email Address</th>
+            <th>Password</th>
+            <th>Webmail</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for mb in live_mailboxes %}
+          <tr>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <i class="fas fa-circle-user" style="color:var(--blue2);"></i>
+                <span style="font-weight:600;">{{ mb.email }}</span>
+                {% if mb.pending %}<span style="font-size:.7rem;color:var(--yellow);margin-left:4px;">(installing…)</span>{% endif %}
+              </div>
+            </td>
+            <td>
+              <div class="pass-cell">
+                <span class="pass-mask" id="pw-{{ forloop.counter }}">••••••••</span>
+                <button class="eye-btn" onclick="togglePass('{{ mb.password }}','pw-{{ forloop.counter }}',this)" title="Show/hide password">
+                  <i class="fas fa-eye"></i>
+                </button>
+              </div>
+            </td>
+            <td>
+              {% if webmail_url %}
+              <a href="{{ webmail_url }}" target="_blank" class="webmail-link">
+                <i class="fas fa-external-link-alt"></i> Webmail
+              </a>
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              <div class="actions-cell">
+                <button class="btn btn-green btn-sm" onclick="openPassModal('{{ mb.email }}')">
+                  <i class="fas fa-key"></i> Password
+                </button>
+                <button class="btn btn-red btn-sm" onclick="deleteMb('{{ mb.email }}')" {% if mb.email == 'admin@'|add:email_svc.domain %}disabled title="Primary mailbox cannot be deleted"{% endif %}>
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <i class="fas fa-inbox"></i>
+        No mailboxes found. Add your first mailbox above.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  <!-- Danger Zone -->
+  <div class="card" style="border:1px solid rgba(239,68,68,0.25);margin-top:20px;">
+    <div class="card-head">
+      <div class="card-icon" style="background:rgba(239,68,68,0.1);color:#ef4444;"><i class="fas fa-trash-can"></i></div>
+      <div class="card-title" style="color:#ef4444;">Danger Zone</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:15px;padding-top:10px;">
+      <p style="font-size:0.84rem;color:var(--muted);margin:0;max-width:480px;">
+        Deleting this professional email service will permanently remove the domain configuration, all created mailboxes, and all emails stored on the mail server. This action is irreversible.
+      </p>
+      <button class="btn btn-red" onclick="deleteEmailService()" style="background:#ef4444;color:#fff;border:none;cursor:pointer;border-radius:6px;padding:8px 16px;font-weight:700;">
+        <i class="fas fa-trash-can"></i> Terminate Email Service
+      </button>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<!-- Change Password Modal -->
+<div class="modal-bg" id="pass-modal">
+  <div class="modal">
+    <h3><i class="fas fa-key" style="color:var(--green);margin-right:8px;"></i>Change Mailbox Password</h3>
+    <div id="modal-alert" class="alert"></div>
+    <input type="hidden" id="modal-email">
+    <div class="fg" style="margin-bottom:12px;">
+      <label>Mailbox</label>
+      <input type="text" id="modal-email-display" readonly style="opacity:.6;">
+    </div>
+    <div class="fg" style="margin-bottom:12px;">
+      <label>New Password</label>
+      <input type="password" id="modal-pass" placeholder="Min 8 characters" minlength="8">
+    </div>
+    <div class="fg" style="margin-bottom:18px;">
+      <label>Confirm Password</label>
+      <input type="password" id="modal-pass2" placeholder="Repeat password">
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-green" id="modal-save-btn" onclick="savePass()">
+        <span class="spin" id="modal-spin"></span>
+        <i class="fas fa-save" id="modal-icon"></i> Save Password
+      </button>
+      <button class="btn" style="background:var(--card2);color:var(--muted);border:1px solid var(--border);" onclick="closePassModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const ACTION = '/portal/email/{{ email_svc.id }}/action/';
+const CSRF   = '{{ csrf_token }}';
+const DOMAIN = '{{ email_svc.domain }}';
+
+function deleteEmailService() {
+  if (!confirm("Are you absolutely sure you want to terminate and delete this professional email service? All mailboxes and emails will be deleted permanently!")) {
+    return;
+  }
+  fetch('/portal/delete-service/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'X-CSRFToken': CSRF
+    },
+    body: 'service_type=email&service_id={{ email_svc.id }}'
+  })
+  .then(resp => resp.json())
+  .then(data => {
+    if (data.ok) {
+      alert(data.message);
+      window.location.href = '/portal/';
+    } else {
+      alert("Error: " + data.message);
+    }
+  })
+  .catch(err => {
+    alert("Request failed. Please try again.");
+  });
+}
+
+function toast(msg, type='success'){
+  const t=document.getElementById('toast');
+  const el=document.createElement('div');
+  el.className=`toast-item ${type}`;
+  el.innerHTML=`<i class="fa ${type==='success'?'fa-circle-check':'fa-circle-xmark'}" style="color:${type==='success'?'#4ade80':'#f87171'};"></i> ${msg}`;
+  t.appendChild(el);
+  setTimeout(()=>el.remove(),4500);
+}
+function alert_(id,msg,type){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.textContent=msg;el.className=`alert ${type}`;el.style.display='block';
+  setTimeout(()=>el.style.display='none',6000);
+}
+function loading(btnId,spinId,iconId,on){
+  const b=document.getElementById(btnId);
+  const s=document.getElementById(spinId);
+  const i=document.getElementById(iconId);
+  if(b)b.disabled=on;
+  if(s)s.style.display=on?'block':'none';
+  if(i)i.style.display=on?'none':'inline';
+}
+async function post(payload){
+  const r=await fetch(ACTION,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify(payload)});
+  return r.json();
+}
+
+// Toggle password visibility
+function togglePass(pw,id,btn){
+  const el=document.getElementById(id);
+  if(el.textContent==='••••••••'){el.textContent=pw;btn.innerHTML='<i class="fas fa-eye-slash"></i>';}
+  else{el.textContent='••••••••';btn.innerHTML='<i class="fas fa-eye"></i>';}
+}
+
+// Add mailbox
+const addForm=document.getElementById('add-form');
+if(addForm){
+  addForm.addEventListener('submit',async function(e){
+    e.preventDefault();
+    const local=document.getElementById('add-local').value.trim();
+    const pass =document.getElementById('add-pass').value.trim();
+    const pass2=document.getElementById('add-pass2').value.trim();
+    if(!local){alert_('add-alert','Enter a local part (e.g. info)','error');return;}
+    if(pass!==pass2){alert_('add-alert','Passwords do not match','error');return;}
+    if(pass.length<8){alert_('add-alert','Password must be at least 8 characters','error');return;}
+    loading('add-btn','add-spin','add-icon',true);
+    try{
+      const d=await post({action:'add',local,password:pass});
+      if(d.status==='success'){toast(d.message,'success');setTimeout(()=>location.reload(),1800);}
+      else{toast(d.message||'Failed','error');alert_('add-alert',d.message||'Failed','error');}
+    }catch(ex){toast('Network error','error');}
+    finally{loading('add-btn','add-spin','add-icon',false);}
+  });
+}
+
+// Delete mailbox
+async function deleteMb(email){
+  if(!confirm(`Delete mailbox ${email}?\n\nThis will permanently remove the mailbox and all its emails.`))return;
+  try{
+    const d=await post({action:'delete',email});
+    if(d.status==='success'){toast(d.message,'success');setTimeout(()=>location.reload(),1800);}
+    else toast(d.message||'Delete failed','error');
+  }catch(ex){toast('Network error','error');}
+}
+
+// Password modal
+function openPassModal(email){
+  document.getElementById('modal-email').value=email;
+  document.getElementById('modal-email-display').value=email;
+  document.getElementById('modal-pass').value='';
+  document.getElementById('modal-pass2').value='';
+  document.getElementById('pass-modal').classList.add('open');
+}
+function closePassModal(){document.getElementById('pass-modal').classList.remove('open');}
+async function savePass(){
+  const email=document.getElementById('modal-email').value;
+  const pass =document.getElementById('modal-pass').value.trim();
+  const pass2=document.getElementById('modal-pass2').value.trim();
+  if(pass!==pass2){alert_('modal-alert','Passwords do not match','error');return;}
+  if(pass.length<8){alert_('modal-alert','Min 8 characters','error');return;}
+  loading('modal-save-btn','modal-spin','modal-icon',true);
+  try{
+    const d=await post({action:'change_password',email,new_password:pass});
+    if(d.status==='success'){toast(d.message,'success');closePassModal();setTimeout(()=>location.reload(),1500);}
+    else{toast(d.message||'Failed','error');alert_('modal-alert',d.message||'Failed','error');}
+  }catch(ex){toast('Network error','error');}
+  finally{loading('modal-save-btn','modal-spin','modal-icon',false);}
+}
+document.getElementById('pass-modal').addEventListener('click',function(e){if(e.target===this)closePassModal();});
+</script>
+</body>
+</html>

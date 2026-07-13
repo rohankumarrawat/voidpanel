@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>:: VoidPanel :: Create Sub-Account</title>
+    <!-- ★ Early theme detection — prevents flash/mix on load ★ -->
+    <script>
+    (function() {
+        var t = 'light';
+        try { t = localStorage.getItem('vp-theme') || 'dark'; } catch(e) {}
+        document.documentElement.setAttribute('data-theme', t);
+    })();
+    </script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <style>
+        html[data-theme="light"] {
+            --neon:#4f46e5; --purple:#7c3aed; --green:#059669; --amber:#d97706;
+            --bg:#f1f5f9; --card:rgba(255,255,255,0.90); --border:rgba(99,102,241,0.15);
+            --input-bg:#ffffff; --input-border:rgba(15,23,42,0.15);
+            --text2:#475569;
+            --text-main: #0f172a;
+            --icon:rgba(79,70,229,0.45);
+            --shadow:rgba(99,102,241,0.1);
+            --strength-bg:rgba(0,0,0,0.05);
+            --border-subtle:rgba(15,23,42,0.08);
+            --box-bg:rgba(79,70,229,0.05);
+            --box-border:rgba(79,70,229,0.15);
+        }
+
+        html[data-theme="dark"] {
+            --neon:#00e5ff; --purple:#a855f7; --green:#22c55e; --amber:#f59e0b;
+            --bg:#080c1a; --card:rgba(15,20,40,.82); --border:rgba(0,229,255,.15);
+            --input-bg:rgba(0,229,255,.06); --input-border:rgba(0,229,255,.25);
+            --text2:rgba(180,200,230,.7);
+            --text-main: #ffffff;
+            --icon:rgba(0,229,255,.45);
+            --shadow:rgba(0,229,255,.15);
+            --strength-bg:rgba(255,255,255,0.05);
+            --border-subtle:rgba(255,255,255,0.05);
+            --box-bg:rgba(0,229,255,0.05);
+            --box-border:rgba(0,229,255,0.15);
+        }
+        body { font-family:'Inter',sans-serif; background:var(--bg) !important; }
+        .page-header { padding:28px 0 8px; }
+        .page-header h2 { font-size:1.5rem; font-weight:800; color:var(--text-main); margin-bottom:4px; }
+        .breadcrumb { background:transparent; padding:0; margin:0; }
+        .breadcrumb-item, .breadcrumb-item a { font-size:.8rem; color:var(--text2); }
+        .breadcrumb-item.active { color:var(--neon); }
+        .breadcrumb-item + .breadcrumb-item::before { color:var(--text2); }
+
+        .adduser-grid { display:grid; grid-template-columns:1fr 360px; gap:24px; align-items:start; }
+        @media(max-width:900px){ .adduser-grid{grid-template-columns:1fr;} }
+
+        .glass-card { background:var(--card); border:1px solid var(--border); border-radius:18px; backdrop-filter:blur(24px); padding:32px 36px; position:relative; overflow:hidden; }
+        .glass-card::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(0,229,255,.04),transparent 60%); pointer-events:none; }
+
+        .card-head { display:flex; align-items:center; gap:14px; margin-bottom:28px; }
+        .card-head-icon { width:46px; height:46px; border-radius:12px; background:linear-gradient(135deg,rgba(0,229,255,.2),rgba(168,85,247,.2)); border:1px solid rgba(0,229,255,.2); display:flex; align-items:center; justify-content:center; font-size:1.2rem; color:var(--neon); animation:iconPulse 2.5s ease infinite; }
+        @keyframes iconPulse { 0%,100%{box-shadow:0 0 0 0 rgba(0,229,255,.25)} 50%{box-shadow:0 0 0 8px rgba(0,229,255,0)} }
+        .card-head-title { font-size:1.05rem; font-weight:700; color:var(--text-main); }
+        .card-head-sub   { font-size:.78rem; color:var(--text2); margin-top:2px; }
+
+        .section-label { font-size:.7rem; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--neon); margin:22px 0 12px; }
+
+        .field-wrap { margin-bottom:18px; }
+        .field-wrap label { display:block; font-size:.78rem; font-weight:500; color:var(--text2); margin-bottom:6px; }
+        .field-wrap label span.req { color:var(--neon); margin-left:3px; }
+        .field-inner { position:relative; }
+        .fi-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--icon-color); font-size:.85rem; pointer-events:none; }
+        .field-inner input, .field-inner select { width:100%; background:var(--input-bg) !important; border:1px solid var(--input-border) !important; border-radius:10px; color:var(--text-main) !important; font-family:'Inter',sans-serif; font-size:.88rem; padding:11px 14px 11px 38px; outline:none; transition:border-color .22s, box-shadow .22s; -webkit-appearance:none; appearance:none; }
+        .field-inner input::placeholder { color:rgba(150,170,210,.4); }
+        .field-inner input:focus, .field-inner select:focus { border-color:var(--neon) !important; box-shadow:0 0 0 3px rgba(0,229,255,.1) !important; }
+        .field-inner select option { background:var(--card); color:var(--text-main); }
+        html[data-theme="light"] .field-inner select option { background: #ffffff !important; color: #0f172a !important; }
+        .pwd-toggle { position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; padding:0; color:var(--icon-color); cursor:pointer; transition:color .2s; }
+        .pwd-toggle:hover { color:var(--neon); }
+
+        .strength-bar-wrap { margin-top:8px; display:flex; gap:5px; }
+        .strength-seg { flex:1; height:4px; border-radius:999px; background:var(--strength-bg); transition:background .3s; }
+        .strength-seg.weak { background:#ef4444; } .strength-seg.medium { background:#f59e0b; } .strength-seg.strong { background:#22c55e; }
+        .strength-text { font-size:.7rem; color:var(--text2); margin-top:5px; }
+        .match-indicator { font-size:.76rem; margin-top:6px; display:flex; align-items:center; gap:5px; }
+        .match-indicator.ok { color:#22c55e; } .match-indicator.fail { color:#ef4444; }
+
+        .btn-row { display:flex; gap:10px; margin-top:10px; }
+        .btn-gen { flex:1; background:rgba(0,229,255,.08); border:1px solid rgba(0,229,255,.25); color:var(--neon); border-radius:10px; font-size:.82rem; font-weight:500; padding:9px 14px; cursor:pointer; transition:all .22s; display:flex; align-items:center; gap:6px; justify-content:center; }
+        .btn-gen:hover { background:rgba(0,229,255,.16); border-color:var(--neon); }
+        .btn-submit { width:100%; margin-top:26px; padding:14px; border-radius:12px; border:none; background:linear-gradient(135deg,#00e5ff,#a855f7); color:#fff; font-family:'Inter',sans-serif; font-size:.95rem; font-weight:700; letter-spacing:.3px; cursor:pointer; position:relative; overflow:hidden; transition:opacity .22s, transform .12s; }
+        .btn-submit:disabled { opacity:.4; cursor:not-allowed; }
+        .btn-submit:not(:disabled):hover { opacity:.88; }
+
+        /* ── Quota mini-bar in sidebar ── */
+        .quota-card { padding:20px 22px; }
+        .quota-bar-lbl { display:flex; justify-content:space-between; font-size:.78rem; color:var(--text-main); font-weight:600; margin-bottom:6px; }
+        .quota-bar-track { height:6px; background:var(--track-bg); border-radius:999px; overflow:hidden; margin-bottom:10px; }
+        .quota-bar-fill { height:100%; border-radius:999px; }
+        .quota-bar-fill.ok { background:linear-gradient(90deg,var(--neon),var(--purple)); }
+        .quota-bar-fill.warn { background:linear-gradient(90deg,var(--amber),#f97316); }
+        .quota-bar-fill.danger { background:linear-gradient(90deg,#ef4444,#db2777); }
+
+        /* Progress / result overlays */
+        #progress-overlay { display:none; position:fixed; inset:0; background:var(--overlay-bg); backdrop-filter:blur(8px); z-index:9999; flex-direction:column; align-items:center; justify-content:center; gap:24px; }
+        #progress-overlay.show { display:flex; }
+        .progress-glass { background:var(--card); border:1px solid var(--border); border-radius:20px; padding:40px 48px; text-align:center; min-width:320px; }
+        .progress-spinner { width:56px; height:56px; border:3px solid rgba(0,229,255,.15); border-top-color:var(--neon); border-radius:50%; animation:spin .8s linear infinite; margin:0 auto 20px; }
+        @keyframes spin { to{transform:rotate(360deg)} }
+        .neo-bar { width:100%; height:5px; background:var(--strength-bg); border-radius:999px; margin-top:20px; overflow:hidden; }
+        .neo-bar-fill { height:100%; border-radius:999px; background:linear-gradient(90deg,#00e5ff,#a855f7); width:0%; transition:width .6s ease; }
+        .result-overlay { display:none; position:fixed; inset:0; background:var(--overlay-bg); backdrop-filter:blur(8px); z-index:9999; align-items:center; justify-content:center; }
+        .result-overlay.show { display:flex; }
+        .result-glass { background:var(--card); border:1px solid var(--border); border-radius:20px; padding:36px 40px; text-align:center; min-width:300px; animation:popIn .25s ease; }
+        @keyframes popIn { from{transform:scale(.9);opacity:0} to{transform:scale(1);opacity:1} }
+        .result-icon { font-size:2.5rem; margin-bottom:14px; }
+        .result-icon.ok { color:#22c55e; } .result-icon.fail { color:#ef4444; } .result-icon.warn { color:#f59e0b; }
+        .result-msg  { font-size:.9rem; color:var(--text-main); margin-bottom:20px; line-height:1.6; }
+        .result-close { background:var(--strength-bg); border:1px solid var(--border-subtle); color:var(--text-main); border-radius:999px; padding:8px 24px; font-size:.83rem; cursor:pointer; transition:all .2s; }
+        .result-close:hover { background:rgba(255,255,255,.12); }
+    </style>
+</head>
+<body class="font-nunito active-dark-mode">
+<script>
+    document.body.setAttribute('data-theme', localStorage.getItem('vp-theme') || 'dark');
+</script>
+<div id="wrapper" class="theme-cyan">
+    <div class="page-loader-wrapper" style="display:none !important;"></div>
+    <script>document.addEventListener('DOMContentLoaded',function(){var l=document.querySelector('.page-loader-wrapper');if(l)l.style.display='none';});</script>
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
+
+    <div id="main-content">
+        <div class="container-fluid">
+            <div class="page-header">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <h2>Create Sub-Account</h2>
+                        <ul class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="/reseller/"><i class="fa fa-home"></i></a></li>
+                            <li class="breadcrumb-item">Reseller Dashboard</li>
+                            <li class="breadcrumb-item active">Add Sub-Account</li>
+                        </ul>
+                    </div>
+                    <a href="/reseller/listusers/" class="btn-gen" style="text-decoration:none;max-width:160px;">
+                        <i class="fa fa-list"></i> View All Accounts
+                    </a>
+                </div>
+            </div>
+
+            <div class="adduser-grid" style="margin-top:10px;">
+                <!-- ── LEFT: form ── -->
+                <div class="glass-card">
+                    <div class="card-head">
+                        <div class="card-head-icon"><i class="fa fa-user-plus"></i></div>
+                        <div>
+                            <div class="card-head-title">Create Hosting Sub-Account</div>
+                            <div class="card-head-sub">This account counts against your reseller quota</div>
+                        </div>
+                    </div>
+
+                    <form id="myForm" method="post" autocomplete="off">
+                        {% csrf_token %}
+                        <div class="section-label">Account Details</div>
+
+                        <div class="field-wrap">
+                            <label>Domain Name <span class="req">*</span></label>
+                            <div class="field-inner">
+                                <i class="fa fa-globe fi-icon"></i>
+                                <input type="text" id="myInput" placeholder="example.com" required autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="field-wrap">
+                            <label>Email Address <span class="req">*</span></label>
+                            <div class="field-inner">
+                                <i class="fa fa-envelope fi-icon"></i>
+                                <input type="email" id="myInput2" placeholder="admin@example.com" required>
+                            </div>
+                        </div>
+
+                        <div class="section-label">Security</div>
+                        <div class="field-wrap">
+                            <label>Password <span class="req">*</span></label>
+                            <div class="field-inner">
+                                <i class="fa fa-lock fi-icon"></i>
+                                <input type="password" id="password" placeholder="Enter strong password" required oninput="updateStrength(this.value);checkMatch();" style="padding-right:42px;">
+                                <button type="button" class="pwd-toggle" onclick="toggleVis('password','eyeIcon1')"><i class="fa fa-eye-slash" id="eyeIcon1"></i></button>
+                            </div>
+                            <div class="strength-bar-wrap">
+                                <div class="strength-seg" id="s1"></div><div class="strength-seg" id="s2"></div>
+                                <div class="strength-seg" id="s3"></div><div class="strength-seg" id="s4"></div>
+                            </div>
+                            <div class="strength-text" id="strengthText"></div>
+                        </div>
+                        <div class="field-wrap">
+                            <label>Confirm Password <span class="req">*</span></label>
+                            <div class="field-inner">
+                                <i class="fa fa-lock fi-icon"></i>
+                                <input type="password" id="password1" placeholder="Repeat password" required oninput="checkMatch();" style="padding-right:42px;">
+                                <button type="button" class="pwd-toggle" onclick="toggleVis('password1','eyeIcon2')"><i class="fa fa-eye-slash" id="eyeIcon2"></i></button>
+                            </div>
+                            <div class="match-indicator" id="match"></div>
+                        </div>
+                        <div class="btn-row">
+                            <button type="button" class="btn-gen" onclick="gen()"><i class="fa fa-magic"></i> Generate Password</button>
+                        </div>
+
+                        <div class="section-label" style="margin-top:24px;">Hosting Package</div>
+                        <div class="field-wrap">
+                            <label>Select Package <span class="req">*</span></label>
+                            <div class="field-inner">
+                                <i class="fa fa-cube fi-icon"></i>
+                                <select id="package" required>
+                                    {% for p in packages %}
+                                    <option value="{{ p.name }}">{{ p.name }} ({{ p.storage }} GB)</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <button id="submitBtn" type="submit" class="btn-submit" disabled>
+                            <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.12),transparent);pointer-events:none;"></div>
+                            <i class="fa fa-user-plus" style="margin-right:8px;"></i> Create Sub-Account
+                        </button>
+                    </form>
+                </div>
+
+                <!-- ── RIGHT: quota + info ── -->
+                <div>
+                    <!-- Quota card -->
+                    <div class="glass-card quota-card" style="margin-bottom:16px;">
+                        <div class="card-head" style="margin-bottom:18px;">
+                            <div class="card-head-icon" style="background:linear-gradient(135deg,rgba(34,197,94,.2),rgba(0,229,255,.2));color:#22c55e;">
+                                <i class="fa fa-gauge-high"></i>
+                            </div>
+                            <div>
+                                <div class="card-head-title">Your Pool</div>
+                                <div class="card-head-sub">Remaining capacity</div>
+                            </div>
+                        </div>
+                        <div id="quotaContent">
+                            <!-- Filled by JS -->
+                            <div class="quota-bar-lbl"><span>Storage</span><span id="storageLabel">Loading…</span></div>
+                            <div class="quota-bar-track"><div class="quota-bar-fill ok" id="storageBar" style="width:0%"></div></div>
+                            <div class="quota-bar-lbl" style="margin-top:14px;"><span>Accounts</span><span id="acctLabel">Loading…</span></div>
+                            <div class="quota-bar-track"><div class="quota-bar-fill ok" id="acctBar" style="width:0%"></div></div>
+                        </div>
+                    </div>
+
+                    <!-- What gets created -->
+                    <div class="glass-card" style="padding:22px 26px;">
+                        <div class="card-head" style="margin-bottom:14px;">
+                            <div class="card-head-icon" style="background:linear-gradient(135deg,rgba(168,85,247,.2),rgba(0,229,255,.2));color:#a855f7;">
+                                <i class="fa fa-info-circle"></i>
+                            </div>
+                            <div><div class="card-head-title">What gets provisioned</div></div>
+                        </div>
+                        {% for icon,color,title,desc in info_items|default:"" %}{% endfor %}
+                        <div style="font-size:.78rem;color:var(--text2);line-height:1.7;">
+                            <div style="padding:8px 0;border-bottom:1px solid var(--border-subtle);"><i class="fas fa-globe" style="color:var(--neon);width:18px;"></i> Nginx virtual host + SSL certificate</div>
+                            <div style="padding:8px 0;border-bottom:1px solid var(--border-subtle);"><i class="fas fa-envelope" style="color:var(--purple);width:18px;"></i> Postfix/Dovecot mail + DKIM key</div>
+                            <div style="padding:8px 0;border-bottom:1px solid var(--border-subtle);"><i class="fas fa-server" style="color:#22d3ee;width:18px;"></i> BIND9 DNS zone (A, MX, SPF, DKIM)</div>
+                            <div style="padding:8px 0;"><i class="fas fa-hdd" style="color:var(--amber);width:18px;"></i> Home directory with disk quota</div>
+                        </div>
+                        <div style="background:rgba(0,229,255,.05);border:1px solid rgba(0,229,255,.1);border-radius:10px;padding:12px;margin-top:14px;font-size:.75rem;color:var(--text2);">
+                            <i class="fa fa-bolt" style="color:var(--neon);margin-right:6px;"></i>
+                            <strong style="color:var(--text-main);">Background provisioning</strong> — you can navigate away immediately.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Progress Overlay -->
+<div id="progress-overlay">
+    <div class="progress-glass">
+        <div class="progress-spinner"></div>
+        <div style="font-size:1rem;font-weight:700;color:var(--text-main);margin-bottom:6px;">Provisioning Account…</div>
+        <div style="font-size:.8rem;color:var(--text2);">Setting up domain, SSL, mail and DNS</div>
+        <div class="neo-bar"><div class="neo-bar-fill" id="neoFill"></div></div>
+    </div>
+</div>
+
+<!-- Result Overlay -->
+<div class="result-overlay" id="resultOverlay">
+    <div class="result-glass">
+        <div class="result-icon" id="resultIcon">✓</div>
+        <div class="result-msg" id="resultMsg"></div>
+        <button class="result-close" onclick="document.getElementById('resultOverlay').classList.remove('show'); document.getElementById('submitBtn').disabled=false;">Close</button>
+    </div>
+</div>
+
+
+<script src="/static/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/static/assets/vendor/metismenu/metisMenu.min.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+<script>
+    $(window).on('load', function () { $('.page-loader-wrapper').fadeOut(300); });
+    setTimeout(function() { $('.page-loader-wrapper').fadeOut(300); }, 1500);
+</script>
+<script>
+// ── Load quota status ──────────────────────────────────────────────────────
+async function loadQuota() {
+    try {
+        const r = await fetch('/api/reseller/quota-status/');
+        const d = await r.json();
+        if (d.error) return;
+        document.getElementById('storageLabel').textContent = `${d.storage_used_gb} / ${d.storage_quota_gb} GB`;
+        document.getElementById('storageBar').style.width = d.storage_percent + '%';
+        document.getElementById('storageBar').className = 'quota-bar-fill ' + (d.storage_percent > 85 ? 'danger' : d.storage_percent > 65 ? 'warn' : 'ok');
+        document.getElementById('acctLabel').textContent = `${d.account_used} / ${d.account_quota}`;
+        document.getElementById('acctBar').style.width = d.account_percent + '%';
+        document.getElementById('acctBar').className = 'quota-bar-fill ' + (d.account_percent > 85 ? 'danger' : d.account_percent > 65 ? 'warn' : 'ok');
+    } catch(e) {}
+}
+loadQuota();
+
+function updateStrength(v) {
+    const segs=['s1','s2','s3','s4']; let s=0;
+    if(v.length>=8)s++; if(/[A-Z]/.test(v))s++; if(/[0-9]/.test(v))s++; if(/[^A-Za-z0-9]/.test(v))s++;
+    const cls=['','weak','medium','medium','strong'], lbl=['','Weak','Fair','Good','Strong'];
+    segs.forEach((id,i)=>{ const el=document.getElementById(id); el.className='strength-seg'; if(i<s)el.classList.add(cls[s]); });
+    document.getElementById('strengthText').textContent = v.length ? lbl[s] : '';
+}
+
+function checkMatch() {
+    const p1=document.getElementById('password').value, p2=document.getElementById('password1').value;
+    const el=document.getElementById('match'), btn=document.getElementById('submitBtn');
+    if(!p2){ el.innerHTML=''; btn.disabled=true; return; }
+    if(p1===p2){ el.innerHTML='<i class="fa fa-check-circle"></i> Passwords match'; el.className='match-indicator ok'; btn.disabled=false; }
+    else { el.innerHTML='<i class="fa fa-times-circle"></i> Passwords do not match'; el.className='match-indicator fail'; btn.disabled=true; }
+}
+
+function toggleVis(id, iconId) {
+    const inp=document.getElementById(id), icon=document.getElementById(iconId);
+    inp.type = inp.type==='password' ? 'text' : 'password';
+    icon.className = inp.type==='text' ? 'fa fa-eye' : 'fa fa-eye-slash';
+}
+
+function gen() {
+    const chars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*_+~';
+    let pw=''; for(let i=0;i<14;i++) pw+=chars[Math.floor(Math.random()*chars.length)];
+    ['password','password1'].forEach(id=>{ const el=document.getElementById(id); el.value=pw; el.type='text'; });
+    document.getElementById('eyeIcon1').className='fa fa-eye';
+    document.getElementById('eyeIcon2').className='fa fa-eye';
+    updateStrength(pw); checkMatch();
+}
+
+let _pi=null;
+function startProgress() { document.getElementById('progress-overlay').classList.add('show'); const f=document.getElementById('neoFill'); let p=0; _pi=setInterval(()=>{ if(p<85){p+=2;f.style.width=p+'%';} },150); }
+function finishProgress() { clearInterval(_pi); document.getElementById('neoFill').style.width='100%'; setTimeout(()=>document.getElementById('progress-overlay').classList.remove('show'),400); }
+
+function showResult(icon, cls, msg) {
+    const el=document.getElementById('resultIcon'); el.textContent=icon; el.className='result-icon '+cls;
+    document.getElementById('resultMsg').textContent=msg;
+    document.getElementById('resultOverlay').classList.add('show');
+}
+
+document.getElementById('myForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    startProgress();
+    fetch('/reseller/addusermain/', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'X-CSRFToken':'{{ csrf_token }}' },
+        body: JSON.stringify({
+            web:      document.getElementById('myInput').value,
+            email:    document.getElementById('myInput2').value,
+            password: document.getElementById('password').value,
+            package:  document.getElementById('package').value,
+        })
+    })
+    .then(r=>r.json())
+    .then(d=>{
+        finishProgress();
+        if (d.status==='success') {
+            showResult('✓','ok','Sub-account provisioning started! Redirecting…');
+            setTimeout(()=>window.location.href='/reseller/listusers/',2500);
+        } else if(d.status==='quota') {
+            showResult('⚠','warn', d.message);
+        } else if(d.status==='already') {
+            showResult('!','warn','Domain already exists. Choose a different domain.');
+        } else if(d.status==='package') {
+            showResult('✕','fail','Package not found. Please contact your administrator.');
+        } else {
+            showResult('✕','fail', d.message||'An error occurred. Please try again.');
+        }
+    })
+    .catch(()=>{ finishProgress(); showResult('✕','fail','Network error. Please try again.'); });
+});
+</script>
+    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+</body>
+</html>

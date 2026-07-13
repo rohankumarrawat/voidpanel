@@ -1,0 +1,473 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Invoice {{ invoice.invoice_number }} | VoidPanel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Pay your VoidPanel invoice {{ invoice.invoice_number }} securely online.">
+    <link rel="shortcut icon" href="/static/fav.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css">
+    <style>
+        .pay-page {
+            min-height: 100vh;
+            padding: 108px 20px 60px;
+            background:
+                radial-gradient(circle at 80% 10%, rgba(37,99,235,0.08), transparent 28%),
+                radial-gradient(circle at 10% 90%, rgba(34,197,94,0.04), transparent 26%),
+                #f8fafc;
+        }
+        .pay-grid {
+            max-width: 980px; margin: 0 auto;
+            display: grid; grid-template-columns: minmax(0,1fr) 360px;
+            gap: 24px;
+        }
+        .glass-surface {
+            background: #ffffff;
+            border: 1px solid var(--border-subtle);
+            border-radius: 24px; padding: 28px 30px;
+            box-shadow: 0 10px 30px rgba(15,23,42,0.05);
+        }
+        .inv-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+        .inv-title { font-size: 1.7rem; font-weight: 800; color: var(--text-primary); }
+        .inv-number { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; font-family: monospace; }
+        .status-badge {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 7px 15px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+        }
+        .status-paid    { background: rgba(22,163,74,0.08); color: #16a34a; border: 1px solid rgba(22,163,74,0.15); }
+        .status-unpaid  { background: rgba(217,119,6,0.08); color: #d97706; border: 1px solid rgba(217,119,6,0.15); }
+        .status-overdue { background: rgba(220,38,38,0.08); color: #dc2626; border: 1px solid rgba(220,38,38,0.15); }
+        .line-row { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--border-subtle); }
+        .line-row:last-child { border: none; }
+        .line-desc { color: var(--text-secondary); }
+        .line-amount { color: var(--text-primary); font-weight: 700; }
+        .total-row { display: flex; justify-content: space-between; padding: 20px 0 0; }
+        .total-label { color: var(--text-secondary); font-size: 0.95rem; }
+        .total-value { color: var(--text-primary); font-size: 2.2rem; font-weight: 900; }
+        .meta-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border-subtle); }
+        .meta-key { color: var(--text-muted); font-size: 0.75rem; margin-bottom: 3px; }
+        .meta-val { color: var(--text-primary); font-weight: 600; font-size: 0.9rem; }
+ 
+        /* ── Pay Button ── */
+        .rzp-pay-btn {
+            width: 100%; padding: 16px; border-radius: 16px; border: none; cursor: pointer;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: #fff; font-size: 1rem; font-weight: 800;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            font-family: inherit; transition: all 0.2s;
+            box-shadow: 0 8px 24px rgba(37,99,235,0.25);
+        }
+        .rzp-pay-btn:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 12px 32px rgba(37,99,235,0.35); }
+        .rzp-pay-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+        .rzp-label {
+            font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; opacity: 0.75;
+            display: block; text-align: center; margin-top: 6px; color: var(--text-secondary);
+        }
+ 
+        /* ── Secondary / bank ── */
+        .bank-section { margin-top: 14px; }
+        .pay-method {
+            padding: 16px 18px; border-radius: 16px;
+            border: 1px solid var(--border-subtle);
+            background: #ffffff; margin-bottom: 10px;
+        }
+        .pay-method-title { color: var(--text-primary); font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; font-size: 0.88rem; }
+        .pay-method p { color: var(--text-secondary); line-height: 1.7; margin: 0; font-size: 0.82rem; }
+        .pay-method code { background: rgba(37,99,235,0.08); padding: 2px 7px; border-radius: 5px; color: #2563eb; }
+ 
+        /* ── Admin ── */
+        .admin-panel { background: rgba(22,163,74,0.06); border: 1px solid rgba(22,163,74,0.18); border-radius: 16px; padding: 18px; margin-top: 14px; }
+        .btn-confirm {
+            width: 100%; padding: 13px; border-radius: 12px; border: none; cursor: pointer;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: #ffffff; font-size: 0.9rem; font-weight: 700;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            font-family: inherit; transition: opacity .2s;
+        }
+        .btn-confirm:hover { opacity: 0.88; }
+ 
+        /* ── Success / paid state ── */
+        .paid-success {
+            text-align: center; padding: 20px 0;
+            background: rgba(22,163,74,0.04); border-radius: 16px;
+        }
+ 
+        /* ── Quick links ── */
+        .ql-link {
+            display: flex; align-items: center; gap: 10px;
+            padding: 11px 14px; border-radius: 12px;
+            background: rgba(15,23,42,0.03); border: 1px solid rgba(15,23,42,0.06);
+            color: var(--text-secondary); margin-bottom: 8px; transition: background 0.15s;
+        }
+        .ql-link:hover { background: rgba(15,23,42,0.06); color: var(--text-primary); }255,0.06); color: var(--text-primary); }
+
+        /* ── Toast ── */
+        #payToast {
+            position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+            display: flex; align-items: center; gap: 12px;
+            padding: 14px 20px; border-radius: 14px;
+            background: rgba(8,14,24,0.96); backdrop-filter: blur(16px);
+            border: 1px solid rgba(34,197,94,0.3);
+            color: var(--text-primary); font-size: 0.86rem; font-weight: 600;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            transform: translateX(120%); transition: transform 0.35s cubic-bezier(.34,1.56,.64,1);
+        }
+        #payToast.show { transform: translateX(0); }
+        #payToast.error { border-color: rgba(239,68,68,0.3); }
+
+        .message-banner { margin-bottom: 16px; padding: 12px 14px; border-radius: 12px; background: rgba(89,196,188,0.08); border: 1px solid rgba(89,196,188,0.2); color: var(--text-primary); font-size:0.85rem; }
+        .provision-error-banner {
+            display: none;
+            margin-top: 14px; padding: 16px 18px; border-radius: 14px;
+            background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25);
+            color: var(--text-primary);
+        }
+        .provision-error-banner .peb-title { font-weight: 800; color: #fca5a5; margin-bottom: 6px; font-size: 0.9rem; }
+        .provision-error-banner .peb-msg { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 12px; }
+        @media (max-width: 800px) { .pay-grid { grid-template-columns: 1fr; } .meta-grid { grid-template-columns: 1fr 1fr; } }
+    </style>
+</head>
+<body>
+{% include 'header.html' %}
+<main class="pay-page">
+    <div class="pay-grid">
+        <!-- Invoice Details -->
+        <div class="glass-surface">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="message-banner"><i class="fas fa-info-circle" style="margin-right:6px;"></i>{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+
+            <div class="inv-header">
+                <div>
+                    <div class="inv-title">Invoice</div>
+                    <div class="inv-number">{{ invoice.invoice_number }}</div>
+                </div>
+                <span class="status-badge status-{{ invoice.status }}">
+                    {% if invoice.status == 'paid' %}<i class="fas fa-check-circle"></i>
+                    {% elif invoice.status == 'overdue' %}<i class="fas fa-triangle-exclamation"></i>
+                    {% else %}<i class="fas fa-clock"></i>{% endif %}
+                    {{ invoice.get_status_display }}
+                </span>
+            </div>
+
+            <!-- Line items -->
+            <div class="line-row">
+                <div>
+                    <div style="color:var(--text-primary);font-weight:600;">{{ invoice.description }}</div>
+                    {% if order %}
+                    <div style="color:var(--text-muted);font-size:0.8rem;margin-top:3px;">{{ order.package.name }} — {{ order.billing_cycle|title }} Plan</div>
+                    {% endif %}
+                    {% if domain_order %}
+                    <div style="color:var(--text-muted);font-size:0.8rem;margin-top:3px;">Domain: {{ domain_order.domain_name }} ({{ domain_order.years }} yr)</div>
+                    {% endif %}
+                </div>
+                <div class="line-amount">₹{{ invoice.total }}</div>
+            </div>
+
+            <div class="total-row">
+                <div class="total-label">Total Due</div>
+                <div class="total-value">₹{{ invoice.total }}</div>
+            </div>
+
+            <div class="meta-grid">
+                <div>
+                    <div class="meta-key">Invoice Date</div>
+                    <div class="meta-val">{{ invoice.created_at|date:"M d, Y" }}</div>
+                </div>
+                <div>
+                    <div class="meta-key">Due Date</div>
+                    <div class="meta-val" style="{% if invoice.status == 'overdue' %}color:#fca5a5;{% endif %}">{{ invoice.due_date|date:"M d, Y" }}</div>
+                </div>
+                {% if invoice.paid_date %}
+                <div>
+                    <div class="meta-key">Paid On</div>
+                    <div class="meta-val" style="color:#86efac;">{{ invoice.paid_date|date:"M d, Y" }}</div>
+                </div>
+                {% else %}
+                <div>
+                    <div class="meta-key">Bill To</div>
+                    <div class="meta-val">{{ invoice.user.get_full_name|default:invoice.user.username }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Payment Actions -->
+        <div>
+            {% if invoice.status != 'paid' %}
+            <div class="glass-surface" style="margin-bottom:14px;">
+                <div style="font-weight:800;color:var(--text-primary);margin-bottom:18px;font-size:0.95rem;">
+                    <i class="fas fa-lock" style="color:#6366f1;margin-right:8px;"></i>Secure Payment
+                </div>
+
+                {% if profile and profile.balance_funds > 0 or profile.balance_chips > 0 %}
+                <div style="background:rgba(89,196,188,0.06); border:1px solid rgba(89,196,188,0.2); border-radius:16px; padding:18px; margin-bottom:18px;">
+                    <div style="font-weight:800;color:#14b8a6;margin-bottom:12px;font-size:0.9rem;display:flex;align-items:center;gap:8px;">
+                        <i class="fas fa-wallet"></i> Pay with Wallet Funds
+                    </div>
+                    <div style="font-size:0.82rem;color:var(--text-secondary);line-height:1.6;margin-bottom:14px;">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                            <span>Available Funds:</span>
+                            <strong style="color:var(--text-primary);">₹{{ profile.balance_funds }}</strong>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;">
+                            <span>Available Credits:</span>
+                            <strong style="color:var(--text-primary);">{{ profile.balance_chips }} Chips</strong>
+                        </div>
+                    </div>
+                    <button type="button" class="rzp-pay-btn" id="walletPayBtn" onclick="payWithWallet()" style="background:linear-gradient(135deg, #0d9488, #0f766e);box-shadow:0 6px 18px rgba(13,148,136,0.25);">
+                        <i class="fas fa-wallet"></i> Pay ₹{{ invoice.total }} with Wallet
+                    </button>
+                </div>
+                {% endif %}
+
+                {% if razorpay_on %}
+                <!-- ── Razorpay Checkout ── -->
+                <!-- Provisioning Error Banner (shown by JS if account creation fails after payment) -->
+                <div class="provision-error-banner" id="provisionErrorBanner">
+                    <div class="peb-title"><i class="fas fa-triangle-exclamation"></i> Account Creation Failed</div>
+                    <div class="peb-msg" id="provisionErrorMsg"></div>
+                    <div style="font-size:0.8rem;color:var(--text-muted);padding:10px;background:rgba(0,0,0,0.2);border-radius:8px;margin-bottom:10px;">
+                        ✅ <strong>Your payment was received</strong> — invoice <code>{{ invoice.invoice_number }}</code> is marked paid.
+                        However, we could not automatically create your hosting account.
+                    </div>
+                    <a href="/portal/ticket/new/" style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:10px;background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.25);font-size:0.82rem;font-weight:700;">
+                        <i class="fas fa-headset"></i> Open Support Ticket
+                    </a>
+                </div>
+
+                <button class="rzp-pay-btn" id="rzpPayBtn" onclick="initiateRazorpayPayment()">
+                    <i class="fas fa-credit-card"></i>
+                    Pay ₹{{ invoice.total }} Now
+                </button>
+                <span class="rzp-label">
+                    <i class="fas fa-shield-halved" style="margin-right:3px;"></i>
+                    Secured by Razorpay · UPI · Cards · Net Banking · Wallets
+                </span>
+
+                <div style="display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--text-muted);font-size:0.78rem;">
+                    <div style="flex:1;height:1px;background:rgba(255,255,255,0.06);"></div>
+                    or
+                    <div style="flex:1;height:1px;background:rgba(255,255,255,0.06);"></div>
+                </div>
+                {% endif %}
+
+                <!-- ── Bank / UPI fallback ── -->
+                <div class="bank-section">
+                    <div class="pay-method">
+                        <div class="pay-method-title"><i class="fas fa-building-columns" style="color:#59c4bc;"></i> Bank Transfer / UPI</div>
+                        <p>UPI ID: <code>9354519271@kotak811</code><br>Or Send to: <code>billing@voidpanel.com</code><br>Reference: <code>{{ invoice.invoice_number }}</code><br>Amount: <code>₹{{ invoice.total }}</code></p>
+                    </div>
+                    <div class="pay-method">
+                        <div class="pay-method-title"><i class="fas fa-envelope" style="color:#818cf8;"></i> Email Confirmation</div>
+                        <p>After payment, email your UTR/transaction ID to <code>billing@voidpanel.com</code></p>
+                    </div>
+                </div>
+
+                {% if request.user.is_superuser %}
+                <div class="admin-panel">
+                    <div class="pay-method-title" style="color:#4ade80;"><i class="fas fa-shield-check"></i> Admin: Manual Confirmation</div>
+                    <p style="color:var(--text-secondary);font-size:0.8rem;margin:0 0 12px;">Mark invoice as paid and trigger provisioning immediately.</p>
+                    <form method="POST">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="mark_paid">
+                        <button type="submit" class="btn-confirm"><i class="fas fa-check"></i> Mark Paid & Provision</button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+
+            {% else %}
+            <div class="glass-surface" style="margin-bottom:14px;background:rgba(74,222,128,0.04);border-color:rgba(74,222,128,0.18);">
+                <div class="paid-success">
+                    <i class="fas fa-circle-check" style="color:#86efac;font-size:2.8rem;margin-bottom:14px;display:block;"></i>
+                    <div style="color:var(--text-primary);font-weight:800;font-size:1.1rem;">Payment Received!</div>
+                    <div style="color:var(--text-secondary);margin-top:8px;font-size:0.84rem;line-height:1.6;">Your hosting account is being provisioned.<br>You'll receive an email once it's live.</div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Quick Links -->
+            <div class="glass-surface">
+                <div style="font-weight:700;color:var(--text-primary);margin-bottom:12px;font-size:0.88rem;">Quick Links</div>
+                <a href="/portal/" class="ql-link"><i class="fas fa-gauge-high" style="color:#59c4bc;"></i> Back to Dashboard</a>
+                <a href="/portal/ticket/new/" class="ql-link"><i class="fas fa-life-ring" style="color:#818cf8;"></i> Open Support Ticket</a>
+            </div>
+        </div>
+    </div>
+</main>
+{% include 'footer.html' %}
+
+<!-- Razorpay SDK -->
+{% if razorpay_on %}
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+{% endif %}
+
+<!-- Toast -->
+<div id="payToast"></div>
+
+<script>
+const INVOICE_ID   = {{ invoice.id }};
+const INVOICE_TOTAL = {{ invoice.total }};
+const RAZORPAY_ON  = {% if razorpay_on %}true{% else %}false{% endif %};
+
+function showToast(msg, type='success') {
+    const el = document.getElementById('payToast');
+    const icon = type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-check';
+    const color = type === 'error' ? '#f87171' : '#86efac';
+    el.innerHTML = `<i class="fas ${icon}" style="color:${color};font-size:1.1rem;"></i> ${msg}`;
+    el.className = `show ${type === 'error' ? 'error' : ''}`;
+    setTimeout(() => { el.className = ''; }, 5000);
+}
+
+async function initiateRazorpayPayment() {
+    if (!RAZORPAY_ON) { showToast('Payment gateway not configured.', 'error'); return; }
+
+    const btn = document.getElementById('rzpPayBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Preparing payment…';
+
+    try {
+        const r = await fetch('/api/payment/razorpay/create-order/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ invoice_id: INVOICE_ID })
+        });
+        const d = await r.json();
+        if (d.error) { showToast(d.error, 'error'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-credit-card"></i> Pay ₹' + INVOICE_TOTAL + ' Now'; return; }
+
+        const options = {
+            key:          d.key_id,
+            amount:       d.amount,
+            currency:     d.currency,
+            name:         d.name,
+            description:  d.description,
+            order_id:     d.order_id,
+            prefill:      d.prefill,
+            hidden:       { contact: true },
+            theme:        { color: '#6366f1' },
+            modal: {
+                ondismiss: function() {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-credit-card"></i> Pay ₹' + INVOICE_TOTAL + ' Now';
+                }
+            },
+            handler: async function(resp) {
+                btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Verifying payment…';
+                try {
+                    const vr = await fetch('/api/payment/razorpay/verify/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                        body: JSON.stringify({
+                            razorpay_order_id:   resp.razorpay_order_id,
+                            razorpay_payment_id: resp.razorpay_payment_id,
+                            razorpay_signature:  resp.razorpay_signature,
+                            invoice_id:          INVOICE_ID
+                        })
+                    });
+                    const vd = await vr.json();
+                    if (vd.ok) {
+                        // Check provision outcome
+                        const ps = vd.provision || 'na';
+                        if (ps === 'ok' || ps === 'na') {
+                            showToast('🎉 Payment successful! Your account is being set up…');
+                            setTimeout(() => { window.location = '/portal/order-complete/?invoice=' + INVOICE_ID; }, 1800);
+                        } else {
+                            // Payment OK but provisioning failed — show error banner
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fas fa-credit-card"></i> Pay ₹' + INVOICE_TOTAL + ' Now';
+                            showProvisionError(vd.provision_message || 'Account creation failed. Please contact support.');
+                        }
+                    } else {
+                        showToast(vd.error || 'Verification failed. Contact support.', 'error');
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-credit-card"></i> Pay ₹' + INVOICE_TOTAL + ' Now';
+                    }
+                } catch(e) {
+                    showToast('Network error during verification.', 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-credit-card"></i> Pay ₹' + INVOICE_TOTAL + ' Now';
+                }
+            }
+        };
+
+        const rzp = new Razorpay(options);
+        rzp.on('payment.failed', function(resp) {
+            showToast('Payment failed: ' + (resp.error.description || 'Unknown error'), 'error');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-credit-card"></i> Pay ₹' + INVOICE_TOTAL + ' Now';
+        });
+        rzp.open();
+
+    } catch(e) {
+        showToast('Could not connect to payment gateway.', 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-credit-card"></i> Pay ₹' + INVOICE_TOTAL + ' Now';
+    }
+}
+
+function showProvisionError(message) {
+    const banner = document.getElementById('provisionErrorBanner');
+    const msgEl  = document.getElementById('provisionErrorMsg');
+    if (banner && msgEl) {
+        msgEl.textContent = message;
+        banner.style.display = 'block';
+        banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    showToast('⚠️ Payment received, but account setup failed. See details below.', 'error');
+}
+
+async function payWithWallet() {
+    const btn = document.getElementById('walletPayBtn');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processing payment…';
+    
+    try {
+        const r = await fetch('/api/payment/wallet/pay/', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'X-CSRFToken': getCookie('csrftoken') 
+            },
+            body: JSON.stringify({ invoice_id: INVOICE_ID })
+        });
+        
+        // If the server redirected us to login, the response will be HTML not JSON
+        const contentType = r.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            showToast('Session expired. Please refresh and try again.', 'error');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-wallet"></i> Pay ₹' + INVOICE_TOTAL + ' with Wallet';
+            return;
+        }
+        
+        const d = await r.json();
+        if (d.error) {
+            showToast(d.error, 'error');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-wallet"></i> Pay ₹' + INVOICE_TOTAL + ' with Wallet';
+            return;
+        }
+        
+        showToast('🎉 Invoice paid successfully using wallet!');
+        setTimeout(() => { window.location = '/portal/order-complete/?invoice=' + INVOICE_ID; }, 1800);
+    } catch(e) {
+        showToast('Network error during wallet payment.', 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-wallet"></i> Pay ₹' + INVOICE_TOTAL + ' with Wallet';
+    }
+}
+
+function getCookie(name) {
+    let v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return v ? v.pop() : '';
+}
+</script>
+</body>
+</html>

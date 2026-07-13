@@ -1,0 +1,75 @@
+{% extends "super_admin_base.html" %}
+{% block title %}Live Chat | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}Live Chat Support{% endblock %}
+
+{% block admin_content %}
+<div class="sa-page-header">
+    <div>
+        <div class="sa-page-title"><i class="fas fa-headset" style="color:var(--violet-2);margin-right:8px;font-size:1.1rem;"></i>Live Chat Sessions</div>
+        <div class="sa-page-sub">Monitor and assign inbound support chats</div>
+    </div>
+</div>
+
+<div class="sa-card" style="padding:0;overflow:hidden;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid var(--border);">
+        <div class="sa-card-title"><i class="fas fa-comments"></i> Active Chat Queue</div>
+    </div>
+
+    {% if sessions %}
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>User/Guest</th>
+                    <th>Status</th>
+                    <th>Agent</th>
+                    <th>Created</th>
+                    <th style="text-align:center;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sess in sessions %}
+                <tr>
+                    <td>#{{ sess.id }}</td>
+                    <td>
+                        {% if sess.user %}
+                            <div style="font-weight:600;color:var(--text-1);">{{ sess.user.email }}</div>
+                            <div style="font-size:0.72rem;color:var(--text-3);"><i class="fas fa-user-check" style="color:var(--green-2);"></i> Registered Member</div>
+                        {% else %}
+                            <div style="font-weight:600;color:var(--text-1);">{{ sess.guest_email }}</div>
+                            <div style="font-size:0.72rem;color:var(--text-3);"><i class="fas fa-user"></i> {{ sess.guest_name }}</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="sa-badge {% if sess.status == 'active' %}green{% else %}red{% endif %}">
+                            {{ sess.status|title }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if sess.assigned_agent %}
+                            <span style="color:var(--accent);">@{{ sess.assigned_agent.username }}</span>
+                        {% else %}
+                            <span style="color:var(--text-3);">Unassigned</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:0.75rem;">{{ sess.created_at|date:"M d, H:i" }}</td>
+                    <td style="text-align:center;">
+                        <a href="/super-admin/livechat/{{ sess.id }}/" class="sa-btn ghost sm"><i class="fas fa-arrow-right"></i> Open Session</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="sa-empty" style="padding:60px 20px;">
+        <div style="width:56px;height:56px;border-radius:14px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.15);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:1.4rem;color:#818cf8;">
+            <i class="fas fa-headset"></i>
+        </div>
+        <div class="sa-empty-title">Queue is empty</div>
+        <div class="sa-empty-sub">No one is currently requesting support.</div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

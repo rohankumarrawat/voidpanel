@@ -1,0 +1,130 @@
+{% extends 'super_admin_base.html' %}
+{% block title %}Billing | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}Billing{% endblock %}
+{% block admin_content %}
+
+<div class="sa-page-header">
+    <div>
+        <div class="sa-page-title">Invoices &amp; Billing</div>
+        <div class="sa-page-sub">Manage all invoices, mark payments, and create manual billing</div>
+    </div>
+    <div class="sa-header-actions">
+        <div class="sa-stat-chip amber"><span style="font-size:0.72rem;color:var(--text-2);">Outstanding</span> <span class="val">₹{{ admin_stats.unpaid_total }}</span></div>
+        <div class="sa-stat-chip green"><span style="font-size:0.72rem;color:var(--text-2);">MRR</span> <span class="val">₹{{ admin_stats.monthly_revenue }}</span></div>
+    </div>
+</div>
+
+<!-- Filter Tabs -->
+<div class="sa-tabs">
+    <a href="?" class="sa-tab {% if not status_filter %}active-green{% endif %}">All</a>
+    <a href="?status=unpaid" class="sa-tab {% if status_filter == 'unpaid' %}active-amber{% endif %}">Unpaid</a>
+    <a href="?status=overdue" class="sa-tab {% if status_filter == 'overdue' %}active-red{% endif %}">Overdue</a>
+    <a href="?status=paid" class="sa-tab {% if status_filter == 'paid' %}active-green{% endif %}">Paid</a>
+</div>
+
+<!-- Create Invoice -->
+<div class="sa-card">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+        <div class="sa-card-title"><i class="fas fa-plus-circle"></i> Create Manual Invoice</div>
+    </div>
+    <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="create_invoice">
+        <div class="sa-form-grid-4">
+            <div>
+                <label class="sa-label">Client</label>
+                <select name="user_id" class="sa-input" required>
+                    <option value="">— Select client —</option>
+                    {% for c in clients %}<option value="{{ c.id }}">{{ c.get_full_name|default:c.username }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="sa-label">Description</label>
+                <input type="text" name="description" class="sa-input" placeholder="e.g. Managed VPS — January" required>
+            </div>
+            <div>
+                <label class="sa-label">Total (USD)</label>
+                <input type="number" name="total" class="sa-input" step="0.01" min="0" placeholder="49.00" required>
+            </div>
+            <div>
+                <label class="sa-label">Due Date</label>
+                <input type="date" name="due_date" class="sa-input" required>
+            </div>
+        </div>
+        <div class="sa-form-actions">
+            <button type="submit" class="sa-btn primary"><i class="fas fa-plus"></i> Create Invoice</button>
+        </div>
+    </form>
+</div>
+
+<!-- Invoice Table -->
+<div class="sa-card" style="padding:0;overflow:hidden;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid var(--border);">
+        <div class="sa-card-title">
+            <i class="fas fa-receipt"></i>
+            {% if status_filter %}{{ status_filter|title }}{% else %}All{% endif %} Invoices
+        </div>
+        <span style="font-size:0.75rem;color:var(--text-3);">{{ invoices|length }} shown</span>
+    </div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead>
+                <tr>
+                    <th>Invoice #</th>
+                    <th>Client</th>
+                    <th>Description</th>
+                    <th>Amount</th>
+                    <th>Due</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inv in invoices %}
+                <tr>
+                    <td style="font-weight:800;color:var(--text-1);">{{ inv.invoice_number }}</td>
+                    <td>{{ inv.user.get_full_name|default:inv.user.username }}</td>
+                    <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.78rem;">{{ inv.description }}</td>
+                    <td style="font-weight:800;color:var(--text-1);">{{ inv.currency }} {{ inv.total }}</td>
+                    <td style="font-size:0.78rem;white-space:nowrap;">{{ inv.due_date|date:"M d, Y" }}</td>
+                    <td>
+                        <span class="sa-badge {% if inv.status == 'paid' %}green{% elif inv.status == 'overdue' %}red{% else %}amber{% endif %}">
+                            {{ inv.get_status_display }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if inv.status != 'paid' %}
+                        <form method="POST" style="display:inline;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="mark_paid">
+                            <input type="hidden" name="invoice_id" value="{{ inv.id }}">
+                            <button type="submit" class="sa-btn green sm"><i class="fas fa-check"></i> Mark Paid</button>
+                        </form>
+                        {% else %}
+                        <span style="font-size:0.74rem;color:var(--text-3);margin-right:8px;">Paid {{ inv.paid_date|date:"M d" }}</span>
+                        {% endif %}
+                        <form method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete invoice {{ inv.invoice_number }}? This will permanently delete the invoice and any associated orders/subscriptions and cannot be undone.');">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete_invoice">
+                            <input type="hidden" name="invoice_id" value="{{ inv.id }}">
+                            <button type="submit" class="sa-btn red sm" title="Delete Invoice"><i class="fas fa-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7">
+                        <div class="sa-empty">
+                            <i class="fas fa-receipt"></i>
+                            <div class="sa-empty-title">No invoices found</div>
+                            <div class="sa-empty-sub">Invoices will appear here as they are created.</div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

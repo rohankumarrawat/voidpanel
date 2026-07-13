@@ -1,0 +1,347 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WordPress Manager — {{ service.domain }}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+<style>
+:root{--bg:#07101f;--card:#0f1a2e;--card2:#172135;--border:rgba(255,255,255,.07);--t1:#f1f5f9;--t2:#94a3b8;--wp:#21759b;--wp2:#3b9bd1;--green:#22c55e;--red:#ef4444;--yellow:#f59e0b;--r:14px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh}
+.page{max-width:960px;margin:0 auto;padding:28px 20px 80px}
+/* cards */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:18px}
+.card-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.card-body{padding:22px}
+.ico{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0}
+.ico.blue{background:rgba(59,155,209,.15);color:var(--wp2)}
+.ico.green{background:rgba(34,197,94,.15);color:var(--green)}
+.ico.red{background:rgba(239,68,68,.15);color:var(--red)}
+.ico.purple{background:rgba(124,58,237,.15);color:#a78bfa}
+.ico.yellow{background:rgba(245,158,11,.15);color:var(--yellow)}
+.title{font-size:.92rem;font-weight:700}
+.sub{font-size:.76rem;color:var(--t2);margin-top:1px}
+/* status banner */
+.banner{border-radius:var(--r);padding:18px 22px;margin-bottom:22px;display:flex;align-items:center;gap:14px;border:1px solid}
+.banner.ok{background:rgba(34,197,94,.06);border-color:rgba(34,197,94,.22)}
+.banner.pending{background:rgba(245,158,11,.06);border-color:rgba(245,158,11,.22)}
+.banner.fail{background:rgba(239,68,68,.06);border-color:rgba(239,68,68,.22)}
+.banner.idle{background:rgba(59,155,209,.06);border-color:rgba(59,155,209,.18)}
+/* quick actions */
+.qa{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:22px}
+.qa-btn{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 14px;display:flex;flex-direction:column;align-items:flex-start;gap:8px;cursor:pointer;transition:.2s;text-decoration:none;color:inherit}
+.qa-btn:hover{border-color:var(--c,var(--wp2));transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.3)}
+.qa-ico{width:36px;height:36px;border-radius:9px;background:var(--c,var(--wp2));display:flex;align-items:center;justify-content:center;color:#fff;font-size:.88rem}
+.qa-lbl{font-size:.8rem;font-weight:700}
+.qa-d{font-size:.71rem;color:var(--t2)}
+/* info grid */
+.ig{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:12px;margin-bottom:22px}
+.ic{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.ic .lbl{font-size:.69rem;color:var(--t2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.ic .val{font-size:.88rem;font-weight:600;word-break:break-all}
+.ic .val a{color:var(--wp2);text-decoration:none}
+/* badge */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-size:.72rem;font-weight:700}
+.badge.g{background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.25);color:var(--green)}
+.badge.r{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:var(--red)}
+/* forms */
+.fg{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.fg label{font-size:.77rem;color:var(--t2);font-weight:500}
+.fg input{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 13px;color:var(--t1);font-size:.87rem;outline:none;transition:.2s;width:100%}
+.fg input:focus{border-color:var(--wp2)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:560px){.row2{grid-template-columns:1fr}}
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:10px;font-size:.87rem;font-weight:600;cursor:pointer;border:none;transition:.2s;text-decoration:none}
+.btn:hover{transform:translateY(-1px)}
+.btn:disabled{opacity:.5;pointer-events:none}
+.btn-wp{background:linear-gradient(135deg,var(--wp),var(--wp2));color:#fff}
+.btn-g{background:linear-gradient(135deg,#16a34a,var(--green));color:#fff}
+.btn-r{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.28)}
+.btn-r:hover{background:rgba(239,68,68,.22)}
+.btn-o{background:transparent;border:1px solid var(--border);color:var(--t2)}
+.btn-o:hover{color:var(--t1);border-color:var(--wp2)}
+.btn-ssl{background:linear-gradient(135deg,#0ea5e9,#38bdf8);color:#fff}
+/* alert */
+.al{border-radius:9px;padding:11px 15px;font-size:.83rem;margin-bottom:14px;display:none}
+.al.ok{background:rgba(34,197,94,.09);border:1px solid rgba(34,197,94,.28);color:#4ade80}
+.al.err{background:rgba(239,68,68,.09);border:1px solid rgba(239,68,68,.28);color:#f87171}
+.al.info{background:rgba(59,155,209,.09);border:1px solid rgba(59,155,209,.28);color:var(--wp2)}
+/* spinner */
+.spin{width:15px;height:15px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .6s linear infinite;display:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+/* danger */
+.dz{border:1px solid rgba(239,68,68,.25);border-radius:12px;padding:18px;background:rgba(239,68,68,.04);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+/* toast */
+#toast{position:fixed;bottom:22px;right:22px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.ti{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:11px 16px;font-size:.83rem;display:flex;align-items:center;gap:9px;min-width:260px;box-shadow:0 8px 28px rgba(0,0,0,.4);animation:si .3s ease}
+.ti.ok{border-color:rgba(34,197,94,.35)}
+.ti.err{border-color:rgba(239,68,68,.35)}
+@keyframes si{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
+/* portal layout */
+.portal-wrap{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+@media(max-width:900px){.portal-wrap{grid-template-columns:1fr}}
+
+</style>
+</head>
+<body>
+<div class="portal-wrap">
+{% include 'portal_sidebar.html' %}
+<div style="width:100%;overflow-x:hidden;height:100vh;overflow-y:auto;padding-top:20px;">
+<div class="page">
+
+<!-- Page heading -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <a href="/portal/service/{{ service.id }}/" class="btn btn-o" style="font-size:.8rem;padding:7px 13px;"><i class="fa fa-arrow-left"></i> Back</a>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:36px;height:36px;background:linear-gradient(135deg,#21759b,#3b9bd1);border-radius:10px;display:flex;align-items:center;justify-content:center;"><i class="fab fa-wordpress" style="color:#fff;font-size:1rem;"></i></div>
+      <div>
+        <div style="font-size:.98rem;font-weight:800;">WordPress Manager</div>
+        <div style="font-size:.75rem;color:var(--t2);">{{ service.domain }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="g-alert" class="al"></div>
+
+{% if api_error %}
+<div class="al info" style="display:flex;align-items:center;gap:8px;margin-bottom:18px;">
+  <i class="fa fa-triangle-exclamation"></i> Panel unreachable: {{ api_error }}. Showing cached data.
+</div>
+{% endif %}
+
+<!-- ═══════════ STATUS BANNER ═══════════ -->
+{% if wp_live and wp_live.installed %}
+<div class="banner ok">
+  <div class="ico green"><i class="fab fa-wordpress"></i></div>
+  <div style="flex:1">
+    <div style="font-size:.95rem;font-weight:700;">WordPress is Active</div>
+    <div style="font-size:.79rem;color:var(--t2);">v{{ wp_live.wp_version|default:"–" }} &nbsp;·&nbsp; Installed {{ wp_install.installed_at|date:"d M Y"|default:"–" }}</div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <a href="{% if ssl_live and ssl_live.ssl_status == 'active' %}https{% else %}http{% endif %}://{{ service.domain }}" target="_blank" class="btn btn-o" style="font-size:.8rem;padding:8px 14px;"><i class="fa fa-globe"></i> Visit</a>
+    <a href="{{ wp_live.wp_admin_url }}" target="_blank" class="btn btn-wp" style="font-size:.8rem;padding:8px 14px;"><i class="fab fa-wordpress"></i> WP Admin</a>
+  </div>
+</div>
+
+<!-- Quick actions -->
+<div class="qa">
+  <a href="{{ wp_live.wp_admin_url }}" target="_blank" class="qa-btn" style="--c:#3b9bd1">
+    <div class="qa-ico"><i class="fab fa-wordpress"></i></div>
+    <div class="qa-lbl">WP Admin</div><div class="qa-d">Open dashboard</div>
+  </a>
+  <a href="{% if ssl_live and ssl_live.ssl_status == 'active' %}https{% else %}http{% endif %}://{{ service.domain }}" target="_blank" class="qa-btn" style="--c:#22c55e">
+    <div class="qa-ico"><i class="fa fa-globe"></i></div>
+    <div class="qa-lbl">Visit Site</div><div class="qa-d">View live site</div>
+  </a>
+  <div class="qa-btn" style="--c:#f59e0b" onclick="document.getElementById('s-pass').scrollIntoView({behavior:'smooth'})">
+    <div class="qa-ico"><i class="fa fa-key"></i></div>
+    <div class="qa-lbl">Change Pass</div><div class="qa-d">Reset WP admin</div>
+  </div>
+  <div class="qa-btn" style="--c:#0ea5e9" onclick="document.getElementById('s-ssl').scrollIntoView({behavior:'smooth'})">
+    <div class="qa-ico"><i class="fa fa-shield-halved"></i></div>
+    <div class="qa-lbl">{% if ssl_live and ssl_live.ssl_status == 'active' %}Renew SSL{% else %}Issue SSL{% endif %}</div>
+    <div class="qa-d">{% if ssl_live and ssl_live.ssl_status == 'active' %}HTTPS active{% else %}No SSL yet{% endif %}</div>
+  </div>
+  <div class="qa-btn" style="--c:#ef4444" onclick="doUninstall()">
+    <div class="qa-ico"><i class="fa fa-trash"></i></div>
+    <div class="qa-lbl">Delete WP</div><div class="qa-d">Remove WordPress</div>
+  </div>
+</div>
+
+<!-- Info cards -->
+<div class="ig">
+  <div class="ic"><div class="lbl">Live Site</div><div class="val"><a href="{% if ssl_live and ssl_live.ssl_status == 'active' %}https{% else %}http{% endif %}://{{ service.domain }}" target="_blank">{{ service.domain }}</a></div></div>
+  <div class="ic"><div class="lbl">WP Admin</div><div class="val"><a href="{{ wp_live.wp_admin_url }}" target="_blank"><i class="fab fa-wordpress" style="margin-right:4px;color:var(--wp2)"></i>Dashboard</a></div></div>
+  <div class="ic"><div class="lbl">Version</div><div class="val">{{ wp_live.wp_version|default:"–" }}</div></div>
+  <div class="ic"><div class="lbl">Admin User</div><div class="val">{{ wp_install.wp_admin_user|default:"admin" }}</div></div>
+  <div class="ic"><div class="lbl">SSL</div><div class="val">{% if ssl_live and ssl_live.ssl_status == 'active' %}<span class="badge g"><i class="fa fa-lock"></i> Active</span>{% else %}<span class="badge r"><i class="fa fa-lock-open"></i> None</span>{% endif %}</div></div>
+  <div class="ic"><div class="lbl">Database</div><div class="val" style="font-size:.8rem;">{{ wp_install.db_name|default:"Managed" }}</div></div>
+</div>
+
+<!-- Change Password -->
+<div class="card" id="s-pass">
+  <div class="card-head"><div class="ico green"><i class="fa fa-key"></i></div><div><div class="title">Change WP Admin Password</div><div class="sub">Update your WordPress administrator login</div></div></div>
+  <div class="card-body">
+    <div id="al-pass" class="al"></div>
+    {% if wp_install.wp_admin_user %}<div style="margin-bottom:14px;padding:9px 13px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:9px;font-size:.8rem;color:var(--t2);"><i class="fa fa-user" style="margin-right:5px;"></i> Admin: <strong style="color:var(--t1);">{{ wp_install.wp_admin_user }}</strong> &nbsp;<i class="fa fa-envelope" style="margin-right:4px;"></i>{{ wp_install.wp_admin_email }}</div>{% endif %}
+    <form id="f-pass">
+      <input type="hidden" name="wp_admin_user" value="{{ wp_install.wp_admin_user|default:'admin' }}">
+      <div class="row2">
+        <div class="fg"><label>New Password</label><input type="password" name="new_password" placeholder="Min 8 characters" required minlength="8"></div>
+        <div class="fg"><label>Confirm Password</label><input type="password" name="new_password_confirm" placeholder="Repeat password" required></div>
+      </div>
+      <button type="submit" class="btn btn-g" id="btn-pass"><span class="spin" id="sp-pass"></span><i class="fa fa-key" id="ic-pass"></i> Update Password</button>
+    </form>
+  </div>
+</div>
+
+<!-- SSL -->
+<div class="card" id="s-ssl">
+  <div class="card-head">
+    <div class="ico blue"><i class="fa fa-shield-halved"></i></div>
+    <div style="flex:1"><div class="title">SSL / HTTPS Certificate</div><div class="sub">Free Let's Encrypt SSL for {{ service.domain }}</div></div>
+    {% if ssl_live and ssl_live.ssl_status == 'active' %}<span class="badge g"><i class="fa fa-lock"></i> Active</span>{% else %}<span class="badge r"><i class="fa fa-lock-open"></i> None</span>{% endif %}
+  </div>
+  <div class="card-body">
+    <div id="al-ssl" class="al"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+      <div>
+        {% if ssl_live and ssl_live.ssl_status == 'active' %}
+        <p style="color:var(--green);font-size:.87rem;font-weight:600;margin-bottom:4px;"><i class="fa fa-circle-check"></i> HTTPS is active</p>
+        <p style="font-size:.77rem;color:var(--t2);">Auto-renews every 90 days.</p>
+        {% else %}
+        <p style="font-size:.87rem;font-weight:600;margin-bottom:4px;"><i class="fa fa-circle-xmark" style="color:var(--red)"></i> No certificate found</p>
+        <ul style="font-size:.77rem;color:var(--t2);padding-left:16px;line-height:1.9;margin-top:4px;"><li>DNS must point to this server</li><li>Port 80 must be reachable</li></ul>
+        {% endif %}
+      </div>
+      <button class="btn btn-ssl" id="btn-ssl" onclick="doSSL()" style="white-space:nowrap;"><span class="spin" id="sp-ssl"></span><i class="fa fa-shield-halved" id="ic-ssl"></i> {% if ssl_live and ssl_live.ssl_status == 'active' %}Renew{% else %}Issue Free SSL{% endif %}</button>
+    </div>
+  </div>
+</div>
+
+<!-- Danger: Delete -->
+<div class="card">
+  <div class="card-head"><div class="ico red"><i class="fa fa-trash"></i></div><div><div class="title">Danger Zone</div><div class="sub">Irreversible actions</div></div></div>
+  <div class="card-body">
+    <div class="dz">
+      <div><div style="font-size:.9rem;font-weight:700;color:var(--red);margin-bottom:3px;"><i class="fa fa-triangle-exclamation"></i> Uninstall WordPress</div><div style="font-size:.79rem;color:var(--t2);">Removes all WP files and database. Hosting account stays active.</div></div>
+      <button class="btn btn-r" id="btn-del" onclick="doUninstall()"><span class="spin" id="sp-del"></span><i class="fa fa-trash" id="ic-del"></i> Uninstall WordPress</button>
+    </div>
+  </div>
+</div>
+
+{% elif wp_install and wp_install.status == 'installing' %}
+<div class="banner pending">
+  <div class="ico yellow"><i class="fa fa-spinner fa-spin"></i></div>
+  <div><div style="font-size:.95rem;font-weight:700;">Installing WordPress…</div><div style="font-size:.79rem;color:var(--t2);">This usually takes 1–2 minutes. Refresh the page shortly.</div></div>
+  <button class="btn btn-o" style="margin-left:auto;font-size:.8rem;" onclick="location.reload()"><i class="fa fa-rotate-right"></i> Refresh</button>
+</div>
+
+{% elif wp_install and wp_install.status == 'failed' %}
+<div class="banner fail" style="margin-bottom:18px;">
+  <div class="ico red"><i class="fa fa-circle-xmark"></i></div>
+  <div><div style="font-size:.95rem;font-weight:700;">Auto-Install Failed</div><div style="font-size:.79rem;color:var(--t2);">The automatic install could not complete. Use the form below to install manually.</div></div>
+</div>
+
+{% else %}
+<div class="banner idle">
+  <div class="ico blue"><i class="fab fa-wordpress"></i></div>
+  <div><div style="font-size:.95rem;font-weight:700;">WordPress Not Installed</div><div style="font-size:.79rem;color:var(--t2);">Install WordPress on <strong>{{ service.domain }}</strong> using the form below.</div></div>
+</div>
+{% endif %}
+
+<!-- Install form (shown when NOT installed) -->
+{% if not wp_live or not wp_live.installed %}
+<div class="card">
+  <div class="card-head"><div class="ico purple"><i class="fab fa-wordpress"></i></div><div><div class="title">Install WordPress</div><div class="sub">Automatically set up WordPress on {{ service.domain }}</div></div></div>
+  <div class="card-body">
+    <div id="al-inst" class="al"></div>
+    <form id="f-inst">
+      <div class="row2">
+        <div class="fg"><label>Admin Username</label><input type="text" name="wp_admin_user" value="admin" required></div>
+        <div class="fg"><label>Admin Email</label><input type="email" name="wp_admin_email" value="{{ service.user.email }}" required></div>
+      </div>
+      <div class="row2">
+        <div class="fg"><label>Admin Password</label><input type="password" name="wp_admin_password" placeholder="Min 8 characters" required minlength="8"></div>
+        <div class="fg"><label>Confirm Password</label><input type="password" name="wp_admin_password_confirm" placeholder="Repeat password" required></div>
+      </div>
+      <button type="submit" class="btn btn-wp" id="btn-inst"><span class="spin" id="sp-inst"></span><i class="fab fa-wordpress" id="ic-inst"></i> Install WordPress</button>
+      <p style="font-size:.75rem;color:var(--t2);margin-top:12px;"><i class="fa fa-clock"></i> Installation takes 1–3 minutes. Do not close this page.</p>
+    </form>
+  </div>
+</div>
+
+<!-- SSL always shown -->
+<div class="card" id="s-ssl">
+  <div class="card-head">
+    <div class="ico blue"><i class="fa fa-shield-halved"></i></div>
+    <div style="flex:1"><div class="title">SSL / HTTPS</div><div class="sub">Free Let's Encrypt — install WordPress first</div></div>
+    {% if ssl_live and ssl_live.ssl_status == 'active' %}<span class="badge g"><i class="fa fa-lock"></i> Active</span>{% else %}<span class="badge r"><i class="fa fa-lock-open"></i> None</span>{% endif %}
+  </div>
+  <div class="card-body">
+    <div id="al-ssl2" class="al"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+      <p style="font-size:.82rem;color:var(--t2);">Ensure DNS is pointed to this server and WordPress is running before issuing SSL.</p>
+      <button class="btn btn-ssl" id="btn-ssl2" onclick="doSSL2()"><span class="spin" id="sp-ssl2"></span><i class="fa fa-shield-halved" id="ic-ssl2"></i> {% if ssl_live and ssl_live.ssl_status == 'active' %}Renew SSL{% else %}Issue SSL{% endif %}</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+</div><!-- /page -->
+</div>
+</div><!-- /portal-wrap -->
+<div id="toast"></div>
+
+<script>
+const AU = '/portal/service/{{ service.id }}/wordpress/action/';
+const CS = '{{ csrf_token }}';
+
+function toast(msg, type='ok'){
+  const t=document.getElementById('toast');
+  const e=document.createElement('div');
+  e.className=`ti ${type}`;
+  e.innerHTML=`<i class="fa ${type==='ok'?'fa-circle-check':'fa-circle-xmark'}" style="color:${type==='ok'?'#4ade80':'#f87171'}"></i> ${msg}`;
+  t.appendChild(e);
+  setTimeout(()=>e.remove(),4500);
+}
+
+function al(id,msg,type){
+  const e=document.getElementById(id);
+  if(!e)return;
+  e.textContent=msg;e.className=`al ${type}`;e.style.display='block';
+  setTimeout(()=>e.style.display='none',6500);
+}
+
+function load(btn,sp,ic,on){
+  const b=document.getElementById(btn),s=document.getElementById(sp),i=document.getElementById(ic);
+  if(b)b.disabled=on;
+  if(s)s.style.display=on?'block':'none';
+  if(i)i.style.display=on?'none':'inline';
+}
+
+async function post(payload,btn,sp,ic,alid){
+  load(btn,sp,ic,true);
+  try{
+    const r=await fetch(AU,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CS},body:JSON.stringify(payload)});
+    const d=await r.json();
+    if(d.status==='success'){toast(d.message,'ok');al(alid,d.message,'ok');setTimeout(()=>location.reload(),2500);}
+    else{toast(d.message||'Error','err');al(alid,d.message||'Error','err');}
+  }catch(e){toast('Network error: '+e.message,'err');}
+  finally{load(btn,sp,ic,false);}
+}
+
+// Install form
+const fi=document.getElementById('f-inst');
+if(fi)fi.addEventListener('submit',function(e){
+  e.preventDefault();const fd=new FormData(this);
+  const p=fd.get('wp_admin_password'),p2=fd.get('wp_admin_password_confirm');
+  if(p!==p2){al('al-inst','Passwords do not match','err');return;}
+  post({action:'install',wp_admin_user:fd.get('wp_admin_user'),wp_admin_email:fd.get('wp_admin_email'),wp_admin_password:p},'btn-inst','sp-inst','ic-inst','al-inst');
+});
+
+// Password form
+const fp=document.getElementById('f-pass');
+if(fp)fp.addEventListener('submit',function(e){
+  e.preventDefault();const fd=new FormData(this);
+  const p=fd.get('new_password'),p2=fd.get('new_password_confirm');
+  if(p!==p2){al('al-pass','Passwords do not match','err');return;}
+  post({action:'reset_password',new_password:p,wp_admin_user:fd.get('wp_admin_user')},'btn-pass','sp-pass','ic-pass','al-pass');
+});
+
+function doSSL(){post({action:'issue_ssl'},'btn-ssl','sp-ssl','ic-ssl','al-ssl');}
+function doSSL2(){post({action:'issue_ssl'},'btn-ssl2','sp-ssl2','ic-ssl2','al-ssl2');}
+
+function doUninstall(){
+  if(!confirm('This will PERMANENTLY remove WordPress and its database from {{ service.domain }}.\n\nAre you sure?'))return;
+  post({action:'uninstall'},'btn-del','sp-del','ic-del','g-alert');
+}
+</script>
+</body>
+</html>

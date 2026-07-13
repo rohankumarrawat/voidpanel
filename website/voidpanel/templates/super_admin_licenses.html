@@ -1,0 +1,251 @@
+{% extends "super_admin_base.html" %}
+{% block title %}Licenses | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}Licenses{% endblock %}
+
+{% block admin_content %}
+
+<div class="sa-page-header">
+    <div>
+        <div class="sa-page-title"><i class="fas fa-key" style="color:var(--violet-2);margin-right:8px;font-size:1.1rem;"></i>Panel Licenses</div>
+        <div class="sa-page-sub">Manage license keys, tiers &amp; feature access for installed VoidPanel instances</div>
+    </div>
+</div>
+
+<!-- ── KPI Cards ── -->
+<div class="sa-kpi-grid-4">
+    <div class="sa-kpi" style="border-color:rgba(14,165,233,0.2);">
+        <div class="sa-kpi-icon sky"><i class="fas fa-key"></i></div>
+        <div>
+            <div class="sa-kpi-val">{{ total }}</div>
+            <div class="sa-kpi-lbl">Total Issued</div>
+        </div>
+    </div>
+    <div class="sa-kpi" style="border-color:rgba(34,197,94,0.2);">
+        <div class="sa-kpi-icon green"><i class="fas fa-circle-check"></i></div>
+        <div>
+            <div class="sa-kpi-val" style="color:var(--green-2);">{{ active }}</div>
+            <div class="sa-kpi-lbl">Active</div>
+        </div>
+    </div>
+    <div class="sa-kpi" style="border-color:rgba(245,158,11,0.2);">
+        <div class="sa-kpi-icon amber"><i class="fas fa-clock"></i></div>
+        <div>
+            <div class="sa-kpi-val" style="color:var(--amber-2);">{{ trials_active }}</div>
+            <div class="sa-kpi-lbl">Active Trials</div>
+        </div>
+    </div>
+    <div class="sa-kpi" style="border-color:rgba(239,68,68,0.2);">
+        <div class="sa-kpi-icon red"><i class="fas fa-ban"></i></div>
+        <div>
+            <div class="sa-kpi-val" style="color:var(--red-2);">{{ suspended|add:revoked }}</div>
+            <div class="sa-kpi-lbl">Suspended/Revoked</div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Tier Breakdown ── -->
+<div class="sa-kpi-grid-4" style="margin-top:0;">
+    <div class="sa-kpi" style="border-color:rgba(100,116,139,0.2);flex-direction:row;gap:12px;padding:12px 18px;">
+        <div style="font-size:1.3rem;">🆓</div>
+        <div><div class="sa-kpi-val" style="font-size:1.2rem;">{{ tier_starter }}</div><div class="sa-kpi-lbl">Starter</div></div>
+    </div>
+    <div class="sa-kpi" style="border-color:rgba(59,130,246,0.2);flex-direction:row;gap:12px;padding:12px 18px;">
+        <div style="font-size:1.3rem;">⚡</div>
+        <div><div class="sa-kpi-val" style="font-size:1.2rem;color:#60a5fa;">{{ tier_pro }}</div><div class="sa-kpi-lbl">Pro</div></div>
+    </div>
+    <div class="sa-kpi" style="border-color:rgba(139,92,246,0.2);flex-direction:row;gap:12px;padding:12px 18px;">
+        <div style="font-size:1.3rem;">🚀</div>
+        <div><div class="sa-kpi-val" style="font-size:1.2rem;color:#a78bfa;">{{ tier_advanced }}</div><div class="sa-kpi-lbl">Advanced</div></div>
+    </div>
+    <div class="sa-kpi" style="border-color:rgba(234,179,8,0.2);flex-direction:row;gap:12px;padding:12px 18px;">
+        <div style="font-size:1.3rem;">♾️</div>
+        <div><div class="sa-kpi-val" style="font-size:1.2rem;color:#fbbf24;">{{ tier_unlimited }}</div><div class="sa-kpi-lbl">Unlimited</div></div>
+    </div>
+</div>
+
+<!-- ── Feature Matrix Info ── -->
+<div class="sa-card" style="margin-top:0;background:linear-gradient(135deg,rgba(139,92,246,0.06),rgba(59,130,246,0.04));border-color:rgba(139,92,246,0.2);">
+    <div class="sa-card-title" style="margin-bottom:14px;"><i class="fas fa-table-columns"></i> Tier Feature Matrix</div>
+    <div style="overflow-x:auto;">
+        <table class="sa-table" style="min-width:700px;font-size:0.78rem;">
+            <thead>
+                <tr>
+                    <th>Feature</th>
+                    <th style="text-align:center;">🆓 Starter</th>
+                    <th style="text-align:center;color:#60a5fa;">⚡ Pro</th>
+                    <th style="text-align:center;color:#a78bfa;">🚀 Advanced</th>
+                    <th style="text-align:center;color:#fbbf24;">♾️ Unlimited</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in feature_matrix %}
+                <tr>
+                    <td>{{ row.name }}</td>
+                    <td style="text-align:center;">{% if row.starter %}✅{% else %}❌{% endif %}</td>
+                    <td style="text-align:center;">{% if row.pro %}✅{% else %}❌{% endif %}</td>
+                    <td style="text-align:center;">{% if row.advanced %}✅{% else %}❌{% endif %}</td>
+                    <td style="text-align:center;">{% if row.unlimited %}✅{% else %}❌{% endif %}</td>
+                </tr>
+                {% endfor %}
+
+
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ── Licenses Table ── -->
+<div class="sa-card" style="padding:0;overflow:hidden;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid var(--border);">
+        <div class="sa-card-title"><i class="fas fa-list"></i> All Licenses</div>
+        <span style="font-size:0.75rem;color:var(--text-3);">{{ total }} record{{ total|pluralize }}</span>
+    </div>
+
+    {% if licenses %}
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead>
+                <tr>
+                    <th>Key</th>
+                    <th>Account</th>
+                    <th>Hostname / IP</th>
+                    <th>Tier</th>
+                    <th>Status</th>
+                    <th>Expiry</th>
+                    <th>Last Ping</th>
+                    <th style="text-align:center;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lic in licenses %}
+                <tr>
+                    <!-- Key -->
+                    <td>
+                        <code style="background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:0.72rem;color:var(--violet-2);">{{ lic.key|slice:":20" }}…</code>
+                        {% if lic.is_trial %}<span style="font-size:0.65rem;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);padding:2px 6px;border-radius:4px;margin-left:4px;">TRIAL</span>{% endif %}
+                    </td>
+                    <!-- Account -->
+                    <td>
+                        <div style="font-size:0.8rem;font-weight:600;color:var(--text-1);">{{ lic.user.email }}</div>
+                        <div style="font-size:0.7rem;color:var(--text-3);">{{ lic.user.get_full_name|default:"" }}</div>
+                    </td>
+                    <!-- Hostname / IP -->
+                    <td>
+                        <div style="font-size:0.78rem;color:var(--text-1);">{{ lic.hostname|default:"—" }}</div>
+                        <div style="font-size:0.7rem;color:var(--text-3);">📡 {{ lic.last_seen_ip|default:lic.server_ip|default:"No ping yet" }}</div>
+                    </td>
+                    <!-- Tier -->
+                    <td>
+                        {% if lic.effective_tier == 'unlimited' %}
+                            <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;background:rgba(251,191,36,0.12);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);">♾️ Unlimited</span>
+                        {% elif lic.effective_tier == 'advanced' %}
+                            <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;background:rgba(139,92,246,0.12);color:#a78bfa;border:1px solid rgba(139,92,246,0.3);">🚀 Advanced</span>
+                        {% elif lic.effective_tier == 'pro' %}
+                            <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;background:rgba(59,130,246,0.12);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);">⚡ Pro</span>
+                        {% else %}
+                            <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;background:rgba(100,116,139,0.12);color:#94a3b8;border:1px solid rgba(100,116,139,0.3);">🆓 Starter</span>
+                        {% endif %}
+                    </td>
+                    <!-- Status -->
+                    <td>
+                        {% if lic.status == 'active' %}
+                            <span class="sa-badge green">Active</span>
+                        {% elif lic.status == 'suspended' %}
+                            <span class="sa-badge amber">Suspended</span>
+                        {% else %}
+                            <span class="sa-badge red">Revoked</span>
+                        {% endif %}
+                    </td>
+                    <!-- Expiry -->
+                    <td style="font-size:0.75rem;">
+                        {% if lic.expires_at %}
+                            {% if lic.is_expired %}
+                                <span style="color:var(--red-2);">Expired</span>
+                            {% else %}
+                                <span style="color:var(--amber-2);">{{ lic.days_remaining }}d left</span><br>
+                                <span style="color:var(--text-3);font-size:0.68rem;">{{ lic.expires_at|date:"M d, Y" }}</span>
+                            {% endif %}
+                        {% else %}
+                            <span style="color:var(--green-2);">Lifetime</span>
+                        {% endif %}
+                    </td>
+                    <!-- Last Ping -->
+                    <td style="font-size:0.75rem;color:var(--text-2);">
+                        {% if lic.last_ping %}{{ lic.last_ping|date:"M d, H:i" }}{% else %}Never{% endif %}
+                    </td>
+                    <!-- Actions -->
+                    <td>
+                        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start;">
+
+                            <!-- Status actions -->
+                            {% if lic.status == 'active' %}
+                            <form method="POST" action="/super-admin/licenses/action/" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="license_id" value="{{ lic.id }}">
+                                <input type="hidden" name="action" value="suspend">
+                                <button class="sa-btn amber sm" style="padding:3px 8px;font-size:0.72rem;">⏸ Suspend</button>
+                            </form>
+                            {% elif lic.status == 'suspended' %}
+                            <form method="POST" action="/super-admin/licenses/action/" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="license_id" value="{{ lic.id }}">
+                                <input type="hidden" name="action" value="activate">
+                                <button class="sa-btn green sm" style="padding:3px 8px;font-size:0.72rem;">▶ Activate</button>
+                            </form>
+                            {% endif %}
+
+                            <!-- Tier change -->
+                            <form method="POST" action="/super-admin/licenses/action/" style="display:flex;align-items:center;gap:3px;">
+                                {% csrf_token %}
+                                <input type="hidden" name="license_id" value="{{ lic.id }}">
+                                <input type="hidden" name="action" value="change_tier">
+                                <select name="new_tier" class="sa-input sm" style="height:24px;font-size:0.7rem;padding:0 4px;background:var(--bg-raised);border-color:var(--border);">
+                                    <option value="starter" {% if lic.tier == 'starter' %}selected{% endif %}>🆓 Starter</option>
+                                    <option value="pro" {% if lic.tier == 'pro' %}selected{% endif %}>⚡ Pro</option>
+                                    <option value="advanced" {% if lic.tier == 'advanced' %}selected{% endif %}>🚀 Advanced</option>
+                                    <option value="unlimited" {% if lic.tier == 'unlimited' %}selected{% endif %}>♾️ Unlimited</option>
+                                </select>
+                                <button class="sa-btn sm" style="padding:3px 6px;font-size:0.7rem;background:var(--violet-1);border-color:var(--violet-2);color:#fff;">Set</button>
+                            </form>
+
+                            <!-- Reset IP -->
+                            <form method="POST" action="/super-admin/licenses/action/" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="license_id" value="{{ lic.id }}">
+                                <input type="hidden" name="action" value="reset_ip">
+                                <button class="sa-btn sm" style="padding:3px 8px;font-size:0.7rem;" title="Clear IP lock — allows reactivation from any IP">🔓 Reset IP</button>
+                            </form>
+
+                            <!-- Revoke / Delete -->
+                            <div style="display:flex;gap:3px;">
+                                {% if lic.status != 'revoked' %}
+                                <form method="POST" action="/super-admin/licenses/action/" style="display:inline;" onsubmit="return confirm('Revoke this license permanently?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="license_id" value="{{ lic.id }}">
+                                    <input type="hidden" name="action" value="revoke">
+                                    <button class="sa-btn red sm" style="padding:3px 8px;font-size:0.7rem;">🚫 Revoke</button>
+                                </form>
+                                {% endif %}
+                                <form method="POST" action="/super-admin/licenses/action/" style="display:inline;" onsubmit="return confirm('Delete this license record?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="license_id" value="{{ lic.id }}">
+                                    <input type="hidden" name="action" value="delete">
+                                    <button class="sa-btn red sm" style="padding:3px 8px;font-size:0.7rem;">🗑</button>
+                                </form>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="padding:48px;text-align:center;color:var(--text-3);">
+        <i class="fas fa-key" style="font-size:2rem;opacity:0.3;margin-bottom:12px;display:block;"></i>
+        No licenses issued yet.
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

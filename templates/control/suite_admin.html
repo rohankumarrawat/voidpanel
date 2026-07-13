@@ -1,0 +1,581 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Suite Admin — VoidPanel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+:root{--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a26;--border:rgba(255,255,255,.08);--txt:#f0f0ff;--txt2:#a0a0bc;--txt3:#5a5a7a;--green:#10b981;--amber:#f59e0b;--red:#ef4444;--indigo:#6366f1;--radius:12px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh}
+.layout{display:flex;min-height:100vh}
+aside{width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:24px 0;display:flex;flex-direction:column}
+.aside-logo{padding:0 20px 24px;font-size:15px;font-weight:800;display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--border);margin-bottom:16px}
+.aside-logo-dot{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center}
+.aside-nav a{display:flex;align-items:center;gap:10px;padding:10px 20px;font-size:13px;font-weight:500;color:var(--txt2);text-decoration:none;border-radius:0;transition:all .15s;border-left:2px solid transparent}
+.aside-nav a:hover,.aside-nav a.active{color:var(--txt);background:rgba(255,255,255,.05);border-left-color:#6366f1}
+.aside-nav .sep{padding:10px 20px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txt3);margin-top:6px}
+main{flex:1;padding:36px 40px;overflow-y:auto}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:30px}
+.page-header h1{font-size:22px;font-weight:800}
+.page-header .phsub{font-size:13px;color:var(--txt2);margin-top:2px}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;border:none;transition:opacity .15s,transform .1s}
+.btn:hover{opacity:.88;transform:translateY(-1px)}
+.btn-primary{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff}
+.btn-ghost{background:rgba(255,255,255,.06);color:var(--txt);border:1px solid var(--border)}
+.btn-danger{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.2)}
+.btn-sm{padding:6px 12px;font-size:11.5px;border-radius:7px}
+.tabs{display:flex;gap:4px;background:var(--surface2);border-radius:10px;padding:4px;width:fit-content;margin-bottom:28px}
+.tab{padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;color:var(--txt2);transition:all .15s;border:none;background:none;font-family:'Inter',sans-serif}
+.tab.active{background:rgba(99,102,241,.2);color:#a5b4fc}
+.stats-row{display:flex;gap:16px;margin-bottom:28px;flex-wrap:wrap}
+.stat-card{flex:1;min-width:160px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px}
+.stat-card .sv{font-size:28px;font-weight:900;margin-bottom:4px}
+.stat-card .sk{font-size:12px;color:var(--txt2)}
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th{padding:12px 16px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txt3);text-align:left;background:rgba(255,255,255,.02);border-bottom:1px solid var(--border)}
+td{padding:13px 16px;font-size:13px;border-bottom:1px solid var(--border2);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-social{background:rgba(225,48,108,.12);color:#f472b6;border:1px solid rgba(225,48,108,.2)}
+.badge-seo{background:rgba(99,102,241,.12);color:#a5b4fc;border:1px solid rgba(99,102,241,.2)}
+.badge-marketing{background:rgba(245,158,11,.12);color:#fcd34d;border:1px solid rgba(245,158,11,.2)}
+.badge-active{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.2)}
+.badge-inactive{background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid rgba(239,68,68,.2)}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:1000;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:30px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:17px;font-weight:800;margin-bottom:20px}
+.mfield{margin-bottom:15px}
+.mfield label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txt3);margin-bottom:6px}
+.mfield input,.mfield select,.mfield textarea{width:100%;background:rgba(255,255,255,.05);border:1.5px solid var(--border);border-radius:9px;padding:10px 13px;color:var(--txt);font-family:'Inter',sans-serif;font-size:13px;outline:none;transition:border-color .15s}
+.mfield input:focus,.mfield select,.mfield textarea:focus{border-color:#6366f1}
+.mfield select option{background:var(--surface);color:var(--txt)}
+.mfield textarea{resize:vertical;min-height:90px}
+.modal-actions{display:flex;gap:10px;margin-top:22px;justify-content:flex-end}
+.plan-suite-section{margin-bottom:28px}
+.plan-suite-section h3{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--txt3);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.plan-suite-section h3::after{content:'';flex:1;height:1px;background:var(--border)}
+.plan-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.plan-mini{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;justify-content:space-between;align-items:flex-start}
+.pm-name{font-size:13px;font-weight:700;margin-bottom:3px}
+.pm-price{font-size:11px;color:var(--txt2)}
+.pm-actions{display:flex;gap:6px;margin-top:8px}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;font-size:13px;color:var(--txt);box-shadow:0 8px 30px rgba(0,0,0,.5);z-index:9999;transform:translateY(20px);opacity:0;transition:all .25s;display:flex;align-items:center;gap:10px}
+.toast.show{transform:none;opacity:1}
+.toast.success{border-color:rgba(16,185,129,.3)}
+.toast.error{border-color:rgba(239,68,68,.3)}
+</style>
+</head>
+<body>
+<div class="layout">
+<!-- SIDEBAR -->
+<aside>
+  <div class="aside-logo">
+    <div class="aside-logo-dot"><i class="fa-solid fa-bolt" style="color:#fff;font-size:12px"></i></div>
+    Suite Admin
+  </div>
+  <nav class="aside-nav">
+    <div class="sep">Suite Platform</div>
+    <a href="/control/admin/suite/plans/" class="{% if tab == 'plans' %}active{% endif %}"><i class="fa-solid fa-layer-group" style="width:16px"></i> Suite Plans</a>
+    <a href="/control/admin/suite/subscriptions/" class="{% if tab == 'subscriptions' %}active{% endif %}"><i class="fa-solid fa-users" style="width:16px"></i> Subscriptions</a>
+    <div class="sep" style="margin-top:16px">Navigation</div>
+    <a href="/control/suite/login/"><i class="fa-solid fa-arrow-right-from-bracket" style="width:16px"></i> Suite Login</a>
+  </nav>
+</aside>
+
+<main>
+{% if tab == 'plans' %}
+<!-- ═══ PLANS TAB ═══ -->
+<div class="page-header">
+  <div>
+    <h1>Suite Plans</h1>
+    <div class="phsub">Manage pricing plans for Social, SEO & Marketing suites</div>
+  </div>
+  <button class="btn btn-primary" onclick="openPlanModal()"><i class="fa-solid fa-plus"></i> New Plan</button>
+</div>
+
+<div class="stats-row">
+  {% for key, meta in suite_meta.items %}
+  <div class="stat-card">
+    <div class="sv">{{ plans|dictsort:"suite"|length }}</div>
+    <div class="sk"><i class="{{ meta.icon }}" style="color:{{ meta.color }}"></i> {{ meta.name }}</div>
+  </div>
+  {% endfor %}
+  <div class="stat-card">
+    <div class="sv">{{ plans|length }}</div>
+    <div class="sk"><i class="fa-solid fa-layer-group" style="color:#6366f1"></i> Total Plans</div>
+  </div>
+</div>
+
+{% for suite_key, meta in suite_meta.items %}
+<div class="plan-suite-section">
+  <h3><i class="{{ meta.icon }}" style="color:{{ meta.color }}"></i> {{ meta.name }}</h3>
+  <div class="plan-grid">
+    {% for plan in plans %}
+      {% if plan.suite == suite_key %}
+      <div class="plan-mini">
+        <div>
+          <div class="pm-name">{{ plan.name }}</div>
+          <div class="pm-price">₹{{ plan.price_usd }}/mo &bull; {{ plan.slug }}</div>
+          <div style="margin-top:6px">
+            {% if plan.is_active %}<span class="badge badge-active" style="font-size:10px"><i class="fa-solid fa-circle" style="font-size:6px"></i> Active</span>{% else %}<span class="badge badge-inactive" style="font-size:10px">Inactive</span>{% endif %}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button class="btn btn-ghost btn-sm"
+            data-plan-id="{{ plan.id }}"
+            data-suite="{{ plan.suite }}"
+            data-slug="{{ plan.slug }}"
+            data-name="{{ plan.name }}"
+            data-price="{{ plan.price_usd }}"
+            data-limits="{{ plan.limits_json }}"
+            data-active="{{ plan.is_active|lower }}"
+            data-order="{{ plan.sort_order }}"
+            onclick="editPlanFromBtn(this)"><i class="fa-solid fa-pencil"></i></button>
+          <button class="btn btn-danger btn-sm" onclick="deletePlan({{ plan.id }},'{{ plan.name }}')"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+
+{% elif tab == 'subscriptions' %}
+<!-- ═══ SUBSCRIPTIONS TAB ═══ -->
+<div class="page-header">
+  <div>
+    <h1>Suite Subscriptions</h1>
+    <div class="phsub">Manage standalone suite customer accounts</div>
+  </div>
+  <button class="btn btn-primary" onclick="openSubModal()"><i class="fa-solid fa-user-plus"></i> New Subscription</button>
+</div>
+
+<div class="stats-row">
+  <div class="stat-card"><div class="sv">{{ subs|length }}</div><div class="sk"><i class="fa-solid fa-users" style="color:#6366f1"></i> Total Accounts</div></div>
+  {% for key, meta in suite_meta.items %}
+  <div class="stat-card">
+    <div class="sv">{{ subs|length }}</div>
+    <div class="sk"><i class="{{ meta.icon }}" style="color:{{ meta.color }}"></i> {{ meta.name|truncatewords:1 }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Email</th><th>Name</th><th>Suite</th><th>Plan</th><th>Status</th><th>Expires</th><th>Last Login</th><th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in subs %}
+      <tr id="sub-row-{{ s.id }}">
+        <td><strong>{{ s.email }}</strong></td>
+        <td>{{ s.first_name }} {{ s.last_name }}<br><span style="font-size:11px;color:var(--txt3)">{{ s.company }}</span></td>
+        <td><span class="badge badge-{{ s.suite }}">{{ s.get_suite_display }}</span></td>
+        <td><span style="font-size:12px;font-weight:700">{{ s.plan.name }}</span><br><span style="font-size:10px;color:var(--txt3)">₹{{ s.plan.price_usd }}/mo</span></td>
+        <td>
+          <span class="badge {% if s.is_active %}badge-active{% else %}badge-inactive{% endif %}">{% if s.is_active %}Active{% else %}Inactive{% endif %}</span>
+        </td>
+        <td style="font-size:12px;color:var(--txt2)">{% if s.expires_at %}{{ s.expires_at|date:"Y-m-d" }}{% else %}<span style="color:var(--green)">∞ Never</span>{% endif %}</td>
+        <td style="font-size:12px;color:var(--txt2)">{% if s.last_login %}{{ s.last_login|date:"M d, Y" }}{% else %}<span style="color:var(--txt3)">Never</span>{% endif %}</td>
+        <td>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm" onclick="editSub({{ s.id }},'{{ s.email }}','{{ s.first_name }}','{{ s.last_name }}','{{ s.company }}',{{ s.plan.id }},{{ s.is_active|lower }})"><i class="fa-solid fa-pencil"></i></button>
+            <button class="btn btn-ghost btn-sm" onclick="toggleSub({{ s.id }})" title="Toggle active"><i class="fa-solid fa-toggle-{% if s.is_active %}on" style="color:#34d399{% else %}off" style="color:var(--txt3){% endif %}"></i></button>
+            <button class="btn btn-danger btn-sm" onclick="deleteSub({{ s.id }},'{{ s.email }}')"><i class="fa-solid fa-trash"></i></button>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8" style="text-align:center;color:var(--txt2);padding:40px">No subscriptions yet. Create the first one →</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+</main>
+</div>
+
+<!-- PLAN MODAL -->
+<div class="modal-bg" id="planModal">
+  <div class="modal">
+    <h3 id="planModalTitle">New Suite Plan</h3>
+    <input type="hidden" id="planId">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="mfield">
+        <label>Suite</label>
+        <select id="planSuite">
+          <option value="social">Social Media</option>
+          <option value="seo">SEO</option>
+          <option value="marketing">Marketing</option>
+        </select>
+      </div>
+      <div class="mfield">
+        <label>Slug</label>
+        <input type="text" id="planSlug" placeholder="e.g. growth">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="mfield">
+        <label>Plan Name</label>
+        <input type="text" id="planName" placeholder="e.g. Growth">
+      </div>
+      <div class="mfield">
+        <label>Price (₹ INR/mo)</label>
+        <input type="number" id="planPrice" placeholder="29" min="0" step="0.01">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="mfield">
+        <label>Sort Order</label>
+        <input type="number" id="planOrder" placeholder="0" min="0">
+      </div>
+      <div class="mfield" style="display:flex;align-items:flex-end;padding-bottom:4px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;text-transform:none;letter-spacing:0">
+          <input type="checkbox" id="planActive" checked style="width:auto"> Active
+        </label>
+      </div>
+    </div>
+    <div class="mfield">
+      <label>Plan Limits
+        <span style="font-size:10px;color:var(--txt3);text-transform:none;letter-spacing:0;font-weight:400;margin-left:6px">
+          — Set to <code>0</code> for unlimited
+        </span>
+      </label>
+      <div id="limitsPresets" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+      <div id="limitsBuilder" style="display:flex;flex-direction:column;gap:8px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:12px;min-height:40px"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input type="text" id="limitNewKey" placeholder="Field name (e.g. accounts)" style="flex:1">
+        <input type="text" id="limitNewVal" placeholder="Value (e.g. 10 or true)" style="width:140px">
+        <button type="button" class="btn btn-ghost" style="white-space:nowrap" onclick="addLimitRow()"><i class="fa-solid fa-plus"></i> Add Field</button>
+      </div>
+      <input type="hidden" id="planLimits">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closePlanModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="savePlan()"><i class="fa-solid fa-check"></i> Save Plan</button>
+    </div>
+  </div>
+</div>
+
+<!-- SUBSCRIPTION MODAL -->
+<div class="modal-bg" id="subModal">
+  <div class="modal">
+    <h3 id="subModalTitle">New Subscription</h3>
+    <input type="hidden" id="subId">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="mfield">
+        <label>First Name</label>
+        <input type="text" id="subFirst" placeholder="Jane">
+      </div>
+      <div class="mfield">
+        <label>Last Name</label>
+        <input type="text" id="subLast" placeholder="Doe">
+      </div>
+    </div>
+    <div class="mfield">
+      <label>Email Address</label>
+      <input type="email" id="subEmail" placeholder="jane@company.com">
+    </div>
+    <div class="mfield">
+      <label>Company</label>
+      <input type="text" id="subCompany" placeholder="Acme Corp (optional)">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="mfield">
+        <label>Suite Plan</label>
+        <select id="subPlan">
+          {% for plan in plans %}
+          <option value="{{ plan.id }}">{{ plan.get_suite_display }} — {{ plan.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="mfield">
+        <label>Expires At (blank=never)</label>
+        <input type="datetime-local" id="subExpiry">
+      </div>
+    </div>
+    <div class="mfield">
+      <label>Password <span style="font-size:10px;color:var(--txt3)">(leave blank to keep existing on edit)</span></label>
+      <input type="text" id="subPassword" placeholder="Min 8 characters">
+    </div>
+    <div class="mfield" style="display:flex;align-items:center;gap:8px">
+      <input type="checkbox" id="subActive" checked style="width:auto">
+      <label for="subActive" style="text-transform:none;letter-spacing:0;font-size:13px;cursor:pointer;color:var(--txt2)">Account active</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeSubModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSub()"><i class="fa-solid fa-check"></i> Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+const CSRF = document.cookie.match(/csrftoken=([^;]+)/)?.[1]||'';
+
+function showToast(msg, type='success'){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className=`toast ${type} show`;
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+// ── Suite-aware Limits Builder ──────────────────────────────────────────
+const SUITE_PRESETS = {
+  social: [
+    {k:'accounts',        v:5,      hint:'Social accounts (0=unlimited)'},
+    {k:'posts_per_month', v:100,    hint:'Posts per month (0=unlimited)'},
+    {k:'ai_captions',     v:20,     hint:'AI caption credits/mo (0=unlimited)'},
+    {k:'team_members',    v:1,      hint:'Team seats (0=unlimited)'},
+    {k:'scheduler',       v:true,   hint:'Enable post scheduler'},
+    {k:'analytics',       v:'basic',hint:'basic | advanced | white_label'},
+    {k:'csv_export',      v:false,  hint:'Allow CSV export'},
+    {k:'custom_branding', v:false,  hint:'White-label branding'},
+    {k:'bulk_scheduling', v:false,  hint:'Bulk upload scheduling'},
+    {k:'api_access',      v:false,  hint:'API access'},
+  ],
+  seo: [
+    {k:'domains',              v:3,      hint:'Tracked domains (0=unlimited)'},
+    {k:'keywords',             v:250,    hint:'Keyword slots (0=unlimited)'},
+    {k:'audits_per_month',     v:5,      hint:'Site audits/mo (0=unlimited)'},
+    {k:'backlink_rows',        v:500,    hint:'Backlink rows (0=unlimited)'},
+    {k:'competitor_tracking',  v:2,      hint:'Competitors tracked (0=unlimited)'},
+    {k:'rank_tracking',        v:true,   hint:'Enable rank tracker'},
+    {k:'site_audit',           v:true,   hint:'Enable full site audit'},
+    {k:'reports',              v:'basic',hint:'basic | full | white_label'},
+    {k:'pdf_reports',          v:false,  hint:'PDF report download'},
+    {k:'api_access',           v:false,  hint:'API access'},
+  ],
+  marketing: [
+    {k:'contacts',             v:2000,  hint:'Contact limit (0=unlimited)'},
+    {k:'emails_per_month',     v:15000, hint:'Emails/month (0=unlimited)'},
+    {k:'campaigns_per_month',  v:10,    hint:'Campaigns/mo (0=unlimited)'},
+    {k:'landing_pages',        v:5,     hint:'Landing pages (0=unlimited)'},
+    {k:'sms_credits',          v:500,   hint:'SMS credits/mo (0=unlimited)'},
+    {k:'whatsapp',             v:false, hint:'WhatsApp channel'},
+    {k:'automation',           v:false, hint:'Drip/automation flows'},
+    {k:'ab_testing',           v:false, hint:'A/B split testing'},
+    {k:'custom_domain',        v:false, hint:'Custom sender domain'},
+    {k:'team_members',         v:1,     hint:'Team seats (0=unlimited)'},
+    {k:'advanced_segmentation',v:false, hint:'Advanced audience segments'},
+    {k:'api_access',           v:false, hint:'API access'},
+  ],
+};
+
+function renderLimitsPresets(suite) {
+  const box = document.getElementById('limitsPresets');
+  box.innerHTML = '';
+  const presets = SUITE_PRESETS[suite] || [];
+  if (!presets.length) return;
+  // Header
+  const hdr = document.createElement('div');
+  hdr.style = 'width:100%;font-size:10px;color:var(--txt3);margin-bottom:2px;font-weight:600;text-transform:uppercase;letter-spacing:.08em';
+  hdr.textContent = '⚡ Quick-add fields for ' + suite + ' suite:';
+  box.appendChild(hdr);
+  presets.forEach(p => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.title = p.hint;
+    b.style = 'font-size:10px;padding:3px 9px;border-radius:20px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--txt2);cursor:pointer;white-space:nowrap;transition:all .15s';
+    b.textContent = p.k;
+    b.onmouseover = ()=>{ b.style.background='rgba(99,102,241,.2)'; b.style.color='#a5b4fc'; b.style.borderColor='rgba(99,102,241,.4)'; };
+    b.onmouseout  = ()=>{ b.style.background='rgba(255,255,255,.04)'; b.style.color='var(--txt2)'; b.style.borderColor='rgba(255,255,255,.12)'; };
+    b.onclick = () => {
+      // Only add if not already present
+      const existing = [...document.querySelectorAll('#limitsBuilder input:first-child')].map(i=>i.value);
+      if (existing.includes(p.k)) { showToast(`"${p.k}" already added`,'error'); return; }
+      document.getElementById('limitsBuilder').appendChild(makeLimitRow(p.k, String(p.v)));
+      syncLimitsHidden();
+    };
+    box.appendChild(b);
+  });
+}
+
+function renderLimitsBuilder(obj) {
+  const container = document.getElementById('limitsBuilder');
+  container.innerHTML = '';
+  if (!obj || !Object.keys(obj).length) {
+    container.innerHTML = '<div style="font-size:11px;color:var(--txt3);padding:6px 0;text-align:center;">No limits set — use buttons above or add manually below</div>';
+    return;
+  }
+  Object.entries(obj).forEach(([k,v]) => container.appendChild(makeLimitRow(k, v)));
+}
+
+function makeLimitRow(k, v) {
+  const row = document.createElement('div');
+  row.style = 'display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04)';
+  // Display value: arrays/objects as JSON string, booleans and numbers as-is
+  let displayVal;
+  if (Array.isArray(v))          displayVal = JSON.stringify(v);
+  else if (typeof v === 'object' && v !== null) displayVal = JSON.stringify(v);
+  else                           displayVal = String(v);
+  const hint = (SUITE_PRESETS[document.getElementById('planSuite').value]||[]).find(p=>p.k===k)?.hint || '';
+  row.innerHTML = `
+    <input type="text" value="${k}" placeholder="field" title="${hint}" style="flex:1;font-size:12px;min-width:0" oninput="syncLimitsHidden()">
+    <input type="text" value="${displayVal}" placeholder="value" title="${hint ? 'Hint: '+hint : ''}" style="width:140px;font-size:12px" oninput="syncLimitsHidden()">
+    <span style="font-size:9px;color:var(--txt3);min-width:36px;text-align:left">${typeof v}</span>
+    <button type="button" class="btn btn-danger btn-sm" onclick="this.closest('div').remove();syncLimitsHidden()"><i class="fa-solid fa-times"></i></button>`;
+  return row;
+}
+
+function addLimitRow() {
+  const k = document.getElementById('limitNewKey').value.trim();
+  const v = document.getElementById('limitNewVal').value.trim();
+  if (!k) { showToast('Enter a field name first','error'); return; }
+  const existing = [...document.querySelectorAll('#limitsBuilder input:first-child')].map(i=>i.value);
+  if (existing.includes(k)) { showToast(`"${k}" already exists`,'error'); return; }
+  // Remove placeholder text if present
+  const builder = document.getElementById('limitsBuilder');
+  if (builder.querySelector('div div') === null && builder.textContent.includes('No limits')) builder.innerHTML = '';
+  builder.appendChild(makeLimitRow(k, v || ''));
+  document.getElementById('limitNewKey').value = '';
+  document.getElementById('limitNewVal').value = '';
+  syncLimitsHidden();
+}
+
+function syncLimitsHidden() {
+  const rows = document.querySelectorAll('#limitsBuilder > div');
+  const obj = {};
+  rows.forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    if (!inputs.length) return;
+    const k = inputs[0].value.trim();
+    let v = inputs[1].value.trim();
+    if (!k) return;
+    // Auto-detect type
+    if      (v === 'true')             v = true;
+    else if (v === 'false')            v = false;
+    else if (v !== '' && !isNaN(+v))   v = Number(v);
+    else { try { v = JSON.parse(v); } catch(e) { /* keep as string */ } }
+    obj[k] = v;
+  });
+  document.getElementById('planLimits').value = JSON.stringify(obj);
+}
+
+function openPlanModal(){
+  document.getElementById('planModalTitle').textContent='New Suite Plan';
+  document.getElementById('planId').value='';
+  ['planSuite','planSlug','planName','planPrice','planOrder'].forEach(id=>document.getElementById(id).value='');
+  renderLimitsPresets('social');
+  renderLimitsBuilder({});
+  document.getElementById('planActive').checked=true;
+  document.getElementById('planModal').classList.add('open');
+}
+
+// Refresh presets when suite dropdown changes
+document.getElementById('planSuite').addEventListener('change', function(){
+  renderLimitsPresets(this.value);
+});
+
+function editPlanFromBtn(btn) {
+  const id     = btn.dataset.planId;
+  const suite  = btn.dataset.suite;
+  const slug   = btn.dataset.slug;
+  const name   = btn.dataset.name;
+  const price  = btn.dataset.price;
+  const active = btn.dataset.active === 'true';
+  const order  = btn.dataset.order;
+  let limits = {};
+  try { limits = JSON.parse(btn.dataset.limits || '{}'); } catch(e) { limits = {}; }
+  document.getElementById('planModalTitle').textContent = 'Edit Plan — ' + name;
+  document.getElementById('planId').value    = id;
+  document.getElementById('planSuite').value = suite;
+  document.getElementById('planSlug').value  = slug;
+  document.getElementById('planName').value  = name;
+  document.getElementById('planPrice').value = price;
+  document.getElementById('planOrder').value = order;
+  document.getElementById('planActive').checked = active;
+  renderLimitsPresets(suite);
+  renderLimitsBuilder(limits);
+  syncLimitsHidden();
+  document.getElementById('planModal').classList.add('open');
+}
+
+function closePlanModal(){document.getElementById('planModal').classList.remove('open')}
+function savePlan(){
+  syncLimitsHidden();
+  let limits;
+  try{limits=JSON.parse(document.getElementById('planLimits').value||'{}')}
+  catch{return showToast('Limits data is invalid','error')}
+  const body={
+    id:document.getElementById('planId').value||null,
+    suite:document.getElementById('planSuite').value,
+    slug:document.getElementById('planSlug').value,
+    name:document.getElementById('planName').value,
+    price_usd:document.getElementById('planPrice').value,
+    sort_order:document.getElementById('planOrder').value||0,
+    is_active:document.getElementById('planActive').checked,
+    limits
+  };
+  fetch('/control/admin/suite/plans/save/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify(body)})
+  .then(r=>r.json()).then(d=>{if(d.ok){showToast('Plan saved ✓');closePlanModal();setTimeout(()=>location.reload(),700)}else showToast(d.error||'Error','error')});
+}
+function deletePlan(id,name){
+  if(!confirm(`Delete plan "${name}"? This cannot be undone.`))return;
+  fetch(`/control/admin/suite/plans/${id}/delete/`,{method:'POST',headers:{'X-CSRFToken':CSRF}})
+  .then(r=>r.json()).then(d=>{if(d.ok){showToast('Deleted');setTimeout(()=>location.reload(),600)}});
+}
+
+// ── SUBSCRIPTION MODAL ──
+function openSubModal(){
+  document.getElementById('subModalTitle').textContent='New Subscription';
+  document.getElementById('subId').value='';
+  ['subFirst','subLast','subEmail','subCompany','subPassword'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('subExpiry').value='';
+  document.getElementById('subActive').checked=true;
+  document.getElementById('subModal').classList.add('open');
+}
+function editSub(id,email,first,last,company,planId,active){
+  document.getElementById('subModalTitle').textContent='Edit Subscription';
+  document.getElementById('subId').value=id;
+  document.getElementById('subEmail').value=email;
+  document.getElementById('subFirst').value=first;
+  document.getElementById('subLast').value=last;
+  document.getElementById('subCompany').value=company;
+  document.getElementById('subPlan').value=planId;
+  document.getElementById('subActive').checked=active;
+  document.getElementById('subPassword').value='';
+  document.getElementById('subModal').classList.add('open');
+}
+function closeSubModal(){document.getElementById('subModal').classList.remove('open')}
+function saveSub(){
+  const body={
+    id:document.getElementById('subId').value||null,
+    email:document.getElementById('subEmail').value,
+    first_name:document.getElementById('subFirst').value,
+    last_name:document.getElementById('subLast').value,
+    company:document.getElementById('subCompany').value,
+    plan_id:document.getElementById('subPlan').value,
+    password:document.getElementById('subPassword').value||null,
+    expires_at:document.getElementById('subExpiry').value||null,
+    is_active:document.getElementById('subActive').checked
+  };
+  fetch('/control/admin/suite/subscriptions/save/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify(body)})
+  .then(r=>r.json()).then(d=>{if(d.ok){showToast('Saved ✓');closeSubModal();setTimeout(()=>location.reload(),700)}else showToast(d.error||'Error','error')});
+}
+function deleteSub(id,email){
+  if(!confirm(`Delete subscription for "${email}"?`))return;
+  fetch(`/control/admin/suite/subscriptions/${id}/delete/`,{method:'POST',headers:{'X-CSRFToken':CSRF}})
+  .then(r=>r.json()).then(d=>{if(d.ok){document.getElementById(`sub-row-${id}`)?.remove();showToast('Deleted')}});
+}
+function toggleSub(id){
+  fetch(`/control/admin/suite/subscriptions/${id}/toggle/`,{method:'POST',headers:{'X-CSRFToken':CSRF}})
+  .then(r=>r.json()).then(d=>{if(d.ok){showToast(d.is_active?'Activated':'Deactivated');setTimeout(()=>location.reload(),500)}});
+}
+// Close modals on backdrop click
+document.querySelectorAll('.modal-bg').forEach(bg=>bg.addEventListener('click',e=>{if(e.target===bg)bg.classList.remove('open')}));
+</script>
+</body>
+</html>

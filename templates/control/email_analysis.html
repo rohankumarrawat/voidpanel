@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>:: VoidPanel :: Email Analysis</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+
+    <!-- VENDOR CSS -->
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="/static/static/css/plugins/fontawesome-all.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
+
+    <!-- MAIN Project CSS file -->
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+    <style>
+        .card .header { padding: 20px 20px 0 20px; }
+        .chart-container { height: 300px; }
+        
+        /* Clickable Table Rows */
+        .table-hover tbody tr:hover {
+            background-color: rgba(255, 255, 255, 0.03) !important;
+        }
+
+        /* Glassmorphism Modal */
+        .modal-backdrop {
+            backdrop-filter: blur(6px);
+            background-color: rgba(0, 0, 0, 0.6) !important;
+        }
+        .modal-content {
+            background: #11121d !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            border-radius: 18px !important;
+            box-shadow: 0 15px 45px rgba(0, 0, 0, 0.6) !important;
+        }
+        .modal-header, .modal-footer {
+            border-color: rgba(255, 255, 255, 0.06) !important;
+        }
+        .modal-header .close {
+            color: #fff;
+            text-shadow: none;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+        .modal-header .close:hover {
+            opacity: 1;
+        }
+
+        /* Modern Timeline Layout */
+        .delivery-timeline {
+            position: relative;
+            padding: 10px 0;
+            list-style: none;
+        }
+        .delivery-timeline::before {
+            content: " ";
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 30px;
+            width: 2px;
+            background-color: rgba(255, 255, 255, 0.06);
+        }
+        .timeline-item {
+            position: relative;
+            margin-bottom: 25px;
+        }
+        .timeline-item:last-child {
+            margin-bottom: 0;
+        }
+        .timeline-item::after {
+            content: " ";
+            display: table;
+            clear: both;
+        }
+        .timeline-badge {
+            position: absolute;
+            top: 4px;
+            left: 11px;
+            width: 40px;
+            height: 40px;
+            line-height: 38px;
+            text-align: center;
+            border-radius: 50%;
+            z-index: 100;
+            font-size: 13px;
+        }
+        .status-sent .timeline-badge {
+            background-color: rgba(16, 185, 129, 0.12);
+            color: #10b981;
+            border: 1.5px solid rgba(16, 185, 129, 0.35);
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.08);
+        }
+        .status-bounced .timeline-badge, .status-failed .timeline-badge {
+            background-color: rgba(239, 68, 68, 0.12);
+            color: #ef4444;
+            border: 1.5px solid rgba(239, 68, 68, 0.35);
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.08);
+        }
+        .status-deferred .timeline-badge {
+            background-color: rgba(245, 158, 11, 0.12);
+            color: #f59e0b;
+            border: 1.5px solid rgba(245, 158, 11, 0.35);
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.08);
+        }
+        .timeline-panel {
+            margin-left: 65px;
+            background: rgba(30, 30, 48, 0.5);
+            border: 1.5px solid rgba(255, 255, 255, 0.05);
+            border-radius: 14px;
+            padding: 18px 22px;
+            position: relative;
+            backdrop-filter: blur(8px);
+            transition: all 0.2s ease;
+        }
+        .timeline-panel:hover {
+            border-color: rgba(255, 255, 255, 0.09);
+            background: rgba(30, 30, 48, 0.7);
+            box-shadow: 0 5px 22px rgba(0, 0, 0, 0.25);
+        }
+        .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 8px;
+        }
+        .timeline-time {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.55);
+            font-weight: 500;
+        }
+        .timeline-status-badge {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            padding: 4px 9px;
+            border-radius: 6px;
+            letter-spacing: 0.5px;
+        }
+        .timeline-status-badge.status-sent {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+        }
+        .timeline-status-badge.status-bounced, .timeline-status-badge.status-failed {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+        }
+        .timeline-status-badge.status-deferred {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+        }
+        .timeline-body {
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .recipient-row, .relay-row, .reason-row {
+            margin-bottom: 6px;
+            color: rgba(255, 255, 255, 0.85);
+        }
+        .recipient-row strong, .relay-row strong, .reason-row strong {
+            color: rgba(255, 255, 255, 0.45);
+            font-weight: 500;
+            display: inline-block;
+            width: 75px;
+        }
+        .reason-row {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px 14px;
+            border-radius: 8px;
+            border-left: 3px solid rgba(255, 255, 255, 0.15);
+            font-family: monospace;
+            font-size: 12px;
+            margin-top: 12px;
+            word-break: break-all;
+        }
+        .status-sent .reason-row {
+            border-left-color: #10b981;
+        }
+        .status-bounced .reason-row, .status-failed .reason-row {
+            border-left-color: #ef4444;
+        }
+        .status-deferred .reason-row {
+            border-left-color: #f59e0b;
+        }
+    </style>
+</head>
+
+<body class="font-nunito active-dark-mode">
+    <div id="wrapper" class="theme-cyan">
+        {% include 'control/navbar.html' %}
+        {% include 'control/left.html' %}
+        {% include 'control/right.html' %}
+
+        <div id="main-content">
+            <div class="container-fluid">
+                <div class="block-header">
+                    <div class="row">
+                        <div class="col-lg-12">
+                            <h2>Email Analysis for {{ domain }}</h2>
+                            <ul class="breadcrumb">
+                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a></li>
+                                <li class="breadcrumb-item"><a href="/control/listemail/{{ domain }}/">Emails</a></li>
+                                <li class="breadcrumb-item active">Analysis</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row clearfix">
+                    <div class="col-lg-3 col-md-6">
+                        <div class="card text-center bg-info text-white">
+                            <div class="body">
+                                <h3>{{ totals.sent }}</h3>
+                                <span>Total Sent</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6">
+                        <div class="card text-center bg-danger text-white">
+                            <div class="body">
+                                <h3>{{ totals.failed }}</h3>
+                                <span>Total Failed</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6">
+                        <div class="card text-center bg-warning text-white">
+                            <div class="body">
+                                <h3>{{ totals.queue }}</h3>
+                                <span>In Queue</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6">
+                        <div class="card text-center bg-success text-white">
+                            <div class="body">
+                                <h3>{{ totals.received }}</h3>
+                                <span>Total Received</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row clearfix">
+                    <div class="col-lg-6 col-md-12">
+                        <div class="card">
+                            <div class="header">
+                                <h2>Sent vs Failed</h2>
+                            </div>
+                            <div class="body">
+                                <div id="chart-sent-failed" class="chart-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6 col-md-12">
+                        <div class="card">
+                            <div class="header">
+                                <h2>Overall Email Distribution</h2>
+                            </div>
+                            <div class="body">
+                                <div id="chart-overall" class="chart-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row clearfix">
+                    <div class="col-lg-12">
+                        <div class="card">
+                            <div class="header">
+                                <h2>Detailed Statistics</h2>
+                            </div>
+                            <div class="body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Email Address</th>
+                                                <th>Sent</th>
+                                                <th>Failed</th>
+                                                <th>Queue</th>
+                                                <th>Received</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for stat in email_stats %}
+                                            <tr onclick="showDeliveryLogs('{{ stat.email }}')" style="cursor: pointer; transition: background 0.2s;">
+                                                <td><strong style="color: #2b98f0;">{{ stat.email }}</strong> <i class="fa fa-info-circle" style="margin-left: 4px; font-size: 11px; opacity:0.6;"></i></td>
+                                                <td><span class="badge badge-info">{{ stat.sent }}</span></td>
+                                                <td><span class="badge badge-danger">{{ stat.failed }}</span></td>
+                                                <td><span class="badge badge-warning">{{ stat.queue }}</span></td>
+                                                <td><span class="badge badge-success">{{ stat.received }}</span></td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Javascript -->
+    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/c3.bundle.js"></script>
+    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            // Sent vs Failed Gauge/Donut
+            var chart1 = c3.generate({
+                bindto: '#chart-sent-failed',
+                data: {
+                    columns: [
+                        ['Sent', {{ totals.sent }}],
+                        ['Failed', {{ totals.failed }}]
+                    ],
+                    type: 'donut',
+                    colors: {
+                        'Sent': '#17a2b8',
+                        'Failed': '#dc3545'
+                    }
+                },
+                donut: {
+                    title: "Delivery Status"
+                }
+            });
+
+            // Overall Distribution
+            var chart2 = c3.generate({
+                bindto: '#chart-overall',
+                data: {
+                    columns: [
+                        ['Sent', {{ totals.sent }}],
+                        ['Failed', {{ totals.failed }}],
+                        ['Queue', {{ totals.queue }}],
+                        ['Received', {{ totals.received }}]
+                    ],
+                    type: 'pie',
+                    colors: {
+                        'Sent': '#17a2b8',
+                        'Failed': '#dc3545',
+                        'Queue': '#ffc107',
+                        'Received': '#28a745'
+                    }
+                }
+            });
+        });
+
+        function showDeliveryLogs(email) {
+            window.location.href = '/control/email_delivery_report/' + encodeURIComponent(email) + '/';
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,404 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SSL Manager — {{ ssl_svc.domain }} | VoidPanel</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+:root{--bg:#0a0f1e;--card:#111827;--card2:#1e2a3a;--border:rgba(255,255,255,.08);--text:#e2e8f0;--muted:#94a3b8;--green:#22c55e;--blue:#0ea5e9;--red:#ef4444;--yellow:#f59e0b;--purple:#7c3aed;--radius:14px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+.topbar{background:var(--card);border-bottom:1px solid var(--border);padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.back-btn{display:flex;align-items:center;gap:8px;color:var(--muted);text-decoration:none;font-size:.85rem;padding:6px 12px;border-radius:8px;border:1px solid var(--border);transition:.2s;}
+.back-btn:hover{color:var(--text);background:var(--card2);}
+.topbar-brand{display:flex;align-items:center;gap:10px;}
+.ssl-icon{width:30px;height:30px;background:linear-gradient(135deg,var(--green),var(--blue));border-radius:8px;display:flex;align-items:center;justify-content:center;}
+.domain-pill{background:var(--card2);border:1px solid var(--border);padding:4px 14px;border-radius:20px;font-size:.8rem;color:var(--muted);}
+.page{max-width:900px;margin:0 auto;padding:28px 20px 60px;}
+/* Status banner */
+.status-banner{border-radius:var(--radius);padding:22px 26px;margin-bottom:24px;display:flex;align-items:center;gap:18px;border:1px solid;flex-wrap:wrap;}
+.status-banner.active  {background:rgba(34,197,94,.08); border-color:rgba(34,197,94,.25);}
+.status-banner.expiring{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.25);}
+.status-banner.failed  {background:rgba(239,68,68,.08); border-color:rgba(239,68,68,.25);}
+.status-banner.pending {background:rgba(148,163,184,.06);border-color:rgba(148,163,184,.2);}
+.s-icon{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;}
+.active .s-icon  {background:rgba(34,197,94,.15); color:var(--green);}
+.expiring .s-icon{background:rgba(245,158,11,.15);color:var(--yellow);}
+.failed .s-icon  {background:rgba(239,68,68,.15); color:var(--red);}
+.pending .s-icon {background:rgba(148,163,184,.1);color:var(--muted);}
+.s-info h3{font-size:1.05rem;font-weight:800;margin-bottom:3px;}
+.s-info p{font-size:.83rem;color:var(--muted);}
+/* Countdown */
+.countdown-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px 26px;margin-bottom:22px;}
+.countdown-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+.countdown-days{font-size:2.8rem;font-weight:800;line-height:1;}
+.countdown-days.safe   {color:var(--green);}
+.countdown-days.warn   {color:var(--yellow);}
+.countdown-days.danger {color:var(--red);}
+.exp-bar{height:10px;background:rgba(255,255,255,.06);border-radius:5px;overflow:hidden;margin-top:10px;}
+.exp-fill{height:100%;border-radius:5px;transition:width .6s ease;}
+.fill-safe  {background:linear-gradient(90deg,var(--green),#4ade80);}
+.fill-warn  {background:linear-gradient(90deg,var(--yellow),#fbbf24);}
+.fill-danger{background:linear-gradient(90deg,var(--red),#f87171);}
+/* Grid */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:22px;}
+@media(max-width:620px){.grid2{grid-template-columns:1fr;}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.card-head{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.card-icon{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:.85rem;}
+.ci-green{background:rgba(34,197,94,.15);color:var(--green);}
+.ci-blue{background:rgba(14,165,233,.15);color:#38bdf8;}
+.ci-yellow{background:rgba(245,158,11,.15);color:var(--yellow);}
+.card-title{font-size:.88rem;font-weight:700;}
+.card-body{padding:18px 20px;}
+.cert-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.85rem;}
+.cert-row:last-child{border-bottom:none;}
+.cert-row .lbl{color:var(--muted);}
+.cert-row .val{font-weight:600;}
+.val.green{color:var(--green);}
+.val.yellow{color:var(--yellow);}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 22px;border-radius:10px;font-size:.88rem;font-weight:600;cursor:pointer;border:none;transition:.2s;}
+.btn:hover{transform:translateY(-1px);}
+.btn-green{background:linear-gradient(135deg,#16a34a,var(--green));color:#fff;}
+.btn-blue{background:linear-gradient(135deg,var(--blue),#0284c7);color:#fff;}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border);}
+.btn-ghost:hover{color:var(--text);}
+.btn:disabled{opacity:.5;pointer-events:none;}
+.spin{width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:none;}
+@keyframes spin{to{transform:rotate(360deg);}}
+/* DNS guide */
+.dns-row{background:var(--card2);border-radius:8px;padding:12px 14px;margin-bottom:8px;font-size:.83rem;}
+.dns-row .dns-type{font-weight:700;color:var(--blue);width:60px;display:inline-block;}
+.dns-row .dns-val{font-family:monospace;color:var(--green);}
+/* Alert / Toast */
+.alert{border-radius:9px;padding:10px 14px;font-size:.82rem;margin-bottom:14px;display:none;}
+.alert.success{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#4ade80;}
+.alert.error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#f87171;}
+#toast{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
+.ti{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 18px;font-size:.84rem;display:flex;align-items:center;gap:10px;min-width:260px;box-shadow:0 8px 32px rgba(0,0,0,.4);animation:slideIn .3s ease;}
+.ti.s{border-color:rgba(34,197,94,.4);}
+.ti.e{border-color:rgba(239,68,68,.4);}
+@keyframes slideIn{from{transform:translateX(120%);opacity:0;}to{transform:translateX(0);opacity:1;}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <a href="/portal/" class="back-btn"><i class="fa fa-arrow-left"></i> Portal</a>
+    <div class="topbar-brand">
+      <div class="ssl-icon"><i class="fas fa-lock" style="color:#fff;font-size:.9rem;"></i></div>
+      <div>
+        <div style="font-size:.92rem;font-weight:700;">SSL Manager</div>
+        <div style="font-size:.75rem;color:var(--muted);">Certificate Control</div>
+      </div>
+    </div>
+  </div>
+  <div class="domain-pill"><i class="fa fa-globe" style="margin-right:5px;"></i>{{ ssl_svc.domain }}</div>
+</div>
+
+<div class="page">
+
+  {% if api_error %}
+  <div class="alert error" style="display:flex;align-items:center;gap:8px;margin-bottom:18px;">
+    <i class="fa fa-triangle-exclamation"></i> Could not reach panel server: {{ api_error }}. Showing cached data.
+  </div>
+  {% endif %}
+
+  <div id="global-alert" class="alert"></div>
+
+  <!-- Status Banner -->
+  {% if ssl_svc.status == 'active' and ssl_svc.is_expiring_soon %}
+  <div class="status-banner expiring">
+    <div class="s-icon"><i class="fas fa-triangle-exclamation"></i></div>
+    <div class="s-info">
+      <h3>Certificate Expiring Soon!</h3>
+      <p>Your SSL for <strong>{{ ssl_svc.domain }}</strong> expires in <strong>{{ days_left }} days</strong>. Renew it now.</p>
+    </div>
+    <button class="btn btn-green" style="margin-left:auto;" id="renew-btn-top" onclick="doRenew()">
+      <span class="spin" id="renew-spin-top"></span><i class="fas fa-rotate" id="renew-icon-top"></i> Renew Now
+    </button>
+  </div>
+  {% elif ssl_svc.status == 'active' %}
+  <div class="status-banner active">
+    <div class="s-icon"><i class="fas fa-lock"></i></div>
+    <div class="s-info">
+      <h3>SSL Certificate Active</h3>
+      <p>Your site <strong>{{ ssl_svc.domain }}</strong> is secured with HTTPS. {% if ssl_svc.expires_at %}Expires {{ ssl_svc.expires_at|date:"M d, Y" }}.{% endif %}</p>
+    </div>
+  </div>
+  {% elif ssl_svc.status == 'failed' %}
+  <div class="status-banner failed">
+    <div class="s-icon"><i class="fas fa-circle-xmark"></i></div>
+    <div class="s-info">
+      <h3>Certificate Issuance Failed</h3>
+      <p>{{ ssl_svc.notes|default:"Certbot could not issue a certificate. Ensure your domain DNS points to the server." }}</p>
+    </div>
+    <button class="btn btn-green" style="margin-left:auto;" id="renew-btn-top" onclick="doRenew()">
+      <span class="spin" id="renew-spin-top"></span><i class="fas fa-rotate" id="renew-icon-top"></i> Retry Issuance
+    </button>
+  </div>
+  {% else %}
+  <div class="status-banner pending">
+    <div class="s-icon"><i class="fas fa-clock"></i></div>
+    <div class="s-info">
+      <h3>Certificate Pending</h3>
+      <p>Your SSL certificate is being issued. This takes 1–2 minutes — click "Check Status" below.</p>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Expiry Countdown (when active) -->
+  {% if ssl_svc.expires_at %}
+  <div class="countdown-card">
+    <div class="countdown-top">
+      <div>
+        <div style="font-size:.8rem;color:var(--muted);margin-bottom:4px;">Days Until Expiry</div>
+        <div class="countdown-days {% if days_left <= 14 %}danger{% elif days_left <= 30 %}warn{% else %}safe{% endif %}">
+          {{ days_left }}<span style="font-size:1rem;font-weight:400;color:var(--muted);margin-left:4px;">days</span>
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:.78rem;color:var(--muted);">Issued</div>
+        <div style="font-size:.88rem;font-weight:600;">{{ ssl_svc.issued_at|date:"M d, Y"|default:"—" }}</div>
+        <div style="font-size:.78rem;color:var(--muted);margin-top:6px;">Expires</div>
+        <div style="font-size:.88rem;font-weight:600;{% if days_left <= 30 %}color:var(--yellow);{% endif %}">{{ ssl_svc.expires_at|date:"M d, Y" }}</div>
+      </div>
+    </div>
+    <div class="exp-bar">
+      <div class="exp-fill {% if expiry_pct <= 20 %}fill-danger{% elif expiry_pct <= 40 %}fill-warn{% else %}fill-safe{% endif %}"
+           style="width:{{ expiry_pct }}%;"></div>
+    </div>
+    <div style="font-size:.75rem;color:var(--muted);margin-top:6px;text-align:right;">{{ expiry_pct }}% validity remaining</div>
+  </div>
+  {% endif %}
+
+  <!-- Actions + Details grid -->
+  <div class="grid2">
+
+    <!-- Actions card -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-icon ci-green"><i class="fas fa-bolt"></i></div>
+        <div class="card-title">Certificate Actions</div>
+      </div>
+      <div class="card-body">
+        <div id="action-alert" class="alert"></div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <button class="btn btn-green" id="renew-btn" onclick="doRenew()">
+            <span class="spin" id="renew-spin"></span>
+            <i class="fas fa-rotate" id="renew-icon"></i>
+            {% if ssl_svc.status == 'active' %}Renew Certificate{% else %}Issue Certificate{% endif %}
+          </button>
+          <button class="btn btn-blue" id="status-btn" onclick="doCheck()">
+            <span class="spin" id="status-spin"></span>
+            <i class="fas fa-magnifying-glass" id="status-icon"></i>
+            Check Live Status
+          </button>
+        </div>
+
+        {% if ssl_svc.status == 'active' %}
+        <div style="margin-top:18px;border-top:1px solid rgba(255,255,255,0.08);padding-top:16px;">
+          <div style="font-size:.72rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+            <i class="fas fa-download" style="color:#59c4bc;"></i> Download Keys &amp; Certs
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <a href="{% url 'portal_ssl_download' ssl_svc.id 'cert' %}" class="btn" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;justify-content:flex-start;padding:9px 12px;font-size:.8rem;font-weight:600;">
+              <i class="fas fa-file-contract" style="margin-right:8px;color:#a5b4fc;width:14px;"></i> Certificate (cert.pem)
+            </a>
+            <a href="{% url 'portal_ssl_download' ssl_svc.id 'key' %}" class="btn" style="background:rgba(248,113,113,0.07);border:1px solid rgba(248,113,113,0.15);color:#fca5a5;justify-content:flex-start;padding:9px 12px;font-size:.8rem;font-weight:600;">
+              <i class="fas fa-key" style="margin-right:8px;color:#f87171;width:14px;"></i> Private Key (privkey.pem)
+            </a>
+            <a href="{% url 'portal_ssl_download' ssl_svc.id 'fullchain' %}" class="btn" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;justify-content:flex-start;padding:9px 12px;font-size:.8rem;font-weight:600;">
+              <i class="fas fa-link" style="margin-right:8px;color:#38bdf8;width:14px;"></i> Full Chain (fullchain.pem)
+            </a>
+          </div>
+        </div>
+        {% endif %}
+
+        <p style="font-size:.75rem;color:var(--muted);margin-top:14px;">
+          Renewal re-runs certbot on the server. Your domain must point to the server IP for issuance to succeed.
+        </p>
+        {% if ssl_svc.last_renewed_at %}
+        <p style="font-size:.75rem;color:var(--muted);margin-top:6px;">
+          Last renewed: <strong>{{ ssl_svc.last_renewed_at|date:"M d, Y" }}</strong>
+        </p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Certificate details -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-icon ci-blue"><i class="fas fa-certificate"></i></div>
+        <div class="card-title">Certificate Details</div>
+      </div>
+      <div class="card-body">
+        <div class="cert-row"><span class="lbl">Domain</span><span class="val">{{ ssl_svc.domain }}</span></div>
+        <div class="cert-row"><span class="lbl">Type</span><span class="val">{{ ssl_svc.plan.get_ssl_type_display|default:"DV SSL" }}</span></div>
+        <div class="cert-row"><span class="lbl">Issuer</span><span class="val green">Let's Encrypt</span></div>
+        <div class="cert-row">
+          <span class="lbl">Status</span>
+          <span class="val {% if ssl_svc.status == 'active' %}green{% elif ssl_svc.is_expiring_soon %}yellow{% endif %}">
+            {{ ssl_svc.get_status_display }}
+          </span>
+        </div>
+        <div class="cert-row"><span class="lbl">Server</span><span class="val">{{ ssl_svc.server.name|default:"—" }}</span></div>
+        <div class="cert-row"><span class="lbl">Auto-Renew</span><span class="val">{% if ssl_svc.plan.auto_renew %}Enabled{% else %}Manual{% endif %}</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- DNS Setup Guide -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-icon ci-yellow"><i class="fas fa-globe"></i></div>
+      <div class="card-title">Domain DNS Requirements</div>
+    </div>
+    <div class="card-body">
+      <p style="font-size:.85rem;color:var(--muted);margin-bottom:14px;">
+        For SSL issuance to work, your domain must have an <strong>A record</strong> pointing to this server's IP.
+        certbot uses HTTP-01 validation and must be able to reach your domain on port 80.
+      </p>
+      <div class="dns-row">
+        <span class="dns-type">A</span>
+        <span>{{ ssl_svc.domain }}</span>
+        <span style="float:right;" class="dns-val">→ {{ ssl_svc.server.url|default:"your-server-ip" }}</span>
+      </div>
+      {% if ssl_svc.plan and ssl_svc.plan.ssl_type == 'wildcard' %}
+      <div class="dns-row">
+        <span class="dns-type">A</span>
+        <span>*.{{ ssl_svc.domain }}</span>
+        <span style="float:right;" class="dns-val">→ {{ ssl_svc.server.url|default:"your-server-ip" }}</span>
+      </div>
+      <div style="margin-top:10px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:9px;padding:10px 14px;font-size:.82rem;color:var(--yellow);">
+        <i class="fas fa-triangle-exclamation"></i>
+        Wildcard SSL requires a DNS TXT record for DNS-01 validation.
+        Please contact support after purchase to complete the wildcard issuance.
+      </div>
+      {% endif %}
+      <p style="font-size:.75rem;color:var(--muted);margin-top:12px;">
+        DNS changes can take up to 24 hours to propagate.
+        Once pointing correctly, use the <strong>Issue Certificate</strong> button above.
+      </p>
+    </div>
+  </div>
+
+  <!-- Danger Zone -->
+  <div class="card" style="border:1px solid rgba(239,68,68,0.25);margin-top:20px;">
+    <div class="card-head">
+      <div class="card-icon" style="background:rgba(239,68,68,0.1);color:#ef4444;"><i class="fas fa-trash-can"></i></div>
+      <div class="card-title" style="color:#ef4444;">Danger Zone</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:15px;padding-top:10px;">
+      <p style="font-size:0.85rem;color:var(--muted);margin:0;max-width:480px;">
+        Deleting this SSL Certificate service will permanently remove the record and cancel renewal tracking. Any active Let's Encrypt certificate will remain on the server, but cannot be managed here.
+      </p>
+      <button class="btn btn-red" onclick="deleteSslService()" style="background:#ef4444;color:#fff;border:none;cursor:pointer;border-radius:6px;padding:8px 16px;font-weight:700;">
+        <i class="fas fa-trash-can"></i> Terminate SSL Service
+      </button>
+    </div>
+  </div>
+
+</div><!-- /page -->
+<div id="toast"></div>
+
+<script>
+const ACTION = '/portal/ssl/{{ ssl_svc.id }}/action/';
+const CSRF   = '{{ csrf_token }}';
+
+function deleteSslService() {
+  if (!confirm("Are you absolutely sure you want to terminate and delete this SSL service? This action cannot be undone!")) {
+    return;
+  }
+  fetch('/portal/delete-service/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'X-CSRFToken': CSRF
+    },
+    body: 'service_type=ssl&service_id={{ ssl_svc.id }}'
+  })
+  .then(resp => resp.json())
+  .then(data => {
+    if (data.ok) {
+      alert(data.message);
+      window.location.href = '/portal/';
+    } else {
+      alert("Error: " + data.message);
+    }
+  })
+  .catch(err => {
+    alert("Request failed. Please try again.");
+  });
+}
+
+function toast(msg, type='s'){
+  const t=document.getElementById('toast');
+  const el=document.createElement('div');
+  el.className=`ti ${type}`;
+  el.innerHTML=`<i class="fa ${type==='s'?'fa-circle-check':'fa-circle-xmark'}" style="color:${type==='s'?'#4ade80':'#f87171'};"></i> ${msg}`;
+  t.appendChild(el);
+  setTimeout(()=>el.remove(),5000);
+}
+function alertEl(id,msg,type){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.textContent=msg; el.className=`alert ${type}`; el.style.display='block';
+  setTimeout(()=>el.style.display='none',7000);
+}
+function setLoad(btnId,spinId,iconId,on){
+  const b=document.getElementById(btnId);
+  const s=document.getElementById(spinId);
+  const i=document.getElementById(iconId);
+  if(b)b.disabled=on;
+  if(s)s.style.display=on?'block':'none';
+  if(i)i.style.display=on?'none':'inline';
+}
+async function post(payload){
+  const r=await fetch(ACTION,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify(payload)});
+  return r.json();
+}
+
+async function doRenew(){
+  setLoad('renew-btn','renew-spin','renew-icon',true);
+  setLoad('renew-btn-top','renew-spin-top','renew-icon-top',true);
+  try{
+    const d=await post({action:'renew'});
+    if(d.status==='success'){
+      toast(d.message,'s');
+      alertEl('action-alert',d.message,'success');
+      setTimeout(()=>location.reload(),2500);
+    }else{
+      toast(d.message||'Renewal failed','e');
+      alertEl('action-alert',d.message||'Renewal failed','error');
+    }
+  }catch(ex){toast('Network error','e');}
+  finally{
+    setLoad('renew-btn','renew-spin','renew-icon',false);
+    setLoad('renew-btn-top','renew-spin-top','renew-icon-top',false);
+  }
+}
+
+async function doCheck(){
+  setLoad('status-btn','status-spin','status-icon',true);
+  try{
+    const d=await post({action:'check_status'});
+    if(d.status==='success'){
+      toast(`Live status: ${d.live_status} — ${d.days_left} days remaining`,'s');
+      alertEl('action-alert',`Server reports: certificate is ${d.live_status}`,'success');
+    }else{
+      toast(d.message||'Check failed','e');
+      alertEl('action-alert',d.message||'Check failed','error');
+    }
+  }catch(ex){toast('Network error','e');}
+  finally{setLoad('status-btn','status-spin','status-icon',false);}
+}
+</script>
+</body>
+</html>

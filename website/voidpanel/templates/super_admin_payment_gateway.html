@@ -1,0 +1,290 @@
+{% extends "super_admin_base.html" %}
+{% block title %}Payment Gateway | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}Payment Gateway{% endblock %}
+
+{% block admin_content %}
+
+<div class="sa-page-header">
+    <div>
+        <div class="sa-page-title">💳 Payment Gateway</div>
+        <div class="sa-page-sub">
+            Configure Razorpay to accept real online payments &nbsp;·&nbsp;
+            Currently in
+            <strong style="color:{% if config.is_live_mode %}#4ade80{% else %}#fbbf24{% endif %}">
+                {{ config.mode_label }} Mode
+            </strong>
+            &nbsp;·&nbsp;
+            {% if config.is_ready %}<span style="color:#4ade80;">● Active</span>{% else %}<span style="color:#f87171;">● Inactive</span>{% endif %}
+        </div>
+    </div>
+    <div class="sa-header-actions">
+        <form method="POST" style="display:inline;">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="test">
+            <button type="submit" class="sa-btn sky" {% if not config.is_ready %}style="opacity:.5;pointer-events:none;"{% endif %}>
+                <i class="fas fa-plug"></i> Test {{ config.mode_label }} Connection
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- KPI Row -->
+<div class="sa-kpi-grid-4">
+    <div class="sa-kpi">
+        <div class="sa-kpi-icon green"><i class="fas fa-indian-rupee-sign"></i></div>
+        <div>
+            <div class="sa-kpi-val">₹{{ total_revenue_inr|floatformat:0 }}</div>
+            <div class="sa-kpi-lbl">Total Collected</div>
+        </div>
+    </div>
+    <div class="sa-kpi">
+        <div class="sa-kpi-icon sky"><i class="fas fa-circle-check"></i></div>
+        <div>
+            <div class="sa-kpi-val">{{ total_payments }}</div>
+            <div class="sa-kpi-lbl">Successful Payments</div>
+        </div>
+    </div>
+    <div class="sa-kpi">
+        <div class="sa-kpi-icon red"><i class="fas fa-triangle-exclamation"></i></div>
+        <div>
+            <div class="sa-kpi-val">{{ failed_payments }}</div>
+            <div class="sa-kpi-lbl">Failed Attempts</div>
+        </div>
+    </div>
+    <div class="sa-kpi">
+        <div class="sa-kpi-icon {% if config.is_live_mode %}green{% else %}amber{% endif %}">
+            <i class="fas fa-{% if config.is_live_mode %}money-bill-wave{% else %}flask{% endif %}"></i>
+        </div>
+        <div>
+            <div class="sa-kpi-val" style="font-size:0.95rem;margin-top:6px;font-weight:900;">
+                {% if config.is_active %}{{ config.mode_label|upper }}{% else %}OFF{% endif %}
+            </div>
+            <div class="sa-kpi-lbl">Gateway Mode</div>
+        </div>
+    </div>
+</div>
+
+<div class="sa-col-7-5">
+    <!-- LEFT: Config Form -->
+    <div class="sa-card">
+        <div class="sa-card-head">
+            <div class="sa-card-title"><i class="fas fa-gear"></i> Razorpay Configuration</div>
+            {% if config.updated_at %}
+            <span style="font-size:0.72rem;color:var(--text-3);">Saved {{ config.updated_at|date:"d M Y, H:i" }}</span>
+            {% endif %}
+        </div>
+
+        <form method="POST" id="rzpForm">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="save">
+
+            <!-- ── Enable Toggle ─────────────────────────────────────────── -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;margin-bottom:20px;">
+                <div>
+                    <div style="font-size:0.86rem;font-weight:700;color:var(--text-1);">Enable Razorpay Checkout</div>
+                    <div style="font-size:0.74rem;color:var(--text-3);margin-top:2px;">Show "Pay Now" button on all unpaid invoice pages</div>
+                </div>
+                <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;">
+                    <input type="checkbox" name="is_active" id="isActive" {% if config.is_active %}checked{% endif %} style="opacity:0;width:0;height:0;">
+                    <span id="isActiveTrack" style="position:absolute;inset:0;border-radius:999px;background:{% if config.is_active %}var(--green){% else %}rgba(255,255,255,0.1){% endif %};transition:background .2s;"></span>
+                    <span id="isActiveThumb" style="position:absolute;top:3px;left:{% if config.is_active %}20px{% else %}3px{% endif %};width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s;"></span>
+                </label>
+            </div>
+
+            <!-- ── Mode Selector ─────────────────────────────────────────── -->
+            <div class="sa-form-group">
+                <label class="sa-label"><i class="fas fa-code-branch" style="color:var(--amber);margin-right:5px;"></i> Active Mode</label>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <label id="testModeCard" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:14px;border-radius:10px;border:2px solid {% if not config.is_live_mode %}rgba(245,158,11,0.4){% else %}var(--border){% endif %};background:{% if not config.is_live_mode %}rgba(245,158,11,0.06){% else %}rgba(255,255,255,0.02){% endif %};">
+                        <input type="radio" name="is_live_mode" value="" id="modeTest" {% if not config.is_live_mode %}checked{% endif %} style="accent-color:var(--amber);" onchange="onModeChange()">
+                        <div>
+                            <div style="font-size:0.86rem;font-weight:800;color:var(--amber-2);">🧪 Test Mode</div>
+                            <div style="font-size:0.7rem;color:var(--text-3);margin-top:2px;">No real money — safe to experiment</div>
+                            <div style="font-size:0.7rem;margin-top:4px;{% if config.test_keys_complete %}color:#4ade80;{% else %}color:#f87171;{% endif %}">
+                                {% if config.test_keys_complete %}✓ Keys configured{% else %}⚠ Keys missing{% endif %}
+                            </div>
+                        </div>
+                    </label>
+                    <label id="liveModeCard" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:14px;border-radius:10px;border:2px solid {% if config.is_live_mode %}rgba(34,197,94,0.4){% else %}var(--border){% endif %};background:{% if config.is_live_mode %}rgba(34,197,94,0.06){% else %}rgba(255,255,255,0.02){% endif %};">
+                        <input type="radio" name="is_live_mode" value="on" id="modeLive" {% if config.is_live_mode %}checked{% endif %} style="accent-color:var(--green);" onchange="onModeChange()">
+                        <div>
+                            <div style="font-size:0.86rem;font-weight:800;color:var(--green-2);">🚀 Live Mode</div>
+                            <div style="font-size:0.7rem;color:var(--text-3);margin-top:2px;">Real INR payments from customers</div>
+                            <div style="font-size:0.7rem;margin-top:4px;{% if config.live_keys_complete %}color:#4ade80;{% else %}color:#f87171;{% endif %}">
+                                {% if config.live_keys_complete %}✓ Keys configured{% else %}⚠ Keys missing{% endif %}
+                            </div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- ── Test Keys ─────────────────────────────────────────────── -->
+            <div id="testKeysSection" style="{% if config.is_live_mode %}opacity:0.4;{% endif %}">
+                <div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:var(--amber-2);padding:10px 0 8px;border-top:1px solid var(--border);margin-top:14px;">
+                    🧪 Test Keys <span style="font-size:0.65rem;font-weight:600;color:var(--text-3);text-transform:none;letter-spacing:0;">(rzp_test_…)</span>
+                </div>
+                <div class="sa-form-grid-2">
+                    <div class="sa-form-group">
+                        <label class="sa-label">Test Key ID</label>
+                        <input type="text" name="test_key_id" class="sa-input" value="{{ config.test_key_id }}" placeholder="rzp_test_xxxxxxxxxxxx" autocomplete="off">
+                    </div>
+                    <div class="sa-form-group">
+                        <label class="sa-label">Test Key Secret</label>
+                        <div style="position:relative;">
+                            <input type="password" name="test_key_secret" class="sa-input" value="" placeholder="{% if config.test_key_secret %}••••••• (saved — blank to keep){% else %}Enter test secret{% endif %}" autocomplete="new-password" style="padding-right:42px;">
+                            <button type="button" onclick="toggleVis(this.previousElementSibling)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-3);cursor:pointer;"><i class="fas fa-eye"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Live Keys ─────────────────────────────────────────────── -->
+            <div id="liveKeysSection" style="{% if not config.is_live_mode %}opacity:0.4;{% endif %}">
+                <div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:var(--green-2);padding:10px 0 8px;border-top:1px solid var(--border);margin-top:14px;">
+                    🚀 Live Keys <span style="font-size:0.65rem;font-weight:600;color:var(--text-3);text-transform:none;letter-spacing:0;">(rzp_live_…) — Real Money</span>
+                </div>
+                <div class="sa-form-grid-2">
+                    <div class="sa-form-group">
+                        <label class="sa-label">Live Key ID</label>
+                        <input type="text" name="live_key_id" class="sa-input" value="{{ config.live_key_id }}" placeholder="rzp_live_xxxxxxxxxxxx" autocomplete="off">
+                    </div>
+                    <div class="sa-form-group">
+                        <label class="sa-label">Live Key Secret</label>
+                        <div style="position:relative;">
+                            <input type="password" name="live_key_secret" class="sa-input" value="" placeholder="{% if config.live_key_secret %}••••••• (saved — blank to keep){% else %}Enter live secret{% endif %}" autocomplete="new-password" style="padding-right:42px;">
+                            <button type="button" onclick="toggleVis(this.previousElementSibling)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-3);cursor:pointer;"><i class="fas fa-eye"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Webhook Secret ─────────────────────────────────────────── -->
+            <div class="sa-form-group" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+                <label class="sa-label"><i class="fas fa-webhook" style="color:var(--violet-2);margin-right:5px;"></i> Webhook Signing Secret</label>
+                <div style="position:relative;">
+                    <input type="password" name="webhook_secret" class="sa-input" value="" placeholder="{% if config.webhook_secret %}••••••• (saved — blank to keep){% else %}From Razorpay Dashboard → Webhooks{% endif %}" style="padding-right:42px;">
+                    <button type="button" onclick="toggleVis(this.previousElementSibling)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-3);cursor:pointer;"><i class="fas fa-eye"></i></button>
+                </div>
+                <div style="font-size:0.7rem;color:var(--text-3);margin-top:5px;">Set the same secret in Razorpay Dashboard → Settings → Webhooks</div>
+            </div>
+
+            <!-- ── Webhook URL Info ───────────────────────────────────────── -->
+            <div class="sa-info-panel" style="margin:16px 0;">
+                <div class="sa-info-icon"><i class="fas fa-info"></i></div>
+                <div>
+                    <div class="sa-info-title">Webhook Endpoint URL</div>
+                    <div class="sa-info-body">
+                        Register this in Razorpay Dashboard → <strong>Settings → Webhooks → Add New Webhook</strong>:<br>
+                        <code>https://voidpanel.com/api/payment/razorpay/webhook/</code><br>
+                        Enable events: <code>payment.captured</code> &amp; <code>payment.failed</code>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sa-form-actions">
+                <button type="submit" class="sa-btn primary">
+                    <i class="fas fa-save"></i> Save Configuration
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- RIGHT: Transactions -->
+    <div class="sa-card">
+        <div class="sa-card-head">
+            <div class="sa-card-title"><i class="fas fa-list"></i> Recent Transactions</div>
+            <span class="sa-card-count">{{ recent_payments|length }} shown</span>
+        </div>
+
+        {% if recent_payments %}
+        <div class="sa-table-wrap">
+            <table class="sa-table">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>User</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in recent_payments %}
+                    <tr>
+                        <td style="font-family:monospace;font-size:0.7rem;color:var(--text-3);">{{ p.razorpay_order_id|slice:":24" }}…</td>
+                        <td style="color:var(--text-1);font-weight:700;">₹{{ p.amount_inr|floatformat:2 }}</td>
+                        <td>
+                            {% if p.status == 'captured' %}<span class="sa-badge green">✓ Captured</span>
+                            {% elif p.status == 'failed' %}<span class="sa-badge red">✗ Failed</span>
+                            {% elif p.status == 'created' %}<span class="sa-badge amber">⏳ Pending</span>
+                            {% else %}<span class="sa-badge gray">{{ p.status|title }}</span>{% endif %}
+                        </td>
+                        <td>{{ p.user.username|default:"—" }}</td>
+                        <td style="white-space:nowrap;">{{ p.created_at|date:"d M, H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="sa-empty">
+            <i class="fas fa-credit-card"></i>
+            <div class="sa-empty-title">No transactions yet</div>
+            <div class="sa-empty-sub">Payments will appear here once customers start paying</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Production Checklist -->
+<div class="sa-card">
+    <div class="sa-card-title" style="margin-bottom:18px;"><i class="fas fa-clipboard-check"></i> Go-Live Checklist</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
+        <div style="background:rgba(14,165,233,0.04);border:1px solid rgba(14,165,233,0.1);border-radius:12px;padding:16px;">
+            <div style="font-size:1.2rem;margin-bottom:8px;">1️⃣</div>
+            <div style="font-weight:800;color:var(--sky-2);margin-bottom:4px;font-size:0.84rem;">Register on Razorpay</div>
+            <div style="font-size:0.75rem;color:var(--text-3);line-height:1.7;">Go to <a href="https://razorpay.com" target="_blank" style="color:var(--sky-2);">razorpay.com</a> → create account → complete KYC → get approved for live payouts.</div>
+        </div>
+        <div style="background:rgba(245,158,11,0.04);border:1px solid rgba(245,158,11,0.1);border-radius:12px;padding:16px;">
+            <div style="font-size:1.2rem;margin-bottom:8px;">2️⃣</div>
+            <div style="font-weight:800;color:var(--amber-2);margin-bottom:4px;font-size:0.84rem;">Test with Test Keys</div>
+            <div style="font-size:0.75rem;color:var(--text-3);line-height:1.7;">In Razorpay Dashboard → Settings → API Keys → <strong>Generate Test Key</strong>. Paste above and verify the full checkout flow.</div>
+        </div>
+        <div style="background:rgba(167,139,250,0.04);border:1px solid rgba(167,139,250,0.1);border-radius:12px;padding:16px;">
+            <div style="font-size:1.2rem;margin-bottom:8px;">3️⃣</div>
+            <div style="font-weight:800;color:var(--violet-2);margin-bottom:4px;font-size:0.84rem;">Add Live Keys</div>
+            <div style="font-size:0.75rem;color:var(--text-3);line-height:1.7;">After KYC is done, Razorpay Dashboard → Settings → API Keys → <strong>Generate Live Key</strong>. Paste above in the Live section.</div>
+        </div>
+        <div style="background:rgba(34,197,94,0.04);border:1px solid rgba(34,197,94,0.1);border-radius:12px;padding:16px;">
+            <div style="font-size:1.2rem;margin-bottom:8px;">4️⃣</div>
+            <div style="font-weight:800;color:var(--green-2);margin-bottom:4px;font-size:0.84rem;">Switch to Live Mode</div>
+            <div style="font-size:0.75rem;color:var(--text-3);line-height:1.7;">Select <strong>Live Mode</strong> above, save, click Test Connection. Enable the gateway. Money will start flowing to your bank account.</div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleVis(inp) {
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+    inp.nextElementSibling && (inp.nextElementSibling.querySelector('i').className = inp.type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash');
+}
+
+document.getElementById('isActive').addEventListener('change', function() {
+    document.getElementById('isActiveTrack').style.background = this.checked ? 'var(--green)' : 'rgba(255,255,255,0.1)';
+    document.getElementById('isActiveThumb').style.left = this.checked ? '20px' : '3px';
+});
+
+function onModeChange() {
+    const live = document.getElementById('modeLive').checked;
+    document.getElementById('testKeysSection').style.opacity = live ? '0.4' : '1';
+    document.getElementById('liveKeysSection').style.opacity = live ? '1' : '0.4';
+    const testCard = document.getElementById('testModeCard');
+    const liveCard = document.getElementById('liveModeCard');
+    testCard.style.borderColor = live ? 'var(--border)' : 'rgba(245,158,11,0.4)';
+    testCard.style.background  = live ? 'rgba(255,255,255,0.02)' : 'rgba(245,158,11,0.06)';
+    liveCard.style.borderColor = live ? 'rgba(34,197,94,0.4)' : 'var(--border)';
+    liveCard.style.background  = live ? 'rgba(34,197,94,0.06)' : 'rgba(255,255,255,0.02)';
+}
+</script>
+
+{% endblock %}

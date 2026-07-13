@@ -1,0 +1,327 @@
+{% load static %}
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reseller Dashboard — VoidPanel</title>
+<link rel="icon" href="/static/fav.png">
+<link rel="stylesheet" href="/static/static/css/plugins/fontawesome-all.min.css">
+<link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+<link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+<style>
+:root{--pk:#a78bfa;--g:#34d399;--r:#f87171;--b:#60a5fa;--am:#fbbf24;--vp-sidebar-w:240px;--vp-topbar-h:60px;--vp-surface:#0d1527;--vp-border:rgba(99,102,241,.12);--vp-accent:#6366f1;--vp-accent2:#a855f7;--vp-muted:#64748b;--vp-green:#22c55e;--vp-red:#ef4444}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:#060b18;color:#e2e8f0}
+
+/* ── Sidebar ── */
+#vp-sidebar{position:fixed;top:var(--vp-topbar-h);left:0;bottom:0;width:var(--vp-sidebar-w);background:var(--vp-surface);border-right:1px solid var(--vp-border);overflow-y:auto;overflow-x:hidden;z-index:8000;scrollbar-width:thin;scrollbar-color:rgba(99,102,241,.3) transparent}
+#vp-sidebar::-webkit-scrollbar{width:4px}
+#vp-sidebar::-webkit-scrollbar-thumb{background:rgba(99,102,241,.3);border-radius:999px}
+#vp-sidebar-inner{padding:0 0 20px 0;min-height:100%;display:flex;flex-direction:column}
+.vp-sidebar-user{display:flex;align-items:center;gap:12px;padding:20px 16px 16px;border-bottom:1px solid var(--vp-border)}
+.vp-sidebar-user-avatar{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700;color:#fff;flex-shrink:0}
+.vp-sidebar-user-info{flex:1;min-width:0}
+.vp-sidebar-username{font-size:.87rem;font-weight:600;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vp-sidebar-nav{padding:6px 10px;flex:1}
+.vp-nav-label{font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#334155;padding:4px 6px 6px;margin-top:4px}
+.vp-nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;color:#94a3b8;font-size:.84rem;font-weight:500;text-decoration:none;margin-bottom:2px;transition:all .18s cubic-bezier(.4,0,.2,1)}
+.vp-nav-item:hover{background:rgba(255,255,255,.05);color:#e2e8f0;text-decoration:none}
+.vp-nav-item.active{background:rgba(99,102,241,.12);color:#a5b4fc !important;font-weight:600}
+.vp-nav-item svg{flex-shrink:0;opacity:.7}
+.vp-nav-item:hover svg,.vp-nav-item.active svg{opacity:1}
+
+/* ── Main content offset ── */
+#main-content{margin-left:var(--vp-sidebar-w) !important}
+
+/* ── Dashboard styles ── */
+.rs-wrap{max-width:1340px;margin:0 auto;padding:24px 22px 60px}
+.hero{background:linear-gradient(135deg,rgba(167,139,250,.1),rgba(96,165,250,.06));border:1px solid rgba(167,139,250,.18);border-radius:20px;padding:28px 32px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.hero h1{font-size:1.5rem;font-weight:800;color:#fff;margin:0 0 4px}
+.hero p{font-size:.85rem;color:#94a3b8;margin:0}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.kpi{background:rgba(16,21,44,.85);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:18px 20px;display:flex;align-items:center;gap:14px}
+.kpi-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.kpi-val{font-size:1.7rem;font-weight:800;color:#fff;line-height:1}
+.kpi-lbl{font-size:.7rem;color:#64748b;margin-top:3px;text-transform:uppercase;letter-spacing:.06em}
+.card{background:rgba(16,21,44,.85);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:22px;margin-bottom:18px}
+.card-head{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--pk);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.quota-bar{height:8px;background:rgba(255,255,255,.06);border-radius:999px;overflow:hidden;margin-top:6px}
+.quota-fill{height:100%;border-radius:999px;transition:width .6s ease}
+.btn-p{background:linear-gradient(135deg,#a78bfa,#60a5fa);border:none;border-radius:10px;padding:10px 20px;color:#fff;font-weight:700;font-size:.85rem;cursor:pointer;transition:opacity .2s}
+.btn-p:hover{opacity:.85}
+.btn-g{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:9px 16px;color:#e2e8f0;font-size:.82rem;cursor:pointer;transition:all .2s}
+.btn-g:hover{background:rgba(255,255,255,.12)}
+.btn-danger{background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.25);border-radius:8px;padding:5px 12px;color:#f87171;font-size:.78rem;cursor:pointer}
+.inp{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;color:#e2e8f0;font-size:.88rem;outline:none;transition:border .2s;box-sizing:border-box}
+.inp:focus{border-color:var(--pk)}
+.acc-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.acc-row:last-child{border-bottom:none}
+.pkg-row{display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px;margin-bottom:8px}
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:.68rem;font-weight:700}
+.badge-active{background:rgba(52,211,153,.12);color:#34d399}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal-box{background:#0d1527;border:1px solid rgba(167,139,250,.2);border-radius:20px;padding:28px;max-width:500px;width:90%;max-height:85vh;overflow-y:auto}
+.modal-title{font-size:1rem;font-weight:800;color:#fff;margin-bottom:18px;display:flex;align-items:center;gap:8px}
+.form-label{font-size:.76rem;color:#64748b;font-weight:600;display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em}
+.form-group{margin-bottom:13px}
+.error-box{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:12px;padding:16px 20px;color:#f87171;font-size:.88rem;margin-bottom:16px}
+@media(max-width:768px){.kpi-row{grid-template-columns:repeat(2,1fr)}#vp-sidebar{transform:translateX(-100%)}#main-content{margin-left:0 !important}}
+</style></head>
+<body class="font-nunito active-dark-mode">
+<div id="wrapper" class="theme-cyan">
+  {% include 'control/navbar.html' %}
+  <!-- Reseller-only sidebar: only Packages, Users, Dashboard -->
+  <aside id="vp-sidebar">
+    <div id="vp-sidebar-inner">
+      <div class="vp-sidebar-user">
+        <div class="vp-sidebar-user-avatar" style="background:linear-gradient(135deg,#a855f7,#6366f1);">{{ request.user|stringformat:"s"|first|upper }}</div>
+        <div class="vp-sidebar-user-info">
+          <div class="vp-sidebar-username">{{ request.user }}</div>
+          <div style="font-size:.7rem;color:#a855f7;font-weight:700;margin-top:2px;">🏪 RESELLER</div>
+        </div>
+      </div>
+      <div style="height:1px;background:rgba(168,85,247,.15);margin:0 16px;"></div>
+      <nav class="vp-sidebar-nav">
+        <div class="vp-nav-label" style="color:#a855f7;">Reseller Center</div>
+        <a href="/control/reseller/" class="vp-nav-item active" style="color:#c4b5fd;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Dashboard
+        </a>
+        <a href="/control/reseller/create-account/" class="vp-nav-item" style="color:#c4b5fd;" onclick="event.preventDefault();openModal('createAccModal');">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+          Create Account
+        </a>
+        <a href="#" class="vp-nav-item" style="color:#c4b5fd;" onclick="event.preventDefault();openModal('createPkgModal');">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          Create Package
+        </a>
+        <a href="/control/reseller/accounts/" class="vp-nav-item" style="color:#c4b5fd;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          List Accounts
+        </a>
+
+        <div style="height:1px;background:rgba(168,85,247,.1);margin:12px 16px;"></div>
+        <div class="vp-nav-label">My Hosting</div>
+        <a href="/control/" class="vp-nav-item">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          My Dashboard
+        </a>
+
+        <div style="height:1px;background:rgba(255,255,255,.04);margin:12px 16px;"></div>
+        <a href="/logout" class="vp-nav-item" style="color:#f87171;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Logout
+        </a>
+      </nav>
+      <div style="padding:16px;font-size:.68rem;color:#374151;text-align:center;">VoidPanel &copy; 2024</div>
+    </div>
+  </aside>
+  {% include 'control/right.html' %}
+  <div id="main-content">
+  <div class="rs-wrap">
+
+{% if error %}
+<div class="error-box"><i class="fa-solid fa-triangle-exclamation"></i> {{ error }}</div>
+{% else %}
+
+<!-- HERO -->
+<div class="hero">
+  <div>
+    <h1><i class="fa-solid fa-store" style="color:var(--pk);margin-right:10px;"></i>Reseller Center</h1>
+    <p>Welcome back, <strong style="color:var(--pk);">{{ rp.company_name|default:rp.auth_user.username }}</strong> &mdash; Manage your hosting clients</p>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    <button class="btn-p" onclick="openModal('createAccModal')"><i class="fa-solid fa-user-plus"></i> New Client</button>
+    <button class="btn-g" onclick="openModal('createPkgModal')"><i class="fa-solid fa-cube"></i> New Package</button>
+  </div>
+</div>
+
+<!-- KPI STRIP -->
+<div class="kpi-row">
+  <div class="kpi">
+    <div class="kpi-icon" style="background:rgba(167,139,250,.15);color:var(--pk);"><i class="fa-solid fa-users"></i></div>
+    <div><div class="kpi-val">{{ accounts_used }}<span style="font-size:1rem;color:#64748b;font-weight:400;"> / {{ rp.max_accounts }}</span></div><div class="kpi-lbl">Client Accounts</div></div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-icon" style="background:rgba(251,191,36,.12);color:var(--am);"><i class="fa-solid fa-hard-drive"></i></div>
+    <div><div class="kpi-val">{{ used_storage_gb }}<span style="font-size:1rem;color:#64748b;font-weight:400;"> / {{ rp.storage_quota_gb }}GB</span></div><div class="kpi-lbl">Storage Used</div></div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-icon" style="background:rgba(52,211,153,.12);color:var(--g);"><i class="fa-solid fa-box-open"></i></div>
+    <div><div class="kpi-val">{{ packages.count }}</div><div class="kpi-lbl">Hosting Packages</div></div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-icon" style="background:rgba(96,165,250,.12);color:var(--b);"><i class="fa-solid fa-circle-check"></i></div>
+    <div><div class="kpi-val" style="font-size:1.3rem;">{{ rp.is_active|yesno:"Active,Suspended" }}</div><div class="kpi-lbl">Reseller Status</div></div>
+  </div>
+</div>
+
+<!-- CLIENT ACCOUNTS TABLE -->
+<div class="card" id="clientAccounts">
+  <div class="card-head">
+    <i class="fa-solid fa-users"></i> Client Accounts
+    <span style="margin-left:auto;font-weight:400;font-size:.75rem;color:#64748b;">{{ accounts_used }} of {{ rp.max_accounts }} slots</span>
+  </div>
+  {% if sub_accounts %}
+  <div class="tbl-head"><div>Domain</div><div>Username</div><div>Status</div><div style="text-align:right;">Actions</div></div>
+  {% for acc in sub_accounts %}
+  <div class="tbl-row">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="tbl-icon"><i class="fa-solid fa-globe"></i></div>
+      <div><div style="font-weight:700;color:#fff;font-size:.84rem;">{{ acc.domain }}</div><div style="font-size:.7rem;color:#475569;">{{ acc.email }}</div></div>
+    </div>
+    <div style="font-size:.82rem;color:#94a3b8;font-family:monospace;">{{ acc.username }}</div>
+    <div>{% if acc.status %}<span class="st-badge st-active"><i class="fa-solid fa-circle" style="font-size:.35rem;vertical-align:middle;margin-right:3px;"></i>Active</span>{% else %}<span class="st-badge st-suspended"><i class="fa-solid fa-circle" style="font-size:.35rem;vertical-align:middle;margin-right:3px;"></i>Suspended</span>{% endif %}</div>
+    <div style="display:flex;gap:5px;justify-content:flex-end;flex-wrap:wrap;">
+      <a href="/loginuser/?user={{ acc.username }}" class="act-btn act-login" title="Login as {{ acc.username }}"><i class="fa-solid fa-right-to-bracket"></i></a>
+      {% if acc.status %}<button class="act-btn act-warn" title="Suspend" onclick="suspendAccount('{{ acc.username }}')"><i class="fa-solid fa-pause"></i></button>{% else %}<button class="act-btn act-ok" title="Unsuspend" onclick="unsuspendAccount('{{ acc.username }}')"><i class="fa-solid fa-play"></i></button>{% endif %}
+      <button class="act-btn act-danger" title="Terminate" onclick="terminateAccount('{{ acc.username }}','{{ acc.domain }}')"><i class="fa-solid fa-trash"></i></button>
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div style="text-align:center;padding:50px 20px;color:#475569;">
+    <i class="fa-solid fa-users" style="font-size:2.5rem;display:block;margin-bottom:12px;opacity:.3;"></i>
+    <div style="font-size:.9rem;color:#64748b;">No client accounts yet</div>
+    <button class="btn-p" onclick="openModal('createAccModal')" style="margin-top:14px;"><i class="fa-solid fa-user-plus"></i> Add First Client</button>
+  </div>
+  {% endif %}
+</div>
+
+<!-- PACKAGES + RESELLER INFO -->
+<div class="two-col">
+  <div class="card">
+    <div class="card-head"><i class="fa-solid fa-box-open"></i> Hosting Packages<button class="btn-g" style="margin-left:auto;padding:5px 12px;font-size:.75rem;" onclick="openModal('createPkgModal')"><i class="fa-solid fa-plus"></i> New</button></div>
+    {% for pkg in packages %}
+    <div class="pkg-card">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="pkg-icon"><i class="fa-solid fa-cube"></i></div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;color:#fff;font-size:.88rem;">{{ pkg.name }}</div>
+          <div class="pkg-specs"><span><i class="fa-solid fa-hard-drive"></i> {{ pkg.storage_gb }}GB</span><span><i class="fa-solid fa-envelope"></i> {{ pkg.email_accounts }}</span><span><i class="fa-solid fa-database"></i> {{ pkg.databases }}</span><span><i class="fa-solid fa-globe"></i> {{ pkg.subdomains }}</span></div>
+        </div>
+        <button class="act-btn act-danger" title="Delete" onclick="deletePackage({{ pkg.id }},'{{ pkg.name }}')"><i class="fa-solid fa-trash"></i></button>
+      </div>
+    </div>
+    {% empty %}
+    <div style="text-align:center;padding:30px;color:#475569;font-size:.82rem;"><i class="fa-solid fa-cube" style="font-size:1.5rem;display:block;margin-bottom:8px;opacity:.3;"></i>No packages yet</div>
+    {% endfor %}
+  </div>
+  <div>
+    <div class="card">
+      <div class="card-head"><i class="fa-solid fa-circle-info"></i> Reseller Info</div>
+      <div class="info-row"><span>Company</span><strong>{{ rp.company_name|default:"—" }}</strong></div>
+      <div class="info-row"><span>Brand</span><strong>{{ rp.branding_name }}</strong></div>
+      <div class="info-row"><span>Max Accounts</span><strong>{{ rp.max_accounts }}</strong></div>
+      <div class="info-row"><span>Storage</span><strong>{{ rp.storage_quota_gb }} GB</strong></div>
+      <div class="info-row"><span>Since</span><strong>{{ rp.created_at|date:"M d, Y" }}</strong></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><i class="fa-solid fa-gauge-high"></i> Quota</div>
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:5px;"><span style="color:#94a3b8;">Accounts</span><span style="color:#fff;font-weight:700;">{{ accounts_used }} / {{ rp.max_accounts }}</span></div>
+        <div class="quota-bar"><div class="quota-fill" style="width:{{ accounts_pct }}%;background:linear-gradient(90deg,#a78bfa,#60a5fa);"></div></div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:5px;"><span style="color:#94a3b8;">Storage</span><span style="color:#fff;font-weight:700;">{{ used_storage_gb }}GB / {{ rp.storage_quota_gb }}GB</span></div>
+        <div class="quota-bar"><div class="quota-fill" style="width:{{ storage_pct }}%;background:linear-gradient(90deg,#fbbf24,#f97316);"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endif %}
+</div></div></div>
+
+<!-- MODALS -->
+<div id="createAccModal" class="modal-overlay"><div class="modal-box">
+  <div class="modal-title"><i class="fa-solid fa-user-plus" style="color:var(--pk);"></i> Add Client Account</div>
+  <div class="form-group"><label class="form-label">Client Domain</label><input id="accDomain" class="inp" placeholder="clientsite.com"></div>
+  <div class="form-group"><label class="form-label">Client Email</label><input id="accEmail" class="inp" type="email" placeholder="client@example.com"></div>
+  <div class="form-group"><label class="form-label">Hosting Package</label><div class="select-wrap"><select id="accPkg" class="inp sel"><option value="">— Select a Package —</option>{% for pkg in packages %}<option value="{{ pkg.id }}">{{ pkg.name }} — {{ pkg.storage_gb }}GB / {{ pkg.email_accounts }} emails</option>{% endfor %}</select><i class="fa-solid fa-chevron-down sel-arrow"></i></div></div>
+  <div class="form-group"><label class="form-label">Storage Quota (GB)</label><input id="accQuota" class="inp" type="number" value="5" min="1" max="{{ rp.storage_quota_gb }}"></div>
+  <div id="accMsg" class="msg-box" style="display:none;"></div>
+  <div id="accResult" class="result-box" style="display:none;"></div>
+  <div style="display:flex;gap:10px;"><button class="btn-p" id="btnCreateAcc" onclick="createAccount()"><i class="fa-solid fa-check"></i> Create Account</button><button class="btn-g" onclick="closeModal('createAccModal')">Cancel</button></div>
+</div></div>
+
+<div id="createPkgModal" class="modal-overlay"><div class="modal-box">
+  <div class="modal-title"><i class="fa-solid fa-cube" style="color:var(--pk);"></i> Create Hosting Package</div>
+  <div class="form-group"><label class="form-label">Package Name</label><input id="pkgName" class="inp" placeholder="e.g. Starter, Business, Pro"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+    <div class="form-group"><label class="form-label">Storage (GB)</label><input id="pkgStorage" class="inp" type="number" value="5" min="1"></div>
+    <div class="form-group"><label class="form-label">Bandwidth (GB)</label><input id="pkgBw" class="inp" type="number" value="50" min="1"></div>
+    <div class="form-group"><label class="form-label">Email Accounts</label><input id="pkgEmails" class="inp" type="number" value="5" min="0"></div>
+    <div class="form-group"><label class="form-label">Databases</label><input id="pkgDbs" class="inp" type="number" value="3" min="0"></div>
+    <div class="form-group"><label class="form-label">Subdomains</label><input id="pkgSubs" class="inp" type="number" value="5" min="0"></div>
+    <div class="form-group"><label class="form-label">FTP Accounts</label><input id="pkgFtp" class="inp" type="number" value="2" min="0"></div>
+  </div>
+  <div id="pkgMsg" class="msg-box" style="display:none;"></div>
+  <div style="display:flex;gap:10px;"><button class="btn-p" onclick="savePackage()"><i class="fa-solid fa-floppy-disk"></i> Save Package</button><button class="btn-g" onclick="closeModal('createPkgModal')">Cancel</button></div>
+</div></div>
+
+<style>
+.st-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;}
+.st-active{background:rgba(52,211,153,.1);color:#34d399;border:1px solid rgba(52,211,153,.2);}
+.st-suspended{background:rgba(248,113,113,.1);color:#f87171;border:1px solid rgba(248,113,113,.2);}
+.act-btn{width:30px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.08);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:.72rem;transition:all .15s;}
+.act-login{background:rgba(99,102,241,.12);color:#a5b4fc;border-color:rgba(99,102,241,.2);}.act-login:hover{background:rgba(99,102,241,.25);color:#fff;}
+.act-warn{background:rgba(251,191,36,.08);color:#fbbf24;border-color:rgba(251,191,36,.2);}.act-warn:hover{background:rgba(251,191,36,.2);color:#fff;}
+.act-ok{background:rgba(52,211,153,.08);color:#34d399;border-color:rgba(52,211,153,.2);}.act-ok:hover{background:rgba(52,211,153,.2);color:#fff;}
+.act-danger{background:rgba(248,113,113,.08);color:#f87171;border-color:rgba(248,113,113,.15);}.act-danger:hover{background:rgba(248,113,113,.2);color:#fff;}
+.tbl-head{display:grid;grid-template-columns:2fr 1.2fr 100px 1fr;gap:8px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.06);}
+.tbl-head div{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#475569;}
+.tbl-row{display:grid;grid-template-columns:2fr 1.2fr 100px 1fr;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.03);transition:background .12s;}
+.tbl-row:hover{background:rgba(255,255,255,.02);}
+.tbl-row:last-child{border-bottom:none;}
+.tbl-icon{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,rgba(167,139,250,.12),rgba(96,165,250,.08));display:flex;align-items:center;justify-content:center;color:var(--pk);font-size:.8rem;flex-shrink:0;}
+.pkg-card{padding:14px 16px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:12px;margin-bottom:8px;transition:border-color .15s;}
+.pkg-card:hover{border-color:rgba(167,139,250,.2);}
+.pkg-icon{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,rgba(52,211,153,.12),rgba(96,165,250,.08));display:flex;align-items:center;justify-content:center;color:var(--g);font-size:1rem;flex-shrink:0;}
+.pkg-specs{font-size:.72rem;color:#64748b;display:flex;gap:10px;flex-wrap:wrap;margin-top:2px;}
+.pkg-specs i{margin-right:3px;opacity:.5;}
+.two-col{display:grid;grid-template-columns:1fr 360px;gap:18px;}
+.info-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.82rem;color:#64748b;}
+.info-row:last-child{border-bottom:none;}
+.info-row strong{color:#fff;}
+.select-wrap{position:relative;}
+.sel{appearance:none;-webkit-appearance:none;padding-right:36px !important;cursor:pointer;}
+.sel-arrow{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#64748b;font-size:.65rem;pointer-events:none;}
+.sel option{background:#0d1527;color:#e2e8f0;}
+.msg-box{margin-bottom:12px;font-size:.83rem;padding:10px 14px;border-radius:10px;}
+.result-box{background:rgba(52,211,153,.06);border:1px solid rgba(52,211,153,.2);border-radius:12px;padding:16px 18px;margin-bottom:14px;font-size:.84rem;line-height:2;color:#e2e8f0;}
+@media(max-width:900px){.tbl-head{display:none;}.tbl-row{grid-template-columns:1fr !important;gap:6px !important;}.two-col{grid-template-columns:1fr !important;}}
+</style>
+
+<script src="/static/static/js/vendor/jquery.min.js"></script>
+<script src="/static/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script>
+const CSRF='{{ csrf_token }}';
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function showMsg(id,msg,ok){const el=document.getElementById(id);el.style.display='block';el.style.background=ok?'rgba(52,211,153,.08)':'rgba(248,113,113,.08)';el.style.border=ok?'1px solid rgba(52,211,153,.2)':'1px solid rgba(248,113,113,.2)';el.style.color=ok?'#34d399':'#f87171';el.innerHTML=(ok?'<i class="fa-solid fa-circle-check"></i> ':'<i class="fa-solid fa-triangle-exclamation"></i> ')+msg;}
+
+async function createAccount(){
+  const btn=document.getElementById('btnCreateAcc'),d_=document.getElementById('accDomain').value.trim(),e_=document.getElementById('accEmail').value.trim(),p_=document.getElementById('accPkg').value,q_=document.getElementById('accQuota').value;
+  if(!d_||!e_){showMsg('accMsg','Domain and email are required.',false);return;}
+  btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Creating...';
+  try{const r=await fetch('/control/reseller/create-account/',{method:'POST',headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},body:JSON.stringify({domain:d_,email:e_,package_id:p_,user_quota_gb:q_})});const d=await r.json();
+  if(d.status==='created'){document.getElementById('accResult').style.display='block';document.getElementById('accResult').innerHTML=`<div style="font-weight:800;color:#34d399;margin-bottom:8px;"><i class="fa-solid fa-circle-check"></i> Account Created!</div><div><span style="color:#64748b;">Domain:</span> <strong>${d.domain}</strong></div><div><span style="color:#64748b;">Username:</span> <code style="background:rgba(255,255,255,.06);padding:2px 8px;border-radius:6px;">${d.username}</code></div><div><span style="color:#64748b;">Password:</span> <code style="background:rgba(251,191,36,.1);color:#fbbf24;padding:2px 8px;border-radius:6px;">${d.password}</code></div><div style="margin-top:6px;font-size:.75rem;color:#475569;"><i class="fa-solid fa-clock"></i> Provisioning (~15s). Page will refresh.</div>`;btn.innerHTML='<i class="fa-solid fa-check"></i> Done!';setTimeout(()=>location.reload(),4000);}
+  else{showMsg('accMsg',d.error||'Error',false);btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-check"></i> Create Account';}}catch(e){showMsg('accMsg','Network error',false);btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-check"></i> Create Account';}}
+
+async function savePackage(){const n=document.getElementById('pkgName').value.trim();if(!n){showMsg('pkgMsg','Name required.',false);return;}const r=await fetch('/control/reseller/package/save/',{method:'POST',headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},body:JSON.stringify({name:n,storage_gb:document.getElementById('pkgStorage').value,bandwidth_gb:document.getElementById('pkgBw').value,email_accounts:document.getElementById('pkgEmails').value,databases:document.getElementById('pkgDbs').value,subdomains:document.getElementById('pkgSubs').value,ftp_accounts:document.getElementById('pkgFtp').value})});const d=await r.json();if(d.status==='saved'){showMsg('pkgMsg','Package saved!',true);setTimeout(()=>location.reload(),1000);}else showMsg('pkgMsg',d.error||'Error',false);}
+
+async function doAction(url,msg,expectStatus){
+  if(!confirm(msg))return;
+  try{
+    const r=await fetch(url,{method:'POST',headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},credentials:'same-origin'});
+    const d=await r.json();
+    if(d.status===expectStatus){location.reload();}else{alert(d.error||'Action failed');}
+  }catch(e){alert('Network error: '+e.message);}
+}
+function suspendAccount(u){doAction('/control/reseller/suspend-account/'+u+'/','Suspend "'+u+'"?','suspended');}
+function unsuspendAccount(u){doAction('/control/reseller/unsuspend-account/'+u+'/','Unsuspend "'+u+'"?','unsuspended');}
+function terminateAccount(u,dm){doAction('/control/reseller/delete-account/'+u+'/','⚠️ DELETE '+u+' ('+dm+')? All data removed!','deleted');}
+function deletePackage(id,nm){doAction('/control/reseller/package/delete/'+id+'/','Delete package "'+nm+'"?','deleted');}
+</script>
+</body></html>

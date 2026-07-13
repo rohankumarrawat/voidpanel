@@ -1,0 +1,387 @@
+================================================================
+  VOIDPANEL — COMPLETE UPDATE SYSTEM DOCUMENTATION
+  Every single process explained from start to finish.
+================================================================
+
+----------------------------------------------------------------
+SECTION 1: FILES INVOLVED & WHERE THEY LIVE
+----------------------------------------------------------------
+
+ON YOUR MAC (Development):
+  /voidpanel-main/
+    upload_and_release.sh         ← Run this to release a new version
+    version.txt                   ← Local dev version number (e.g. 2.1.0)
+    panel/views.py                ← Control panel code (what you edit)
+    panel/urls.py                 ← URL routes for the control panel
+
+ON VOIDPANEL.COM (Website Server):
+  /var/www/voidpanel.com/
+    public_html/
+      updatepanel.sh              ← General updater (fallback script)
+      deploy.sh                   ← Run after upload to create release
+      nginx.conf                  ← Nginx web server config
+      updates/
+        2.0.0/update.sh           ← Step script for version 2.0.0
+        2.1.0/update.sh           ← Step script for version 2.1.0
+        2.X.X/update.sh           ← One per release you create
+      releases/
+        voidpanel-2.0.0.tar.gz    ← Full code tarball for v2.0.0
+        voidpanel-2.1.0.tar.gz    ← Full code tarball for v2.1.0
+    data/models.py                ← Django model: updates table
+    data/management/commands/
+      seed_versions.py            ← Seed DB with version records
+    voidpanel/views.py            ← Website API views
+    voidpanel/urls.py             ← Website URL routes
+
+ON CLIENT SERVERS (Servers running VoidPanel for customers):
+  /var/www/panel/                 ← The VoidPanel installation
+  /etc/version.txt                ← Current installed version
+  /var/backups/                   ← Pre-update backups stored here
+  /var/log/voidpanel/             ← Update logs stored here
+
+DATABASE (on voidpanel.com):
+  Table: data_updates
+    id          → Auto ID
+    version     → e.g. "2.1.0"
+    date        → Release date (auto)
+    notes       → Release notes text
+    script_url  → https://voidpanel.com/updates/2.1.0/update.sh
+    min_version → Minimum version required before this update
+    is_breaking → True = servers cannot skip this version
+    is_active   → False = excluded from migration path
+
+
+----------------------------------------------------------------
+SECTION 2: API ENDPOINTS ON VOIDPANEL.COM
+----------------------------------------------------------------
+
+1. GET /version_name/
+   → Returns the latest version info
+   → Response:
+     {
+       "version": "2.1.0",
+       "notes": "What changed in this release",
+       "script_url": "https://voidpanel.com/updates/2.1.0/update.sh",
+       "released": "2026-05-01"
+     }
+   → Used by: Control panel update page to check if update is available
+
+2. GET /version_migration_path/?from=1.0
+   → Returns ordered list of steps to reach latest from given version
+   → Response:
+     {
+       "current": "1.0",
+       "latest": "2.1.0",
+       "up_to_date": false,
+       "steps": [
+         {
+           "version": "2.0.0",
+           "script_url": "https://voidpanel.com/updates/2.0.0/update.sh",
+           "notes": "Major rewrite",
+           "is_breaking": true,
+           "min_version": ""
+         },
+         {
+           "version": "2.1.0",
+           "script_url": "https://voidpanel.com/updates/2.1.0/update.sh",
+           "notes": "Step-by-step updates",
+           "is_breaking": false,
+           "min_version": "2.0.0"
+         }
+       ]
+     }
+   → Used by: /updatepanel/ view on client servers
+
+3. GET /updatepanel.sh
+   → Serves the general fallback bash update script
+   → Used by: Old installs or manual updates
+
+4. GET /updates/2.1.0/update.sh
+   → Serves the bash script for a specific version
+   → Used by: The background update thread on client servers
+
+5. GET /checkversion/  (on CLIENT server, not voidpanel.com)
+   → Returns the installed version on that server
+   → Requires header: X-VoidPanel-Key
+   → Response: { "version": "1.0", "platform": "linux", "status": "ok" }
+   → Used by: Super Admin Update Manager on voidpanel.com portal
+
+
+----------------------------------------------------------------
+SECTION 3: HOW TO RELEASE AN UPDATE (YOUR WORKFLOW)
+----------------------------------------------------------------
+
+STEP 1 — Edit your code on Mac
+  Open any file (e.g. panel/views.py) and make your changes.
+  Save the file.
+
+STEP 2 — Run the upload script from Terminal on your Mac
+  Command:
+    bash /Users/rohan/Downloads/voidpanel-main/upload_and_release.sh 2.2.0 "What you changed"
+
+  What it does internally:
+    a) rsync — uploads ALL changed files from your Mac to voidpanel.com
+       (excludes: *.pyc, __pycache__, .env, venv, media, db files)
+    b) SSH into voidpanel.com
+    c) Runs deploy.sh 2.2.0 "What you changed" on the server
+
+STEP 3 — deploy.sh runs automatically on the server
+  What deploy.sh does:
+    a) Runs Django migrations on the voidpanel.com website itself
+    b) Runs collectstatic on the website
+    c) Creates /public_html/updates/2.2.0/update.sh (the step script)
+    d) Creates /public_html/releases/voidpanel-2.2.0.tar.gz
+       (tarball of your uploaded code, excluding .env/venv/db/media)
+    e) Registers v2.2.0 in the database with notes and script_url
+    f) Reloads nginx
+
+STEP 4 — Version is now live
+  https://voidpanel.com/version_name/ → returns "2.2.0"
+  All client servers will see the update when they check.
+
+
+----------------------------------------------------------------
+SECTION 4: WHAT HAPPENS WHEN ADMIN CLICKS "INSTALL UPDATE NOW"
+----------------------------------------------------------------
+
+PHASE 1 — Browser sends request
+  Admin opens /update/ in their control panel.
+  Page loads: reads current version from /etc/version.txt
+  Page calls: GET https://voidpanel.com/version_name/
+  If newer version exists → shows "Update Available" button.
+  On page load: fetches /version_migration_path/?from={current_version}
+  Button label updates: "Install Update (2 Steps)"
+  Release notes from API appear on page.
+
+  Admin clicks "Install Update (2 Steps)".
+  Browser sends:
+    POST /updatepanel/
+    Header: X-CSRFToken: {token}
+
+PHASE 2 — /updatepanel/ view runs
+  1. Checks auth: must be superuser OR valid X-VoidPanel-Key header
+  2. Reads current version from /etc/version.txt (fallback: version.txt)
+  3. Calls: GET https://voidpanel.com/version_migration_path/?from={current}
+  4. Gets back list of steps (e.g. 2.0.0 then 2.1.0)
+  5. If API fails → falls back to single updatepanel.sh script
+  6. Starts a background thread to run the steps
+  7. Returns JSON immediately to browser:
+     { "status": "success", "steps": 2, "from": "1.0", "to": "2.1.0",
+       "message": "Step-by-step update started (2 steps → 2.1.0)..." }
+
+PHASE 3 — Browser shows progress animation
+  Terminal shows: "Migration path ready: 2 step(s) from v1.0 → v2.1.0"
+  Progress bar animates through 4 steps: Connect → Download → Apply → Restart
+  Browser polls GET /panel/ every 3 seconds waiting for server to come back.
+
+PHASE 4 — Background thread applies updates (per step)
+  For EACH step in order (e.g. first 2.0.0, then 2.1.0):
+
+    a) DOWNLOAD
+       curl https://voidpanel.com/updates/{version}/update.sh
+       Saved to /tmp/voidpanel_update_{version}.sh
+       If download fails → abort the chain immediately
+
+    b) EXECUTE
+       bash /tmp/voidpanel_update_{version}.sh
+       Waits for it to finish before moving to next step
+
+    c) VERSION FILE UPDATED
+       Writes new version to /etc/version.txt
+
+PHASE 5 — What each update.sh does (per version)
+  1. BACKUP
+     cp -r /var/www/panel /var/backups/voidpanel-pre-{version}-{timestamp}
+
+  2. DOWNLOAD RELEASE TARBALL
+     curl https://voidpanel.com/releases/voidpanel-{version}.tar.gz
+     Saved to /tmp/
+
+  3. EXTRACT
+     tar -xzf release.tar.gz to /tmp/extracted/
+
+  4. PRESERVE USER FILES (before overwriting)
+     Copies panel/settings.py and .env to /tmp/ for safekeeping
+
+  5. APPLY FILES
+     rsync from extracted/ to /var/www/panel/
+     Excludes: *.pyc, __pycache__, db.sqlite3, media/, .env
+
+  6. RESTORE USER FILES
+     Copies settings.py and .env back to /var/www/panel/
+
+  7. INSTALL DEPENDENCIES
+     pip install -r requirements.txt
+
+  8. MIGRATE DATABASE
+     python manage.py migrate --noinput
+
+  9. COLLECT STATIC FILES
+     python manage.py collectstatic --noinput
+
+  10. UPDATE VERSION FILE
+      echo "{version}" > /etc/version.txt
+
+  11. RESTART PANEL SERVICE
+      systemctl restart voidpanel
+      (fallback: pkill gunicorn, restart with gunicorn directly)
+
+  12. CLEANUP
+      rm -rf /tmp/extracted/
+
+PHASE 6 — Server comes back online
+  Panel restarts and begins accepting requests.
+  Browser's polling detects server is back (GET /panel/ returns 200).
+  Browser shows: "✅ Update Complete! Reloading in 3s..."
+  Page reloads → update page now shows new version, "Up to Date" status.
+
+
+----------------------------------------------------------------
+SECTION 5: REMOTE PUSH FROM PORTAL (SUPER ADMIN)
+----------------------------------------------------------------
+
+Super Admin on voidpanel.com can push updates without waiting for
+each server admin to click update manually.
+
+  URL: https://voidpanel.com/super-admin/update-manager/
+
+  Page shows:
+    - Each registered server with its installed version
+    - Latest version available
+    - Status: Up to Date / Update Available / Unreachable
+    - Per-server Update button
+    - "Push Update to All Servers" button
+
+  When Push is clicked:
+    POST /super-admin/push-update/
+    Body: {} (all servers) or { "server_id": 3 } (single server)
+
+    For each server:
+      POST {server.url}/updatepanel/
+      Header: X-VoidPanel-Key: {server.api_key}
+
+    The client server's /updatepanel/ view runs the same flow
+    as described in Section 4 above.
+
+    Portal shows live log of results per server.
+
+
+----------------------------------------------------------------
+SECTION 6: VERSION CHECKING (checkversion endpoint)
+----------------------------------------------------------------
+
+The portal's Update Manager calls /checkversion/ on each server
+to get the currently installed version without requiring login.
+
+  Request (from portal):
+    GET {server_url}/checkversion/
+    Header: X-VoidPanel-Key: {api_key}
+
+  Response (from client server):
+    { "version": "1.0", "platform": "linux", "status": "ok" }
+
+  The portal then compares this with the latest version from
+  /version_name/ and shows the status in the Update Manager table.
+
+  Version reading order on client server:
+    1. Try /etc/version.txt (production Linux)
+    2. Try {project_root}/version.txt (development/Windows)
+    3. Default to "1.0"
+
+
+----------------------------------------------------------------
+SECTION 7: ADDING A NEW VERSION — FULL CHECKLIST
+----------------------------------------------------------------
+
+When you want to release v2.2.0:
+
+  [ ] 1. Make your code changes on Mac (edit any file)
+
+  [ ] 2. Run from Mac Terminal:
+         bash upload_and_release.sh 2.2.0 "Brief description of changes"
+
+  [ ] 3. Verify on voidpanel.com:
+         curl https://voidpanel.com/version_name/
+         → Should return: { "version": "2.2.0", ... }
+
+  [ ] 4. Verify migration path:
+         curl "https://voidpanel.com/version_migration_path/?from=2.1.0"
+         → Should list 2.2.0 as a step
+
+  [ ] 5. Verify tarball exists:
+         curl -I https://voidpanel.com/releases/voidpanel-2.2.0.tar.gz
+         → Should return HTTP 200
+
+  [ ] 6. Verify update script exists:
+         curl https://voidpanel.com/updates/2.2.0/update.sh
+         → Should return the bash script
+
+  [ ] 7. Test on one server first — go to that server's
+         /update/ page and click Install Update
+
+  [ ] 8. If OK — go to Super Admin → Update Manager → Push All
+
+
+----------------------------------------------------------------
+SECTION 8: WHAT IS NEVER OVERWRITTEN DURING UPDATE
+----------------------------------------------------------------
+
+These files are ALWAYS preserved during any update:
+
+  /var/www/panel/.env             ← Database passwords, secret keys
+  /var/www/panel/panel/settings.py ← Django settings
+  /var/www/panel/db.sqlite3       ← Database (if using SQLite)
+  /var/www/panel/media/           ← User uploaded files
+
+A full backup is also taken to /var/backups/ before every step.
+
+
+----------------------------------------------------------------
+SECTION 9: UPDATE LOG FILES
+----------------------------------------------------------------
+
+Each update writes a log to:
+  /var/log/voidpanel/update-{version}.log
+
+Example content:
+  [2026-05-01 11:30:00] === VoidPanel Update to v2.1.0 ===
+  [2026-05-01 11:30:01] Backing up to /var/backups/voidpanel-pre-2.1.0-20260501113001
+  [2026-05-01 11:30:05] Downloading v2.1.0 release ...
+  [2026-05-01 11:30:12] Applying update files ...
+  [2026-05-01 11:30:14] Installing dependencies ...
+  [2026-05-01 11:30:22] Running migrations ...
+  [2026-05-01 11:30:24] Version updated to 2.1.0.
+  [2026-05-01 11:30:25] Restarting panel service ...
+  [2026-05-01 11:30:28] === v2.1.0 complete! ===
+
+
+----------------------------------------------------------------
+SECTION 10: IF SOMETHING GOES WRONG
+----------------------------------------------------------------
+
+Server doesn't come back after update:
+  SSH into the server and check:
+    cat /var/log/voidpanel/update-{version}.log
+    systemctl status voidpanel
+    journalctl -u voidpanel -n 50
+
+Restore from backup:
+    cp -r /var/backups/voidpanel-pre-{version}-{timestamp}/ /var/www/panel/
+    systemctl restart voidpanel
+
+Version stuck on old number:
+    cat /etc/version.txt              ← check current
+    echo "2.1.0" > /etc/version.txt  ← manually set it
+
+Update page shows wrong version:
+    The page reads /etc/version.txt on every load.
+    Fix: update /etc/version.txt to the correct version.
+
+Server shows as Unreachable in Update Manager:
+    Check server is online: ping {server_ip}
+    Check panel is running: systemctl status voidpanel
+    Check api_key matches in Super Admin → Servers
+
+================================================================
+END OF DOCUMENTATION
+================================================================

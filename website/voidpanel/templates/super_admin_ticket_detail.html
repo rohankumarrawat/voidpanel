@@ -1,0 +1,71 @@
+{% extends 'super_admin_base.html' %}
+{% block title %}{{ ticket.ticket_number }} | VoidPanel Admin{% endblock %}
+{% block admin_content %}
+<section class="surface hero">
+    <span class="hero-tag">Ticket Reply</span>
+    <h1>{{ ticket.subject }}</h1>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;">
+        <span class="badge {% if ticket.status == 'open' %}super{% elif ticket.status == 'answered' %}staff{% elif ticket.status == 'closed' %}soft{% else %}role{% endif %}">{{ ticket.get_status_display }}</span>
+        <span class="badge role">{{ ticket.department }}</span>
+        <span class="badge {% if ticket.priority == 'high' %}super{% else %}soft{% endif %}">{{ ticket.get_priority_display }} Priority</span>
+        <span class="badge soft"># {{ ticket.ticket_number }}</span>
+        <span class="badge soft">Client: {{ ticket.user.get_full_name|default:ticket.user.username }}</span>
+    </div>
+</section>
+
+<!-- Thread -->
+<section class="surface section">
+    <div class="section-header"><h2><i class="fas fa-comments" style="color:#59c4bc;margin-right:8px;"></i>Conversation</h2></div>
+    {% if replies %}
+    <div class="stack">
+        {% for reply in replies %}
+        <div class="card" style="{% if reply.is_staff_reply %}background:rgba(14,165,233,0.06);border-color:rgba(14,165,233,0.18);{% endif %}">
+            <div class="topline" style="margin-bottom:12px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0;background:{% if reply.is_staff_reply %}rgba(14,165,233,0.2){% else %}rgba(89,196,188,0.2){% endif %};color:{% if reply.is_staff_reply %}#7dd3fc{% else %}#59c4bc{% endif %};">
+                        {{ reply.author.get_full_name|default:reply.author.username|first|upper }}
+                    </div>
+                    <div>
+                        <strong>{{ reply.author.get_full_name|default:reply.author.username }}</strong>
+                        {% if reply.is_staff_reply %}<span class="badge role" style="font-size:0.72rem;padding:3px 10px;margin-left:6px;">STAFF</span>{% endif %}
+                        <div class="muted" style="font-size:0.8rem;">{{ reply.created_at|date:"M d, Y H:i" }}</div>
+                    </div>
+                </div>
+            </div>
+            <div style="color:var(--text-secondary);line-height:1.8;white-space:pre-wrap;">{{ reply.body }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:40px;color:var(--text-muted);">No replies yet on this ticket.</div>
+    {% endif %}
+</section>
+
+<!-- Staff Reply Form -->
+{% if ticket.status != 'closed' %}
+<section class="surface section">
+    <div class="section-header"><h2><i class="fas fa-reply" style="color:#22c55e;margin-right:8px;"></i>Staff Reply</h2></div>
+    <form method="POST">
+        {% csrf_token %}
+        <div>
+            <label style="color:var(--text-secondary);display:block;margin-bottom:8px;">Response</label>
+            <textarea name="body" placeholder="Write your staff reply..." required style="width:100%;padding:14px 16px;border-radius:14px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:var(--text-primary);font-size:0.95rem;min-height:140px;resize:vertical;font-family:inherit;"></textarea>
+        </div>
+        <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:14px;align-items:center;">
+            <label style="display:flex;align-items:center;gap:8px;color:var(--text-secondary);cursor:pointer;margin:0;">
+                <input type="checkbox" name="close_ticket" style="width:auto;"> Close ticket after reply
+            </label>
+            <button type="submit" style="padding:12px 22px;border-radius:14px;border:none;cursor:pointer;background:linear-gradient(135deg,#22c55e,#59c4bc);color:#021a0d;font-weight:700;display:inline-flex;align-items:center;gap:8px;">
+                <i class="fas fa-paper-plane"></i> Send Staff Reply
+            </button>
+        </div>
+    </form>
+</section>
+{% endif %}
+
+<div style="margin-top:8px;">
+    <a href="/super-admin/tickets/" style="display:inline-flex;align-items:center;gap:8px;color:var(--text-muted);font-size:0.88rem;">
+        <i class="fas fa-arrow-left"></i> Back to All Tickets
+    </a>
+</div>
+{% endblock %}

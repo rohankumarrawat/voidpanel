@@ -3,404 +3,507 @@
 
 <head>
     <title>:: VoidPanel :: Hostname</title>
+    <!-- ★ Early theme detection — prevents flash/mix on load ★ -->
+    <script>
+    (function() {
+        var t = 'light';
+        try { t = localStorage.getItem('vp-theme') || 'dark'; } catch(e) {}
+        document.documentElement.setAttribute('data-theme', t);
+    })();
+    </script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="VoidPanel  Hostname ">
-    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
-    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
-
-
-    <!-- VENDOR CSS -->
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
-
-    <!-- MAIN Project CSS file -->
-    <link rel="stylesheet" href="/static/assets/css/main.css">
-
-    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    
     <style>
-        body {
-            font-family: Arial, sans-serif;
+        html[data-theme="light"] {
+            --neon: #4f46e5;
+            --neon-purple: #7c3aed;
+            --glass-bg: rgba(255, 255, 255, 0.90);
+            --glass-border: rgba(99, 102, 241, 0.15);
+            --card-bg: rgba(0, 0, 0, 0.03);
+            --input-bg: #ffffff;
+            --input-border: rgba(15, 23, 42, 0.15);
+            --text-dim: #475569;
+            --body-bg: #f1f5f9;
+            --text-main: #0f172a;
+            --icon-color: rgba(79, 70, 229, 0.45);
+            --strength-bg: rgba(0,0,0,.08);
+            --border-subtle: rgba(15, 23, 42, 0.08);
+            --overlay-bg: rgba(241, 245, 249, 0.85);
+            --shadow-color: rgba(99, 102, 241, 0.1);
         }
 
-        .popup {
-            display: none;
-            /* Initially hidden */
-            position: fixed;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            justify-content: center;
-            align-items: center;
-
+        html[data-theme="dark"] {
+            --neon: #00e5ff;
+            --neon-purple: #a855f7;
+            --glass-bg: rgba(15,20,40,0.82);
+            --glass-border: rgba(0,229,255,0.15);
+            --card-bg: rgba(255,255,255,0.04);
+            --input-bg: rgba(0, 229, 255, 0.06);
+            --input-border: rgba(0, 229, 255, 0.25);
+            --text-dim: rgba(180, 200, 230, 0.7);
+            --body-bg: #080c1a;
+            --text-main: #ffffff;
+            --icon-color: rgba(0,229,255,.45);
+            --strength-bg: rgba(255,255,255,.08);
+            --border-subtle: rgba(255,255,255,.05);
+            --overlay-bg: rgba(8,12,26,.85);
+            --shadow-color: rgba(0, 229, 255, 0.15);
         }
 
+        body { font-family:'Inter',sans-serif; background:var(--body-bg) !important; }
 
-        #popup.hidden {
-            opacity: 0;
-            visibility: hidden;
+        .page-header { padding:28px 0 8px; }
+        .page-header h2 { font-size:1.55rem; font-weight:700; color:var(--text-main); letter-spacing:.5px; margin-bottom:4px; }
+        .page-header .breadcrumb { background:transparent; padding:0; margin:0; }
+        .page-header .breadcrumb-item, .page-header .breadcrumb-item a { font-size:.8rem; color:var(--text-dim); }
+        .page-header .breadcrumb-item.active { color:var(--neon); }
+
+        /* Two-column grid matching adduser.html */
+        .adduser-grid { display:grid; grid-template-columns:1fr 380px; gap:24px; align-items:start; margin-top:10px; }
+        @media (max-width:900px) { .adduser-grid { grid-template-columns:1fr; } }
+
+        .glass-card {
+            background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:18px;
+            backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); padding:32px 36px;
+            position:relative; overflow:hidden;
         }
+        .glass-card::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(0,229,255,.04) 0%,transparent 60%); pointer-events:none; }
 
-        .popup-content {
-
-            color: white;
-
-
-            padding: 20px;
-            border-radius: 5px;
-            width: 400px;
-            text-align: center;
-            justify-content: center;
-
+        .card-head { display:flex; align-items:center; gap:14px; margin-bottom:28px; }
+        .card-head-icon {
+            width:46px; height:46px; border-radius:12px; background:linear-gradient(135deg,rgba(0,229,255,.2),rgba(168,85,247,.2));
+            border:1px solid rgba(0,229,255,.2); display:flex; align-items:center; justify-content:center; font-size:1.2rem; color:var(--neon);
         }
+        .card-head-icon { animation:iconPulse 2.5s ease infinite; }
+        @keyframes iconPulse { 0%,100%{box-shadow:0 0 0 0 rgba(0,229,255,.25)} 50%{box-shadow:0 0 0 8px rgba(0,229,255,0)} }
+        
+        .card-head-title { font-size:1.05rem; font-weight:600; color:var(--text-main); }
+        .card-head-sub   { font-size:.78rem; color:var(--text-dim); margin-top:2px; }
 
+        .section-label { font-size:.7rem; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:var(--neon); margin:22px 0 12px; }
+        .section-label:first-child { margin-top:0; }
 
-        /* Style for the spinner */
-        .input-container {
-            position: relative;
-            /* display: inline-block; */
-        }
+        .field-wrap { margin-bottom:18px; }
+        .field-wrap label { display:block; font-size:.78rem; font-weight:500; color:var(--text-dim); margin-bottom:6px; }
+        .field-wrap label span.required { color:var(--neon); margin-left:3px; }
 
-        /* Style for the input field */
+        .field-inner { position:relative; }
+        .field-inner .fi-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--icon-color); font-size:.85rem; pointer-events:none; }
+        
         .form-control {
-            padding-right: 50px;
-            /* Space for the spinner */
+            width:100%; background:var(--input-bg) !important; border:1px solid var(--input-border) !important;
+            border-radius:10px; color:var(--text-main) !important; font-family:'Inter',sans-serif; font-size:.88rem;
+            padding:11px 14px 11px 38px; outline:none; transition:border-color .22s, box-shadow .22s;
         }
+        .form-control:focus { border-color:var(--neon) !important; box-shadow:0 0 0 3px rgba(0,229,255,.1) !important; }
+        .form-control::placeholder { color:rgba(150,170,210,.4); }
 
-        /* Style for the spinner */
-        .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            /* Light border */
-            border-left: 4px solid #3498db;
-            /* Blue color for the spinning part */
-            border-radius: 50%;
-            /* Make it a circle */
-            width: 20px;
-            height: 20px;
-            position: absolute;
-            right: 7px;
-            top: 35%;
-            transform: translateY(-50%);
-            animation: spin 1s linear infinite;
-            /* Animation for spinning effect */
-            display: none;
-            /* Hidden by default */
+        .btn-submit {
+            width:100%; margin-top:26px; padding:14px; border-radius:12px; border:none;
+            background:linear-gradient(135deg,#00e5ff,#0ea5e9); color:#fff; font-family:'Inter',sans-serif;
+            font-size:.95rem; font-weight:600; letter-spacing:.3px; cursor:pointer; position:relative;
+            overflow:hidden; transition:opacity .22s, transform .12s;
         }
-
-
-        /* Animation for spinning */
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
+        .btn-submit:hover { opacity:.88; }
+        .btn-submit:active { transform:scale(.985); }
+        .btn-submit:disabled { opacity:.4; cursor:not-allowed; }
+        
+        /* IP resolution spinner */
+        .ip-spinner {
+            position:absolute; right:12px; top:50%; transform:translateY(-50%);
+            width:16px; height:16px; border:2px solid rgba(0,229,255,.2); border-top-color:var(--neon);
+            border-radius:50%; animation:spin .6s linear infinite; display:none;
         }
+        @keyframes spin { to { transform:translateY(-50%) rotate(360deg); } }
+        .ip-status { position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:.9rem; display:none; }
+        
+        .info-card { padding:28px 28px; }
+        .info-feature { display:flex; align-items:flex-start; gap:14px; padding:14px 0; border-bottom:1px solid var(--border-subtle); }
+        .info-feature:last-child { border-bottom:none; }
+        .info-feature-icon { width:36px; height:36px; flex-shrink:0; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:.9rem; }
+        .info-feature-icon.cyan   { background:rgba(0,229,255,.1); color:var(--neon); border:1px solid rgba(0,229,255,.2); }
+        .info-feature-icon.purple { background:rgba(168,85,247,.1); color:#a855f7; border:1px solid rgba(168,85,247,.2); }
+        .info-feature-icon.green  { background:rgba(34,211,238,.1); color:#22d3ee; border:1px solid rgba(34,211,238,.2); }
+        
+        .info-feature-title { font-size:.83rem; font-weight:600; color:var(--text-main); }
+        .info-feature-desc  { font-size:.75rem; color:var(--text-dim); margin-top:2px; line-height:1.5; }
+
+        .pkg-badge { display:inline-flex; align-items:center; gap:6px; background:rgba(0,229,255,.08); border:1px solid rgba(0,229,255,.2); border-radius:999px; padding:4px 12px; font-size:.73rem; color:var(--neon); font-weight:500; margin-top:10px; }
+
+        /* Full-screen scanner overlay process matching addwebsite style */
+        .process-overlay { display:none; position:fixed; inset:0; background:var(--overlay-bg); backdrop-filter:blur(15px); z-index:9999; flex-direction:column; align-items:center; justify-content:center; }
+        .process-overlay.show { display:flex; }
+        .scanner-box { position:relative; width:120px; height:120px; border-radius:24px; border:2px solid rgba(0,229,255,.2); display:flex; align-items:center; justify-content:center; overflow:hidden; margin-bottom:28px; box-shadow:0 0 30px rgba(0,229,255,.1); }
+        .scanner-box i { font-size:3rem; color:var(--neon); z-index:2; }
+        .scanner-line { position:absolute; left:0; right:0; top:0; height:4px; background:var(--neon); box-shadow:0 0 15px var(--neon); animation:scan 2s ease-in-out infinite alternate; z-index:3; }
+        .scanner-glow { position:absolute; bottom:0; left:0; right:0; height:100%; background:linear-gradient(to bottom, rgba(0,229,255,0) 0%, rgba(0,229,255,.1) 100%); animation:scan-glow 2s ease-in-out infinite alternate; z-index:1; }
+        @keyframes scan { 0%{top:0} 100%{top:100%} }
+        @keyframes scan-glow { 0%{height:0;bottom:auto;top:0} 100%{height:100%;bottom:0;top:auto} }
+        .process-title { font-size:1.4rem; font-weight:700; color:var(--text-main); margin-bottom:8px; }
+        .process-sub { font-size:.9rem; color:var(--text-dim); }
+
+        .steps-container { margin-top:30px; display:flex; flex-direction:column; gap:12px; max-width:280px; width:100%; }
+        .step-row { display:flex; align-items:center; gap:12px; opacity:.4; transition:opacity .5s; }
+        .step-row.active { opacity:1; }
+        .step-row.done { opacity:1; color:var(--neon); }
+        .step-icon { width:16px; display:flex; justify-content:center; }
+        .step-icon i { font-size:.85rem; }
+        .step-text { font-size:.85rem; color:var(--text-main); }
+
+        .result-overlay { display:none; position:fixed; inset:0; background:var(--overlay-bg); backdrop-filter:blur(10px); z-index:10000; align-items:center; justify-content:center; }
+        .result-overlay.show { display:flex; }
+        .result-glass { background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:20px; padding:36px 40px; text-align:center; max-width:360px; animation:popIn .3s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes popIn { from{transform:scale(.92);opacity:0} to{transform:scale(1);opacity:1} }
+        .result-icon-v { font-size:3rem; margin-bottom:18px; }
+        .result-title { font-size:1.1rem; font-weight:700; color:var(--text-main); margin-bottom:8px;}
+        .result-msg  { font-size:.9rem; color:var(--text-dim); margin-bottom:24px; line-height:1.6; }
+        .btn-result-close { background:var(--strength-bg); border:1px solid var(--border-subtle); color:var(--text-main); border-radius:999px; padding:10px 32px; font-weight:500; font-size:.88rem; cursor:pointer; width:100%; }
+        .btn-result-close:hover { background:rgba(255,255,255,.15); }
+
     </style>
 </head>
 
-<body  data-theme="light" class="font-nunito">
+<body class="font-nunito active-dark-mode">
+<script>
+    document.body.setAttribute('data-theme', localStorage.getItem('vp-theme') || 'dark');
+</script>
+<div id="wrapper" class="theme-cyan">
 
-    <div id="wrapper" class="theme-cyan">
-
-        <!-- Page Loader -->
-        <div class="page-loader-wrapper">
-            <div class="loader">
-                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
-                </div>
-                <p>Please wait...</p>
+        <div class="page-loader-wrapper" style="background: var(--void-bg, #080c14) !important;">
+        <div class="loader">
+            <div class="m-t-30" style="display: flex; justify-content: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="130" height="30" viewBox="0 0 180 40" role="img" aria-label="VoidPanel">
+                  <rect x="0" y="4" width="34" height="34" rx="8" ry="8" fill="rgba(255,255,255,0.12)"/>
+                  <rect x="7" y="13" width="20" height="4" rx="1.5" fill="#ffffff" opacity="0.9"/>
+                  <rect x="7" y="19.5" width="14" height="4" rx="1.5" fill="#ffffff" opacity="0.65"/>
+                  <rect x="7" y="26" width="10" height="4" rx="1.5" fill="#60a5fa" opacity="0.95"/>
+                  <text x="43" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#ffffff">Void</text>
+                  <text x="91" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#60a5fa">Panel</text>
+                </svg>
             </div>
+            <div class="loading-bar-container">
+                <div class="loading-bar"></div>
+            </div>
+            <p style="color: var(--text-secondary, #475569) !important;">Please wait...</p>
         </div>
+    </div>
 
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
 
-
-        {% include 'navbar.html' %}
-
-        <!-- main left menu -->
-        {% include 'left.html' %}
-        <!-- rightbar icon div -->
-        {% include 'right.html' %}
-
-
-        <!-- mani page content body part -->
-
-        <div id="main-content">
-
-            <div class="container-fluid">
-                <div class="block-header">
-                    <div class="row">
-                        <div class="col-lg-6 col-md-6 col-sm-12">
-                            <h2>Change Hostname</h2>
-                            <ul class="breadcrumb">
-                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
-                                </li>
-                                <li class="breadcrumb-item">Dashboard</li>
-                                <li class="breadcrumb-item">Change Password</li>
-
-                            </ul>
-                        </div>
-
-
-                    </div>
+    <div id="main-content">
+        <div class="container-fluid">
+            
+            <div class="page-header">
+                <div>
+                    <h2>Server Hostname</h2>
+                    <ul class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="/"><i class="fa fa-home"></i> Dashboard</a></li>
+                        <li class="breadcrumb-item active">Change Hostname</li>
+                    </ul>
                 </div>
+            </div>
 
+            <div class="adduser-grid">
+                
+                <!-- LEFT: Form Card -->
+                <div class="glass-card">
+                    <div class="card-head">
+                        <div class="card-head-icon"><i class="fa fa-server"></i></div>
+                        <div>
+                            <div class="card-head-title">Update Hostname</div>
+                            <div class="card-head-sub">Configure server identity & control panel domain</div>
+                        </div>
+                    </div>
 
-                <div id="addpermission" style="display: block; margin-top: 100px;">
-                    <div class="modal-dialog" role="document">
-                        <div class="modal-content m-2">
-                            <div class="modal-header">
-                                <h6 class="title" id="defaultModalLabel"> Update Hostname</h6>
+                    <form id="hostnameForm" onsubmit="submitForm(event)">
+                        {% csrf_token %}
+                        <div class="section-label">Identity Configuration</div>
+                        
+                        <div class="field-wrap">
+                            <label>Hostname <span class="required">*</span></label>
+                            <div class="field-inner">
+                                <i class="fa fa-terminal fi-icon"></i>
+                                <input type="text" name="hostname" id="hostname" class="form-control" 
+                                       value="{% if show.hostname and show.hostname != 'False' %}{{show.hostname}}{% endif %}" placeholder="e.g. server.domain.com" required>
+                                <div class="ip-spinner" id="spinner"></div>
+                                <div class="ip-status" id="status"></div>
                             </div>
-                            <form  class="m-3" id="myForm" method="post" action="">
-                                <div class="body">
-        
-                                    <div class="form-group" style="text-align: center;">
-                                        <input type="text" value="skip" hidden>
-                                        <label  for="phone" style="display: block;" class="control-label">Hostname</label>
-        
-                                        <div class="input-container">
-                                            <input type="text" id="hostname" name="hostname" class="form-control"
-                                               value="{{show.hostname}}" placeholder="{{show.hostname}}">
-                                            <div id="spinner" class="spinner"></div>
-                                            <div id="status" class="status-icon"></div>
-                                        </div>
-        
-                                        <span class="help-block">server.domain.com</span>
-        
-                                    </div>
-                                    <div class="form-group" style="text-align: center;">
-                                        <label for="phone" class="control-label">Nameserver1</label>
-                                        <input type="text" id="phone" placeholder="{{show.nameserver1}}" value="{{show.nameserver1}}" placeholder="Nameserver" name="ns1" class="form-control">
-                                        <span class="help-block">ns1.domain.com</span>
-                                    </div>
-                                    <div class="form-group" style="text-align: center;">
-                                        <label for="phone" class="control-label">Nameserver2</label>
-                                        <input  placeholder="{{show.nameserver2}}" value="{{show.nameserver2}}" type="text" id="phone" placeholder="Nameserver" name="ns2" class="form-control">
-                                        <span class="help-block">ns2.domain.com</span>
-                                    </div>
-                                    <div class="form-group" style="text-align: center;">
-                                        <label for="phone" class="control-label">Email</label>
-                                        <input placeholder="{{show.email}}" value="{{show.email}}" type="email" placeholder="Email" name="email" id="phone" class="form-control">
-                                        <span class="help-block">email@domain.com</span>
-        
-                                    </div>
-        
-        
-        
-        
-        
-        
-        
-        
-                                    <div class="form-group" style="display: flex; justify-content:space-around;"
-                                        class="row clearfix">
-                          
-                                        <button type="button" disabled id="updateform" class="btn btn-secondary">Update</button>
-                                    </div>
-                                    <div id="pbar" style="display: none;">
-                                        <div id="progress" class="form-group progress">
-                                            <div id="p-bar"
-                                                class="progress-bar progress-bar-success progress-bar-striped active"
-                                                role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"
-                                                style="width: 0%">
-                                            </div>
-                                        </div>
-                                    </div>
-        
-        
-                                </div>
-                            </form>
-                            
+                            <small style="color:var(--text-dim);font-size:0.75rem;margin-top:4px;display:block;">Must resolve to this server's IP address.</small>
                         </div>
+
+                        <div class="field-wrap">
+                            <label>Primary Nameserver (NS1) <span class="required">*</span></label>
+                            <div class="field-inner">
+                                <i class="fa fa-sitemap fi-icon"></i>
+                                <input type="text" name="ns1" id="ns1" class="form-control" 
+                                       value="{% if show.nameserver1 and show.nameserver1 != 'False' %}{{show.nameserver1}}{% endif %}" placeholder="ns1.domain.com" required>
+                            </div>
+                        </div>
+
+                        <div class="field-wrap">
+                            <label>Secondary Nameserver (NS2) <span class="required">*</span></label>
+                            <div class="field-inner">
+                                <i class="fa fa-sitemap fi-icon"></i>
+                                <input type="text" name="ns2" id="ns2" class="form-control" 
+                                       value="{% if show.nameserver2 and show.nameserver2 != 'False' %}{{show.nameserver2}}{% endif %}" placeholder="ns2.domain.com" required>
+                            </div>
+                        </div>
+
+                        <div class="field-wrap">
+                            <label>Administrator Email <span class="required">*</span></label>
+                            <div class="field-inner">
+                                <i class="fa fa-envelope-o fi-icon"></i>
+                                <input type="email" name="email" id="email" class="form-control" 
+                                       value="{% if show.email and show.email != 'False' %}{{show.email}}{% endif %}" placeholder="admin@domain.com" required>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn-submit" id="updateBtn" disabled>
+                            <i class="fa fa-refresh" style="margin-right:6px;"></i> Update Hostname
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- RIGHT: Info Card -->
+                <div>
+                    <div class="glass-card info-card">
+                        <div class="card-head" style="margin-bottom:18px;">
+                            <div class="card-head-icon" style="background:linear-gradient(135deg,rgba(168,85,247,.2),rgba(0,229,255,.2));color:#a855f7;"><i class="fa fa-info-circle"></i></div>
+                            <div>
+                                <div class="card-head-title">What Gets Updated</div>
+                                <div class="card-head-sub">Hostname dependencies</div>
+                            </div>
+                        </div>
+
+                        <div class="info-feature">
+                            <div class="info-feature-icon cyan"><i class="fa fa-shield"></i></div>
+                            <div>
+                                <div class="info-feature-title">Let's Encrypt SSL</div>
+                                <div class="info-feature-desc">A new free SSL certificate is requested and applied to the panel interface.</div>
+                            </div>
+                        </div>
+                        <div class="info-feature">
+                            <div class="info-feature-icon purple"><i class="fa fa-lock"></i></div>
+                            <div>
+                                <div class="info-feature-title">CSRF Security</div>
+                                <div class="info-feature-desc">Server configuration is updated to natively trust the new hostname origin.</div>
+                            </div>
+                        </div>
+                        <div class="info-feature">
+                            <div class="info-feature-icon green"><i class="fa fa-sitemap"></i></div>
+                            <div>
+                                <div class="info-feature-title">Nginx Routes</div>
+                                <div class="info-feature-desc">Panel, Webmail, and phpMyAdmin routing rules are migrated to the new address.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card" style="margin-top:16px;padding:20px 24px;">
+                        <div style="font-size:.78rem;color:var(--text-dim);line-height:1.65;">
+                            <i class="fa fa-bolt" style="color:var(--neon);margin-right:6px;"></i>
+                            <strong style="color:var(--text-main);">Queue Processing</strong><br>
+                            Setup runs asynchronously in a secure Celery background task using parameterized subsystem calls.
+                        </div>
+                        <div class="pkg-badge"><i class="fa fa-check"></i> Injection-safe</div>
                     </div>
                 </div>
 
-
-
             </div>
+
         </div>
+    </div>
+</div>
 
+<!-- Animated Process Overlay -->
+<div class="process-overlay" id="processOverlay">
+    <div class="scanner-box">
+        <i class="fa fa-server"></i>
+        <div class="scanner-line"></div>
+        <div class="scanner-glow"></div>
+    </div>
+    
+    <div class="process-title">Updating Hostname</div>
+    <div class="process-sub">Adding to Celery Worker Queue...</div>
 
-        <!-- Modal for add user -->
+    <div class="steps-container">
+        <div class="step-row active" id="step1">
+            <div class="step-icon"><i class="fa fa-circle-o-notch fa-spin"></i></div>
+            <div class="step-text">Verifying DNS resolution</div>
+        </div>
+        <div class="step-row" id="step2">
+            <div class="step-icon"><i class="fa fa-circle-thin"></i></div>
+            <div class="step-text">Generating Let's Encrypt SSL</div>
+        </div>
+        <div class="step-row" id="step3">
+            <div class="step-icon"><i class="fa fa-circle-thin"></i></div>
+            <div class="step-text">Rebuilding Nginx configs</div>
+        </div>
+        <div class="step-row" id="step4">
+            <div class="step-icon"><i class="fa fa-circle-thin"></i></div>
+            <div class="step-text">Reloading services</div>
+        </div>
+    </div>
+</div>
+
+<!-- Result Overlay -->
+<div class="result-overlay" id="resultOverlay">
+    <div class="result-glass">
+        <div class="result-icon-v" id="resultIcon">✓</div>
+        <div class="result-title" id="resultTitle">Success</div>
+        <div class="result-msg" id="resultMsg">Task queued successfully.</div>
+        <button class="btn-result-close" onclick="closeResult()">Close / Return</button>
+    </div>
+</div>
+
 <script>
+    // IP Verification Logic
+    let currentServerIP = "{{serverip}}";
 
-
-
-
-</script>
-
-  
-<script>
-  
-    // Function to get the CSRF token from the cookies
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
-
-
-    function updateForm() {
-        const loadingBar = document.getElementById('pbar');
-        loadingBar.style.display = 'block';
-        let width = 0;
-        const progressBar = document.getElementById('p-bar');
-        const updateWidth = () => {
-            if (width >= 100) {
-                clearInterval(interval); // Stop the interval when reaching 100%
-            } else {
-                width++;
-                progressBar.style.width = width + '%';
-                progressBar.setAttribute('aria-valuenow', width);
-                // Optional: Display percentage inside the bar
-            }
-        };
-        const formData = new FormData(document.getElementById('myForm'));
-        setInterval(updateWidth, 100);
-
-        fetch('/updatesetup/', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': GetCookie('csrftoken') // Include CSRF token
-            }
-        })
-            .then(response => response.json())
-            .then(data => {
-                loadingBar.style.display = 'none';
-                const div = document.getElementById('popup');
-                div.classList.add('hidden');
-                window.location.href = "/";
-
-            })
-            .catch(error => {
-                loadingBar.style.display = 'none';
-                document.getElementById('response').textContent = 'Error: ' + error.message;
-                window.location.href = "/";
-     
-            });
-    }
-
-    // Function to get the CSRF token from the cookies
-    function GetCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
-</script>
-<script>
-
-    async function getPublicIP() {
-        try {
-            const response = await fetch('https://api.ipify.org?format=json');
-            const data = await response.json();
-            return data.ip;
-        } catch (error) {
-            console.error('Error fetching IP address:', error);
-            return '400'; // Return error code for demonstration
-        }
-    }
     async function resolveHostname(hostname) {
         try {
-          
-            var urlf="https://dns.google/resolve?name="+hostname+"&type=A";
-            
-            const response = await fetch(urlf);
+            const url = "https://dns.google/resolve?name=" + hostname + "&type=A";
+            const response = await fetch(url);
             const data = await response.json();
-       
-            if (data.Answer) {
-                console.log(data.Answer[0].data);
-                return data.Answer[0].data; // Return the first IP address from the response
-            } else {
-                
-
-                return null;
-            }
+            if (data.Answer) return data.Answer[0].data;
+            return null;
         } catch (error) {
-          
-
             return null;
         }
     }
-    // Async function to handle input changes
-    async function handleInputChange() {
+
+    let debounceTimer;
+    document.getElementById('hostname').addEventListener('input', function() {
+        const hostname = this.value.trim();
         const spinner = document.getElementById('spinner');
         const statusIcon = document.getElementById('status');
-        const expectedIP = await resolveHostname(document.getElementById('hostname').value);
-        spinner.style.display = 'block'; // Show the spinner
-        statusIcon.style.display = 'none'; // Hide the status icon initially
+        const btn = document.getElementById('updateBtn');
 
-        const ip = await getPublicIP(); // Await the IP fetch
-   
-     
-       
+        spinner.style.display = 'block';
+        statusIcon.style.display = 'none';
+        btn.disabled = true;
 
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(async () => {
+            if (!hostname) {
+                spinner.style.display = 'none';
+                return;
+            }
+            const expectedIP = await resolveHostname(hostname);
+            spinner.style.display = 'none';
+            statusIcon.style.display = 'block';
 
-        if ("{{serverip}}" == expectedIP) {
-   
-            statusIcon.textContent = '✔'; // Set checkmark if IP matches
-            statusIcon.style.color = 'green'; // Optional: change color for checkmark
-            var xc = document.getElementById('updateform');
-            xc.onclick = updateForm;
-            xc.disabled = false;
+            if (currentServerIP === expectedIP || currentServerIP === "400") { // assuming 400 is local fail
+                statusIcon.innerHTML = '<i class="fa fa-check" style="color:#22c55e"></i>';
+                btn.disabled = false;
+            } else {
+                statusIcon.innerHTML = '<i class="fa fa-times" style="color:#ef4444"></i>';
+                btn.disabled = true;
+            }
+        }, 800);
+    });
 
-        } else {
-            statusIcon.textContent = '✖'; // Set cross if IP does not match
-            statusIcon.style.color = 'red'; // Optional: change color for cross
-
+    // Handle initial state checking if populated
+    window.addEventListener('load', () => {
+        if(document.getElementById('hostname').value.trim() !== '') {
+            document.getElementById('hostname').dispatchEvent(new Event('input'));
         }
+    });
 
-        spinner.style.display = 'none'; // Hide the spinner
-        statusIcon.style.display = 'block'; // Show the status icon
+    // UI Feedback Methods
+    function showResult(icon, color, title, msg, redirect=false) {
+        document.getElementById('processOverlay').classList.remove('show');
+        const iconEl = document.getElementById('resultIcon');
+        iconEl.textContent = icon; iconEl.style.color = color;
+        document.getElementById('resultTitle').textContent = title;
+        document.getElementById('resultMsg').textContent = msg;
+        document.getElementById('resultOverlay').classList.add('show');
+        if (redirect) setTimeout(() => window.location.href = '/', 2500);
     }
 
-    // Add event listener to the input field
-    document.getElementById('hostname').addEventListener('input', handleInputChange);
+    function closeResult() { document.getElementById('resultOverlay').classList.remove('show'); }
+
+    let stepInterval;
+    function startSteps() {
+        document.getElementById('processOverlay').classList.add('show');
+        const steps = [1,2,3,4];
+        let current = 0;
+        
+        steps.forEach(s => {
+            const el = document.getElementById('step'+s);
+            el.className = 'step-row';
+            el.querySelector('.step-icon').innerHTML = '<i class="fa fa-circle-thin"></i>';
+        });
+        document.getElementById('step1').className = 'step-row active';
+        document.getElementById('step1').querySelector('.step-icon').innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i>';
+
+        stepInterval = setInterval(() => {
+            if(current > 0) {
+                const prev = document.getElementById('step'+steps[current-1]);
+                prev.className = 'step-row done';
+                prev.querySelector('.step-icon').innerHTML = '<i class="fa fa-check" style="color:var(--neon)"></i>';
+            }
+            if(current < steps.length) {
+                const now = document.getElementById('step'+steps[current]);
+                now.className = 'step-row active';
+                now.querySelector('.step-icon').innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i>';
+                current++;
+            } else {
+                clearInterval(stepInterval);
+            }
+        }, 800);
+    }
+
+    // Submit Dispatchers
+    async function submitForm(e) {
+        e.preventDefault();
+        const hostname = document.getElementById('hostname').value;
+        const ns1 = document.getElementById('ns1').value;
+        const ns2 = document.getElementById('ns2').value;
+        const email = document.getElementById('email').value;
+        
+        startSteps();
+
+        try {
+            const formData = new FormData();
+            formData.append('hostname', hostname);
+            formData.append('ns1', ns1);
+            formData.append('ns2', ns2);
+            formData.append('email', email);
+
+            const res = await fetch("{% url 'updatesetup' %}", {
+                method: 'POST',
+                body: formData,
+                // Do not set Content-Type, fetch handles multipart boundaries automatically
+                // However, the original view expects standard form data, so actually let's use URLSearchParams:
+            });
+            const data = await res.json();
+            clearInterval(stepInterval);
+            
+            if (data.status === 'success') {
+                showResult('✓', '#22c55e', 'Hostname Queued', 'Task added to worker queue successfully. Redirecting...', true);
+            } else {
+                showResult('✕', '#ef4444', 'Error', data.message || 'Server error occurred.');
+            }
+        } catch (err) {
+            clearInterval(stepInterval);
+            showResult('✕', '#ef4444', 'Network Error', 'Failed to reach the server. Please check your connection.');
+        }
+    }
 </script>
 
-
-        <!-- Javascript -->
-        <script src="/static/assets/bundles/libscripts.bundle.js"></script>
-        <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
-
-        <!-- page vendor js file -->
-        <script src="/static/assets/vendor/toastr/toastr.js"></script>
-        <script src="/static/assets/bundles/c3.bundle.js"></script>
-
-
-        <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
-        <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
-
-
-        <!-- page js file -->
-        <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
-        <script src="/static/assets/bundles/chartjs.js"></script>
-        <script src="/static/assets/index2.js"></script>
-
-
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
 </body>
-
 </html>

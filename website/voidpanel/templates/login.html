@@ -1,0 +1,209 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sign In — VoidPanel</title>
+    <meta name="description" content="Sign in to your VoidPanel account to manage your hosting, domains, SSL, email, and support tickets.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css?v=3.0">
+    <style>
+        /* Split layout */
+        .auth-page {
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+        @media(max-width: 900px) { .auth-page { grid-template-columns: 1fr; } .auth-panel { display: none; } }
+
+        /* Left brand panel */
+        .auth-panel {
+            background: linear-gradient(160deg, #1e3a8a 0%, #2563eb 60%, #1d4ed8 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 52px 56px;
+            position: relative;
+            overflow: hidden;
+        }
+        .auth-panel::before {
+            content: '';
+            position: absolute; inset: 0;
+            background-image: radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+        .auth-panel-logo {
+            position: relative;
+            z-index: 1;
+        }
+        .auth-panel-content {
+            position: relative;
+            z-index: 1;
+        }
+        .auth-panel h2 { font-size: 2.4rem; font-weight: 900; letter-spacing: -0.03em; color: #ffffff; line-height: 1.15; margin-bottom: 16px; }
+        .auth-panel p  { color: rgba(255,255,255,0.72); font-size: 1rem; line-height: 1.7; margin-bottom: 36px; }
+        .auth-panel-features { display: flex; flex-direction: column; gap: 14px; }
+        .auth-panel-feat { display: flex; align-items: center; gap: 12px; color: rgba(255,255,255,0.85); font-size: 0.88rem; }
+        .auth-panel-feat i { width: 28px; height: 28px; border-radius: 8px; background: rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: #93c5fd; flex-shrink: 0; }
+        .auth-panel-footer { position: relative; z-index: 1; font-size: 0.75rem; color: rgba(255,255,255,0.4); }
+
+        /* Right form side */
+        .auth-form-side {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 40px;
+            background: #f8fafc;
+        }
+        .auth-form-box {
+            width: 100%;
+            max-width: 420px;
+        }
+        .auth-form-header { margin-bottom: 32px; }
+        .auth-form-header .mobile-logo {
+            display: none;
+            margin-bottom: 24px;
+        }
+        @media(max-width: 900px) { .auth-form-header .mobile-logo { display: block; } }
+        .auth-form-title { font-size: 1.85rem; font-weight: 900; color: var(--text-primary); letter-spacing: -0.025em; margin-bottom: 8px; }
+        .auth-form-sub { font-size: 0.88rem; color: var(--text-muted); line-height: 1.6; }
+
+        .auth-form-card {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 32px;
+            box-shadow: var(--shadow-lg);
+        }
+        .form-group { margin-bottom: 18px; }
+        .form-label { display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 7px; }
+        .form-control-void {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1.5px solid var(--border-medium);
+            border-radius: 10px;
+            background: #ffffff;
+            color: var(--text-primary);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 0.9rem;
+            outline: none;
+            transition: all 0.18s;
+        }
+        .form-control-void::placeholder { color: var(--text-faint); }
+        .form-control-void:hover { border-color: var(--slate-300); }
+        .form-control-void:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+
+        .pw-wrap { position: relative; }
+        .pw-toggle { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 0.88rem; padding: 4px; transition: color 0.15s; }
+        .pw-toggle:hover { color: var(--accent); }
+
+        .alert-msg { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 10px; background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; font-size: 0.86rem; font-weight: 600; margin-bottom: 20px; }
+        .auth-divider { text-align: center; font-size: 0.78rem; color: var(--text-faint); margin: 22px 0; display: flex; align-items: center; gap: 12px; }
+        .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+        .auth-links { text-align: center; margin-top: 20px; font-size: 0.85rem; color: var(--text-muted); }
+        .auth-links a { color: var(--accent); font-weight: 700; }
+    </style>
+</head>
+<body style="margin:0;">
+<div class="auth-page">
+    <!-- ── Left brand panel ── -->
+    <div class="auth-panel">
+        <div class="auth-panel-logo">
+            <img src="/static/logo-white.svg" alt="VoidPanel" height="34" style="height:34px;width:auto;">
+        </div>
+        <div class="auth-panel-content">
+            <h2>Your server,<br>fully in control.</h2>
+            <p>Manage websites, email, DNS, SSL certificates, databases, and backups — all from one powerful dashboard.</p>
+            <div class="auth-panel-features">
+                <div class="auth-panel-feat"><i class="fas fa-globe"></i> DNS &amp; Domain Management</div>
+                <div class="auth-panel-feat"><i class="fas fa-envelope"></i> Professional Email Hosting</div>
+                <div class="auth-panel-feat"><i class="fas fa-lock"></i> Auto SSL via Let's Encrypt</div>
+                <div class="auth-panel-feat"><i class="fas fa-database"></i> MySQL / MariaDB Manager</div>
+                <div class="auth-panel-feat"><i class="fas fa-robot"></i> Agentic AI Admin Assistant</div>
+                <div class="auth-panel-feat"><i class="fas fa-terminal"></i> Real-time WebSocket Terminal</div>
+            </div>
+        </div>
+        <div class="auth-panel-footer">© 2024 VoidPanel. Free &amp; Open Source.</div>
+    </div>
+
+    <!-- ── Right form side ── -->
+    <div class="auth-form-side">
+        <div class="auth-form-box">
+            <div class="auth-form-header">
+                <!-- Mobile logo (hidden on desktop) -->
+                <div class="mobile-logo">
+                    <img src="/static/logo.svg" alt="VoidPanel" height="34" style="height:34px;width:auto;">
+                </div>
+                <div class="auth-form-title">Welcome back</div>
+                <div class="auth-form-sub">Sign in to manage your hosting, invoices, and support tickets.</div>
+            </div>
+
+            <div class="auth-form-card">
+                {% if messages %}
+                    {% for message in messages %}
+                    <div class="alert-msg"><i class="fas fa-circle-exclamation"></i> {{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+
+                <form method="POST" action="" id="login-form">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label class="form-label" for="login-email">Email or Username</label>
+                        <input
+                            type="text"
+                            id="login-email"
+                            name="Email"
+                            class="form-control-void"
+                            placeholder="you@example.com"
+                            required
+                            autocomplete="username"
+                        >
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="login-password">Password</label>
+                        <div class="pw-wrap">
+                            <input
+                                type="password"
+                                id="login-password"
+                                name="password"
+                                class="form-control-void"
+                                placeholder="••••••••"
+                                required
+                                autocomplete="current-password"
+                                style="padding-right:40px;"
+                            >
+                            <button type="button" class="pw-toggle" onclick="togglePwd('login-password','eye-icon')">
+                                <i class="fas fa-eye" id="eye-icon"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-void btn-void-primary w-100" style="justify-content:center;margin-top:4px;" id="login-submit">
+                        <i class="fas fa-arrow-right-to-bracket"></i> Sign In
+                    </button>
+                </form>
+
+                <div class="auth-divider">or</div>
+                <div class="auth-links">
+                    Don't have an account? <a href="/register/">Create one free</a>
+                </div>
+            </div>
+
+            <p style="text-align:center;font-size:0.76rem;color:var(--text-faint);margin-top:20px;">
+                WHMCS integration? <a href="/whmcs/module/" style="color:var(--accent);">View guide</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+function togglePwd(inputId, iconId) {
+    const input = document.getElementById(inputId);
+    const icon = document.getElementById(iconId);
+    input.type = input.type === 'password' ? 'text' : 'password';
+    icon.className = input.type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+}
+</script>
+</body>
+</html>

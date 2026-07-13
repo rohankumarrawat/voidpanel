@@ -1,0 +1,130 @@
+{% extends "super_admin_base.html" %}
+{% block title %}SSL Services Monitor | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}SSL Services{% endblock %}
+
+{% block admin_content %}
+<div class="sa-page-header">
+  <div>
+    <div class="sa-page-title">SSL Services Monitor</div>
+    <div class="sa-page-sub">Monitor all customer certificates — view expiry dates and manually trigger renewals</div>
+  </div>
+  <div class="sa-header-actions">
+    <div class="sa-stat-chip green"><span class="val">{{ active_count }}</span> Active</div>
+    <div class="sa-stat-chip amber"><span class="val">{{ failed_count }}</span> Failed</div>
+    <a href="/super-admin/ssl-plans/" class="sa-btn secondary"><i class="fas fa-lock"></i> Manage Plans</a>
+  </div>
+</div>
+
+{% if messages %}{% for m in messages %}
+<div class="sa-alert {% if m.tags == 'error' %}danger{% else %}success{% endif %}" style="margin-bottom:16px;padding:12px 16px;border-radius:10px;font-size:.88rem;">{{ m }}</div>
+{% endfor %}{% endif %}
+
+<!-- Filter bar -->
+<div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;">
+  <a href="?filter=all"      class="sa-btn {% if filter_mode == 'all' %}primary{% else %}secondary{% endif %}" style="font-size:.82rem;padding:6px 14px;">All ({{ total }})</a>
+  <a href="?filter=active"   class="sa-btn {% if filter_mode == 'active' %}primary{% else %}secondary{% endif %}" style="font-size:.82rem;padding:6px 14px;"><i class="fas fa-circle-check" style="color:#4ade80;margin-right:4px;"></i>Active ({{ active_count }})</a>
+  <a href="?filter=expiring" class="sa-btn {% if filter_mode == 'expiring' %}warning{% else %}secondary{% endif %}" style="font-size:.82rem;padding:6px 14px;"><i class="fas fa-triangle-exclamation" style="color:#f59e0b;margin-right:4px;"></i>Expiring ≤30 days</a>
+  <a href="?filter=failed"   class="sa-btn {% if filter_mode == 'failed' %}danger{% else %}secondary{% endif %}" style="font-size:.82rem;padding:6px 14px;"><i class="fas fa-circle-xmark" style="color:#f87171;margin-right:4px;"></i>Failed ({{ failed_count }})</a>
+</div>
+
+<div class="sa-card" style="padding:0;overflow:hidden;">
+  {% if ssl_services %}
+  <table style="width:100%;border-collapse:collapse;">
+    <thead>
+      <tr style="background:rgba(255,255,255,.03);">
+        <th style="padding:12px 16px;text-align:left;font-size:.72rem;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);">Customer</th>
+        <th style="padding:12px 16px;text-align:left;font-size:.72rem;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);">Domain</th>
+        <th style="padding:12px 16px;text-align:left;font-size:.72rem;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);">Plan / Type</th>
+        <th style="padding:12px 16px;text-align:left;font-size:.72rem;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);">Status</th>
+        <th style="padding:12px 16px;text-align:left;font-size:.72rem;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);">Issued</th>
+        <th style="padding:12px 16px;text-align:left;font-size:.72rem;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);">Expires</th>
+        <th style="padding:12px 16px;text-align:left;font-size:.72rem;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);">Server</th>
+        <th style="padding:12px 16px;text-align:left;font-size:.72rem;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);">Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for svc in ssl_services %}
+      <tr style="border-bottom:1px solid rgba(255,255,255,.04);" class="{% if svc.is_expiring_soon %}expiring-row{% endif %}">
+        <td style="padding:12px 16px;font-size:.84rem;">
+          <div style="font-weight:600;">{{ svc.user.get_full_name|default:svc.user.username }}</div>
+          <div style="font-size:.72rem;color:var(--text-3);">{{ svc.user.email }}</div>
+        </td>
+        <td style="padding:12px 16px;font-size:.84rem;">
+          <div style="font-weight:700;">{{ svc.domain }}</div>
+          {% if svc.san_domains %}<div style="font-size:.72rem;color:var(--text-3);">+{{ svc.san_domains|length }} SANs</div>{% endif %}
+        </td>
+        <td style="padding:12px 16px;font-size:.84rem;">
+          {% if svc.plan %}
+            <div style="font-weight:600;">{{ svc.plan.name }}</div>
+            {% if svc.plan.ssl_type == 'dv' %}<span class="sa-badge sky" style="font-size:.7rem;">DV</span>
+            {% elif svc.plan.ssl_type == 'wildcard' %}<span class="sa-badge violet" style="font-size:.7rem;">Wildcard</span>
+            {% else %}<span class="sa-badge amber" style="font-size:.7rem;">Multi</span>{% endif %}
+          {% else %}<span style="color:var(--text-3);">—</span>{% endif %}
+        </td>
+        <td style="padding:12px 16px;">
+          {% if svc.status == 'active' and svc.is_expiring_soon %}
+            <span class="sa-badge amber"><i class="fas fa-triangle-exclamation"></i> Expiring</span>
+            <div style="font-size:.72rem;color:#f59e0b;margin-top:3px;">{{ svc.days_until_expiry }}d left</div>
+          {% elif svc.status == 'active' %}
+            <span class="sa-badge green"><i class="fas fa-lock"></i> Active</span>
+            <div style="font-size:.72rem;color:var(--text-3);margin-top:3px;">{{ svc.days_until_expiry }} days left</div>
+          {% elif svc.status == 'failed' %}
+            <span class="sa-badge red">Failed</span>
+            {% if svc.notes %}<div style="font-size:.7rem;color:#f87171;margin-top:3px;">{{ svc.notes|truncatechars:40 }}</div>{% endif %}
+          {% elif svc.status == 'pending' %}
+            <span class="sa-badge gray">Pending</span>
+          {% elif svc.status == 'expired' %}
+            <span class="sa-badge red">Expired</span>
+          {% else %}
+            <span class="sa-badge gray">{{ svc.get_status_display }}</span>
+          {% endif %}
+        </td>
+        <td style="padding:12px 16px;font-size:.82rem;color:var(--text-2);">
+          {% if svc.issued_at %}{{ svc.issued_at|date:"M d, Y" }}{% else %}—{% endif %}
+        </td>
+        <td style="padding:12px 16px;font-size:.82rem;">
+          {% if svc.expires_at %}
+            <span style="{% if svc.is_expiring_soon %}color:#f59e0b;font-weight:700;{% else %}color:var(--text-2);{% endif %}">
+              {{ svc.expires_at|date:"M d, Y" }}
+            </span>
+          {% else %}—{% endif %}
+        </td>
+        <td style="padding:12px 16px;font-size:.8rem;color:var(--text-3);">
+          {% if svc.server %}{{ svc.server.name }}{% else %}<span style="color:#f59e0b;">No server</span>{% endif %}
+        </td>
+        <td style="padding:12px 16px;">
+          {% if svc.server %}
+          <form method="POST" action="/super-admin/ssl-services/" style="display:inline;">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="renew_ssl">
+            <input type="hidden" name="service_id" value="{{ svc.id }}">
+            <button class="sa-btn primary" type="submit" style="font-size:.78rem;padding:5px 12px;"
+                    onclick="return confirm('Renew SSL for {{ svc.domain }}? This runs certbot on the server.')">
+              <i class="fas fa-rotate"></i> Renew
+            </button>
+          </form>
+          {% else %}
+          <span style="font-size:.75rem;color:#f59e0b;">No server</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="sa-empty" style="padding:40px;">
+    <i class="fas fa-certificate"></i>
+    <div class="sa-empty-title">No SSL services found</div>
+    <div class="sa-empty-sub">
+      {% if filter_mode == 'expiring' %}No certificates expiring in the next 30 days.
+      {% elif filter_mode == 'failed' %}No failed certificates.
+      {% else %}No customers have purchased SSL plans yet.{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<style>
+.expiring-row { background: rgba(245,158,11,.03) !important; }
+</style>
+{% endblock %}

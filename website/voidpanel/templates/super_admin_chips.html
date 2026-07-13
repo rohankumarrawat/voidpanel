@@ -1,0 +1,186 @@
+{% extends "super_admin_base.html" %}
+{% block title %}Void Chips Settings — Super Admin{% endblock %}
+{% block admin_content %}
+<style>
+    :root {
+        --accent: #6366f1; --cyan: #22d3ee; --green: #10b981;
+        --yellow: #f59e0b; --red: #ef4444;
+        --card: rgba(255,255,255,0.04); --border: rgba(255,255,255,0.08);
+        --t1: #f1f5f9; --t2: #94a3b8; --t3: #475569;
+    }
+    .chips-root { padding: 32px 28px 80px; max-width: 900px; }
+    .chips-header { margin-bottom: 28px; }
+    .chips-header h1 { font-size:1.5rem; font-weight:900; color:var(--t1); }
+    .chips-header p  { color:var(--t2); font-size:0.88rem; margin-top:4px; }
+
+    .settings-card {
+        background: var(--card); border: 1px solid var(--border);
+        border-radius: 18px; padding: 28px 32px; margin-bottom: 24px;
+    }
+    .settings-card h2 {
+        font-size:1rem; font-weight:800; color:var(--t1);
+        margin-bottom:24px; display:flex; align-items:center; gap:10px;
+    }
+    .form-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;
+        margin-bottom: 24px;
+    }
+    .form-group label {
+        font-size:0.75rem; font-weight:700; text-transform:uppercase;
+        color:var(--t3); letter-spacing:0.06em; display:block; margin-bottom:6px;
+    }
+    .form-group input[type="number"] {
+        width:100%; background:rgba(255,255,255,0.06); border:1px solid var(--border);
+        color:var(--t1); padding:11px 14px; border-radius:10px;
+        font-size:0.95rem; font-family:inherit; outline:none; transition:0.2s;
+    }
+    .form-group input:focus { border-color:rgba(99,102,241,0.5); box-shadow:0 0 0 3px rgba(99,102,241,0.1); }
+    .form-group small { color:var(--t3); font-size:0.72rem; margin-top:5px; display:block; }
+
+    .btn-primary {
+        background:linear-gradient(135deg,var(--accent),var(--cyan)); border:none; color:#fff;
+        padding:10px 24px; border-radius:10px; cursor:pointer; font-size:0.88rem;
+        font-weight:700; transition:0.2s; display:inline-flex; align-items:center; gap:8px;
+    }
+    .btn-primary:hover { opacity:0.9; transform:translateY(-1px); }
+
+    /* Hero stat cards */
+    .stat-row { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:24px; }
+    .stat-card {
+        flex:1; min-width:200px; background:var(--card); border:1px solid var(--border);
+        border-radius:14px; padding:20px 24px;
+    }
+    .stat-card .label { font-size:0.72rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--t3); margin-bottom:8px; }
+    .stat-card .value { font-size:2rem; font-weight:900; color:var(--t1); }
+    .stat-card .sub   { font-size:0.78rem; color:var(--t2); margin-top:4px; }
+
+    .info-box {
+        background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2);
+        border-radius:14px; padding:20px 24px; margin-top:16px;
+    }
+    .info-box h3 { font-size:0.9rem; font-weight:700; color:var(--t1); margin-bottom:8px; }
+    .info-box p  { font-size:0.82rem; color:var(--t2); line-height:1.6; }
+    .info-box ul { font-size:0.82rem; color:var(--t2); padding-left:18px; line-height:1.9; }
+</style>
+
+<div class="chips-root">
+    <div class="chips-header">
+        <h1><i class="fa-solid fa-coins" style="color:#f59e0b;margin-right:10px;"></i>Void Chips / Credits Settings</h1>
+        <p>Configure how Void Credits (Chips) work across your customer portal — signup bonuses, exchange rate, and more.</p>
+    </div>
+
+    {% if messages %}
+    {% for msg in messages %}
+    <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);color:#34d399;padding:12px 18px;border-radius:12px;margin-bottom:20px;">
+        <i class="fa-solid fa-check-circle"></i> {{ msg }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- Live stats -->
+    <div class="stat-row">
+        <div class="stat-card">
+            <div class="label">Signup Bonus</div>
+            <div class="value" style="color:#f59e0b;">{{ pricing_settings.signup_bonus_chips|default:5000 }}</div>
+            <div class="sub">Chips given on registration</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Exchange Rate</div>
+            <div class="value" style="color:#22d3ee;">{{ pricing_settings.credits_per_rupee|default:100 }}</div>
+            <div class="sub">Chips = 1 ₹</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Bonus Value</div>
+            <div class="value" style="color:#10b981;">
+                ₹{% if pricing_settings.credits_per_rupee and pricing_settings.signup_bonus_chips %}{{ pricing_settings.signup_bonus_chips|floatformat:0 }}{% else %}50{% endif %}
+            </div>
+            <div class="sub">Equivalent INR per new user</div>
+        </div>
+    </div>
+
+    <!-- Settings Form -->
+    <div class="settings-card">
+        <h2><i class="fa-solid fa-sliders" style="color:var(--accent);"></i> Configuration</h2>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update_settings">
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Signup Bonus Chips</label>
+                    <input type="number" name="signup_bonus_chips"
+                           value="{{ pricing_settings.signup_bonus_chips|default:5000 }}"
+                           min="0" max="10000000" step="100" required>
+                    <small>Number of Void Chips automatically granted to every new user upon registration. Set to 0 to disable the bonus.</small>
+                </div>
+                <div class="form-group">
+                    <label>Credits Per Rupee</label>
+                    <input type="number" name="credits_per_rupee"
+                           value="{{ pricing_settings.credits_per_rupee|default:100 }}"
+                           min="1" max="100000" step="1" required>
+                    <small>How many Chips equal 1 Indian Rupee. This controls purchasing power when customers use Chips to pay invoices.</small>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-primary">
+                <i class="fa-solid fa-save"></i> Save Chips Settings
+            </button>
+        </form>
+    </div>
+
+    <!-- Balance Adjustment Form -->
+    <div class="settings-card">
+        <h2><i class="fa-solid fa-user-gear" style="color:var(--accent);"></i> Adjust Client Balance (Chips / Funds)</h2>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="adjust_balance">
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Select User</label>
+                    <select name="user_id" style="width:100%; background:rgba(255,255,255,0.06); border:1px solid var(--border); color:var(--t1); padding:11px 14px; border-radius:10px; font-size:0.95rem; font-family:inherit; outline:none;" required>
+                        <option value="">-- Choose User --</option>
+                        {% for u in users %}
+                            <option value="{{ u.id }}">{{ u.username }} ({{ u.email }}) — Coins: {{ u.customer_profile.balance_chips|default:"0" }} / Funds: ₹{{ u.customer_profile.balance_funds|default:"0.00" }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Balance Type</label>
+                    <select name="change_type" style="width:100%; background:rgba(255,255,255,0.06); border:1px solid var(--border); color:var(--t1); padding:11px 14px; border-radius:10px; font-size:0.95rem; font-family:inherit; outline:none;" required>
+                        <option value="chips">Chips / Coins</option>
+                        <option value="funds">Funds (INR)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Operation</label>
+                    <select name="operation" style="width:100%; background:rgba(255,255,255,0.06); border:1px solid var(--border); color:var(--t1); padding:11px 14px; border-radius:10px; font-size:0.95rem; font-family:inherit; outline:none;" required>
+                        <option value="add">Add (+)</option>
+                        <option value="deduct">Deduct (-)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Amount</label>
+                    <input type="number" name="amount" min="1" step="any" placeholder="e.g. 500" style="width:100%; background:rgba(255,255,255,0.06); border:1px solid var(--border); color:var(--t1); padding:11px 14px; border-radius:10px; font-size:0.95rem; font-family:inherit; outline:none;" required>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-primary" style="background:linear-gradient(135deg, #10b981, #059669);">
+                <i class="fa-solid fa-scale-balanced"></i> Apply Adjustment
+            </button>
+        </form>
+    </div>
+
+    <!-- Explanation box -->
+    <div class="info-box">
+        <h3><i class="fa-solid fa-circle-info" style="color:var(--accent);margin-right:8px;"></i>How Void Chips Work</h3>
+        <ul>
+            <li><strong>Signup Bonus</strong> — When a new user registers, they receive this many Chips automatically.</li>
+            <li><strong>Exchange Rate</strong> — Customers can use Chips to pay invoices. The rate determines how much ₹ value each Chip holds.</li>
+            <li><strong>Example:</strong> With a rate of <strong>100</strong> and a bonus of <strong>5000</strong>, new users get ₹50 in credit.</li>
+            <li>Chips cannot be used for domain registrations or transfers.</li>
+            <li>Admins can manually adjust a customer's Chips balance from <a href="/super-admin/clients/" style="color:var(--accent);">Super Admin → Clients</a>.</li>
+        </ul>
+    </div>
+</div>
+{% endblock admin_content %}

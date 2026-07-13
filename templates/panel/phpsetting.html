@@ -1,802 +1,610 @@
 <!doctype html>
 <html lang="en">
-
 <head>
-    <title>:: VoidPanel :: PHP</title>
+    <title>:: VoidPanel :: PHP Settings</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="VoidPanel PHP ">
-    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
-    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
-
-    <!-- VENDOR CSS -->
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
     <style>
-        /* Basic styling for the p tag */
-        p.processing {
-            font-size: 18px;
-            font-weight: bold;
+        html[data-theme="light"] {
+            --neon: #0891b2;
+            --purple: #7c3aed;
+            --amber: #d97706;
+            --green: #059669;
+            --glass-bg: rgba(255,255,255,0.92);
+            --glass-border: rgba(8,145,178,0.18);
+            --text-dim: #475569;
+            --page-bg: #f1f5f9;
+            --head-color: #0f172a;
+            --card-text: #0f172a;
+            --input-bg: rgba(8,145,178,0.05);
+            --input-color: #0f172a;
+            --option-bg: #ffffff;
+        }
+        html[data-theme="dark"] {
+            --neon: #00e5ff;
+            --purple: #a855f7;
+            --amber: #f59e0b;
+            --green: #22c55e;
+            --glass-bg: rgba(15,20,40,0.85);
+            --glass-border: rgba(0,229,255,0.13);
+            --text-dim: rgba(180,200,230,0.7);
+            --page-bg: #080c1a;
+            --head-color: #fff;
+            --card-text: #fff;
+            --input-bg: rgba(0,229,255,0.07);
+            --input-color: #e4eaf8;
+            --option-bg: #0b1120;
+        }
+        body { font-family:'Inter',sans-serif; background:var(--page-bg) !important; }
 
+        .page-header { padding:28px 0 8px; }
+        .page-header h2 { font-size:1.55rem; font-weight:700; color:var(--head-color); margin-bottom:4px; }
+        .breadcrumb { background:transparent; padding:0; margin:0; }
+        .breadcrumb-item, .breadcrumb-item a { font-size:.8rem; color:var(--text-dim); }
+        .breadcrumb-item.active { color:var(--neon); }
+
+        /* Tabs bar */
+        .php-tabs { display:flex; gap:0; border-bottom:2px solid rgba(0,229,255,.12); margin-bottom:28px; }
+        .php-tab-btn {
+            padding:12px 24px; background:none; border:none; color:var(--text-dim); font-family:'Inter',sans-serif;
+            font-size:.85rem; font-weight:500; cursor:pointer; position:relative; transition:color .2s;
+        }
+        .php-tab-btn.active { color:var(--neon); }
+        .php-tab-btn::after {
+            content:''; position:absolute; bottom:-2px; left:0; right:0; height:2px;
+            background:var(--neon); transform:scaleX(0); transition:transform .22s;
+        }
+        .php-tab-btn.active::after { transform:scaleX(1); }
+        .php-tab-btn i { margin-right:7px; }
+
+        .php-tab-pane { display:none; }
+        .php-tab-pane.active { display:block; }
+
+        /* Glass card base */
+        .glass-card {
+            background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:18px;
+            backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); padding:28px 32px;
+            position:relative; overflow:hidden;
+        }
+        .glass-card::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(0,229,255,.04) 0%,transparent 60%); pointer-events:none; }
+
+        /* Card header row */
+        .card-head { display:flex; align-items:center; gap:14px; margin-bottom:24px; }
+        .card-head-icon {
+            width:44px; height:44px; border-radius:11px; background:linear-gradient(135deg,rgba(0,229,255,.18),rgba(168,85,247,.18));
+            border:1px solid rgba(0,229,255,.2); display:flex; align-items:center; justify-content:center; font-size:1.1rem; color:var(--neon);
+            animation: iconPulse 2.5s ease infinite;
+        }
+        @keyframes iconPulse { 0%,100%{box-shadow:0 0 0 0 rgba(0,229,255,.25)}50%{box-shadow:0 0 0 8px rgba(0,229,255,0)} }
+        .card-head-title { font-size:1rem; font-weight:600; color:var(--card-text); }
+        .card-head-sub { font-size:.76rem; color:var(--text-dim); margin-top:2px; }
+
+        /* PHP version grid */
+        .ver-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:14px; }
+        .ver-card {
+            background:rgba(0,229,255,.05); border:1px solid rgba(0,229,255,.12); border-radius:13px;
+            padding:16px 18px; display:flex; flex-direction:column; gap:10px; transition:border-color .22s,box-shadow .22s;
+        }
+        .ver-card:hover { border-color:rgba(0,229,255,.35); box-shadow:0 0 15px rgba(0,229,255,.08); }
+        .ver-badge { display:inline-flex; align-items:center; gap:6px; font-size:.82rem; font-weight:600; }
+        .ver-badge.installed { color:var(--green); }
+        .ver-badge.available { color:var(--text-dim); }
+        .ver-badge.installing { color:var(--amber); }
+        .ver-status { font-size:.72rem; color:var(--text-dim); }
+        .btn-install {
+            width:100%; padding:8px; background:linear-gradient(135deg,rgba(0,229,255,.15),rgba(168,85,247,.15));
+            border:1px solid rgba(0,229,255,.3); border-radius:8px; color:var(--neon); font-size:.78rem;
+            font-family:'Inter',sans-serif; font-weight:500; cursor:pointer; transition:all .2s;
+        }
+        .btn-install:hover { background:rgba(0,229,255,.25); }
+        .btn-install:disabled { opacity:.35; cursor:not-allowed; }
+
+        /* Extension toggles */
+        .ext-header { display:flex; align-items:center; gap:14px; margin-bottom:20px; flex-wrap:wrap; }
+        .ext-search-wrap { position:relative; flex:1; min-width:180px; }
+        .ext-search-wrap i { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:rgba(0,229,255,.5); font-size:.82rem; }
+        .ext-search {
+            width:100%; background:var(--input-bg); border:1px solid rgba(0,229,255,.2); border-radius:8px;
+            color:var(--input-color); font-family:'Inter',sans-serif; font-size:.83rem; padding:8px 12px 8px 34px; outline:none;
+        }
+        .ext-search:focus { border-color:var(--neon); }
+        .ver-select {
+            background:var(--input-bg); border:1px solid rgba(0,229,255,.2); border-radius:8px;
+            color:var(--input-color); font-family:'Inter',sans-serif; font-size:.83rem; padding:8px 14px; outline:none;
+            appearance: none;
+        }
+        .ver-select:focus { border-color:var(--neon); }
+        .ver-select option { background:var(--option-bg); }
+
+        .ext-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:10px; }
+        .ext-item {
+            display:flex; align-items:center; justify-content:space-between; gap:10px;
+            background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.06); border-radius:9px;
+            padding:12px 14px; transition: border-color .2s;
+        }
+        .ext-item:hover { border-color:rgba(0,229,255,.2); }
+        .ext-name { font-size:.8rem; color:#e4eaf8; font-weight:500; }
+        .ext-state { font-size:.7rem; margin-top:2px; }
+        .ext-state.on  { color:var(--green); }
+        .ext-state.off { color:var(--text-dim); }
+
+        /* Toggle switch */
+        .toggle-wrap { position:relative; flex-shrink:0; }
+        .toggle-input { opacity:0; width:0; height:0; position:absolute; }
+        .toggle-label {
+            display:block; width:38px; height:20px; background:rgba(255,255,255,.12); border-radius:10px;
+            cursor:pointer; transition:background .25s; position:relative;
+        }
+        .toggle-label::after {
+            content:''; position:absolute; top:3px; left:3px; width:14px; height:14px;
+            background:#fff; border-radius:50%; transition:transform .25s;
+        }
+        .toggle-input:checked + .toggle-label { background:var(--neon); }
+        .toggle-input:checked + .toggle-label::after { transform:translateX(18px); }
+
+        /* PHP INI editor */
+        .ini-version-tabs { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:20px; }
+        .ini-ver-btn {
+            padding:6px 16px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
+            border-radius:7px; color:var(--text-dim); font-family:'Inter',sans-serif; font-size:.78rem;
+            font-weight:500; cursor:pointer; transition:all .2s;
+        }
+        .ini-ver-btn.active { background:rgba(0,229,255,.12); border-color:rgba(0,229,255,.35); color:var(--neon); }
+
+        .ini-editor-pane { display:none; }
+        .ini-editor-pane.active { display:block; }
+        .ini-toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px; }
+        .ini-toolbar-left { display:flex; align-items:center; gap:8px; }
+        .ini-btn {
+            padding:8px 18px; border-radius:8px; border:none; font-family:'Inter',sans-serif;
+            font-size:.8rem; font-weight:600; cursor:pointer; transition:opacity .18s;
+        }
+        .ini-btn:hover { opacity:.8; }
+        .ini-btn-save { background:linear-gradient(135deg,#00e5ff,#0ea5e9); color:#fff; }
+        .ini-btn-reset { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15); color:var(--text-dim); }
+
+        .ini-textarea {
+            width:100%; min-height:480px; background:rgba(0,0,0,.35); border:1px solid rgba(0,229,255,.15);
+            border-radius:10px; color:#b8ffff; font-family:'JetBrains Mono',monospace; font-size:.78rem;
+            line-height:1.6; padding:18px; resize:vertical; outline:none; transition:border-color .2s;
+        }
+        .ini-textarea:focus { border-color:rgba(0,229,255,.45); }
+
+        /* Saving spinner inside button */
+        .ini-btn-save .fa-spin { display:none; }
+        .ini-btn-save.loading .fa-spin { display:inline-block; }
+        .ini-btn-save.loading .fa-save { display:none; }
+
+        /* Field */
+        .field-wrap { margin-bottom:16px; }
+        .field-wrap label { display:block; font-size:.75rem; font-weight:500; color:var(--text-dim); margin-bottom:6px; }
+        .form-control {
+            background:var(--input-bg) !important; border:1px solid rgba(0,229,255,.22) !important;
+            border-radius:9px; color:var(--input-color) !important; font-family:'Inter',sans-serif; font-size:.85rem;
+            padding:10px 14px; outline:none;
         }
 
-        /* Animation for the dots */
-        .dots::after {
-            content: '';
-            display: inline-block;
-            width: 1em;
-            text-align: left;
-            animation: dots 1.5s steps(4, end) infinite;
+        /* Toast notification */
+        #phpToast {
+            position:fixed; bottom:28px; right:28px; z-index:9999;
+            background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:12px;
+            padding:14px 20px; display:flex; align-items:center; gap:12px; min-width:260px;
+            box-shadow:0 8px 30px rgba(0,0,0,.35); transform:translateY(80px); opacity:0;
+            transition:all .35s cubic-bezier(0.16,1,0.3,1);
         }
-
-        /* Keyframes for the dots animation */
-        @keyframes dots {
-
-            0%,
-            100% {
-                content: '';
-            }
-
-            25% {
-                content: '.';
-            }
-
-            50% {
-                content: '..';
-            }
-
-            75% {
-                content: '...';
-            }
-        }
+        #phpToast.show { transform:translateY(0); opacity:1; }
+        .toast-icon { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:.85rem; }
+        .toast-icon.success { background:rgba(34,197,94,.12); color:var(--green); }
+        .toast-icon.error   { background:rgba(239,68,68,.12); color:#ef4444; }
+        .toast-icon.info    { background:rgba(0,229,255,.12); color:var(--neon); }
+        .toast-body .title { font-size:.82rem; font-weight:600; color:var(--card-text); }
+        .toast-body .msg   { font-size:.75rem; color:var(--text-dim); margin-top:2px; }
     </style>
-
-    <!-- MAIN Project CSS file -->
-    <link rel="stylesheet" href="/static/assets/css/main.css">
-
-    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
-
-    <style>
-        .myname {
-            border-radius: 30px;
-            box-shadow: inset;
-            border-width: 4px;
-
-
-        }
-
-        .text-container {
-
-            border: 1px solid #ccc;
-
-            word-wrap: break-word;
-            /* Force text to wrap */
-            white-space: normal;
-            /* Ensure normal wrapping */
-            overflow-wrap: break-word;
-            /* Ensure long words break */
-        }
-    </style>
-
 </head>
 
-<body data-theme="light" class="font-nunito">
+<body class="font-nunito active-dark-mode">
+<div id="wrapper" class="theme-cyan">
 
-    <div id="wrapper" class="theme-cyan">
-
-        <!-- Page Loader -->
-        <div class="page-loader-wrapper">
-            <div class="loader">
-                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
-                </div>
-                <p>Please wait...</p>
+        <div class="page-loader-wrapper" style="background: var(--void-bg, #080c14) !important;">
+        <div class="loader">
+            <div class="m-t-30" style="display: flex; justify-content: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="130" height="30" viewBox="0 0 180 40" role="img" aria-label="VoidPanel">
+                  <rect x="0" y="4" width="34" height="34" rx="8" ry="8" fill="rgba(255,255,255,0.12)"/>
+                  <rect x="7" y="13" width="20" height="4" rx="1.5" fill="#ffffff" opacity="0.9"/>
+                  <rect x="7" y="19.5" width="14" height="4" rx="1.5" fill="#ffffff" opacity="0.65"/>
+                  <rect x="7" y="26" width="10" height="4" rx="1.5" fill="#60a5fa" opacity="0.95"/>
+                  <text x="43" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#ffffff">Void</text>
+                  <text x="91" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#60a5fa">Panel</text>
+                </svg>
             </div>
+            <div class="loading-bar-container">
+                <div class="loading-bar"></div>
+            </div>
+            <p style="color: var(--text-secondary, #475569) !important;">Please wait...</p>
         </div>
+    </div>
 
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
 
+    <div id="main-content">
+        <div class="container-fluid">
 
-        {% include 'navbar.html' %}
+            <div class="page-header">
+                <h2><i class="fa fa-code" style="color:var(--neon);margin-right:10px;"></i>PHP Settings</h2>
+                <ul class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/"><i class="fa fa-home"></i> Dashboard</a></li>
+                    <li class="breadcrumb-item active">PHP Management</li>
+                </ul>
+            </div>
 
-        <!-- main left menu -->
-        {% include 'left.html' %}
-        <!-- rightbar icon div -->
-        {% include 'right.html' %}
+            <!-- Tab bar -->
+            <div class="php-tabs">
+                <button class="php-tab-btn active" onclick="switchTab('versions',this)">
+                    <i class="fa fa-download"></i>Install Versions
+                </button>
+                <button class="php-tab-btn" onclick="switchTab('extensions',this)">
+                    <i class="fa fa-puzzle-piece"></i>Extensions
+                </button>
+                <button class="php-tab-btn" onclick="switchTab('phpini',this)">
+                    <i class="fa fa-file-code-o"></i>PHP INI Editor
+                </button>
+            </div>
 
-
-        <!-- mani page content body part -->
-
-        <div id="main-content">
-
-            <div class="container-fluid">
-                <div class="block-header">
-                    <div class="row">
-                        <div class="col-lg-6 col-md-6 col-sm-12">
-                            <h2>User Profile</h2>
-                            <ul class="breadcrumb">
-                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
-                                </li>
-                                <li class="breadcrumb-item">Dashboard</li>
-                                <li class="breadcrumb-item active">PHP Versions</li>
-                            </ul>
+            <!-- ═══════════════════ TAB 1: PHP Versions ═══════════════════ -->
+            <div id="tab-versions" class="php-tab-pane active">
+                <div class="glass-card">
+                    <div class="card-head">
+                        <div class="card-head-icon"><i class="fa fa-download"></i></div>
+                        <div>
+                            <div class="card-head-title">PHP Version Management</div>
+                            <div class="card-head-sub">Install new PHP versions or manage installed ones.</div>
                         </div>
+                    </div>
 
+                    <div class="ver-grid">
+                        <!-- Installed versions -->
+                        {% for v in installed %}
+                        <div class="ver-card">
+                            <div>
+                                <div class="ver-badge installed">
+                                    <i class="fa fa-check-circle"></i> PHP {{v.name}}
+                                </div>
+                                <div class="ver-status">Installed &amp; Active</div>
+                            </div>
+                            <button class="btn-install" disabled>&#10003; Installed</button>
+                        </div>
+                        {% endfor %}
+
+                        <!-- Available versions -->
+                        {% for v in available %}
+                        <div class="ver-card" id="ver-card-{{v|slugify}}">
+                            <div>
+                                <div class="ver-badge available" id="ver-badge-{{v|slugify}}">
+                                    <i class="fa fa-circle-o"></i> PHP {{v}}
+                                </div>
+                                <div class="ver-status" id="ver-status-{{v|slugify}}">Available to install</div>
+                            </div>
+                            <button class="btn-install" id="ver-btn-{{v|slugify}}"
+                                onclick="installVersion('{{v}}', this)">
+                                <i class="fa fa-download"></i> Install
+                            </button>
+                        </div>
+                        {% endfor %}
+
+                        {% if not installed and not available %}
+                        <div style="color:var(--text-dim);font-size:.85rem;padding:10px;">
+                            All PHP versions are installed.
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
-
-                <div class="row clearfix">
-                    <div class="col-lg-12">
-                        <div class="">
-                            <div class="body">
-                                <ul class="nav nav-tabs">
-                                    <li class="nav-item"><a class="nav-link active" data-toggle="tab"
-                                            href="#Settings">Install PHP Version</a></li>
-                                    <li class="nav-item"><a class="nav-link" data-toggle="tab"
-                                            href="#billings">Extentions</a></li>
-
-                                    <li class="nav-item"><a class="nav-link" data-toggle="tab" href="#ini">PHP INI</a>
-                                    </li>
-                                </ul>
-                            </div>
-                            <div class="tab-content">
-
-                                <div class="tab-pane active" id="Settings">
-
-
-                                    <form id="adddbform" method="post" action="">{% csrf_token %}
-                                        <div class="body">
-                                            <h6>Select PHP Version</h6>
-                                            <p id="pro" style="display: none;" class="processing">Processing<span
-                                                    class="dots"></span>
-                                            </p>
-                                            <div class="row clearfix">
-                                                <div class="col-lg-6 col-md-12">
-                                                    <div class="form-group">
-                                                        <select class="form-control" name="php">
-                                                            {% for i in available %}
-                                                            <option value="{{i}}">{{i}}</option>
-                                                            {% endfor %}
-
-                                                            {% for i in installed %}
-                                                            <option disabled value="{{i.name}}">{{i.name}} Installed
-                                                            </option>
-                                                            {% endfor %}
-                                                        </select>
-                                                    </div>
-
-
-                                                </div>
-
-                                            </div>
-                                            <button onclick="install(event);" type="button"
-                                                class="btn btn-primary">Install</button> &nbsp;&nbsp;
-
-                                        </div>
-
-
-                                    </form>
-
-                                </div>
-
-                                <div class="tab-pane" id="billings">
-
-
-
-                                    <div class="body">
-                                        <h6>Extentions</h6>
-                                        <form id="exte" method="post" action="">{% csrf_token %}
-                                            <div class="body">
-                                                <h6>Search PHP Extention</h6>
-                                                <p id="pro33" style="display: none;" class="processing">Processing<span
-                                                        class="dots"></span>
-                                                </p>
-
-
-
-                                                <div class="row clearfix">
-                                                    <div class="col-lg-6 col-md-12">
-                                                        <div class="form-group">
-                                                            <select id="versionname" onchange="display();"
-                                                                class="form-control" name="jerer">
-                                                                <option selected>Select s Version</option>
-
-
-                                                                {% for i in installed %}
-                                                                <option value="{{i.name}}">{{i.name}} Installed
-                                                                </option>
-                                                                {% endfor %}
-                                                            </select>
-                                                        </div>
-
-
-                                                    </div>
-
-                                                </div>
-
-
-                                                <div class="row clearfix" style="margin-top: 10px;">
-                                                    {% for i, j in extentionname.items %}
-                                                    <div class="col-lg-12 col-md-6" id="{{ i }}"
-                                                        style="margin-top: 5px; display: none;">
-                                                        {% for i1, x in j.items %}
-                                                        <div class="col-lg-2 col-md-4"
-                                                            style="margin-top: 10px; display: inline-block; padding: 0 5px;">
-                                                            {% if x == 0 %}
-                                                            <li
-                                                                class="d-flex justify-content-between list-group-item align-items-center">
-                                                                <h6 class="mb-0">{{ i1 }}</h6>
-                                                                <label class="toggle-switch">
-                                                                    <input id="{{ i1 }}"
-                                                                        onchange="checkboxChanged(event,'{{i1}}','on','{{i}}');"
-                                                                        value="{{i1}}" type="checkbox">
-                                                                    <span class="toggle-switch-slider"></span>
-                                                                </label>
-                                                            </li>
-                                                            {% else %}
-                                                            <li
-                                                                class="d-flex justify-content-between list-group-item align-items-center">
-                                                                <h6 class="mb-0">{{ i1 }}</h6>
-                                                                <label class="toggle-switch">
-                                                                    <input id="{{ i1 }}" checked
-                                                                        onchange="checkboxChanged(event,'{{i1}}','off','{{i}}')"
-                                                                        value="{{i1}}" type="checkbox">
-                                                                    <span class="toggle-switch-slider"></span>
-                                                                </label>
-                                                            </li>
-                                                            {% endif %}
-                                                        </div>
-                                                        {% endfor %}
-                                                    </div>
-                                                    {% endfor %}
-                                                </div>
-
-
-                                            </div>
-
-
-
-
-
-
-
-                                    </div>
-
-
-                                    </form>
-
-                                </div>
-
-
-                                <div class="tab-pane" id="ini">
-
-
-
-                                    <div class="body">
-                                        <h6>PHP INI</h6>
-                                        <form id="exte" method="post" action="">{% csrf_token %}
-                                            <div class="body">
-                                                <h6>Search PHP Version</h6>
-                                                <p id="pro23" style="display: none;" class="processing">Processing<span
-                                                        class="dots"></span>
-                                                </p>
-
-
-
-                                                <div class="row clearfix">
-                                                    <div class="col-lg-6 col-md-12">
-                                                        <div class="form-group">
-                                                            <select id="ininame" onchange="displayini();"
-                                                                class="form-control" name="jerer">
-                                                                <option selected>Select  Version</option>
-
-
-                                                                {% for i in installed %}
-                                                                <option value="{{i.name}}1">{{i.name}} Installed
-                                                                </option>
-                                                                {% endfor %}
-                                                            </select>
-                                                        </div>
-
-
-                                                    </div>
-                                                    <form action="" method="post">{% csrf_token %}
-                                                    {% for i, j in phpini.items %}
-                                                    <div class="col-lg-12 col-md-6" id="{{ i }}1"
-                                                        style="margin-top: 5px; display: none;">
-                                                        <textarea name="{{i}}"  rows="90" cols="100">{{j}}</textarea><br>
-                                                        <button type="submit"  class="btn btn-success me-2" >Save PHPini</button>
-                                                
-                                                    </div>
-                                                    {% endfor %}
-                                                </form>
-                                                </div>
-
-
-                                                
-
-
-                                            </div>
-
-
-
-
-
-
-
-                                    </div>
-
-
-                                    </form>
-
-                                </div>
-
-                            </div>
+            </div>
+
+            <!-- ═══════════════════ TAB 2: Extensions ═══════════════════ -->
+            <div id="tab-extensions" class="php-tab-pane">
+                <div class="glass-card">
+                    <div class="card-head">
+                        <div class="card-head-icon" style="color:#a855f7;"><i class="fa fa-puzzle-piece"></i></div>
+                        <div>
+                            <div class="card-head-title">PHP Extensions</div>
+                            <div class="card-head-sub">Toggle extensions for each installed PHP version.</div>
+                        </div>
+                    </div>
+
+                    <div class="ext-header">
+                        <select class="ver-select" id="extVersionSelect" onchange="filterExtensions()">
+                            <option value="">Select PHP Version...</option>
+                            {% for v in installed %}
+                            <option value="{{ v.name }}">PHP {{ v.name }}</option>
+                            {% endfor %}
+                        </select>
+
+                        <div class="ext-search-wrap">
+                            <i class="fa fa-search"></i>
+                            <input type="text" class="ext-search" id="extSearch"
+                                placeholder="Search extensions..." oninput="filterExtensions()">
+                        </div>
+                    </div>
+
+                    <div id="extPanel" class="ext-grid">
+                        <div style="color:var(--text-dim);font-size:.85rem;padding:10px;grid-column:1/-1;">
+                            Select a PHP version above to manage its extensions.
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Status</h6>
+            <!-- ═══════════════════ TAB 3: PHP INI ═══════════════════ -->
+            <div id="tab-phpini" class="php-tab-pane">
+                <div class="glass-card">
+                    <div class="card-head">
+                        <div class="card-head-icon" style="color:var(--amber);"><i class="fa fa-file-code-o"></i></div>
+                        <div>
+                            <div class="card-head-title">PHP INI Editor</div>
+                            <div class="card-head-sub">Edit php.ini directly. FPM reloads automatically on save.</div>
+                        </div>
                     </div>
 
-                    <div class="modal-body">
-                        <div class="col-md-12 col-sm-12">
-                            <div id="statusemail" style="text-align: center;" class="row clearfix">
+                    {% if phpini %}
+                    <div class="ini-version-tabs">
+                        {% for ver, content in phpini.items %}
+                        <button class="ini-ver-btn {% if forloop.first %}active{% endif %}"
+                            onclick="switchIniTab('{{ver}}', this)">
+                            PHP {{ver}}
+                        </button>
+                        {% endfor %}
+                    </div>
 
-
-
+                    {% for ver, content in phpini.items %}
+                    <div class="ini-editor-pane {% if forloop.first %}active{% endif %}" id="ini-pane-{{ver|slugify}}">
+                        <div class="ini-toolbar">
+                            <div class="ini-toolbar-left">
+                                <span style="font-size:.78rem;color:var(--text-dim);">
+                                    <i class="fa fa-hdd-o" style="color:var(--neon);margin-right:5px;"></i>
+                                    /etc/php/{{ver}}/fpm/php.ini
+                                </span>
+                            </div>
+                            <div style="display:flex;gap:10px;">
+                                <button class="ini-btn ini-btn-reset" onclick="resetIni('{{ver}}')">
+                                    <i class="fa fa-undo"></i> Reset
+                                </button>
+                                <button class="ini-btn ini-btn-save" id="save-btn-{{ver|slugify}}"
+                                    onclick="saveIni('{{ver}}', this)">
+                                    <i class="fa fa-save"></i>
+                                    <i class="fa fa-circle-o-notch fa-spin"></i>
+                                    Save &amp; Reload FPM
+                                </button>
                             </div>
                         </div>
-                        <div class="modal-footer">
-                            <button onclick="closeelol();" class="btn btn-danger">Close</button>
-                        </div>
+                        <textarea class="ini-textarea" id="ini-ta-{{ver|slugify}}" spellcheck="false">{{content}}</textarea>
                     </div>
+                    {% endfor %}
 
+                    {% else %}
+                    <div style="color:var(--text-dim);font-size:.85rem;padding:16px;text-align:center;">
+                        <i class="fa fa-info-circle" style="color:var(--neon);margin-right:6px;"></i>
+                        No PHP versions installed yet. Install a version first.
+                    </div>
+                    {% endif %}
                 </div>
             </div>
+
         </div>
-        
-
-        <script>
-            function closeelol() {
-                document.getElementById('eeee').style.display = 'none';
-            }
-        </script>
     </div>
+</div>
+
+<!-- Toast -->
+<div id="phpToast">
+    <div class="toast-icon" id="toastIcon"></div>
+    <div class="toast-body">
+        <div class="title" id="toastTitle"></div>
+        <div class="msg" id="toastMsg"></div>
     </div>
-    </div>
-    
-    <script>
-          function saveFile(event,data,php) {
-              // Prevent default behavior (e.g., form submission)
-              if (event) {
-                  event.preventDefault();
-              }
-              console.log(data);
-              alert(php);
+</div>
 
-            //   document.getElementById('pro1').style.display="block";
-                
-            //   var content = editor.getValue();
-            //   var path = "{{ request.path|cut:'/editor_view/' }}";
-  
-            //   fetch('/save/', {
-            //       method: 'POST',
-            //       headers: {
-            //           'Content-Type': 'application/json',
-            //           'X-CSRFToken': '{{ csrf_token }}'
-            //       },
-            //       body: JSON.stringify({ content: content, path: path })
-            //   })
-            //   .then(response => response.json())
-            //   .then(data => {
-            //     if (data.status === 'success') {
-            //         document.getElementById('pro1').style.display="none";
-            //         document.getElementById('saved').style.display='block';
-            //     } else {
-            //         document.getElementById('pro1').style.display="none";
-            //         document.getElementById('error').style.display='block';
-
-            //     }
-            // })
-            // .catch(error => {
-            //     console.error('Error saving file:', error);
-            //     document.getElementById('error').style.display='block';
-            // });
-          };
-        function display() {
-            const versionname = document.getElementById('versionname').value;
-            try{
-  
-                document.getElementById('8.4').style.display = 'none';
-            }
-            catch(error){
-
-            }
-            try{
-                document.getElementById('8.3').style.display = 'none';
-}
-catch(error){
-
-}
-try{
-    document.getElementById('8.2').style.display = 'none';
-}
-catch(error){
-
-}
-try{
-    document.getElementById('8.1').style.display = 'none';
-}
-catch(error){
-
-}
-try{
-    document.getElementById('7.4').style.display = 'none';
-}
-catch(error){
-
-}
-try{
-    document.getElementById('7.3').style.display = 'none';
-}
-catch(error){
-
-}
-try{
-    document.getElementById('7.2').style.display = 'none';
-}
-catch(error){
-
-}
-try{
-    document.getElementById('7.1').style.display = 'none';
-}
-catch(error){
-
-}
-try{
-    document.getElementById('5.6').style.display = 'none';
-}
-catch(error){
-
-}
-       
-           
-            
-            
-         
-      
-       
-          
-            document.getElementById(versionname).style.display = 'block';
-        }
-    </script>
-
+<!-- Extension data from server (JSON) -->
 <script>
-    function displayini() {
-        const versionnamee = document.getElementById('ininame').value;
+const EXT_DATA = {
+    {% for v in installed %}
+    "{{ v.name }}": {
+        {% for name, state in extentionname.items %}
+            {% if name == v.name %}
+                {% for ext_name, ext_state in state.items %}
+                "{{ ext_name }}": {{ ext_state }},
+                {% endfor %}
+            {% endif %}
+        {% endfor %}
+    },
+    {% endfor %}
+};
 
-   
-        try{
-  
-  document.getElementById('8.41').style.display = 'none';
-}
-catch(error){
+const CSRF = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '{{ csrf_token }}';
 
-}
-try{
-  document.getElementById('8.31').style.display = 'none';
-}
-catch(error){
-
-}
-try{
-document.getElementById('8.21').style.display = 'none';
-}
-catch(error){
-
-}
-try{
-document.getElementById('8.11').style.display = 'none';
-}
-catch(error){
-
-}
-try{
-document.getElementById('7.41').style.display = 'none';
-}
-catch(error){
-
-}
-try{
-document.getElementById('7.31').style.display = 'none';
-}
-catch(error){
-
-}
-try{
-document.getElementById('7.21').style.display = 'none';
-}
-catch(error){
-
-}
-try{
-document.getElementById('7.11').style.display = 'none';
-}
-catch(error){
-
-}
-try{
-document.getElementById('5.61').style.display = 'none';
-}
-catch(error){
-
+// ─── Toast ───
+let toastTimer;
+function toast(type, title, msg) {
+    clearTimeout(toastTimer);
+    const t = document.getElementById('phpToast');
+    const icons = { success:'check', error:'times', info:'info' };
+    document.getElementById('toastIcon').innerHTML = `<i class="fa fa-${icons[type]||'info'}"></i>`;
+    document.getElementById('toastIcon').className = `toast-icon ${type}`;
+    document.getElementById('toastTitle').textContent = title;
+    document.getElementById('toastMsg').textContent = msg;
+    t.classList.add('show');
+    toastTimer = setTimeout(() => t.classList.remove('show'), 4500);
 }
 
-        document.getElementById(versionnamee).style.display = 'block';
+// ─── Tabs ───
+function switchTab(name, btn) {
+    document.querySelectorAll('.php-tab-pane').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.php-tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    btn.classList.add('active');
+}
+
+function switchIniTab(ver, btn) {
+    document.querySelectorAll('.ini-editor-pane').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.ini-ver-btn').forEach(b => b.classList.remove('active'));
+    const slug = ver.replace(/[^a-zA-Z0-9]/g, '');
+    const pane = document.getElementById('ini-pane-' + slug);
+    if (pane) pane.classList.add('active');
+    btn.classList.add('active');
+}
+
+// ─── Install PHP Version ───
+async function installVersion(ver, btn) {
+    btn.disabled = true;
+    const slug = ver.replace(/[^a-zA-Z0-9]/g, '');
+    const badge = document.getElementById('ver-badge-' + slug);
+    const status = document.getElementById('ver-status-' + slug);
+    if (badge) { badge.className = 'ver-badge installing'; badge.innerHTML = '<i class="fa fa-cog fa-spin"></i> PHP ' + ver; }
+    if (status) status.textContent = 'Installing...';
+    btn.innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i> Installing...';
+    toast('info', 'Installing', `PHP ${ver} installation started...`);
+
+    try {
+        const fd = new FormData();
+        fd.append('php', ver);
+        fd.append('csrfmiddlewaretoken', CSRF);
+        const res = await fetch('/installphpversion/', { method:'POST', body:fd });
+        const data = await res.json();
+        if (data.status === 'success') {
+            toast('success', 'Installed', `PHP ${ver} installed successfully.`);
+            if (badge) { badge.className = 'ver-badge installed'; badge.innerHTML = '<i class="fa fa-check-circle"></i> PHP ' + ver; }
+            if (status) status.textContent = 'Installed & Active';
+            btn.innerHTML = '✓ Installed';
+        } else {
+            toast('error', 'Error', data.message || 'Installation failed.');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa fa-download"></i> Install';
+            if (badge) { badge.className = 'ver-badge available'; badge.innerHTML = '<i class="fa fa-circle-o"></i> PHP ' + ver; }
+            if (status) status.textContent = 'Available to install';
+        }
+    } catch (err) {
+        toast('error', 'Network Error', 'Connection failed.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa fa-download"></i> Install';
     }
+}
+
+// ─── Extensions ───
+function filterExtensions() {
+    const ver = document.getElementById('extVersionSelect').value;
+    const q = document.getElementById('extSearch').value.toLowerCase();
+    const panel = document.getElementById('extPanel');
+    panel.innerHTML = '';
+
+    if (!ver || !EXT_DATA[ver]) {
+        panel.innerHTML = '<div style="color:var(--text-dim);font-size:.85rem;padding:10px;grid-column:1/-1;">Select a PHP version above.</div>';
+        return;
+    }
+
+    const exts = EXT_DATA[ver];
+    const keys = Object.keys(exts).filter(k => !q || k.toLowerCase().includes(q));
+
+    if (!keys.length) {
+        panel.innerHTML = '<div style="color:var(--text-dim);font-size:.85rem;padding:10px;grid-column:1/-1;">No extensions found.</div>';
+        return;
+    }
+
+    keys.forEach(name => {
+        const on = exts[name] === 1;
+        const id = 'ext-' + name.replace(/[^a-z0-9]/gi, '_');
+        const el = document.createElement('div');
+        el.className = 'ext-item';
+        el.innerHTML = `
+            <div>
+                <div class="ext-name">${name}</div>
+                <div class="ext-state ${on?'on':'off'}" id="${id}-state">${on?'Enabled':'Disabled'}</div>
+            </div>
+            <div class="toggle-wrap">
+                <input type="checkbox" class="toggle-input" id="${id}" ${on?'checked':''}
+                    onchange="toggleExt('${name}', '${ver}', this)">
+                <label class="toggle-label" for="${id}"></label>
+            </div>`;
+        panel.appendChild(el);
+    });
+}
+
+async function toggleExt(name, ver, checkbox) {
+    const id = 'ext-' + name.replace(/[^a-z0-9]/gi, '_');
+    const stateEl = document.getElementById(id + '-state');
+    const option = checkbox.checked ? 'on' : 'off';
+    checkbox.disabled = true;
+    toast('info', 'Updating', `${option === 'on' ? 'Enabling' : 'Disabling'} ${name}...`);
+
+    try {
+        const res = await fetch('/installphpextention/', {
+            method:'POST',
+            headers:{ 'Content-Type':'application/json','X-CSRFToken':CSRF },
+            body: JSON.stringify({ name, option, phpname:ver })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            EXT_DATA[ver][name] = option === 'on' ? 1 : 0;
+            stateEl.textContent = option === 'on' ? 'Enabled' : 'Disabled';
+            stateEl.className = `ext-state ${option === 'on' ? 'on' : 'off'}`;
+            toast('success', 'Updated', `${name} ${option === 'on' ? 'enabled' : 'disabled'}.`);
+        } else {
+            checkbox.checked = !checkbox.checked;
+            toast('error', 'Error', data.message || 'Update failed.');
+        }
+    } catch (err) {
+        checkbox.checked = !checkbox.checked;
+        toast('error', 'Network Error', 'Connection failed.');
+    } finally {
+        checkbox.disabled = false;
+    }
+}
+
+// ─── PHP INI Save ───
+async function saveIni(ver, btn) {
+    const slug = ver.replace(/[^a-zA-Z0-9]/g, '');
+    const ta = document.getElementById('ini-ta-' + slug);
+    if (!ta) return;
+    btn.classList.add('loading');
+    btn.disabled = true;
+    try {
+        const res = await fetch('/savephpini/', {
+            method:'POST',
+            headers:{ 'Content-Type':'application/json','X-CSRFToken':CSRF },
+            body: JSON.stringify({ version: ver, content: ta.value })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            toast('success', 'Saved', data.message || `PHP ${ver} INI saved.`);
+        } else {
+            toast('error', 'Error', data.message || 'Failed to save.');
+        }
+    } catch (err) {
+        toast('error', 'Network Error', 'Connection failed.');
+    } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+    }
+}
+
+function resetIni(ver) {
+    if (!confirm('Discard unsaved changes?')) return;
+    location.reload();
+}
 </script>
 
-
-    <script>
-
-        async function install(event) {
-            // Prevent the default action (e.g., form submission)
-            if (event) {
-                event.preventDefault();
-            }
-
-            document.getElementById('pro').style.display = 'block';
-            const form = document.getElementById('adddbform');
-            const formData = new FormData(form);
-
-
-
-            try {
-                // Fetch request to submit form data
-                const response = await fetch('/installphpversion/', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-                    }
-                });
-
-                // Parse the JSON response
-                const result = await response.json();
-
-
-                // Handle response
-                if (response.ok && result.status === 'success') {
-                    document.getElementById('pro').style.display = 'none';
-
-                    document.getElementById('eeee').style.display = "block";
-                    document.getElementById('statusemail').innerHTML = "Successfully Installed";
-                    window.location.reload();
-
-                } else {
-                    document.getElementById('pro').style.display = 'nonw';
-
-                    document.getElementById('eeee').style.display = "block";
-                    document.getElementById('statusemail').innerHTML = "Successfully Installed";
-                    window.location.reload();
-
-
-                }
-            } catch (error) {
-                document.getElementById('pro').style.display = 'none';
-
-                document.getElementById('eeee').style.display = "block";
-                document.getElementById('statusemail').innerHTML = "Successfully Installed";
-                window.location.reload();
-
-
-            }
-        }
-        async function checkboxChanged(event, name, option, phpname) {
-
-            if (event) {
-                event.preventDefault();
-            }
-            const dataa = {
-                name: name,
-                option: option,  // Add other fields here
-                phpname: phpname,
-
-            };
-            document.getElementById('pro33').style.display = 'inline-block';
-            try {
-                // Fetch request to submit form data
-                const response = await fetch('/installphpextention/', {
-                    method: 'POST',
-                    body: JSON.stringify(dataa),
-                    headers: {
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-                    }
-                });
-
-                // Parse the JSON response
-                const result = await response.json();
-
-
-                // Handle response
-                if (response.ok && result.status === 'success') {
-                    document.getElementById('pro33').style.display = 'none';
-
-                    document.getElementById('eeee').style.display = "block";
-
-
-                    const checkboxxx = document.getElementById(name);
-
-
-                    // If the checkbox is already checked, uncheck it and disable it
-                    if (checkboxxx.checked) {
-                        checkboxxx.checked = true;  // Uncheck the checkbox
-                        checkboxxx.disabled = flase;  // Disable the checkbox
-                    }
-                    // If the checkbox is unchecked, check it and enable it
-                    else {
-                        checkboxxx.checked = false;   // Check the checkbox
-                        checkboxxx.disabled = false; // Enable the checkbox
-                    }
-                    document.getElementById('statusemail').innerHTML = "Successfully Updated";
-
-
-
-
-
-                }
-
-                else if (response.ok && result.status === 'cannot') {
-                    document.getElementById('pro33').style.display = 'none';
-
-                    document.getElementById('eeee').style.display = "block";
-                    document.getElementById('statusemail').innerHTML = "Installation Error";
-
-
-                }
-
-                else {
-                    document.getElementById('pro33').style.display = 'nonw';
-
-                    document.getElementById('eeee').style.display = "block";
-
-                    const checkboxxx = document.getElementById(name);
-
-                    // If the checkbox is already checked, uncheck it and disable it
-                    if (checkboxxx.checked) {
-                        checkboxxx.checked = false;  // Uncheck the checkbox
-                        checkboxxx.disabled = true;  // Disable the checkbox
-                    }
-                    // If the checkbox is unchecked, check it and enable it
-                    else {
-                        checkboxxx.checked = true;   // Check the checkbox
-                        checkboxxx.disabled = false; // Enable the checkbox
-                    }
-                    document.getElementById('statusemail').innerHTML = "Successfully Updated";
-
-
-
-
-
-                }
-            } catch (error) {
-
-                document.getElementById('pro33').style.display = 'none';
-
-                document.getElementById('eeee').style.display = "block";
-                const checkboxxx = document.getElementById(name);
-
-                // If the checkbox is already checked, uncheck it and disable it
-                if (checkboxxx.checked) {
-                    checkboxxx.checked = true;  // Uncheck the checkbox
-                    checkboxxx.disabled = true;  // Disable the checkbox
-                }
-                // If the checkbox is unchecked, check it and enable it
-                else {
-                    checkboxxx.checked = false;   // Check the checkbox
-                    checkboxxx.disabled = true; // Enable the checkbox
-                }
-                document.getElementById('statusemail').innerHTML = "Successfully Updated";
-
-
-
-            }
-
-        }
-
-        async function installextention(event) {
-            // Prevent the default action (e.g., form submission)
-            if (event) {
-                event.preventDefault();
-            }
-
-            document.getElementById('pro').style.display = 'inline-block';
-            const form = document.getElementById('exte');
-            const formData = new FormData(form);
-
-
-
-            try {
-                // Fetch request to submit form data
-                const response = await fetch('/installphpextention/', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-                    }
-                });
-
-                // Parse the JSON response
-                const result = await response.json();
-
-
-                // Handle response
-                if (response.ok && result.status === 'success') {
-                    document.getElementById('pro').style.display = 'none';
-
-                    document.getElementById('eeee').style.display = "block";
-                    document.getElementById('statusemail').innerHTML = "Successfully Installed";
-                    form.reset();
-
-                }
-
-                else if (response.ok && result.status === 'cannot') {
-                    document.getElementById('pro').style.display = 'none';
-
-                    document.getElementById('eeee').style.display = "block";
-                    document.getElementById('statusemail').innerHTML = "Installation Error";
-                    form.reset();
-
-                }
-
-                else {
-                    document.getElementById('pro').style.display = 'nonw';
-
-                    document.getElementById('eeee').style.display = "block";
-                    document.getElementById('statusemail').innerHTML = "Successfully Installed";
-                    form.reset();
-
-
-                }
-            } catch (error) {
-
-                document.getElementById('pro').style.display = 'none';
-
-                document.getElementById('eeee').style.display = "block";
-                document.getElementById('statusemail').innerHTML = "Something Went Wrong";
-                form.reset();
-
-
-            }
-        }
-    </script>
-    <!-- Javascript -->
-    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
-    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
-
-    <!-- page vendor js file -->
-    <script src="/static/assets/vendor/toastr/toastr.js"></script>
-    <script src="/static/assets/bundles/c3.bundle.js"></script>
-
-
-    <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
-    <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
-
-
-    <!-- page js file -->
-    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
-    <script src="/static/assets/bundles/chartjs.js"></script>
-    <script src="/static/assets/index2.js"></script>
-
-
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
 </body>
-
 </html>

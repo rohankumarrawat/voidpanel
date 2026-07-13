@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Installed Services — VoidPanel</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="View all installed services and their running status on this VoidPanel server.">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+    <style>
+        :root {
+            --bg:       #07091a;
+            --card:     rgba(13,17,35,0.88);
+            --border:   rgba(99,102,241,0.15);
+            --border-s: rgba(255,255,255,0.06);
+            --accent:   #6366f1;
+            --accent-h: #818cf8;
+            --green:    #10b981;
+            --red:      #ef4444;
+            --amber:    #f59e0b;
+            --t1:       #f1f5f9;
+            --t2:       #94a3b8;
+            --t3:       #475569;
+            --r:        14px;
+            --r-sm:     10px;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif !important; background: var(--bg); }
+        #main-content { padding-top: 0 !important; }
+
+        /* ── Page Shell ── */
+        .svc-root {
+            padding: 28px 28px 48px;
+            min-height: 100vh;
+        }
+
+        /* ── Hero ── */
+        .svc-hero {
+            background: linear-gradient(135deg, rgba(99,102,241,0.13) 0%, rgba(34,211,238,0.07) 60%, transparent 100%);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 28px 32px;
+            margin-bottom: 28px;
+            display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+            backdrop-filter: blur(20px);
+            position: relative; overflow: hidden;
+        }
+        .svc-hero::before {
+            content: '';
+            position: absolute; top: -50%; right: -4%;
+            width: 280px; height: 280px;
+            background: radial-gradient(circle, rgba(99,102,241,0.1) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .hero-left { display: flex; align-items: center; gap: 20px; }
+        .hero-icon {
+            width: 54px; height: 54px;
+            background: linear-gradient(135deg, #6366f1, #22d3ee);
+            border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem; color: #fff;
+            box-shadow: 0 0 28px rgba(99,102,241,0.4);
+            flex-shrink: 0;
+        }
+        .hero-title { font-size: 1.4rem; font-weight: 800; color: var(--t1); margin: 0 0 4px; }
+        .hero-sub   { font-size: 0.84rem; color: var(--t2); margin: 0; }
+
+        /* ── KPI Strip ── */
+        .kpi-strip {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+        @media (max-width: 900px)  { .kpi-strip { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 500px)  { .kpi-strip { grid-template-columns: 1fr; } }
+
+        .kpi-card {
+            background: var(--card);
+            border: 1px solid var(--border-s);
+            border-radius: var(--r);
+            padding: 20px 22px;
+            display: flex; align-items: center; gap: 16px;
+            backdrop-filter: blur(16px);
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .kpi-card:hover { border-color: var(--border); transform: translateY(-2px); }
+        .kpi-ico {
+            width: 46px; height: 46px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; flex-shrink: 0;
+        }
+        .kpi-val  { font-size: 2rem; font-weight: 800; color: var(--t1); line-height: 1; }
+        .kpi-lbl  { font-size: 0.74rem; color: var(--t3); margin-top: 3px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* ── Section Label ── */
+        .sec-label {
+            font-size: 0.72rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1.2px;
+            color: var(--t3); margin: 0 0 16px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .sec-label::after { content: ''; flex: 1; height: 1px; background: var(--border-s); }
+
+        /* ── Services Grid ── */
+        .svc-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+        }
+        @media (max-width: 1100px) { .svc-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 640px)  { .svc-grid { grid-template-columns: 1fr; } }
+
+        .svc-card {
+            background: var(--card);
+            border: 1px solid var(--border-s);
+            border-radius: var(--r);
+            padding: 22px;
+            backdrop-filter: blur(16px);
+            transition: border-color 0.25s, box-shadow 0.25s, transform 0.22s;
+            position: relative; overflow: hidden;
+        }
+        .svc-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: var(--card-color, transparent);
+            opacity: 0; transition: opacity 0.25s;
+        }
+        .svc-card:hover {
+            border-color: var(--card-border, var(--border));
+            box-shadow: 0 10px 40px rgba(0,0,0,0.35), 0 0 0 1px var(--card-border, transparent);
+            transform: translateY(-3px);
+        }
+        .svc-card:hover::before { opacity: 1; }
+
+        .svc-card-head {
+            display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+            margin-bottom: 16px;
+        }
+        .svc-left { display: flex; align-items: center; gap: 14px; }
+        .svc-ico {
+            width: 46px; height: 46px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; flex-shrink: 0;
+        }
+        .svc-name { font-size: 1rem; font-weight: 700; color: var(--t1); margin: 0 0 2px; }
+        .svc-role { font-size: 0.75rem; color: var(--t3); }
+
+        /* Status pill */
+        .svc-status {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 0.72rem; font-weight: 700;
+            padding: 4px 12px; border-radius: 20px;
+            white-space: nowrap; flex-shrink: 0;
+        }
+        .st-running  { background: rgba(16,185,129,0.12); color: #34d399; border: 1px solid rgba(16,185,129,0.25); }
+        .st-stopped  { background: rgba(239,68,68,0.12);  color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
+        .st-notinst  { background: rgba(71,85,105,0.18);  color: #64748b; border: 1px solid rgba(71,85,105,0.2); }
+        .st-utility  { background: rgba(99,102,241,0.12); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.25); }
+
+        .bdot {
+            width: 6px; height: 6px; border-radius: 50%;
+            display: inline-block; animation: pulse 2s ease infinite;
+        }
+        .st-running .bdot  { background: #34d399; box-shadow: 0 0 6px #34d399; }
+        .st-stopped .bdot  { background: #f87171; animation: none; }
+        .st-notinst .bdot  { background: #64748b; animation: none; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        /* Divider */
+        .svc-divider {
+            height: 1px; background: var(--border-s);
+            margin: 0 0 14px;
+        }
+
+        /* Version / Meta row */
+        .svc-meta {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 10px;
+        }
+        .svc-ver {
+            font-size: 0.72rem; color: var(--t3);
+            font-family: 'Courier New', monospace;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            max-width: 200px;
+        }
+
+        /* Active engine badge */
+        .engine-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 0.68rem; font-weight: 800;
+            padding: 3px 10px; border-radius: 20px;
+            background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(34,211,238,0.15));
+            border: 1px solid rgba(99,102,241,0.35);
+            color: #a5b4fc;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        /* ── Toast ── */
+        #void-toasts {
+            position: fixed; bottom: 24px; right: 24px;
+            z-index: 999999; display: flex; flex-direction: column; gap: 8px;
+        }
+        .void-toast {
+            display: flex; align-items: center; gap: 12px;
+            padding: 13px 20px; border-radius: 12px;
+            backdrop-filter: blur(20px);
+            background: rgba(13,17,35,0.97);
+            border: 1px solid var(--border-s);
+            color: var(--t1); font-size: 0.85rem; font-weight: 500;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            animation: toastIn 0.3s ease;
+            min-width: 240px;
+        }
+        @keyframes toastIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+        .void-toast.success { border-color: rgba(16,185,129,0.3); }
+        .void-toast.success i { color: var(--green); }
+        .void-toast.error   { border-color: rgba(239,68,68,0.3); }
+        .void-toast.error   i { color: var(--red); }
+    </style>
+</head>
+
+<body class="font-nunito active-dark-mode">
+<div id="wrapper" class="theme-cyan">
+
+        <div class="page-loader-wrapper" style="background: var(--void-bg, #080c14) !important;">
+        <div class="loader">
+            <div class="m-t-30" style="display: flex; justify-content: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="130" height="30" viewBox="0 0 180 40" role="img" aria-label="VoidPanel">
+                  <rect x="0" y="4" width="34" height="34" rx="8" ry="8" fill="rgba(255,255,255,0.12)"/>
+                  <rect x="7" y="13" width="20" height="4" rx="1.5" fill="#ffffff" opacity="0.9"/>
+                  <rect x="7" y="19.5" width="14" height="4" rx="1.5" fill="#ffffff" opacity="0.65"/>
+                  <rect x="7" y="26" width="10" height="4" rx="1.5" fill="#60a5fa" opacity="0.95"/>
+                  <text x="43" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#ffffff">Void</text>
+                  <text x="91" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#60a5fa">Panel</text>
+                </svg>
+            </div>
+            <div class="loading-bar-container">
+                <div class="loading-bar"></div>
+            </div>
+            <p style="color: var(--text-secondary, #475569) !important;">Please wait...</p>
+        </div>
+    </div>
+
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
+
+    <div id="main-content">
+    <div class="svc-root">
+
+        <!-- Hero -->
+        <div class="svc-hero">
+            <div class="hero-left">
+                <div class="hero-icon"><i class="fa-solid fa-layer-group"></i></div>
+                <div>
+                    <div class="hero-title">Installed Services</div>
+                    <div class="hero-sub">Real-time overview of all system services bundled with this VoidPanel installation.</div>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <div class="engine-badge">
+                    <i class="fa-solid fa-star"></i>
+                    Active Engine: {{ engine_display }}
+                </div>
+                <button onclick="refreshPage()" style="
+                    display:inline-flex; align-items:center; gap:8px;
+                    padding:10px 18px; border-radius:10px;
+                    background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.25);
+                    color:#a5b4fc; font-size:0.82rem; font-weight:600; cursor:pointer;
+                    transition:all 0.2s;
+                " onmouseover="this.style.background='rgba(99,102,241,0.22)'" onmouseout="this.style.background='rgba(99,102,241,0.12)'">
+                    <i class="fa-solid fa-rotate-right"></i> Refresh
+                </button>
+            </div>
+        </div>
+
+        <!-- KPI Strip -->
+        <div class="kpi-strip">
+            <div class="kpi-card">
+                <div class="kpi-ico" style="background:rgba(99,102,241,0.15); color:#818cf8;">
+                    <i class="fa-solid fa-layer-group"></i>
+                </div>
+                <div>
+                    <div class="kpi-val">{{ services|length }}</div>
+                    <div class="kpi-lbl">Total Services</div>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-ico" style="background:rgba(16,185,129,0.15); color:#34d399;">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+                <div>
+                    <div class="kpi-val" style="color:#34d399;">{{ installed_count }}</div>
+                    <div class="kpi-lbl">Installed</div>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-ico" style="background:rgba(34,211,238,0.15); color:#22d3ee;">
+                    <i class="fa-solid fa-bolt"></i>
+                </div>
+                <div>
+                    <div class="kpi-val" style="color:#22d3ee;">{{ running_count }}</div>
+                    <div class="kpi-lbl">Running</div>
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-ico" style="background:rgba(245,158,11,0.15); color:#fbbf24;">
+                    <i class="fa-solid fa-server"></i>
+                </div>
+                <div>
+                    <div class="kpi-val" style="color:#fbbf24; font-size:1.1rem; padding-top:4px;">{{ engine_display }}</div>
+                    <div class="kpi-lbl">Active Web Engine</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Services Grid -->
+        <p class="sec-label"><i class="fa-solid fa-layer-group"></i> Core Stack</p>
+        <div class="svc-grid">
+            {% for svc in services %}
+            <div class="svc-card" style="--card-color:{{ svc.color }}; --card-border:{{ svc.glow }};">
+
+                <div class="svc-card-head">
+                    <div class="svc-left">
+                        <div class="svc-ico" style="background:{{ svc.glow }}; color:{{ svc.color }};">
+                            <i class="{{ svc.icon }}"></i>
+                        </div>
+                        <div>
+                            <div class="svc-name">{{ svc.name }}
+                                {% if svc.id == active_engine %}
+                                <span class="engine-badge" style="font-size:0.6rem; padding:2px 7px; vertical-align:middle;">Active</span>
+                                {% endif %}
+                            </div>
+                            <div class="svc-role">{{ svc.role }}</div>
+                        </div>
+                    </div>
+
+                    {% if not svc.installed %}
+                    <span class="svc-status st-notinst"><span class="bdot"></span>Not Installed</span>
+                    {% elif svc.running == None %}
+                    <span class="svc-status st-utility"><i class="fa-solid fa-wrench" style="font-size:0.65rem;"></i>Utility</span>
+                    {% elif svc.running %}
+                    <span class="svc-status st-running"><span class="bdot"></span>Running</span>
+                    {% else %}
+                    <span class="svc-status st-stopped"><span class="bdot"></span>Stopped</span>
+                    {% endif %}
+                </div>
+
+                <div class="svc-divider"></div>
+
+                <div class="svc-meta">
+                    <div class="svc-ver">
+                        {% if svc.version and svc.version != 'Unknown' %}
+                        <i class="fa-solid fa-tag" style="color:{{ svc.color }}; margin-right:4px; font-size:0.65rem;"></i>{{ svc.version }}
+                        {% else %}
+                        <span style="color:#334155; font-style:italic;">Version unavailable</span>
+                        {% endif %}
+                    </div>
+                    {% if svc.installed and svc.running != None %}
+                    <button class="svc-restart-btn" data-svc="{{ svc.id }}" onclick="restartService('{{ svc.id }}', '{{ svc.name }}', this)" title="Restart {{ svc.name }}" style="
+                        display:inline-flex; align-items:center; gap:5px;
+                        padding:5px 12px; border-radius:8px;
+                        background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.2);
+                        color:#a5b4fc; font-size:0.72rem; font-weight:600; cursor:pointer;
+                        transition:all 0.18s; white-space:nowrap;
+                    ">
+                        <i class="fa-solid fa-rotate-right"></i> Restart
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+    </div><!-- .svc-root -->
+    </div><!-- #main-content -->
+</div><!-- #wrapper -->
+
+<!-- Toast container -->
+<div id="void-toasts"></div>
+
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+
+<script>
+    function showToast(msg, type) {
+        type = type || 'success';
+        var icon = type === 'success'
+            ? '<i class="fa-solid fa-circle-check"></i>'
+            : '<i class="fa-solid fa-triangle-exclamation"></i>';
+        var t = document.createElement('div');
+        t.className = 'void-toast ' + type;
+        t.innerHTML = icon + '<span>' + msg + '</span>';
+        document.getElementById('void-toasts').appendChild(t);
+        setTimeout(function() { t.style.opacity = '0'; t.style.transition = 'opacity 0.4s'; setTimeout(function() { t.remove(); }, 450); }, 3200);
+    }
+
+    function restartService(id, name, btn) {
+        var orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Restarting…';
+
+        var fd = new FormData();
+        fd.append('service', id);
+        fd.append('action', 'restart');
+        fetch('/serverstatus/', {
+            method: 'POST',
+            body: fd,
+            credentials: 'same-origin',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.status === 'success') {
+                showToast(name + ' restarted successfully.', 'success');
+            } else {
+                showToast('Failed to restart ' + name + ': ' + (data.error || 'Unknown'), 'error');
+            }
+        })
+        .catch(function() {
+            showToast('Network error — could not restart ' + name + '.', 'error');
+        })
+        .finally(function() {
+            btn.disabled = false;
+            btn.innerHTML = orig;
+        });
+    }
+
+    function refreshPage() { window.location.reload(); }
+
+    function getCookie(name) {
+        var v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+        return v ? v[2] : '';
+    }
+</script>
+
+</body>
+</html>

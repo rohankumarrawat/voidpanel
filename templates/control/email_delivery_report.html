@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>:: VoidPanel :: Email Delivery Report</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+
+    <!-- VENDOR CSS -->
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="/static/static/css/plugins/fontawesome-all.min.css">
+
+    <!-- MAIN Project CSS file -->
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+    <style>
+        .card .header { padding: 20px 20px 0 20px; }
+        
+        /* Summary Stats */
+        .stat-cards {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        .stat-card {
+            flex: 1;
+            min-width: 100px;
+            background: rgba(30, 30, 48, 0.5);
+            border: 1.5px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 16px 20px;
+            text-align: center;
+        }
+        .stat-card .stat-num {
+            font-size: 28px;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .stat-card .stat-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            opacity: 0.5;
+            margin-top: 5px;
+        }
+        .stat-card.sent .stat-num { color: #10b981; }
+        .stat-card.failed .stat-num { color: #ef4444; }
+        .stat-card.deferred .stat-num { color: #f59e0b; }
+        .stat-card.total .stat-num { color: #60a5fa; }
+
+        /* Filter Buttons */
+        .filter-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filter-label {
+            font-size: 12px;
+            opacity: 0.5;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-right: 4px;
+        }
+        .filter-btn {
+            padding: 7px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            border: 1.5px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.04);
+            color: rgba(255,255,255,0.6);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            letter-spacing: 0.3px;
+        }
+        .filter-btn:hover {
+            background: rgba(255,255,255,0.08);
+            color: rgba(255,255,255,0.9);
+        }
+        .filter-btn.active.btn-all { background: rgba(96,165,250,0.18); border-color: rgba(96,165,250,0.5); color: #93c5fd; }
+        .filter-btn.active.btn-sent { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.5); color: #34d399; }
+        .filter-btn.active.btn-failed { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.5); color: #f87171; }
+        .filter-btn.active.btn-deferred { background: rgba(245,158,11,0.15); border-color: rgba(245,158,11,0.5); color: #fbbf24; }
+
+        .badge-count {
+            display: inline-block;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 1px 7px;
+            font-size: 10px;
+            margin-left: 5px;
+        }
+
+        /* Modern Timeline Layout */
+        .delivery-timeline {
+            position: relative;
+            padding: 10px 0;
+            list-style: none;
+        }
+        .delivery-timeline::before {
+            content: " ";
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 30px;
+            width: 2px;
+            background-color: rgba(255, 255, 255, 0.06);
+        }
+        .timeline-item {
+            position: relative;
+            margin-bottom: 25px;
+            transition: opacity 0.2s ease;
+        }
+        .timeline-item.hidden {
+            display: none;
+        }
+        .timeline-item:last-child {
+            margin-bottom: 0;
+        }
+        .timeline-item::after {
+            content: " ";
+            display: table;
+            clear: both;
+        }
+        .timeline-badge {
+            position: absolute;
+            top: 4px;
+            left: 11px;
+            width: 40px;
+            height: 40px;
+            line-height: 38px;
+            text-align: center;
+            border-radius: 50%;
+            z-index: 100;
+            font-size: 13px;
+        }
+        .status-sent .timeline-badge {
+            background-color: rgba(16, 185, 129, 0.12);
+            color: #10b981;
+            border: 1.5px solid rgba(16, 185, 129, 0.35);
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.08);
+        }
+        .status-bounced .timeline-badge, .status-failed .timeline-badge {
+            background-color: rgba(239, 68, 68, 0.12);
+            color: #ef4444;
+            border: 1.5px solid rgba(239, 68, 68, 0.35);
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.08);
+        }
+        .status-deferred .timeline-badge {
+            background-color: rgba(245, 158, 11, 0.12);
+            color: #f59e0b;
+            border: 1.5px solid rgba(245, 158, 11, 0.35);
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.08);
+        }
+        .timeline-panel {
+            margin-left: 65px;
+            background: rgba(30, 30, 48, 0.5);
+            border: 1.5px solid rgba(255, 255, 255, 0.05);
+            border-radius: 14px;
+            padding: 18px 22px;
+            position: relative;
+            backdrop-filter: blur(8px);
+            transition: all 0.2s ease;
+        }
+        .timeline-panel:hover {
+            border-color: rgba(255, 255, 255, 0.09);
+            background: rgba(30, 30, 48, 0.7);
+            box-shadow: 0 5px 22px rgba(0, 0, 0, 0.25);
+        }
+        .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 8px;
+        }
+        .timeline-time {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.55);
+            font-weight: 500;
+        }
+        .timeline-status-badge {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            padding: 4px 9px;
+            border-radius: 6px;
+            letter-spacing: 0.5px;
+        }
+        .timeline-status-badge.status-sent {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+        }
+        .timeline-status-badge.status-bounced, .timeline-status-badge.status-failed {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+        }
+        .timeline-status-badge.status-deferred {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+        }
+        .timeline-body {
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .recipient-row, .relay-row, .reason-row {
+            margin-bottom: 6px;
+            color: rgba(255, 255, 255, 0.85);
+        }
+        .recipient-row strong, .relay-row strong, .reason-row strong {
+            color: rgba(255, 255, 255, 0.45);
+            font-weight: 500;
+            display: inline-block;
+            width: 75px;
+        }
+        .reason-row {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px 14px;
+            border-radius: 8px;
+            border-left: 3px solid rgba(255, 255, 255, 0.15);
+            font-family: monospace;
+            font-size: 12px;
+            margin-top: 12px;
+            word-break: break-all;
+        }
+        .status-sent .reason-row {
+            border-left-color: #10b981;
+        }
+        .status-bounced .reason-row, .status-failed .reason-row {
+            border-left-color: #ef4444;
+        }
+        .status-deferred .reason-row {
+            border-left-color: #f59e0b;
+        }
+        .no-results-msg {
+            text-align: center;
+            padding: 40px 20px;
+            color: rgba(255,255,255,0.3);
+            display: none;
+        }
+        .no-results-msg i {
+            font-size: 36px;
+            display: block;
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+
+<body class="font-nunito active-dark-mode">
+    <div id="wrapper" class="theme-cyan">
+        {% include 'control/navbar.html' %}
+        {% include 'control/left.html' %}
+        {% include 'control/right.html' %}
+
+        <div id="main-content">
+            <div class="container-fluid">
+                <div class="block-header">
+                    <div class="row">
+                        <div class="col-lg-12">
+                            <h2>Delivery Report for {{ email }}</h2>
+                            <ul class="breadcrumb">
+                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a></li>
+                                <li class="breadcrumb-item"><a href="/control/listemail/{{ domain }}/">Emails</a></li>
+                                <li class="breadcrumb-item"><a href="/control/email_analysis/{{ domain }}/">Analysis</a></li>
+                                <li class="breadcrumb-item active">Delivery Report</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row clearfix">
+                    <div class="col-lg-12">
+                        <div class="card">
+                            <div class="header" style="border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom:15px; margin-bottom: 20px;">
+                                <h2 style="font-size: 18px;"><i class="fa fa-envelope" style="margin-right:8px;color:#17a2b8;"></i> Mail Log Timeline</h2>
+                            </div>
+                            <div class="body">
+                                {% if events %}
+
+                                <!-- Summary Stats -->
+                                <div class="stat-cards">
+                                    <div class="stat-card total">
+                                        <div class="stat-num" id="count-total">{{ events|length }}</div>
+                                        <div class="stat-label">Total</div>
+                                    </div>
+                                    <div class="stat-card sent">
+                                        <div class="stat-num" id="count-sent">0</div>
+                                        <div class="stat-label">Sent</div>
+                                    </div>
+                                    <div class="stat-card failed">
+                                        <div class="stat-num" id="count-failed">0</div>
+                                        <div class="stat-label">Failed / Bounced</div>
+                                    </div>
+                                    <div class="stat-card deferred">
+                                        <div class="stat-num" id="count-deferred">0</div>
+                                        <div class="stat-label">Deferred</div>
+                                    </div>
+                                </div>
+
+                                <!-- Filter Bar -->
+                                <div class="filter-bar">
+                                    <span class="filter-label">Filter:</span>
+                                    <button class="filter-btn btn-all active" onclick="filterTimeline('all')">
+                                        All <span class="badge-count" id="badge-all">{{ events|length }}</span>
+                                    </button>
+                                    <button class="filter-btn btn-sent" onclick="filterTimeline('sent')">
+                                        <i class="fa fa-check" style="margin-right:4px;"></i> Sent <span class="badge-count" id="badge-sent">0</span>
+                                    </button>
+                                    <button class="filter-btn btn-failed" onclick="filterTimeline('failed')">
+                                        <i class="fa fa-times" style="margin-right:4px;"></i> Failed / Bounced <span class="badge-count" id="badge-failed">0</span>
+                                    </button>
+                                    <button class="filter-btn btn-deferred" onclick="filterTimeline('deferred')">
+                                        <i class="fa fa-exclamation" style="margin-right:4px;"></i> Deferred <span class="badge-count" id="badge-deferred">0</span>
+                                    </button>
+                                </div>
+
+                                <div class="delivery-timeline" id="timeline-container">
+                                    {% for item in events %}
+                                    <div class="timeline-item {% if item.status == 'sent' %}status-sent{% elif item.status == 'bounced' or item.status == 'failed' %}status-bounced{% elif item.status == 'deferred' %}status-deferred{% else %}status-deferred{% endif %}"
+                                         data-status="{{ item.status }}">
+                                        <div class="timeline-badge">
+                                            <i class="fa {% if item.status == 'sent' %}fa-check{% elif item.status == 'bounced' or item.status == 'failed' %}fa-times{% elif item.status == 'deferred' %}fa-exclamation{% else %}fa-info{% endif %}"></i>
+                                        </div>
+                                        <div class="timeline-panel">
+                                            <div class="timeline-header">
+                                                <span class="timeline-time"><i class="fa fa-clock" style="margin-right:5px; opacity:0.5;"></i>{{ item.timestamp }}</span>
+                                                <span class="timeline-status-badge {% if item.status == 'sent' %}status-sent{% elif item.status == 'bounced' or item.status == 'failed' %}status-bounced{% elif item.status == 'deferred' %}status-deferred{% else %}status-deferred{% endif %}">{{ item.status }}</span>
+                                            </div>
+                                            <div class="timeline-body">
+                                                <div class="recipient-row"><strong>To:</strong> {{ item.recipient }}</div>
+                                                <div class="relay-row"><strong>Relay:</strong> {{ item.relay|default:"N/A" }}</div>
+                                                <div class="reason-row"><strong>Response:</strong> {{ item.reason|default:"N/A" }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                <div class="no-results-msg" id="no-results">
+                                    <i class="fa fa-filter"></i>
+                                    No records match this filter.
+                                </div>
+
+                                {% else %}
+                                <div style="text-align:center; padding: 40px 20px; color:#aaa;">
+                                    <i class="fa fa-envelope-open-text" style="font-size: 40px; color: rgba(255,255,255,0.15); margin-bottom: 15px; display:block;"></i>
+                                    No email delivery records found in the logs for this email address.
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Javascript -->
+    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+    <script>
+        function updateCounts() {
+            var items = document.querySelectorAll('.timeline-item');
+            var counts = { sent: 0, failed: 0, deferred: 0 };
+            items.forEach(function(item) {
+                var s = item.getAttribute('data-status');
+                if (s === 'sent') counts.sent++;
+                else if (s === 'bounced' || s === 'failed') counts.failed++;
+                else counts.deferred++;
+            });
+            document.getElementById('count-sent').textContent = counts.sent;
+            document.getElementById('count-failed').textContent = counts.failed;
+            document.getElementById('count-deferred').textContent = counts.deferred;
+            document.getElementById('badge-sent').textContent = counts.sent;
+            document.getElementById('badge-failed').textContent = counts.failed;
+            document.getElementById('badge-deferred').textContent = counts.deferred;
+        }
+
+        function filterTimeline(filter) {
+            // Update button states
+            document.querySelectorAll('.filter-btn').forEach(function(btn) {
+                btn.classList.remove('active');
+            });
+            document.querySelector('.filter-btn.btn-' + filter).classList.add('active');
+
+            var items = document.querySelectorAll('.timeline-item');
+            var visibleCount = 0;
+
+            items.forEach(function(item) {
+                var status = item.getAttribute('data-status');
+                var show = false;
+                if (filter === 'all') {
+                    show = true;
+                } else if (filter === 'sent' && status === 'sent') {
+                    show = true;
+                } else if (filter === 'failed' && (status === 'bounced' || status === 'failed')) {
+                    show = true;
+                } else if (filter === 'deferred' && status !== 'sent' && status !== 'bounced' && status !== 'failed') {
+                    show = true;
+                }
+                item.classList.toggle('hidden', !show);
+                if (show) visibleCount++;
+            });
+
+            var noResults = document.getElementById('no-results');
+            if (noResults) noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCounts();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,530 @@
+{% extends 'super_admin_base.html' %}
+
+{% block title %}Coupons & Promotions — VoidPanel Admin{% endblock %}
+
+{% block admin_content %}
+<style>
+    /* ── Coupons Page Custom Styles ── */
+    .cp-page-title {
+        font-size: 1.5rem;
+        font-weight: 900;
+        color: var(--text-1);
+        letter-spacing: -0.02em;
+    }
+    .cp-subtitle { font-size: 0.82rem; color: var(--text-3); margin-top: 4px; }
+
+    /* Stats Row */
+    .cp-stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+    .cp-stat {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px 20px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+    .cp-stat-icon {
+        width: 42px; height: 42px;
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1rem;
+        flex-shrink: 0;
+    }
+    .cp-stat-val { font-size: 1.65rem; font-weight: 900; color: var(--text-1); letter-spacing: -0.02em; }
+    .cp-stat-lbl { font-size: 0.68rem; color: var(--text-3); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+
+    /* Main Split Layout */
+    .cp-layout {
+        display: grid;
+        grid-template-columns: 1fr 360px;
+        gap: 20px;
+        align-items: start;
+    }
+
+    /* Coupon Table */
+    .cp-table-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        overflow: hidden;
+    }
+    .cp-table-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 18px 22px;
+        border-bottom: 1px solid var(--border);
+    }
+    .cp-table-title { font-size: 0.9rem; font-weight: 800; color: var(--text-1); display: flex; align-items: center; gap: 8px; }
+    .cp-table { width: 100%; border-collapse: collapse; }
+    .cp-table th {
+        padding: 10px 18px;
+        font-size: 0.65rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--text-3);
+        font-weight: 800;
+        text-align: left;
+        background: rgba(255,255,255,0.015);
+        border-bottom: 1px solid var(--border);
+    }
+    .cp-table td {
+        padding: 14px 18px;
+        font-size: 0.82rem;
+        color: var(--text-2);
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+        vertical-align: middle;
+    }
+    .cp-table tr:last-child td { border-bottom: none; }
+    .cp-table tbody tr { transition: background 0.12s; }
+    .cp-table tbody tr:hover td { background: rgba(255,255,255,0.025); }
+
+    .cp-code {
+        font-family: 'Courier New', monospace;
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: var(--text-1);
+        background: rgba(255,255,255,0.05);
+        padding: 4px 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(255,255,255,0.07);
+        letter-spacing: 0.05em;
+    }
+    .cp-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+    .cp-badge.active { background: rgba(34,197,94,0.12); color: var(--green-2); border: 1px solid rgba(34,197,94,0.15); }
+    .cp-badge.inactive { background: rgba(255,255,255,0.05); color: var(--text-3); border: 1px solid var(--border); }
+    .cp-badge.pct { background: rgba(99,102,241,0.1); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.15); }
+    .cp-badge.fixed { background: rgba(14,165,233,0.1); color: var(--sky-2); border: 1px solid rgba(14,165,233,0.15); }
+    .cp-badge.expired { background: rgba(239,68,68,0.1); color: var(--red-2); border: 1px solid rgba(239,68,68,0.15); }
+
+    .cp-progress {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .cp-bar-wrap { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 99px; }
+    .cp-bar-fill { height: 100%; border-radius: 99px; background: var(--green); transition: width 0.4s; }
+
+    .cp-actions { display: flex; gap: 6px; }
+    .cp-action-btn {
+        width: 32px; height: 32px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: rgba(255,255,255,0.03);
+        color: var(--text-3);
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer;
+        transition: all 0.15s;
+        font-size: 0.75rem;
+    }
+    .cp-action-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-1); border-color: var(--border-hover); }
+    .cp-action-btn.danger:hover { background: rgba(239,68,68,0.1); color: var(--red-2); border-color: rgba(239,68,68,0.2); }
+
+    /* Create Form */
+    .cp-create-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        overflow: hidden;
+        position: sticky;
+        top: 80px;
+    }
+    .cp-create-header {
+        padding: 18px 22px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(34,197,94,0.03);
+    }
+    .cp-create-title {
+        font-size: 0.9rem;
+        font-weight: 800;
+        color: var(--text-1);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .cp-create-body { padding: 20px 22px; }
+
+    .cp-field { margin-bottom: 14px; }
+    .cp-label {
+        display: block;
+        font-size: 0.74rem;
+        font-weight: 700;
+        color: var(--text-3);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 6px;
+    }
+    .cp-input, .cp-select {
+        width: 100%;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 13px;
+        color: var(--text-1);
+        font-size: 0.84rem;
+        font-family: 'Inter', sans-serif;
+        transition: border-color 0.15s, background 0.15s;
+    }
+    .cp-input:focus, .cp-select:focus {
+        outline: none;
+        border-color: rgba(34,197,94,0.4);
+        background: rgba(34,197,94,0.02);
+    }
+    .cp-input::placeholder { color: var(--text-3); }
+    .cp-input[type="text"] { text-transform: uppercase; }
+
+    .cp-type-toggle {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+    }
+    .cp-type-option { display: none; }
+    .cp-type-label {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 10px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: rgba(255,255,255,0.02);
+        color: var(--text-2);
+        font-size: 0.8rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .cp-type-option:checked + .cp-type-label {
+        background: rgba(34,197,94,0.08);
+        border-color: rgba(34,197,94,0.25);
+        color: var(--green-2);
+    }
+
+    .cp-submit-btn {
+        width: 100%;
+        padding: 13px;
+        border-radius: 12px;
+        border: none;
+        background: linear-gradient(135deg, var(--green), #059669);
+        color: #021f0a;
+        font-size: 0.9rem;
+        font-weight: 800;
+        cursor: pointer;
+        font-family: 'Inter', sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: all 0.15s;
+        margin-top: 4px;
+    }
+    .cp-submit-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    .cp-empty {
+        padding: 48px 24px;
+        text-align: center;
+        color: var(--text-3);
+    }
+    .cp-empty-icon { font-size: 2rem; margin-bottom: 12px; opacity: 0.3; }
+    .cp-empty-txt { font-size: 0.84rem; font-weight: 600; color: var(--text-2); }
+    .cp-empty-sub { font-size: 0.76rem; margin-top: 4px; }
+
+    @media (max-width: 1024px) {
+        .cp-stats { grid-template-columns: repeat(2, 1fr); }
+        .cp-layout { grid-template-columns: 1fr; }
+        .cp-create-card { position: static; }
+    }
+</style>
+
+<!-- Page Header -->
+<div class="sa-page-header">
+    <div>
+        <div class="cp-page-title"><i class="fas fa-tag" style="color:var(--green);margin-right:10px;"></i>Coupons & Promotions</div>
+        <div class="cp-subtitle">Create and manage promotional discount codes for hosting and domain orders.</div>
+    </div>
+</div>
+
+{% if messages %}
+    {% for m in messages %}
+    <div class="sa-flash {% if 'error' in m.tags %}error{% else %}success{% endif %}">
+        <i class="fas {% if 'error' in m.tags %}fa-triangle-exclamation{% else %}fa-check-circle{% endif %}"></i> {{ m }}
+    </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Stats -->
+{% with total_coupons=coupons|length active_coupons=coupons|length %}
+<div class="cp-stats">
+    <div class="cp-stat">
+        <div class="cp-stat-icon" style="background:rgba(34,197,94,0.1);color:var(--green-2);">
+            <i class="fas fa-ticket-simple"></i>
+        </div>
+        <div>
+            <div class="cp-stat-val">{{ coupons|length }}</div>
+            <div class="cp-stat-lbl">Total Coupons</div>
+        </div>
+    </div>
+    <div class="cp-stat">
+        <div class="cp-stat-icon" style="background:rgba(14,165,233,0.1);color:var(--sky-2);">
+            <i class="fas fa-circle-check"></i>
+        </div>
+        <div>
+            <div class="cp-stat-val">{% for c in coupons %}{% if c.is_active %}{% if forloop.last %}{{ forloop.counter }}{% endif %}{% endif %}{% endfor %}—</div>
+            <div class="cp-stat-lbl">Active Codes</div>
+        </div>
+    </div>
+    <div class="cp-stat">
+        <div class="cp-stat-icon" style="background:rgba(245,158,11,0.1);color:var(--amber-2);">
+            <i class="fas fa-fire"></i>
+        </div>
+        <div>
+            <div class="cp-stat-val" id="totalUses">—</div>
+            <div class="cp-stat-lbl">Total Redemptions</div>
+        </div>
+    </div>
+    <div class="cp-stat">
+        <div class="cp-stat-icon" style="background:rgba(99,102,241,0.1);color:#a5b4fc;">
+            <i class="fas fa-percent"></i>
+        </div>
+        <div>
+            <div class="cp-stat-val">2</div>
+            <div class="cp-stat-lbl">Discount Types</div>
+        </div>
+    </div>
+</div>
+{% endwith %}
+
+<!-- Layout -->
+<div class="cp-layout">
+
+    <!-- Coupon Table -->
+    <div class="cp-table-card">
+        <div class="cp-table-head">
+            <div class="cp-table-title"><i class="fas fa-list-ul"></i> All Coupons</div>
+            <span style="font-size:0.76rem;color:var(--text-3);font-weight:600;">{{ coupons|length }} code{{ coupons|length|pluralize }}</span>
+        </div>
+
+        {% if coupons %}
+        <table class="cp-table">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Type & Value</th>
+                    <th>Status</th>
+                    <th>Cycles</th>
+                    <th>Usage</th>
+                    <th>Expires</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in coupons %}
+                <tr>
+                    <td>
+                        <span class="cp-code">{{ c.code }}</span>
+                    </td>
+                    <td>
+                        {% if c.discount_type == 'percentage' %}
+                            <span class="cp-badge pct"><i class="fas fa-percent"></i> {{ c.discount_value|floatformat:0 }}% off</span>
+                        {% else %}
+                            <span class="cp-badge fixed"><i class="fas fa-indian-rupee-sign"></i> ₹{{ c.discount_value|floatformat:0 }} off</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if c.is_valid %}
+                            <span class="cp-badge active"><i class="fas fa-circle" style="font-size:0.5rem;"></i> Active</span>
+                        {% elif not c.is_active %}
+                            <span class="cp-badge inactive"><i class="fas fa-pause-circle"></i> Paused</span>
+                        {% else %}
+                            <span class="cp-badge expired"><i class="fas fa-clock"></i> Expired</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div style="display:flex; gap:4px; flex-wrap:wrap;">
+                            {% if c.applicable_monthly %}
+                                <span class="cp-badge pct" style="background:rgba(34,197,94,0.1); color:#22c55e; border:none; padding:2px 6px; font-size:0.7rem; font-weight:700;">Monthly</span>
+                            {% endif %}
+                            {% if c.applicable_quarterly %}
+                                <span class="cp-badge pct" style="background:rgba(59,130,246,0.1); color:#3b82f6; border:none; padding:2px 6px; font-size:0.7rem; font-weight:700;">Quarterly</span>
+                            {% endif %}
+                            {% if c.applicable_annually %}
+                                <span class="cp-badge pct" style="background:rgba(168,85,247,0.1); color:#a855f7; border:none; padding:2px 6px; font-size:0.7rem; font-weight:700;">Annually</span>
+                            {% endif %}
+                            {% if not c.applicable_monthly and not c.applicable_quarterly and not c.applicable_annually %}
+                                <span class="cp-badge expired" style="padding:2px 6px; font-size:0.7rem; font-weight:700;">None</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        <div class="cp-progress">
+                            <span style="font-size:0.82rem;font-weight:700;color:var(--text-1);min-width:28px;">{{ c.current_uses }}</span>
+                            <div class="cp-bar-wrap">
+                                {% if c.max_uses %}
+                                <div class="cp-bar-fill" style="width:{% widthratio c.current_uses c.max_uses 100 %}%;"></div>
+                                {% else %}
+                                <div class="cp-bar-fill" style="width:20%;"></div>
+                                {% endif %}
+                            </div>
+                            <span style="font-size:0.75rem;color:var(--text-3);font-weight:600;">
+                                {% if c.max_uses %}/ {{ c.max_uses }}{% else %}∞{% endif %}
+                            </span>
+                        </div>
+                    </td>
+                    <td style="font-size:0.78rem;color:var(--text-3);">
+                        {% if c.valid_until %}
+                            {{ c.valid_until|date:"d M Y" }}
+                        {% else %}
+                            <span style="color:var(--green-2);font-weight:700;">Never</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="cp-actions">
+                            <form method="POST" style="margin:0;">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="toggle">
+                                <input type="hidden" name="coupon_id" value="{{ c.id }}">
+                                <button type="submit" class="cp-action-btn" title="Toggle Active/Paused">
+                                    <i class="fas {% if c.is_active %}fa-pause{% else %}fa-play{% endif %}"></i>
+                                </button>
+                            </form>
+                            <form method="POST" style="margin:0;" onsubmit="return confirm('Delete coupon {{ c.code }}? This cannot be undone.');">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="coupon_id" value="{{ c.id }}">
+                                <button type="submit" class="cp-action-btn danger" title="Delete Coupon">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="cp-empty">
+            <div class="cp-empty-icon"><i class="fas fa-ticket-simple"></i></div>
+            <div class="cp-empty-txt">No coupons created yet</div>
+            <div class="cp-empty-sub">Create your first promo code using the form →</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Create Coupon Form -->
+    <div class="cp-create-card">
+        <div class="cp-create-header">
+            <div class="cp-create-title">
+                <i class="fas fa-plus-circle" style="color:var(--green-2);"></i>
+                Create New Coupon
+            </div>
+        </div>
+        <div class="cp-create-body">
+            <form method="POST" id="createForm">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="create">
+
+                <div class="cp-field">
+                    <label class="cp-label" for="codeInput">Coupon Code <span style="color:var(--red-2);">*</span></label>
+                    <input type="text" class="cp-input" id="codeInput" name="code" required
+                        placeholder="e.g. SUMMER25"
+                        oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
+                </div>
+
+                <div class="cp-field">
+                    <label class="cp-label">Discount Type <span style="color:var(--red-2);">*</span></label>
+                    <div class="cp-type-toggle">
+                        <div>
+                            <input type="radio" class="cp-type-option" id="typePct" name="discount_type" value="percentage" checked>
+                            <label class="cp-type-label" for="typePct">
+                                <i class="fas fa-percent"></i> Percentage
+                            </label>
+                        </div>
+                        <div>
+                            <input type="radio" class="cp-type-option" id="typeFixed" name="discount_type" value="fixed">
+                            <label class="cp-type-label" for="typeFixed">
+                                <i class="fas fa-indian-rupee-sign"></i> Fixed Amount
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cp-field">
+                    <label class="cp-label" for="discountVal">Discount Value <span style="color:var(--red-2);">*</span></label>
+                    <div style="position:relative;">
+                        <span id="valPrefix" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-3);font-weight:700;font-size:0.85rem;pointer-events:none;">%</span>
+                        <input type="number" class="cp-input" id="discountVal" name="discount_value" required
+                            placeholder="e.g. 20" min="0.01" step="0.01"
+                            style="padding-left:30px;">
+                    </div>
+                </div>
+
+                <div class="cp-field">
+                    <label class="cp-label" for="maxUses">Max Total Uses</label>
+                    <input type="number" class="cp-input" id="maxUses" name="max_uses"
+                        placeholder="∞ Leave blank for unlimited" min="1">
+                </div>
+
+                <div class="cp-field">
+                    <label class="cp-label" for="validUntil">Expiration Date & Time</label>
+                    <input type="datetime-local" class="cp-input" id="validUntil" name="valid_until">
+                </div>
+
+                <div class="cp-field" style="margin-bottom: 20px;">
+                    <label class="cp-label">Applicable Billing Cycles</label>
+                    <div style="display: flex; gap: 16px; align-items: center; margin-top: 8px;">
+                        <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: 600; color: var(--text-2); cursor: pointer;">
+                            <input type="checkbox" name="applicable_monthly" checked style="width: 16px; height: 16px; accent-color: var(--green-2);"> Monthly
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: 600; color: var(--text-2); cursor: pointer;">
+                            <input type="checkbox" name="applicable_quarterly" checked style="width: 16px; height: 16px; accent-color: var(--green-2);"> Quarterly
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: 600; color: var(--text-2); cursor: pointer;">
+                            <input type="checkbox" name="applicable_annually" checked style="width: 16px; height: 16px; accent-color: var(--green-2);"> Annually
+                        </label>
+                    </div>
+                </div>
+
+                <div style="background:rgba(34,197,94,0.04);border:1px solid rgba(34,197,94,0.1);border-radius:10px;padding:12px;margin-bottom:16px;font-size:0.76rem;color:var(--text-3);line-height:1.6;">
+                    <i class="fas fa-circle-info" style="color:var(--green-2);margin-right:6px;"></i>
+                    Coupons apply to the total order at checkout. Leave max uses blank for unlimited redemptions.
+                </div>
+
+                <button type="submit" class="cp-submit-btn">
+                    <i class="fas fa-bolt"></i> Create Coupon
+                </button>
+            </form>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // Update prefix symbol when type changes
+    document.querySelectorAll('.cp-type-option').forEach(radio => {
+        radio.addEventListener('change', () => {
+            const prefix = document.getElementById('valPrefix');
+            prefix.textContent = radio.value === 'percentage' ? '%' : '₹';
+        });
+    });
+
+    // Compute total uses stat
+    let totalUses = 0;
+    {% for c in coupons %}totalUses += {{ c.current_uses }};{% endfor %}
+    document.getElementById('totalUses').textContent = totalUses;
+</script>
+{% endblock %}

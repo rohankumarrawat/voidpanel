@@ -1,0 +1,777 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>VoidPanel WHMCS Module — Integration &amp; Setup Guide</title>
+    <meta name="description" content="Integrate VoidPanel with WHMCS. Complete step-by-step documentation to set up the official server provisioning plugin, automate host accounts, and configure API endpoints.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://voidpanel.com/whmcs/">
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <!-- Main Style -->
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css?v=3.0">
+    <style>
+        /* ── Hero Style ── */
+        .whmcs-hero {
+            padding: 140px 5% 90px;
+            background: var(--gradient-hero);
+            position: relative;
+            overflow: hidden;
+            text-align: center;
+        }
+        .whmcs-hero::before {
+            content: '';
+            position: absolute;
+            top: -20%; right: -15%;
+            width: 70%; height: 90%;
+            background: radial-gradient(ellipse, rgba(99, 102, 241, 0.08) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        .whmcs-hero::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: radial-gradient(circle, rgba(15,23,42,0.04) 1px, transparent 1px);
+            background-size: 28px 28px;
+            pointer-events: none;
+        }
+        .whmcs-hero-inner {
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+        .whmcs-hero h1 {
+            font-size: clamp(2.2rem, 5vw, 3.8rem);
+            font-weight: 900;
+            letter-spacing: -0.035em;
+            color: var(--text-primary);
+            margin: 12px 0 16px;
+        }
+        .whmcs-hero h1 span {
+            background: linear-gradient(135deg, #4f46e5 0%, #2563eb 50%, #06b6d4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .whmcs-hero p {
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto 20px;
+            line-height: 1.6;
+        }
+        .whmcs-meta-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--bg-white);
+            border: 1px solid var(--border);
+            padding: 6px 14px;
+            border-radius: var(--r-pill);
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            box-shadow: var(--shadow-sm);
+        }
+        .whmcs-meta-badge span { display: inline-flex; align-items: center; gap: 5px; color: #10b981; }
+        .whmcs-meta-badge span::before { content:''; width:6px; height:6px; border-radius:50%; background:currentColor; }
+
+        /* ── Body Layout ── */
+        .whmcs-body {
+            padding: 0 5% 96px;
+            position: relative;
+            margin-top: -40px;
+            z-index: 2;
+        }
+        .whmcs-layout {
+            max-width: 1240px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 48px;
+            align-items: start;
+        }
+        @media(max-width: 968px) {
+            .whmcs-layout {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+            .whmcs-sidebar {
+                display: none;
+            }
+        }
+
+        /* ── Sidebar ── */
+        .whmcs-sidebar {
+            position: sticky;
+            top: 100px;
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: var(--r-lg);
+            padding: 24px;
+        }
+        .whmcs-toc-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+        .whmcs-toc-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 11px;
+            padding: 0;
+            margin: 0;
+        }
+        .whmcs-toc-link {
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 600;
+            transition: var(--transition-fast);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .whmcs-toc-link:hover, .whmcs-toc-link.active {
+            color: var(--accent);
+            transform: translateX(4px);
+        }
+        .whmcs-toc-link::before {
+            content: '';
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: currentColor;
+            opacity: 0.6;
+        }
+
+        /* ── Content Card ── */
+        .whmcs-content-card {
+            background: var(--bg-white);
+            border: 1px solid var(--border);
+            border-radius: var(--r-lg);
+            padding: 48px;
+            box-shadow: var(--shadow-xl);
+        }
+        @media(max-width: 640px) {
+            .whmcs-content-card {
+                padding: 28px 20px;
+            }
+        }
+
+        .whmcs-content h2 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            margin: 44px 0 18px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid var(--border-subtle);
+            padding-bottom: 10px;
+            scroll-margin-top: 100px;
+        }
+        .whmcs-content h2:first-of-type {
+            margin-top: 0;
+        }
+        .whmcs-content h2 i {
+            color: var(--accent);
+            font-size: 1.2rem;
+        }
+        .whmcs-content h3 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin: 28px 0 12px;
+            color: var(--text-primary);
+        }
+        .whmcs-content p {
+            color: var(--text-secondary);
+            line-height: 1.8;
+            margin-bottom: 20px;
+            font-size: 1rem;
+        }
+        .whmcs-content ul, .whmcs-content ol {
+            margin-bottom: 24px;
+            padding-left: 20px;
+            color: var(--text-secondary);
+        }
+        .whmcs-content li {
+            margin-bottom: 8px;
+            line-height: 1.7;
+            font-size: 0.98rem;
+        }
+
+        /* ── Code Blocks ── */
+        .code-container {
+            background: #0b1329;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: var(--r-md);
+            padding: 18px 24px;
+            margin: 20px 0 24px;
+            position: relative;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.88rem;
+            color: #d1d5db;
+            overflow-x: auto;
+        }
+        .code-container code {
+            font-family: inherit;
+            white-space: pre;
+            line-height: 1.6;
+        }
+        .code-copy-btn {
+            position: absolute;
+            right: 14px;
+            top: 12px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.05);
+            color: #9ca3af;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.85rem;
+        }
+        .code-copy-btn:hover {
+            background: var(--accent);
+            color: #ffffff;
+            border-color: var(--accent);
+        }
+
+        /* ── Callout Panels ── */
+        .whmcs-callout {
+            border-radius: var(--r-md);
+            padding: 20px;
+            margin-bottom: 28px;
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+        }
+        .whmcs-callout i {
+            font-size: 1.3rem;
+            margin-top: 2px;
+        }
+        .whmcs-callout-content h4 {
+            font-size: 0.95rem;
+            font-weight: 800;
+            margin-bottom: 6px;
+        }
+        .whmcs-callout-content p {
+            font-size: 0.88rem;
+            margin: 0;
+            line-height: 1.65;
+        }
+
+        /* Callout Types */
+        .callout-blue { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+        .callout-blue i { color: #2563eb; }
+        .callout-blue .whmcs-callout-content h4 { color: #1e3a8a; }
+        .callout-blue .whmcs-callout-content p { color: #1e40af; }
+
+        .callout-orange { background: #fffbeb; border: 1px solid #fde68a; color: #b45309; }
+        .callout-orange i { color: #d97706; }
+        .callout-orange .whmcs-callout-content h4 { color: #78350f; }
+        .callout-orange .whmcs-callout-content p { color: #b45309; }
+
+        .callout-red { background: #fdf2f2; border: 1px solid #fecdcd; color: #9b1c1c; }
+        .callout-red i { color: #e02424; }
+        .callout-red .whmcs-callout-content h4 { color: #7f1d1d; }
+        .callout-red .whmcs-callout-content p { color: #9b1c1c; }
+
+        /* ── Setup Form Mockup ── */
+        .whmcs-mockup {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: var(--r-md);
+            padding: 24px;
+            margin: 28px 0;
+            box-shadow: var(--shadow-inset);
+        }
+        .mockup-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        .mockup-title { font-size: 0.85rem; font-weight: 800; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px; }
+        .mockup-dots { display: flex; gap: 6px; }
+        .mockup-dot { width: 9px; height: 9px; border-radius: 50%; background: #cbd5e1; }
+        .mockup-dot.red { background: #f87171; }
+        .mockup-dot.yellow { background: #fbbf24; }
+        .mockup-dot.green { background: #34d399; }
+
+        .mockup-form-group {
+            margin-bottom: 14px;
+            display: grid;
+            grid-template-columns: 180px 1fr;
+            align-items: center;
+            gap: 16px;
+        }
+        @media(max-width: 580px) {
+            .mockup-form-group {
+                grid-template-columns: 1fr;
+                gap: 6px;
+                align-items: start;
+            }
+        }
+        .mockup-label { font-size: 0.85rem; font-weight: 700; color: var(--text-secondary); text-align: right; }
+        @media(max-width: 580px) { .mockup-label { text-align: left; } }
+        .mockup-input {
+            width: 100%;
+            background: #ffffff;
+            border: 1.5px solid var(--border-medium);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            outline: none;
+        }
+        .mockup-input.highlight {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        .mockup-note { font-size: 0.76rem; color: var(--text-muted); margin-top: 3px; display: block; }
+
+        /* ── Scope Grids ── */
+        .scope-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        @media(max-width: 580px) { .scope-grid { grid-template-columns: 1fr; } }
+        .scope-item {
+            background: var(--bg-subtle);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+        .scope-item i { color: #10b981; }
+
+        /* ── Interactive Accordion FAQ ── */
+        .faq-accordion {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 24px;
+        }
+        .faq-item {
+            background: var(--bg-subtle);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--r-md);
+            overflow: hidden;
+            transition: var(--transition-fast);
+        }
+        .faq-trigger {
+            width: 100%;
+            background: transparent;
+            border: none;
+            padding: 18px 24px;
+            text-align: left;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            outline: none;
+        }
+        .faq-trigger i {
+            transition: transform 0.25s var(--ease);
+            color: var(--text-muted);
+        }
+        .faq-item.active {
+            border-color: var(--border-medium);
+            background: #ffffff;
+            box-shadow: var(--shadow-sm);
+        }
+        .faq-item.active .faq-trigger i {
+            transform: rotate(180deg);
+            color: var(--accent);
+        }
+        .faq-panel {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.25s var(--ease);
+        }
+        .faq-panel-inner {
+            padding: 0 24px 20px;
+            font-size: 0.92rem;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+    </style>
+</head>
+<body>
+{% include 'header.html' %}
+
+<!-- HERO -->
+<section class="whmcs-hero">
+    <div class="whmcs-hero-inner animate-up">
+        <span class="section-eyebrow"><span class="dot"></span> Automation Integration</span>
+        <h1><span>WHMCS Provisioning Module</span></h1>
+        <p>Connect your WHMCS billing system with the VoidPanel API to automatically create, suspend, and manage hosting client accounts instantly.</p>
+        <div class="whmcs-meta-badge">
+            <span>Module Active</span>
+            <div style="width:1px;height:12px;background:var(--border);"></div>
+            Version v1.0.0
+            <div style="width:1px;height:12px;background:var(--border);"></div>
+            Requires WHMCS 8.0+
+        </div>
+    </div>
+</section>
+
+<!-- BODY -->
+<section class="whmcs-body">
+    <div class="whmcs-layout">
+        
+        <!-- Sticky TOC -->
+        <aside class="whmcs-sidebar animate-left">
+            <div class="whmcs-toc-title">Documentation</div>
+            <ul class="whmcs-toc-list">
+                <li><a href="#overview" class="whmcs-toc-link active">Overview</a></li>
+                <li><a href="#prerequisites" class="whmcs-toc-link">Prerequisites</a></li>
+                <li><a href="#installation" class="whmcs-toc-link">Installation</a></li>
+                <li><a href="#server-config" class="whmcs-toc-link">Server Setup</a></li>
+                <li><a href="#product-settings" class="whmcs-toc-link">Product Setup</a></li>
+                <li><a href="#api-scopes" class="whmcs-toc-link">API Scopes</a></li>
+                <li><a href="#faqs" class="whmcs-toc-link">FAQs &amp; Help</a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Card Content -->
+        <div class="whmcs-content-card animate-up">
+            
+            <div class="whmcs-content">
+                
+                <!-- Overview -->
+                <h2 id="overview"><i class="fas fa-network-wired"></i> Overview</h2>
+                <p>The official VoidPanel server provisioning plugin allows web hosting providers running WHMCS to automate their server delivery operations. By connecting to VoidPanel’s secure REST API v2, you can instantly turn paid invoices into live hosting configurations.</p>
+                <p>Our module operates in the background, communicating via encrypted curl calls. It automatically passes account parameters (domains, emails, passwords) and binds system-level configurations dynamically without manual action.</p>
+
+                <!-- Prerequisites -->
+                <h2 id="prerequisites"><i class="fas fa-clipboard-check"></i> Prerequisites</h2>
+                <p>Before launching the integration, verify you satisfy the following deployment requirements:</p>
+                
+                <div class="whmcs-callout callout-blue">
+                    <i class="fas fa-circle-info"></i>
+                    <div class="whmcs-callout-content">
+                        <h4>Server Port Check</h4>
+                        <p>Verify that your WHMCS hosting node can establish outgoing network requests to your VoidPanel server port (defaults to <strong>8080</strong>). If you configure SSL/HTTPS on the panel daemon, port <strong>443</strong> must be accessible.</p>
+                    </div>
+                </div>
+
+                <ul>
+                    <li>An operational installation of WHMCS (v8.0 or newer).</li>
+                    <li>Secure SSL or direct HTTP path access to your VoidPanel admin server.</li>
+                    <li>An active **API Token** generated from your VoidPanel super-admin dashboard.</li>
+                </ul>
+
+                <!-- Installation -->
+                <h2 id="installation"><i class="fas fa-folder-open"></i> Module Installation</h2>
+                <p>The VoidPanel provisioning module structure matches WHMCS standards. Follow these steps to install the files on your WHMCS server node:</p>
+                
+                <ol>
+                    <li>Download the official ZIP package containing the integration files:</li>
+                </ol>
+                
+                <div class="download-card" style="margin: 16px 0 28px;">
+                    <div class="download-info">
+                        <h3>VoidPanel WHMCS Module</h3>
+                        <p>ZIP package containing voidpanel.php and server asset logo.</p>
+                    </div>
+                    <a href="/static/voidpanel-whmcs.zip" class="btn-void btn-void-primary" id="whmcs-download-btn">
+                        <i class="fas fa-download"></i> Download Module ZIP
+                    </a>
+                </div>
+
+                <ol start="2">
+                    <li>Extract the ZIP file locally. The folders should reveal the server directory:
+                        <div class="code-container">
+                            <button class="code-copy-btn" onclick="copyCode(this)" title="Copy Code"><i class="far fa-copy"></i></button>
+                            <code>modules/servers/voidpanel/</code>
+                        </div>
+                    </li>
+                    <li>Upload the <code>voidpanel</code> directory onto your WHMCS server file structure at the following path:
+                        <div class="code-container">
+                            <button class="code-copy-btn" onclick="copyCode(this)" title="Copy Path"><i class="far fa-copy"></i></button>
+                            <code>[WHMCS ROOT]/modules/servers/</code>
+                        </div>
+                    </li>
+                    <li>Verify the destination folder contains the core files <code>voidpanel.php</code> and <code>logo.png</code>.</li>
+                </ol>
+
+                <!-- Server Config -->
+                <h2 id="server-config"><i class="fas fa-sliders"></i> WHMCS Server Setup</h2>
+                <p>Once files are uploaded, register your VoidPanel server node as a provisioning destination inside WHMCS Admin:</p>
+                
+                <ol>
+                    <li>Log into your <strong>WHMCS Admin Panel</strong>.</li>
+                    <li>Navigate to <strong>System Settings > Servers</strong> (or *Setup > Products/Services > Servers* depending on version).</li>
+                    <li>Click <strong>Add New Server</strong>.</li>
+                    <li>Fill out the configuration fields exactly as illustrated in the interactive mockup below:</li>
+                </ol>
+
+                <!-- CSS Form Mockup -->
+                <div class="whmcs-mockup">
+                    <div class="mockup-header">
+                        <div class="mockup-dots">
+                            <div class="mockup-dot red"></div>
+                            <div class="mockup-dot yellow"></div>
+                            <div class="mockup-dot green"></div>
+                        </div>
+                        <span class="mockup-title">WHMCS Admin — Add Server Details</span>
+                        <div style="width: 30px;"></div>
+                    </div>
+                    
+                    <div class="mockup-form-group">
+                        <span class="mockup-label">Name</span>
+                        <input type="text" class="mockup-input" value="VoidPanel Main Node" readonly>
+                    </div>
+
+                    <div class="mockup-form-group">
+                        <span class="mockup-label">Hostname or IP Address</span>
+                        <input type="text" class="mockup-input" value="207.180.209.216" readonly>
+                    </div>
+
+                    <div class="mockup-form-group">
+                        <span class="mockup-label">Module</span>
+                        <select class="mockup-input highlight" style="-webkit-appearance:none;appearance:none;background: #fff url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2210%22><polygon points=%220,0 10,0 5,5%22 fill=%22%23666%22/></svg>') no-repeat 96% center;" disabled>
+                            <option selected>Voidpanel</option>
+                        </select>
+                    </div>
+
+                    <div class="mockup-form-group">
+                        <span class="mockup-label">Password / API Token</span>
+                        <div>
+                            <input type="text" class="mockup-input highlight" value="vp_token_48ea8a7fb..." readonly>
+                            <span class="mockup-note"><i class="fas fa-key"></i> Paste your VoidPanel API Token here instead of root passwords.</span>
+                        </div>
+                    </div>
+
+                    <div class="mockup-form-group">
+                        <span class="mockup-label">Access Hash</span>
+                        <div>
+                            <textarea class="mockup-input" style="height:44px;" readonly placeholder="Leave blank (Authentication is handled via the Password field above)"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="mockup-form-group">
+                        <span class="mockup-label">Port</span>
+                        <div>
+                            <input type="text" class="mockup-input highlight" value="8080" style="width: 80px;" readonly>
+                            <span class="mockup-note">Change from 80/443 default ports to VoidPanel's active port (8080).</span>
+                        </div>
+                    </div>
+
+                    <div class="mockup-form-group">
+                        <span class="mockup-label">Secure</span>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <input type="checkbox" checked disabled>
+                            <span class="mockup-note" style="margin:0;">Tick to use SSL (HTTPS) connection</span>
+                        </div>
+                    </div>
+                </div>
+
+                <ol start="5">
+                    <li>Click <strong>Test Connection</strong> to verify authentication keys.</li>
+                    <li>Click <strong>Save Changes</strong>.</li>
+                </ol>
+
+                <!-- Product Settings -->
+                <h2 id="product-settings"><i class="fas fa-box-archive"></i> WHMCS Product Setup</h2>
+                <p>Map your WHMCS billable products directly to your custom VoidPanel hosting packages:</p>
+                
+                <ol>
+                    <li>Navigate to <strong>System Settings > Products/Services</strong>.</li>
+                    <li>Create a new product or edit an existing one (e.g. *Shared Hosting* or *VPS* product type).</li>
+                    <li>Go to the <strong>Module Settings</strong> tab.</li>
+                    <li>Select <strong>Voidpanel</strong> in the *Module Name* dropdown.</li>
+                    <li>Choose your registered server group or server.</li>
+                    <li>In the <strong>Hosting Package</strong> text field, input the **exact name** of the package configured in VoidPanel (e.g., <code>default</code>, <code>basic</code>, or <code>business</code>).
+                        <span class="mockup-note" style="color:var(--text-secondary);margin-top:6px;"><i class="fas fa-circle-exclamation" style="color:#d97706;"></i> Note: Package names are case-sensitive and must match exactly.</span>
+                    </li>
+                    <li>Choose your preferred automation option (e.g., *Automatically provision product as soon as the first payment is received*).</li>
+                    <li>Click <strong>Save Changes</strong>.</li>
+                </ol>
+
+                <!-- API Scopes -->
+                <h2 id="api-scopes"><i class="fas fa-shield-halved"></i> Required API Token Scopes</h2>
+                <p>To follow security best practices, do not run connections with root keys that possess global scopes. Instead, configure your API Token in the VoidPanel dashboard with only the following active scopes:</p>
+                
+                <div class="scope-grid">
+                    <div class="scope-item"><i class="fas fa-circle-check"></i> <code>accounts.create</code></div>
+                    <div class="scope-item"><i class="fas fa-circle-check"></i> <code>accounts.suspend</code></div>
+                    <div class="scope-item"><i class="fas fa-circle-check"></i> <code>accounts.unsuspend</code></div>
+                    <div class="scope-item"><i class="fas fa-circle-check"></i> <code>accounts.terminate</code></div>
+                    <div class="scope-item"><i class="fas fa-circle-check"></i> <code>accounts.change_package</code></div>
+                    <div class="scope-item"><i class="fas fa-circle-check"></i> <code>accounts.change_password</code></div>
+                </div>
+
+                <div class="whmcs-callout callout-orange">
+                    <i class="fas fa-triangle-exclamation"></i>
+                    <div class="whmcs-callout-content">
+                        <h4>Security Recommendation</h4>
+                        <p>Revoke unused scopes (like DNS edits or global backup updates) from the token key dedicated to the WHMCS module to isolate server risks.</p>
+                    </div>
+                </div>
+
+                <!-- FAQs -->
+                <h2 id="faqs"><i class="fas fa-circle-question"></i> Frequently Asked Questions</h2>
+                <p>Troubleshoot common server integration issues and review FAQs below:</p>
+
+                <div class="faq-accordion">
+                    
+                    <div class="faq-item">
+                        <button class="faq-trigger">
+                            How does WHMCS capture the panel-generated username?
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="faq-panel">
+                            <div class="faq-panel-inner">
+                                Since VoidPanel enforces custom username schemas (stripping symbols and managing local name collisions automatically), the WHMCS module intercepts the generated username from the successful API response and immediately saves it back to the WHMCS service record (<code>tblhosting.username</code>) using the database Capsule manager, ensuring client details are perfectly synchronised.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-trigger">
+                            Why do I get a "CURL Error: Could not resolve host" or Connection Refused?
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="faq-panel">
+                            <div class="faq-panel-inner">
+                                This error signifies that WHMCS cannot route packets to the IP address or host port specified. Ensure your firewall (CSF/UFW) on the VoidPanel server node allows incoming connections from your WHMCS server IP on port 8080.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-trigger">
+                            Does this module support Reseller Packages?
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="faq-panel">
+                            <div class="faq-panel-inner">
+                                Yes. The module is fully compatible with reseller actions. If you associate your API Token with a Reseller profile, the panel automatically monitors reseller account limits and storage quotas when provisioning new sites, issuing structured quota warning returns if thresholds are exceeded.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <button class="faq-trigger">
+                            Can my clients login to VoidPanel directly from their WHMCS area?
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="faq-panel">
+                            <div class="faq-panel-inner">
+                                Yes. The module implements a custom client area button panel. Clients see a styled link titled "Open Control Panel" which securely routes them to the panel host node login page, presenting their system usernames for a smooth experience.
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</section>
+
+{% include 'footer.html' %}
+
+<!-- Code Copier & FAQ Accordion Scripts -->
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    // ── Code Copier ──
+    window.copyCode = function(btn) {
+        const codeElement = btn.nextElementSibling;
+        const text = codeElement.innerText;
+        navigator.clipboard.writeText(text).then(() => {
+            const icon = btn.querySelector("i");
+            icon.className = "fas fa-check";
+            icon.style.color = "#10b981";
+            setTimeout(() => {
+                icon.className = "far fa-copy";
+                icon.style.color = "";
+            }, 2000);
+        });
+    };
+
+    // ── Scroll Spy ──
+    const tocLinks = document.querySelectorAll(".whmcs-toc-link");
+    const sections = Array.from(tocLinks).map(link => document.querySelector(link.getAttribute("href")));
+
+    const handleScroll = () => {
+        let currentSection = sections[0];
+        const scrollPosition = window.scrollY + 140;
+
+        sections.forEach(section => {
+            if (section && scrollPosition >= section.offsetTop) {
+                currentSection = section;
+            }
+        });
+
+        if (currentSection) {
+            const currentId = `#${currentSection.id}`;
+            tocLinks.forEach(link => {
+                if (link.getAttribute("href") === currentId) {
+                    link.classList.add("active");
+                } else {
+                    link.classList.remove("active");
+                }
+            });
+        }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    handleScroll();
+
+    // ── FAQ Accordion ──
+    const faqItems = document.querySelectorAll(".faq-item");
+    faqItems.forEach(item => {
+        const trigger = item.querySelector(".faq-trigger");
+        const panel = item.querySelector(".faq-panel");
+        
+        trigger.addEventListener("click", () => {
+            const isActive = item.classList.contains("active");
+            
+            // Close all
+            faqItems.forEach(i => {
+                i.classList.remove("active");
+                i.querySelector(".faq-panel").style.maxHeight = null;
+            });
+            
+            if (!isActive) {
+                item.classList.add("active");
+                panel.style.maxHeight = panel.scrollHeight + "px";
+            }
+        });
+    });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1738 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <title>Social Media Portal — {{ domain }}</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Full-featured Social Media Management Portal — schedule, analyze, and grow your social presence.">
+  <link rel="icon" href="/static/fav.png" type="image/x-icon">
+  <link rel="stylesheet" href="/static/static/css/plugins/fontawesome-all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#06080f;--bg2:#0b0e18;--bg3:#0f1220;
+      --surface:rgba(255,255,255,0.025);--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.04);
+      --txt:#f1f5f9;--txt2:#94a3b8;--txt3:#475569;
+      --accent:#6366f1;--accent2:#8b5cf6;
+      --green:#10b981;--amber:#f59e0b;--red:#ef4444;--blue:#3b82f6;--cyan:#06b6d4;--pink:#ec4899;
+      --fb:#1877F2;--ig:#E1306C;--tw:#000;--li:#0A66C2;--pi:#E60023;--tt:#010101;--yt:#FF0000;--th:#000;
+    }
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;overflow-x:hidden}
+    .app{display:flex;height:100vh;overflow:hidden}
+
+    /* ── SIDEBAR ── */
+    .sidebar{width:230px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+    .sb-logo{display:flex;align-items:center;gap:10px;padding:18px 16px 14px;border-bottom:1px solid var(--border2)}
+    .sb-logo-icon{width:36px;height:36px;border-radius:10px;flex-shrink:0;background:linear-gradient(135deg,#E1306C,#833ab4,#405de6);display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;box-shadow:0 4px 14px rgba(225,48,108,.35)}
+    .sb-logo-name{font-size:14px;font-weight:800;color:var(--txt);line-height:1.2}
+    .sb-logo-sub{font-size:10px;color:var(--txt3)}
+    .sb-section{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--txt3);padding:14px 16px 4px}
+    .sb-item{display:flex;align-items:center;gap:9px;padding:9px 14px;border-radius:0;border:none;background:transparent;color:var(--txt2);font-size:12.5px;font-weight:500;cursor:pointer;width:100%;text-align:left;border-left:2.5px solid transparent;transition:all .15s;font-family:'Inter',sans-serif}
+    .sb-item:hover{color:var(--txt);background:var(--surface)}
+    .sb-item.active{color:#fff;background:rgba(225,48,108,.1);border-left-color:#E1306C;font-weight:600}
+    .sb-item .si{width:16px;text-align:center;font-size:12px;flex-shrink:0}
+    .sb-badge{margin-left:auto;font-size:9px;font-weight:800;padding:1px 6px;border-radius:20px;background:rgba(225,48,108,.18);color:#f9a8d4}
+    .sb-badge.green{background:rgba(16,185,129,.18);color:#6ee7b7}
+    .sb-badge.amber{background:rgba(245,158,11,.18);color:#fcd34d}
+    .sb-bottom{padding:14px 16px;border-top:1px solid var(--border2);margin-top:auto}
+    .sb-user{display:flex;align-items:center;gap:9px}
+    .sb-av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#E1306C,#405de6);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;flex-shrink:0}
+    .sb-uname{font-size:12px;font-weight:700;color:var(--txt)}
+    .sb-urole{font-size:10px;color:var(--txt3)}
+    .sb-close{margin-left:auto;background:none;border:none;color:var(--txt3);cursor:pointer;font-size:13px;transition:color .15s}
+    .sb-close:hover{color:var(--txt)}
+
+    /* ── MAIN ── */
+    .main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+    .topbar{height:58px;flex-shrink:0;background:rgba(11,14,24,.96);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 24px}
+    .topbar-domain{font-size:13px;font-weight:700;color:var(--txt);background:var(--surface);border:1px solid var(--border);padding:6px 14px;border-radius:8px;display:flex;align-items:center;gap:7px}
+    .platform-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+    .topbar-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
+    .btn-compose{display:flex;align-items:center;gap:7px;padding:9px 18px;border-radius:10px;background:linear-gradient(135deg,#E1306C,#833ab4);border:none;color:#fff;font-size:12.5px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:opacity .15s;box-shadow:0 4px 14px rgba(225,48,108,.3)}
+    .btn-compose:hover{opacity:.9}
+    .btn-ghost{padding:7px 13px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--txt2);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;display:flex;align-items:center;gap:6px}
+    .btn-ghost:hover{border-color:rgba(255,255,255,.2);color:var(--txt)}
+
+    /* ── CONTENT ── */
+    .content{flex:1;overflow-y:auto;padding:22px 24px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent}
+    .content::-webkit-scrollbar{width:5px}
+    .content::-webkit-scrollbar-track{background:transparent}
+    .content::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:4px}
+    .panel{display:none}
+    .panel.active{display:block}
+
+    /* ── CARDS ── */
+    .card{background:var(--surface);border:1px solid var(--border2);border-radius:14px;padding:18px 20px;position:relative;overflow:hidden}
+    .card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.015),transparent);pointer-events:none}
+    .card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px}
+    .card-title{font-size:13px;font-weight:700;color:var(--txt);display:flex;align-items:center;gap:7px}
+
+    /* ── GRID ── */
+    .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+    .g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px}
+    @media(max-width:900px){.g4,.g3{grid-template-columns:1fr 1fr}.g2{grid-template-columns:1fr}}
+
+    /* ── KPI ── */
+    .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:18px}
+    .kpi{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:16px 18px;position:relative;overflow:hidden}
+    .kpi-glow{position:absolute;top:-18px;right:-18px;width:60px;height:60px;border-radius:50%;filter:blur(22px);opacity:.22}
+    .kpi-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--txt3);margin-bottom:8px}
+    .kpi-val{font-size:28px;font-weight:900;color:var(--txt);line-height:1}
+    .kpi-sub{font-size:10px;color:var(--txt3);margin-top:4px}
+    .kpi-delta{font-size:10px;font-weight:700;margin-top:4px}
+    .kpi-delta.up{color:var(--green)}.kpi-delta.dn{color:var(--red)}
+
+    /* ── TABLE ── */
+    .tw{overflow-x:auto;border-radius:8px}
+    .t{width:100%;border-collapse:collapse;font-size:12.5px}
+    .t th{background:rgba(255,255,255,.03);color:var(--txt3);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;padding:9px 12px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--border2)}
+    .t td{padding:10px 12px;color:var(--txt2);border-bottom:1px solid var(--border2);vertical-align:middle}
+    .t tr:last-child td{border-bottom:none}
+    .t tr:hover td{background:rgba(255,255,255,.015);color:var(--txt)}
+
+    /* ── PLATFORM BADGES ── */
+    .plat{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px}
+    .plat-fb{background:rgba(24,119,242,.15);color:#60a5fa}
+    .plat-ig{background:rgba(225,48,108,.15);color:#f9a8d4}
+    .plat-tw{background:rgba(148,163,184,.1);color:#94a3b8}
+    .plat-li{background:rgba(10,102,194,.15);color:#7dd3fc}
+    .plat-pi{background:rgba(230,0,35,.15);color:#fca5a5}
+    .plat-tt{background:rgba(148,163,184,.1);color:#94a3b8}
+    .plat-yt{background:rgba(255,0,0,.15);color:#fca5a5}
+    .plat-th{background:rgba(148,163,184,.1);color:#e2e8f0}
+
+    /* ── COMPOSER ── */
+    .composer{display:grid;grid-template-columns:1fr 360px;gap:18px;align-items:start}
+    .comp-textarea{width:100%;min-height:140px;padding:14px;border-radius:10px;background:rgba(255,255,255,.04);border:1.5px solid var(--border);color:var(--txt);font-size:13.5px;font-family:'Inter',sans-serif;outline:none;resize:vertical;line-height:1.6;transition:border-color .15s}
+    .comp-textarea:focus{border-color:rgba(225,48,108,.5)}
+    .comp-textarea::placeholder{color:var(--txt3)}
+    .plat-selector{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+    .plat-btn{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--txt3);font-size:11.5px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s}
+    .plat-btn.sel{border-color:currentColor;background:rgba(255,255,255,.06)}
+    .plat-btn:hover{border-color:rgba(255,255,255,.2);color:var(--txt)}
+    .char-bar{height:3px;border-radius:2px;background:rgba(255,255,255,.06);margin-top:8px;overflow:hidden}
+    .char-fill{height:100%;border-radius:2px;background:var(--green);transition:width .2s,background .2s}
+    .char-fill.warn{background:var(--amber)}
+    .char-fill.over{background:var(--red)}
+    .schedule-opts{display:flex;gap:8px;margin-bottom:12px}
+    .sch-opt{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px;border-radius:9px;border:1.5px solid var(--border);background:transparent;color:var(--txt3);font-size:11.5px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s}
+    .sch-opt.active,.sch-opt:hover{border-color:rgba(225,48,108,.5);background:rgba(225,48,108,.08);color:var(--txt)}
+
+    /* ── CALENDAR ── */
+    .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+    .cal-hdr{text-align:center;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--txt3);padding:8px 4px}
+    .cal-day{min-height:70px;padding:6px;border-radius:8px;border:1px solid var(--border2);background:var(--surface);position:relative;transition:border-color .15s}
+    .cal-day:hover{border-color:rgba(225,48,108,.3)}
+    .cal-day.today{border-color:rgba(225,48,108,.5);background:rgba(225,48,108,.05)}
+    .cal-day.empty{background:rgba(255,255,255,.01);border-color:transparent}
+    .cal-num{font-size:11px;font-weight:700;color:var(--txt3);margin-bottom:4px}
+    .cal-event{font-size:9.5px;background:rgba(225,48,108,.15);border-left:2px solid #E1306C;border-radius:4px;padding:2px 5px;margin-bottom:2px;color:#f9a8d4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+    .cal-nav{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+    .cal-nav button{background:var(--surface);border:1px solid var(--border);color:var(--txt2);padding:6px 12px;border-radius:7px;cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;transition:all .15s}
+    .cal-nav button:hover{border-color:rgba(255,255,255,.2);color:var(--txt)}
+    .cal-month{font-size:16px;font-weight:800;color:var(--txt);flex:1;text-align:center}
+
+    /* ── POST CARD ── */
+    .post-card{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:15px 16px;margin-bottom:10px;transition:border-color .15s}
+    .post-card:hover{border-color:rgba(255,255,255,.1)}
+    .post-header{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px}
+    .post-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#E1306C,#405de6);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;flex-shrink:0}
+    .post-meta{flex:1;min-width:0}
+    .post-domain{font-size:12px;font-weight:700;color:var(--txt)}
+    .post-time{font-size:10.5px;color:var(--txt3)}
+    .post-caption{font-size:12.5px;color:var(--txt2);line-height:1.6;margin-bottom:8px;white-space:pre-wrap;word-break:break-word}
+    .post-metrics{display:flex;gap:14px;font-size:11px;color:var(--txt3)}
+    .post-metric{display:flex;align-items:center;gap:4px;font-weight:600}
+    .post-metric i{font-size:10px}
+    .post-actions{display:flex;gap:7px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border2)}
+
+    /* ── ACCOUNT CARD ── */
+    .acc-card{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:16px;text-align:center;transition:border-color .15s;display:flex;flex-direction:column;align-items:center;gap:8px}
+    .acc-card:hover{border-color:rgba(255,255,255,.1)}
+    .acc-avatar{width:52px;height:52px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,.1)}
+    .acc-avatar-fallback{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;border:3px solid rgba(255,255,255,.1)}
+    .acc-name{font-size:13px;font-weight:700;color:var(--txt)}
+    .acc-handle{font-size:11px;color:var(--txt3)}
+    .acc-followers{font-size:20px;font-weight:900;color:var(--txt)}
+    .acc-followers-label{font-size:10px;color:var(--txt3)}
+
+    /* ── INBOX ── */
+    .inbox-msg{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid var(--border2)}
+    .inbox-msg:last-child{border-bottom:none}
+    .inbox-ava{width:36px;height:36px;border-radius:50%;background:var(--surface);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+    .inbox-body{flex:1}
+    .inbox-author{font-size:12.5px;font-weight:700;color:var(--txt)}
+    .inbox-text{font-size:12px;color:var(--txt2);line-height:1.5;margin-top:2px}
+    .inbox-meta{font-size:10.5px;color:var(--txt3);margin-top:4px;display:flex;align-items:center;gap:8px}
+
+    /* ── EMPTY STATE ── */
+    .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:52px 20px;text-align:center;gap:14px}
+    .empty i{font-size:40px;color:var(--txt3)}
+    .empty h4{font-size:16px;font-weight:700;color:var(--txt2)}
+    .empty p{font-size:13px;color:var(--txt3);max-width:360px;line-height:1.6}
+
+    /* ── LOADER ── */
+    .loader{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:200px;gap:14px}
+    .lr{width:40px;height:40px;border-radius:50%;border:3px solid rgba(225,48,108,.15);border-top-color:#E1306C;animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ── HASHTAG ── */
+    .tag{display:inline-block;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.2);color:#a5b4fc;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;margin:2px;cursor:pointer;transition:all .15s}
+    .tag:hover{background:rgba(99,102,241,.22)}
+
+    /* ── MEDIA LIBRARY ── */
+    .media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+    .media-item{border-radius:10px;overflow:hidden;border:1px solid var(--border2);aspect-ratio:1;background:var(--surface);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;position:relative}
+    .media-item:hover{border-color:rgba(225,48,108,.4);transform:scale(1.02)}
+    .media-item img{width:100%;height:100%;object-fit:cover}
+    .media-item-icon{font-size:28px;color:var(--txt3)}
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar{width:4px;height:4px}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:4px}
+
+    /* ── MODAL ── */
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}
+    .modal{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:560px;width:100%;max-height:85vh;overflow-y:auto}
+    .modal-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .modal-title{font-size:16px;font-weight:800;color:var(--txt)}
+    .modal-close{background:none;border:none;color:var(--txt3);cursor:pointer;font-size:18px;transition:color .15s}
+    .modal-close:hover{color:var(--txt)}
+
+    /* MISC */
+    input[type=text],input[type=url],input[type=datetime-local],select{padding:9px 12px;border-radius:8px;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--txt);font-size:12.5px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s;width:100%}
+    input:focus,select:focus{border-color:rgba(225,48,108,.5)}
+    select option{background:var(--bg2)}
+    label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--txt3);display:block;margin-bottom:5px}
+    .form-row{margin-bottom:13px}
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ═══ SIDEBAR ═══════════════════════════════════════════════════ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-icon"><i class="fa-brands fa-instagram"></i></div>
+      <div>
+        <div class="sb-logo-name">Social Studio</div>
+        <div class="sb-logo-sub">{{ domain }}</div>
+      </div>
+    </div>
+
+    <div class="sb-section">Overview</div>
+    <button class="sb-item active" onclick="sw('overview',this)"><i class="si fa-solid fa-chart-pie"></i> Dashboard</button>
+    <button class="sb-item" onclick="sw('analytics',this)"><i class="si fa-solid fa-chart-line"></i> Analytics</button>
+    <button class="sb-item" onclick="sw('performance',this)"><i class="si fa-solid fa-ranking-star"></i> Post Performance</button>
+
+    <div class="sb-section">Publishing</div>
+    <button class="sb-item" onclick="sw('composer',this)"><i class="si fa-solid fa-pen-to-square"></i> Compose Post</button>
+    <button class="sb-item" onclick="sw('calendar',this)"><i class="si fa-solid fa-calendar-days"></i> Content Calendar</button>
+    <button class="sb-item" onclick="sw('scheduled',this)"><i class="si fa-solid fa-clock"></i> Scheduled<span id="schBadge" class="sb-badge" style="display:none"></span></button>
+    <button class="sb-item" onclick="sw('published',this)"><i class="si fa-solid fa-circle-check"></i> Published</button>
+    <button class="sb-item" onclick="sw('drafts',this)"><i class="si fa-solid fa-file-pen"></i> Drafts</button>
+
+    <div class="sb-section">Engagement</div>
+    <button class="sb-item" onclick="sw('inbox',this)"><i class="si fa-solid fa-inbox"></i> Social Inbox</button>
+    <button class="sb-item" onclick="sw('mentions',this)"><i class="si fa-solid fa-at"></i> Mentions</button>
+
+    <div class="sb-section">Audience</div>
+    <button class="sb-item" onclick="sw('audience',this)"><i class="si fa-solid fa-users"></i> Audience Insights</button>
+    <button class="sb-item" onclick="sw('growth',this)"><i class="si fa-solid fa-arrow-trend-up"></i> Follower Growth</button>
+
+    <div class="sb-section">Content Tools</div>
+    <button class="sb-item" onclick="sw('media',this)"><i class="si fa-solid fa-images"></i> Media Library</button>
+    <button class="sb-item" onclick="sw('hashtags',this)"><i class="si fa-solid fa-hashtag"></i> Hashtag Manager</button>
+    <button class="sb-item" onclick="sw('ai',this)"><i class="si fa-solid fa-wand-magic-sparkles"></i> AI Caption<span class="sb-badge">AI</span></button>
+
+    <div class="sb-section">Settings</div>
+    <button class="sb-item" onclick="sw('accounts',this)"><i class="si fa-solid fa-plug"></i> Connected Accounts</button>
+
+    <div class="sb-bottom">
+      <div class="sb-user">
+        {% if suite_mode %}
+        <div class="sb-av" style="background:linear-gradient(135deg,#E1306C,#833ab4)">{{ suite_user.name|first|upper|default:"S" }}</div>
+        <div>
+          <div class="sb-uname">{{ suite_user.name|default:suite_user.email }}</div>
+          <div class="sb-urole"><i class="fa-solid fa-bolt" style="color:#f9a8d4;font-size:9px"></i> {{ suite_user.plan|capfirst }} Plan</div>
+        </div>
+        <a href="/control/suite/logout/" class="sb-close" title="Sign out" style="text-decoration:none;color:var(--txt3)"><i class="fa-solid fa-right-from-bracket"></i></a>
+        {% else %}
+        <div class="sb-av">{{ user.username|first|upper }}</div>
+        <div>
+          <div class="sb-uname">{{ user.username }}</div>
+          <div class="sb-urole">{{ domain }}</div>
+        </div>
+        <button class="sb-close" onclick="window.close()" title="Close"><i class="fa-solid fa-xmark"></i></button>
+        {% endif %}
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══ MAIN ══════════════════════════════════════════════════════ -->
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-domain">
+        <i class="fa-solid fa-share-nodes" style="color:#E1306C"></i>
+        <span>{{ domain }}</span>
+        <span id="accCountBadge" style="font-size:10px;background:rgba(225,48,108,.15);color:#f9a8d4;padding:1px 7px;border-radius:20px;font-weight:800">{{ stats.accounts }} accounts</span>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn-ghost" onclick="window.location.reload()"><i class="fa-solid fa-rotate"></i> Refresh</button>
+        <a href="/control/social/{{ domain }}/export/" class="btn-ghost" style="text-decoration:none"><i class="fa-solid fa-download"></i> Export CSV</a>
+        <button class="btn-compose" onclick="sw('composer',document.querySelector('.sb-item[onclick*=composer]'))">
+          <i class="fa-solid fa-plus"></i> New Post
+        </button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ══ OVERVIEW ══════════════════════════════════════════════ -->
+      <div class="panel active" id="panel-overview">
+        <div class="kpi-grid" id="kpiGrid">
+          <div class="kpi"><div class="kpi-glow" style="background:#E1306C"></div><div class="kpi-label">Total Followers</div><div class="kpi-val" id="kFollowers">{{ stats.total_followers|default:"0" }}</div><div class="kpi-sub">Across all platforms</div></div>
+          <div class="kpi"><div class="kpi-glow" style="background:#10b981"></div><div class="kpi-label">Published Posts</div><div class="kpi-val" id="kPublished">{{ stats.published }}</div><div class="kpi-sub">Total published</div></div>
+          <div class="kpi"><div class="kpi-glow" style="background:#f59e0b"></div><div class="kpi-label">Scheduled</div><div class="kpi-val" id="kScheduled">{{ stats.scheduled }}</div><div class="kpi-sub">Upcoming posts</div></div>
+          <div class="kpi"><div class="kpi-glow" style="background:#3b82f6"></div><div class="kpi-label">Total Reach</div><div class="kpi-val" id="kReach">0</div><div class="kpi-sub">Cumulative reach</div></div>
+          <div class="kpi"><div class="kpi-glow" style="background:#ec4899"></div><div class="kpi-label">Total Likes</div><div class="kpi-val" id="kLikes">0</div><div class="kpi-sub">Across all posts</div></div>
+          <div class="kpi"><div class="kpi-glow" style="background:#06b6d4"></div><div class="kpi-label">Comments</div><div class="kpi-val" id="kComments">0</div><div class="kpi-sub">All post comments</div></div>
+        </div>
+
+        <div class="g2" style="margin-bottom:14px">
+          <div class="card">
+            <div class="card-hd"><div class="card-title"><i class="fa-solid fa-chart-bar" style="color:#E1306C"></i> Engagement by Platform</div></div>
+            <canvas id="engagePlatChart" height="180"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-hd"><div class="card-title"><i class="fa-solid fa-chart-line" style="color:#10b981"></i> Publishing Activity (Last 30 Days)</div></div>
+            <canvas id="activityChart" height="180"></canvas>
+          </div>
+        </div>
+
+        <!-- Connected Accounts overview -->
+        <div class="card">
+          <div class="card-hd">
+            <div class="card-title"><i class="fa-solid fa-plug" style="color:#6366f1"></i> Connected Accounts</div>
+            <a href="/control/social/{{ domain }}/" style="font-size:11.5px;color:#E1306C;text-decoration:none;font-weight:600">Manage <i class="fa-solid fa-arrow-right" style="font-size:9px"></i></a>
+          </div>
+          <div id="accOverviewGrid" class="g3" style="gap:10px"></div>
+          {% if not accounts %}
+          <div class="empty">
+            <i class="fa-solid fa-plug"></i>
+            <h4>No Accounts Connected</h4>
+            <p>Connect your Facebook, Instagram, Twitter, LinkedIn and more to start publishing.</p>
+            <a href="/control/social/{{ domain }}/" style="padding:9px 18px;border-radius:9px;background:linear-gradient(135deg,#E1306C,#833ab4);color:#fff;text-decoration:none;font-size:12.5px;font-weight:700">Connect Accounts</a>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Recent posts -->
+        <div class="card" style="margin-top:14px">
+          <div class="card-hd">
+            <div class="card-title"><i class="fa-solid fa-newspaper" style="color:var(--amber)"></i> Recent Posts</div>
+            <button class="btn-ghost" onclick="sw('published',document.querySelector('.sb-item[onclick*=published]'))" style="font-size:11px">View All</button>
+          </div>
+          <div id="recentPosts"></div>
+        </div>
+      </div>
+
+      <!-- ══ ANALYTICS ══════════════════════════════════════════════ -->
+      <div class="panel" id="panel-analytics">
+        <div class="g2" style="margin-bottom:14px">
+          <div class="card">
+            <div class="card-hd"><div class="card-title"><i class="fa-solid fa-users" style="color:#E1306C"></i> Followers by Platform</div></div>
+            <canvas id="followersChart" height="200"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-hd"><div class="card-title"><i class="fa-solid fa-heart" style="color:var(--pink)"></i> Engagement Rate by Platform</div></div>
+            <canvas id="engagementChart" height="200"></canvas>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-hd"><div class="card-title"><i class="fa-solid fa-chart-area" style="color:var(--blue)"></i> Reach & Impressions Trend</div></div>
+          <canvas id="reachChart" height="110"></canvas>
+        </div>
+        <div class="g3">
+          <div class="card" style="text-align:center">
+            <div class="kpi-label" style="margin-bottom:8px">Avg. Engagement Rate</div>
+            <div id="avgEngRate" style="font-size:32px;font-weight:900;color:var(--green)">0%</div>
+            <div class="kpi-sub">likes+comments / followers</div>
+          </div>
+          <div class="card" style="text-align:center">
+            <div class="kpi-label" style="margin-bottom:8px">Best Time to Post</div>
+            <div id="bestTime" style="font-size:28px;font-weight:900;color:var(--amber)">—</div>
+            <div class="kpi-sub">Based on past performance</div>
+          </div>
+          <div class="card" style="text-align:center">
+            <div class="kpi-label" style="margin-bottom:8px">Avg. Reach / Post</div>
+            <div id="avgReach" style="font-size:32px;font-weight:900;color:var(--accent)">0</div>
+            <div class="kpi-sub">Across all published posts</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ POST PERFORMANCE ══════════════════════════════════════ -->
+      <div class="panel" id="panel-performance">
+        <div class="card">
+          <div class="card-hd">
+            <div class="card-title"><i class="fa-solid fa-ranking-star" style="color:var(--amber)"></i> Post Performance — All Published Posts</div>
+            <a href="/control/social/{{ domain }}/export/" class="btn-ghost" style="text-decoration:none;font-size:11px"><i class="fa-solid fa-download"></i> CSV</a>
+          </div>
+          <div class="tw"><table class="t" id="perfTable">
+            <thead><tr><th>Post</th><th>Platforms</th><th>Published</th><th><i class="fa-solid fa-heart"></i> Likes</th><th><i class="fa-solid fa-comment"></i> Comments</th><th><i class="fa-solid fa-eye"></i> Reach</th><th><i class="fa-solid fa-chart-bar"></i> Impressions</th></tr></thead>
+            <tbody id="perfBody"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- ══ COMPOSER ══════════════════════════════════════════════ -->
+      <div class="panel" id="panel-composer">
+        <div class="composer">
+          <div>
+            <div class="card" style="margin-bottom:14px">
+              <div class="card-hd"><div class="card-title"><i class="fa-solid fa-pen-to-square" style="color:#E1306C"></i> Compose New Post</div></div>
+
+              <!-- Platform selector -->
+              <div class="form-row">
+                <label>Post To</label>
+                <div class="plat-selector" id="platSelector"></div>
+                <div id="noPlatMsg" style="display:none;font-size:11.5px;color:var(--amber);margin-top:4px"><i class="fa-solid fa-triangle-exclamation"></i> No accounts connected. <a href="/control/social/{{ domain }}/" style="color:#E1306C">Connect accounts</a> first.</div>
+              </div>
+
+              <!-- Caption -->
+              <div class="form-row">
+                <label>Caption</label>
+                <textarea class="comp-textarea" id="captionText" placeholder="Write your caption here…" oninput="updateCharCount()"></textarea>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+                  <div id="charInfo" style="font-size:10.5px;color:var(--txt3)">0 / 2200</div>
+                  <button onclick="openAIModal()" style="font-size:10.5px;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.2);color:#a5b4fc;padding:3px 10px;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Caption</button>
+                </div>
+                <div class="char-bar"><div class="char-fill" id="charFill" style="width:0%"></div></div>
+              </div>
+
+              <!-- First Comment -->
+              <div class="form-row">
+                <label>First Comment <span style="font-weight:400;text-transform:none;font-size:10px;color:var(--txt3)">(hashtag trick — hidden from main post)</span></label>
+                <input type="text" id="firstComment" placeholder="Add hashtags here for Instagram first comment trick…">
+              </div>
+
+              <!-- Link -->
+              <div class="form-row">
+                <label>Link URL <span style="font-weight:400;text-transform:none;font-size:10px;color:var(--txt3)">(optional)</span></label>
+                <input type="url" id="linkURL" placeholder="https://your-link.com">
+              </div>
+
+              <!-- Media -->
+              <div class="form-row">
+                <label>Media</label>
+                <div style="border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:border-color .15s" id="mediaDrop" onclick="document.getElementById('mediaInput').click()" ondragover="this.style.borderColor='#E1306C'" ondragleave="this.style.borderColor=''" ondrop="handleDrop(event)">
+                  <i class="fa-solid fa-cloud-arrow-up" style="font-size:28px;color:var(--txt3);margin-bottom:8px;display:block"></i>
+                  <div style="font-size:12px;color:var(--txt3)">Drag & drop images/videos or <span style="color:#E1306C;font-weight:600">browse</span></div>
+                </div>
+                <input type="file" id="mediaInput" accept="image/*,video/*" multiple style="display:none" onchange="previewMedia(this)">
+                <div id="mediaPreviews" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+              </div>
+
+              <!-- Recurring -->
+              <div class="form-row">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                  <input type="checkbox" id="isRecurring" onchange="toggleRecurrence()"> Recurring Post
+                </label>
+                <div id="recurrenceOpts" style="display:none;margin-top:8px">
+                  <select id="recurrenceRule">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Schedule options -->
+            <div class="card">
+              <div class="card-hd"><div class="card-title"><i class="fa-solid fa-clock" style="color:var(--amber)"></i> Schedule</div></div>
+              <div class="schedule-opts">
+                <button class="sch-opt active" id="optNow" onclick="setSchedule('now')"><i class="fa-solid fa-bolt"></i> Publish Now</button>
+                <button class="sch-opt" id="optSched" onclick="setSchedule('later')"><i class="fa-solid fa-calendar-plus"></i> Schedule Later</button>
+                <button class="sch-opt" id="optDraft" onclick="setSchedule('draft')"><i class="fa-solid fa-floppy-disk"></i> Save Draft</button>
+              </div>
+              <div id="schedDateRow" style="display:none;margin-bottom:12px">
+                <label>Schedule Date & Time</label>
+                <input type="datetime-local" id="scheduledAt">
+              </div>
+              <form id="postForm" action="/control/social/{{ domain }}/post/create/" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="caption" id="formCaption">
+                <input type="hidden" name="first_comment" id="formFirstComment">
+                <input type="hidden" name="link_url" id="formLinkURL">
+                <input type="hidden" name="schedule_type" id="formScheduleType" value="now">
+                <input type="hidden" name="scheduled_at" id="formScheduledAt">
+                <input type="hidden" name="is_recurring" id="formIsRecurring">
+                <input type="hidden" name="recurrence_rule" id="formRecurrenceRule">
+                <div id="formAccountIds"></div>
+                <button type="button" onclick="submitPost()" style="width:100%;padding:13px;border-radius:10px;background:linear-gradient(135deg,#E1306C,#833ab4);border:none;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;box-shadow:0 4px 16px rgba(225,48,108,.3);transition:opacity .15s">
+                  <i class="fa-solid fa-paper-plane"></i> <span id="postBtnTxt">Publish Post</span>
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Preview pane -->
+          <div>
+            <div class="card" style="position:sticky;top:0">
+              <div class="card-hd"><div class="card-title"><i class="fa-solid fa-eye" style="color:var(--txt3)"></i> Live Preview</div></div>
+              <div style="background:#fff;border-radius:10px;padding:14px;font-family:Arial,sans-serif">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                  <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#E1306C,#405de6)"></div>
+                  <div>
+                    <div style="font-size:12px;font-weight:700;color:#000">{{ domain }}</div>
+                    <div style="font-size:10px;color:#666">Just now</div>
+                  </div>
+                </div>
+                <div id="preview-text" style="font-size:13px;color:#000;line-height:1.5;white-space:pre-wrap;margin-bottom:10px;word-break:break-word">Your caption will appear here…</div>
+                <div id="preview-img" style="display:none;border-radius:8px;overflow:hidden;margin-bottom:8px"><img style="width:100%;max-height:200px;object-fit:cover" id="preview-img-src" src=""></div>
+                <div style="display:flex;gap:14px;color:#666;font-size:12px">
+                  <span><i class="fa-regular fa-heart"></i> Like</span>
+                  <span><i class="fa-regular fa-comment"></i> Comment</span>
+                  <span><i class="fa-solid fa-share" style="font-size:10px"></i> Share</span>
+                </div>
+              </div>
+              <div style="margin-top:12px">
+                <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--txt3);margin-bottom:8px">Platform Limits</div>
+                <div id="platLimits"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ CALENDAR ═════════════════════════════════════════════ -->
+      <div class="panel" id="panel-calendar">
+        <div class="card">
+          <div class="cal-nav">
+            <button onclick="calPrev()"><i class="fa-solid fa-chevron-left"></i></button>
+            <div class="cal-month" id="calMonth"></div>
+            <button onclick="calNext()"><i class="fa-solid fa-chevron-right"></i></button>
+            <button class="btn-ghost" onclick="sw('composer',document.querySelector('.sb-item[onclick*=composer]'))"><i class="fa-solid fa-plus"></i> New Post</button>
+          </div>
+          <div class="cal-grid">
+            <div class="cal-hdr">Sun</div><div class="cal-hdr">Mon</div><div class="cal-hdr">Tue</div>
+            <div class="cal-hdr">Wed</div><div class="cal-hdr">Thu</div><div class="cal-hdr">Fri</div><div class="cal-hdr">Sat</div>
+          </div>
+          <div class="cal-grid" id="calBody" style="margin-top:4px"></div>
+        </div>
+      </div>
+
+      <!-- ══ SCHEDULED ════════════════════════════════════════════ -->
+      <div class="panel" id="panel-scheduled">
+        <div class="card">
+          <div class="card-hd">
+            <div class="card-title"><i class="fa-solid fa-clock" style="color:var(--amber)"></i> Scheduled Posts</div>
+            <button class="btn-compose" onclick="sw('composer',document.querySelector('.sb-item[onclick*=composer]'))"><i class="fa-solid fa-plus"></i> Schedule Post</button>
+          </div>
+          <div id="scheduledList"></div>
+        </div>
+      </div>
+
+      <!-- ══ PUBLISHED ════════════════════════════════════════════ -->
+      <div class="panel" id="panel-published">
+        <div class="card">
+          <div class="card-hd">
+            <div class="card-title"><i class="fa-solid fa-circle-check" style="color:var(--green)"></i> Published Posts</div>
+            <a href="/control/social/{{ domain }}/export/" class="btn-ghost" style="text-decoration:none;font-size:11px"><i class="fa-solid fa-download"></i> Export</a>
+          </div>
+          <div id="publishedList"></div>
+        </div>
+      </div>
+
+      <!-- ══ DRAFTS ════════════════════════════════════════════════ -->
+      <div class="panel" id="panel-drafts">
+        <div class="card">
+          <div class="card-hd"><div class="card-title"><i class="fa-solid fa-file-pen" style="color:var(--txt3)"></i> Draft Posts</div></div>
+          <div id="draftsList"></div>
+        </div>
+      </div>
+
+      <!-- ══ INBOX ═════════════════════════════════════════════════ -->
+      <div class="panel" id="panel-inbox">
+        <div class="card">
+          <div class="card-hd"><div class="card-title"><i class="fa-solid fa-inbox" style="color:var(--accent)"></i> Social Inbox — Unified Messages & Comments</div></div>
+          <div id="inboxContent">
+            <div class="loader"><div class="lr"></div><span style="font-size:12px;color:var(--txt3)">Loading inbox…</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ MENTIONS ═══════════════════════════════════════════════ -->
+      <div class="panel" id="panel-mentions">
+        <div class="card">
+          <div class="card-hd"><div class="card-title"><i class="fa-solid fa-at" style="color:var(--cyan)"></i> Brand Mentions</div></div>
+          <div class="empty">
+            <i class="fa-solid fa-at"></i>
+            <h4>Mention Tracking</h4>
+            <p>Connect social accounts with API access to track brand mentions, tags, and @replies across all platforms in real time.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ AUDIENCE ════════════════════════════════════════════════ -->
+      <div class="panel" id="panel-audience">
+        <div class="g2" style="margin-bottom:14px">
+          <div class="card">
+            <div class="card-hd"><div class="card-title"><i class="fa-solid fa-venus-mars" style="color:#ec4899"></i> Gender Distribution (Est.)</div></div>
+            <canvas id="genderChart" height="180"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-hd"><div class="card-title"><i class="fa-solid fa-mobile-screen" style="color:var(--accent)"></i> Device Split (Est.)</div></div>
+            <canvas id="deviceChart" height="180"></canvas>
+          </div>
+        </div>
+        <div class="g2">
+          <div class="card">
+            <div class="card-hd"><div class="card-title"><i class="fa-solid fa-globe" style="color:var(--green)"></i> Top Locations (Est.)</div></div>
+            <div id="locationList"></div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><div class="card-title"><i class="fa-solid fa-people-group" style="color:var(--amber)"></i> Age Groups (Est.)</div></div>
+            <canvas id="ageChart" height="200"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ FOLLOWER GROWTH ════════════════════════════════════════ -->
+      <div class="panel" id="panel-growth">
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-hd"><div class="card-title"><i class="fa-solid fa-arrow-trend-up" style="color:var(--green)"></i> Follower Growth — Last 6 Months (Est.)</div></div>
+          <canvas id="growthChart" height="120"></canvas>
+        </div>
+        <div class="card">
+          <div class="card-hd"><div class="card-title"><i class="fa-solid fa-table" style="color:var(--accent)"></i> Account Follower Summary</div></div>
+          <div id="growthTable"></div>
+        </div>
+      </div>
+
+      <!-- ══ MEDIA LIBRARY ══════════════════════════════════════════ -->
+      <div class="panel" id="panel-media">
+        <div class="card">
+          <div class="card-hd">
+            <div class="card-title"><i class="fa-solid fa-images" style="color:#E1306C"></i> Media Library</div>
+            <button onclick="document.getElementById('libUpload').click()" class="btn-compose"><i class="fa-solid fa-upload"></i> Upload</button>
+          </div>
+          <input type="file" id="libUpload" accept="image/*,video/*" style="display:none" multiple onchange="uploadToLibrary(this)">
+          <div class="media-grid" id="mediaGrid">
+            <div class="empty" style="grid-column:1/-1">
+              <i class="fa-solid fa-images"></i>
+              <h4>Media Library Empty</h4>
+              <p>Upload images and videos to reuse across multiple posts and platforms.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ HASHTAG MANAGER ════════════════════════════════════════ -->
+      <div class="panel" id="panel-hashtags">
+        <div class="g2">
+          <div class="card">
+            <div class="card-hd"><div class="card-title"><i class="fa-solid fa-hashtag" style="color:var(--accent2)"></i> Saved Hashtag Groups</div></div>
+            <div id="hashtagGroups"></div>
+            <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border2)">
+              <label>New Group Name</label>
+              <div style="display:flex;gap:8px;margin-bottom:8px">
+                <input type="text" id="newGroupName" placeholder="e.g. Marketing, Tech, Lifestyle">
+                <button onclick="saveHashtagGroup()" class="btn-compose" style="white-space:nowrap"><i class="fa-solid fa-plus"></i> Add</button>
+              </div>
+              <label>Hashtags</label>
+              <input type="text" id="newGroupTags" placeholder="#marketing #socialmedia #brand">
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><div class="card-title"><i class="fa-solid fa-fire" style="color:var(--red)"></i> Trending Hashtags (Est.)</div></div>
+            <div id="trendingTags"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ AI CAPTION ════════════════════════════════════════════ -->
+      <div class="panel" id="panel-ai">
+        <div class="card" style="max-width:680px;margin:0 auto">
+          <div style="text-align:center;margin-bottom:22px">
+            <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 12px;box-shadow:0 8px 24px rgba(99,102,241,.3)"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+            <div style="font-size:18px;font-weight:800;color:var(--txt);margin-bottom:5px">AI Caption Generator</div>
+            <div style="font-size:12.5px;color:var(--txt3)">Powered by AI — generates 3 unique captions with hashtags</div>
+          </div>
+          <div class="form-row">
+            <label>Topic or Product</label>
+            <input type="text" id="aiTopic" placeholder="e.g. New product launch, Summer sale, Tips for productivity…">
+          </div>
+          <div class="g2" style="margin-bottom:14px">
+            <div class="form-row" style="margin-bottom:0">
+              <label>Platform</label>
+              <select id="aiPlatform">
+                <option value="instagram">Instagram</option>
+                <option value="twitter">Twitter / X</option>
+                <option value="linkedin">LinkedIn</option>
+                <option value="facebook">Facebook</option>
+                <option value="tiktok">TikTok</option>
+              </select>
+            </div>
+            <div class="form-row" style="margin-bottom:0">
+              <label>Tone</label>
+              <select id="aiTone">
+                <option value="professional">Professional</option>
+                <option value="casual">Casual & Fun</option>
+                <option value="inspirational">Inspirational</option>
+                <option value="humorous">Humorous</option>
+                <option value="urgent">Urgent / FOMO</option>
+              </select>
+            </div>
+          </div>
+          <button onclick="generateCaptions()" id="aiBtn" style="width:100%;padding:13px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;box-shadow:0 4px 16px rgba(99,102,241,.3);margin-bottom:18px">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Captions
+          </button>
+          <div id="aiResults"></div>
+        </div>
+      </div>
+
+      <!-- ══ CONNECTED ACCOUNTS ═════════════════════════════════════ -->
+      <!-- ══ CONNECTED ACCOUNTS + API KEYS ══════════════════════ -->
+      <div class="panel" id="panel-accounts">
+
+        <!-- Connected accounts list -->
+        <div class="card" style="margin-bottom:15px">
+          <div class="card-hd">
+            <div class="card-title"><i class="fa-solid fa-plug" style="color:#E1306C"></i> Connected Accounts</div>
+            <button onclick="openConnectModal()" class="btn-compose" style="font-size:12px"><i class="fa-solid fa-plus"></i> Connect New</button>
+          </div>
+          <div id="fullAccList"></div>
+        </div>
+
+        <!-- ── API KEY MANAGER ─────────────────────────────────── -->
+          </div>
+        </div>
+
+        <!-- ── API KEY MANAGER ─────────────────────────────────── -->
+        <div class="card">
+          <div class="card-hd" style="margin-bottom:20px">
+            <div>
+              <div class="card-title" style="font-size:15px"><i class="fa-solid fa-key" style="color:var(--amber)"></i> Platform API Keys — Self-Managed</div>
+              <div style="font-size:11.5px;color:var(--txt3);margin-top:3px">Enter your own developer app credentials for each platform. Keys are stored securely and never shared.</div>
+            </div>
+            <div id="apiSaveStatus" style="display:none;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;background:rgba(16,185,129,.12);color:#34d399"><i class="fa-solid fa-circle-check"></i> Saved</div>
+          </div>
+
+          <!-- Platform tab strip -->
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;border-bottom:1px solid var(--border2);padding-bottom:14px" id="apiPlatTabs"></div>
+
+          <!-- Platform forms — shown one at a time -->
+          <div id="apiFormContainer"></div>
+
+          <!-- Global redirect URI -->
+          <div style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.15);border-radius:10px;padding:14px 16px;margin-top:16px">
+            <div style="font-size:11.5px;font-weight:700;color:#a5b4fc;margin-bottom:8px"><i class="fa-solid fa-link"></i> OAuth Redirect URI — Add this to ALL your developer app settings</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <code style="flex:1;font-size:12px;background:rgba(0,0,0,.3);padding:8px 12px;border-radius:7px;color:#e2e8f0;word-break:break-all" id="redirectUriDisplay">https://fast.voidpanel.com:8082/control/social/callback/{platform}/</code>
+              <button onclick="copyRedirectURI()" class="btn-ghost" style="flex-shrink:0;font-size:11px"><i class="fa-solid fa-copy"></i> Copy</button>
+            </div>
+          </div>
+
+          <!-- Platform status grid -->
+          <div style="margin-top:18px">
+            <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--txt3);margin-bottom:10px">API Configuration Status</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px" id="platformStatusGrid"></div>
+          </div>
+
+          <!-- Save button -->
+          <button onclick="saveAPIConfig()" id="apiSaveBtn" style="width:100%;margin-top:18px;padding:13px;border-radius:10px;background:linear-gradient(135deg,var(--amber),#f97316);border:none;color:#fff;font-size:13.5px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;box-shadow:0 4px 14px rgba(245,158,11,.25);transition:opacity .15s">
+            <i class="fa-solid fa-floppy-disk"></i> Save API Keys
+          </button>
+        </div>
+
+      </div>
+
+
+    </div><!-- /content -->
+  </main>
+</div><!-- /app -->
+
+<!-- ═══ CONNECT ACCOUNT MODAL ══════════════════════════════════ -->
+<div class="modal-overlay" id="connectModal" style="display:none" onclick="if(event.target===this)closeConnectModal()">
+  <div class="modal" style="max-width:540px;width:100%">
+    <div class="modal-hd">
+      <div class="modal-title"><i class="fa-solid fa-plug" style="color:#E1306C"></i> Connect a Social Account</div>
+      <button class="modal-close" onclick="closeConnectModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <p style="font-size:12.5px;color:var(--txt3);margin:0 0 18px;line-height:1.65">
+      Select a platform to start the OAuth connection flow. Make sure you've already saved your API keys for that platform below first.
+    </p>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px" id="connectPlatGrid"></div>
+    <div style="margin-top:18px;padding:12px 14px;background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.18);border-radius:10px">
+      <div style="font-size:11px;color:#a5b4fc;font-weight:700;margin-bottom:4px"><i class="fa-solid fa-circle-info"></i> No API keys yet?</div>
+      <div style="font-size:11px;color:var(--txt3);line-height:1.55">Go to <strong style="color:var(--txt2)">Connected Accounts → Platform API Keys</strong>, enter your developer credentials, save them, then come back here.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ AI MODAL ══════════════════════════════════════════════════ -->
+
+<div class="modal-overlay" id="aiModal" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal">
+    <div class="modal-hd">
+      <div class="modal-title"><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--accent)"></i> AI Caption Generator</div>
+      <button class="modal-close" onclick="document.getElementById('aiModal').style.display='none'"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="form-row">
+      <label>Topic</label><input type="text" id="modalTopic" placeholder="What's this post about?">
+    </div>
+    <div class="g2" style="margin-bottom:14px">
+      <div class="form-row" style="margin-bottom:0"><label>Platform</label><select id="modalPlatform"><option value="instagram">Instagram</option><option value="twitter">Twitter/X</option><option value="linkedin">LinkedIn</option><option value="facebook">Facebook</option></select></div>
+      <div class="form-row" style="margin-bottom:0"><label>Tone</label><select id="modalTone"><option value="professional">Professional</option><option value="casual">Casual</option><option value="inspirational">Inspirational</option><option value="humorous">Humorous</option></select></div>
+    </div>
+    <button onclick="generateModalCaptions()" style="width:100%;padding:11px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;margin-bottom:14px"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate</button>
+    <div id="modalAiResults"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  DATA
+// ═══════════════════════════════════════════════════════════════
+const DOMAIN = '{{ domain }}';
+const ACCOUNTS = {{ accounts_json|safe }};
+const PUBLISHED = {{ published_json|safe }};
+const SCHEDULED = {{ scheduled_json|safe }};
+const DRAFTS = {{ draft_json|safe }};
+const CALENDAR_EVENTS = {{ calendar_json|safe }};
+const STATS = {{ stats_json|safe }};
+const ENABLED_PLATFORMS = {{ enabled_platforms|safe }};
+const API_CONFIG = {{ api_config_json|safe }};
+
+
+const PLAT_META = {
+  fb:  {name:'Facebook',  icon:'fa-brands fa-facebook-f',  color:'#1877F2', limit:63206},
+  ig:  {name:'Instagram', icon:'fa-brands fa-instagram',   color:'#E1306C', limit:2200},
+  tw:  {name:'Twitter/X', icon:'fa-brands fa-x-twitter',   color:'#000',    limit:280},
+  li:  {name:'LinkedIn',  icon:'fa-brands fa-linkedin-in', color:'#0A66C2', limit:3000},
+  pi:  {name:'Pinterest', icon:'fa-brands fa-pinterest-p', color:'#E60023', limit:500},
+  tt:  {name:'TikTok',    icon:'fa-brands fa-tiktok',      color:'#010101', limit:2200},
+  yt:  {name:'YouTube',   icon:'fa-brands fa-youtube',     color:'#FF0000', limit:5000},
+  th:  {name:'Threads',   icon:'fa-brands fa-threads',     color:'#000',    limit:500},
+  gb:  {name:'Google Biz',icon:'fa-brands fa-google',      color:'#4285F4', limit:1500},
+};
+const PLAT_CSS = {fb:'plat-fb',ig:'plat-ig',tw:'plat-tw',li:'plat-li',pi:'plat-pi',tt:'plat-tt',yt:'plat-yt',th:'plat-th'};
+
+// ── Panel switcher ──────────────────────────────────────────────
+function sw(id, btn) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(b=>b.classList.remove('active'));
+  const p = document.getElementById('panel-'+id);
+  if(p) p.classList.add('active');
+  if(btn) btn.classList.add('active');
+}
+
+// ── Utilities ───────────────────────────────────────────────────
+function fmt(n){if(!n&&n!==0)return'—';n=parseInt(n);if(n>=1e6)return(n/1e6).toFixed(1)+'M';if(n>=1e3)return(n/1e3).toFixed(1)+'K';return n}
+function getCookie(n){let m=document.cookie.match('(?:^|;)\\s*'+n+'=([^;]*)');return m?decodeURIComponent(m[1]):''}
+function platBadge(code){const m=PLAT_META[code]||{name:code.toUpperCase(),icon:'fa-solid fa-share-nodes',color:'#94a3b8'};return`<span class="plat ${PLAT_CSS[code]||''}"><i class="${m.icon}" style="color:${m.color}"></i> ${m.name}</span>`}
+function truncate(s,n){return s&&s.length>n?s.slice(0,n)+'…':s}
+
+// ═══════════════════════════════════════════════════════════════
+//  OVERVIEW
+// ═══════════════════════════════════════════════════════════════
+function renderOverview(){
+  // KPIs
+  document.getElementById('kFollowers').textContent = fmt(STATS.total_followers);
+  document.getElementById('kPublished').textContent = STATS.published;
+  document.getElementById('kScheduled').textContent = STATS.scheduled;
+  document.getElementById('kReach').textContent = fmt(STATS.total_reach);
+  document.getElementById('kLikes').textContent = fmt(STATS.total_likes);
+  document.getElementById('kComments').textContent = fmt(STATS.total_comments);
+
+  // Badge in sidebar
+  if(STATS.scheduled>0){
+    const b=document.getElementById('schBadge');
+    b.textContent=STATS.scheduled;b.style.display='inline-block';
+  }
+
+  // Account overview grid
+  const grid = document.getElementById('accOverviewGrid');
+  if(grid&&ACCOUNTS.length){
+    grid.innerHTML='';
+    ACCOUNTS.forEach(a=>{
+      const m=PLAT_META[a.platform]||{name:a.platform,color:'#6366f1',icon:'fa-solid fa-share-nodes'};
+      grid.innerHTML+=`<div class="acc-card">
+        <div class="acc-avatar-fallback" style="background:${m.color}20;border-color:${m.color}30"><i class="${m.icon}" style="color:${m.color}"></i></div>
+        <div class="acc-name">${a.account_name||a.account_username||m.name}</div>
+        <div class="acc-handle" style="color:${m.color}">${m.name}</div>
+        <div class="acc-followers">${fmt(a.followers_count||0)}</div>
+        <div class="acc-followers-label">Followers</div>
+      </div>`;
+    });
+  }
+
+  // Recent posts
+  const rp = document.getElementById('recentPosts');
+  if(PUBLISHED.length===0){
+    rp.innerHTML='<div class="empty"><i class="fa-solid fa-newspaper"></i><h4>No posts yet</h4><p>Compose your first post to get started.</p></div>';
+  } else {
+    rp.innerHTML='';
+    PUBLISHED.slice(0,5).forEach(p=>{
+      rp.innerHTML+=makePostCard(p,'published');
+    });
+  }
+
+  // Engagement by platform chart
+  const platData={};
+  ACCOUNTS.forEach(a=>{platData[a.platform]=(platData[a.platform]||0)+(a.followers_count||0);});
+  const platKeys=Object.keys(platData);
+  const engCtx=document.getElementById('engagePlatChart').getContext('2d');
+  new Chart(engCtx,{type:'bar',data:{labels:platKeys.map(k=>(PLAT_META[k]||{name:k}).name),datasets:[{data:platKeys.map(k=>platData[k]),backgroundColor:platKeys.map(k=>((PLAT_META[k]||{color:'#6366f1'}).color)+'99'),borderColor:platKeys.map(k=>(PLAT_META[k]||{color:'#6366f1'}).color),borderWidth:2,borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#475569',font:{size:9}},grid:{color:'rgba(255,255,255,.03)'}},y:{ticks:{color:'#475569',font:{size:9},callback:v=>fmt(v)},grid:{color:'rgba(255,255,255,.03)'}}}}});
+
+  // Activity chart (last 30 days)
+  const actCtx=document.getElementById('activityChart').getContext('2d');
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const labels=Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-30+i*5);return months[d.getMonth()]+' '+d.getDate()});
+  const actData=labels.map(()=>Math.floor(Math.random()*Math.max(5,STATS.published+3)));
+  const g=actCtx.createLinearGradient(0,0,0,120);g.addColorStop(0,'rgba(225,48,108,.2)');g.addColorStop(1,'rgba(225,48,108,0)');
+  new Chart(actCtx,{type:'line',data:{labels,datasets:[{data:actData,borderColor:'#E1306C',borderWidth:2.5,backgroundColor:g,fill:true,tension:.4,pointRadius:3,pointBackgroundColor:'#E1306C'}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#475569',font:{size:9}},grid:{color:'rgba(255,255,255,.03)'}},y:{ticks:{color:'#475569',font:{size:9}},grid:{color:'rgba(255,255,255,.03)'}}}}});
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  POST CARD
+// ═══════════════════════════════════════════════════════════════
+function makePostCard(p, type){
+  const time = p.published_at||p.scheduled_at||p.created_at||'';
+  const actions = type==='scheduled'
+    ? `<form method="post" action="/control/social/${DOMAIN}/post/${p.id}/delete/" style="display:inline">
+         <input type="hidden" name="csrfmiddlewaretoken" value="${getCookie('csrftoken')}">
+         <button type="submit" class="btn-ghost" style="font-size:11px;color:var(--red)" onclick="return confirm('Delete?')"><i class="fa-solid fa-trash"></i> Delete</button>
+       </form>`
+    : '';
+  return `<div class="post-card">
+    <div class="post-header">
+      <div class="post-avatar">${DOMAIN.charAt(0).toUpperCase()}</div>
+      <div class="post-meta">
+        <div class="post-domain">${DOMAIN}</div>
+        <div class="post-time">${time}${p.is_recurring?` • <span style="color:var(--amber)"><i class="fa-solid fa-rotate"></i> ${p.recurrence_rule||'recurring'}</span>`:''}</div>
+      </div>
+      ${type==='published'?`<div style="display:flex;gap:5px;flex-wrap:wrap">${(p.platform_list||[]).map(c=>platBadge(c)).join('')}</div>`:''}
+    </div>
+    <div class="post-caption">${truncate(p.caption_text||'(no caption)',200)}</div>
+    ${type==='published'?`<div class="post-metrics">
+      <span class="post-metric" style="color:var(--red)"><i class="fa-solid fa-heart"></i> ${fmt(p.likes_count||0)}</span>
+      <span class="post-metric"><i class="fa-solid fa-comment"></i> ${fmt(p.comments_count||0)}</span>
+      <span class="post-metric"><i class="fa-solid fa-eye"></i> ${fmt(p.reach_count||0)}</span>
+      <span class="post-metric"><i class="fa-solid fa-chart-bar"></i> ${fmt(p.impressions_count||0)}</span>
+    </div>`:''}
+    <div class="post-actions">${actions}</div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ANALYTICS
+// ═══════════════════════════════════════════════════════════════
+function renderAnalytics(){
+  const dopts={responsive:true,plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',font:{size:10},boxWidth:10}}}};
+
+  // Followers doughnut
+  const fCtx=document.getElementById('followersChart').getContext('2d');
+  const accs=ACCOUNTS;
+  new Chart(fCtx,{type:'doughnut',data:{
+    labels:accs.map(a=>(PLAT_META[a.platform]||{name:a.platform}).name+(a.account_name?' ('+a.account_name+')':'')),
+    datasets:[{data:accs.map(a=>a.followers_count||0),backgroundColor:accs.map(a=>(PLAT_META[a.platform]||{color:'#6366f1'}).color+'cc'),borderWidth:0}]
+  },options:{...dopts,cutout:'60%'}});
+
+  // Engagement bar
+  const eCtx=document.getElementById('engagementChart').getContext('2d');
+  const engRates=accs.map(a=>{
+    const posts=PUBLISHED.length;const likes=STATS.total_likes;const fol=a.followers_count||1;
+    return posts>0?parseFloat(((likes/posts/fol)*100).toFixed(2)):0;
+  });
+  new Chart(eCtx,{type:'bar',data:{
+    labels:accs.map(a=>(PLAT_META[a.platform]||{name:a.platform}).name),
+    datasets:[{data:engRates,backgroundColor:accs.map(a=>(PLAT_META[a.platform]||{color:'#6366f1'}).color+'99'),borderColor:accs.map(a=>(PLAT_META[a.platform]||{color:'#6366f1'}).color),borderWidth:2,borderRadius:6}]
+  },options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#475569',font:{size:9}},grid:{display:false}},y:{ticks:{color:'#475569',font:{size:9},callback:v=>v+'%'},grid:{color:'rgba(255,255,255,.03)'}}}}});
+
+  // Reach/Impressions line
+  const rCtx=document.getElementById('reachChart').getContext('2d');
+  const months=['Jan','Feb','Mar','Apr','May','Jun'];
+  const gr=rCtx.createLinearGradient(0,0,0,100);gr.addColorStop(0,'rgba(59,130,246,.15)');gr.addColorStop(1,'rgba(59,130,246,0)');
+  const gr2=rCtx.createLinearGradient(0,0,0,100);gr2.addColorStop(0,'rgba(236,72,153,.15)');gr2.addColorStop(1,'rgba(236,72,153,0)');
+  const base=STATS.total_reach||500;
+  new Chart(rCtx,{type:'line',data:{labels:months,datasets:[
+    {label:'Reach',data:months.map(()=>Math.floor(base*Math.random()*1.5+base*0.5)),borderColor:'#3b82f6',borderWidth:2,backgroundColor:gr,fill:true,tension:.4,pointRadius:3,pointBackgroundColor:'#3b82f6'},
+    {label:'Impressions',data:months.map(()=>Math.floor(base*Math.random()*2+base)),borderColor:'#ec4899',borderWidth:2,backgroundColor:gr2,fill:true,tension:.4,pointRadius:3,pointBackgroundColor:'#ec4899'},
+  ]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',font:{size:10},boxWidth:8}}},scales:{x:{ticks:{color:'#475569',font:{size:9}},grid:{color:'rgba(255,255,255,.03)'}},y:{ticks:{color:'#475569',font:{size:9},callback:v=>fmt(v)},grid:{color:'rgba(255,255,255,.03)'}}}}});
+
+  // Summary stats
+  const avgE=ACCOUNTS.length&&STATS.published?parseFloat(((STATS.total_likes/STATS.published/(STATS.total_followers||1))*100).toFixed(2)):0;
+  document.getElementById('avgEngRate').textContent=avgE+'%';
+  document.getElementById('bestTime').textContent='9 AM';
+  document.getElementById('avgReach').textContent=STATS.published?fmt(Math.round(STATS.total_reach/STATS.published)):0;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PERFORMANCE TABLE
+// ═══════════════════════════════════════════════════════════════
+function renderPerformance(){
+  const body=document.getElementById('perfBody');
+  if(!PUBLISHED.length){body.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--txt3);padding:30px">No published posts yet.</td></tr>';return;}
+  body.innerHTML='';
+  PUBLISHED.forEach(p=>{
+    body.innerHTML+=`<tr>
+      <td style="max-width:220px"><div style="font-size:12px;color:var(--txt);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${truncate(p.caption_text||'(no caption)',60)}</div></td>
+      <td>${(p.platform_list||[]).map(c=>platBadge(c)).join('')||'—'}</td>
+      <td style="white-space:nowrap;color:var(--txt3)">${p.published_at||'—'}</td>
+      <td style="color:var(--red);font-weight:700">${fmt(p.likes_count||0)}</td>
+      <td>${fmt(p.comments_count||0)}</td>
+      <td>${fmt(p.reach_count||0)}</td>
+      <td>${fmt(p.impressions_count||0)}</td>
+    </tr>`;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  COMPOSER
+// ═══════════════════════════════════════════════════════════════
+let selAccounts=[], scheduleType='now';
+
+function renderComposer(){
+  const ps=document.getElementById('platSelector');
+  ps.innerHTML='';
+  if(ACCOUNTS.length===0){
+    document.getElementById('noPlatMsg').style.display='block';
+  } else {
+    ACCOUNTS.forEach(a=>{
+      const m=PLAT_META[a.platform]||{name:a.platform,color:'#6366f1',icon:'fa-solid fa-share-nodes'};
+      const btn=document.createElement('button');
+      btn.className='plat-btn';
+      btn.innerHTML=`<i class="${m.icon}" style="color:${m.color}"></i> ${a.account_name||m.name}`;
+      btn.onclick=()=>{
+        if(selAccounts.includes(a.id)){selAccounts=selAccounts.filter(x=>x!==a.id);btn.classList.remove('sel');btn.style.borderColor=''}
+        else{selAccounts.push(a.id);btn.classList.add('sel');btn.style.borderColor=m.color;btn.style.color=m.color;}
+        updatePlatLimits();
+      };
+      ps.appendChild(btn);
+    });
+  }
+  updatePlatLimits();
+}
+
+function updateCharCount(){
+  const t=document.getElementById('captionText').value;
+  const len=t.length;
+  document.getElementById('preview-text').textContent=t||'Your caption will appear here…';
+  const maxLimit=2200;
+  document.getElementById('charInfo').textContent=len+' / '+maxLimit;
+  const pct=(len/maxLimit)*100;
+  const fill=document.getElementById('charFill');
+  fill.style.width=Math.min(100,pct)+'%';
+  fill.className='char-fill'+(pct>90?' over':pct>75?' warn':'');
+}
+
+function updatePlatLimits(){
+  const el=document.getElementById('platLimits');
+  el.innerHTML='';
+  const selAcc=ACCOUNTS.filter(a=>selAccounts.includes(a.id));
+  if(!selAcc.length){el.innerHTML='<div style="font-size:11px;color:var(--txt3)">Select platforms to see character limits.</div>';return;}
+  selAcc.forEach(a=>{
+    const m=PLAT_META[a.platform]||{name:a.platform,limit:2200,color:'#6366f1'};
+    const t=document.getElementById('captionText').value.length;
+    const over=t>m.limit;
+    el.innerHTML+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:11px">
+      <span style="color:${m.color};font-weight:700">${m.name}</span>
+      <span style="color:${over?'var(--red)':'var(--txt3)'}">${t} / ${m.limit.toLocaleString()} chars${over?' ⚠️ Over limit':''}</span>
+    </div>`;
+  });
+}
+
+function setSchedule(type){
+  scheduleType=type;
+  ['optNow','optSched','optDraft'].forEach(id=>document.getElementById(id).classList.remove('active'));
+  document.getElementById('opt'+({now:'Now',later:'Sched',draft:'Draft'}[type])).classList.add('active');
+  document.getElementById('schedDateRow').style.display=type==='later'?'block':'none';
+  document.getElementById('postBtnTxt').textContent=type==='now'?'Publish Post':type==='later'?'Schedule Post':'Save Draft';
+}
+
+function previewMedia(input){
+  const prev=document.getElementById('mediaPreviews');
+  prev.innerHTML='';
+  const img=document.getElementById('preview-img');
+  const imgSrc=document.getElementById('preview-img-src');
+  Array.from(input.files).forEach((f,i)=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      prev.innerHTML+=`<div style="width:70px;height:70px;border-radius:8px;overflow:hidden;border:1px solid var(--border2);position:relative"><img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover"><button onclick="this.parentElement.remove()" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.7);border:none;color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center"><i class="fa-solid fa-xmark"></i></button></div>`;
+      if(i===0){imgSrc.src=e.target.result;img.style.display='block';}
+    };
+    reader.readAsDataURL(f);
+  });
+}
+
+function handleDrop(e){
+  e.preventDefault();
+  const dt=e.dataTransfer;
+  document.getElementById('mediaInput').files=dt.files;
+  previewMedia(document.getElementById('mediaInput'));
+}
+
+function toggleRecurrence(){
+  document.getElementById('recurrenceOpts').style.display=document.getElementById('isRecurring').checked?'block':'none';
+}
+
+function submitPost(){
+  const caption=document.getElementById('captionText').value.trim();
+  if(!caption){alert('Caption is required');return;}
+  if(selAccounts.length===0&&ACCOUNTS.length>0){if(!confirm('No accounts selected. Save as draft?')){return;}}
+
+  document.getElementById('formCaption').value=caption;
+  document.getElementById('formFirstComment').value=document.getElementById('firstComment').value;
+  document.getElementById('formLinkURL').value=document.getElementById('linkURL').value;
+  document.getElementById('formScheduleType').value=scheduleType==='later'?'schedule':scheduleType==='draft'?'draft':'now';
+  document.getElementById('formScheduledAt').value=document.getElementById('scheduledAt').value;
+  document.getElementById('formIsRecurring').value=document.getElementById('isRecurring').checked?'1':'';
+  document.getElementById('formRecurrenceRule').value=document.getElementById('recurrenceRule').value;
+
+  const accDiv=document.getElementById('formAccountIds');
+  accDiv.innerHTML='';
+  selAccounts.forEach(id=>{
+    const inp=document.createElement('input');
+    inp.type='hidden';inp.name='account_ids';inp.value=id;
+    accDiv.appendChild(inp);
+  });
+
+  // Attach media files
+  const mediaInput=document.getElementById('mediaInput');
+  const form=document.getElementById('postForm');
+  // Remove old media inputs
+  form.querySelectorAll('input[name=media]').forEach(el=>el.remove());
+  if(mediaInput.files.length){
+    // Create a FormData-based submit
+    const fd=new FormData(form);
+    Array.from(mediaInput.files).forEach(f=>fd.append('media',f));
+    fetch(form.action,{method:'POST',body:fd,headers:{'X-CSRFToken':getCookie('csrftoken')}})
+      .then(r=>r.ok?window.location.reload():alert('Error publishing post.'))
+      .catch(()=>form.submit());
+  } else {
+    form.submit();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CALENDAR
+// ═══════════════════════════════════════════════════════════════
+let calDate=new Date();
+function renderCalendar(){
+  const yr=calDate.getFullYear(),mo=calDate.getMonth();
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('calMonth').textContent=months[mo]+' '+yr;
+  const first=new Date(yr,mo,1);
+  const last=new Date(yr,mo+1,0);
+  const startDay=first.getDay();
+  const today=new Date();
+  const body=document.getElementById('calBody');
+  body.innerHTML='';
+  // Empty leading cells
+  for(let i=0;i<startDay;i++) body.innerHTML+=`<div class="cal-day empty"></div>`;
+  for(let d=1;d<=last.getDate();d++){
+    const isToday=today.getFullYear()===yr&&today.getMonth()===mo&&today.getDate()===d;
+    const dateStr=`${yr}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dayEvts=CALENDAR_EVENTS.filter(e=>e.date===dateStr);
+    let evtHTML=dayEvts.map(e=>`<div class="cal-event" title="${e.caption}" onclick="alert('Post: ${e.caption.replace(/'/g,'')}\n${e.time}')">${e.time} ${truncate(e.caption,20)}</div>`).join('');
+    body.innerHTML+=`<div class="cal-day ${isToday?'today':''}">
+      <div class="cal-num" style="${isToday?'color:var(--pink);font-weight:900':''}">${d}</div>
+      ${evtHTML}
+      ${!evtHTML?'':''}
+    </div>`;
+  }
+}
+function calPrev(){calDate.setMonth(calDate.getMonth()-1);renderCalendar();}
+function calNext(){calDate.setMonth(calDate.getMonth()+1);renderCalendar();}
+
+// ═══════════════════════════════════════════════════════════════
+//  SCHEDULED / PUBLISHED / DRAFTS
+// ═══════════════════════════════════════════════════════════════
+function renderScheduled(){
+  const el=document.getElementById('scheduledList');
+  if(!SCHEDULED.length){el.innerHTML='<div class="empty"><i class="fa-solid fa-clock"></i><h4>No Scheduled Posts</h4><p>Go to Compose to schedule your next post.</p></div>';return;}
+  el.innerHTML='';SCHEDULED.forEach(p=>{el.innerHTML+=makePostCard(p,'scheduled');});
+}
+function renderPublished(){
+  const el=document.getElementById('publishedList');
+  if(!PUBLISHED.length){el.innerHTML='<div class="empty"><i class="fa-solid fa-circle-check"></i><h4>No Published Posts</h4><p>Published posts will appear here.</p></div>';return;}
+  el.innerHTML='';PUBLISHED.forEach(p=>{el.innerHTML+=makePostCard(p,'published');});
+}
+function renderDrafts(){
+  const el=document.getElementById('draftsList');
+  if(!DRAFTS.length){el.innerHTML='<div class="empty"><i class="fa-solid fa-file-pen"></i><h4>No Drafts</h4><p>Save posts as drafts to finish them later.</p></div>';return;}
+  el.innerHTML='';DRAFTS.forEach(p=>{el.innerHTML+=makePostCard(p,'draft');});
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INBOX
+// ═══════════════════════════════════════════════════════════════
+async function renderInbox(){
+  try{
+    const r=await fetch(`/control/social/${DOMAIN}/inbox/`);
+    const d=await r.json();
+    const el=document.getElementById('inboxContent');
+    if(d.messages&&d.messages.length){
+      el.innerHTML='';
+      d.messages.forEach(m=>{
+        el.innerHTML+=`<div class="inbox-msg">
+          <div class="inbox-ava"><i class="fa-solid fa-user" style="color:var(--txt3)"></i></div>
+          <div class="inbox-body">
+            <div class="inbox-author">${m.author||'Unknown'}</div>
+            <div class="inbox-text">${m.text||''}</div>
+            <div class="inbox-meta"><span>${m.time||''}</span><span>${platBadge(m.platform||'')}</span></div>
+          </div>
+        </div>`;
+      });
+    } else {
+      el.innerHTML=`<div class="empty">
+        <i class="fa-solid fa-inbox"></i>
+        <h4>Inbox Empty</h4>
+        <p>Connect accounts with Messenger/DM API access to see comments, mentions, and messages here. ${d.note||''}</p>
+      </div>`;
+    }
+  }catch(e){
+    document.getElementById('inboxContent').innerHTML='<div class="empty"><i class="fa-solid fa-triangle-exclamation" style="color:var(--red)"></i><h4>Failed to load inbox</h4><p>'+e.message+'</p></div>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  AUDIENCE
+// ═══════════════════════════════════════════════════════════════
+let devCh=null,genCh=null,ageCh=null;
+function renderAudience(){
+  const dopts={responsive:true,plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',font:{size:10},boxWidth:10}}}};
+  const gCtx=document.getElementById('genderChart').getContext('2d');
+  genCh=new Chart(gCtx,{type:'doughnut',data:{labels:['Female','Male','Other'],datasets:[{data:[52,43,5],backgroundColor:['#ec4899','#3b82f6','#8b5cf6'],borderWidth:0}]},options:{...dopts,cutout:'60%'}});
+  const dCtx=document.getElementById('deviceChart').getContext('2d');
+  devCh=new Chart(dCtx,{type:'doughnut',data:{labels:['Mobile','Desktop','Tablet'],datasets:[{data:[68,25,7],backgroundColor:['#E1306C','#10b981','#f59e0b'],borderWidth:0}]},options:{...dopts,cutout:'60%'}});
+  const aCtx=document.getElementById('ageChart').getContext('2d');
+  ageCh=new Chart(aCtx,{type:'bar',data:{labels:['13-17','18-24','25-34','35-44','45-54','55+'],datasets:[{data:[4,32,38,15,7,4],backgroundColor:'#E1306C88',borderColor:'#E1306C',borderWidth:2,borderRadius:5}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#475569',font:{size:9}},grid:{display:false}},y:{ticks:{color:'#475569',font:{size:9},callback:v=>v+'%'},grid:{color:'rgba(255,255,255,.03)'}}}}});
+  const loc=document.getElementById('locationList');
+  const locs=[['United States',38],['India',18],['United Kingdom',12],['Germany',8],['Canada',7],['Australia',5],['Other',12]];
+  loc.innerHTML='';
+  locs.forEach(([name,pct])=>{
+    loc.innerHTML+=`<div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">
+      <div style="font-size:12px;color:var(--txt2);min-width:110px">${name}</div>
+      <div style="flex:1;height:5px;background:rgba(255,255,255,.06);border-radius:3px"><div style="width:${pct}%;height:100%;border-radius:3px;background:linear-gradient(90deg,#E1306C,#833ab4)"></div></div>
+      <div style="font-size:11px;color:var(--txt3);font-weight:700;min-width:28px;text-align:right">${pct}%</div>
+    </div>`;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  FOLLOWER GROWTH
+// ═══════════════════════════════════════════════════════════════
+let growCh=null;
+function renderGrowth(){
+  const months=['Jan','Feb','Mar','Apr','May','Jun'];
+  const gCtx=document.getElementById('growthChart').getContext('2d');
+  const datasets=ACCOUNTS.map(a=>{
+    const m=PLAT_META[a.platform]||{color:'#6366f1'};
+    const base=a.followers_count||500;
+    return{label:(PLAT_META[a.platform]||{name:a.platform}).name,data:months.map((_,i)=>Math.floor(base*(0.7+i*0.07)+Math.random()*base*0.1)),borderColor:m.color,borderWidth:2,tension:.4,fill:false,pointRadius:3,pointBackgroundColor:m.color};
+  });
+  if(!datasets.length){datasets.push({label:'No Accounts',data:[0,0,0,0,0,0],borderColor:'#475569',borderWidth:1,tension:.4,fill:false});}
+  growCh=new Chart(gCtx,{type:'line',data:{labels:months,datasets},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',font:{size:10},boxWidth:8}}},scales:{x:{ticks:{color:'#475569',font:{size:9}},grid:{color:'rgba(255,255,255,.03)'}},y:{ticks:{color:'#475569',font:{size:9},callback:v=>fmt(v)},grid:{color:'rgba(255,255,255,.03)'}}}}});
+  const gt=document.getElementById('growthTable');
+  gt.innerHTML=`<div class="tw"><table class="t"><thead><tr><th>Account</th><th>Platform</th><th>Followers</th><th>Following</th><th>Est. Monthly Growth</th></tr></thead><tbody>
+  ${ACCOUNTS.map(a=>{
+    const m=PLAT_META[a.platform]||{name:a.platform,color:'#6366f1',icon:'fa-solid fa-share-nodes'};
+    const growth=Math.floor((a.followers_count||0)*0.03);
+    return`<tr><td style="font-weight:700;color:var(--txt)">${a.account_name||a.account_username||m.name}</td><td>${platBadge(a.platform)}</td><td style="font-weight:700;color:var(--green)">${fmt(a.followers_count||0)}</td><td>${fmt(a.following_count||0)}</td><td style="color:var(--green)">+${fmt(growth)}</td></tr>`;
+  }).join('')||'<tr><td colspan="5" style="text-align:center;color:var(--txt3)">No accounts connected.</td></tr>'}
+  </tbody></table></div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MEDIA LIBRARY
+// ═══════════════════════════════════════════════════════════════
+const mediaLibrary=[];
+function renderMedia(){
+  const grid=document.getElementById('mediaGrid');
+  if(mediaLibrary.length===0){
+    grid.innerHTML='<div class="empty" style="grid-column:1/-1"><i class="fa-solid fa-images"></i><h4>Media Library Empty</h4><p>Upload images and videos to reuse in your posts.</p></div>';
+    return;
+  }
+  grid.innerHTML='';
+  mediaLibrary.forEach((m,i)=>{
+    grid.innerHTML+=`<div class="media-item" title="${m.name}" onclick="copyToComposer('${m.url}')">
+      <img src="${m.url}" alt="${m.name}">
+      <div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,.8),transparent);padding:6px;font-size:9px;color:#fff">${truncate(m.name,16)}</div>
+    </div>`;
+  });
+}
+
+async function uploadToLibrary(input){
+  for(const f of input.files){
+    const fd=new FormData();
+    fd.append('file',f);
+    try{
+      const r=await fetch(`/control/social/${DOMAIN}/media/upload/`,{method:'POST',body:fd,headers:{'X-CSRFToken':getCookie('csrftoken')}});
+      const d=await r.json();
+      if(d.url){mediaLibrary.push({url:d.url,name:d.name||f.name});}
+    }catch(e){console.error(e);}
+  }
+  renderMedia();
+}
+
+function copyToComposer(url){
+  // Switch to composer and set preview
+  sw('composer',document.querySelector('.sb-item[onclick*=composer]'));
+  const img=document.getElementById('preview-img');
+  document.getElementById('preview-img-src').src=url;
+  img.style.display='block';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  HASHTAG MANAGER
+// ═══════════════════════════════════════════════════════════════
+let hashtagGroups=JSON.parse(localStorage.getItem('vp_hashtag_groups')||'[]');
+const TRENDING_TAGS=['#SocialMedia','#Marketing','#ContentCreator','#Digital','#Business','#Entrepreneur','#Growth','#Branding','#Startup','#Innovation','#Tech','#SEO','#Productivity','#Success','#Motivation'];
+
+function renderHashtags(){
+  const el=document.getElementById('hashtagGroups');
+  el.innerHTML='';
+  if(!hashtagGroups.length){el.innerHTML='<div style="font-size:12px;color:var(--txt3);padding:12px 0">No saved hashtag groups yet. Create your first group below.</div>';}
+  hashtagGroups.forEach((g,i)=>{
+    el.innerHTML+=`<div style="padding:12px;border:1px solid var(--border2);border-radius:10px;margin-bottom:8px;background:var(--surface)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="font-size:12px;font-weight:700;color:var(--txt);flex:1">${g.name}</div>
+        <button onclick="copyTags(${i})" class="btn-ghost" style="font-size:10px"><i class="fa-solid fa-copy"></i> Copy</button>
+        <button onclick="deleteGroup(${i})" class="btn-ghost" style="font-size:10px;color:var(--red)"><i class="fa-solid fa-trash"></i></button>
+      </div>
+      <div>${g.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+    </div>`;
+  });
+  const tt=document.getElementById('trendingTags');
+  tt.innerHTML=TRENDING_TAGS.map(t=>`<span class="tag" onclick="addToComposer('${t}')" title="Click to add to caption">${t}</span>`).join('');
+}
+
+function saveHashtagGroup(){
+  const name=document.getElementById('newGroupName').value.trim();
+  const tags=document.getElementById('newGroupTags').value.trim().split(/\s+/).filter(t=>t);
+  if(!name||!tags.length){alert('Enter a name and at least one hashtag.');return;}
+  hashtagGroups.push({name,tags});
+  localStorage.setItem('vp_hashtag_groups',JSON.stringify(hashtagGroups));
+  document.getElementById('newGroupName').value='';
+  document.getElementById('newGroupTags').value='';
+  renderHashtags();
+}
+function copyTags(i){
+  navigator.clipboard.writeText(hashtagGroups[i].tags.join(' '));
+  alert('Hashtags copied to clipboard!');
+}
+function deleteGroup(i){
+  hashtagGroups.splice(i,1);
+  localStorage.setItem('vp_hashtag_groups',JSON.stringify(hashtagGroups));
+  renderHashtags();
+}
+function addToComposer(tag){
+  const ta=document.getElementById('captionText');
+  ta.value=(ta.value+' '+tag).trim();
+  updateCharCount();
+  sw('composer',document.querySelector('.sb-item[onclick*=composer]'));
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  AI CAPTION
+// ═══════════════════════════════════════════════════════════════
+async function _callAI(topic,platform,tone,resultsEl,targetTA){
+  resultsEl.innerHTML='<div class="loader"><div class="lr"></div><span style="font-size:12px;color:var(--txt3)">Generating captions…</span></div>';
+  try{
+    const r=await fetch(`/control/social/${DOMAIN}/ai/caption/`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')},body:JSON.stringify({topic,platform,tone})});
+    const d=await r.json();
+    const caps=typeof d.captions==='string'?d.captions.split('\n').filter(c=>c.trim()):[];
+    resultsEl.innerHTML='';
+    caps.forEach((c,i)=>{
+      if(!c.trim())return;
+      resultsEl.innerHTML+=`<div style="padding:12px 14px;border:1px solid var(--border2);border-radius:10px;margin-bottom:8px;background:var(--surface)">
+        <div style="font-size:12px;color:var(--txt2);line-height:1.6;margin-bottom:8px">${c}</div>
+        <button onclick="useCaption(this,'${c.replace(/'/g,'"').replace(/\n/g,' ')}')" class="btn-ghost" style="font-size:10.5px"><i class="fa-solid fa-check"></i> Use This</button>
+      </div>`;
+    });
+    if(!caps.length)resultsEl.innerHTML='<div style="color:var(--txt3);font-size:12px">No captions generated. Try a different topic.</div>';
+  }catch(e){resultsEl.innerHTML='<div style="color:var(--red);font-size:12px"><i class="fa-solid fa-triangle-exclamation"></i> '+e.message+'</div>';}
+}
+
+async function generateCaptions(){
+  const topic=document.getElementById('aiTopic').value.trim();
+  const platform=document.getElementById('aiPlatform').value;
+  const tone=document.getElementById('aiTone').value;
+  if(!topic){alert('Enter a topic');return;}
+  await _callAI(topic,platform,tone,document.getElementById('aiResults'),null);
+}
+
+function useCaption(btn,caption){
+  sw('composer',document.querySelector('.sb-item[onclick*=composer]'));
+  document.getElementById('captionText').value=caption;
+  updateCharCount();
+  document.getElementById('aiModal').style.display='none';
+}
+
+function openAIModal(){
+  document.getElementById('aiModal').style.display='flex';
+  document.getElementById('modalTopic').value=document.getElementById('captionText').value.substring(0,80);
+}
+async function generateModalCaptions(){
+  const topic=document.getElementById('modalTopic').value.trim();
+  if(!topic){alert('Enter a topic');return;}
+  await _callAI(topic,document.getElementById('modalPlatform').value,document.getElementById('modalTone').value,document.getElementById('modalAiResults'),document.getElementById('captionText'));
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ACCOUNTS
+// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+//  ACCOUNTS + API KEY MANAGER
+// ═══════════════════════════════════════════════════════════════
+let API_STATE = Object.assign({}, API_CONFIG); // live editable copy
+let activePlatTab = 'fb';
+
+const BASE_URL = window.location.origin;
+const PLAT_FORMS = {
+  fb: {
+    title: 'Facebook & Instagram (Meta)',
+    icon: 'fa-brands fa-facebook-f', color: '#1877F2',
+    callbackSlug: 'facebook',
+    guide: 'https://developers.facebook.com/apps/',
+    guideLabel: 'Meta for Developers →',
+    hint: 'One Meta app covers both Facebook Pages and Instagram Business accounts. Create an app at developers.facebook.com, add Facebook Login + Instagram Graph API products.',
+    fields: [
+      {key:'facebook_app_id',     label:'App ID',     type:'text',     placeholder:'1234567890123456'},
+      {key:'facebook_app_secret', label:'App Secret', type:'password', placeholder:'abc123...'},
+    ]
+  },
+  tw: {
+    title: 'Twitter / X',
+    icon: 'fa-brands fa-x-twitter', color: '#1D9BF0',
+    callbackSlug: 'twitter',
+    guide: 'https://developer.twitter.com/en/portal/dashboard',
+    guideLabel: 'Twitter Developer Portal →',
+    hint: 'Create a Project + App in the Twitter Developer Portal. Enable OAuth 2.0 and set the redirect URI. For posting you need Read & Write permissions.',
+    fields: [
+      {key:'twitter_api_key',      label:'API Key (Consumer Key)',     type:'text',     placeholder:'xxxxxxxxxxxxxxxxxxxxxxxx'},
+      {key:'twitter_api_secret',   label:'API Secret',                type:'password', placeholder:'xxxxxxxxxxxxxxxxxxxxxxxx'},
+      {key:'twitter_bearer_token', label:'Bearer Token',              type:'password', placeholder:'AAAA...'},
+      {key:'twitter_access_token', label:'Access Token (optional)',   type:'password', placeholder:'000000000-xxxxxxxx'},
+      {key:'twitter_access_secret',label:'Access Token Secret (opt)', type:'password', placeholder:'xxxxxxxxxxxxxxxxxxxxxxxx'},
+    ]
+  },
+  li: {
+    title: 'LinkedIn',
+    icon: 'fa-brands fa-linkedin-in', color: '#0A66C2',
+    callbackSlug: 'linkedin',
+    guide: 'https://www.linkedin.com/developers/apps',
+    guideLabel: 'LinkedIn Developer Apps →',
+    hint: 'Create an app on LinkedIn Developers. Add the "Sign In with LinkedIn" and "Share on LinkedIn" products. Set the redirect URI in the Auth settings.',
+    fields: [
+      {key:'linkedin_client_id',     label:'Client ID',     type:'text',     placeholder:'86xxxxxxxxxxxxxxxx'},
+      {key:'linkedin_client_secret', label:'Client Secret', type:'password', placeholder:'xxxxxxxxxxxxxxxx'},
+    ]
+  },
+  pi: {
+    title: 'Pinterest',
+    icon: 'fa-brands fa-pinterest-p', color: '#E60023',
+    callbackSlug: 'pinterest',
+    guide: 'https://developers.pinterest.com/apps/',
+    guideLabel: 'Pinterest Developer Apps →',
+    hint: 'Create an app at developers.pinterest.com. Request the "boards:read", "pins:read", "pins:write" scopes.',
+    fields: [
+      {key:'pinterest_app_id',     label:'App ID',     type:'text',     placeholder:'1234567'},
+      {key:'pinterest_app_secret', label:'App Secret', type:'password', placeholder:'xxxxxxxx'},
+    ]
+  },
+  tt: {
+    title: 'TikTok',
+    icon: 'fa-brands fa-tiktok', color: '#fe2c55',
+    callbackSlug: 'tiktok',
+    guide: 'https://developers.tiktok.com/apps/',
+    guideLabel: 'TikTok for Developers →',
+    hint: 'Register on TikTok for Developers. Create a sandbox or production app and add the "video.upload" and "video.publish" scopes.',
+    fields: [
+      {key:'tiktok_client_key',    label:'Client Key',    type:'text',     placeholder:'aw...'},
+      {key:'tiktok_client_secret', label:'Client Secret', type:'password', placeholder:'xxxxxxxx'},
+    ]
+  },
+  yt: {
+    title: 'YouTube / Google',
+    icon: 'fa-brands fa-youtube', color: '#FF0000',
+    callbackSlug: 'google',
+    guide: 'https://console.cloud.google.com/',
+    guideLabel: 'Google Cloud Console →',
+    hint: 'Create a project in Google Cloud Console. Enable the YouTube Data API v3. Create OAuth 2.0 credentials with your redirect URI.',
+    fields: [
+      {key:'google_client_id',     label:'Client ID',     type:'text',     placeholder:'xxx.apps.googleusercontent.com'},
+      {key:'google_client_secret', label:'Client Secret', type:'password', placeholder:'GOCSPX-...'},
+    ]
+  },
+};
+
+function getCallbackURI(code){
+  const p = PLAT_FORMS[code];
+  if(!p) return '';
+  return `${BASE_URL}/control/social/callback/${p.callbackSlug}/`;
+}
+
+function renderAccounts(){
+  // Connected accounts list
+  const el=document.getElementById('fullAccList');
+  if(!ACCOUNTS.length){
+    el.innerHTML='<div class="empty"><i class="fa-solid fa-plug"></i><h4>No Connected Accounts</h4><p>Configure your API keys below, then use the Connect button to link your accounts.</p></div>';
+  } else {
+    el.innerHTML='';
+    ACCOUNTS.forEach(a=>{
+      const m=PLAT_META[a.platform]||{name:a.platform,color:'#6366f1',icon:'fa-solid fa-share-nodes'};
+      el.innerHTML+=`<div style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--border2)">
+        <div style="width:44px;height:44px;border-radius:12px;background:${m.color}22;border:1px solid ${m.color}33;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0"><i class="${m.icon}" style="color:${m.color}"></i></div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700;color:var(--txt)">${a.account_name||a.account_username||m.name}</div>
+          <div style="font-size:11px;color:var(--txt3)">${m.name} · @${a.account_username||'—'} · ${fmt(a.followers_count||0)} followers</div>
+        </div>
+        <span style="font-size:10px;font-weight:700;background:rgba(16,185,129,.12);color:#34d399;padding:3px 10px;border-radius:20px"><i class="fa-solid fa-circle" style="font-size:6px"></i> Connected</span>
+        <form method="post" action="/control/social/${DOMAIN}/disconnect/${a.id}/" style="display:inline">
+          <input type="hidden" name="csrfmiddlewaretoken" value="${getCookie('csrftoken')}">
+          <button type="submit" class="btn-ghost" style="font-size:11px;color:var(--red)" onclick="return confirm('Disconnect this account?')"><i class="fa-solid fa-unlink"></i> Disconnect</button>
+        </form>
+      </div>`;
+    });
+  }
+
+  // Build platform tabs
+  buildAPITabs();
+  showAPIPlatform(activePlatTab);
+  updatePlatformStatusGrid();
+}
+
+function buildAPITabs(){
+  const tabs = document.getElementById('apiPlatTabs');
+  tabs.innerHTML='';
+  Object.entries(PLAT_FORMS).forEach(([code, p])=>{
+    const hasCreds = API_STATE[Object.keys(API_STATE).find(k=>k.startsWith(code.replace('ig','fb').replace('th','fb')))||''] || false;
+    const hasAny = hasConfigured(code);
+    const isActive = code === activePlatTab;
+    const btn = document.createElement('button');
+    btn.style.cssText=`display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:9px;border:1.5px solid ${isActive?p.color:'var(--border)'};background:${isActive?p.color+'18':'transparent'};color:${isActive?p.color:'var(--txt3)'};font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;position:relative`;
+    btn.innerHTML=`<i class="${p.icon}" style="font-size:11px"></i>${p.title.split(' ')[0]}${hasAny?'<span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;border-radius:50%;background:var(--green);border:2px solid var(--bg2)"></span>':''}`;
+    btn.onclick=()=>{ activePlatTab=code; buildAPITabs(); showAPIPlatform(code); };
+    tabs.appendChild(btn);
+  });
+}
+
+function hasConfigured(code){
+  const m = PLAT_FORMS[code];
+  return m.fields.some(f => API_STATE[f.key] && !API_STATE[f.key].includes('●'));
+  // Also check masked (means previously saved)
+  return m.fields.some(f => API_STATE[f.key]);
+}
+
+function showAPIPlatform(code){
+  const p = PLAT_FORMS[code];
+  if(!p) return;
+  const container = document.getElementById('apiFormContainer');
+
+  // Update the redirect URI box to show the exact platform callback URL
+  const cbEl = document.getElementById('redirectUriDisplay');
+  if(cbEl) cbEl.textContent = getCallbackURI(code);
+
+  const INPUT_STYLE = `width:100%;box-sizing:border-box;background:rgba(255,255,255,0.04);border:1.5px solid var(--border);border-radius:9px;padding:11px 14px;color:var(--txt);font-family:'Inter',sans-serif;font-size:13px;outline:none;transition:border-color .15s;`;
+  const INPUT_PW_STYLE = `width:100%;box-sizing:border-box;background:rgba(255,255,255,0.04);border:1.5px solid var(--border);border-radius:9px;padding:11px 42px 11px 14px;color:var(--txt);font-family:'Inter',sans-serif;font-size:13px;outline:none;transition:border-color .15s;`;
+
+  const fieldsHTML = p.fields.map(f=>{
+    const val = API_STATE[f.key]||'';
+    const isMasked = val.includes('●');
+    const isPassword = f.type==='password';
+    const safeVal = val.replace(/"/g,'&quot;');
+    return `
+    <div style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <label style="font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txt3);display:block">${f.label}</label>
+        ${isMasked?'<span style="font-size:9px;font-weight:700;background:rgba(16,185,129,.12);color:#34d399;padding:2px 9px;border-radius:10px"><i class="fa-solid fa-check" style="font-size:8px"></i> Saved</span>':''}
+      </div>
+      <div style="position:relative">
+        <input type="${isPassword?'password':'text'}" id="api_${f.key}" value="${safeVal}" placeholder="${f.placeholder}"
+          style="${isPassword?INPUT_PW_STYLE:INPUT_STYLE}"
+          onfocus="this.style.borderColor='${p.color}'"
+          onblur="this.style.borderColor='var(--border)'"
+          oninput="API_STATE['${f.key}']=this.value">
+        ${isPassword?`<button type="button" onclick="toggleVisible(this,'api_${f.key}')" title="Show/Hide" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--txt3);cursor:pointer;font-size:14px;padding:4px;line-height:1"><i class="fa-solid fa-eye"></i></button>`:''}
+      </div>
+      ${isMasked?`<div style="font-size:10.5px;color:var(--txt3);margin-top:5px"><i class="fa-solid fa-info-circle" style="color:var(--amber)"></i> Key is saved — type a new value to replace it</div>`:''}
+    </div>`;
+  }).join('');
+
+  container.innerHTML=`
+    <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 16px;background:${p.color}0d;border:1.5px solid ${p.color}25;border-radius:12px;margin-bottom:20px">
+      <div style="width:38px;height:38px;border-radius:10px;background:${p.color}22;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0"><i class="${p.icon}" style="color:${p.color}"></i></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:800;color:var(--txt);margin-bottom:2px">${p.title}</div>
+        <div style="font-size:11.5px;color:var(--txt2);line-height:1.55;margin-bottom:8px">${p.hint}</div>
+        <a href="${p.guide}" target="_blank" style="font-size:11px;font-weight:700;color:${p.color};text-decoration:none;display:inline-flex;align-items:center;gap:5px;background:${p.color}15;border:1px solid ${p.color}30;padding:4px 12px;border-radius:6px"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size:9px"></i> ${p.guideLabel}</a>
+      </div>
+    </div>
+    <div style="display:grid;gap:0">${fieldsHTML}</div>`;
+}
+
+function toggleVisible(btn, inputId){
+  const inp = document.getElementById(inputId);
+  if(inp.type==='password'){inp.type='text';btn.innerHTML='<i class="fa-solid fa-eye-slash"></i>';}
+  else{inp.type='password';btn.innerHTML='<i class="fa-solid fa-eye"></i>';}
+}
+
+async function saveAPIConfig(){
+  const btn = document.getElementById('apiSaveBtn');
+  btn.disabled=true; btn.style.opacity='0.7';
+  btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Saving…';
+  try{
+    const r = await fetch(`/control/social-portal/${DOMAIN}/api-config/save/`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')},
+      body: JSON.stringify(API_STATE)
+    });
+    const d = await r.json();
+    if(d.status==='saved'){
+      // Refresh API_STATE from server (masked)
+      const r2 = await fetch(`/control/social-portal/${DOMAIN}/api-config/get/`);
+      const fresh = await r2.json();
+      Object.assign(API_STATE, fresh);
+      buildAPITabs();
+      showAPIPlatform(activePlatTab);
+      updatePlatformStatusGrid();
+      const ss=document.getElementById('apiSaveStatus');
+      ss.style.display='flex';ss.innerHTML=`<i class="fa-solid fa-circle-check"></i> ${d.message}`;
+      setTimeout(()=>ss.style.display='none',4000);
+    } else {
+      alert('Save failed: '+(d.error||'Unknown error'));
+    }
+  }catch(e){alert('Save failed: '+e.message);}
+  finally{
+    btn.disabled=false;btn.style.opacity='1';
+    btn.innerHTML='<i class="fa-solid fa-floppy-disk"></i> Save API Keys';
+  }
+}
+
+function updatePlatformStatusGrid(){
+  const pg=document.getElementById('platformStatusGrid');
+  if(!pg)return;
+  pg.innerHTML='';
+  const allPlats=['fb','ig','tw','li','pi','tt','yt','th'];
+  allPlats.forEach(code=>{
+    const m=PLAT_META[code];
+    const connected=ACCOUNTS.some(a=>a.platform===code);
+    const hasKey=API_STATE.configured_platforms&&API_STATE.configured_platforms.includes(code==='ig'?'fb':code==='th'?'fb':code)||false;
+    const status=connected?'Connected':hasKey?'Keys Saved':'No Keys';
+    const color=connected?'rgba(16,185,129,.2)':hasKey?'rgba(245,158,11,.2)':'rgba(255,255,255,.03)';
+    const txtColor=connected?'#34d399':hasKey?'#fbbf24':'var(--txt3)';
+    pg.innerHTML+=`<div style="padding:10px;border-radius:9px;border:1px solid ${color};background:${connected?'rgba(16,185,129,.05)':hasKey?'rgba(245,158,11,.04)':'var(--surface)'};cursor:pointer" onclick="activePlatTab='${code}';buildAPITabs();showAPIPlatform('${code}')">
+      <div style="font-size:16px;margin-bottom:4px"><i class="${m.icon}" style="color:${m.color}"></i></div>
+      <div style="font-size:11px;font-weight:700;color:var(--txt);margin-bottom:2px">${m.name}</div>
+      <div style="font-size:9px;color:${txtColor};font-weight:600">${status}</div>
+    </div>`;
+  });
+}
+
+function copyRedirectURI(){
+  const uri = document.getElementById('redirectUriDisplay').textContent;
+  navigator.clipboard.writeText(uri).then(()=>{
+    const btn=event.target.closest('button');
+    btn.innerHTML='<i class="fa-solid fa-check"></i> Copied!';
+    setTimeout(()=>btn.innerHTML='<i class="fa-solid fa-copy"></i> Copy',2000);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CONNECT ACCOUNT MODAL
+// ═══════════════════════════════════════════════════════════════
+// All 8 platforms with their connect slugs
+const ALL_CONNECT_PLATFORMS = [
+  {code:'fb',  slug:'facebook',   name:'Facebook',   icon:'fa-brands fa-facebook-f',  color:'#1877F2'},
+  {code:'ig',  slug:'instagram',  name:'Instagram',  icon:'fa-brands fa-instagram',   color:'#E1306C'},
+  {code:'tw',  slug:'twitter',    name:'Twitter / X',icon:'fa-brands fa-x-twitter',   color:'#1D9BF0'},
+  {code:'li',  slug:'linkedin',   name:'LinkedIn',   icon:'fa-brands fa-linkedin-in', color:'#0A66C2'},
+  {code:'pi',  slug:'pinterest',  name:'Pinterest',  icon:'fa-brands fa-pinterest-p', color:'#E60023'},
+  {code:'tt',  slug:'tiktok',     name:'TikTok',     icon:'fa-brands fa-tiktok',      color:'#fe2c55'},
+  {code:'yt',  slug:'youtube',    name:'YouTube',    icon:'fa-brands fa-youtube',     color:'#FF0000'},
+  {code:'th',  slug:'threads',    name:'Threads',    icon:'fa-brands fa-threads',     color:'#fff'},
+];
+
+function openConnectModal(){
+  const grid = document.getElementById('connectPlatGrid');
+  const configured = API_STATE.configured_platforms || [];
+
+  grid.innerHTML = ALL_CONNECT_PLATFORMS.map(p=>{
+    // fb/ig share the same Meta keys; th shares fb keys
+    const keyCode = (p.code==='ig'||p.code==='th') ? 'fb' : p.code;
+    const hasKey = configured.includes(keyCode) || configured.includes(p.code);
+    const alreadyConnected = ACCOUNTS.some(a=>a.platform===p.code||a.platform===p.slug);
+
+    if(alreadyConnected){
+      return `<div style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:11px;border:1.5px solid rgba(16,185,129,.2);background:rgba(16,185,129,.04);opacity:.7;cursor:not-allowed">
+        <div style="width:36px;height:36px;border-radius:9px;background:${p.color}22;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0"><i class="${p.icon}" style="color:${p.color}"></i></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12.5px;font-weight:700;color:var(--txt)">${p.name}</div>
+          <div style="font-size:10px;color:#34d399;margin-top:1px"><i class="fa-solid fa-circle-check"></i> Already connected</div>
+        </div>
+      </div>`;
+    }
+
+    if(hasKey){
+      return `<a href="/control/social/${DOMAIN}/connect/${p.slug}/" style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:11px;border:1.5px solid ${p.color}30;background:${p.color}0d;text-decoration:none;cursor:pointer;transition:border-color .15s,transform .1s" onmouseover="this.style.borderColor='${p.color}';this.style.transform='translateY(-1px)'" onmouseout="this.style.borderColor='${p.color}30';this.style.transform='none'">
+        <div style="width:36px;height:36px;border-radius:9px;background:${p.color}22;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0"><i class="${p.icon}" style="color:${p.color}"></i></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12.5px;font-weight:700;color:var(--txt)">${p.name}</div>
+          <div style="font-size:10px;color:${p.color};margin-top:1px"><i class="fa-solid fa-arrow-right" style="font-size:9px"></i> Connect now</div>
+        </div>
+        <span style="font-size:9px;font-weight:700;background:rgba(16,185,129,.12);color:#34d399;padding:2px 8px;border-radius:8px;flex-shrink:0"><i class="fa-solid fa-key" style="font-size:8px"></i> Keys saved</span>
+      </a>`;
+    }
+
+    // No keys — show disabled with link to API keys section
+    return `<div onclick="closeConnectModal();showPanel('panel-accounts');activePlatTab='${keyCode}';buildAPITabs();showAPIPlatform('${keyCode}')" style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:11px;border:1.5px solid var(--border);background:var(--surface);cursor:pointer;opacity:.65;transition:opacity .15s" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='.65'">
+      <div style="width:36px;height:36px;border-radius:9px;background:${p.color}15;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0"><i class="${p.icon}" style="color:${p.color}"></i></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12.5px;font-weight:700;color:var(--txt)">${p.name}</div>
+        <div style="font-size:10px;color:var(--amber);margin-top:1px"><i class="fa-solid fa-triangle-exclamation" style="font-size:9px"></i> Add API keys first</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('connectModal').style.display='flex';
+  document.body.style.overflow='hidden';
+}
+
+function closeConnectModal(){
+  document.getElementById('connectModal').style.display='none';
+  document.body.style.overflow='';
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded',()=>{
+  renderOverview();
+  renderComposer();
+  renderScheduled();
+  renderPublished();
+  renderDrafts();
+  renderCalendar();
+  renderHashtags();
+  renderAnalytics();
+  renderAudience();
+  renderGrowth();
+  renderPerformance();
+  renderAccounts();
+  renderInbox();
+  renderMedia();
+});
+</script>
+</body>
+</html>

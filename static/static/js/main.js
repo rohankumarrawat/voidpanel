@@ -715,6 +715,10 @@
     },
 
     darkLight: function () {
+      /* ── Dark mode is permanent — always apply active-dark-mode ── */
+      $("body").removeClass("active-light-mode");
+      $("body").addClass("active-dark-mode");
+      /* ── Original cookie/meta-based logic (kept for future use) ──
       var styleMode = document.querySelector(
         'meta[name="theme-style-mode"]'
       ).content;
@@ -735,6 +739,7 @@
           $("body").addClass("active-light-mode");
         }
       }
+      ── end original ── */
     },
   };
   chatenaiJs.i();

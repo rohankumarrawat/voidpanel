@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Process Manager — VoidPanel</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="View and manage running system processes securely via VoidPanel.">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    
+    <!-- Vendor CSS -->
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+    <style>
+        :root {
+            --bg:       #07091a;
+            --card:     rgba(13,17,35,0.88);
+            --border:   rgba(99,102,241,0.15);
+            --border-s: rgba(255,255,255,0.06);
+            --accent:   #6366f1;
+            --accent-h: #818cf8;
+            --green:    #10b981;
+            --red:      #ef4444;
+            --t1:       #f1f5f9;
+            --t2:       #94a3b8;
+            --t3:       #475569;
+            --r:        14px;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif !important; background: var(--bg); }
+        #main-content { padding-top: 0 !important; }
+
+        .pm-root {
+            padding: 28px 24px 48px 30px;
+            min-height: 100vh;
+        }
+
+        /* ── Hero ── */
+        .pm-hero {
+            background: linear-gradient(135deg, rgba(99,102,241,0.13) 0%, rgba(239,68,68,0.05) 60%, transparent 100%);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 28px 32px;
+            margin-bottom: 28px;
+            display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+            backdrop-filter: blur(20px);
+            position: relative; overflow: hidden;
+        }
+        .pm-hero::before {
+            content: '';
+            position: absolute; top: -50%; right: -4%;
+            width: 280px; height: 280px;
+            background: radial-gradient(circle, rgba(99,102,241,0.1) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .hero-left { display: flex; align-items: center; gap: 20px; }
+        .hero-icon {
+            width: 54px; height: 54px;
+            background: linear-gradient(135deg, #6366f1, #ef4444);
+            border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem; color: #fff;
+            box-shadow: 0 0 28px rgba(239,68,68,0.3);
+            flex-shrink: 0;
+        }
+        .hero-title { font-size: 1.4rem; font-weight: 800; color: var(--t1); margin: 0 0 4px; }
+        .hero-sub   { font-size: 0.84rem; color: var(--t2); margin: 0; }
+
+        /* ── Data Table ── */
+        .pm-table-card {
+            background: var(--card);
+            border: 1px solid var(--border-s);
+            border-radius: var(--r);
+            padding: 0;
+            backdrop-filter: blur(20px);
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .pm-table-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-s);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .pm-table-header h3 {
+            font-size: 1.05rem; font-weight: 700; color: var(--t1); margin: 0;
+            display: flex; align-items: center; gap: 10px;
+        }
+        
+        .p-search {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border-s);
+            border-radius: 8px;
+            padding: 8px 14px; color: var(--t1);
+            font-size: 0.85rem; width: 260px;
+            transition: border-color 0.2s;
+        }
+        .p-search:focus { border-color: var(--accent); outline: none; }
+
+        .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: rgba(99,102,241,0.3) transparent; }
+        .pm-table { width: 100%; min-width: 900px; border-collapse: collapse; text-align: left; }
+        .pm-table th {
+            font-size: 0.75rem; font-weight: 700; color: var(--t3);
+            text-transform: uppercase; letter-spacing: 0.8px;
+            padding: 16px 24px;
+            background: rgba(255,255,255,0.01);
+            border-bottom: 1px solid var(--border-s);
+            cursor: pointer; user-select: none;
+            white-space: nowrap;
+        }
+        .pm-table th:hover { color: var(--t2); }
+        .pm-table td {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-s);
+            font-size: 0.85rem; color: var(--t1);
+            vertical-align: middle;
+        }
+        .pm-table tr:last-child td { border-bottom: none; }
+        .pm-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+        .proc-name { font-weight: 700; color: var(--t1); margin-bottom: 3px; display:block; white-space:nowrap; }
+        .proc-cmd  { font-size: 0.72rem; color: var(--t3); font-family: 'Courier New', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; display: block; }
+        
+        .badge-user {
+            background: rgba(99,102,241,0.12); color: #a5b4fc;
+            padding: 4px 10px; border-radius: 6px; font-size: 0.72rem; font-weight: 600;
+            white-space: nowrap;
+        }
+        .badge-root {
+            background: rgba(239,68,68,0.12); color: #fca5a5;
+        }
+
+        .pct-bar-wrap { width: 80px; height: 5px; background: rgba(255,255,255,0.08); border-radius: 4px; margin-top: 5px; overflow: hidden; }
+        .pct-bar-fill { height: 100%; background: var(--accent); border-radius: 4px; }
+        .pct-high { background: var(--red); }
+        
+        .btn-term {
+            background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.25);
+            color: #fbbf24; padding: 6px 10px; border-radius: 8px;
+            font-size: 0.72rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .btn-term:hover { background: var(--amber); color: #fff; border-color: var(--amber); transform: translateY(-1px); }
+        
+        .btn-kill {
+            background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25);
+            color: #f87171; padding: 6px 12px; border-radius: 8px;
+            font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-kill:hover { background: var(--red); color: #fff; border-color: var(--red); transform: translateY(-1px); }
+
+        /* ── Modal ── */
+        .void-modal-bg {
+            display: none; position: fixed; inset: 0;
+            background: rgba(4,7,18,0.88); backdrop-filter: blur(12px);
+            z-index: 99999; align-items: center; justify-content: center;
+        }
+        .void-modal-bg.show { display: flex; }
+        .void-modal {
+            background: rgba(16,21,44,0.98); border: 1px solid var(--border); border-radius: 20px;
+            padding: 32px; max-width: 380px; width: 90%; text-align: center;
+            animation: popIn 0.25s cubic-bezier(.34,1.56,.64,1);
+        }
+        @keyframes popIn { from { transform: scale(0.88); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .void-modal h4 { font-size: 1.1rem; font-weight: 800; color: var(--t1); margin: 0 0 8px; }
+        .void-modal p  { font-size: 0.85rem; color: var(--t2); margin: 0 0 24px; line-height: 1.5; }
+        
+        .vm-btns { display: flex; gap: 10px; justify-content: center; }
+        .vm-btn {
+            flex: 1; padding: 11px 20px; border-radius: 10px;
+            font-size: 0.88rem; font-weight: 700; border: none; cursor: pointer; transition: all 0.2s;
+        }
+        .vm-cancel { background: rgba(255,255,255,0.06); color: var(--t2); border: 1px solid var(--border-s); }
+        .vm-cancel:hover { background: rgba(255,255,255,0.1); }
+        .vm-danger { background: var(--red); color: #fff; }
+        .vm-danger:hover { opacity: 0.88; transform: translateY(-1px); box-shadow: 0 4px 15px rgba(2ef,68,68,0.4); }
+
+        /* ── Toasts ── */
+        #void-toasts { position: fixed; bottom: 24px; right: 24px; z-index: 999999; display: flex; flex-direction: column; gap: 8px; }
+        .void-toast { display: flex; align-items: center; gap: 12px; padding: 13px 20px; border-radius: 12px; backdrop-filter: blur(20px); background: rgba(13,17,35,0.97); border: 1px solid var(--border-s); color: var(--t1); font-size: 0.85rem; font-weight: 500; animation: toastIn 0.3s ease; }
+        @keyframes toastIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+        .void-toast.success i { color: var(--green); }
+        .void-toast.error i   { color: var(--red); }
+    </style>
+</head>
+
+<body class="font-nunito active-dark-mode">
+<div id="wrapper" class="theme-cyan">
+
+        <div class="page-loader-wrapper" style="background: var(--void-bg, #080c14) !important;">
+        <div class="loader">
+            <div class="m-t-30" style="display: flex; justify-content: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="130" height="30" viewBox="0 0 180 40" role="img" aria-label="VoidPanel">
+                  <rect x="0" y="4" width="34" height="34" rx="8" ry="8" fill="rgba(255,255,255,0.12)"/>
+                  <rect x="7" y="13" width="20" height="4" rx="1.5" fill="#ffffff" opacity="0.9"/>
+                  <rect x="7" y="19.5" width="14" height="4" rx="1.5" fill="#ffffff" opacity="0.65"/>
+                  <rect x="7" y="26" width="10" height="4" rx="1.5" fill="#60a5fa" opacity="0.95"/>
+                  <text x="43" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#ffffff">Void</text>
+                  <text x="91" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#60a5fa">Panel</text>
+                </svg>
+            </div>
+            <div class="loading-bar-container">
+                <div class="loading-bar"></div>
+            </div>
+            <p style="color: var(--text-secondary, #475569) !important;">Please wait...</p>
+        </div>
+    </div>
+
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
+
+    <div id="main-content">
+    <div class="pm-root">
+
+        <!-- Hero -->
+        <div class="pm-hero">
+            <div class="hero-left">
+                <div class="hero-icon"><i class="fa-solid fa-microchip"></i></div>
+                <div>
+                    <div class="hero-title">Process Manager</div>
+                    <div class="hero-sub">Monitor and terminate individual processes executing on the server (Total: <strong style="color:var(--t1);">{{ total_procs }}</strong>).</div>
+                </div>
+            </div>
+            <button onclick="window.location.reload()" style="
+                display:flex; align-items:center; gap:8px; padding:10px 18px; border-radius:10px;
+                background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.25);
+                color:#a5b4fc; font-size:0.82rem; font-weight:600; cursor:pointer; transition:all 0.2s;
+            " onmouseover="this.style.background='rgba(99,102,241,0.22)'" onmouseout="this.style.background='rgba(99,102,241,0.12)'">
+                <i class="fa-solid fa-rotate-right"></i> Refresh List
+            </button>
+        </div>
+
+        <!-- Table Card -->
+        <div class="pm-table-card">
+            <div class="pm-table-header">
+                <h3><i class="fa-solid fa-list-ul" style="color:var(--accent);"></i> Activity Monitor</h3>
+                <input type="text" class="p-search" id="searchInput" placeholder="Search PID or Name..." onkeyup="filterTable()">
+            </div>
+            <div class="table-responsive">
+                <table class="pm-table" id="procTable">
+                    <thead>
+                        <tr>
+                            <th>PID</th>
+                            <th>Process Details</th>
+                            <th>User</th>
+                            <th>Memory</th>
+                            <th>CPU</th>
+                            <th style="min-width:90px;">Uptime</th>
+                            <th style="text-align:right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in processes %}
+                        <tr id="row-{{ p.pid }}">
+                            <td style="font-family:'Courier New', monospace; font-weight:600; color:var(--t2);">{{ p.pid }}</td>
+                            <td>
+                                <span class="proc-name">{{ p.name }}</span>
+                                <span class="proc-cmd" title="{{ p.cmd }}">{{ p.cmd }}</span>
+                            </td>
+                            <td>
+                                <span class="badge-user {% if p.user == 'root' %}badge-root{% endif %}">
+                                    {{ p.user }}
+                                </span>
+                            </td>
+                            <td>
+                                <div style="font-weight:600;">{{ p.mem_pct }}% <span style="font-size:0.7rem; color:var(--t3); font-weight:500;">({{ p.mem_mb }} MB)</span></div>
+                                <div class="pct-bar-wrap"><div class="pct-bar-fill {% if p.mem_pct > 50 %}pct-high{% endif %}" style="width:{{ p.mem_pct }}%;"></div></div>
+                            </td>
+                            <td>
+                                <div style="font-weight:600;">{{ p.cpu_pct }}%</div>
+                                <div class="pct-bar-wrap"><div class="pct-bar-fill {% if p.cpu_pct > 80 %}pct-high{% endif %}" style="width:{{ p.cpu_pct }}%;"></div></div>
+                            </td>
+                            <td style="color:var(--t2); font-size:0.75rem;">
+                                {% if p.uptime < 60 %}{{ p.uptime }}s
+                                {% elif p.uptime < 3600 %}{{ p.uptime|add:0|floatformat:0 }}m
+                                {% else %}{{ p.uptime|add:0|floatformat:0 }}h
+                                {% endif %}
+                            </td>
+                            <td style="text-align:right;">
+                                <div style="display:flex; justify-content:flex-end; gap:6px;">
+                                    <button class="btn-term" onclick="confirmAction('{{ p.pid }}', '{{ p.name }}', 'term')" title="Graceful Terminate">
+                                        <i class="fa-solid fa-stop"></i> Term
+                                    </button>
+                                    <button class="btn-kill" onclick="confirmAction('{{ p.pid }}', '{{ p.name }}', 'kill')" title="Force Kill">
+                                        <i class="fa-solid fa-skull"></i> Kill
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div><!-- .pm-root -->
+    </div><!-- #main-content -->
+</div>
+
+<!-- Kill Confirmation Modal -->
+<div class="void-modal-bg" id="modal-kill">
+    <div class="void-modal">
+        <i class="fa-solid fa-triangle-exclamation" style="font-size:2.2rem; margin-bottom:14px; color:var(--red); display:block;"></i>
+        <h4 id="modal-title">Terminate Process?</h4>
+        <p>Are you sure you want to <span id="k-action-text">terminate</span> <strong id="k-name" style="color:var(--t1);"></strong> (PID: <span id="k-pid"></span>)?<br>Unexpected termination of system processes may crash the server.</p>
+        <div class="vm-btns">
+            <button class="vm-btn vm-cancel" onclick="closeModal()">Cancel</button>
+            <button class="vm-btn vm-danger" id="k-confirm">Yes, Do it</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div id="void-toasts"></div>
+
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+
+<script>
+    // Search Filtering
+    function filterTable() {
+        var input, filter, table, tr, td, i, txtValue;
+        input = document.getElementById("searchInput");
+        filter = input.value.toUpperCase();
+        table = document.getElementById("procTable");
+        tr = table.getElementsByTagName("tr");
+        for (i = 1; i < tr.length; i++) {
+            var tdID = tr[i].getElementsByTagName("td")[0];
+            var tdName = tr[i].getElementsByTagName("td")[1];
+            if (tdID || tdName) {
+                var textID = tdID.textContent || tdID.innerText;
+                var textName = tdName.textContent || tdName.innerText;
+                if (textID.toUpperCase().indexOf(filter) > -1 || textName.toUpperCase().indexOf(filter) > -1) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
+            }       
+        }
+    }
+
+    // Modal & Action Logic
+    let curPid = null;
+    let curName = null;
+    let curAction = null;
+
+    function showToast(msg, type) {
+        type = type || 'success';
+        var icon = type === 'success' ? '<i class="fa-solid fa-circle-check"></i>' : '<i class="fa-solid fa-triangle-exclamation"></i>';
+        var t = document.createElement('div');
+        t.className = 'void-toast ' + type;
+        t.innerHTML = icon + '<span>' + msg + '</span>';
+        document.getElementById('void-toasts').appendChild(t);
+        setTimeout(function() { t.style.opacity='0'; setTimeout(function(){ t.remove(); },450); }, 4000);
+    }
+
+    function confirmAction(pid, name, action) {
+        curPid = pid; curName = name; curAction = action;
+        document.getElementById('k-pid').innerText = pid;
+        document.getElementById('k-name').innerText = name;
+        
+        if (action === 'kill') {
+            document.getElementById('modal-title').innerText = "Force Kill Process?";
+            document.getElementById('k-action-text').innerText = "FORCE KILL";
+            document.getElementById('k-confirm').innerText = "Yes, Force Kill";
+        } else {
+            document.getElementById('modal-title').innerText = "Terminate Process?";
+            document.getElementById('k-action-text').innerText = "terminate";
+            document.getElementById('k-confirm').innerText = "Yes, Terminate";
+        }
+        
+        document.getElementById('modal-kill').classList.add('show');
+    }
+    
+    function closeModal() {
+        document.getElementById('modal-kill').classList.remove('show');
+        curPid = null; curName = null; curAction = null;
+    }
+
+    document.getElementById('k-confirm').addEventListener('click', function() {
+        if(!curPid) return;
+        var btn = this;
+        var orig = btn.innerText;
+        btn.innerText = "Terminating..."; btn.disabled = true;
+
+        var fd = new FormData();
+        fd.append('pid', curPid);
+        fd.append('action', curAction);
+
+        fetch('/api/process_action/', {
+            method: 'POST', body: fd,
+            headers: {'X-CSRFToken': getCookie('csrftoken')}
+        })
+        .then(r => r.json())
+        .then(data => {
+            closeModal();
+            if(data.status === 'success') {
+                showToast(data.message, 'success');
+                var row = document.getElementById('row-' + curPid);
+                if(row) {
+                    row.style.background = 'rgba(239,68,68,0.2)';
+                    setTimeout(() => row.remove(), 600);
+                }
+            } else {
+                showToast(data.message || 'Termination failed.', 'error');
+            }
+        })
+        .catch(e => {
+            closeModal(); showToast('Network Error.', 'error');
+        })
+        .finally(() => {
+            btn.innerText = orig; btn.disabled = false;
+        });
+    });
+
+    function getCookie(name) {
+        var v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+        return v ? v[2] : '';
+    }
+</script>
+
+</body>
+</html>

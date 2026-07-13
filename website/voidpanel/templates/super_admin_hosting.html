@@ -1,0 +1,473 @@
+{% extends "super_admin_base.html" %}
+{% block title %}Hosting Packages | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}Hosting Packages{% endblock %}
+
+{% block admin_content %}
+<style>
+.type-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-size:.68rem;font-weight:700;}
+.type-shared{background:rgba(34,197,94,.12);color:#4ade80;}
+.type-wordpress{background:rgba(14,165,233,.12);color:#7dd3fc;}
+.type-reseller{background:rgba(167,139,250,.12);color:#c4b5fd;}
+.type-marketing{background:rgba(251,113,133,.12);color:#fb7185;}
+.type-social{background:rgba(244,114,182,.12);color:#f472b6;}
+.type-email{background:rgba(56,189,248,.12);color:#38bdf8;}
+.type-ssl{background:rgba(74,222,128,.12);color:#4ade80;}
+.type-domain{background:rgba(99,102,241,.12);color:#a5b4fc;}
+.type-other{background:rgba(148,163,184,.12);color:#94a3b8;}
+/* Modal */
+.sa-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;align-items:center;justify-content:center;}
+.sa-modal-overlay.open{display:flex;}
+.sa-modal{background:#0f1c2e;border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:28px;width:min(680px,94vw);max-height:90vh;overflow-y:auto;}
+.sa-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+.sa-modal-title{font-size:1rem;font-weight:800;color:#f0f4ff;}
+.sa-modal-close{background:none;border:none;color:#64748b;font-size:1.2rem;cursor:pointer;padding:4px 8px;border-radius:6px;}
+.sa-modal-close:hover{color:#f87171;}
+</style>
+
+<div class="sa-page-header">
+  <div>
+    <div class="sa-page-title">Web Hosting Packages</div>
+    <div class="sa-page-sub">Manage Shared Hosting and WordPress plans — other services have their own sidebar sections</div>
+  </div>
+  <div class="sa-header-actions">
+    <button class="sa-btn primary" onclick="document.getElementById('createModal').classList.add('open')">
+      <i class="fas fa-plus"></i> Create Hosting Package
+    </button>
+  </div>
+</div>
+
+<!-- KPI -->
+<div class="sa-kpi-grid-4">
+  <div class="sa-kpi"><div class="sa-kpi-icon green"><i class="fas fa-cube"></i></div><div><div class="sa-kpi-val">{{ hosting_packages|length }}</div><div class="sa-kpi-lbl">Total Packages</div></div></div>
+  <div class="sa-kpi"><div class="sa-kpi-icon violet"><i class="fas fa-store"></i></div><div><div class="sa-kpi-val">{{ reseller_packages|length }}</div><div class="sa-kpi-lbl">Reseller Plans</div></div></div>
+  <div class="sa-kpi"><div class="sa-kpi-icon sky"><i class="fas fa-hard-drive"></i></div><div><div class="sa-kpi-val">{{ pricing_settings.storage_min_gb }}–{{ pricing_settings.storage_max_gb }} GB</div><div class="sa-kpi-lbl">Builder Range</div></div></div>
+  <div class="sa-kpi"><div class="sa-kpi-icon amber"><i class="fas fa-server"></i></div><div><div class="sa-kpi-val">{{ servers|length }}</div><div class="sa-kpi-lbl">Server Nodes</div></div></div>
+</div>
+
+<!-- Packages Table -->
+<div class="sa-card">
+  <div class="sa-card-head">
+    <div class="sa-card-title"><i class="fas fa-list"></i> All Packages</div>
+    <div class="sa-card-count">{{ hosting_packages|length }} package{{ hosting_packages|length|pluralize }}</div>
+  </div>
+  <div class="sa-table-wrap">
+    <table class="sa-table">
+      <thead>
+        <tr>
+          <th>Package</th>
+          <th>Type</th>
+          <th>Price</th>
+          <th>Storage</th>
+          <th>Server</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pkg in hosting_packages %}
+        <tr>
+          <td>
+            <div style="font-weight:700;color:var(--text-1);">{{ pkg.name }}</div>
+            <div style="font-size:.73rem;color:var(--text-3);">{{ pkg.short_description|truncatechars:45 }}</div>
+            <div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">
+              {% if pkg.has_email_marketing %}<span class="sa-badge sky" style="font-size:0.62rem;padding:1px 5px;font-weight:700;">📧 Email Mktg</span>{% endif %}
+              {% if pkg.has_whatsapp_marketing %}<span class="sa-badge green" style="font-size:0.62rem;padding:1px 5px;font-weight:700;">💬 WhatsApp Mktg</span>{% endif %}
+              {% if pkg.has_automation %}<span class="sa-badge violet" style="font-size:0.62rem;padding:1px 5px;font-weight:700;">⚙️ Automation</span>{% endif %}
+              {% if pkg.has_analytics %}<span class="sa-badge amber" style="font-size:0.62rem;padding:1px 5px;font-weight:700;">📊 Analytics</span>{% endif %}
+              {% if pkg.has_seo_crm %}<span class="sa-badge sky" style="font-size:0.62rem;padding:1px 5px;font-weight:700;background:rgba(14,165,233,0.15);color:#0ea5e9;">🔍 SEO CRM</span>{% endif %}
+            </div>
+          </td>
+          <td>
+            <span class="type-badge type-{{ pkg.package_type }}">
+              {% if pkg.package_type == 'wordpress' %}<i class="fab fa-wordpress"></i>
+              {% elif pkg.package_type == 'reseller' %}<i class="fas fa-store"></i>
+              {% elif pkg.package_type == 'marketing' %}<i class="fas fa-bullseye"></i>
+              {% elif pkg.package_type == 'social' %}<i class="fas fa-share-nodes"></i>
+              {% elif pkg.package_type == 'email' %}<i class="fas fa-envelope"></i>
+              {% elif pkg.package_type == 'ssl' %}<i class="fas fa-lock"></i>
+              {% elif pkg.package_type == 'domain' %}<i class="fas fa-globe"></i>
+              {% else %}<i class="fas fa-cube"></i>{% endif %}
+              {{ pkg.get_package_type_display }}
+            </span>
+          </td>
+          <td style="color:var(--green-2);font-weight:700;">₹{{ pkg.monthly_price }}/mo</td>
+          <td>{{ pkg.storage_gb }} GB</td>
+          <td style="font-size:.78rem;">
+            {% if pkg.server %}<span style="color:var(--green-2);">{{ pkg.server.name }}</span>
+            {% else %}<span style="color:#f59e0b;">⚠ None</span>{% endif %}
+          </td>
+          <td>
+            {% if pkg.is_active %}<span class="sa-badge green">Active</span>{% else %}<span class="sa-badge gray">Inactive</span>{% endif %}
+            {% if pkg.is_featured %}<span class="sa-badge violet" style="margin-left:3px;">⭐</span>{% endif %}
+          </td>
+          <td>
+            <div style="display:flex;gap:5px;flex-wrap:wrap;">
+              <button class="sa-btn sky sm" 
+                      onclick="openEditModal(this)"
+                      data-id="{{ pkg.id }}"
+                      data-name="{{ pkg.name|escapejs }}"
+                      data-slug="{{ pkg.slug }}"
+                      data-type="{{ pkg.package_type }}"
+                      data-desc="{{ pkg.short_description|escapejs }}"
+                      data-price="{{ pkg.monthly_price|default:'' }}"
+                      data-storage="{{ pkg.storage_gb|default:'' }}"
+                      data-ram="{{ pkg.ram_gb|default:'' }}"
+                      data-cpu="{{ pkg.cpu_cores|default:'' }}"
+                      data-bw="{{ pkg.bandwidth_label|escapejs }}"
+                      data-domains="{{ pkg.allowed_domains|default:'' }}"
+                      data-sort="{{ pkg.sort_order|default:'' }}"
+                      data-server="{{ pkg.server_id|default:'' }}"
+                      data-featured="{{ pkg.is_featured|yesno:'true,false' }}"
+                      data-active="{{ pkg.is_active|yesno:'true,false' }}"
+                      data-email-marketing="{{ pkg.has_email_marketing|yesno:'true,false' }}"
+                      data-whatsapp-marketing="{{ pkg.has_whatsapp_marketing|yesno:'true,false' }}"
+                      data-automation="{{ pkg.has_automation|yesno:'true,false' }}"
+                      data-analytics="{{ pkg.has_analytics|yesno:'true,false' }}"
+                      data-seo-crm="{{ pkg.has_seo_crm|yesno:'true,false' }}">
+                <i class="fas fa-pen"></i> Edit
+              </button>
+              <form method="POST" action="/super-admin/hosting/" style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="toggle_hosting_package">
+                <input type="hidden" name="package_id" value="{{ pkg.id }}">
+                <input type="hidden" name="next" value="/super-admin/hosting/">
+                <input type="hidden" name="mode" value="{% if pkg.is_active %}deactivate{% else %}activate{% endif %}">
+                <button type="submit" class="sa-btn {% if pkg.is_active %}amber{% else %}green{% endif %} sm">
+                  {% if pkg.is_active %}<i class="fas fa-pause"></i>{% else %}<i class="fas fa-play"></i>{% endif %}
+                </button>
+              </form>
+              <form method="POST" action="/super-admin/hosting/" style="display:inline;" onsubmit="return confirm('Delete \'{{ pkg.name }}\'?')">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="toggle_hosting_package">
+                <input type="hidden" name="package_id" value="{{ pkg.id }}">
+                <input type="hidden" name="next" value="/super-admin/hosting/">
+                <input type="hidden" name="mode" value="delete">
+                <button type="submit" class="sa-btn red sm"><i class="fas fa-trash"></i></button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7"><div class="sa-empty"><i class="fas fa-cube"></i><div class="sa-empty-title">No packages yet</div><div class="sa-empty-sub">Click "Create Package" above to add your first one.</div></div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Builder Pricing -->
+<div class="sa-card">
+  <div class="sa-card-head">
+    <div class="sa-card-title"><i class="fas fa-sliders"></i> Custom Builder Pricing</div>
+    <div class="sa-card-count">Shared Hosting — controls the dynamic price calculator &amp; default resource limits</div>
+  </div>
+  <form method="POST" action="/super-admin/hosting/">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="update_pricing_settings">
+    <input type="hidden" name="next" value="/super-admin/hosting/">
+    <!-- Legacy VPS fields preserved so they aren't reset on save -->
+    <input type="hidden" name="ram_price_per_1gb" value="{{ pricing_settings.ram_price_per_1gb }}">
+    <input type="hidden" name="cpu_price_per_core" value="{{ pricing_settings.cpu_price_per_core }}">
+    <input type="hidden" name="bandwidth_100gb_price" value="{{ pricing_settings.bandwidth_100gb_price }}">
+    <input type="hidden" name="bandwidth_500gb_price" value="{{ pricing_settings.bandwidth_500gb_price }}">
+    <input type="hidden" name="bandwidth_1000gb_price" value="{{ pricing_settings.bandwidth_1000gb_price }}">
+    <input type="hidden" name="bandwidth_unmetered_price" value="{{ pricing_settings.bandwidth_unmetered_price }}">
+    <input type="hidden" name="ram_min_gb" value="{{ pricing_settings.ram_min_gb }}">
+    <input type="hidden" name="ram_max_gb" value="{{ pricing_settings.ram_max_gb }}">
+    <input type="hidden" name="cpu_min_cores" value="{{ pricing_settings.cpu_min_cores }}">
+    <input type="hidden" name="cpu_max_cores" value="{{ pricing_settings.cpu_max_cores }}">
+    <input type="hidden" name="quarterly_discount_percent" value="{{ pricing_settings.quarterly_discount_percent }}">
+    <input type="hidden" name="annual_discount_percent" value="{{ pricing_settings.annual_discount_percent }}">
+
+    <!-- Row 1: Per-unit Pricing -->
+    <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--sky-2);margin-bottom:10px;"><i class="fas fa-tag"></i> Per-Unit Pricing</div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px;">
+      <div class="sa-form-group">
+        <label class="sa-label">💾 Storage / 10 GB (₹)</label>
+        <input type="number" step="0.01" name="storage_price_per_10gb" class="sa-input" value="{{ pricing_settings.storage_price_per_10gb }}">
+      </div>
+      <div class="sa-form-group">
+        <label class="sa-label">🌐 Bandwidth / 100 GB (₹)</label>
+        <input type="number" step="0.01" name="bandwidth_price_per_100gb" class="sa-input" value="{{ pricing_settings.bandwidth_price_per_100gb|default:'5.00' }}">
+      </div>
+    </div>
+
+    <!-- Row 2: Default Resource Limits -->
+    <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--violet-2);margin-bottom:10px;"><i class="fas fa-box"></i> Default Resource Limits (applied to new packages)</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+      <div class="sa-form-group">
+        <label class="sa-label">📧 Max Email Accounts</label>
+        <input type="number" name="shared_max_emails" class="sa-input" value="{{ pricing_settings.shared_max_emails|default:'10' }}" min="0">
+      </div>
+      <div class="sa-form-group">
+        <label class="sa-label">📂 Max FTP Accounts</label>
+        <input type="number" name="shared_max_ftp" class="sa-input" value="{{ pricing_settings.shared_max_ftp|default:'5' }}" min="0">
+      </div>
+      <div class="sa-form-group">
+        <label class="sa-label">🗄️ Max Databases</label>
+        <input type="number" name="shared_max_databases" class="sa-input" value="{{ pricing_settings.shared_max_databases|default:'5' }}" min="0">
+      </div>
+    </div>
+
+    <!-- Row 3: Slider Ranges -->
+    <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text-3);margin-bottom:10px;"><i class="fas fa-arrows-left-right"></i> Builder Slider Ranges</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+      <div class="sa-form-group">
+        <label class="sa-label">Storage Min (GB)</label>
+        <input type="number" name="storage_min_gb" class="sa-input" value="{{ pricing_settings.storage_min_gb }}" min="1">
+      </div>
+      <div class="sa-form-group">
+        <label class="sa-label">Storage Max (GB)</label>
+        <input type="number" name="storage_max_gb" class="sa-input" value="{{ pricing_settings.storage_max_gb }}" min="1">
+      </div>
+      <div class="sa-form-group">
+        <label class="sa-label">Bandwidth Min (GB)</label>
+        <input type="number" name="bandwidth_min_gb" class="sa-input" value="{{ pricing_settings.bandwidth_min_gb|default:'10' }}" min="0">
+      </div>
+      <div class="sa-form-group">
+        <label class="sa-label">Bandwidth Max (GB)</label>
+        <input type="number" name="bandwidth_max_gb" class="sa-input" value="{{ pricing_settings.bandwidth_max_gb|default:'1000' }}" min="0">
+      </div>
+    </div>
+
+    <div class="sa-form-actions">
+      <button type="submit" class="sa-btn primary"><i class="fas fa-save"></i> Save Pricing</button>
+    </div>
+  </form>
+</div>
+
+<!-- ══ CREATE MODAL ══ -->
+<div class="sa-modal-overlay" id="createModal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="sa-modal">
+    <div class="sa-modal-head">
+      <div class="sa-modal-title"><i class="fas fa-plus-circle" style="color:var(--green);margin-right:8px;"></i>Create New Package</div>
+      <button class="sa-modal-close" onclick="document.getElementById('createModal').classList.remove('open')">✕</button>
+    </div>
+    <form method="POST" action="/super-admin/hosting/">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create_hosting_package">
+      <input type="hidden" name="next" value="/super-admin/hosting/">
+      <div class="sa-form-grid-2">
+        <div class="sa-form-group">
+          <label class="sa-label">Name *</label>
+          <input name="name" class="sa-input" required placeholder="e.g. Starter Plan">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Slug (auto if blank)</label>
+          <input name="slug" class="sa-input" placeholder="starter-plan">
+        </div>
+        <div class="sa-form-group" style="grid-column:1/-1;">
+          <label class="sa-label">Package Type *</label>
+          <select name="package_type" class="sa-input">
+            <option value="shared" selected>🖥 Shared Hosting</option>
+            <option value="wordpress">⚡ WordPress Hosting</option>
+          </select>
+          <div style="margin-top:6px;padding:8px 12px;border-radius:8px;background:rgba(14,165,233,.06);border:1px solid rgba(14,165,233,.14);font-size:.73rem;color:var(--sky-2);">
+            <i class="fas fa-info-circle"></i>
+            Need Reseller, Email, SSL, or Social Media? Use the dedicated sections in the sidebar.
+          </div>
+        </div>
+        <div class="sa-form-group" style="grid-column:1/-1;">
+          <label class="sa-label">Provisioning Server</label>
+          <select name="server_id" class="sa-input">
+            <option value="">-- Let System Decide --</option>
+            {% for srv in servers %}<option value="{{ srv.id }}">{{ srv.name }} ({{ srv.url }})</option>{% endfor %}
+          </select>
+        </div>
+        <div class="sa-form-group" style="grid-column:1/-1;">
+          <label class="sa-label">Description</label>
+          <input name="short_description" class="sa-input" placeholder="Brief description shown on the pricing page">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Monthly Price (₹) *</label>
+          <input type="number" name="monthly_price" class="sa-input" step="0.01" required>
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Storage (GB)</label>
+          <input type="number" name="storage_gb" class="sa-input" value="25">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">RAM (GB)</label>
+          <input type="number" name="ram_gb" class="sa-input" value="2">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">CPU Cores</label>
+          <input type="number" name="cpu_cores" class="sa-input" value="1">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Bandwidth Label</label>
+          <input name="bandwidth_label" class="sa-input" value="500GB">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Allowed Domains</label>
+          <input type="number" name="allowed_domains" class="sa-input" value="1">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Sort Order</label>
+          <input type="number" name="sort_order" class="sa-input" value="0">
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="is_featured" style="accent-color:var(--green);"> ⭐ Featured
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="is_active" checked style="accent-color:var(--green);"> Active
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="has_email_marketing" style="accent-color:var(--green);"> 📧 Email Mktg
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="has_whatsapp_marketing" style="accent-color:var(--green);"> 💬 WhatsApp Mktg
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="has_automation" style="accent-color:var(--green);"> ⚙️ Automation
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="has_analytics" style="accent-color:var(--green);"> 📊 Analytics
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="has_seo_crm" checked style="accent-color:var(--green);"> 🔍 SEO CRM
+        </label>
+      </div>
+      <div class="sa-form-actions">
+        <button type="button" class="sa-btn ghost" onclick="document.getElementById('createModal').classList.remove('open')">Cancel</button>
+        <button type="submit" class="sa-btn primary"><i class="fas fa-plus"></i> Create Package</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ══ EDIT MODAL ══ -->
+<div class="sa-modal-overlay" id="editModal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="sa-modal">
+    <div class="sa-modal-head">
+      <div class="sa-modal-title"><i class="fas fa-pen" style="color:var(--sky-2);margin-right:8px;"></i>Edit Package</div>
+      <button class="sa-modal-close" onclick="document.getElementById('editModal').classList.remove('open')">✕</button>
+    </div>
+    <form method="POST" action="/super-admin/hosting/" id="editForm">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="edit_hosting_package">
+      <input type="hidden" name="next" value="/super-admin/hosting/">
+      <input type="hidden" name="package_id" id="edit_pkg_id">
+      <div class="sa-form-grid-2">
+        <div class="sa-form-group">
+          <label class="sa-label">Name *</label>
+          <input name="name" id="edit_name" class="sa-input" required>
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Slug</label>
+          <input name="slug" id="edit_slug" class="sa-input">
+        </div>
+        <div class="sa-form-group" style="grid-column:1/-1;">
+          <label class="sa-label">Package Type *</label>
+          <select name="package_type" id="edit_type" class="sa-input">
+            <option value="shared">🖥 Shared Hosting</option>
+            <option value="wordpress">⚡ WordPress Hosting</option>
+          </select>
+        </div>
+        <div class="sa-form-group" style="grid-column:1/-1;">
+          <label class="sa-label">Provisioning Server</label>
+          <select name="server_id" id="edit_server" class="sa-input">
+            <option value="">-- None / Auto --</option>
+            {% for srv in servers %}<option value="{{ srv.id }}">{{ srv.name }} ({{ srv.url }})</option>{% endfor %}
+          </select>
+        </div>
+        <div class="sa-form-group" style="grid-column:1/-1;">
+          <label class="sa-label">Description</label>
+          <input name="short_description" id="edit_desc" class="sa-input">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Monthly Price (₹)</label>
+          <input type="number" name="monthly_price" id="edit_price" class="sa-input" step="0.01">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Storage (GB)</label>
+          <input type="number" name="storage_gb" id="edit_storage" class="sa-input">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">RAM (GB)</label>
+          <input type="number" name="ram_gb" id="edit_ram" class="sa-input">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">CPU Cores</label>
+          <input type="number" name="cpu_cores" id="edit_cpu" class="sa-input">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Bandwidth Label</label>
+          <input name="bandwidth_label" id="edit_bw" class="sa-input">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Allowed Domains</label>
+          <input type="number" name="allowed_domains" id="edit_domains" class="sa-input">
+        </div>
+        <div class="sa-form-group">
+          <label class="sa-label">Sort Order</label>
+          <input type="number" name="sort_order" id="edit_sort" class="sa-input">
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="is_featured" id="edit_featured" style="accent-color:var(--green);"> ⭐ Featured
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="is_active" id="edit_active" style="accent-color:var(--green);"> Active
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="has_email_marketing" id="edit_email_marketing" style="accent-color:var(--green);"> 📧 Email Mktg
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="has_whatsapp_marketing" id="edit_whatsapp_marketing" style="accent-color:var(--green);"> 💬 WhatsApp Mktg
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="has_automation" id="edit_automation" style="accent-color:var(--green);"> ⚙️ Automation
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="has_analytics" id="edit_analytics" style="accent-color:var(--green);"> 📊 Analytics
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--text-2);cursor:pointer;">
+          <input type="checkbox" name="has_seo_crm" id="edit_seo_crm" style="accent-color:var(--green);"> 🔍 SEO CRM
+        </label>
+      </div>
+      <div class="sa-form-actions">
+        <button type="button" class="sa-btn ghost" onclick="document.getElementById('editModal').classList.remove('open')">Cancel</button>
+        <button type="submit" class="sa-btn primary"><i class="fas fa-save"></i> Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openEditModal(btn){
+  const d = btn.dataset;
+  document.getElementById('edit_pkg_id').value  = d.id;
+  document.getElementById('edit_name').value    = d.name;
+  document.getElementById('edit_slug').value    = d.slug;
+  document.getElementById('edit_type').value    = d.type;
+  document.getElementById('edit_desc').value    = d.desc;
+  document.getElementById('edit_price').value   = d.price;
+  document.getElementById('edit_storage').value = d.storage;
+  document.getElementById('edit_ram').value     = d.ram;
+  document.getElementById('edit_cpu').value     = d.cpu;
+  document.getElementById('edit_bw').value      = d.bw;
+  document.getElementById('edit_domains').value = d.domains;
+  document.getElementById('edit_sort').value    = d.sort;
+  document.getElementById('edit_featured').checked = (d.featured === 'true');
+  document.getElementById('edit_active').checked   = (d.active === 'true');
+  document.getElementById('edit_email_marketing').checked = (d.emailMarketing === 'true');
+  document.getElementById('edit_whatsapp_marketing').checked = (d.whatsappMarketing === 'true');
+  document.getElementById('edit_automation').checked = (d.automation === 'true');
+  document.getElementById('edit_analytics').checked = (d.analytics === 'true');
+  document.getElementById('edit_seo_crm').checked = (d.seoCrm === 'true');
+  
+  var sel = document.getElementById('edit_server');
+  if (sel) {
+    for(var i=0;i<sel.options.length;i++){
+      sel.options[i].selected = (sel.options[i].value == String(d.server || ''));
+    }
+  }
+  document.getElementById('editModal').classList.add('open');
+}
+</script>
+
+{% endblock %}

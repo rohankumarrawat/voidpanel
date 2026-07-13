@@ -1,1408 +1,1146 @@
 <!doctype html>
 <html lang="en">
-
 <head>
-    <title>:: VoidPanel :: View</title>
+    <title>:: VoidPanel :: {{ domain.domain }}</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="VoidPanel ViewSite ">
-    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
-    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
-
-    <!-- VENDOR CSS -->
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
-
-    <!-- MAIN Project CSS file -->
-    <link rel="stylesheet" href="/static/assets/css/main.css">
-
-    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
     <style>
-        .myname {
-            border-radius: 30px;
-            box-shadow: inset;
-            border-width: 4px;
-
-
+        html[data-theme="light"] {
+            --page-bg: #f1f5f9;
+            --title-color: #0f172a;
+            --text-dim: #475569;
+            --input-color: #0f172a;
+            --card-text: #0f172a;
         }
+        html[data-theme="dark"] {
+            --page-bg: #080c1a;
+            --title-color: #fff;
+            --text-dim: rgba(180,200,230,0.7);
+            --input-color: #e4eaf8;
+            --card-text: #e4eaf8;
+        }
+        body { font-family:'Inter',sans-serif; background:var(--page-bg) !important; }
+
+        /* Header */
+        .page-header { padding:26px 0 20px; }
+        .page-header h2 { font-size:1.45rem; font-weight:700; color:var(--title-color); margin-bottom:4px; }
+        .page-header .breadcrumb { background:transparent; padding:0; margin:0; }
+        .page-header .breadcrumb-item,
+        .page-header .breadcrumb-item a { font-size:.78rem; color:var(--text-dim); }
+        .page-header .breadcrumb-item.active { color:var(--neon); }
+        .page-header .breadcrumb-item+.breadcrumb-item::before { color:var(--text-dim); }
+
+        /* Domain hero card */
+        .hero-card {
+            background:var(--glass-bg);
+            border:1px solid var(--glass-border);
+            border-radius:18px;
+            padding:24px 28px;
+            display:flex; align-items:flex-start; gap:24px; flex-wrap:wrap;
+            margin-bottom:24px;
+            position:relative; overflow:hidden;
+        }
+        .hero-card::before {
+            content:''; position:absolute; inset:0;
+            background:linear-gradient(135deg,rgba(0,229,255,.04) 0%,transparent 60%);
+            pointer-events:none;
+        }
+        .hero-preview {
+            width:340px; flex-shrink:0; border-radius:12px; overflow:hidden;
+            border:1px solid rgba(0,229,255,.15); background:#0a0f22;
+        }
+        .hero-preview iframe,
+        .hero-preview img { width:100%; height:220px; object-fit:cover; display:block; border:none; }
+        .hero-info { flex:1; min-width:200px; }
+        .hero-domain {
+            font-size:1.4rem; font-weight:700; color:#fff; margin-bottom:6px;
+            display:flex; align-items:center; gap:10px;
+        }
+        .hero-domain a { color:var(--neon); text-decoration:none; font-size:.8rem; font-weight:500; }
+        .hero-meta { font-size:.8rem; color:var(--text-dim); margin-bottom:20px; }
+        .hero-status {
+            display:inline-flex; align-items:center; gap:6px;
+            padding:3px 12px; border-radius:999px; font-size:.72rem; font-weight:600;
+        }
+        .hero-status.active { background:rgba(34,197,94,.12); color:#22c55e; border:1px solid rgba(34,197,94,.2); }
+        .hero-status.suspended { background:rgba(245,158,11,.12); color:#f59e0b; border:1px solid rgba(245,158,11,.2); }
+        .hero-status .dot { width:7px; height:7px; border-radius:50%; background:currentColor; animation:ping 1.5s infinite; }
+        @keyframes ping { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+        /* Quick action row */
+        .quick-actions { display:flex; gap:10px; flex-wrap:wrap; }
+        .qa-btn {
+            display:inline-flex; align-items:center; gap:7px;
+            padding:8px 16px; border-radius:10px; font-size:.8rem; font-weight:500;
+            border:1px solid; cursor:pointer; transition:all .18s; text-decoration:none;
+            background:transparent;
+        }
+        .qa-btn.cyan   { color:var(--neon); border-color:rgba(0,229,255,.3); }
+        .qa-btn.cyan:hover { background:rgba(0,229,255,.1); }
+        .qa-btn.amber  { color:#f59e0b; border-color:rgba(245,158,11,.3); }
+        .qa-btn.amber:hover { background:rgba(245,158,11,.1); }
+        .qa-btn.red    { color:#ef4444; border-color:rgba(239,68,68,.3); }
+        .qa-btn.red:hover { background:rgba(239,68,68,.1); color:#ef4444; }
+        .qa-btn.purple { color:#a855f7; border-color:rgba(168,85,247,.3); }
+        .qa-btn.purple:hover { background:rgba(168,85,247,.1); }
+
+        /* Section heading */
+        .section-head {
+            font-size:.68rem; font-weight:600; letter-spacing:1.5px; text-transform:uppercase;
+            color:var(--neon); margin:28px 0 14px; display:flex; align-items:center; gap:8px;
+        }
+        .section-head::after { content:''; flex:1; height:1px; background:rgba(0,229,255,.1); }
+
+        /* Service cards grid */
+        .services-grid {
+            display:grid;
+            grid-template-columns:repeat(auto-fill, minmax(160px, 1fr));
+            gap:14px;
+            margin-bottom:6px;
+        }
+        .svc-card {
+            background:rgba(255,255,255,.03);
+            border:1px solid rgba(255,255,255,.07);
+            border-radius:14px;
+            padding:18px 16px;
+            display:flex; flex-direction:column; align-items:flex-start; gap:10px;
+            cursor:pointer; text-decoration:none;
+            transition:background .2s, border-color .2s, transform .15s;
+            position:relative; overflow:hidden;
+        }
+        .svc-card::before {
+            content:''; position:absolute; inset:0;
+            background:linear-gradient(135deg, var(--svc-color, rgba(0,229,255,.06)) 0%, transparent 70%);
+            opacity:0; transition:opacity .2s;
+        }
+        .svc-card:hover { background:rgba(255,255,255,.055); border-color:rgba(0,229,255,.2); transform:translateY(-2px); }
+        .svc-card:hover::before { opacity:1; }
+        .svc-card:active { transform:translateY(0); }
+
+        .svc-icon {
+            width:40px; height:40px; border-radius:10px;
+            display:flex; align-items:center; justify-content:center;
+        }
+        .svc-icon img { width:26px; height:26px; object-fit:contain; }
+        .svc-label { font-size:.7rem; color:var(--text-dim); }
+        .svc-name  { font-size:.88rem; font-weight:600; color:var(--card-text); margin-top:-4px; }
+
+        .svc-card.danger { border-color:rgba(239,68,68,.15); }
+        .svc-card.danger:hover { border-color:rgba(239,68,68,.3); background:rgba(239,68,68,.06); }
+        .svc-card.warn  { border-color:rgba(245,158,11,.15); }
+        .svc-card.warn:hover  { border-color:rgba(245,158,11,.3); background:rgba(245,158,11,.06); }
+
+        /* ── Overlay modals ───────────────────────── */
+        .modal-overlay {
+            display:none; position:fixed; inset:0;
+            background:rgba(8,12,26,.88); backdrop-filter:blur(10px);
+            z-index:9999; align-items:center; justify-content:center;
+        }
+        .modal-overlay.show { display:flex; }
+        .modal-glass {
+            background:var(--glass-bg); border:1px solid var(--glass-border);
+            border-radius:20px; padding:32px 36px; width:100%; max-width:460px;
+            animation:popIn .22s ease;
+        }
+        @keyframes popIn { from{transform:scale(.92);opacity:0} to{transform:scale(1);opacity:1} }
+        .modal-head { display:flex; align-items:center; gap:12px; margin-bottom:22px; }
+        .modal-head-icon {
+            width:42px; height:42px; border-radius:10px;
+            display:flex; align-items:center; justify-content:center; font-size:1rem;
+        }
+        .modal-head-icon.cyan   { background:rgba(0,229,255,.15); color:var(--neon); border:1px solid rgba(0,229,255,.2); }
+        .modal-head-icon.purple { background:rgba(168,85,247,.15); color:#a855f7; border:1px solid rgba(168,85,247,.2); }
+        .modal-head-icon.amber  { background:rgba(245,158,11,.15); color:#f59e0b; border:1px solid rgba(245,158,11,.2); }
+        .modal-head-icon.red    { background:rgba(239,68,68,.15); color:#ef4444; border:1px solid rgba(239,68,68,.2); }
+        .modal-head-icon.green  { background:rgba(34,197,94,.15); color:#22c55e; border:1px solid rgba(34,197,94,.2); }
+        .modal-title { font-size:1rem; font-weight:600; color:#fff; }
+        .modal-sub   { font-size:.74rem; color:var(--text-dim); margin-top:2px; }
+
+        .modal-field { margin-bottom:14px; }
+        .modal-field label { display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:6px; font-weight:500; }
+        .modal-field input,
+        .modal-field select,
+        .modal-field textarea {
+            width:100%; background:rgba(0,229,255,.06); border:1px solid rgba(0,229,255,.18);
+            border-radius:9px; color:var(--card-text); font-size:.86rem; padding:10px 14px;
+            outline:none; font-family:'Inter',sans-serif; transition:border-color .2s;
+            -webkit-appearance:none; appearance:none;
+        }
+        .modal-field input:focus,
+        .modal-field select:focus { border-color:var(--neon); box-shadow:0 0 0 3px rgba(0,229,255,.1); }
+        .modal-field select option { background:#10182e; }
+        .modal-prefix-group { display:flex; align-items:center; gap:0; }
+        .modal-prefix {
+            background:rgba(0,229,255,.1); border:1px solid rgba(0,229,255,.18);
+            border-right:none; border-radius:9px 0 0 9px;
+            padding:10px 12px; font-size:.84rem; color:var(--neon); white-space:nowrap;
+        }
+        .modal-prefix-group input { border-radius:0 9px 9px 0; }
+        .modal-prefix-group .suffix {
+            background:rgba(0,229,255,.1); border:1px solid rgba(0,229,255,.18);
+            border-left:none; border-radius:0 9px 9px 0;
+            padding:10px 12px; font-size:.84rem; color:var(--neon); white-space:nowrap;
+        }
+        .modal-prefix-group input.mid { border-radius:0; }
+
+        .match-hint { font-size:.72rem; margin-top:5px; display:flex; align-items:center; gap:5px; }
+        .match-hint.ok { color:#22c55e; }
+        .match-hint.fail { color:#ef4444; }
+
+        .modal-warn {
+            background:rgba(239,68,68,.07); border:1px solid rgba(239,68,68,.2);
+            border-radius:10px; padding:12px 16px; font-size:.8rem; color:#fca5a5;
+            margin-bottom:18px; display:flex; align-items:center; gap:9px; line-height:1.5;
+        }
+
+        .modal-footer-btns { display:flex; gap:10px; margin-top:20px; }
+        .btn-modal-cancel {
+            flex:1; padding:10px; border-radius:10px;
+            background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+            color:var(--card-text); font-size:.84rem; cursor:pointer; transition:background .2s;
+        }
+        .btn-modal-cancel:hover { background:rgba(255,255,255,.12); }
+        .btn-modal-confirm {
+            flex:1; padding:10px; border-radius:10px; border:none;
+            font-size:.84rem; font-weight:600; cursor:pointer; color:#fff; transition:opacity .2s;
+        }
+        .btn-modal-confirm:hover { opacity:.82; }
+        .btn-modal-confirm.cyan   { background:linear-gradient(135deg,#00e5ff,#0ea5e9); }
+        .btn-modal-confirm.purple { background:linear-gradient(135deg,#a855f7,#8b5cf6); }
+        .btn-modal-confirm.amber  { background:linear-gradient(135deg,#f59e0b,#d97706); }
+        .btn-modal-confirm.red    { background:linear-gradient(135deg,#ef4444,#dc2626); }
+        .btn-modal-confirm.green  { background:linear-gradient(135deg,#22c55e,#16a34a); }
+        .btn-modal-confirm:disabled { opacity:.35; cursor:not-allowed; }
+
+        .gen-btn {
+            display:inline-flex; align-items:center; gap:6px;
+            background:rgba(0,229,255,.08); border:1px solid rgba(0,229,255,.22);
+            color:var(--neon); border-radius:8px; padding:7px 14px;
+            font-size:.76rem; cursor:pointer; transition:background .2s; margin-top:8px;
+        }
+        .gen-btn:hover { background:rgba(0,229,255,.15); }
+
+        /* Result overlay */
+        .result-overlay {
+            display:none; position:fixed; inset:0;
+            background:rgba(8,12,26,.88); backdrop-filter:blur(10px);
+            z-index:10000; align-items:center; justify-content:center;
+        }
+        .result-overlay.show { display:flex; }
+        .result-glass {
+            background:var(--glass-bg); border:1px solid var(--glass-border);
+            border-radius:20px; padding:36px 40px; text-align:center; max-width:340px;
+            animation:popIn .22s ease;
+        }
+        .result-icon { font-size:2.6rem; margin-bottom:14px; }
+        .result-msg  { font-size:.9rem; color:var(--card-text); margin-bottom:20px; line-height:1.6; }
+        .btn-result-close {
+            background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+            color:var(--card-text); border-radius:9px; padding:9px 28px;
+            font-size:.84rem; cursor:pointer; transition:background .2s;
+        }
+        .btn-result-close:hover { background:rgba(255,255,255,.12); }
+
+        /* processing spinner */
+        .spin-ring {
+            width:20px; height:20px; border:2px solid rgba(0,229,255,.2);
+            border-top-color:var(--neon); border-radius:50%;
+            animation:spin .7s linear infinite; display:none;
+        }
+        @keyframes spin { to{transform:rotate(360deg)} }
     </style>
-    <style>
-        /* Basic styling for the p tag */
-        p.processing {
-            font-size: 18px;
-            font-weight: bold;
- 
-        }
-
-        /* Animation for the dots */
-        .dots::after {
-            content: '';
-            display: inline-block;
-            width: 1em;
-            text-align: left;
-            animation: dots 1.5s steps(4, end) infinite;
-        }
-
-        /* Keyframes for the dots animation */
-        @keyframes dots {
-
-            0%,
-            100% {
-                content: '';
-            }
-
-            25% {
-                content: '.';
-            }
-
-            50% {
-                content: '..';
-            }
-
-            75% {
-                content: '...';
-            }
-        }
-    </style>
-
 </head>
+<body class="font-nunito active-dark-mode">
+<div id="wrapper" class="theme-cyan">
 
-<body data-theme="light" class="font-nunito">
-
-    <div id="wrapper" class="theme-cyan">
-
-        <!-- Page Loader -->
-        <div class="page-loader-wrapper">
-            <div class="loader">
-                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
-                </div>
-                <p>Please wait...</p>
+    <!-- Page Loader -->
+        <div class="page-loader-wrapper" style="background: var(--void-bg, #080c14) !important;">
+        <div class="loader">
+            <div class="m-t-30" style="display: flex; justify-content: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="130" height="30" viewBox="0 0 180 40" role="img" aria-label="VoidPanel">
+                  <rect x="0" y="4" width="34" height="34" rx="8" ry="8" fill="rgba(255,255,255,0.12)"/>
+                  <rect x="7" y="13" width="20" height="4" rx="1.5" fill="#ffffff" opacity="0.9"/>
+                  <rect x="7" y="19.5" width="14" height="4" rx="1.5" fill="#ffffff" opacity="0.65"/>
+                  <rect x="7" y="26" width="10" height="4" rx="1.5" fill="#60a5fa" opacity="0.95"/>
+                  <text x="43" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#ffffff">Void</text>
+                  <text x="91" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#60a5fa">Panel</text>
+                </svg>
             </div>
+            <div class="loading-bar-container">
+                <div class="loading-bar"></div>
+            </div>
+            <p style="color: var(--text-secondary, #475569) !important;">Please wait...</p>
         </div>
+    </div>
 
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
 
+    <div id="main-content">
+        <div class="container-fluid">
 
-        {% include 'navbar.html' %}
-
-        <!-- main left menu -->
-        {% include 'left.html' %}
-        <!-- rightbar icon div -->
-        {% include 'right.html' %}
-
-
-        <!-- mani page content body part -->
-
-        <div id="main-content">
-
-            <div class="container-fluid">
-                <div class="block-header">
-                    <div class="row">
-                        <div class="col-lg-6 col-md-6 col-sm-12">
-                            <h2>View Website</h2>
-                            <ul class="breadcrumb">
-                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
-                                </li>
-                                <li class="breadcrumb-item">Dashboard</li>
-                                <li class="breadcrumb-item">View Website</li>
-
-                            </ul>
-                        </div>
-
-
-                    </div>
+            <!-- Header -->
+            <div class="page-header">
+                <div>
+                    <h2>{{ domain.domain }}</h2>
+                    <ul class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="/panel/"><i class="fa fa-home"></i></a></li>
+                        <li class="breadcrumb-item"><a href="/listusers/">Users</a></li>
+                        <li class="breadcrumb-item active">{{ domain.domain }}</li>
+                    </ul>
                 </div>
+            </div>
 
-                <div class="row clearfix">
-                    <div class="col-lg-6 col-md-12 col-sm-12">
-                        <h4 class="p-2" style="text-align: center;">Preview Website</h4>
-                    </div>
+            <!-- ── Hero Card ── -->
+            <div class="hero-card">
+                <div class="hero-preview">
+                    {% if status %}
+                    <iframe src="https://{{ domain.domain }}" scrolling="no"></iframe>
+                    {% else %}
+                    <img src="/static/icons/not.webp" alt="Site offline">
+                    {% endif %}
                 </div>
-                <div class="row clearfix">
-
-                    <div class="col-lg-6 col-md-12 col-sm-12">
-
-
+                <div class="hero-info">
+                    <div class="hero-domain">
+                        {{ domain.domain }}
+                        <a href="http://{{ domain.domain }}" target="_blank"><i class="fa fa-external-link"></i> Visit</a>
+                    </div>
+                    <div class="hero-meta">
                         {% if status %}
-                        <iframe class="myname" src="https://{{domain.domain}}" width=100% height="325"></iframe>
+                        <span class="hero-status active"><span class="dot"></span>Online</span>
                         {% else %}
-                        <img class="myname" src="/static/icons/not.webp" width=100% height="325">
-
+                        <span class="hero-status suspended"><span class="dot"></span>Suspended / Offline</span>
                         {% endif %}
-
-
-
-
+                        &nbsp;&nbsp;
+                        <span style="color:var(--text-dim);font-size:.78rem;">Directory: /home/{{ domain.dir }}</span>
                     </div>
-                    <div class="col-lg-6 col-md-12 col-sm-12">
-                        <div class="row clearfix ">
-
-                            <div class="col-lg-6 col-md-6 col-sm-6">
-                                <a href="/eadns/?domain={{domain}}">
-                                    <div class="card">
-                                        <div class="body">
-                                            <div class="currency_state d-flex">
-                                                <div><img src="/static/icons/dns.png" width="40"></div>
-                                                <div class="ml-3">
-                                                    <div class="name">Edit/Add </div>
-                                                    <h5 class="mb-0">DNS</h5>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </a>
-                            </div>
-                            <div class="col-lg-6 col-md-6 col-sm-6">
-                                <a href="https://voidpanel.com/commingsoon.html">
-                                    <div class="card">
-                                        <div class="body">
-                                            <div class="currency_state d-flex">
-                                                <div><img src="/static/icons/analysis.png" width="40">
-                                                </div>
-                                                <div class="ml-3">
-                                                    <div class="name">Website</div>
-                                                    <h5 class="mb-0">Analysis</h5>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </a>
-                            </div>
-
-
-                        </div>
-                        <div class="row clearfix">
-
-                            <div class="col-lg-6 col-md-12 col-sm-12">
-
-
-                                <a href="/runssl/{{domain}}">
-                                    <div class="card">
-                                        <div class="body">
-                                            <div class="currency_state d-flex">
-                                                <div><img src="/static/icons/ssl.png" width="40">
-                                                </div>
-                                                <div class="ml-3">
-                                                    <div class="name">Security </div>
-                                                    <h5 class="mb-0">SSL</h5>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </a>
-
-
-                            </div>
-                            <div class="col-lg-6 col-md-6 col-sm-6">
-                                <a href="/cron/{{domain}}">
-                                    <div class="card">
-                                        <div class="body">
-                                            <div class="currency_state d-flex">
-                                                <div><img src="/static/icons/cron.svg" width="40">
-                                                </div>
-                                                <div class="ml-3">
-                                                    <div class="name">Cron</div>
-                                                    <h5 class="mb-0">Jobs</h5>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </a>
-                            </div>
-
-
-                        </div>
-
-
-
-
-
-
-                        <div class="row clearfix">
-
-                            <div class="col-lg-6 col-md-6 col-sm-6">
-                                <a href="/backup/{{domain}}">
-                                <div class="card">
-                                    <div class="body">
-                                        <div class="currency_state d-flex">
-                                            <div><img src="/static/icons/backup.svg" width="40"></div>
-                                            <div class="ml-3">
-                                                <div class="name">BackUp </div>
-                                                <h5 class="mb-0">Wizard</h5>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </a>
-                            </div>
-                            <div class="col-lg-6 col-md-6 col-sm-6">
-                                <a href="/filemanager/?key=//home/{{domain.dir}}" target="_blank">
-                                    <div class="card">
-                                        <div class="body">
-                                            <div class="currency_state d-flex">
-                                                <div><img src="/static/icons/file.png" width="40">
-                                                </div>
-                                                <div class="ml-3">
-                                                    <div class="name">File</div>
-                                                    <h5 class="mb-0">Manager</h5>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </a>
-                            </div>
-
-
-                        </div>
-
-
-                    </div>
-                </div>
-                <h4 class="p-2">Database Function</h4>
-                <div class="row clearfix">
-
-
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-
-                        <div onclick="viewdb()" class="card">
-                            <div class="body">
-                                <div class="currency_state d-flex">
-                                    <div><img src="/static/icons/mydb.svg" width="40">
-                                    </div>
-                                    <div class="ml-3">
-                                        <div class="name">Mysql </div>
-                                        <h5 class="mb-0">Database</h5>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-
-
-                    </div>
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-                        <a href="/dbconnect/{{domain}}">
-                            <div class="card">
-                                <div class="body">
-                                    <div class="currency_state d-flex">
-                                        <div><img src="/static/icons/mysql.svg" width="40">
-                                        </div>
-                                        <div class="ml-3">
-                                            <div class="name">Auto</div>
-                                            <h5 class="mb-0">DB Setup</h5>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                    <div class="quick-actions">
+                        <a href="/filemanager/?key=//home/{{ domain.dir }}" target="_blank" class="qa-btn cyan">
+                            <i class="fa fa-folder-open"></i> File Manager
                         </a>
-
-
-                    </div>
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-
-                        <div onclick="viewemailemail();" class="card">
-                            <div class="body">
-                                <div class="currency_state d-flex">
-                                    <div><img src="/static/icons/myusers.svg" width="40">
-                                    </div>
-                                    <div class="ml-3">
-                                        <div class="name">Database</div>
-                                        <h5 class="mb-0">Users</h5>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-
-
-                    </div>
-                </div>
-
-
-
-                <h4 class="p-2">Email Function</h4>
-                <div class="row clearfix">
-
-
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-
-                        <div onclick="viewemail();" class="card">
-                            <div class="body">
-                                <div class="currency_state d-flex">
-                                    <div><img src="/static/icons/email.png" width="40">
-                                    </div>
-                                    <div class="ml-3">
-                                        <div class="name">Create </div>
-                                        <h5 class="mb-0">Email</h5>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-
-
-                    </div>
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-                        <a href="/listemail/{{domain}}/" target="_blank">
-                            <div class="card">
-                                <div class="body">
-                                    <div class="currency_state d-flex">
-                                        <div><img src="/static/icons/ec.png" width="40">
-                                        </div>
-                                        <div class="ml-3">
-                                            <div class="name">Connect</div>
-                                            <h5 class="mb-0">Email</h5>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                        <a href="/eadns/?domain={{ domain }}" class="qa-btn purple">
+                            <i class="fa fa-server"></i> DNS
                         </a>
-
-
-                    </div>
-
-                </div>
-
-                <h4 class="p-2">Extra Function</h4>
-                <div class="row clearfix">
-
-
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-
-                        <div class="card" onclick="viewphp();">
-                            <div class="body">
-                                <div class="currency_state d-flex">
-                                    <div><img src="/static/icons/php.svg" width="40">
-                                    </div>
-                                    <div class="ml-3">
-                                        <div class="name">PHP </div>
-                                        <h5 class="mb-0">Selector</h5>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-
-
-                    </div>
-
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-                        <a href="/phpini/{{domain}}">
-                            <div class="card">
-                                <div class="body">
-                                    <div class="currency_state d-flex">
-                                        <div><img src="/static/icons/phpini.svg" width="40">
-                                        </div>
-                                        <div class="ml-3">
-                                            <div class="name">PHP </div>
-                                            <h5 class="mb-0">INI</h5>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                        <a href="/loginuser/?user={{ domain.username }}" target="_blank" class="qa-btn cyan" style="color:#22c55e;border-color:rgba(34,197,94,.3);">
+                            <i class="fa fa-sign-in"></i> Login as User
                         </a>
-
-
-
-                    </div>
-
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-                        <a href="/subdomain/{{domain.domain}}" target="_blank">
-                            <div class="card">
-                                <div class="body">
-                                    <div class="currency_state d-flex">
-                                        <div><img src="/static/icons/sub.png" width="40">
-                                        </div>
-                                        <div class="ml-3">
-                                            <div class="name">Domain </div>
-                                            <h5 class="mb-0">Subdomain</h5>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-
-
-                    </div>
-
-                   
-
-
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-                        <a href="/python/{{domain}}">
-                            <div class="card">
-                                <div class="body">
-                                    <div class="currency_state d-flex">
-                                        <div><img src="/static/icons/python.png" width="40">
-                                        </div>
-                                        <div class="ml-3">
-                                            <div class="name">Setup </div>
-                                            <h5 class="mb-0">Python</h5>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-                    </div>
-
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-                        <a href="/mern/{{domain}}">
-                            <div class="card">
-                                <div class="body">
-                                    <div class="currency_state d-flex">
-                                        <div><img src="/static/icons/mern.png" width="45">
-                                        </div>
-                                        <div class="ml-3">
-                                            <div class="name">Setup </div>
-                                            <h5 class="mb-0">Mern Stack</h5>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-                    </div>
-
-
-                 
-
-
-
-
-
-
-                </div>
-
-
-
-
-                <h4 class="p-2">Wesite Function</h4>
-                <div class="row clearfix">
-
-{% if domain.userdomain %}
-
-
-{% else %}
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
+                        {% if not domain.userdomain %}
                         {% if domain.status %}
-
-                        <div onclick="suspend();" class="card">
-                            <div class="body">
-                                <div class="currency_state d-flex">
-                                    <div><img src="/static/icons/lock.svg" width="40">
-                                    </div>
-                                    <div class="ml-3">
-                                        <div class="name">Website </div>
-                                        <h5 class="mb-0">Suspend</h5>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
+                        <button onclick="openModal('modal-suspend')" class="qa-btn amber">
+                            <i class="fa fa-pause"></i> Suspend
+                        </button>
                         {% else %}
-                        <a href="/unsuspend/{{i.domain}}/">
-                            <div class="card">
-                                <div class="body">
-                                    <div class="currency_state d-flex">
-                                        <div><img src="/static/icons/lock.svg" width="40">
-                                        </div>
-                                        <div class="ml-3">
-                                            <div class="name">Website </div>
-                                            <h5 class="mb-0">Un-Suspend</h5>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                        <a href="/unsuspend/{{ domain.domain }}/" class="qa-btn cyan" style="color:#22c55e;border-color:rgba(34,197,94,.3);">
+                            <i class="fa fa-play"></i> Unsuspend
                         </a>
                         {% endif %}
-
-
-                    </div>
-                    {% endif %}
-
-
-
-{% if domain.userdomain %}
-
-
-{% else %}
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-                        <div class="card" onclick="terminate();">
-                            <div class="body">
-                                <div class="currency_state d-flex">
-                                    <div><img src="/static/icons/ter.svg" width="40">
-                                    </div>
-                                    <div class="ml-3">
-                                        <div class="name">Website</div>
-                                        <h5 class="mb-0">Terminate</h5>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-
-
-                    </div>
-
-                    {% endif %}
-
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-                        <a href="http://{{domain.domain}}" target="_blank">
-                            <div class="card">
-                                <div class="body">
-                                    <div class="currency_state d-flex">
-                                        <div><img src="/static/icons/view.svg" width="40">
-                                        </div>
-                                        <div class="ml-3">
-                                            <div class="name">Website</div>
-                                            <h5 class="mb-0">View</h5>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-
-
-                    </div>
-
-
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-                        <a href="/addredirect/{{domain}}">
-                            <div class="card">
-                                <div class="body">
-                                    <div class="currency_state d-flex">
-                                        <div><img src="/static/icons/re.png" width="40">
-                                        </div>
-                                        <div class="ml-3">
-                                            <div class="name">Website</div>
-                                            <h5 class="mb-0">Redirect</h5>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-
-
-                    </div>
-
-
-
-
-
-
-                </div>
-                <!-- <h4 class="p-2">Marketing</h4>
-                <div class="row clearfix">
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-                        <a href="/emailmarketing/{{domain}}">
-                        <div class="card" >
-                            <div class="body">
-                                <div class="currency_state d-flex">
-                                    <div><img src="/static/icons/em.png" width="40">
-                                    </div>
-                                    <div class="ml-3">
-                                        <div class="name">Email </div>
-                                        <h5 class="mb-0">Marketing</h5>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        </a>
-                    </div>
-                    </div> -->
-
-
-
-
-                <div class="modal animated fadeIn show" id="adddatabaseuser" style="display: none; margin-top: 300px;">
-                    <div class="modal-dialog modal-sm" role="document">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h6 class="title" id="defaultModalLabel">Add DataBase User</h6>
-                            </div>
-                            <form id="adddbuser" method="post" action="">{% csrf_token %}
-                                <div class="modal-body">
-                                    <div class="row clearfix">
-
-
-                                        <div class="col-md-12 col-sm-12">
-
-                                            <div class="input-group mb-3">
-                                                <div class="input-group-append">
-                                                    <span class="input-group-text" id="basic-addon2">{{domain}}_</span>
-                                                </div>
-                                                <input required type="text" id="textInput"
-                                                    oninput="removeSpacesAndSpecialChars(this);" name="databaseuser"
-                                                    class="form-control" placeholder="username" required
-                                                    aria-label="Recipient's username" aria-describedby="basic-addon2">
-
-                                            </div>
-                                            <div class="form-group">
-                                                <input required type="password" name="password" placeholder="Password"
-                                                    id="password68" required class="form-control">
-
-                                                <input type="password" name="domain" value="{{domain.dir}}" hidden
-                                                    class="form-control">
-
-                                            </div>
-                                            <div id="match" class="form-group">
-
-
-                                            </div>
-                                            <div class="form-group">
-                                                <input required type="password" oninput="confirm1(this);"
-                                                    name="password1" placeholder="Confirm Password" id="password69"
-                                                    class="form-control">
-
-                                            </div>
-                                            <div class="row clearfix">
-                                                <div class="col-md-8 col-sm-12">
-                                                    <div class="form-group">
-                                                        <button type="button" class="btn btn-secondary"
-                                                            onclick="gen1();">Generate Password</button>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-4 col-sm-12">
-                                                    <div class="form-group">
-                                                        <button type="button" class="btn btn-primary"
-                                                            onclick="genshow1();"><i class="fa  icon-eye"> </i></button>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                        </div>
-
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button id="addemailbtn1" onclick="adddatabaseuser(event);" style="display: block;"
-                                        class="btn btn-primary" disabled>Add</button>
-                                    <button type="button" class="btn btn-secondary"
-                                        onclick="closeemail();">CLOSE</button>
-                                    <p id="pro" style="display: none;" class="processing">Processing<span
-                                            class="dots"></span>
-                                    </p>
-                                </div>
-                            </form>
-                        </div>
+                        <button onclick="openModal('modal-terminate')" class="qa-btn red">
+                            <i class="fa fa-trash-o"></i> Terminate
+                        </button>
+                        {% endif %}
                     </div>
                 </div>
-
-                <script>
-                    async function adddatabaseuser(event) {
-                        // Prevent the default action (e.g., form submission)
-                        if (event) {
-                            event.preventDefault();
-                        }
-                        document.getElementById('pro').style.display = "block";
-                        const form = document.getElementById('adddbuser');
-                        const formData = new FormData(form);
-                        try {
-                            // Fetch request to submit form data
-                            const response = await fetch('/adddatabaseuser/', {
-                                method: 'POST',
-                                body: formData,
-                                headers: {
-                                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value // CSRF token for Django
-                                }
-                            });
-                            const result = await response.json();
-                            // Handle response
-                            if (response.ok && result.status === 'success') {
-                                document.getElementById('pro').style.display = "none";
-                                document.getElementById('adddatabaseuser').style.display = "none";
-                                document.getElementById('eeee').style.display = "block";
-                                document.getElementById('statusemail').innerHTML = "User Added!"
-
-                            } else {
-
-                                document.getElementById('pro').style.display = "none";
-                                document.getElementById('adddatabaseuser').style.display = "none";
-                                document.getElementById('eeee').style.display = "block";
-                                document.getElementById('statusemail').innerHTML = "Error Adding  User!"
-
-                            }
-                        } catch (error) {
-
-                            document.getElementById('pro').style.display = "none";
-                            document.getElementById('adddatabaseuser').style.display = "none";
-                            document.getElementById('eeee').style.display = "block";
-                            document.getElementById('statusemail').innerHTML = "User Already  Exist!"
-
-                        }
-
-
-
-
-
-                    }
-
-
-
-                    async function changephpversion(event) {
-                        // Prevent the default action (e.g., form submission)
-                        if (event) {
-                            event.preventDefault();
-                        }
-                        document.getElementById('pro').style.display = "block";
-                        const form = document.getElementById('chphp');
-                        const formData = new FormData(form);
-                        try {
-                            // Fetch request to submit form data
-                            const response = await fetch('/changephpversion/', {
-                                method: 'POST',
-                                body: formData,
-                                headers: {
-                                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value // CSRF token for Django
-                                }
-                            });
-                            const result = await response.json();
-                            // Handle response
-                            if (response.ok && result.status === 'success') {
-                                document.getElementById('pro').style.display = "none";
-                                document.getElementById('addphp').style.display = "none";
-                                document.getElementById('eeee').style.display = "block";
-                                document.getElementById('statusemail').innerHTML = "PHP Version has been Changed"
-
-                            } else {
-
-                                document.getElementById('pro').style.display = "none";
-                                document.getElementById('addphp').style.display = "none";
-                                document.getElementById('eeee').style.display = "block";
-                                document.getElementById('statusemail').innerHTML = "Error Changing PHP Version"
-
-                            }
-                        } catch (error) {
-
-                            document.getElementById('pro').style.display = "none";
-                            document.getElementById('addphp').style.display = "none";
-                            document.getElementById('eeee').style.display = "block";
-                            document.getElementById('statusemail').innerHTML = "Error Changing PHP  Version"
-
-                        }
-
-
-
-
-
-                    }
-                </script>
-                <script>
-                    function closeemail() {
-                        document.getElementById('adddatabaseuser').style.display = "none";
-                    }
-
-                    function viewemailemail() {
-                        document.getElementById('adddatabaseuser').style.display = "block";
-                    }
-                </script>
-
-
-
-
-
-
-
-
-
-                <div class="modal animated fadeIn show" id="addemail" style="display: none; margin-top: 300px;">
-                    <div class="modal-dialog modal-sm" role="document">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h6 class="title" id="defaultModalLabel">Add Email</h6>
-                            </div>
-                            <form id="copyForm" method="post" action="">{% csrf_token %}
-                                <div class="modal-body">
-                                    <div class="row clearfix">
-
-
-                                        <div class="col-md-12 col-sm-12">
-
-                                            <div class="input-group mb-3">
-                                                <input required type="text" id="textInput"
-                                                    oninput="removeSpacesAndSpecialChars(this);" name="username"
-                                                    class="form-control" placeholder="username"
-                                                    aria-label="Recipient's username" aria-describedby="basic-addon2">
-                                                <div class="input-group-append">
-                                                    <span class="input-group-text" id="basic-addon2">@{{domain}}</span>
-                                                </div>
-                                            </div>
-                                            <div class="form-group">
-                                                <input required type="password" name="password" placeholder="Password"
-                                                    id="password" class="form-control">
-
-                                                <input type="password" name="domain" value="{{domain}}" hidden
-                                                    class="form-control">
-
-                                            </div>
-                                            <div id="match" class="form-group">
-
-
-                                            </div>
-                                            <div class="form-group">
-                                                <input required type="password" oninput="confirm(this);"
-                                                    name="password1" placeholder="Confirm Password" id="password1"
-                                                    class="form-control">
-
-                                            </div>
-                                            <div class="row clearfix">
-                                                <div class="col-md-8 col-sm-12">
-                                                    <div class="form-group">
-                                                        <button type="button" class="btn btn-secondary"
-                                                            onclick="gen();">Generate Password</button>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-4 col-sm-12">
-                                                    <div class="form-group">
-                                                        <button type="button" class="btn btn-primary"
-                                                            onclick="genshow();"><i class="fa  icon-eye"> </i></button>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                        </div>
-
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button id="addemailbtn" onclick="addemail(event);" style="display: block;"
-                                        class="btn btn-primary" disabled>Add</button>
-                                    <button type="button" class="btn btn-secondary"
-                                        onclick="addemail1();">CLOSE</button>
-                                    <p id="pro" style="display: none;" class="processing">Processing<span
-                                            class="dots"></span>
-                                    </p>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-
-
-
-
-                <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
-                    <div class="modal-dialog modal-sm" role="document">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h6 class="title" id="defaultModalLabel">Status</h6>
-                            </div>
-
-                            <div class="modal-body">
-                                <div class="col-md-12 col-sm-12">
-                                    <div id="statusemail" style="text-align: center;" class="row clearfix">
-
-
-
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button id="addemailbtn" onclick="closedata();"
-                                        class="btn btn-danger">Close</button>
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
-                </div>
-
-
             </div>
 
-        </div>
-
-
-
-
-        <div class="modal animated fadeIn show" id="adddb" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Add Database</h6>
+            <!-- ── Security & Site tools ── -->
+            <div class="section-head"><i class="fa fa-shield"></i> Security & Site</div>
+            <div class="services-grid">
+                <a href="/runssl/{{ domain }}" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/ssl.png" alt="SSL"></div>
+                    <div><div class="svc-label">Security</div><div class="svc-name">SSL / HTTPS</div></div>
+                </a>
+                <a href="/eadns/?domain={{ domain }}" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/dns.png" alt="DNS"></div>
+                    <div><div class="svc-label">Edit / Add</div><div class="svc-name">DNS Records</div></div>
+                </a>
+                <a href="/addredirect/{{ domain }}" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/re.png" alt="Redirect"></div>
+                    <div><div class="svc-label">Website</div><div class="svc-name">Redirects</div></div>
+                </a>
+                <a href="javascript:void(0);" onclick="openSiteConfigEditor('{{domain.domain}}');" class="svc-card" style="border:1px solid rgba(99,102,241,0.3); background: rgba(99,102,241,0.05);">
+                    <div class="svc-icon" style="color:#818cf8; font-size:1.6rem; display:flex; align-items:center; justify-content:center;"><i class="fa fa-code"></i></div>
+                    <div>
+                        <div class="svc-label" style="color:var(--muted);">Advanced</div>
+                        <div class="svc-name" style="color:#e2e8f0; display:flex; align-items:center; gap:6px;">Web Server Config <span style="font-size:0.6rem; background:rgba(239,68,68,0.15); color:#ef4444; padding:2px 6px; border-radius:10px; border:1px solid rgba(239,68,68,0.2);">LIVE</span></div>
                     </div>
-                    <form id="adddbform" method="post" action="">{% csrf_token %}
-                        <div class="modal-body">
-                            <div class="row clearfix">
+                </a>
+                <a href="/subdomain/{{ domain.domain }}" target="_blank" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/sub.png" alt="Subdomain"></div>
+                    <div><div class="svc-label">Domain</div><div class="svc-name">Subdomains</div></div>
+                </a>
+            </div>
 
+            <!-- ── Files & Tools ── -->
+                        <div class="section-head"><i class="fa fa-share-alt"></i> Social Media</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px;">
+                <a href="/control/social/{{ domain.domain }}" class="svc-card" style="border-color:rgba(244,114,182,.15);">
+                    <i class="fa-solid fa-share-nodes" style="color:#f472b6;font-size:1.4rem;margin-bottom:8px;"></i>
+                    <div style="font-size:.85rem;font-weight:700;color:#e2e8f0;">Social Manager</div>
+                    <div style="font-size:.72rem;color:#64748b;margin-top:3px;">All platforms</div>
+                </a>
+                <a href="/control/social/{{ domain.domain }}#compose" class="svc-card" style="border-color:rgba(232,121,249,.15);">
+                    <i class="fa-solid fa-pen-to-square" style="color:#e879f9;font-size:1.4rem;margin-bottom:8px;"></i>
+                    <div style="font-size:.85rem;font-weight:700;color:#e2e8f0;">New Post</div>
+                    <div style="font-size:.72rem;color:#64748b;margin-top:3px;">Compose &amp; schedule</div>
+                </a>
+                <a href="/control/social/{{ domain.domain }}#analytics" class="svc-card" style="border-color:rgba(167,139,250,.15);">
+                    <i class="fa-solid fa-chart-line" style="color:#a78bfa;font-size:1.4rem;margin-bottom:8px;"></i>
+                    <div style="font-size:.85rem;font-weight:700;color:#e2e8f0;">Analytics</div>
+                    <div style="font-size:.72rem;color:#64748b;margin-top:3px;">Stats &amp; insights</div>
+                </a>
+                <a href="/control/social/{{ domain.domain }}#inbox" class="svc-card" style="border-color:rgba(96,165,250,.15);">
+                    <i class="fa-solid fa-inbox" style="color:#60a5fa;font-size:1.4rem;margin-bottom:8px;"></i>
+                    <div style="font-size:.85rem;font-weight:700;color:#e2e8f0;">Inbox</div>
+                    <div style="font-size:.72rem;color:#64748b;margin-top:3px;">Comments &amp; DMs</div>
+                </a>
+            </div>
 
-                                <div class="col-md-12 col-sm-12">
-
-                                    <div class="input-group mb-3">
-                                        <div class="input-group-append">
-                                            <span class="input-group-text" id="basic-addon2">{{domain}}_</span>
-                                        </div>
-                                        <input required type="text" id="textInput"
-                                            oninput="removeSpacesAndSpecialChars(this);" name="databasename"
-                                            class="form-control" placeholder="Database Name"
-                                            aria-label="Recipient's username" aria-describedby="basic-addon2">
-                                        <input required type="text" id="textInput" name="front" class="form-control"
-                                            value="{{domain.dir}}_" hidden>
-
-                                    </div>
-
-
-
-
-                                </div>
-
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button id="addemailbtn" onclick="adddb(event);" style="display: block;"
-                                class="btn btn-primary">Add</button>
-                            <button type="button" class="btn btn-secondary" onclick="adddb1();">CLOSE</button>
-                            </p>
-                        </div>
-                    </form>
+<div class="section-head"><i class="fa fa-hdd-o"></i> Files & Tools</div>
+            <div class="services-grid">
+                <a href="/filemanager/?key=//home/{{ domain.dir }}" target="_blank" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/file.png" alt="Files"></div>
+                    <div><div class="svc-label">File</div><div class="svc-name">Manager</div></div>
+                </a>
+                <a href="/backup/{{ domain }}" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/backup.svg" alt="Backup"></div>
+                    <div><div class="svc-label">BackUp</div><div class="svc-name">Wizard</div></div>
+                </a>
+                <a href="/cron/{{ domain }}" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/cron.svg" alt="Cron"></div>
+                    <div><div class="svc-label">Cron</div><div class="svc-name">Jobs</div></div>
+                </a>
+                <a href="/analytics/?domain={{ domain }}" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/analysis.png" alt="Analysis"></div>
+                    <div><div class="svc-label">Website</div><div class="svc-name">Analytics</div></div>
+                </a>
+                <div onclick="openModal('modal-copysite')" class="svc-card">
+                    <div class="svc-icon" style="background:rgba(168,85,247,.15);">
+                        <i class="fa fa-clone" style="font-size:1.3rem;color:#a855f7;"></i>
+                    </div>
+                    <div><div class="svc-label">Copy</div><div class="svc-name">Site Cloner</div></div>
                 </div>
             </div>
-        </div>
 
+            <!-- ── PHP ── -->
+            <div class="section-head"><i class="fa fa-code"></i> PHP</div>
+            <div class="services-grid">
+                <div onclick="openModal('modal-php')" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/php.svg" alt="PHP"></div>
+                    <div><div class="svc-label">PHP</div><div class="svc-name">Version Selector</div></div>
+                </div>
+                <a href="/phpini/{{ domain }}" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/phpini.svg" alt="PHP INI"></div>
+                    <div><div class="svc-label">PHP</div><div class="svc-name">INI Settings</div></div>
+                </a>
+                <a href="/python/{{ domain }}" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/python.png" alt="Python"></div>
+                    <div><div class="svc-label">Setup</div><div class="svc-name">Python App</div></div>
+                </a>
+                <a href="/mern/{{ domain }}" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/mern.png" alt="MERN"></div>
+                    <div><div class="svc-label">Setup</div><div class="svc-name">MERN Stack</div></div>
+                </a>
+            </div>
 
+            <!-- ── Database ── -->
+            <div class="section-head"><i class="fa fa-database"></i> Database</div>
+            <div class="services-grid">
+                <div onclick="openModal('modal-adddb')" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/mydb.svg" alt="MySQL"></div>
+                    <div><div class="svc-label">MySQL</div><div class="svc-name">Add Database</div></div>
+                </div>
+                <div onclick="openModal('modal-adddbuser')" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/myusers.svg" alt="DB Users"></div>
+                    <div><div class="svc-label">Database</div><div class="svc-name">Add DB User</div></div>
+                </div>
+                <a href="/dbconnect/{{ domain }}" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/mysql.svg" alt="Auto DB"></div>
+                    <div><div class="svc-label">Auto</div><div class="svc-name">DB Setup</div></div>
+                </a>
+            </div>
 
+            <!-- ── Email ── -->
+            <div class="section-head"><i class="fa fa-envelope"></i> Email</div>
+            <div class="services-grid">
+                <div onclick="openModal('modal-addemail')" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/email.png" alt="Email"></div>
+                    <div><div class="svc-label">Create</div><div class="svc-name">Email Account</div></div>
+                </div>
+                <a href="/listemail/{{ domain }}/" target="_blank" class="svc-card">
+                    <div class="svc-icon"><img src="/static/icons/ec.png" alt="Email Connect"></div>
+                    <div><div class="svc-label">Connect</div><div class="svc-name">Email Client</div></div>
+                </a>
+            </div>
 
-
-
-
-
-        <div class="modal animated fadeIn show" id="addphp" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="currentphpversion">Change PHP Version</h6>
+            {% if engine == 'nginx' %}
+            <!-- ── Nginx Cache ── -->
+            <div class="section-head"><i class="fa fa-bolt"></i> Performance</div>
+            <div id="nginx-cache-card" style="
+                background:var(--glass-bg);
+                border:1px solid var(--glass-border);
+                border-radius:16px;
+                padding:22px 26px;
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+                gap:20px;
+                flex-wrap:wrap;
+                margin-bottom:24px;
+                position:relative;
+                overflow:hidden;
+            ">
+                <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,229,255,.03) 0%,transparent 60%);pointer-events:none;"></div>
+                <div style="display:flex;align-items:center;gap:16px;position:relative;z-index:1;">
+                    <div style="
+                        width:48px;height:48px;border-radius:12px;
+                        background:rgba(34,197,94,.12);
+                        border:1px solid rgba(34,197,94,.2);
+                        display:flex;align-items:center;justify-content:center;
+                        font-size:1.2rem;color:#22c55e;flex-shrink:0;
+                    ">
+                        <i class="fa-solid fa-gauge-high"></i>
                     </div>
-                    <form id="chphp" method="post" action="">{% csrf_token %}
-                        <div class="modal-body">
-                            <div class="row clearfix">
-
-
-                                <div class="col-md-12 col-sm-12">
-                                    <div class="row clearfix">
-                                        <div class="col-md-6 col-sm-12">
-                                            <select  name="name" class="form-control show-tick" required>
-                                                <option>Domain</option>
-                                                <option value="{{domain}}">{{domain}}  (PHP Version {{domain.php}})</option>
-                                                {% for i in sub %}
-                                              
-                                                <option value="{{i.subdomain}}">{{i.subdomain}} (PHP Version {{i.php}})</option>
-                                                {% endfor %}
-
-                                            </select>
-                                        </div>
-
-                                        <div class="col-md-6 col-sm-12">
-                                            <select name="php" class="form-control show-tick" required>
-                                                <option>Php Version</option>
-                                                {% for i in phpversion %}
-                                                <option value="{{i.name}}">{{i.name}}</option>
-                                                {% endfor %}
-
-                                            </select>
-                                        </div>
-
-
-
-                                    </div>
-
-
-
-
-
-
-
-                                </div>
-
-                            </div>
+                    <div>
+                        <div style="font-size:.95rem;font-weight:600;color:#fff;margin-bottom:3px;">
+                            Nginx Browser Cache
                         </div>
-                        <div class="modal-footer">
-                            <button id="addemailbtn" onclick="changephpversion(event);" style="display: block;"
-                                class="btn btn-primary">Change PHP Version</button>
-                            <button type="button" class="btn btn-secondary" onclick="hidephp();">CLOSE</button>
-                            </p>
+                        <div style="font-size:.76rem;color:var(--text-dim);line-height:1.5;max-width:420px;">
+                            Cache static assets (images, CSS, JS, fonts) for 30 days. Reduces page load time and bandwidth usage for returning visitors.
                         </div>
-                    </form>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:14px;position:relative;z-index:1;">
+                    <span id="nc-status-badge" style="
+                        display:inline-flex;align-items:center;gap:6px;
+                        padding:4px 14px;border-radius:999px;font-size:.72rem;font-weight:600;
+                        background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.2);
+                        transition:all .3s;
+                    ">
+                        <span style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span>
+                        <span id="nc-status-text">Disabled</span>
+                    </span>
+                    <label id="nc-toggle-label" style="
+                        position:relative;display:inline-block;width:52px;height:28px;cursor:pointer;
+                    ">
+                        <input type="checkbox" id="nc-toggle" style="opacity:0;width:0;height:0;" onchange="toggleNginxCache(this)">
+                        <span id="nc-slider" style="
+                            position:absolute;inset:0;
+                            background:rgba(255,255,255,.1);
+                            border:1px solid rgba(255,255,255,.15);
+                            border-radius:28px;
+                            transition:all .3s;
+                        "></span>
+                        <span id="nc-knob" style="
+                            position:absolute;top:3px;left:3px;
+                            width:22px;height:22px;border-radius:50%;
+                            background:#fff;
+                            transition:all .3s;
+                            box-shadow:0 2px 6px rgba(0,0,0,.3);
+                        "></span>
+                    </label>
                 </div>
             </div>
+            {% endif %}
+
         </div>
+    </div>
+</div>
 
+<!-- ════════════════════════ Modals ════════════════════════ -->
 
-        <div class="modal animated fadeIn show" id="terminate" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Terminate</h6>
-                    </div>
+<!-- PHP Version -->
+<div class="modal-overlay" id="modal-php">
+    <div class="modal-glass">
+        <div class="modal-head">
+            <div class="modal-head-icon cyan"><i class="fa fa-code"></i></div>
+            <div><div class="modal-title">Change PHP Version</div><div class="modal-sub">Current: PHP {{ domain.php }}</div></div>
+        </div>
+        <form id="chphp">{% csrf_token %}
+            <div class="modal-field">
+                <label>Domain / Subdomain</label>
+                <select name="name" required>
+                    <option value="{{ domain }}">{{ domain }} (PHP {{ domain.php }})</option>
+                    {% for i in sub %}<option value="{{ i.subdomain }}">{{ i.subdomain }} (PHP {{ i.php }})</option>{% endfor %}
+                </select>
+            </div>
+            <div class="modal-field">
+                <label>PHP Version</label>
+                <select name="php" required>
+                    {% for i in phpversion %}<option value="{{ i.name }}">{{ i.name }}</option>{% endfor %}
+                </select>
+            </div>
+        </form>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-php')">Cancel</button>
+            <button class="btn-modal-confirm cyan" onclick="submitPhp()">
+                <i class="fa fa-check" style="margin-right:5px;"></i>Change PHP Version
+            </button>
+        </div>
+    </div>
+</div>
 
-                    <div class="modal-body">
-                        <div class="col-md-12 col-sm-12">
-                            <div id="statusemail" style="text-align: center;" class="row clearfix">
-                                <p>Are You Sure you want to terminate {{domain}}</p>
-
-
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <a href="/terminate/{{domain}}"> <button class="btn btn-danger">Confirm Terminate</button>
-                            </a>
-                            <button id="addemailbtn" onclick="closeterminate();" class="btn btn-success">Close</button>
-
-                        </div>
-
-
-                    </div>
-
+<!-- Add Database -->
+<div class="modal-overlay" id="modal-adddb">
+    <div class="modal-glass">
+        <div class="modal-head">
+            <div class="modal-head-icon cyan"><i class="fa fa-database"></i></div>
+            <div><div class="modal-title">Create Database</div><div class="modal-sub">MySQL database for {{ domain }}</div></div>
+        </div>
+        <form id="adddbform">{% csrf_token %}
+            <input type="hidden" name="front" value="{{ domain.dir }}_">
+            <div class="modal-field">
+                <label>Database Name</label>
+                <div class="modal-prefix-group">
+                    <span class="modal-prefix">{{ domain }}_</span>
+                    <input type="text" name="databasename" placeholder="mydb" required class="mid" oninput="removeSpecial(this)">
                 </div>
             </div>
+        </form>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-adddb')">Cancel</button>
+            <button class="btn-modal-confirm cyan" onclick="submitAddDb()">
+                <i class="fa fa-plus" style="margin-right:5px;"></i>Create Database
+            </button>
         </div>
+    </div>
+</div>
 
-
-        <div class="modal animated fadeIn show" id="suspend" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Suspend</h6>
-                    </div>
-
-                    <div class="modal-body">
-                        <div class="col-md-12 col-sm-12">
-                            <div id="statusemail" style="text-align: center;" class="row clearfix">
-                                <p>Are You Sure you want to Suspend {{domain}}</p>
-
-
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <a href="/suspend/{{domain}}"> <button class="btn btn-danger">Confirm Suspend</button>
-                            </a>
-                            <button id="addemailbtn" onclick="closesuspend();" class="btn btn-success">Close</button>
-
-                        </div>
-
-
-                    </div>
-
+<!-- Add Database User -->
+<div class="modal-overlay" id="modal-adddbuser">
+    <div class="modal-glass">
+        <div class="modal-head">
+            <div class="modal-head-icon purple"><i class="fa fa-user-plus"></i></div>
+            <div><div class="modal-title">Add Database User</div><div class="modal-sub">New MySQL user for {{ domain }}</div></div>
+        </div>
+        <form id="adddbuser">{% csrf_token %}
+            <input type="hidden" name="domain" value="{{ domain.dir }}">
+            <div class="modal-field">
+                <label>Username</label>
+                <div class="modal-prefix-group">
+                    <span class="modal-prefix">{{ domain }}_</span>
+                    <input type="text" name="databaseuser" id="dbu-name" placeholder="dbuser" required class="mid" oninput="removeSpecial(this); checkDbPass();">
                 </div>
             </div>
+            <div class="modal-field">
+                <label>Password</label>
+                <input type="password" name="password" id="dbu-pass" placeholder="Password" required oninput="checkDbPass()">
+            </div>
+            <div class="modal-field">
+                <label>Confirm Password</label>
+                <input type="password" name="password1" id="dbu-pass1" placeholder="Confirm password" required oninput="checkDbPass()">
+                <div class="match-hint" id="dbu-match"></div>
+            </div>
+            <button type="button" class="gen-btn" onclick="genDbPass()"><i class="fa fa-magic"></i> Generate Password</button>
+        </form>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-adddbuser')">Cancel</button>
+            <button class="btn-modal-confirm purple" id="dbu-btn" onclick="submitAddDbUser()" disabled>
+                <i class="fa fa-plus" style="margin-right:5px;"></i>Add User
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Email Account -->
+<div class="modal-overlay" id="modal-addemail">
+    <div class="modal-glass">
+        <div class="modal-head">
+            <div class="modal-head-icon green"><i class="fa fa-envelope"></i></div>
+            <div><div class="modal-title">Create Email Account</div><div class="modal-sub">New mailbox on {{ domain }}</div></div>
+        </div>
+        <form id="copyForm">{% csrf_token %}
+            <input type="hidden" name="domain" value="{{ domain }}">
+            <div class="modal-field">
+                <label>Email Address</label>
+                <div class="modal-prefix-group">
+                    <input type="text" name="username" id="em-user" placeholder="user" required class="mid" oninput="removeSpecial(this); checkEmailPass();">
+                    <span class="suffix">@{{ domain }}</span>
+                </div>
+            </div>
+            <div class="modal-field">
+                <label>Password</label>
+                <input type="password" name="password" id="em-pass" placeholder="Password" required oninput="checkEmailPass()">
+            </div>
+            <div class="modal-field">
+                <label>Confirm Password</label>
+                <input type="password" name="password1" id="em-pass1" placeholder="Confirm password" required oninput="checkEmailPass()">
+                <div class="match-hint" id="em-match"></div>
+            </div>
+            <button type="button" class="gen-btn" onclick="genEmailPass()"><i class="fa fa-magic"></i> Generate Password</button>
+        </form>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-addemail')">Cancel</button>
+            <button class="btn-modal-confirm green" id="em-btn" onclick="submitAddEmail()" disabled>
+                <i class="fa fa-plus" style="margin-right:5px;"></i>Create Email
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Suspend -->
+<div class="modal-overlay" id="modal-suspend">
+    <div class="modal-glass">
+        <div class="modal-head">
+            <div class="modal-head-icon amber"><i class="fa fa-pause-circle"></i></div>
+            <div><div class="modal-title">Suspend Account</div><div class="modal-sub">{{ domain.domain }}</div></div>
+        </div>
+        <div class="modal-warn"><i class="fa fa-exclamation-triangle"></i>The website will go offline and all services will be paused.</div>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-suspend')">Cancel</button>
+            <a href="/suspend/{{ domain }}" class="btn-modal-confirm amber" style="text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;">
+                <i class="fa fa-pause"></i>Confirm Suspend
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Terminate -->
+<div class="modal-overlay" id="modal-terminate">
+    <div class="modal-glass">
+        <div class="modal-head">
+            <div class="modal-head-icon red"><i class="fa fa-trash-o"></i></div>
+            <div><div class="modal-title">Terminate Account</div><div class="modal-sub">{{ domain.domain }}</div></div>
+        </div>
+        <div class="modal-warn"><i class="fa fa-exclamation-triangle"></i>This will permanently delete all files, databases, emails, and DNS records. This cannot be undone.</div>
+        <div class="modal-footer-btns">
+            <button class="btn-modal-cancel" onclick="closeModal('modal-terminate')">Cancel</button>
+            <a href="/terminate/{{ domain }}" class="btn-modal-confirm red" style="text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;">
+                <i class="fa fa-trash-o"></i>Confirm Terminate
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Site Cloner -->
+<div class="modal-overlay" id="modal-copysite">
+    <div class="modal-glass" style="max-width:540px;">
+        <div class="modal-head">
+            <div class="modal-head-icon purple"><i class="fa fa-clone"></i></div>
+            <div>
+                <div class="modal-title">Site Cloner</div>
+                <div class="modal-sub">Download & clone any website (including React / SPA) into your hosting directory</div>
+            </div>
+        </div>
+        <form id="form-copysite">
+            {% csrf_token %}
+            <input type="hidden" name="domain" value="{{ domain.domain }}">
+            <div class="modal-field">
+                <label>Target Website URL</label>
+                <input type="url" id="cs-url" name="target_url" placeholder="https://example.com" required>
+            </div>
+            <div class="modal-field">
+                <label>Destination Path <span style="color:var(--text-muted);font-size:.7rem;">(optional — leave blank for public_html/&lt;site-name&gt;)</span></label>
+                <input type="text" id="cs-dest" name="destination" placeholder="/home/{{ domain.dir }}/public_html/my-clone">
+                <div style="font-size: 0.72rem; color: #a78bfa; margin-top: 6px; background: rgba(167,139,250,0.08); border: 1px solid rgba(167,139,250,0.18); border-radius: 6px; padding: 6px 10px;">
+                    <i class="fa-solid fa-folder-open"></i> Default: <code>/home/{{ domain.dir }}/public_html/&lt;target-domain&gt;/</code>
+                </div>
+            </div>
+            <div style="font-size:.76rem;color:var(--text-dim);background:rgba(168,85,247,.07);border:1px solid rgba(168,85,247,.2);border-radius:8px;padding:10px 14px;margin-bottom:4px;">
+                <i class="fa fa-info-circle" style="color:#a855f7;"></i>
+                &nbsp;Cloning runs in the background. Check the File Manager once complete. React / SPA websites (with JS chunk bundles) are fully supported.
+            </div>
+        </form>
+
+        <!-- Live Progress Panel (Hidden by default) -->
+        <div id="clone-progress-panel" style="display:none; margin-top: 14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:0.84rem;">
+                <span style="font-weight:600; color:#fff;" id="clone-status-label">Cloning in Progress...</span>
+                <span id="clone-percent" style="font-weight:700; color:#a855f7;">0%</span>
+            </div>
+            <div style="width:100%; height:8px; background:rgba(255,255,255,0.08); border-radius:4px; overflow:hidden; margin-bottom:12px; border:1px solid rgba(255,255,255,0.05);">
+                <div id="clone-pb" style="width:0%; height:100%; background:linear-gradient(90deg, #a855f7, #6366f1); border-radius:4px; transition:width 0.3s ease;"></div>
+            </div>
+            <div style="font-size:0.75rem; color:#94a3b8; margin-bottom:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                Active: <code id="clone-active-file" style="color:#fde68a;">Initializing...</code>
+            </div>
+            <div style="font-size:0.72rem; color:#10b981; background:#040711; border:1px solid rgba(255,255,255,0.07); border-radius:8px; padding:12px; font-family:monospace; height:180px; overflow-y:auto; line-height:1.5; white-space:pre-wrap;" id="clone-logs-console">Ready to clone.</div>
         </div>
 
+        <div class="modal-footer-btns" style="margin-top:16px;">
+            <button class="btn-modal-cancel" onclick="closeModalAndReset('modal-copysite')">Cancel</button>
+            <button class="btn-modal-confirm purple" id="cs-btn" onclick="submitCopySite()">
+                <span id="cs-btn-text"><i class="fa fa-clone" style="margin-right:5px;"></i>Start Cloning</span>
+                <span class="spin-ring" id="cs-spin" style="display:none;"></span>
+            </button>
+        </div>
+    </div>
+</div>
 
-
-        <script>
-            function closeterminate() {
-                document.getElementById('terminate').style.display = "none"
-            }
-            function terminate() {
-                document.getElementById('terminate').style.display = "block"
-            }
-        </script>
+<!-- Result overlay -->
+<div class="result-overlay" id="result-overlay">
+    <div class="result-glass">
+        <div class="result-icon" id="result-icon">✓</div>
+        <div class="result-msg" id="result-msg"></div>
+        <button class="btn-result-close" onclick="closeModal('result-overlay')">Close</button>
+    </div>
+</div>
 
 <script>
-    function closesuspend() {
-        document.getElementById('suspend').style.display = "none"
-    }
-    function suspend() {
-        document.getElementById('suspend').style.display = "block"
-    }
-</script>
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-        const inputField = document.getElementById("password");
+    const CSRF = () => document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-        inputField.addEventListener("input", function (event) {
-            const value = inputField.value;
-            if (value.includes("'") || value.includes('"')) {
-                alert("Please don't use special characters like ' or \"");
-                // Remove the special characters
-                inputField.value = value.replace(/['"]/g, "");
+    function openModal(id)  { document.getElementById(id).classList.add('show'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+    function showResult(icon, color, msg) {
+        const el = document.getElementById('result-icon');
+        el.textContent = icon; el.style.color = color;
+        document.getElementById('result-msg').textContent = msg;
+        openModal('result-overlay');
+    }
+
+    /* ── Helpers ── */
+    function removeSpecial(el) { el.value = el.value.replace(/[^a-zA-Z0-9_-]/g,''); }
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*_+~';
+    function randomPw(len=12) { let p=''; for(let i=0;i<len;i++) p+=chars[Math.floor(Math.random()*chars.length)]; return p; }
+
+    /* ── Email pass ── */
+    function checkEmailPass() {
+        const p1=document.getElementById('em-pass').value, p2=document.getElementById('em-pass1').value;
+        const hint=document.getElementById('em-match'), btn=document.getElementById('em-btn');
+        if(!p2){hint.innerHTML='';btn.disabled=true;return;}
+        if(p1===p2){hint.innerHTML='<i class="fa fa-check-circle"></i> Match';hint.className='match-hint ok';btn.disabled=false;}
+        else{hint.innerHTML='<i class="fa fa-times-circle"></i> No match';hint.className='match-hint fail';btn.disabled=true;}
+    }
+    function genEmailPass() {
+        const pw=randomPw(); ['em-pass','em-pass1'].forEach(id=>{let el=document.getElementById(id);el.value=pw;el.type='text';});
+        checkEmailPass();
+    }
+
+    /* ── DB User pass ── */
+    function checkDbPass() {
+        const p1=document.getElementById('dbu-pass').value, p2=document.getElementById('dbu-pass1').value;
+        const hint=document.getElementById('dbu-match'), btn=document.getElementById('dbu-btn');
+        if(!p2){hint.innerHTML='';btn.disabled=true;return;}
+        if(p1===p2){hint.innerHTML='<i class="fa fa-check-circle"></i> Match';hint.className='match-hint ok';btn.disabled=false;}
+        else{hint.innerHTML='<i class="fa fa-times-circle"></i> No match';hint.className='match-hint fail';btn.disabled=true;}
+    }
+    function genDbPass() {
+        const pw=randomPw(); ['dbu-pass','dbu-pass1'].forEach(id=>{let el=document.getElementById(id);el.value=pw;el.type='text';});
+        checkDbPass();
+    }
+
+    /* ── Submit PHP version ── */
+    async function submitPhp() {
+        const form=document.getElementById('chphp'), fd=new FormData(form);
+        closeModal('modal-php');
+        try {
+            const r=await fetch('/changephpversion/',{method:'POST',body:fd,headers:{'X-CSRFToken':CSRF()}});
+            const d=await r.json();
+            showResult(d.status==='success'?'✓':'✕', d.status==='success'?'#22c55e':'#ef4444',
+                d.status==='success'?'PHP version changed successfully!':d.message||'Failed to change PHP version');
+        } catch(e){ showResult('✕','#ef4444','Network error. Please try again.'); }
+    }
+
+    /* ── Submit Add Database ── */
+    async function submitAddDb() {
+        const form=document.getElementById('adddbform'), fd=new FormData(form);
+        closeModal('modal-adddb');
+        try {
+            const r=await fetch('/adddatabase/',{method:'POST',body:fd,headers:{'X-CSRFToken':CSRF()}});
+            const d=await r.json();
+            showResult(d.status==='success'?'✓':'✕', d.status==='success'?'#22c55e':'#ef4444',
+                d.status==='success'?'Database created successfully!':d.message||'Error creating database');
+        } catch(e){ showResult('✕','#ef4444','Database may already exist.'); }
+    }
+
+    /* ── Submit Add DB User ── */
+    async function submitAddDbUser() {
+        const form=document.getElementById('adddbuser'), fd=new FormData(form);
+        closeModal('modal-adddbuser'); document.getElementById('dbu-btn').disabled=true;
+        try {
+            const r=await fetch('/adddatabaseuser/',{method:'POST',body:fd,headers:{'X-CSRFToken':CSRF()}});
+            const d=await r.json();
+            showResult(d.status==='success'?'✓':'✕', d.status==='success'?'#22c55e':'#ef4444',
+                d.status==='success'?'Database user created!':d.message||'Error creating user');
+        } catch(e){ showResult('✕','#ef4444','User may already exist.'); }
+    }
+
+    /* ── Submit Add Email ── */
+    async function submitAddEmail() {
+        const form=document.getElementById('copyForm'), fd=new FormData(form);
+        closeModal('modal-addemail'); document.getElementById('em-btn').disabled=true;
+        try {
+            const r=await fetch('/addemailaccount/',{method:'POST',body:fd,headers:{'X-CSRFToken':CSRF()}});
+            showResult(r.ok?'✓':'✕', r.ok?'#22c55e':'#ef4444', r.ok?'Email account created!':'Failed to create email.');
+        } catch(e){ showResult('✕','#ef4444','Email may already exist.'); }
+    }
+
+    let clonePollInterval = null;
+    function closeModalAndReset(id) {
+        closeModal(id);
+        if (clonePollInterval) {
+            clearInterval(clonePollInterval);
+            clonePollInterval = null;
+        }
+        document.getElementById('form-copysite').style.display = 'block';
+        document.getElementById('clone-progress-panel').style.display = 'none';
+        document.getElementById('cs-btn').style.display = 'inline-block';
+        document.querySelector('.btn-modal-cancel').innerText = "Cancel";
+        document.getElementById('cs-url').value = '';
+        document.getElementById('cs-dest').value = '';
+    }
+
+    /* ── Submit Site Cloner ── */
+    async function submitCopySite() {
+        const url = document.getElementById('cs-url').value.trim();
+        if (!url) { toast('Please enter a target URL.', 'error'); return; }
+        
+        document.getElementById('form-copysite').style.display = 'none';
+        document.getElementById('clone-progress-panel').style.display = 'block';
+        document.getElementById('cs-btn').style.display = 'none';
+        
+        const consoleEl = document.getElementById('clone-logs-console');
+        consoleEl.innerHTML = "Initializing connection...\n";
+        document.getElementById('clone-percent').innerText = "0%";
+        document.getElementById('clone-pb').style.width = "0%";
+        document.getElementById('clone-active-file').innerText = "Starting task...";
+
+        const form = document.getElementById('form-copysite');
+        const fd = new FormData(form);
+        
+        try {
+            const r = await fetch('/copysite/', {method:'POST', body:fd, headers:{'X-CSRFToken':CSRF()}});
+            const d = await r.json();
+            
+            if (d.status === 'success') {
+                const destination = d.destination;
+                let lastLogLength = 0;
+                
+                clonePollInterval = setInterval(async () => {
+                    try {
+                        const domain = form.querySelector('[name=domain]').value;
+                        const resp = await fetch(`/copysite/status/?destination=${encodeURIComponent(destination)}&domain=${encodeURIComponent(domain)}`);
+                        const data = await resp.json();
+                        
+                        if (data.status === 'running' || data.status === 'success' || data.status === 'error') {
+                            const percent = data.percentage || 0;
+                            document.getElementById('clone-pb').style.width = percent + "%";
+                            document.getElementById('clone-percent').innerText = percent + "%";
+                            document.getElementById('clone-active-file').innerText = data.current_file || 'Processing...';
+                            
+                            const logs = data.logs || [];
+                            if (logs.length > lastLogLength) {
+                                for (let i = lastLogLength; i < logs.length; i++) {
+                                    consoleEl.innerHTML += logs[i] + "\n";
+                                }
+                                lastLogLength = logs.length;
+                                consoleEl.scrollTop = consoleEl.scrollHeight;
+                            }
+                            
+                            if (data.status === 'success') {
+                                clearInterval(clonePollInterval);
+                                document.getElementById('clone-status-label').innerText = "Cloning Completed!";
+                                document.getElementById('clone-status-label').style.color = "#10b981";
+                                document.getElementById('clone-percent').style.color = "#10b981";
+                                consoleEl.innerHTML += "\n[SUCCESS] Site cloned successfully! You can now check the File Manager.\n";
+                                consoleEl.scrollTop = consoleEl.scrollHeight;
+                                document.querySelector('.btn-modal-cancel').innerText = "Done";
+                            } else if (data.status === 'error') {
+                                clearInterval(clonePollInterval);
+                                document.getElementById('clone-status-label').innerText = "Cloning Failed";
+                                document.getElementById('clone-status-label').style.color = "#ef4444";
+                                document.getElementById('clone-percent').style.color = "#ef4444";
+                                consoleEl.innerHTML += `\n[ERROR] ${data.error || 'Clone failed.'}\n`;
+                                consoleEl.scrollTop = consoleEl.scrollHeight;
+                                document.querySelector('.btn-modal-cancel').innerText = "Close";
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Polling error:", e);
+                    }
+                }, 1000);
+                
+            } else {
+                document.getElementById('clone-status-label').innerText = "Cloning Failed";
+                document.getElementById('clone-status-label').style.color = "#ef4444";
+                consoleEl.innerHTML += `\n[ERROR] ${d.message || 'Failed to start cloning.'}\n`;
+                document.querySelector('.btn-modal-cancel').innerText = "Close";
             }
-        });
+        } catch(e) {
+            document.getElementById('clone-status-label').innerText = "Connection Error";
+            document.getElementById('clone-status-label').style.color = "#ef4444";
+            consoleEl.innerHTML += `\n[ERROR] Network connection failed. Please try again.\n`;
+            document.querySelector('.btn-modal-cancel').innerText = "Close";
+        }
+    }
+
+    /* ── Site Config Modal ── */
+    let scCurrentDomain = '';
+    async function openSiteConfigEditor(domain) {
+        scCurrentDomain = domain;
+        document.getElementById('sc-domain-label').textContent = domain;
+        document.getElementById('sc-error-box').style.display = 'none';
+        document.getElementById('sc-textarea').value = 'Loading config...';
+        openModal('modal-siteconfig');
+        try {
+            const res = await fetch(`/api/site-config/get/?domain=${domain}`);
+            const data = await res.json();
+            if (data.status === 'success') {
+                document.getElementById('sc-textarea').value = data.config;
+                document.getElementById('sc-engine-label').textContent = (data.engine || '').toUpperCase();
+            } else {
+                document.getElementById('sc-textarea').value = `Error loading config: ${data.message}`;
+            }
+        } catch(e) {
+            document.getElementById('sc-textarea').value = 'Network error fetching configuration.';
+        }
+    }
+
+    async function submitSiteConfig() {
+        const text = document.getElementById('sc-textarea').value;
+        const errBox = document.getElementById('sc-error-box');
+        errBox.style.display = 'none';
+
+        const btn = document.getElementById('sc-btn');
+        const spin = document.getElementById('sc-spin');
+        const btnText = document.getElementById('sc-btn-text');
+        btn.disabled = true;
+        btnText.textContent = 'Testing & Saving...';
+        spin.style.display = 'inline-block';
+
+        try {
+            const res = await fetch('/api/site-config/save/', {
+                method: 'POST',
+                body: JSON.stringify({ domain: scCurrentDomain, config: text }),
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const d = await res.json();
+            if (d.status === 'success') {
+                closeModal('modal-siteconfig');
+                showResult('✅', '#22c55e', 'Configuration saved & web server reloaded successfully!');
+            } else {
+                errBox.style.display = 'block';
+                errBox.textContent = `Syntax Error. Reverted to previous config:\n\n${d.message}`;
+            }
+        } catch(e) {
+            errBox.style.display = 'block';
+            errBox.textContent = 'Network or internal error.';
+        } finally {
+            btn.disabled = false;
+            btnText.textContent = 'Save & Reload Server';
+            spin.style.display = 'none';
+        }
+    }
+
+    /* Close overlays on background click */
+    document.querySelectorAll('.modal-overlay, .result-overlay').forEach(el => {
+        el.addEventListener('click', e => { if(e.target===el) el.classList.remove('show'); });
     });
 </script>
 
+<!-- ── Site Config Modal HTML ── -->
+<div id="modal-siteconfig" class="modal-overlay">
+    <div class="modal-glass" style="max-width: 800px; width: 95%;">
+        <div class="modal-head">
+            <div class="modal-head-icon" style="background:rgba(99,102,241,0.15); color:#818cf8;"><i class="fa fa-code"></i></div>
+            <div>
+                <div class="modal-title">Web Server Config Editor</div>
+                <div class="modal-sub">
+                    Editing <strong id="sc-domain-label" style="color:#fde68a;">domain</strong>
+                    <span id="sc-engine-label" style="background:rgba(255,255,255,0.1); padding:2px 8px; border-radius:4px; font-size:0.75rem; margin-left:8px;"></span>
+                </div>
+            </div>
+        </div>
+        
+        <div id="sc-error-box" style="display:none; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; padding:12px; border-radius:8px; margin-bottom:16px; font-family:monospace; font-size:0.8rem; white-space:pre-wrap; max-height:150px; overflow-y:auto;">
+        </div>
 
+        <div style="position:relative; margin-top:10px;">
+            <textarea id="sc-textarea" spellcheck="false" style="width:100%; height:400px; background:#0f172a; color:#e2e8f0; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:16px; font-family:monospace; font-size:0.85rem; line-height:1.5; outline:none; resize:vertical;"></textarea>
+        </div>
+
+        <div class="modal-footer-btns">
+            <button type="button" class="btn-modal-cancel" onclick="closeModal('modal-siteconfig')">Cancel</button>
+            <button type="button" class="btn-modal-confirm" style="background:linear-gradient(135deg, #6366f1, #8b5cf6);" id="sc-btn" onclick="submitSiteConfig()">
+                <i id="sc-spin" class="fa fa-circle-notch fa-spin" style="display:none; margin-right:6px;"></i>
+                <span id="sc-btn-text">Save & Reload Server</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/vendor/toastr/toastr.js"></script>
+<script src="/static/assets/bundles/c3.bundle.js"></script>
+<script src="/static/assets/bundles/jvectormap.bundle.js"></script>
+<script src="/static/assets/bundles/knob.bundle.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+<script src="/static/assets/bundles/chartjs.js"></script>
+<script src="/static/assets/index2.js"></script>
+
+{% if engine == 'nginx' %}
 <script>
+    /* ── Nginx Cache Toggle ── */
+    const NC_DOMAIN = '{{ domain.domain }}';
 
+    function ncUpdateUI(enabled) {
+        const badge = document.getElementById('nc-status-badge');
+        const text = document.getElementById('nc-status-text');
+        const toggle = document.getElementById('nc-toggle');
+        const knob = document.getElementById('nc-knob');
+        const slider = document.getElementById('nc-slider');
 
-            function hidephp() {
-                document.getElementById('addphp').style.display = "none"
+        toggle.checked = enabled;
+
+        if (enabled) {
+            text.textContent = 'Enabled';
+            badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 14px;border-radius:999px;font-size:.72rem;font-weight:600;background:rgba(34,197,94,.1);color:#22c55e;border:1px solid rgba(34,197,94,.2);transition:all .3s;';
+            knob.style.left = '27px';
+            slider.style.background = 'rgba(34,197,94,.35)';
+            slider.style.borderColor = 'rgba(34,197,94,.4)';
+        } else {
+            text.textContent = 'Disabled';
+            badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:4px 14px;border-radius:999px;font-size:.72rem;font-weight:600;background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.2);transition:all .3s;';
+            knob.style.left = '3px';
+            slider.style.background = 'rgba(255,255,255,.1)';
+            slider.style.borderColor = 'rgba(255,255,255,.15)';
+        }
+    }
+
+    /* Fetch status on page load */
+    (async function() {
+        try {
+            const r = await fetch(`/api/nginx-cache/status/?domain=${NC_DOMAIN}`);
+            const d = await r.json();
+            if (d.status === 'success') ncUpdateUI(d.enabled);
+        } catch(e) { console.error('Cache status fetch failed:', e); }
+    })();
+
+    async function toggleNginxCache(el) {
+        const enable = el.checked;
+        ncUpdateUI(enable); // optimistic UI
+        try {
+            const fd = new FormData();
+            fd.append('domain', NC_DOMAIN);
+            fd.append('enable', enable ? '1' : '0');
+            const r = await fetch('/api/nginx-cache/toggle/', {method:'POST', body:fd, headers:{'X-CSRFToken':CSRF()}});
+            const d = await r.json();
+            if (d.status === 'success') {
+                showResult(enable ? '⚡' : '🔄', enable ? '#22c55e' : '#f59e0b', d.message);
+            } else {
+                ncUpdateUI(!enable); // rollback
+                showResult('✕', '#ef4444', d.message || 'Failed to toggle cache.');
             }
-            function viewphp() {
-                document.getElementById('addphp').style.display = "block"
-            }
-            async function addemail(event) {
-                // Prevent the default action (e.g., form submission)
-                if (event) {
-                    event.preventDefault();
-                }
-                document.getElementById('pro').style.display = "block";
-                const form = document.getElementById('copyForm');
-                const formData = new FormData(form);
-                try {
-                    // Fetch request to submit form data
-                    const response = await fetch('/addemailaccount/', {
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value // CSRF token for Django
-                        }
-                    });
-
-                    // Handle response
-                    if (response.ok) {
-                        document.getElementById('pro').style.display = "none";
-                        document.getElementById('addemail').style.display = "none";
-                        document.getElementById('eeee').style.display = "block";
-                        document.getElementById('statusemail').innerHTML = "Email Added!"
-
-                    } else {
-
-                        document.getElementById('pro').style.display = "none";
-                        document.getElementById('addemail').style.display = "none";
-                        document.getElementById('eeee').style.display = "block";
-                        document.getElementById('statusemail').innerHTML = "Error Adding  Email!"
-
-                    }
-                } catch (error) {
-                    document.getElementById('pro').style.display = "none";
-                    document.getElementById('addemail').style.display = "none";
-                    document.getElementById('eeee').style.display = "block";
-                    document.getElementById('statusemail').innerHTML = "EMail Already  Exist!"
-
-                }
-
-
-
-
-
-            }
-        </script>
-
-
-
-
-        <script>
-            async function adddb(event) {
-                // Prevent the default action (e.g., form submission)
-                if (event) {
-                    event.preventDefault();
-                }
-
-                const form = document.getElementById('adddbform');
-                const formData = new FormData(form);
-
-
-
-                try {
-                    // Fetch request to submit form data
-                    const response = await fetch('/adddatabase/', {
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-                        }
-                    });
-
-                    // Parse the JSON response
-                    const result = await response.json();
-
-
-                    // Handle response
-                    if (response.ok && result.status === 'success') {
-                        document.getElementById('adddb').style.display = "none";
-                        document.getElementById('eeee').style.display = "block";
-                        document.getElementById('statusemail').innerHTML = "Database Created!";
-                    } else {
-
-                        document.getElementById('adddb').style.display = "none";
-                        document.getElementById('eeee').style.display = "block";
-                        document.getElementById('statusemail').innerHTML = result.message || "Error Creating Database!";
-                    }
-                } catch (error) {
-
-                    document.getElementById('adddb').style.display = "none";
-                    document.getElementById('eeee').style.display = "block";
-                    document.getElementById('statusemail').innerHTML = "Database Already Exists or Network Error!";
-                }
-            }
-        </script>
-
-
-        <script>
-
-            function confirm(input) {
-                const password = document.getElementById('password').value;
-                const password1 = document.getElementById('password1').value;
-                const pri = document.getElementById('match');
-                if (password === password1) {
-                    pri.innerHTML = "Password Matched !";
-                    document.getElementById('addemailbtn').disabled = false;
-                } else {
-                    pri.innerHTML = 'Passwords do not match!';
-                    document.getElementById('addemailbtn').disabled = true;
-                }
-
-
-            }
-
-            function confirm1(input) {
-                const password = document.getElementById('password68').value;
-                const password1 = document.getElementById('password69').value;
-                const pri = document.getElementById('match');
-                if (password === password1) {
-                    pri.innerHTML = "Password Matched !";
-                    document.getElementById('addemailbtn1').disabled = false;
-                } else {
-                    pri.innerHTML = 'Passwords do not match!';
-                    document.getElementById('addemailbtn1').disabled = true;
-                }
-
-
-            }
-
-            function genshow(input) {
-                const password = document.getElementById('password');
-                const password1 = document.getElementById('password1');
-                if (password.type === "password") {
-                    password.type = "text";
-                    password1.type = "text";
-                } else {
-                    password.type = "password";
-                    password1.type = "password";
-                }
-            }
-
-            function genshow1(input) {
-                const password = document.getElementById('password68');
-                const password1 = document.getElementById('password69');
-                if (password.type === "password") {
-                    password.type = "text";
-                    password1.type = "text";
-                } else {
-                    password.type = "password";
-                    password1.type = "password";
-                }
-            }
-            function gen() {
-                // Define characters to include in the password
-                const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+~";
-
-                let password = "";
-
-                // Loop to generate 8 characters randomly
-                for (let i = 0; i < 10; i++) {
-                    const randomIndex = Math.floor(Math.random() * chars.length);
-                    password += chars[randomIndex];
-                }
-                
-
-                passw = document.getElementById('password');
-                passw1 = document.getElementById('password1');
-                passw.value = password;
-                passw1.value = password;
-                passw.placeholder = password;
-                passw1.placeholder = password;
-  
-                document.getElementById('addemailbtn').disabled = false;
-            }
-
-            function gen1() {
-                // Define characters to include in the password
-                const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+~";
-
-                let password = "";
-
-                // Loop to generate 8 characters randomly
-                for (let i = 0; i < 10; i++) {
-                    const randomIndex = Math.floor(Math.random() * chars.length);
-                    password += chars[randomIndex];
-                }
-
-                passw = document.getElementById('password68');
-                passw1 = document.getElementById('password69');
-                passw.value = password;
-                passw1.value = password;
-                passw.placeholder = password;
-                passw1.placeholder = password;
-                document.getElementById('addemailbtn1').disabled = false;
-            }
-
-
-            function removeSpacesAndSpecialChars(input) {
-                // Regular expression to remove any non-alphanumeric characters (including spaces)
-                const regex = /[^a-zA-Z0-9_-]/g;
-
-                // Replace any spaces or special characters with an empty string
-                input.value = input.value.replace(regex, '');
-            }
-
-            function addemail1() {
-                document.getElementById('addemail').style.display = 'none';
-            }
-            function closedata() {
-                document.getElementById('eeee').style.display = 'none';
-            }
-
-            function viewemail() {
-                document.getElementById('addemail').style.display = 'block';
-            }
-
-
-
-            function adddb1() {
-                document.getElementById('adddb').style.display = 'none';
-            }
-
-
-            function viewdb() {
-                document.getElementById('adddb').style.display = 'block';
-            }
-        </script>
-
-
-
-
-        <!-- Javascript -->
-        <script src="/static/assets/bundles/libscripts.bundle.js"></script>
-        <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
-
-        <!-- page vendor js file -->
-        <script src="/static/assets/vendor/toastr/toastr.js"></script>
-        <script src="/static/assets/bundles/c3.bundle.js"></script>
-
-
-        <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
-        <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
-
-
-        <!-- page js file -->
-        <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
-        <script src="/static/assets/bundles/chartjs.js"></script>
-        <script src="/static/assets/index2.js"></script>
-
+        } catch(e) {
+            ncUpdateUI(!enable); // rollback
+            showResult('✕', '#ef4444', 'Network error toggling cache.');
+        }
+    }
+</script>
+{% endif %}
 
 </body>
-
 </html>

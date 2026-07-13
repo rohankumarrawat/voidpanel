@@ -1,0 +1,459 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>VoidPanel Documentation — Installation &amp; Setup Guide</title>
+    <meta name="description" content="Comprehensive documentation to learn and master VoidPanel. Step-by-step installation guide, configuration reference, and server management tutorials.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="canonical" href="https://voidpanel.com/docs/">
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css?v=3.0">
+    <style>
+        /* ── Docs page layout ── */
+        .docs-wrap {
+            display: flex;
+            min-height: 100vh;
+            padding-top: 70px; /* header height */
+        }
+
+        /* ── Sidebar ── */
+        .docs-sidebar {
+            width: 280px;
+            flex-shrink: 0;
+            background: #ffffff;
+            border-right: 1px solid var(--border);
+            position: sticky;
+            top: 70px;
+            height: calc(100vh - 70px);
+            overflow-y: auto;
+            padding: 32px 20px;
+        }
+        .docs-sidebar::-webkit-scrollbar { width: 4px; }
+        .docs-sidebar::-webkit-scrollbar-track { background: transparent; }
+        .docs-sidebar::-webkit-scrollbar-thumb { background: var(--border-medium); border-radius: 4px; }
+        @media(max-width: 900px) {
+            .docs-sidebar { display: none; }
+            .docs-wrap { display: block; }
+            .docs-main { max-width: 100%; }
+        }
+
+        .docs-sidebar-search {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-subtle);
+            border: 1px solid var(--border);
+            border-radius: var(--r-md);
+            padding: 9px 13px;
+            margin-bottom: 28px;
+            font-size: 0.84rem;
+            color: var(--text-muted);
+        }
+        .docs-sidebar-search input {
+            border: none;
+            background: transparent;
+            outline: none;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 0.84rem;
+            color: var(--text-primary);
+            width: 100%;
+        }
+        .docs-sidebar-search input::placeholder { color: var(--text-faint); }
+
+        .docs-nav-section { margin-bottom: 24px; }
+        .docs-nav-section-title {
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-faint);
+            padding: 0 10px;
+            margin-bottom: 8px;
+        }
+        .docs-nav-link {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 9px 12px;
+            border-radius: var(--r-sm);
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            transition: all 0.15s;
+            text-decoration: none;
+            margin-bottom: 2px;
+        }
+        .docs-nav-link i { font-size: 0.8rem; width: 16px; text-align: center; color: var(--text-faint); flex-shrink: 0; transition: color 0.15s; }
+        .docs-nav-link:hover { background: var(--bg-subtle); color: var(--text-primary); }
+        .docs-nav-link:hover i { color: var(--accent); }
+        .docs-nav-link.active { background: var(--blue-50); color: var(--accent); font-weight: 700; }
+        .docs-nav-link.active i { color: var(--accent); }
+
+        /* ── Main content ── */
+        .docs-main {
+            flex: 1;
+            padding: 52px 72px 100px 60px;
+            max-width: 860px;
+            background: #ffffff;
+        }
+        @media(max-width: 1200px) { .docs-main { padding: 40px 40px 80px; } }
+        @media(max-width: 640px)  { .docs-main { padding: 28px 20px 60px; } }
+
+        /* Breadcrumb */
+        .docs-breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.78rem;
+            color: var(--text-faint);
+            margin-bottom: 32px;
+        }
+        .docs-breadcrumb a { color: var(--text-muted); text-decoration: none; transition: color 0.15s; }
+        .docs-breadcrumb a:hover { color: var(--accent); }
+        .docs-breadcrumb i { font-size: 0.65rem; }
+
+        /* Article typography */
+        .docs-main h1 { font-size: clamp(1.9rem, 3.5vw, 2.8rem); font-weight: 900; letter-spacing: -0.03em; color: var(--text-primary); margin-bottom: 14px; }
+        .docs-main h2 { font-size: 1.5rem; font-weight: 900; letter-spacing: -0.02em; color: var(--text-primary); margin: 52px 0 16px; padding-top: 52px; border-top: 1px solid var(--border-subtle); }
+        .docs-main h3 { font-size: 1.15rem; font-weight: 800; color: var(--text-primary); margin: 32px 0 12px; }
+        .docs-main p  { font-size: 0.98rem; color: var(--text-secondary); line-height: 1.85; margin-bottom: 16px; }
+        .docs-main ul, .docs-main ol { padding-left: 22px; margin-bottom: 20px; color: var(--text-secondary); }
+        .docs-main li { margin-bottom: 8px; line-height: 1.7; font-size: 0.97rem; }
+        .docs-main a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+        .docs-main a:hover { text-decoration-color: var(--accent-dark); }
+        .docs-main strong { color: var(--text-primary); font-weight: 700; }
+
+        /* Meta bar */
+        .docs-meta {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            font-size: 0.8rem;
+            color: var(--text-faint);
+            padding: 16px 0;
+            border-top: 1px solid var(--border-subtle);
+            border-bottom: 1px solid var(--border-subtle);
+            margin-bottom: 36px;
+        }
+        .docs-meta span { display: flex; align-items: center; gap: 6px; }
+        .docs-meta i { color: var(--accent); }
+
+        /* Code blocks */
+        .code-block {
+            background: #0f172a;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: var(--r-md);
+            padding: 18px 20px;
+            margin: 20px 0;
+            position: relative;
+            overflow-x: auto;
+        }
+        .code-block code {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.88rem;
+            color: #34d399;
+            line-height: 1.7;
+            display: block;
+            white-space: pre;
+        }
+        .copy-btn {
+            position: absolute;
+            top: 12px; right: 12px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #94a3b8;
+            border-radius: var(--r-xs);
+            padding: 5px 10px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            transition: all 0.18s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .copy-btn:hover { background: rgba(255,255,255,0.15); color: #e2e8f0; }
+
+        /* Note / info boxes */
+        .note-box {
+            background: #eff6ff;
+            border-left: 4px solid var(--accent);
+            border-radius: 0 var(--r-md) var(--r-md) 0;
+            padding: 16px 20px;
+            margin: 24px 0;
+        }
+        .note-box strong { color: var(--blue-700); display: flex; align-items: center; gap: 8px; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+        .note-box p, .note-box ul { margin-bottom: 0; font-size: 0.92rem; color: var(--text-secondary); }
+
+        .warning-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            border-radius: 0 var(--r-md) var(--r-md) 0;
+            padding: 16px 20px;
+            margin: 24px 0;
+        }
+        .warning-box strong { color: #b45309; display: flex; align-items: center; gap: 8px; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+        .warning-box p { margin-bottom: 0; font-size: 0.92rem; color: var(--text-secondary); }
+
+        /* Requirements table */
+        .req-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0 28px;
+            font-size: 0.9rem;
+        }
+        .req-table th { background: var(--bg-subtle); padding: 11px 16px; text-align: left; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-secondary); border-bottom: 1px solid var(--border); }
+        .req-table td { padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); color: var(--text-secondary); }
+        .req-table tr:last-child td { border-bottom: none; }
+        .req-table strong { color: var(--text-primary); }
+
+        /* Video embed */
+        .video-wrapper { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: var(--r-lg); margin: 32px 0; box-shadow: var(--shadow-lg); border: 1px solid var(--border); }
+        .video-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+        /* Pagination / next-prev */
+        .docs-nav-footer {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 60px;
+            padding-top: 28px;
+            border-top: 1px solid var(--border);
+            gap: 16px;
+        }
+        .docs-nav-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 13px 20px;
+            border-radius: var(--r-md);
+            border: 1px solid var(--border-medium);
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            transition: all 0.18s;
+            text-decoration: none;
+            background: #ffffff;
+        }
+        .docs-nav-btn:hover { border-color: var(--accent); color: var(--accent); box-shadow: var(--shadow-sm); }
+        .docs-nav-btn-next { flex-direction: row-reverse; margin-left: auto; }
+        .doc-nav-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-faint); }
+    </style>
+</head>
+<body>
+{% include 'header.html' %}
+
+<div class="docs-wrap">
+    <!-- ── SIDEBAR ── -->
+    <aside class="docs-sidebar">
+        <div class="docs-sidebar-search">
+            <i class="fas fa-search" style="color:var(--text-faint);font-size:0.8rem;"></i>
+            <input type="text" placeholder="Search docs…" oninput="searchDocs(this.value)">
+        </div>
+
+        <div class="docs-nav-section">
+            <div class="docs-nav-section-title">Getting Started</div>
+            <a href="#introduction" class="docs-nav-link active" onclick="setActive(this)"><i class="fas fa-book-open"></i> Introduction</a>
+            <a href="#prerequisites" class="docs-nav-link" onclick="setActive(this)"><i class="fas fa-server"></i> Server Prerequisites</a>
+            <a href="#installation" class="docs-nav-link" onclick="setActive(this)"><i class="fas fa-terminal"></i> Installation Guide</a>
+        </div>
+
+        <div class="docs-nav-section">
+            <div class="docs-nav-section-title">Configuration</div>
+            <a href="#" class="docs-nav-link" onclick="setActive(this)"><i class="fas fa-sliders"></i> Initial Setup</a>
+            <a href="#" class="docs-nav-link" onclick="setActive(this)"><i class="fas fa-shield-halved"></i> Security Hardening</a>
+            <a href="#" class="docs-nav-link" onclick="setActive(this)"><i class="fas fa-globe"></i> Adding Domains</a>
+        </div>
+
+        <div class="docs-nav-section">
+            <div class="docs-nav-section-title">Management</div>
+            <a href="#" class="docs-nav-link" onclick="setActive(this)"><i class="fas fa-envelope"></i> Email Hosting</a>
+            <a href="#" class="docs-nav-link" onclick="setActive(this)"><i class="fas fa-database"></i> Database Setup</a>
+            <a href="#" class="docs-nav-link" onclick="setActive(this)"><i class="fas fa-lock"></i> SSL Certificates</a>
+            <a href="#" class="docs-nav-link" onclick="setActive(this)"><i class="fas fa-folder-open"></i> File Manager</a>
+            <a href="#" class="docs-nav-link" onclick="setActive(this)"><i class="fas fa-robot"></i> Agentic AI</a>
+        </div>
+
+        <div class="docs-nav-section">
+            <div class="docs-nav-section-title">Troubleshooting</div>
+            <a href="#troubleshooting" class="docs-nav-link" onclick="setActive(this)"><i class="fas fa-triangle-exclamation"></i> Common Errors</a>
+            <a href="#" class="docs-nav-link" onclick="setActive(this)"><i class="fas fa-rotate"></i> Service Restarts</a>
+            <a href="#" class="docs-nav-link" onclick="setActive(this)"><i class="fas fa-file-lines"></i> Log Files</a>
+        </div>
+
+        <div style="margin-top:24px;padding:14px;background:var(--blue-50);border:1px solid var(--blue-100);border-radius:var(--r-md);">
+            <div style="font-size:0.75rem;font-weight:700;color:var(--blue-700);margin-bottom:6px;"><i class="fas fa-headset" style="margin-right:5px;"></i> Need Help?</div>
+            <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.5;">Open a support ticket or start a live chat for hands-on assistance.</div>
+            <a href="/portal/ticket/new/" style="display:inline-flex;align-items:center;gap:5px;margin-top:10px;font-size:0.78rem;font-weight:700;color:var(--accent);text-decoration:none;">Open Ticket <i class="fas fa-arrow-right" style="font-size:0.7rem;"></i></a>
+        </div>
+    </aside>
+
+    <!-- ── MAIN CONTENT ── -->
+    <main class="docs-main">
+
+        <!-- Breadcrumb -->
+        <div class="docs-breadcrumb">
+            <a href="/">Home</a>
+            <i class="fas fa-chevron-right"></i>
+            <a href="/docs/">Documentation</a>
+            <i class="fas fa-chevron-right"></i>
+            <span style="color:var(--text-secondary);">Installation Guide</span>
+        </div>
+
+        <span class="section-eyebrow"><span class="dot"></span> VoidPanel Documentation</span>
+        <h1 id="introduction">Installation Guide</h1>
+
+        <div class="docs-meta">
+            <span><i class="fas fa-user-circle"></i> Rohan Kumar Rawat</span>
+            <span><i class="fas fa-clock"></i> Last updated: October 14, 2024</span>
+            <span><i class="fas fa-clock"></i> ~10 min read</span>
+        </div>
+
+        <p>VoidPanel is a powerful, open-source web hosting control panel designed for easy management of your Linux server. This guide walks you through installing and deploying VoidPanel on your server — from prerequisites to your first login.</p>
+
+        <h2 id="prerequisites">Server Prerequisites</h2>
+        <p>Before installing VoidPanel, ensure your server meets the minimum requirements. We strongly recommend starting with a <strong>clean operating system installation</strong> to prevent conflicts with existing services.</p>
+
+        <table class="req-table">
+            <thead>
+                <tr>
+                    <th>Component</th>
+                    <th>Minimum</th>
+                    <th>Recommended</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>OS</strong></td><td>Ubuntu 22.04 LTS</td><td>Ubuntu 24.04 LTS / AlmaLinux 9+</td></tr>
+                <tr><td><strong>RAM</strong></td><td>1 GB</td><td>2 GB+</td></tr>
+                <tr><td><strong>Disk Space</strong></td><td>10 GB</td><td>20 GB+ SSD</td></tr>
+                <tr><td><strong>CPU</strong></td><td>1 vCPU</td><td>2+ vCPUs</td></tr>
+                <tr><td><strong>Network</strong></td><td>Static Public IP</td><td>Static IP + rDNS configured</td></tr>
+            </tbody>
+        </table>
+
+        <div class="warning-box">
+            <strong><i class="fas fa-triangle-exclamation"></i> Clean OS Required</strong>
+            <p>VoidPanel cannot be installed alongside existing web servers (Apache, Nginx) unless they are first removed. Use a freshly provisioned VPS for best results.</p>
+        </div>
+
+        <p>First, update your system packages and install curl:</p>
+        <div class="code-block">
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fas fa-copy"></i> Copy</button>
+            <code>sudo apt update && sudo apt upgrade -y && sudo apt install curl -y</code>
+        </div>
+
+        <h2 id="installation">Installation Steps</h2>
+
+        <h3>1. One-Command Quick Install</h3>
+        <p>Run our automated installer script which handles everything: Nginx, Postfix, Dovecot, BIND9, MariaDB, Redis, Celery, and the VoidPanel dashboard itself.</p>
+
+        <div class="code-block">
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fas fa-copy"></i> Copy</button>
+            <code>bash &lt;(curl -sL voidpanel.com/install.sh)</code>
+        </div>
+
+        <div class="note-box">
+            <strong><i class="fas fa-info-circle"></i> What the installer does</strong>
+            <ul>
+                <li>Detects your OS and configures the package manager</li>
+                <li>Installs Nginx, MariaDB, Redis, Celery, Postfix, Dovecot, BIND9</li>
+                <li>Creates the VoidPanel Django app under <code>/opt/voidpanel/</code></li>
+                <li>Generates an SSL certificate for your panel domain</li>
+                <li>Outputs your Admin URL, Username, and Password at the end</li>
+            </ul>
+        </div>
+
+        <h3>2. Installing as Root</h3>
+        <p>If you encounter permission errors, switch to the root user first:</p>
+
+        <div class="code-block">
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fas fa-copy"></i> Copy</button>
+            <code>sudo su -</code>
+        </div>
+        <div class="code-block" style="margin-top:8px;">
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fas fa-copy"></i> Copy</button>
+            <code>bash &lt;(curl -sL voidpanel.com/install.sh)</code>
+        </div>
+
+        <div class="note-box">
+            <strong><i class="fas fa-clock"></i> Installation Time</strong>
+            <p>The installation takes approximately <strong>5–15 minutes</strong> depending on your server's download speed and CPU performance. Do not interrupt the process.</p>
+        </div>
+
+        <h2 id="troubleshooting">Troubleshooting</h2>
+        <p>If you encounter problems during installation, check these common causes:</p>
+        <ul>
+            <li><strong>Unsupported OS:</strong> Ensure you are on a clean install of Ubuntu 22.04+. VoidPanel cannot run alongside unconfigured Apache installations.</li>
+            <li><strong>Connection Refused:</strong> Check your internet connection. Ensure no firewall rules are blocking outbound HTTP/HTTPS (ports 80, 443).</li>
+            <li><strong>Out of Memory:</strong> You need at least 1 GB RAM. Some modules require compilation which is memory-intensive.</li>
+            <li><strong>Port Conflicts:</strong> Ensure no other process is listening on ports 80, 443, 25, or 110 before running the installer.</li>
+        </ul>
+
+        <h2>Walkthrough Video</h2>
+        <p>Prefer a visual guide? Watch the step-by-step installation walkthrough:</p>
+        <div class="video-wrapper">
+            <iframe src="https://www.youtube.com/embed/S5mVnTlWD-4" title="VoidPanel Installation Walkthrough" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+        </div>
+
+        <!-- Next / Prev navigation -->
+        <div class="docs-nav-footer">
+            <a href="#" class="docs-nav-btn">
+                <i class="fas fa-arrow-left"></i>
+                <div>
+                    <div class="doc-nav-label">Previous</div>
+                    Introduction
+                </div>
+            </a>
+            <a href="#" class="docs-nav-btn docs-nav-btn-next">
+                <i class="fas fa-arrow-right"></i>
+                <div style="text-align:right;">
+                    <div class="doc-nav-label">Next</div>
+                    Initial Configuration
+                </div>
+            </a>
+        </div>
+
+    </main>
+</div>
+
+{% include 'footer.html' %}
+<script src="/static/assets/js/void-utils.js"></script>
+<script>
+function copyCode(btn) {
+    const code = btn.nextElementSibling.innerText;
+    navigator.clipboard.writeText(code).then(() => {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        btn.style.color = '#34d399';
+        setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 2000);
+    }).catch(() => {});
+}
+function setActive(link) {
+    document.querySelectorAll('.docs-nav-link').forEach(l => l.classList.remove('active'));
+    link.classList.add('active');
+}
+function searchDocs(q) {
+    const links = document.querySelectorAll('.docs-nav-link');
+    links.forEach(link => {
+        link.style.display = (!q || link.textContent.toLowerCase().includes(q.toLowerCase())) ? '' : 'none';
+    });
+}
+// Auto-highlight sidebar on scroll
+const sections = document.querySelectorAll('h2[id], h1[id]');
+const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            const id = entry.target.id;
+            document.querySelectorAll('.docs-nav-link').forEach(l => {
+                l.classList.toggle('active', l.getAttribute('href') === '#' + id);
+            });
+        }
+    });
+}, { rootMargin: '-20% 0% -70% 0%' });
+sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>

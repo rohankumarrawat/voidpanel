@@ -1,0 +1,127 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ ticket.ticket_number }} | VoidPanel Support</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/static/fav.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css">
+    <style>
+        .ticket-page { min-height:100vh; padding:108px 20px 60px; background: radial-gradient(circle at top left, rgba(129,140,248,0.12), transparent 28%), linear-gradient(180deg,#071018 0%,#0d1724 55%,#08111a 100%); }
+        .ticket-wrap { max-width:860px; margin:0 auto; }
+        .glass-surface { background:rgba(8,14,24,0.86); border:1px solid rgba(255,255,255,0.08); backdrop-filter:blur(18px); border-radius:28px; padding:28px; }
+        .ticket-meta { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:24px; }
+        .ticket-subject { color:var(--text-primary); font-size:1.5rem; font-weight:800; margin-bottom:8px; }
+        .badge { display:inline-flex; align-items:center; gap:6px; padding:6px 14px; border-radius:999px; font-size:0.78rem; font-weight:700; }
+        .badge-open { background:rgba(245,158,11,0.14); color:#fcd34d; }
+        .badge-answered { background:rgba(74,222,128,0.14); color:#86efac; }
+        .badge-closed { background:rgba(100,116,139,0.2); color:#94a3b8; }
+        .badge-in_progress { background:rgba(129,140,248,0.14); color:#a5b4fc; }
+        .badge-dept { background:rgba(255,255,255,0.08); color:var(--text-secondary); }
+        .badge-high { background:rgba(239,68,68,0.14); color:#fca5a5; }
+        .badge-medium { background:rgba(245,158,11,0.14); color:#fcd34d; }
+        .badge-low { background:rgba(74,222,128,0.12); color:#86efac; }
+        /* Replies */
+        .reply-stack { display:flex; flex-direction:column; gap:16px; margin-bottom:24px; }
+        .reply-card { border-radius:20px; padding:20px 22px; }
+        .reply-client { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); }
+        .reply-staff { background:rgba(129,140,248,0.07); border:1px solid rgba(129,140,248,0.18); }
+        .reply-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+        .reply-author { display:flex; align-items:center; gap:10px; }
+        .author-avatar { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.85rem; font-weight:700; flex-shrink:0; }
+        .avatar-client { background:rgba(89,196,188,0.2); color:#59c4bc; }
+        .avatar-staff { background:rgba(129,140,248,0.2); color:#818cf8; }
+        .author-name { color:var(--text-primary); font-weight:600; font-size:0.92rem; }
+        .author-role { color:var(--text-muted); font-size:0.78rem; }
+        .reply-time { color:var(--text-muted); font-size:0.8rem; }
+        .reply-body { color:var(--text-secondary); line-height:1.8; white-space:pre-wrap; }
+        /* Reply form */
+        textarea { width:100%; padding:14px 16px; border-radius:14px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.04); color:var(--text-primary); font-size:0.95rem; min-height:120px; resize:vertical; font-family:inherit; }
+        textarea:focus { outline:none; border-color:rgba(129,140,248,0.4); }
+        .reply-btn { padding:13px 24px; border-radius:14px; border:none; cursor:pointer; background:linear-gradient(135deg,#818cf8,#6366f1); color:#fff; font-weight:700; display:inline-flex; align-items:center; gap:8px; transition:opacity .2s; }
+        .reply-btn:hover { opacity:0.88; }
+        .back-link { display:inline-flex; align-items:center; gap:8px; color:var(--text-muted); margin-bottom:20px; font-size:0.88rem; }
+        .message-banner { margin-bottom:18px; padding:14px 16px; border-radius:14px; background:rgba(89,196,188,0.1); border:1px solid rgba(89,196,188,0.22); color:var(--text-primary); }
+        .no-replies { text-align:center; padding:40px 20px; color:var(--text-muted); }
+    </style>
+</head>
+<body>
+{% include 'header.html' %}
+<main class="ticket-page">
+    <div class="ticket-wrap">
+        <a href="/portal/" class="back-link"><i class="fas fa-arrow-left"></i> Back to Portal</a>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="message-banner">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- Ticket Header -->
+        <div class="glass-surface" style="margin-bottom:16px;">
+            <div class="ticket-subject">{{ ticket.subject }}</div>
+            <div class="ticket-meta">
+                <span class="badge badge-{{ ticket.status }}">{{ ticket.get_status_display }}</span>
+                <span class="badge badge-dept"><i class="fas fa-building"></i> {{ ticket.department }}</span>
+                <span class="badge badge-{{ ticket.priority }}"><i class="fas fa-flag"></i> {{ ticket.get_priority_display }} Priority</span>
+                <span class="badge badge-dept"><i class="fas fa-hashtag"></i> {{ ticket.ticket_number }}</span>
+            </div>
+            <div style="color:var(--text-muted);font-size:0.84rem;">Opened {{ ticket.created_at|date:"M d, Y H:i" }} • Last reply {{ ticket.last_reply_at|date:"M d, Y H:i" }}</div>
+        </div>
+
+        <!-- Thread -->
+        <div class="glass-surface" style="margin-bottom:16px;">
+            <div style="font-weight:700;color:var(--text-primary);margin-bottom:20px;"><i class="fas fa-comments" style="color:#818cf8;margin-right:8px;"></i>Conversation Thread</div>
+            {% if replies %}
+            <div class="reply-stack">
+                {% for reply in replies %}
+                <div class="reply-card {% if reply.is_staff_reply %}reply-staff{% else %}reply-client{% endif %}">
+                    <div class="reply-header">
+                        <div class="reply-author">
+                            <div class="author-avatar {% if reply.is_staff_reply %}avatar-staff{% else %}avatar-client{% endif %}">
+                                {{ reply.author.get_full_name|default:reply.author.username|first|upper }}
+                            </div>
+                            <div>
+                                <div class="author-name">
+                                    {{ reply.author.get_full_name|default:reply.author.username }}
+                                    {% if reply.is_staff_reply %}<span style="color:#818cf8;font-size:0.76rem;font-weight:700;margin-left:6px;">SUPPORT</span>{% endif %}
+                                </div>
+                                <div class="author-role">{% if reply.is_staff_reply %}VoidPanel Support Team{% else %}Client{% endif %}</div>
+                            </div>
+                        </div>
+                        <div class="reply-time">{{ reply.created_at|date:"M d, Y H:i" }}</div>
+                    </div>
+                    <div class="reply-body">{{ reply.body }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="no-replies"><i class="fas fa-comment-slash" style="font-size:2rem;margin-bottom:12px;display:block;"></i>No replies yet.</div>
+            {% endif %}
+        </div>
+
+        <!-- Reply Form -->
+        {% if ticket.status != 'closed' %}
+        <div class="glass-surface">
+            <div style="font-weight:700;color:var(--text-primary);margin-bottom:16px;"><i class="fas fa-reply" style="color:#59c4bc;margin-right:8px;"></i>Add a Reply</div>
+            <form method="POST">
+                {% csrf_token %}
+                <textarea name="body" placeholder="Write your reply here..." required></textarea>
+                <div style="margin-top:14px;">
+                    <button type="submit" class="reply-btn"><i class="fas fa-paper-plane"></i> Send Reply</button>
+                </div>
+            </form>
+        </div>
+        {% else %}
+        <div class="glass-surface" style="text-align:center;color:var(--text-muted);">
+            <i class="fas fa-lock" style="font-size:1.5rem;margin-bottom:10px;display:block;"></i>
+            This ticket has been closed. <a href="/portal/ticket/new/" style="color:#818cf8;">Open a new ticket</a> if you need further assistance.
+        </div>
+        {% endif %}
+    </div>
+</main>
+{% include 'footer.html' %}
+</body>
+</html>

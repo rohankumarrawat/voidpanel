@@ -1,0 +1,324 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Create Account — VoidPanel</title>
+    <meta name="description" content="Create a free VoidPanel account to access hosting, domains, email, and your client portal.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css?v=3.0">
+    <style>
+        /* Split layout */
+        .auth-page { min-height: 100vh; display: grid; grid-template-columns: 1fr 1.2fr; }
+        @media(max-width: 960px) { .auth-page { grid-template-columns: 1fr; } .auth-panel { display: none; } }
+        /* Left blue panel */
+        .auth-panel { background: linear-gradient(160deg, #1e3a8a 0%, #2563eb 60%, #1d4ed8 100%); display: flex; flex-direction: column; justify-content: space-between; padding: 52px 56px; position: relative; overflow: hidden; }
+        .auth-panel::before { content: ''; position: absolute; inset: 0; background-image: radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px); background-size: 24px 24px; }
+        .auth-panel-logo { position: relative; z-index: 1; }
+        .auth-panel-content { position: relative; z-index: 1; }
+        .auth-panel h2 { font-size: 2.2rem; font-weight: 900; letter-spacing: -0.03em; color: #ffffff; line-height: 1.15; margin-bottom: 14px; }
+        .auth-panel p  { color: rgba(255,255,255,0.72); font-size: 0.95rem; line-height: 1.7; margin-bottom: 30px; }
+        .auth-panel-features { display: flex; flex-direction: column; gap: 12px; }
+        .auth-panel-feat { display: flex; align-items: center; gap: 12px; color: rgba(255,255,255,0.85); font-size: 0.86rem; }
+        .auth-panel-feat i { width: 28px; height: 28px; border-radius: 8px; background: rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: #93c5fd; flex-shrink: 0; }
+        .auth-panel-footer { position: relative; z-index: 1; font-size: 0.75rem; color: rgba(255,255,255,0.4); }
+        /* Right form side */
+        .auth-form-side { display: flex; align-items: flex-start; justify-content: center; padding: 50px 40px 60px; background: #f8fafc; overflow-y: auto; }
+        .auth-form-box { width: 100%; max-width: 460px; }
+        .auth-form-title { font-size: 1.75rem; font-weight: 900; color: var(--text-primary); letter-spacing: -0.025em; margin-bottom: 6px; }
+        .auth-form-sub { font-size: 0.88rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 26px; }
+        .auth-form-card { background: #ffffff; border: 1px solid var(--border); border-radius: 20px; padding: 30px; box-shadow: var(--shadow-lg); }
+        .form-group { margin-bottom: 16px; }
+        .form-label { display: block; font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; }
+        .form-control-void { width: 100%; padding: 11px 14px; border: 1.5px solid var(--border-medium); border-radius: 10px; background: #ffffff; color: var(--text-primary); font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.9rem; outline: none; transition: all 0.18s; }
+        .form-control-void::placeholder { color: var(--text-faint); }
+        .form-control-void:hover { border-color: var(--slate-300); }
+        .form-control-void:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+        .pw-wrap { position: relative; }
+        .pw-toggle { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 0.88rem; }
+        .pw-toggle:hover { color: var(--accent); }
+        .alert-msg { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 10px; background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; font-size: 0.86rem; font-weight: 600; margin-bottom: 16px; }
+        .auth-divider { text-align: center; font-size: 0.78rem; color: var(--text-faint); margin: 18px 0; display: flex; align-items: center; gap: 12px; }
+        .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+        .phone-wrap { display: flex; gap: 0; border: 1.5px solid var(--border-medium); border-radius: 10px; overflow: hidden; background: #ffffff; transition: all 0.18s; }
+        .phone-wrap:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+        .phone-flag-select { background: transparent; border: none; border-right: 1px solid var(--border-medium); color: var(--text-primary); font-size: .85rem; padding: 0 8px 0 12px; cursor: pointer; outline: none; min-width: 86px; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2364748b'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; padding-right: 24px; }
+        .phone-number-input { flex: 1; background: transparent; border: none; outline: none; color: var(--text-primary); font-size: .9rem; padding: 12px 14px; font-family: 'Plus Jakarta Sans', sans-serif; }
+        .phone-number-input::placeholder { color: var(--text-faint); }
+        .phone-hint { font-size: .73rem; color: var(--text-muted); margin-top: 5px; display: flex; align-items: center; gap: 5px; }
+        .phone-invalid { border-color: #ef4444 !important; }
+        .phone-valid   { border-color: #22c55e !important; }
+    </style>
+</head>
+<body style="margin:0;">
+<div class="auth-page">
+    <!-- Left brand panel -->
+    <div class="auth-panel">
+        <div class="auth-panel-logo">
+            <img src="/static/logo-white.svg" alt="VoidPanel" height="34" style="height:34px;width:auto;">
+        </div>
+        <div class="auth-panel-content">
+            <h2>Get started<br>for free.</h2>
+            <p>Join thousands of developers managing their servers with VoidPanel — the open-source alternative to cPanel.</p>
+            <div class="auth-panel-features">
+                <div class="auth-panel-feat"><i class="fas fa-server"></i> High-speed cloud infrastructure</div>
+                <div class="auth-panel-feat"><i class="fas fa-envelope"></i> Professional email hosting</div>
+                <div class="auth-panel-feat"><i class="fas fa-lock"></i> Free SSL via Let's Encrypt</div>
+                <div class="auth-panel-feat"><i class="fas fa-receipt"></i> Billing &amp; invoice management</div>
+                <div class="auth-panel-feat"><i class="fas fa-headset"></i> Ticketed support system</div>
+            </div>
+        </div>
+        <div class="auth-panel-footer">© 2024 VoidPanel. Free &amp; Open Source.</div>
+    </div>
+    <!-- Right form side -->
+    <div class="auth-form-side">
+        <div class="auth-form-box">
+            <div style="margin-bottom:24px;">
+                <div class="auth-form-title">Create account</div>
+                <div class="auth-form-sub">Fill in your details — your client portal will be ready instantly.</div>
+            </div>
+            <div class="auth-form-card">
+                <!-- Mobile logo (hidden on desktop) -->
+                <div style="display:none;margin-bottom:24px;" class="mobile-logo">
+                    <img src="/static/logo.svg" alt="VoidPanel" height="34" style="height:34px;width:auto;">
+                </div>
+                <style>
+                    @media(max-width:960px){
+                        .auth-form-box .mobile-logo { display:block !important; }
+                    }
+                </style>
+
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert-msg">
+                            <i class="fas fa-circle-exclamation"></i> {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <div class="alert-msg" id="js-error-msg" style="display:none;">
+                    <i class="fas fa-circle-exclamation"></i> <span></span>
+                </div>
+
+        <form method="POST" action="/register/" id="register-form">
+            {% csrf_token %}
+
+            <!-- Full Name -->
+            <div class="form-group">
+                <label class="form-label" for="reg-full-name">Full Name</label>
+                <input
+                    type="text"
+                    id="reg-full-name"
+                    name="full_name"
+                    class="form-control-void"
+                    placeholder="Rohan Kumar"
+                    value="{{ full_name }}"
+                    required
+                    autocomplete="name"
+                >
+            </div>
+
+            <!-- Email -->
+            <div class="form-group">
+                <label class="form-label" for="reg-email">Email Address</label>
+                <input
+                    type="email"
+                    id="reg-email"
+                    name="Email"
+                    class="form-control-void"
+                    placeholder="you@example.com"
+                    value="{{ Email }}"
+                    required
+                    autocomplete="email"
+                >
+            </div>
+
+            <!-- Phone Number -->
+            <div class="form-group">
+                <label class="form-label" for="reg-phone">
+                    Phone Number
+                    <span style="color:var(--red,#f87171);margin-left:2px;" title="Required">*</span>
+                </label>
+                <div class="phone-wrap" id="phoneWrap">
+                    <select class="phone-flag-select" id="phone-code" title="Country code">
+                        <option value="+91"  {% if not phone or phone|slice:":3" == "+91" %}selected{% endif %}>🇮🇳 +91</option>
+                        <option value="+1"   {% if phone|slice:":2" == "+1"  %}selected{% endif %}>🇺🇸 +1</option>
+                        <option value="+44"  {% if phone|slice:":3" == "+44" %}selected{% endif %}>🇬🇧 +44</option>
+                        <option value="+61"  {% if phone|slice:":3" == "+61" %}selected{% endif %}>🇦🇺 +61</option>
+                        <option value="+971" {% if phone|slice:":4" == "+971" %}selected{% endif %}>🇦🇪 +971</option>
+                        <option value="+65"  {% if phone|slice:":3" == "+65" %}selected{% endif %}>🇸🇬 +65</option>
+                        <option value="+60"  {% if phone|slice:":3" == "+60" %}selected{% endif %}>🇲🇾 +60</option>
+                        <option value="+49"  {% if phone|slice:":3" == "+49" %}selected{% endif %}>🇩🇪 +49</option>
+                        <option value="+33"  {% if phone|slice:":3" == "+33" %}selected{% endif %}>🇫🇷 +33</option>
+                        <option value="+81"  {% if phone|slice:":3" == "+81" %}selected{% endif %}>🇯🇵 +81</option>
+                        <option value="+86"  {% if phone|slice:":3" == "+86" %}selected{% endif %}>🇨🇳 +86</option>
+                        <option value="+7"   {% if phone|slice:":2" == "+7"  %}selected{% endif %}>🇷🇺 +7</option>
+                        <option value="+55"  {% if phone|slice:":3" == "+55" %}selected{% endif %}>🇧🇷 +55</option>
+                        <option value="+27"  {% if phone|slice:":3" == "+27" %}selected{% endif %}>🇿🇦 +27</option>
+                        <option value="+92"  {% if phone|slice:":3" == "+92" %}selected{% endif %}>🇵🇰 +92</option>
+                        <option value="+880" {% if phone|slice:":4" == "+880" %}selected{% endif %}>🇧🇩 +880</option>
+                        <option value="+94"  {% if phone|slice:":3" == "+94" %}selected{% endif %}>🇱🇰 +94</option>
+                        <option value="+977" {% if phone|slice:":4" == "+977" %}selected{% endif %}>🇳🇵 +977</option>
+                    </select>
+                    <input
+                        type="tel"
+                        id="reg-phone"
+                        class="phone-number-input"
+                        placeholder="98765 43210"
+                        autocomplete="tel-national"
+                        inputmode="numeric"
+                        maxlength="15"
+                        value="{{ phone }}"
+                        required
+                    >
+                    <!-- Hidden field sent to server (code + number) -->
+                    <input type="hidden" name="phone" id="phone-combined">
+                </div>
+                <div class="phone-hint" id="phoneHint">
+                    <i class="fas fa-circle-info"></i> Enter digits only — no spaces or dashes needed
+                </div>
+            </div>
+
+            <!-- Password -->
+            <div class="form-group">
+                <label class="form-label" for="reg-password">Password</label>
+                <div style="position:relative;">
+                    <input
+                        type="password"
+                        id="reg-password"
+                        name="password"
+                        class="form-control-void"
+                        placeholder="Min. 8 characters"
+                        required
+                        minlength="8"
+                        style="padding-right:44px;"
+                        autocomplete="new-password"
+                    >
+                    <button type="button" onclick="togglePwd('reg-password','eye1')"
+                        style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.9rem;">
+                        <i class="fas fa-eye" id="eye1"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Confirm Password -->
+            <div class="form-group">
+                <label class="form-label" for="reg-confirm">Confirm Password</label>
+                <div style="position:relative;">
+                    <input
+                        type="password"
+                        id="reg-confirm"
+                        name="confirm_password"
+                        class="form-control-void"
+                        placeholder="Re-enter password"
+                        required
+                        style="padding-right:44px;"
+                        autocomplete="new-password"
+                    >
+                    <button type="button" onclick="togglePwd('reg-confirm','eye2')"
+                        style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.9rem;">
+                        <i class="fas fa-eye" id="eye2"></i>
+                    </button>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-void btn-void-primary w-100" style="justify-content:center;margin-top:8px;" id="register-submit">
+                <i class="fas fa-user-plus"></i> Create Account
+            </button>
+            </div><!-- .auth-form-card -->
+            <div class="auth-divider">or</div>
+            <p style="text-align:center;font-size:0.86rem;color:var(--text-muted);">Already have an account? <a href="/login/" style="color:var(--accent);font-weight:700;">Sign in</a></p>
+            <p style="text-align:center;font-size:0.74rem;color:var(--text-faint);margin-top:10px;">Username is auto-generated from your email. Country detected automatically.</p>
+        </div><!-- .auth-form-box -->
+    </div><!-- .auth-form-side -->
+</div><!-- .auth-page -->
+
+<script>
+function togglePwd(inputId, iconId) {
+    const input = document.getElementById(inputId);
+    const icon = document.getElementById(iconId);
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fas fa-eye-slash';
+    } else {
+        input.type = 'password';
+        icon.className = 'fas fa-eye';
+    }
+}
+
+// Live phone validation
+const phoneInput = document.getElementById('reg-phone');
+const phoneWrap  = document.getElementById('phoneWrap');
+const phoneHint  = document.getElementById('phoneHint');
+
+phoneInput.addEventListener('input', function() {
+    // Strip everything except digits
+    this.value = this.value.replace(/[^\d]/g, '');
+    validatePhone(false);
+});
+
+function validatePhone(showError) {
+    const digits = phoneInput.value.replace(/\D/g, '');
+    phoneWrap.classList.remove('phone-invalid', 'phone-valid');
+    if (digits.length === 0) {
+        phoneHint.innerHTML = '<i class="fas fa-circle-info"></i> Enter digits only — no spaces or dashes needed';
+        phoneHint.style.color = '';
+        return false;
+    }
+    if (digits.length < 7) {
+        phoneWrap.classList.add('phone-invalid');
+        phoneHint.innerHTML = '<i class="fas fa-circle-xmark" style="color:#f87171"></i> Too short — enter at least 7 digits';
+        phoneHint.style.color = '#f87171';
+        return false;
+    }
+    if (digits.length > 15) {
+        phoneWrap.classList.add('phone-invalid');
+        phoneHint.innerHTML = '<i class="fas fa-circle-xmark" style="color:#f87171"></i> Too long — max 15 digits';
+        phoneHint.style.color = '#f87171';
+        return false;
+    }
+    phoneWrap.classList.add('phone-valid');
+    phoneHint.innerHTML = '<i class="fas fa-circle-check" style="color:#4ade80"></i> Valid phone number';
+    phoneHint.style.color = '#4ade80';
+    return true;
+}
+
+// On submit: combine code + number into hidden field
+document.getElementById('register-form').addEventListener('submit', function(e) {
+    const pwd     = document.getElementById('reg-password').value;
+    const confirm = document.getElementById('reg-confirm').value;
+    const errorBox  = document.getElementById('js-error-msg');
+    const errorSpan = errorBox.querySelector('span');
+
+    function showErr(msg) {
+        e.preventDefault();
+        errorSpan.textContent = msg;
+        errorBox.style.display = 'block';
+    }
+
+    if (pwd.length < 8)    { showErr('Password must be at least 8 characters.'); return; }
+    if (pwd !== confirm)   { showErr('Passwords do not match.'); return; }
+
+    // Phone check
+    if (!validatePhone(true)) {
+        e.preventDefault();
+        const digits = phoneInput.value.replace(/\D/g, '');
+        if (!digits) { showErr('Phone number is required.'); }
+        else         { showErr('Enter a valid phone number (7–15 digits).'); }
+        phoneInput.focus();
+        return;
+    }
+
+    // Combine country code + local number into hidden field
+    const code = document.getElementById('phone-code').value;
+    const local = phoneInput.value.replace(/\D/g, '');
+    document.getElementById('phone-combined').value = code + local;
+
+    errorBox.style.display = 'none';
+});
+</script>
+
+</body>
+</html>

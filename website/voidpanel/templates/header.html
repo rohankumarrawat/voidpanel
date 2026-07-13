@@ -1,0 +1,391 @@
+{% load static %}
+<nav class="void-nav" id="voidNav">
+    <style>
+        /* ── Services Mega Dropdown ─────────────────────────────── */
+        .nav-dropdown-wrap { position: relative; }
+        .nav-dropdown-trigger {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            padding: 7px 12px;
+            border-radius: var(--r-sm);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            user-select: none;
+        }
+        .nav-dropdown-trigger:hover { color: var(--text-primary); background: var(--bg-subtle); }
+        .nav-dropdown-trigger .chev {
+            font-size: 0.65rem;
+            transition: transform 0.2s var(--ease);
+            color: var(--text-faint);
+        }
+        .nav-dropdown-wrap.open .chev { transform: rotate(180deg); }
+        .nav-dropdown-wrap.open .nav-dropdown-trigger { color: var(--text-primary); background: var(--bg-subtle); }
+
+        /* Bridge — prevents gap closing menu on mouse travel */
+        .nav-dropdown-menu::before {
+            content: '';
+            position: absolute;
+            top: -12px; left: 0; right: 0;
+            height: 12px;
+        }
+        .nav-dropdown-menu {
+            position: absolute;
+            top: calc(100% + 10px);
+            left: 50%;
+            transform: translateX(-50%) translateY(-6px);
+            min-width: 280px;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            box-shadow: 0 24px 60px rgba(15,23,42,0.10), 0 4px 12px rgba(15,23,42,0.06);
+            padding: 10px;
+            z-index: 500;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.18s var(--ease), transform 0.18s var(--ease), visibility 0.18s;
+        }
+        .nav-dropdown-wrap.open .nav-dropdown-menu {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            transform: translateX(-50%) translateY(0);
+        }
+        .nav-dd-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 13px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-size: 0.88rem;
+            transition: background 0.14s;
+            color: var(--text-primary);
+        }
+        .nav-dd-item:hover { background: var(--bg-subtle); }
+        .nav-dd-icon {
+            width: 34px; height: 34px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+        .nav-dd-text strong { display: block; font-weight: 700; font-size: 0.88rem; color: var(--text-primary); }
+        .nav-dd-text span   { font-size: 0.74rem; color: var(--text-muted); }
+        .nav-dd-divider { height: 1px; background: var(--border-subtle); margin: 6px 0; }
+
+        /* Hosting sub-menu */
+        .has-sub { position: relative; }
+        .nav-sub {
+            position: absolute;
+            top: 0; left: calc(100% + 8px);
+            min-width: 240px;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            box-shadow: 0 16px 40px rgba(15,23,42,0.10);
+            padding: 10px;
+            opacity: 0; visibility: hidden; pointer-events: none;
+            transform: translateX(6px);
+            transition: all 0.16s var(--ease);
+            z-index: 501;
+        }
+        .nav-sub::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -10px; bottom: 0;
+            width: 10px;
+        }
+        .has-sub:hover .nav-sub { opacity: 1; visibility: visible; pointer-events: auto; transform: translateX(0); }
+        .has-sub > .nav-dd-item { justify-content: space-between; }
+        .has-sub > .nav-dd-item .sub-arrow { font-size: 0.65rem; color: var(--text-faint); }
+
+        /* Mobile label */
+        .mob-section-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-faint);
+            padding: 10px 14px 4px;
+        }
+        .mob-divider { height: 1px; background: var(--border-subtle); margin: 8px 0; }
+
+        @media (max-width: 960px) {
+            .nav-dropdown-wrap { display: none; }
+        }
+    </style>
+
+    <!-- Brand -->
+    <a href="/" class="nav-brand" id="navBrand">
+        <img src="/static/logo.svg" alt="VoidPanel" width="160" height="36" style="height:36px;width:auto;">
+    </a>
+
+    <!-- Desktop Links -->
+    <div class="nav-links" id="navLinks">
+        <a href="/">Home</a>
+        <a href="/aboutus/">About</a>
+
+        <!-- Services Dropdown -->
+        <div class="nav-dropdown-wrap" id="navServices">
+            <span class="nav-dropdown-trigger" id="navServicesTrigger">
+                Services <i class="fas fa-chevron-down chev"></i>
+            </span>
+            <div class="nav-dropdown-menu" id="navServicesMenu">
+
+                <!-- Hosting (with sub) -->
+                <div class="has-sub">
+                    <a href="#" class="nav-dd-item">
+                        <span class="nav-dd-icon" style="background:#eff6ff;color:#2563eb;"><i class="fas fa-server"></i></span>
+                        <span class="nav-dd-text">
+                            <strong>Hosting</strong>
+                            <span>Web &amp; Reseller plans</span>
+                        </span>
+                        <i class="fas fa-chevron-right sub-arrow"></i>
+                    </a>
+                    <div class="nav-sub">
+                        <a href="/web-hosting/" class="nav-dd-item">
+                            <span class="nav-dd-icon" style="background:#ecfdf5;color:#059669;"><i class="fas fa-cloud"></i></span>
+                            <span class="nav-dd-text">
+                                <strong>Web Hosting</strong>
+                                <span>SSD shared hosting</span>
+                            </span>
+                        </a>
+                        <a href="/wordpress-hosting/" class="nav-dd-item">
+                            <span class="nav-dd-icon" style="background:#eff6ff;color:#2563eb;"><i class="fab fa-wordpress"></i></span>
+                            <span class="nav-dd-text">
+                                <strong>WordPress Hosting</strong>
+                                <span>Managed WP environments</span>
+                            </span>
+                        </a>
+                        <a href="/reseller-hosting/" class="nav-dd-item">
+                            <span class="nav-dd-icon" style="background:#f5f3ff;color:#6d28d9;"><i class="fas fa-store"></i></span>
+                            <span class="nav-dd-text">
+                                <strong>Reseller Hosting</strong>
+                                <span>Start your own brand</span>
+                            </span>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="nav-dd-divider"></div>
+
+                <a href="/domain-registration/" class="nav-dd-item">
+                    <span class="nav-dd-icon" style="background:#fff1f2;color:#be123c;"><i class="fas fa-globe"></i></span>
+                    <span class="nav-dd-text">
+                        <strong>Domain Names</strong>
+                        <span>Search &amp; register 50+ TLDs</span>
+                    </span>
+                </a>
+                <a href="/professional-email/" class="nav-dd-item">
+                    <span class="nav-dd-icon" style="background:#ecfeff;color:#0e7490;"><i class="fas fa-envelope"></i></span>
+                    <span class="nav-dd-text">
+                        <strong>Professional Email</strong>
+                        <span>Custom domain mailboxes</span>
+                    </span>
+                </a>
+                <a href="/ssl-certificates/" class="nav-dd-item">
+                    <span class="nav-dd-icon" style="background:#fffbeb;color:#b45309;"><i class="fas fa-shield-halved"></i></span>
+                    <span class="nav-dd-text">
+                        <strong>SSL Certificates</strong>
+                        <span>Free &amp; premium SSL</span>
+                    </span>
+                </a>
+
+                <div class="nav-dd-divider"></div>
+
+                <!-- Digital Suites -->
+                <div class="nav-dd-section-label" style="padding:8px 14px 4px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);">Digital Suites</div>
+                <a href="/social-media-suite/" class="nav-dd-item">
+                    <span class="nav-dd-icon" style="background:#fff0f9;color:#db2777;"><i class="fa-brands fa-instagram"></i></span>
+                    <span class="nav-dd-text">
+                        <strong>Social Media Suite</strong>
+                        <span>Schedule &amp; grow all platforms</span>
+                    </span>
+                </a>
+                <a href="/seo-suite/" class="nav-dd-item">
+                    <span class="nav-dd-icon" style="background:#eef2ff;color:#4f46e5;"><i class="fas fa-magnifying-glass-chart"></i></span>
+                    <span class="nav-dd-text">
+                        <strong>SEO Suite</strong>
+                        <span>Rank higher with AI-powered SEO</span>
+                    </span>
+                </a>
+                <a href="/marketing-suite/" class="nav-dd-item">
+                    <span class="nav-dd-icon" style="background:#fffbeb;color:#d97706;"><i class="fas fa-bullhorn"></i></span>
+                    <span class="nav-dd-text">
+                        <strong>Marketing Suite</strong>
+                        <span>Email, leads &amp; automation</span>
+                    </span>
+                </a>
+
+                <div class="nav-dd-divider"></div>
+
+                <a href="/whmcs/" class="nav-dd-item">
+                    <span class="nav-dd-icon" style="background:#f5f3ff;color:#6d28d9;"><i class="fas fa-plug"></i></span>
+                    <span class="nav-dd-text">
+                        <strong>WHMCS Module</strong>
+                        <span>Billing &amp; automation plugin</span>
+                    </span>
+                </a>
+
+                <a href="/get-voidpanel/" class="nav-dd-item">
+                    <span class="nav-dd-icon" style="background:#f0f7ff;color:#1d4ed8;"><i class="fas fa-terminal"></i></span>
+                    <span class="nav-dd-text">
+                        <strong>Get VoidPanel</strong>
+                        <span>Free open-source license</span>
+                    </span>
+                </a>
+            </div>
+        </div>
+
+        <a href="/blogs/">Blog</a>
+        <a href="/docs/">Docs</a>
+
+        <!-- Highlight pill link -->
+        <a href="/get-voidpanel/" style="
+            display:inline-flex;align-items:center;gap:6px;
+            padding:7px 16px;border-radius:var(--r-pill);
+            background:var(--blue-50);border:1px solid var(--blue-100);
+            color:var(--blue-700);font-weight:700;font-size:0.84rem;
+            transition:var(--transition-fast);"
+           onmouseover="this.style.background='var(--blue-100)'"
+           onmouseout="this.style.background='var(--blue-50)'">
+            <i class="fas fa-key" style="font-size:0.75rem;"></i> VoidPanel Free
+        </a>
+        {% if try_voidpanel_config.is_enabled %}
+        <a href="/try-voidpanel/" class="try-voidpanel-glowing-btn" style="
+            display:inline-flex;align-items:center;gap:6px;
+            padding:7px 16px;border-radius:var(--r-pill);
+            background: linear-gradient(135deg, #10b981, #059669);
+            color:#ffffff;font-weight:700;font-size:0.84rem;
+            transition:all 0.2s ease-in-out;
+            box-shadow: 0 0 12px rgba(16,185,129,0.4);"
+           onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 0 18px rgba(16,185,129,0.6)'"
+           onmouseout="this.style.transform='none'; this.style.boxShadow='0 0 12px rgba(16,185,129,0.4)'">
+            <span style="display:inline-block;width:6px;height:6px;background:#ffffff;border-radius:50%;animation: pulse-dot 1.5s infinite;"></span>
+            Try VoidPanel
+        </a>
+        <style>
+            @keyframes pulse-dot {
+                0%, 100% { transform: scale(1); opacity: 1; }
+                50% { transform: scale(1.4); opacity: 0.5; }
+            }
+        </style>
+        {% endif %}
+    </div>
+
+    <!-- Desktop CTA -->
+    <div class="nav-cta">
+        {% if request.user.is_authenticated %}
+            <a href="/portal/" class="btn-void btn-void-outline btn-void-sm">
+                <i class="fas fa-user-circle"></i> {{ request.user }}
+            </a>
+            {% if request.user.is_superuser %}
+                <a href="/super-admin/" class="btn-void btn-void-ghost btn-void-sm">Admin</a>
+            {% endif %}
+            <a href="/logout/" class="btn-void btn-void-primary btn-void-sm">Logout</a>
+        {% else %}
+            <a href="/login/" class="btn-void btn-void-outline btn-void-sm">Login</a>
+            <a href="/register/" class="btn-void btn-void-primary btn-void-sm">Get Started <i class="fas fa-arrow-right" style="font-size:0.75rem;"></i></a>
+        {% endif %}
+    </div>
+
+    <!-- Hamburger -->
+    <div class="hamburger" id="hamburger" onclick="toggleMobileMenu()" aria-label="Toggle menu" role="button" tabindex="0">
+        <span></span>
+        <span></span>
+        <span></span>
+    </div>
+</nav>
+
+<!-- Mobile Menu -->
+<div class="mobile-menu" id="mobileMenu" role="navigation" aria-label="Mobile navigation">
+    <a href="/">Home</a>
+    <a href="/aboutus/">About</a>
+
+    <div class="mob-divider"></div>
+    <div class="mob-section-label">Hosting</div>
+    <a href="/web-hosting/"><i class="fas fa-cloud" style="margin-right:8px;color:#059669;width:16px;"></i>Web Hosting</a>
+    <a href="/wordpress-hosting/"><i class="fab fa-wordpress" style="margin-right:8px;color:#2563eb;width:16px;"></i>WordPress Hosting</a>
+    <a href="/reseller-hosting/"><i class="fas fa-store" style="margin-right:8px;color:#6d28d9;width:16px;"></i>Reseller Hosting</a>
+
+    <div class="mob-divider"></div>
+    <div class="mob-section-label">More Services</div>
+    <a href="/domain-registration/"><i class="fas fa-globe" style="margin-right:8px;color:#be123c;width:16px;"></i>Domain Registration</a>
+    <a href="/professional-email/"><i class="fas fa-envelope" style="margin-right:8px;color:#0e7490;width:16px;"></i>Professional Email</a>
+    <a href="/ssl-certificates/"><i class="fas fa-shield-halved" style="margin-right:8px;color:#b45309;width:16px;"></i>SSL Certificates</a>
+    <a href="/whmcs/"><i class="fas fa-plug" style="margin-right:8px;color:#6d28d9;width:16px;"></i>WHMCS Module</a>
+
+    <div class="mob-divider"></div>
+    <div class="mob-section-label">Digital Suites</div>
+    <a href="/social-media-suite/"><i class="fa-brands fa-instagram" style="margin-right:8px;color:#db2777;width:16px;"></i>Social Media Suite</a>
+    <a href="/seo-suite/"><i class="fas fa-magnifying-glass-chart" style="margin-right:8px;color:#4f46e5;width:16px;"></i>SEO Suite</a>
+    <a href="/marketing-suite/"><i class="fas fa-bullhorn" style="margin-right:8px;color:#d97706;width:16px;"></i>Marketing Suite</a>
+
+    <div class="mob-divider"></div>
+    <a href="/blogs/"><i class="fas fa-newspaper" style="margin-right:8px;color:var(--text-muted);width:16px;"></i>Blog</a>
+    <a href="/docs/"><i class="fas fa-book" style="margin-right:8px;color:var(--text-muted);width:16px;"></i>Docs</a>
+    <a href="/get-voidpanel/" style="color:var(--blue-700);font-weight:800;"><i class="fas fa-terminal" style="margin-right:8px;width:16px;"></i>Get VoidPanel Free</a>
+    {% if try_voidpanel_config.is_enabled %}
+    <a href="/try-voidpanel/" style="color:#059669;font-weight:800;"><i class="fas fa-play" style="margin-right:8px;width:16px;"></i>Try VoidPanel Live</a>
+    {% endif %}
+
+    <div class="mob-divider"></div>
+    {% if request.user.is_authenticated %}
+        <a href="/portal/" style="color:var(--accent);font-weight:700;"><i class="fas fa-user-circle" style="margin-right:8px;width:16px;"></i>{{ request.user }}</a>
+        {% if request.user.is_superuser %}
+            <a href="/super-admin/">Super Admin</a>
+        {% endif %}
+        <a href="/logout/" class="btn-void btn-void-primary w-full" style="margin-top:8px;justify-content:center;">Logout</a>
+    {% else %}
+        <a href="/login/" class="btn-void btn-void-outline w-full" style="margin-top:8px;justify-content:center;">Login</a>
+        <a href="/register/" class="btn-void btn-void-primary w-full" style="margin-top:8px;justify-content:center;">Get Started Free</a>
+    {% endif %}
+</div>
+
+<script>
+/* ── Mobile menu ─────────────────────────────────────────────── */
+function toggleMobileMenu() {
+    const menu = document.getElementById('mobileMenu');
+    const ham  = document.getElementById('hamburger');
+    menu.classList.toggle('open');
+    ham.classList.toggle('open');
+}
+
+/* ── Dropdown menus ──────────────────────────────────────────── */
+(function () {
+    function initDropdown(wrapperId) {
+        const wrap    = document.getElementById(wrapperId);
+        const trigger = document.getElementById(wrapperId + 'Trigger');
+        const menu    = document.getElementById(wrapperId + 'Menu');
+        if (!wrap || !trigger || !menu) return;
+
+        let closeTimer = null;
+        const open  = () => { clearTimeout(closeTimer); wrap.classList.add('open'); };
+        const close = () => { closeTimer = setTimeout(() => wrap.classList.remove('open'), 180); };
+
+        trigger.addEventListener('mouseenter', open);
+        trigger.addEventListener('mouseleave', close);
+        menu.addEventListener('mouseenter', open);
+        menu.addEventListener('mouseleave', close);
+
+        trigger.addEventListener('click', (e) => { e.stopPropagation(); wrap.classList.toggle('open'); });
+        document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) wrap.classList.remove('open'); });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') wrap.classList.remove('open'); });
+    }
+    initDropdown('navServices');
+})();
+
+/* ── Navbar scroll ───────────────────────────────────────────── */
+(function () {
+    const nav = document.getElementById('voidNav');
+    if (!nav) return;
+    function handle() { nav.classList.toggle('scrolled', window.scrollY > 24); }
+    window.addEventListener('scroll', handle, { passive: true });
+    handle();
+})();
+</script>

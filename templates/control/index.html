@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 
 <head>
     <title>:: VoidPanel :: Dashboard</title>
@@ -7,36 +7,312 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="description" content="VoidPanel Dashboard ">
     <meta name="author" content="Voidpanel, design by: Voidpanel.com">
-    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
 
     <!-- VENDOR CSS -->
     <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <!-- Font Awesome 6 — fixes fa-solid / fa-brands icons on Safari & Chrome -->
+    <link rel="stylesheet" href="/static/static/css/plugins/fontawesome-all.min.css">
     <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
     <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
 
     <!-- MAIN Project CSS file -->
-    <link rel="stylesheet" href="/static/assets/css/main.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
 
     <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+    <!-- Google Font: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- ★ THEME VARIABLES — static data-theme on <html> prevents any FOUC ★ -->
+    <script>
+    (function() {
+        /* Always force dark; overwrite any stale localStorage value */
+        localStorage.setItem('vp-theme', 'dark');
+        document.documentElement.setAttribute('data-theme', 'dark');
+    })();
+    </script>
     <style>
-        .myname {
-            border-radius: 30px;
-            box-shadow: inset;
-            border-width: 4px;
-
-
-        }
+    /* ── Light theme (default) ── */
+    html[data-theme="light"] {
+        --vp-bg:          #f1f5f9;
+        --vp-topbar-bg:   rgba(255,255,255,0.92);
+        --vp-body-bg:     linear-gradient(-45deg,#f1f5f9,#e8edf5,#f8fafc,#eef2f7);
+        --vp-surface:     #ffffff;
+        --vp-surface2:    #f1f5f9;
+        --vp-border:      rgba(15,23,42,0.09);
+        --vp-accent:      #4f46e5;
+        --vp-accent2:     #7c3aed;
+        --vp-text:        #475569;
+        --vp-text-bright: #0f172a;
+        --vp-muted:       #64748b;
+        --vp-green:       #10b981;
+        --vp-red:         #ef4444;
+        --vp-card-bg:     rgba(255,255,255,0.8);
+        --vp-card-border: rgba(15,23,42,0.07);
+        --vp-card-text:   #334155;
+        --vp-topbar-h:    58px;
+        --vp-sidebar-w:   240px;
+        --vp-loader-bg:   #f1f5f9;
+    }
+    /* ── Dark theme ── */
+    html[data-theme="dark"] {
+        --vp-bg:          #080d1a;
+        --vp-topbar-bg:   rgba(8,13,26,0.92);
+        --vp-body-bg:     linear-gradient(-45deg,#070c1b,#0f1729,#1a0533,#0c1a2e);
+        --vp-surface:     #0e1628;
+        --vp-surface2:    #131f36;
+        --vp-border:      rgba(255,255,255,0.07);
+        --vp-accent:      #6366f1;
+        --vp-accent2:     #8b5cf6;
+        --vp-text:        #cbd5e1;
+        --vp-text-bright: #f8fafc;
+        --vp-muted:       #64748b;
+        --vp-card-bg:     rgba(15,23,42,0.6);
+        --vp-card-border: rgba(255,255,255,0.07);
+        --vp-card-text:   #f1f5f9;
+        --vp-topbar-h:    58px;
+        --vp-sidebar-w:   240px;
+        --vp-loader-bg:   #070c1b;
+    }
     </style>
+
     <style>
-        /* Basic styling for the p tag */
-        p.processing {
-            font-size: 18px;
-            font-weight: bold;
- 
+        /* ========================================
+           VOIDPANEL THEME-AWARE STYLES
+           ======================================== */
+
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body, html {
+            font-family: 'Inter', sans-serif !important;
         }
 
-        /* Animation for the dots */
+        /* Animated gradient background — high-specificity selector beats main.css */
+        html[data-theme="dark"] body,
+        html[data-theme="light"] body {
+            background: var(--vp-body-bg) !important;
+            background-size: 400% 400% !important;
+            animation: gradientBG 18s ease infinite !important;
+            min-height: 100vh;
+            color: var(--vp-text) !important;
+        }
+        /* Also ensure wrapper / main-content don't inherit main.css solid dark */
+        html[data-theme="dark"] #wrapper,
+        html[data-theme="dark"] #main-content {
+            background: transparent !important;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        #wrapper { background: transparent !important; }
+        #main-content { background: transparent !important; }
+
+        /* ---- Glassmorphic Cards ---- */
+        .card {
+            background: var(--vp-card-bg) !important;
+            backdrop-filter: blur(14px) !important;
+            -webkit-backdrop-filter: blur(14px) !important;
+            border: var(--vp-card-border) !important;
+            border-radius: 18px !important;
+            color: var(--vp-card-text) !important;
+            transition: transform 0.3s cubic-bezier(0.4,0,0.2,1),
+                        box-shadow 0.3s cubic-bezier(0.4,0,0.2,1),
+                        border-color 0.3s ease !important;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.1) !important;
+        }
+
+        .card:hover {
+            transform: translateY(-6px) !important;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15), 0 0 0 1px var(--vp-accent) !important;
+            border-color: var(--vp-accent) !important;
+            background: var(--vp-card-bg) !important;
+            opacity: 0.95;
+        }
+
+        .card a:hover { text-decoration: none !important; }
+
+        /* ---- Card body text ---- */
+        .card .name {
+            color: var(--vp-muted) !important;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .card h5 { color: var(--vp-text-bright) !important; font-weight: 700; }
+
+        /* ---- Block headers ---- */
+        .block-header h2, h4, .p-2 { color: var(--vp-text-bright) !important; font-weight: 700; }
+        .breadcrumb { background: transparent !important; }
+        .breadcrumb-item a { color: var(--vp-accent) !important; }
+        .breadcrumb-item.active, .breadcrumb-item { color: var(--vp-text) !important; }
+        .breadcrumb-item + .breadcrumb-item::before { color: #475569; }
+
+        /* ---- SSL badge ---- */
+        .ssl-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+        }
+        .ssl-badge.secure {
+            background: rgba(16,185,129,0.15);
+            color: #34d399;
+            border: 1px solid rgba(52,211,153,0.3);
+        }
+        .ssl-badge.insecure {
+            background: rgba(239,68,68,0.15);
+            color: #f87171;
+            border: 1px solid rgba(248,113,113,0.3);
+        }
+
+        /* ---- Domain info row ---- */
+        .domain-header-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .domain-header-row img { border-radius: 8px; }
+        .domain-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #f8fafc;
+        }
+
+        /* ---- Quota progress bars ---- */
+        .quota-bar-wrap { margin-top: 6px; }
+        .quota-bar-bg {
+            height: 6px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .quota-bar-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6);
+            transition: width 1s ease;
+        }
+
+        /* ---- Section headings ---- */
+        .section-heading {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #6366f1;
+            margin-bottom: 14px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(99,102,241,0.25);
+        }
+
+        /* ---- iFrame preview ---- */
+        .preview-wrap {
+            position: relative;
+            border-radius: 18px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            background: #0d1120;
+            display: flex;
+            flex-direction: column;
+            transform: translateZ(0);
+        }
+        .preview-wrap iframe {
+            width: 100%; flex: 1; border: none; display: block;
+            background: #ffffff;
+            min-height: 280px;
+        }
+        .preview-url-bar {
+            display: flex; align-items: center; gap: 8px;
+            background: rgba(255,255,255,0.04);
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+            padding: 8px 14px;
+            font-size: 0.72rem; color: #94a3b8;
+            border-radius: 18px 18px 0 0;
+        }
+        .preview-url-bar .dot { width:10px; height:10px; border-radius:50%; }
+        .preview-url-bar .url-text { background: rgba(255,255,255,0.06); border-radius:6px; padding:3px 10px; flex:1; font-size:0.7rem; color:#e2e8f0; opacity:.75; }
+        .preview-url-bar .dot.r { background:#ef4444; }
+        .preview-url-bar .dot.y { background:#f59e0b; }
+        .preview-url-bar .dot.g { background:#22c55e; }
+        .myname {
+            border-radius: 18px !important;
+            border: 1px solid rgba(255,255,255,0.08) !important;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;
+        }
+
+
+        /* ---- Modern Loader ---- */
+        .page-loader-wrapper {
+            background: var(--vp-loader-bg, #070c1b) !important;
+        }
+        .vp-loader {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 18px;
+        }
+        /* Loading bar */
+        .loading-bar-container {
+            width: 180px;
+            height: 3px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 99px;
+            overflow: hidden;
+        }
+        .loading-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #6366f1, #60a5fa, #10b981);
+            border-radius: 99px;
+            animation: vpLoadBar 1.8s cubic-bezier(.4,0,.2,1) forwards;
+        }
+        @keyframes vpLoadBar {
+            0%   { width: 0%; }
+            40%  { width: 55%; }
+            70%  { width: 78%; }
+            90%  { width: 90%; }
+            100% { width: 100%; }
+        }
+        .vp-loader-text { color: #64748b; font-size: 0.78rem; font-weight: 500; letter-spacing: 0.04em; margin-top: 4px; }
+
+        /* ---- Tables ---- */
+        .table { color: #e2e8f0; }
+        .table td, .table th { border-color: rgba(255,255,255,0.06); }
+        .table-striped tbody tr:nth-of-type(odd) { background-color: rgba(255,255,255,0.03); }
+
+        /* ---- Buttons ---- */
+        .btn-primary { background: linear-gradient(135deg,#6366f1,#8b5cf6) !important; border: none !important; }
+        .btn-primary:hover { background: linear-gradient(135deg,#4f46e5,#7c3aed) !important; transform: translateY(-1px); }
+        .btn-danger { background: linear-gradient(135deg,#ef4444,#dc2626) !important; border: none !important; }
+
+        /* ---- Badge chips for stats ---- */
+        .stat-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(99,102,241,0.15);
+            color: #a5b4fc;
+            border: 1px solid rgba(99,102,241,0.25);
+            border-radius: 999px;
+            padding: 2px 10px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        /* Processing animation */
+        p.processing { font-size: 18px; font-weight: bold; }
         .dots::after {
             content: '';
             display: inline-block;
@@ -44,43 +320,180 @@
             text-align: left;
             animation: dots 1.5s steps(4, end) infinite;
         }
-
-        /* Keyframes for the dots animation */
         @keyframes dots {
+            0%, 100% { content: ''; }
+            25% { content: '.'; }
+            50% { content: '..'; }
+            75% { content: '...'; }
+        }
 
-            0%,
-            100% {
-                content: '';
+        /* ---- Scrollbar ---- */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
+        ::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.4); border-radius: 999px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(139,92,246,0.7); }
+
+        /* ── Modal Overlay ── */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(8,12,26,.88); backdrop-filter: blur(10px);
+            z-index: 9999; align-items: center; justify-content: center;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-glass {
+            background: rgba(15,20,40,0.96); border: 1px solid rgba(0,229,255,0.15);
+            border-radius: 20px; padding: 32px 36px; width: 100%; max-width: 460px;
+            animation: popIn .22s ease;
+        }
+        @keyframes popIn { from { transform: scale(.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .modal-head { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+        .modal-head-icon {
+            width: 42px; height: 42px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center; font-size: 1rem;
+        }
+        .modal-head-icon.purple { background: rgba(168,85,247,.15); color: #a855f7; border: 1px solid rgba(168,85,247,.2); }
+        .modal-title { font-size: 1rem; font-weight: 600; color: #fff; }
+        .modal-sub { font-size: .74rem; color: #94a3b8; margin-top: 2px; }
+        .modal-field { margin-bottom: 14px; }
+        .modal-field label { display: block; font-size: .75rem; color: #94a3b8; margin-bottom: 6px; font-weight: 500; }
+        .modal-field input, .modal-field select, .modal-field textarea {
+            width: 100%; background: rgba(0,229,255,.06); border: 1px solid rgba(0,229,255,.18);
+            border-radius: 9px; color: #e4eaf8; font-size: .86rem; padding: 10px 14px;
+            outline: none; font-family: 'Inter', sans-serif; transition: border-color .2s;
+        }
+        .modal-field input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(0,229,255,.1); }
+        .modal-footer-btns { display: flex; gap: 10px; margin-top: 20px; }
+        .btn-modal-cancel {
+            flex: 1; padding: 10px; border-radius: 10px;
+            background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+            color: #e4eaf8; font-size: .84rem; cursor: pointer; transition: background .2s;
+        }
+        .btn-modal-cancel:hover { background: rgba(255,255,255,.12); }
+        .btn-modal-confirm {
+            flex: 1; padding: 10px; border-radius: 10px; border: none;
+            font-size: .84rem; font-weight: 600; cursor: pointer; color: #fff; transition: opacity .2s;
+        }
+        .btn-modal-confirm:hover { opacity: .82; }
+        .btn-modal-confirm.purple { background: linear-gradient(135deg, #a855f7, #8b5cf6); }
+        .btn-modal-confirm:disabled { opacity: .35; cursor: not-allowed; }
+        /* Result overlay */
+        .result-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(8,12,26,.88); backdrop-filter: blur(10px);
+            z-index: 10000; align-items: center; justify-content: center;
+        }
+        .result-overlay.show { display: flex; }
+        .result-glass {
+            background: rgba(15,20,40,0.96); border: 1px solid rgba(0,229,255,0.15);
+            border-radius: 20px; padding: 36px 40px; text-align: center; max-width: 340px;
+            animation: popIn .22s ease;
+        }
+        .result-icon { font-size: 2.6rem; margin-bottom: 14px; }
+        .result-msg { font-size: .9rem; color: #e4eaf8; margin-bottom: 20px; line-height: 1.6; white-space: pre-line; }
+        .btn-result-close {
+            background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+            color: #e4eaf8; border-radius: 9px; padding: 9px 28px;
+            font-size: .84rem; cursor: pointer; transition: background .2s;
+        }
+        .btn-result-close:hover { background: rgba(255,255,255,.12); }
+        .spin-ring {
+            width: 20px; height: 20px; border: 2px solid rgba(168,85,247,.2);
+            border-top-color: #a855f7; border-radius: 50%;
+            animation: spinR .7s linear infinite; display: inline-block; vertical-align: middle;
+        }
+        @keyframes spinR { to { transform: rotate(360deg); } }
+
+        /* ---- Dashboard Grid Layouts & Responsiveness ---- */
+        .vp-quota-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-bottom: 22px;
+        }
+        .vp-dashboard-main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+            margin-bottom: 24px;
+            align-items: stretch;
+        }
+        .vp-quick-access-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: repeat(3, 1fr);
+            gap: 12px;
+        }
+        .vp-grid-4-cols {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 22px;
+        }
+        .vp-grid-5-cols {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin-bottom: 22px;
+        }
+
+        @media (max-width: 1024px) {
+            .vp-quota-grid {
+                grid-template-columns: repeat(2, 1fr);
             }
-
-            25% {
-                content: '.';
+            .vp-dashboard-main-grid {
+                grid-template-columns: 1fr;
             }
-
-            50% {
-                content: '..';
+            .vp-grid-4-cols {
+                grid-template-columns: repeat(2, 1fr);
             }
+            .vp-grid-5-cols {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
 
-            75% {
-                content: '...';
+        @media (max-width: 576px) {
+            .vp-quota-grid {
+                grid-template-columns: 1fr;
+            }
+            .vp-quick-access-grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto;
+            }
+            .vp-grid-4-cols {
+                grid-template-columns: 1fr;
+            }
+            .vp-grid-5-cols {
+                grid-template-columns: repeat(2, 1fr);
             }
         }
     </style>
 
 </head>
 
-<body data-theme="light" class="font-nunito">
+<body class="font-nunito active-dark-mode">
 
     <div id="wrapper" class="theme-cyan">
 
         <!-- Page Loader -->
         <div class="page-loader-wrapper">
             <div class="loader">
-       
-   <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
-
+                <div class="vp-loader">
+                    <div style="display:flex;justify-content:center;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="140" height="32" viewBox="0 0 180 40" role="img" aria-label="VoidPanel">
+                          <rect x="0" y="4" width="34" height="34" rx="8" ry="8" fill="rgba(255,255,255,0.10)"/>
+                          <rect x="7" y="13" width="20" height="4" rx="1.5" fill="#ffffff" opacity="0.9"/>
+                          <rect x="7" y="19.5" width="14" height="4" rx="1.5" fill="#ffffff" opacity="0.65"/>
+                          <rect x="7" y="26" width="10" height="4" rx="1.5" fill="#60a5fa" opacity="0.95"/>
+                          <text x="43" y="28" font-family="'Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#ffffff">Void</text>
+                          <text x="91" y="28" font-family="'Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#60a5fa">Panel</text>
+                        </svg>
+                    </div>
+                    <div class="loading-bar-container">
+                        <div class="loading-bar"></div>
+                    </div>
+                    <span class="vp-loader-text">Loading workspace...</span>
                 </div>
-                <p>Please wait...</p>
             </div>
         </div>
 
@@ -97,579 +510,669 @@
         <!-- mani page content body part -->
 
         <div id="main-content">
+        <div style="padding: 20px 24px 40px; min-height:100vh;">
 
-            <div class="container-fluid">
-                <div class="block-header">
-                    <div class="row">
-                        <div class="col-lg-6 col-md-6 col-sm-12">
-                            <h2>View Website</h2>
-                            <ul class="breadcrumb">
-                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
-                                </li>
-                                <li class="breadcrumb-item">Dashboard</li>
-                                <li class="breadcrumb-item">View Website</li>
-
-                            </ul>
-                        </div>
-
-
+            <!-- ══ Hero Banner ══ -->
+            <div style="
+                background: linear-gradient(135deg, rgba(99,102,241,0.14) 0%, rgba(139,92,246,0.08) 50%, transparent 100%);
+                border: 1px solid rgba(99,102,241,0.2);
+                border-radius: 20px; padding: 26px 32px;
+                margin-bottom: 22px;
+                display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+                backdrop-filter: blur(20px); position: relative; overflow: hidden;">
+                <div style="position:absolute;top:-40%;right:-5%;width:280px;height:280px;background:radial-gradient(circle,rgba(139,92,246,0.12),transparent 70%);pointer-events:none;"></div>
+                <div style="display:flex;align-items:center;gap:18px;">
+                    <div style="width:54px;height:54px;background:linear-gradient(135deg,#6366f1,#a855f7);border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:#fff;box-shadow:0 0 28px rgba(99,102,241,0.4);flex-shrink:0;">
+                        <i class="fa-solid fa-user-astronaut"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:1.35rem;font-weight:800;color:var(--vp-text-bright);letter-spacing:-0.3px;">Welcome, <span style="background:linear-gradient(135deg,#818cf8,#c084fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">{{ dir }}</span></div>
+                        <div style="font-size:0.82rem;color:var(--vp-muted);margin-top:3px;">Your hosting workspace &mdash; manage domains, email, databases &amp; more.</div>
                     </div>
                 </div>
-
-                <div class="row clearfix">
-                    <div class="col-lg-6 col-md-12 col-sm-12">
-                        <h4 class="p-2" style="text-align: center;">Preview Website</h4>
-                    </div>
-                </div>
-                <div class="row clearfix">
-
-                    <div class="col-lg-6 col-md-12 col-sm-12">
-
-
-                        {% if status %}
-                        <iframe class="myname" src="https://{{primarydomain}}" width=100% height="325"></iframe>
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <div style="display:flex;align-items:center;gap:8px;background:var(--vp-surface2);border:1px solid var(--vp-border);border-radius:12px;padding:10px 18px;">
+                        <i class="fa-solid fa-globe" style="color:#818cf8;font-size:0.9rem;"></i>
+                        <span style="font-size:0.88rem;color:var(--vp-text-bright);font-weight:600;">{{ primarydomain }}</span>
+                        {% if primarydomainstatus %}
+                        <span style="background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(52,211,153,0.3);border-radius:999px;padding:2px 10px;font-size:0.7rem;font-weight:700;">🔒 Secure</span>
                         {% else %}
-                        <img class="myname" src="/static/icons/not.webp" width=100% height="325">
-
+                        <span style="background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(248,113,113,0.3);border-radius:999px;padding:2px 10px;font-size:0.7rem;font-weight:700;">⚠ No SSL</span>
                         {% endif %}
-
-
-
-
+                        <a href="https://{{ primarydomain }}" target="_blank" style="color:#818cf8;font-size:0.8rem;text-decoration:none;margin-left:4px;"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
                     </div>
-                    <div class="col-lg-6 col-md-12 col-sm-12">
-                        <div class="row clearfix ">
-
-                            <div class="col-lg-6 col-md-6 col-sm-6">
-                                <a href="/control/eadns/?domain={{domain}}">
-                                    <div class="card">
-                                        <div class="body">
-                                            <div class="currency_state d-flex">
-                                                <div><img src="/static/icons/dns.png" width="40"></div>
-                                                <div class="ml-3">
-                                                    <div class="name">Edit/Add </div>
-                                                    <h5 class="mb-0">DNS</h5>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </a>
-                            </div>
-                            <div class="col-lg-6 col-md-6 col-sm-6">
-                                <a href="https://voidpanel.com/commingsoon.html">
-                                    <div class="card">
-                                        <div class="body">
-                                            <div class="currency_state d-flex">
-                                                <div><img src="/static/icons/analysis.png" width="40">
-                                                </div>
-                                                <div class="ml-3">
-                                                    <div class="name">Website</div>
-                                                    <h5 class="mb-0">Analysis</h5>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </a>
-                            </div>
-
-
-                        </div>
-                        <div class="row clearfix">
-
-                            <div class="col-lg-6 col-md-12 col-sm-12">
-
-
-                                <a href="/control/runssl/{{domain}}">
-                                    <div class="card">
-                                        <div class="body">
-                                            <div class="currency_state d-flex">
-                                                <div><img src="/static/icons/ssl.png" width="40">
-                                                </div>
-                                                <div class="ml-3">
-                                                    <div class="name">Security </div>
-                                                    <h5 class="mb-0">SSL</h5>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </a>
-
-
-                            </div>
-                            <div class="col-lg-6 col-md-6 col-sm-6">
-                                <a href="/control/cron/{{domain}}">
-                                    <div class="card">
-                                        <div class="body">
-                                            <div class="currency_state d-flex">
-                                                <div><img src="/static/icons/cron.svg" width="40">
-                                                </div>
-                                                <div class="ml-3">
-                                                    <div class="name">Cron</div>
-                                                    <h5 class="mb-0">Jobs</h5>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </a>
-                            </div>
-
-
-                        </div>
-
-
-
-
-
-
-                        <div class="row clearfix">
-
-                            <div class="col-lg-6 col-md-6 col-sm-6">
-                                <a href="/control/backup/{{domain}}">
-                                <div class="card">
-                                    <div class="body">
-                                        <div class="currency_state d-flex">
-                                            <div><img src="/static/icons/backup.svg" width="40"></div>
-                                            <div class="ml-3">
-                                                <div class="name">BackUp </div>
-                                                <h5 class="mb-0">Wizard</h5>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </a>
-                            </div>
-                            <div class="col-lg-6 col-md-6 col-sm-6">
-                                <a href="/control/filemanager/?key=//home/{{dir}}" target="_blank">
-                                    <div class="card">
-                                        <div class="body">
-                                            <div class="currency_state d-flex">
-                                                <div><img src="/static/icons/file.png" width="40">
-                                                </div>
-                                                <div class="ml-3">
-                                                    <div class="name">File</div>
-                                                    <h5 class="mb-0">Manager</h5>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </a>
-                            </div>
-
-
-                        </div>
-
-
+                    {% if status %}
+                    <div style="display:flex;align-items:center;gap:6px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);border-radius:10px;padding:10px 16px;">
+                        <span style="width:8px;height:8px;background:#10b981;border-radius:50%;box-shadow:0 0 8px #10b981;display:inline-block;animation:pulse 2s infinite;"></span>
+                        <span style="font-size:0.8rem;font-weight:600;color:#34d399;">Live</span>
                     </div>
+                    {% else %}
+                    <div style="display:flex;align-items:center;gap:6px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:10px;padding:10px 16px;">
+                        <span style="width:8px;height:8px;background:#ef4444;border-radius:50%;display:inline-block;"></span>
+                        <span style="font-size:0.8rem;font-weight:600;color:#f87171;">Offline</span>
+                    </div>
+                    {% endif %}
                 </div>
-                <h4 class="p-2">Database Function</h4>
-                <div class="row clearfix">
+            </div>
+            <style>@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.4);}50%{box-shadow:0 0 0 6px rgba(16,185,129,0);}}</style>
 
+            <!-- ══ Resource Quota Strip ══ -->
+            <div class="vp-quota-grid">
 
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-
-                        <div onclick="viewdb()" class="card">
-                            <div class="body">
-                                <div class="currency_state d-flex">
-                                    <div><img src="/static/icons/mydb.svg" width="40">
-                                    </div>
-                                    <div class="ml-3">
-                                        <div class="name">Mysql </div>
-                                        <h5 class="mb-0">Database</h5>
-                                    </div>
-                                </div>
-                            </div>
+                <!-- Storage -->
+                <div style="background:var(--vp-card-bg);border:1px solid var(--vp-card-border);border-radius:16px;padding:18px 20px;backdrop-filter:blur(14px);">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                        <div style="width:36px;height:36px;border-radius:10px;background:rgba(99,102,241,0.15);display:flex;align-items:center;justify-content:center;color:#818cf8;font-size:1rem;"><i class="fa-solid fa-hard-drive"></i></div>
+                        <div>
+                            <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#6366f1;">Storage</div>
+                            <div style="font-size:1.3rem;font-weight:800;color:var(--vp-text-bright);line-height:1.1;">{{ remainingstorage }}<span style="font-size:0.75rem;color:#64748b;font-weight:400;"> / {{ avaiablestorage }} MB</span></div>
                         </div>
-
-
-
                     </div>
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-                        <a href="/control/dbconnect/{{domain}}">
-                            <div class="card">
-                                <div class="body">
-                                    <div class="currency_state d-flex">
-                                        <div><img src="/static/icons/mysql.svg" width="40">
-                                        </div>
-                                        <div class="ml-3">
-                                            <div class="name">Auto</div>
-                                            <h5 class="mb-0">DB Setup</h5>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-
-
+                    {% if not storagestatus %}
+                    <div style="height:5px;background:rgba(255,255,255,0.07);border-radius:5px;overflow:hidden;">
+                        <div style="height:100%;border-radius:5px;width:{{ percentagestorage|floatformat:0 }}%;background:{% if percentagestorage > 80 %}linear-gradient(90deg,#ef4444,#dc2626){% else %}linear-gradient(90deg,#6366f1,#a855f7){% endif %};transition:width 1s ease;"></div>
                     </div>
-                    <div class="col-lg-3 col-md-12 col-sm-12">
+                    <div style="font-size:0.7rem;color:#475569;margin-top:5px;">{{ percentagestorage|floatformat:0 }}% used</div>
+                    {% endif %}
+                </div>
 
-
-
-                        <div onclick="viewemailemail();" class="card">
-                            <div class="body">
-                                <div class="currency_state d-flex">
-                                    <div><img src="/static/icons/myusers.svg" width="40">
-                                    </div>
-                                    <div class="ml-3">
-                                        <div class="name">Database</div>
-                                        <h5 class="mb-0">Users</h5>
-                                    </div>
-                                </div>
-                            </div>
+                <!-- Email -->
+                <div style="background:var(--vp-card-bg);border:1px solid var(--vp-card-border);border-radius:16px;padding:18px 20px;backdrop-filter:blur(14px);">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div style="width:36px;height:36px;border-radius:10px;background:rgba(16,185,129,0.15);display:flex;align-items:center;justify-content:center;color:#10b981;font-size:1rem;"><i class="fa-solid fa-envelope"></i></div>
+                        <div>
+                            <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#10b981;">Email</div>
+                            <div style="font-size:1.3rem;font-weight:800;color:var(--vp-text-bright);line-height:1.1;">{{ usedemail }}<span style="font-size:0.75rem;color:#64748b;font-weight:400;"> / {{ totalemail }}</span></div>
                         </div>
-
-
-
                     </div>
-
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-
-                       <a href="http://{{domain}}/phpmyadmin"> <div  class="card">
-                            <div class="body">
-                                <div class="currency_state d-flex">
-                                    <div><img src="/static/icons/php.png" width="40">
-                                    </div>
-                                    <div class="ml-3">
-                                        <div class="name">Login </div>
-                                        <h5 class="mb-0">phpmyadmin</h5>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </a>
-
-
-
+                    <div style="margin-top:10px;height:5px;background:rgba(255,255,255,0.07);border-radius:5px;overflow:hidden;">
+                        <div style="height:100%;border-radius:5px;width:{% if totalemail == '∞' %}0{% else %}{{ percentageemail|floatformat:0 }}{% endif %}%;background:{% if percentageemail > 80 %}linear-gradient(90deg,#ef4444,#dc2626){% else %}linear-gradient(90deg,#10b981,#34d399){% endif %};transition:width 1s ease;"></div>
                     </div>
                 </div>
 
+                <!-- Databases -->
+                <div style="background:var(--vp-card-bg);border:1px solid var(--vp-card-border);border-radius:16px;padding:18px 20px;backdrop-filter:blur(14px);">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div style="width:36px;height:36px;border-radius:10px;background:rgba(245,158,11,0.15);display:flex;align-items:center;justify-content:center;color:#f59e0b;font-size:1rem;"><i class="fa-solid fa-database"></i></div>
+                        <div>
+                            <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#f59e0b;">Databases</div>
+                            <div style="font-size:1.3rem;font-weight:800;color:var(--vp-text-bright);line-height:1.1;">{{ useddatabase }}<span style="font-size:0.75rem;color:#64748b;font-weight:400;"> / {{ totaldb }}</span></div>
+                        </div>
+                    </div>
+                    <div style="margin-top:10px;height:5px;background:rgba(255,255,255,0.07);border-radius:5px;overflow:hidden;">
+                        <div style="height:100%;border-radius:5px;width:{% if totaldb == '∞' %}0{% else %}{{ percentagedb|floatformat:0 }}{% endif %}%;background:{% if percentagedb > 80 %}linear-gradient(90deg,#ef4444,#dc2626){% else %}linear-gradient(90deg,#f59e0b,#fbbf24){% endif %};transition:width 1s ease;"></div>
+                    </div>
+                </div>
 
+                <!-- Subdomains -->
+                <div style="background:var(--vp-card-bg);border:1px solid var(--vp-card-border);border-radius:16px;padding:18px 20px;backdrop-filter:blur(14px);">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div style="width:36px;height:36px;border-radius:10px;background:rgba(236,72,153,0.15);display:flex;align-items:center;justify-content:center;color:#ec4899;font-size:1rem;"><i class="fa-solid fa-sitemap"></i></div>
+                        <div>
+                            <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#ec4899;">Subdomains</div>
+                            <div style="font-size:1.3rem;font-weight:800;color:var(--vp-text-bright);line-height:1.1;">{{ usedsubdomain }}<span style="font-size:0.75rem;color:#64748b;font-weight:400;"> / {{ totalsubdomain }}</span></div>
+                        </div>
+                    </div>
+                    <div style="margin-top:10px;height:5px;background:rgba(255,255,255,0.07);border-radius:5px;overflow:hidden;">
+                        <div style="height:100%;border-radius:5px;width:{% if totalsubdomain == '∞' %}0{% else %}{{ percentagesubdomain|floatformat:0 }}{% endif %}%;background:{% if percentagesubdomain > 80 %}linear-gradient(90deg,#ef4444,#dc2626){% else %}linear-gradient(90deg,#ec4899,#f472b6){% endif %};transition:width 1s ease;"></div>
+                    </div>
+                </div>
 
-                <h4 class="p-2">Email Function</h4>
-                <div class="row clearfix">
+            </div>
 
+            <!-- ══ Two-column: Preview + Quick Access ══ -->
+            <div class="vp-dashboard-main-grid">
 
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-
-                        <div onclick="viewemail();" class="card">
-                            <div class="body">
-                                <div class="currency_state d-flex">
-                                    <div><img src="/static/icons/email.png" width="40">
-                                    </div>
-                                    <div class="ml-3">
-                                        <div class="name">Create </div>
-                                        <h5 class="mb-0">Email</h5>
-                                    </div>
+                <!-- Live Preview -->
+                <div style="display:flex;flex-direction:column;">
+                    <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#6366f1;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+                        <i class="fa-solid fa-eye"></i> Live Preview
+                    </div>
+                    {% if status %}
+                    <div style="flex:1;display:flex;flex-direction:column;border-radius:16px;overflow:hidden;border:1px solid var(--vp-card-border);box-shadow:0 8px 32px rgba(0,0,0,0.1);background:var(--vp-surface);min-height:0;">
+                        <!-- Browser chrome bar -->
+                        <div style="display:flex;align-items:center;gap:7px;background:var(--vp-surface2);border-bottom:1px solid var(--vp-border);padding:10px 14px;flex-shrink:0;">
+                            <span style="width:10px;height:10px;border-radius:50%;background:#ef4444;flex-shrink:0;"></span>
+                            <span style="width:10px;height:10px;border-radius:50%;background:#f59e0b;flex-shrink:0;"></span>
+                            <span style="width:10px;height:10px;border-radius:50%;background:#22c55e;flex-shrink:0;"></span>
+                            <div style="flex:1;background:rgba(255,255,255,0.06);border-radius:6px;padding:5px 12px;font-size:0.7rem;color:var(--vp-text);opacity:0.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">https://{{ primarydomain }}</div>
+                            <a href="https://{{ primarydomain }}" target="_blank" style="color:#818cf8;font-size:0.75rem;text-decoration:none;flex-shrink:0;padding-left:6px;"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                        </div>
+                        <!-- Screenshot preview — no iframe (iframes always blocked by X-Frame-Options).
+                             Uses WordPress mshots: free, no API key needed, zero server config. Works on every fresh install. -->
+                        <div style="flex:1;position:relative;min-height:320px;background:var(--vp-surface);overflow:hidden;">
+                            <!-- Loading shimmer -->
+                            <div id="preview-shimmer" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:2;">
+                                <div style="width:42px;height:42px;border:3px solid rgba(99,102,241,0.15);border-top-color:#6366f1;border-radius:50%;animation:vpSpin 0.9s linear infinite;"></div>
+                                <span style="font-size:0.75rem;color:#475569;letter-spacing:0.04em;">Generating screenshot…</span>
+                            </div>
+                            <!-- Screenshot image — click opens the site -->
+                            <img
+                                id="preview-img"
+                                src="https://s.wordpress.com/mshots/v1/https%3A%2F%2F{{ primarydomain }}?w=900&h=520"
+                                alt="Preview of {{ primarydomain }}"
+                                style="width:100%;min-height:320px;height:100%;object-fit:cover;object-position:top;display:none;cursor:pointer;transition:opacity 0.4s ease;"
+                                onclick="window.open('https://{{ primarydomain }}','_blank')"
+                                title="Click to open {{ primarydomain }}"
+                                onload="document.getElementById('preview-shimmer').style.display='none';this.style.display='block';"
+                                onerror="document.getElementById('preview-shimmer').style.display='none';document.getElementById('preview-error').style.display='flex';"
+                            >
+                            <!-- Error fallback -->
+                            <div id="preview-error" style="display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;z-index:3;">
+                                <i class="fa-solid fa-image-slash" style="color:#475569;font-size:2rem;opacity:0.6;"></i>
+                                <div style="color:#64748b;font-size:0.8rem;line-height:1.5;">Screenshot not available yet.<br><span style="font-size:0.72rem;opacity:0.7;">It may take a moment for new sites.</span></div>
+                                <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+                                    <button onclick="refreshPreview()" style="background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.25);color:#818cf8;border-radius:8px;padding:7px 16px;font-size:0.78rem;cursor:pointer;font-family:inherit;"><i class="fa-solid fa-rotate"></i> Retry</button>
+                                    <a href="https://{{ primarydomain }}" target="_blank" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#cbd5e1;border-radius:8px;padding:7px 16px;font-size:0.78rem;text-decoration:none;">Open site →</a>
                                 </div>
                             </div>
                         </div>
-
-
-
-                    </div>
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-                        <a href="/control/listemail/{{domain}}/" target="_blank">
-                            <div class="card">
-                                <div class="body">
-                                    <div class="currency_state d-flex">
-                                        <div><img src="/static/icons/ec.png" width="40">
-                                        </div>
-                                        <div class="ml-3">
-                                            <div class="name">Connect</div>
-                                            <h5 class="mb-0">Email</h5>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-
-
-                    </div>
-
-                </div>
-
-                <h4 class="p-2">Extra Function</h4>
-                <div class="row clearfix">
-
-
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-
-                        <div class="card" onclick="viewphp();">
-                            <div class="body">
-                                <div class="currency_state d-flex">
-                                    <div><img src="/static/icons/php.svg" width="40">
-                                    </div>
-                                    <div class="ml-3">
-                                        <div class="name">PHP </div>
-                                        <h5 class="mb-0">Selector</h5>
-                                    </div>
-                                </div>
-                            </div>
+                        <!-- Toolbar below screenshto -->
+                        <div style="padding:7px 14px;background:rgba(255,255,255,0.02);border-top:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+                            <span style="font-size:0.67rem;color:#334155;">Click image to open site</span>
+                            <button onclick="refreshPreview()" style="background:transparent;border:none;color:#475569;font-size:0.7rem;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px;padding:2px 6px;border-radius:4px;transition:color 0.2s;" onmouseover="this.style.color='#818cf8'" onmouseout="this.style.color='#475569'">
+                                <i class="fa-solid fa-rotate"></i> Refresh
+                            </button>
                         </div>
-
-
-
                     </div>
-
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-                        <a href="/control/phpini/{{domain}}">
-                            <div class="card">
-                                <div class="body">
-                                    <div class="currency_state d-flex">
-                                        <div><img src="/static/icons/phpini.svg" width="40">
-                                        </div>
-                                        <div class="ml-3">
-                                            <div class="name">PHP </div>
-                                            <h5 class="mb-0">INI</h5>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-
-
-
-                    </div>
-
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-                        <a href="/control/subdomain/{{domain}}" target="_blank">
-                            <div class="card">
-                                <div class="body">
-                                    <div class="currency_state d-flex">
-                                        <div><img src="/static/icons/sub.png" width="40">
-                                        </div>
-                                        <div class="ml-3">
-                                            <div class="name">Domain </div>
-                                            <h5 class="mb-0">Subdomain</h5>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-
-
-                    </div>
-
-                    <div class="col-lg-3 col-md-6 col-sm-6">
-                        <a href="/control/terminal/">
-                            <div class="card">
-                                <div class="body">
-                                    <div class="currency_state d-flex">
-                                        <div><img src="/static/icons/terminal.png" width="40">
-                                        </div>
-                                        <div class="ml-3">
-                                            <div class="name">Run</div>
-                                            <h5 class="mb-0">Command</h5>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-                    </div>
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-                        <a href="/control/python/{{domain}}">
-                            <div class="card">
-                                <div class="body">
-                                    <div class="currency_state d-flex">
-                                        <div><img src="/static/icons/python.png" width="40">
-                                        </div>
-                                        <div class="ml-3">
-                                            <div class="name">Setup </div>
-                                            <h5 class="mb-0">Python</h5>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-
-
-
-                    </div>
-
-
-{% if rohan.status %}
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-                        <a href="/control/ftp/{{domain}}" target="_blank">
-                            <div class="card">
-                                <div class="body">
-                                    <div class="currency_state d-flex">
-                                        <div><img src="/static/icons/ftp.png" width="40">
-                                        </div>
-                                        <div class="ml-3">
-                                            <div class="name">Account </div>
-                                            <h5 class="mb-0">FTP</h5>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-
-
-                    </div>
-
-{% endif %}
-
-
-
-
-
-
-                </div>
-
-
-
-
-                <h4 class="p-2">Wesite Function</h4>
-                <div class="row clearfix">
-
-
-                   
-
-
-
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-                        <a href="http://{{domain.domain}}" target="_blank">
-                            <div class="card">
-                                <div class="body">
-                                    <div class="currency_state d-flex">
-                                        <div><img src="/static/icons/view.svg" width="40">
-                                        </div>
-                                        <div class="ml-3">
-                                            <div class="name">Website</div>
-                                            <h5 class="mb-0">View</h5>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-
-
-                    </div>
-
-
-                    <div class="col-lg-3 col-md-12 col-sm-12">
-
-
-                        <a href="/control/addredirect/{{domain}}">
-                            <div class="card">
-                                <div class="body">
-                                    <div class="currency_state d-flex">
-                                        <div><img src="/static/icons/re.png" width="40">
-                                        </div>
-                                        <div class="ml-3">
-                                            <div class="name">Website</div>
-                                            <h5 class="mb-0">Redirect</h5>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-
-
-                    </div>
-
-
-
-
-
-
-                </div>
-
-
-
-                <div class="modal animated fadeIn show" id="adddatabaseuser" style="display: none; margin-top: 300px;">
-                    <div class="modal-dialog modal-sm" role="document">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h6 class="title" id="defaultModalLabel">Add DataBase User</h6>
-                            </div>
-                            <form id="adddbuser" method="post" action="">{% csrf_token %}
-                                <div class="modal-body">
-                                    <div class="row clearfix">
-
-
-                                        <div class="col-md-12 col-sm-12">
-
-                                            <div class="input-group mb-3">
-                                                <div class="input-group-append">
-                                                    <span class="input-group-text" id="basic-addon2">{{domain}}_</span>
-                                                </div>
-                                                <input required type="text" id="textInput"
-                                                    oninput="removeSpacesAndSpecialChars(this);" name="databaseuser"
-                                                    class="form-control" placeholder="username" required
-                                                    aria-label="Recipient's username" aria-describedby="basic-addon2">
-
-                                            </div>
-                                            <div class="form-group">
-                                                <input required type="password" name="password" placeholder="Password"
-                                                    id="password68" required class="form-control">
-
-                                                <input type="password" name="domain" value="{{mymy.dir}}" hidden
-                                                    class="form-control">
-
-                                            </div>
-                                            <div id="match" class="form-group">
-
-
-                                            </div>
-                                            <div class="form-group">
-                                                <input required type="password" oninput="confirm1(this);"
-                                                    name="password1" placeholder="Confirm Password" id="password69"
-                                                    class="form-control">
-
-                                            </div>
-                                            <div class="row clearfix">
-                                                <div class="col-md-8 col-sm-12">
-                                                    <div class="form-group">
-                                                        <button type="button" class="btn btn-secondary"
-                                                            onclick="gen1();">Generate Password</button>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-4 col-sm-12">
-                                                    <div class="form-group">
-                                                        <button type="button" class="btn btn-primary"
-                                                            onclick="genshow1();"><i class="fa  icon-eye"> </i></button>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                        </div>
-
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button id="addemailbtn1" onclick="adddatabaseuser(event);" style="display: block;"
-                                        class="btn btn-primary" disabled>Add</button>
-                                    <button type="button" class="btn btn-secondary"
-                                        onclick="closeemail();">CLOSE</button>
-                                    <p id="pro" style="display: none;" class="processing">Processing<span
-                                            class="dots"></span>
-                                    </p>
-                                </div>
-                            </form>
+                    <script>
+                    function refreshPreview() {
+                        var img = document.getElementById('preview-img');
+                        var shimmer = document.getElementById('preview-shimmer');
+                        var err = document.getElementById('preview-error');
+                        if (!img) return;
+                        img.style.display = 'none';
+                        err.style.display = 'none';
+                        shimmer.style.display = 'flex';
+                        img.src = "https://s.wordpress.com/mshots/v1/https%3A%2F%2F{{ primarydomain }}?w=900&h=520&force=true&t=" + Date.now();
+                    }
+                    // mshots sometimes serves a placeholder the first time for uncached sites.
+                    // Auto-retry after 10s if the image hasn't loaded yet.
+                    setTimeout(function() {
+                        var img = document.getElementById('preview-img');
+                        if (img && img.style.display === 'none') { refreshPreview(); }
+                    }, 10000);
+                    </script>
+                    {% else %}
+                    <div style="flex:1;background:rgba(15,23,42,0.7);border:1px solid rgba(255,255,255,0.07);border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;backdrop-filter:blur(14px);padding:32px;text-align:center;">
+                        <div style="width:64px;height:64px;border-radius:18px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);display:flex;align-items:center;justify-content:center;">
+                            <i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;font-size:1.8rem;"></i>
                         </div>
+                        <div>
+                            <div style="font-weight:700;color:#f8fafc;font-size:1.05rem;margin-bottom:8px;">Domain Not Live</div>
+                            <div style="color:#64748b;font-size:0.82rem;line-height:1.6;max-width:220px;margin:0 auto;">Configure DNS records to point this domain to the server and bring your website online.</div>
+                        </div>
+                        <a href="/control/eadns/?domain={{domain}}" style="background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff;padding:10px 24px;border-radius:10px;font-size:0.84rem;font-weight:600;text-decoration:none;box-shadow:0 4px 16px rgba(99,102,241,0.3);">Configure DNS →</a>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Quick Access Grid -->
+                <div style="display:flex;flex-direction:column;">
+                    <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#6366f1;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+                        <i class="fa-solid fa-bolt"></i> Quick Access
+                    </div>
+                    <div class="vp-quick-access-grid">
+
+                        <a href="/control/eadns/?domain={{domain}}" class="cp-card" style="--cc:#818cf8;--ccbg:rgba(99,102,241,0.12);">
+                            <div class="cp-icon"><i class="fa-solid fa-earth-americas"></i></div>
+                            <div class="cp-label">Edit / Add</div><div class="cp-name">DNS</div>
+                        </a>
+
+                        <a href="/control/runssl/{{domain}}" class="cp-card" style="--cc:#10b981;--ccbg:rgba(16,185,129,0.12);">
+                            <div class="cp-icon"><i class="fa-solid fa-lock"></i></div>
+                            <div class="cp-label">Security</div><div class="cp-name">SSL</div>
+                        </a>
+
+                        <a href="/control/cron/{{domain}}" class="cp-card" style="--cc:#f59e0b;--ccbg:rgba(245,158,11,0.12);">
+                            <div class="cp-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                            <div class="cp-label">Schedule</div><div class="cp-name">Cron Jobs</div>
+                        </a>
+
+                        <a href="/control/backup/{{domain}}" class="cp-card" style="--cc:#22d3ee;--ccbg:rgba(34,211,238,0.12);">
+                            <div class="cp-icon"><i class="fa-solid fa-cloud-arrow-down"></i></div>
+                            <div class="cp-label">Restore</div><div class="cp-name">Backup</div>
+                        </a>
+
+                        <a href="/control/filemanager/?key=//home/{{dir}}" target="_blank" class="cp-card" style="--cc:#ec4899;--ccbg:rgba(236,72,153,0.12);">
+                            <div class="cp-icon"><i class="fa-solid fa-folder-open"></i></div>
+                            <div class="cp-label">Browse</div><div class="cp-name">File Manager</div>
+                        </a>
+
+                        <a href="javascript:void(0);" onclick="openSiteConfigEditor('{{domain}}');" class="cp-card" style="--cc:#a855f7;--ccbg:rgba(168,85,247,0.12);">
+                            <div class="cp-icon"><i class="fa-solid fa-code"></i></div>
+                            <div class="cp-label">Advanced</div><div class="cp-name">Web Config</div>
+                        </a>
+
+                    </div>
+                </div>
+            </div>
+
+
+
+
+            <!-- ══ Database Functions ══ -->
+            <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#6366f1;margin-bottom:12px;display:flex;align-items:center;gap:8px;padding-top:4px;border-top:1px solid rgba(99,102,241,0.12);padding-top:16px;">
+                <i class="fa-solid fa-database"></i> Database Functions
+            </div>
+            <div class="vp-grid-4-cols">
+
+                <div onclick="viewdb()" class="cp-card" style="--cc:#f59e0b;--ccbg:rgba(245,158,11,0.12);cursor:pointer;">
+                    <div class="cp-icon"><i class="fa-solid fa-database"></i></div>
+                    <div class="cp-label">MySQL</div><div class="cp-name">Databases</div>
+                </div>
+
+                <a href="/control/dbconnect/{{domain}}" class="cp-card" style="--cc:#818cf8;--ccbg:rgba(99,102,241,0.12);">
+                    <div class="cp-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                    <div class="cp-label">Auto</div><div class="cp-name">DB Setup</div>
+                </a>
+
+                <div onclick="viewemailemail();" class="cp-card" style="--cc:#22d3ee;--ccbg:rgba(34,211,238,0.12);cursor:pointer;">
+                    <div class="cp-icon"><i class="fa-solid fa-user-gear"></i></div>
+                    <div class="cp-label">Manage</div><div class="cp-name">DB Users</div>
+                </div>
+
+                <a href="/control/pma_login/{{domain}}/" target="_blank" class="cp-card" style="--cc:#fb923c;--ccbg:rgba(251,146,60,0.12);">
+                    <div class="cp-icon"><i class="fa-solid fa-table-columns"></i></div>
+                    <div class="cp-label">Login</div><div class="cp-name">phpMyAdmin</div>
+                </a>
+
+            </div>
+
+            <!-- ══ Email Functions ══ -->
+            <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#10b981;margin-bottom:12px;display:flex;align-items:center;gap:8px;border-top:1px solid rgba(16,185,129,0.12);padding-top:16px;">
+                <i class="fa-solid fa-envelope"></i> Email Functions
+            </div>
+            <div class="vp-grid-4-cols">
+
+                <div onclick="viewemail();" class="cp-card" style="--cc:#10b981;--ccbg:rgba(16,185,129,0.12);cursor:pointer;">
+                    <div class="cp-icon"><i class="fa-solid fa-envelope"></i></div>
+                    <div class="cp-label">Create</div><div class="cp-name">Email</div>
+                </div>
+
+                <a href="/control/listemail/{{domain}}/" target="_blank" class="cp-card" style="--cc:#34d399;--ccbg:rgba(52,211,153,0.12);">
+                    <div class="cp-icon"><i class="fa-solid fa-inbox"></i></div>
+                    <div class="cp-label">Manage</div><div class="cp-name">List Emails</div>
+                </a>
+
+            </div>
+
+            <!-- ══ Social Media (shown if license includes social_suite) ══ -->
+            {% if license_features.social_suite %}
+            <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#f472b6;margin-bottom:12px;display:flex;align-items:center;gap:8px;border-top:1px solid rgba(244,114,182,0.12);padding-top:16px;">
+                <i class="fa-solid fa-share-nodes"></i> Social Media
+            </div>
+            <!-- Hero portal card -->
+            <a href="{{ suite_sso_social }}" class="mkt-hero-card" style="display:flex;align-items:center;justify-content:space-between;padding:20px 26px;background:linear-gradient(135deg,rgba(225,48,108,0.15),rgba(131,58,180,0.13));border:2px solid rgba(225,48,108,0.45);border-radius:16px;text-decoration:none;transition:transform 0.2s,border-color 0.2s,box-shadow 0.2s;margin-bottom:14px;position:relative;overflow:hidden;">
+                <div style="position:absolute;top:-50%;left:-20%;width:280px;height:280px;background:radial-gradient(circle,rgba(225,48,108,0.12) 0%,transparent 70%);pointer-events:none;"></div>
+                <div style="display:flex;align-items:center;gap:16px;z-index:1;">
+                    <div style="width:50px;height:50px;border-radius:14px;background:linear-gradient(135deg,rgba(225,48,108,0.25),rgba(131,58,180,0.2));color:#f9a8d4;display:flex;align-items:center;justify-content:center;font-size:1.4rem;"><i class="fa-brands fa-instagram"></i></div>
+                    <div>
+                        <div style="font-size:1rem;font-weight:800;color:#fff;margin-bottom:3px;">Launch Social Media Studio</div>
+                        <div style="font-size:0.8rem;color:#94a3b8;">Post Composer &bull; Content Calendar &bull; Analytics &bull; Social Inbox &bull; AI Captions &bull; Audience Insights</div>
+                        <div style="margin-top:5px;"><span style="font-size:10px;font-weight:800;padding:2px 9px;border-radius:20px;background:rgba(225,48,108,.25);color:#f9a8d4;"><i class="fa-solid fa-bolt"></i> SSO Included &mdash; {{ pkg_social_plan|capfirst }} Plan</span></div>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;z-index:1;">
+                    <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(225,48,108,.18);color:#f9a8d4;"><i class="fa-brands fa-instagram"></i> IG</span>
+                    <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(24,119,242,.18);color:#93c5fd;"><i class="fa-brands fa-facebook-f"></i> FB</span>
+                    <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(10,102,194,.18);color:#7dd3fc;"><i class="fa-brands fa-linkedin-in"></i> LI</span>
+                    <i class="fa-solid fa-arrow-right" style="color:#f9a8d4;font-size:14px;margin-left:6px;"></i>
+                </div>
+            </a>
+            {% endif %}
+
+            <!-- ══ Marketing (shown if license includes marketing_suite) ══ -->
+            {% if license_features.marketing_suite %}
+            <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#f97316;margin-bottom:12px;display:flex;align-items:center;gap:8px;border-top:1px solid rgba(249,115,22,0.12);padding-top:16px;">
+                <i class="fa-solid fa-bullseye"></i> Omnichannel Marketing CRM Suite
+            </div>
+            <a href="{{ suite_sso_marketing }}" class="mkt-hero-card" style="display:flex;align-items:center;justify-content:space-between;padding:24px 30px;background:linear-gradient(135deg,rgba(249,115,22,0.15),rgba(236,72,153,0.1));border:2px solid rgba(249,115,22,0.45);border-radius:16px;text-decoration:none;transition:transform 0.2s,border-color 0.2s,box-shadow 0.2s;margin-bottom:20px;position:relative;overflow:hidden;">
+                <div style="position:absolute;top:-50%;left:-20%;width:300px;height:300px;background:radial-gradient(circle,rgba(249,115,22,0.15) 0%,transparent 70%);pointer-events:none;"></div>
+                <div style="display:flex;align-items:center;gap:20px;z-index:1;">
+                    <div style="width:54px;height:54px;border-radius:14px;background:rgba(249,115,22,0.2);color:#f97316;display:flex;align-items:center;justify-content:center;font-size:1.6rem;"><i class="fa-solid fa-rocket"></i></div>
+                    <div>
+                        <div style="font-size:1.1rem;font-weight:800;color:#fff;margin-bottom:4px;">Launch Marketing &amp; CRM Application</div>
+                        <div style="font-size:0.82rem;color:#94a3b8;">Email Broadcasts &bull; Custom SMTP Routes &bull; SMS DLT Gateways &bull; WhatsApp Shared Team Chat Inbox</div>
+                        <div style="margin-top:5px;"><span style="font-size:10px;font-weight:800;padding:2px 9px;border-radius:20px;background:rgba(249,115,22,.25);color:#fdba74;"><i class="fa-solid fa-bolt"></i> SSO Included &mdash; {{ pkg_marketing_plan|capfirst }} Plan</span></div>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;z-index:1;">
+                    <div style="display:flex;gap:6px;font-size:0.75rem;color:#f97316;font-weight:700;background:rgba(249,115,22,0.1);padding:4px 10px;border-radius:20px;border:1px solid rgba(249,115,22,0.2);"><i class="fa-solid fa-envelope"></i> Email</div>
+                    <div style="display:flex;gap:6px;font-size:0.75rem;color:#34d399;font-weight:700;background:rgba(52,211,153,0.1);padding:4px 10px;border-radius:20px;border:1px solid rgba(52,211,153,0.2);"><i class="fa-brands fa-whatsapp"></i> WhatsApp</div>
+                    <div style="display:flex;gap:6px;font-size:0.75rem;color:#60a5fa;font-weight:700;background:rgba(96,165,250,0.1);padding:4px 10px;border-radius:20px;border:1px solid rgba(96,165,250,0.2);"><i class="fa-solid fa-comment-sms"></i> SMS</div>
+                    <div style="color:#fff;font-size:1.2rem;margin-left:10px;"><i class="fa-solid fa-chevron-right"></i></div>
+                </div>
+            </a>
+            <style>.mkt-hero-card:hover{transform:translateY(-2px);border-color:rgba(249,115,22,0.5)!important;box-shadow:0 10px 30px rgba(249,115,22,0.08)}</style>
+            {% endif %}
+
+            <!-- ══ SEO Portal (shown if license includes seo_tools) ══ -->
+            {% if license_features.seo_tools %}
+            <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#10b981;margin-bottom:12px;display:flex;align-items:center;gap:8px;border-top:1px solid rgba(16,185,129,0.12);padding-top:16px;">
+                <i class="fa-solid fa-magnifying-glass-chart"></i> SEO Portal
+            </div>
+            <a href="{{ suite_sso_seo }}" class="seo-hero-card" style="display:flex;align-items:center;justify-content:space-between;padding:24px 30px;background:linear-gradient(135deg,rgba(16,185,129,0.15),rgba(6,182,212,0.1));border:2px solid rgba(16,185,129,0.45);border-radius:16px;text-decoration:none;transition:transform 0.2s,border-color 0.2s,box-shadow 0.2s;margin-bottom:20px;position:relative;overflow:hidden;">
+                <div style="position:absolute;top:-50%;left:-20%;width:300px;height:300px;background:radial-gradient(circle,rgba(16,185,129,0.15) 0%,transparent 70%);pointer-events:none;"></div>
+                <div style="display:flex;align-items:center;gap:20px;z-index:1;">
+                    <div style="width:54px;height:54px;border-radius:14px;background:rgba(16,185,129,0.2);color:#10b981;display:flex;align-items:center;justify-content:center;font-size:1.6rem;"><i class="fa-solid fa-chart-line"></i></div>
+                    <div>
+                        <div style="font-size:1.1rem;font-weight:800;color:#fff;margin-bottom:4px;">Launch SEO Portal</div>
+                        <div style="font-size:0.82rem;color:#94a3b8;">Competitor Keyword Research &bull; Common Crawl Web Indexer &bull; Backlink Checkers &bull; On-Page SEO Audits</div>
+                        <div style="margin-top:5px;"><span style="font-size:10px;font-weight:800;padding:2px 9px;border-radius:20px;background:rgba(16,185,129,.25);color:#6ee7b7;"><i class="fa-solid fa-bolt"></i> SSO Included &mdash; {{ pkg_seo_plan|capfirst }} Plan</span></div>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;z-index:1;">
+                    <div style="display:flex;gap:6px;font-size:0.75rem;color:#10b981;font-weight:700;background:rgba(16,185,129,0.1);padding:4px 10px;border-radius:20px;border:1px solid rgba(16,185,129,0.2);"><i class="fa-solid fa-shield-halved"></i> Audit</div>
+                    <div style="display:flex;gap:6px;font-size:0.75rem;color:#06b6d4;font-weight:700;background:rgba(6,182,212,0.1);padding:4px 10px;border-radius:20px;border:1px solid rgba(6,182,212,0.2);"><i class="fa-solid fa-link"></i> Backlinks</div>
+                    <div style="display:flex;gap:6px;font-size:0.75rem;color:#3b82f6;font-weight:700;background:rgba(59,130,246,0.1);padding:4px 10px;border-radius:20px;border:1px solid rgba(59,130,246,0.2);"><i class="fa-solid fa-key"></i> Keywords</div>
+                    <div style="color:#fff;font-size:1.2rem;margin-left:10px;"><i class="fa-solid fa-chevron-right"></i></div>
+                </div>
+            </a>
+            <style>.seo-hero-card:hover{transform:translateY(-2px);border-color:rgba(16,185,129,0.5)!important;box-shadow:0 10px 30px rgba(16,185,129,0.08)}</style>
+            {% endif %}
+
+
+<!-- ══ System & Extras ══ -->
+            <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#a855f7;margin-bottom:12px;display:flex;align-items:center;gap:8px;border-top:1px solid rgba(168,85,247,0.12);padding-top:16px;">
+                <i class="fa-solid fa-gears"></i> System &amp; Extras
+            </div>
+            <div class="vp-grid-5-cols">
+
+                <div onclick="viewphp();" class="cp-card" style="--cc:#a855f7;--ccbg:rgba(168,85,247,0.12);cursor:pointer;">
+                    <div class="cp-icon"><i class="fa-brands fa-php"></i></div>
+                    <div class="cp-label">Select</div><div class="cp-name">PHP Version</div>
+                </div>
+
+                <a href="/control/phpini/{{domain}}/" class="cp-card" style="--cc:#818cf8;--ccbg:rgba(99,102,241,0.12);">
+                    <div class="cp-icon"><i class="fa-solid fa-sliders"></i></div>
+                    <div class="cp-label">Edit</div><div class="cp-name">PHP INI</div>
+                </a>
+
+                <a href="/control/subdomain/{{domain}}" target="_blank" class="cp-card" style="--cc:#22d3ee;--ccbg:rgba(34,211,238,0.12);">
+                    <div class="cp-icon"><i class="fa-solid fa-sitemap"></i></div>
+                    <div class="cp-label">Manage</div><div class="cp-name">Subdomains</div>
+                </a>
+
+                {% if license_features.script_installer %}
+                <a href="/control/python/{{domain}}" class="cp-card" style="--cc:#fbbf24;--ccbg:rgba(251,191,36,0.12);">
+                    <div class="cp-icon"><i class="fa-brands fa-python"></i></div>
+                    <div class="cp-label">Deploy</div><div class="cp-name">Python App</div>
+                </a>
+
+                <a href="/control/mern/{{domain}}" class="cp-card" style="--cc:#38bdf8;--ccbg:rgba(56,189,248,0.12);">
+                    <div class="cp-icon"><i class="fa-brands fa-react"></i></div>
+                    <div class="cp-label">Deploy</div><div class="cp-name">MERN App</div>
+                </a>
+                {% endif %}
+
+                {% if shell_access %}
+                <a href="/control/terminal/" class="cp-card" style="--cc:#10b981;--ccbg:rgba(16,185,129,0.12);">
+                    <div class="cp-icon"><i class="fa-solid fa-terminal"></i></div>
+                    <div class="cp-label">Interactive</div><div class="cp-name">Terminal</div>
+                </a>
+                {% endif %}
+
+                {% if rohan.status %}
+                <a href="/control/ftp/{{domain}}" target="_blank" class="cp-card" style="--cc:#fb923c;--ccbg:rgba(251,146,60,0.12);">
+                    <div class="cp-icon"><i class="fa-solid fa-arrow-right-arrow-left"></i></div>
+                    <div class="cp-label">Manage</div><div class="cp-name">FTP Account</div>
+                </a>
+                {% endif %}
+
+                {% if license_features.docker_manager %}
+                <a href="/control/docker/{{domain}}/" class="cp-card" style="--cc:#0db7ed;--ccbg:rgba(13,183,237,0.12);">
+                    <div class="cp-icon"><i class="fa-brands fa-docker"></i></div>
+                    <div class="cp-label">Container</div><div class="cp-name">Docker Manager</div>
+                </a>
+                {% endif %}
+
+                <a href="/control/cloudflare/{{domain}}/" class="cp-card" style="--cc:#f38020;--ccbg:rgba(243,128,32,0.12);">
+                    <div class="cp-icon"><i class="fa-brands fa-cloudflare"></i></div>
+                    <div class="cp-label">CDN</div><div class="cp-name">Cloudflare</div>
+                </a>
+            </div>
+
+            <!-- ══ Website Functions ══ -->
+            <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#ec4899;margin-bottom:12px;display:flex;align-items:center;gap:8px;border-top:1px solid rgba(236,72,153,0.12);padding-top:16px;">
+                <i class="fa-solid fa-globe"></i> Website Functions
+            </div>
+            <div class="vp-grid-4-cols" style="margin-bottom:32px;">
+
+                <a href="http://{{domain}}/" target="_blank" class="cp-card" style="--cc:#ec4899;--ccbg:rgba(236,72,153,0.12);">
+                    <div class="cp-icon"><i class="fa-solid fa-eye"></i></div>
+                    <div class="cp-label">Open</div><div class="cp-name">View Website</div>
+                </a>
+
+                <a href="/control/addredirect/{{domain}}" class="cp-card" style="--cc:#f87171;--ccbg:rgba(248,113,113,0.12);">
+                    <div class="cp-icon"><i class="fa-solid fa-right-from-bracket"></i></div>
+                    <div class="cp-label">Setup</div><div class="cp-name">Redirect</div>
+                </a>
+
+                <div onclick="openModal('modal-copysite')" class="cp-card" style="--cc:#c084fc;--ccbg:rgba(192,132,252,0.12);cursor:pointer;">
+                    <div class="cp-icon"><i class="fa-solid fa-clone"></i></div>
+                    <div class="cp-label">Duplicate</div><div class="cp-name">Clone Site</div>
+                </div>
+
+                <a href="/control/analytics/{{domain}}/" class="cp-card" style="--cc:#34d399;--ccbg:rgba(52,211,153,0.12);">
+                    <div class="cp-icon"><i class="fa-solid fa-chart-line"></i></div>
+                    <div class="cp-label">Traffic</div><div class="cp-name">Analytics</div>
+                </a>
+
+            </div>
+
+            <!-- ══ One-Click Apps ══ -->
+            {% if license_features.script_installer %}
+            <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#3b82f6;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid rgba(59,130,246,0.12);padding-top:16px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <i class="fa-solid fa-box-open"></i> One-Click Apps
+                </div>
+                <a href="/control/app-installer/{{domain}}/" style="font-size:0.7rem;color:#3b82f6;text-decoration:none;text-transform:none;letter-spacing:normal;">View VoidApp Installer &rarr;</a>
+            </div>
+            <div class="vp-grid-5-cols" style="margin-bottom:32px;">
+
+                <a href="/control/app-installer/{{domain}}/?app=wordpress" class="cp-card" style="--cc:#3b82f6;--ccbg:rgba(59,130,246,0.12);text-decoration:none;">
+                    <div class="cp-icon" style="color:#fff;background:#0073AA;"><i class="fa-brands fa-wordpress"></i></div>
+                    <div class="cp-label">CMS</div><div class="cp-name">WordPress</div>
+                </a>
+
+                <a href="javascript:void(0);" class="cp-card" style="--cc:#10b981;--ccbg:rgba(16,185,129,0.12);text-decoration:none;cursor:not-allowed;opacity:0.6;">
+                    <div class="cp-icon" style="color:#15171A;background:#fff;"><i class="fa-solid fa-ghost"></i></div>
+                    <div class="cp-label">Blogging</div><div class="cp-name">Coming Soon</div>
+                </a>
+
+                <a href="javascript:void(0);" class="cp-card" style="--cc:#0082c9;--ccbg:rgba(0,130,201,0.12);text-decoration:none;cursor:not-allowed;opacity:0.6;">
+                    <div class="cp-icon" style="color:#fff;background:#0082c9;"><i class="fa-solid fa-cloud"></i></div>
+                    <div class="cp-label">Storage</div><div class="cp-name">Coming Soon</div>
+                </a>
+
+                <a href="javascript:void(0);" class="cp-card" style="--cc:#f59e0b;--ccbg:rgba(245,158,11,0.12);text-decoration:none;cursor:not-allowed;opacity:0.6;">
+                    <div class="cp-icon" style="color:#fff;background:#f59e0b;"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                    <div class="cp-label">Billing</div><div class="cp-name">Coming Soon</div>
+                </a>
+
+                <a href="/control/app-installer/{{domain}}/" class="cp-card" style="--cc:#8b5cf6;--ccbg:rgba(139,92,246,0.12);text-decoration:none;">
+                    <div class="cp-icon"><i class="fa-solid fa-layer-group"></i></div>
+                    <div class="cp-label">Explore</div><div class="cp-name">App Catalog</div>
+                </a>
+
+            </div>
+            {% endif %}{# /license_features.script_installer #}
+
+        </div><!-- /dash root -->
+        </div><!-- /main-content -->
+
+        <!-- Old modal removed -->
+
+        <script>
+        function openAppInstallModal(appName) {
+            document.getElementById('install_app_name').value = appName;
+            document.getElementById('app-modal-title').innerText = "Install " + appName;
+            
+            // Set icon based on app
+            let iconHtml = '<i class="fa-solid fa-box-open"></i>';
+            if (appName === 'WordPress') iconHtml = '<i class="fa-brands fa-wordpress"></i>';
+            if (appName === 'Ghost') iconHtml = '<i class="fa-solid fa-ghost"></i>';
+            if (appName === 'Nextcloud') iconHtml = '<i class="fa-solid fa-cloud"></i>';
+            if (appName === 'WHMCS') iconHtml = '<i class="fa-solid fa-file-invoice-dollar"></i>';
+            
+            document.getElementById('app-modal-icon').innerHTML = iconHtml;
+            document.getElementById('modal-app-install').classList.add('show');
+        }
+
+        async function submitAppInstall(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btn-submit-install');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spin-ring" style="width:14px;height:14px;margin-right:6px;border-width:2px;"></div> Installing...';
+
+            const form = document.getElementById('form-app-install');
+            const formData = new FormData(form);
+
+            try {
+                // Future endpoint: /control/api/app-installer/install/
+                const res = await fetch('/control/app-installer/install/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+                });
+                
+                const result = await res.json();
+                
+                document.getElementById('modal-app-install').classList.remove('show');
+                
+                // Show result overlay
+                const resultOverlay = document.getElementById('result-overlay') || createResultOverlay();
+                const resultIcon = resultOverlay.querySelector('.result-icon');
+                const resultMsg = resultOverlay.querySelector('.result-msg');
+                
+                if (res.ok && result.status === 'success') {
+                    resultIcon.innerHTML = '<i class="fa-solid fa-circle-check" style="color:#10b981;"></i>';
+                    resultMsg.innerHTML = result.message || "Installation started successfully!";
+                } else {
+                    resultIcon.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i>';
+                    resultMsg.innerHTML = result.message || "Installation failed. Please try again.";
+                }
+                resultOverlay.classList.add('show');
+
+            } catch (err) {
+                alert("Network error occurred while installing app.");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-download"></i> Install Now';
+            }
+        }
+
+        function createResultOverlay() {
+            const overlay = document.createElement('div');
+            overlay.className = 'result-overlay';
+            overlay.id = 'result-overlay';
+            overlay.innerHTML = `
+                <div class="result-glass">
+                    <div class="result-icon"></div>
+                    <div class="result-msg"></div>
+                    <button class="btn-result-close" onclick="this.closest('.result-overlay').classList.remove('show')">Close</button>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            return overlay;
+        }
+        </script>
+
+        <!-- Card Styles -->
+        <style>
+        .cp-card {
+            background: var(--vp-card-bg);
+            border: 1px solid var(--vp-card-border);
+            border-radius: 14px;
+            padding: 18px 16px;
+            display: flex; flex-direction: column; gap: 8px;
+            text-decoration: none !important;
+            transition: transform 0.22s cubic-bezier(.34,1.56,.64,1), border-color 0.2s, background 0.2s, box-shadow 0.2s;
+            backdrop-filter: blur(14px);
+            position: relative; overflow: hidden;
+            cursor: pointer;
+        }
+        .cp-card::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(135deg, var(--ccbg, rgba(99,102,241,0.06)) 0%, transparent 60%);
+            opacity: 0; transition: opacity 0.25s; pointer-events: none;
+        }
+        .cp-card:hover {
+            transform: translateY(-4px) scale(1.025);
+            border-color: var(--cc, #6366f1);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.1), 0 0 0 1px rgba(99,102,241,0.12);
+            background: var(--vp-card-bg);
+            opacity: 0.95;
+        }
+        .cp-card:hover::after { opacity: 1; }
+        .cp-icon {
+            width: 40px; height: 40px;
+            border-radius: 11px;
+            background: var(--ccbg, rgba(99,102,241,0.12));
+            color: var(--cc, #818cf8);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; flex-shrink: 0;
+            transition: box-shadow 0.2s;
+        }
+        .cp-card:hover .cp-icon { box-shadow: 0 0 18px var(--cc, #6366f1); }
+        .cp-label { font-size: 0.68rem; color: var(--vp-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+        .cp-name  { font-size: 0.9rem; font-weight: 700; color: var(--vp-text-bright); margin: 0; line-height: 1.2; }
+        @media (max-width: 768px) {
+            .cp-card { padding: 14px 12px; }
+            .cp-name { font-size: 0.82rem; }
+        }
+        </style>
+
+
+
+
+
+                <!-- Add Database User Modal Premium Glassmorphic -->
+                <div class="dash-overlay" id="adddatabaseuser">
+                    <div class="dash-modal" style="width: 500px;">
+                        <h4><i class="fa-solid fa-user-shield"></i> Add Database User</h4>
+                        <form id="adddbuser" method="post" action="">{% csrf_token %}
+                            <div style="font-size:0.75rem; color:#64748b; margin-bottom:8px; font-weight:600; text-transform:uppercase;">Database Username</div>
+                            <div class="dash-prefix-group mb-4">
+                                <span class="dash-prefix">{{dir}}_</span>
+                                <input required type="text" id="textInputUser" name="databaseuser" class="dash-input" 
+                                       oninput="removeSpacesAndSpecialChars(this);" placeholder="dbuser" autocomplete="off">
+                                <input type="hidden" name="domain" value="{{dir}}">
+                            </div>
+
+                            <div style="font-size:0.75rem; color:#64748b; margin-bottom:8px; font-weight:600; text-transform:uppercase;">Password</div>
+                            <div class="dash-prefix-group mb-3" style="position:relative;">
+                                <input required type="password" name="password" id="password68" class="dash-input" 
+                                       placeholder="Password" style="border-radius:10px;" oninput="confirm1(this);">
+                                <button type="button" class="dash-btn dash-btn-ghost" onclick="genshow1();" 
+                                        style="position:absolute; right:5px; top:4px; padding:6px 12px; height:auto; z-index:10;">
+                                    <i class="fa-solid fa-eye" id="eyeIconUser"></i>
+                                </button>
+                            </div>
+                            
+                            <div class="dash-prefix-group mb-2">
+                                <input required type="password" name="password1" id="password69" class="dash-input" 
+                                       placeholder="Confirm Password" style="border-radius:10px;" oninput="confirm1(this);">
+                            </div>
+                            
+                            <div id="match" style="font-size: 0.85rem; font-weight: 600; color: #f43f5e; margin-bottom: 15px; min-height: 20px;"></div>
+
+                            <div style="margin-bottom: 25px;">
+                                <button type="button" class="dash-btn dash-btn-ghost" onclick="gen1();" style="font-size: 0.75rem; padding: 6px 14px;">
+                                    <i class="fa-solid fa-key"></i> Generate Strong Password
+                                </button>
+                            </div>
+
+                            <div class="dash-footer">
+                                <button type="button" class="dash-btn dash-btn-ghost" onclick="closeemail();">Cancel</button>
+                                <button type="submit" id="addemailbtn1" class="dash-btn dash-btn-primary" onclick="adddatabaseuser(event);" disabled>
+                                    <i class="fa-solid fa-plus"></i> Create User
+                                </button>
+                                <p id="pro" style="display: none; margin:0;" class="processing">Processing<span class="dots"></span></p>
+                            </div>
+                        </form>
                     </div>
                 </div>
 
@@ -696,14 +1199,14 @@
                             if (response.ok && result.status === 'success') {
                                 document.getElementById('pro').style.display = "none";
                                 document.getElementById('adddatabaseuser').style.display = "none";
-                                document.getElementById('eeee').style.display = "block";
+                                document.getElementById('eeee').style.display = "flex";
                                 document.getElementById('statusemail').innerHTML = "User Added!"
 
                             } else {
 
                                 document.getElementById('pro').style.display = "none";
                                 document.getElementById('adddatabaseuser').style.display = "none";
-                                document.getElementById('eeee').style.display = "block";
+                                document.getElementById('eeee').style.display = "flex";
                                 document.getElementById('statusemail').innerHTML = "Error Adding  User!"
 
                             }
@@ -711,7 +1214,7 @@
 
                             document.getElementById('pro').style.display = "none";
                             document.getElementById('adddatabaseuser').style.display = "none";
-                            document.getElementById('eeee').style.display = "block";
+                            document.getElementById('eeee').style.display = "flex";
                             document.getElementById('statusemail').innerHTML = "User Already  Exist!"
 
                         }
@@ -725,60 +1228,62 @@
 
 
                     async function changephpversion(event) {
-                        // Prevent the default action (e.g., form submission)
-                        if (event) {
-                            event.preventDefault();
-                        }
-                        document.getElementById('pro').style.display = "block";
+                        if (event) event.preventDefault();
+
+                        // Use a button spinner instead of generic #pro overlay
+                        const btn = document.getElementById('addphpbtn');
+                        if (btn) btn.disabled = true;
+                        
                         const form = document.getElementById('chphp');
                         const formData = new FormData(form);
                         try {
-                            // Fetch request to submit form data
                             const response = await fetch('/changephpversion/', {
                                 method: 'POST',
                                 body: formData,
                                 headers: {
-                                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value // CSRF token for Django
+                                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
                                 }
                             });
                             const result = await response.json();
-                            // Handle response
                             if (response.ok && result.status === 'success') {
-                                document.getElementById('pro').style.display = "none";
-                                document.getElementById('addphp').style.display = "none";
-                                document.getElementById('eeee').style.display = "block";
-                                document.getElementById('statusemail').innerHTML = "PHP Version has been Changed"
-
+                                hidephp();
+                                const toast = document.getElementById('eeee');
+                                if (toast) {
+                                    toast.style.display = 'flex';
+                                    document.getElementById('statusemail').innerHTML = "✅ " + result.message;
+                                }
                             } else {
-
-                                document.getElementById('pro').style.display = "none";
-                                document.getElementById('addphp').style.display = "none";
-                                document.getElementById('eeee').style.display = "block";
-                                document.getElementById('statusemail').innerHTML = "Error Changing PHP Version"
-
+                                hidephp();
+                                const toast = document.getElementById('eeee');
+                                if (toast) {
+                                    toast.style.display = 'flex';
+                                    document.getElementById('statusemail').innerHTML = "❌ " + (result.message || "Error Changing PHP Version");
+                                }
                             }
                         } catch (error) {
-
-                            document.getElementById('pro').style.display = "none";
-                            document.getElementById('addphp').style.display = "none";
-                            document.getElementById('eeee').style.display = "block";
-                            document.getElementById('statusemail').innerHTML = "Error Changing PHP  Version"
-
+                            hidephp();
+                            const toast = document.getElementById('eeee');
+                            if (toast) {
+                                toast.style.display = 'flex';
+                                document.getElementById('statusemail').innerHTML = "❌ Network error changing PHP Version";
+                            }
+                        } finally {
+                            if (btn) btn.disabled = false;
                         }
-
-
-
-
-
                     }
                 </script>
                 <script>
                     function closeemail() {
                         document.getElementById('adddatabaseuser').style.display = "none";
+                        document.getElementById('password68').value = '';
+                        document.getElementById('password69').value = '';
+                        document.getElementById('match').innerHTML = '';
+                        document.getElementById('addemailbtn1').disabled = true;
                     }
 
                     function viewemailemail() {
-                        document.getElementById('adddatabaseuser').style.display = "block";
+                        document.getElementById('textInputUser').value = '';
+                        document.getElementById('adddatabaseuser').style.display = "flex";
                     }
                 </script>
 
@@ -790,106 +1295,107 @@
 
 
 
-                <div class="modal animated fadeIn show" id="addemail" style="display: none; margin-top: 300px;">
-                    <div class="modal-dialog modal-sm" role="document">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h6 class="title" id="defaultModalLabel">Add Email</h6>
+                <!-- Create Email Modal - Premium Glassmorphic -->
+                <div class="dash-overlay" id="addemail">
+                    <div class="dash-modal" style="width:480px;">
+                        <h4><i class="fa fa-envelope"></i> Create Email Account</h4>
+
+                        <form id="copyForm" method="post" action="">{% csrf_token %}
+                            <input type="hidden" name="domain" value="{{domain}}">
+
+                            <!-- Email Address Row -->
+                            <div style="font-size:0.75rem; color:#64748b; margin-bottom:8px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Email Address</div>
+                            <div class="dash-prefix-group" style="margin-bottom:22px;">
+                                <input required type="text" id="emailUsernameInput" name="username"
+                                       class="dash-input" style="border-radius:10px 0 0 10px; border-right:none;"
+                                       oninput="removeSpacesAndSpecialChars(this);" placeholder="username" autocomplete="off">
+                                <span class="dash-prefix" style="border-radius:0 10px 10px 0;">@{{domain}}</span>
                             </div>
-                            <form id="copyForm" method="post" action="">{% csrf_token %}
-                                <div class="modal-body">
-                                    <div class="row clearfix">
 
+                            <!-- Password Row -->
+                            <div style="font-size:0.75rem; color:#64748b; margin-bottom:8px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Password</div>
+                            <div style="display:flex; gap:8px; margin-bottom:14px;">
+                                <input required type="password" name="password" id="emailpassword"
+                                       class="dash-input" style="border-radius:10px; flex:1;"
+                                       oninput="confirmEmailPassword()" placeholder="Enter password" autocomplete="new-password">
+                                <button type="button" class="dash-btn dash-btn-ghost" onclick="generateEmailPassword()" title="Generate secure password"
+                                        style="padding:10px 13px; flex-shrink:0;">
+                                    <i class="fa fa-magic"></i>
+                                </button>
+                                <button type="button" class="dash-btn dash-btn-ghost" onclick="toggleEmailPassword()" title="Show / hide"
+                                        style="padding:10px 13px; flex-shrink:0;">
+                                    <i class="fa fa-eye" id="emailEyeIcon"></i>
+                                </button>
+                            </div>
 
-                                        <div class="col-md-12 col-sm-12">
+                            <!-- Confirm Password -->
+                            <div style="font-size:0.75rem; color:#64748b; margin-bottom:8px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Confirm Password</div>
+                            <input required type="password" name="password1" id="emailpassword1"
+                                   class="dash-input" style="border-radius:10px; width:100%; box-sizing:border-box; margin-bottom:10px;"
+                                   oninput="confirmEmailPassword()" placeholder="Re-enter password" autocomplete="new-password">
 
-                                            <div class="input-group mb-3">
-                                                <input required type="text" id="textInput"
-                                                    oninput="removeSpacesAndSpecialChars(this);" name="username"
-                                                    class="form-control" placeholder="username"
-                                                    aria-label="Recipient's username" aria-describedby="basic-addon2">
-                                                <div class="input-group-append">
-                                                    <span class="input-group-text" id="basic-addon2">@{{domain}}</span>
-                                                </div>
-                                            </div>
-                                            <div class="form-group">
-                                                <input required type="password" name="password" placeholder="Password"
-                                                    id="password" class="form-control">
+                            <!-- Match indicator -->
+                            <div id="emailMatchIndicator" style="min-height:22px; font-size:0.82rem; margin-bottom:18px;"></div>
 
-                                                <input type="password" name="domain" value="{{domain}}" hidden
-                                                    class="form-control">
-
-                                            </div>
-                                            <div id="match" class="form-group">
-
-
-                                            </div>
-                                            <div class="form-group">
-                                                <input required type="password" oninput="confirm(this);"
-                                                    name="password1" placeholder="Confirm Password" id="password1"
-                                                    class="form-control">
-
-                                            </div>
-                                            <div class="row clearfix">
-                                                <div class="col-md-8 col-sm-12">
-                                                    <div class="form-group">
-                                                        <button type="button" class="btn btn-secondary"
-                                                            onclick="gen();">Generate Password</button>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-4 col-sm-12">
-                                                    <div class="form-group">
-                                                        <button type="button" class="btn btn-primary"
-                                                            onclick="genshow();"><i class="fa  icon-eye"> </i></button>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                        </div>
-
-                                    </div>
+                            <!-- Footer -->
+                            <div class="dash-footer">
+                                <div id="pro_email" style="display:none; color:#a8b2d1; font-size:0.85rem; align-items:center; gap:6px;">
+                                    <i class="fa fa-circle-o-notch fa-spin"></i> Creating...
                                 </div>
-                                <div class="modal-footer">
-                                    <button id="addemailbtn" onclick="addemail(event);" style="display: block;"
-                                        class="btn btn-primary" disabled>Add</button>
-                                    <button type="button" class="btn btn-secondary"
-                                        onclick="addemail1();">CLOSE</button>
-                                    <p id="pro" style="display: none;" class="processing">Processing<span
-                                            class="dots"></span>
-                                    </p>
-                                </div>
-                            </form>
+                                <button type="button" class="dash-btn dash-btn-ghost" onclick="addemail1()">Cancel</button>
+                                <button type="submit" id="addemailbtn_ui" class="dash-btn dash-btn-primary"
+                                        onclick="addemail(event)" disabled>
+                                    <i class="fa fa-plus"></i> Create Account
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Email Status Modal - Glassmorphic -->
+                <div class="dash-overlay" id="eeee">
+                    <div class="dash-modal" style="width:380px; text-align:center;">
+                        <div id="statusemail" style="font-size:1.05rem; color:#e2e8f0; margin-bottom:24px; line-height:1.6;"></div>
+                        <div class="dash-footer" style="justify-content:center;">
+                            <button onclick="closedata()" class="dash-btn dash-btn-ghost" style="min-width:100px;">Close</button>
                         </div>
                     </div>
                 </div>
 
-
-
-
-                <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
-                    <div class="modal-dialog modal-sm" role="document">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h6 class="title" id="defaultModalLabel">Status</h6>
-                            </div>
-
-                            <div class="modal-body">
-                                <div class="col-md-12 col-sm-12">
-                                    <div id="statusemail" style="text-align: center;" class="row clearfix">
-
-
-
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button onclick="closedata();"
-                                        class="btn btn-danger">Close</button>
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
-                </div>
+                <script>
+                function generateEmailPassword() {
+                    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_';
+                    let pwd = '';
+                    for (let i = 0; i < 16; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
+                    document.getElementById('emailpassword').value = pwd;
+                    document.getElementById('emailpassword1').value = pwd;
+                    confirmEmailPassword();
+                }
+                function toggleEmailPassword() {
+                    const p   = document.getElementById('emailpassword');
+                    const p1  = document.getElementById('emailpassword1');
+                    const ico = document.getElementById('emailEyeIcon');
+                    const vis = p.type === 'password';
+                    p.type = p1.type = vis ? 'text' : 'password';
+                    ico.className = vis ? 'fa fa-eye-slash' : 'fa fa-eye';
+                }
+                function confirmEmailPassword() {
+                    const p   = document.getElementById('emailpassword').value;
+                    const p1  = document.getElementById('emailpassword1').value;
+                    const ind = document.getElementById('emailMatchIndicator');
+                    const btn = document.getElementById('addemailbtn_ui');
+                    if (p.length > 0 && p === p1) {
+                        ind.innerHTML = "<span style='color:#22c55e;'><i class='fa fa-check-circle'></i>&nbsp; Passwords match</span>";
+                        btn.disabled = false;
+                    } else if (p1.length > 0) {
+                        ind.innerHTML = "<span style='color:#ef4444;'><i class='fa fa-times-circle'></i>&nbsp; Passwords do not match</span>";
+                        btn.disabled = true;
+                    } else {
+                        ind.innerHTML = '';
+                        btn.disabled = true;
+                    }
+                }
+                </script>
 
 
             </div>
@@ -899,115 +1405,327 @@
 
 
 
-        <div class="modal animated fadeIn show" id="adddb" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Add Database</h6>
+        <!-- Add Database Modal Premium Glassmorphic -->
+        <style>
+            /* Scoped styles for Dashboard Modals to prevent conflicts */
+            .dash-overlay {
+                position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(5px);
+                z-index: 9999; display: none; align-items: center; justify-content: center;
+            }
+            .dash-modal {
+                background: linear-gradient(135deg, rgba(22,33,58,0.99), rgba(10,14,26,0.99));
+                border: 1px solid rgba(99,102,241,0.22); border-radius: 18px;
+                padding: 30px 32px; width: 440px; max-width: 96vw;
+                box-shadow: 0 25px 60px rgba(0,0,0,0.7); animation: dashMIn 0.22s ease;
+            }
+            @keyframes dashMIn { from { opacity:0; transform:scale(0.93); } to { opacity:1; transform:scale(1); } }
+            .dash-modal h4 { margin: 0 0 20px; font-size: 1.1rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 10px; }
+            .dash-modal h4 i { color: #6366f1; }
+            .dash-prefix-group { display: flex; align-items: stretch; margin-bottom: 20px; }
+            .dash-prefix {
+                padding: 12px 14px; background: rgba(99,102,241,0.18);
+                border: 1px solid rgba(99,102,241,0.35); border-right: none;
+                border-radius: 10px 0 0 10px; font-size: 0.85rem; font-weight: 700;
+                color: #a78bfa; display: flex; align-items: center; white-space: nowrap;
+            }
+            .dash-input {
+                width: 100%; padding: 12px 15px; border-radius: 0 10px 10px 0;
+                background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1);
+                color: #fff; font-size: 0.9rem; outline: none; font-family: 'Inter', sans-serif;
+                margin: 0; transition: border 0.18s, box-shadow 0.18s;
+            }
+            .dash-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.18); }
+            .dash-input::placeholder { color: #475569; }
+            .dash-footer { display: flex; gap: 10px; justify-content: flex-end; }
+            .dash-btn {
+                display: inline-flex; align-items: center; gap: 8px; justify-content: center;
+                padding: 10px 20px; border-radius: 10px; font-size: 0.85rem; font-weight: 600;
+                cursor: pointer; border: 1px solid transparent; transition: all 0.2s; outline: none;
+            }
+            .dash-btn-primary { background: linear-gradient(135deg,#6366f1,#4f46e5); color: #fff; box-shadow: 0 4px 14px rgba(99,102,241,0.35); }
+            .dash-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,0.5); }
+            .dash-btn-ghost { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); color: #94a3b8; }
+            .dash-btn-ghost:hover { background: rgba(255,255,255,0.12); color: #fff; }
+            .dash-btn-secondary { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); color: #94a3b8; }
+            .dash-btn-secondary:hover { background: rgba(255,255,255,0.12); color: #fff; }
+            .dash-btn-danger { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.3); color: #f87171; }
+            .dash-btn-danger:hover { background: rgba(239,68,68,0.25); }
+            /* Standalone dash-input (outside prefix group) */
+            .dash-input-full {
+                width: 100%; padding: 12px 15px; border-radius: 10px;
+                background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1);
+                color: #fff; font-size: 0.9rem; outline: none; font-family: 'Inter', sans-serif;
+                box-sizing: border-box; transition: border 0.18s, box-shadow 0.18s;
+            }
+            .dash-input-full:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.18); }
+            .dash-label { display: block; font-size: 0.75rem; color: #64748b; margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        </style>
+
+        <div class="dash-overlay" id="adddb">
+            <div class="dash-modal">
+                <h4><i class="fa-solid fa-database"></i> Add Database</h4>
+                <form id="adddbform" method="post" action="">{% csrf_token %}
+                    <div style="font-size:0.75rem; color:#64748b; margin-bottom:8px; font-weight:600; text-transform:uppercase;">Database Name</div>
+                    <div class="dash-prefix-group">
+                        <span class="dash-prefix">{{dir}}_</span>
+                        <input required type="text" id="textInput" name="databasename" class="dash-input" 
+                               oninput="removeSpacesAndSpecialChars(this);" placeholder="dbname" autocomplete="off">
+                        <input type="hidden" name="front" value="{{dir}}_">
                     </div>
-                    <form id="adddbform" method="post" action="">{% csrf_token %}
-                        <div class="modal-body">
-                            <div class="row clearfix">
+                    <div class="dash-footer">
+                        <button type="button" class="dash-btn dash-btn-ghost" onclick="adddb1();">Cancel</button>
+                        <button type="submit" id="addemailbtn" class="dash-btn dash-btn-primary" onclick="adddb(event);">
+                            <i class="fa-solid fa-plus"></i> Create Database
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            // Utility override specifically for this modal to ensure display flow works exactly as before
+            // but with flexbox for the overlay
+            function adddb_show() {
+                document.getElementById('textInput').value = '';
+                document.getElementById('adddb').style.display = 'flex';
+            }
+            // Overriding the inline adddb1 function that was probably defined elsewhere to close this
+            function adddb1() {
+                document.getElementById('adddb').style.display = 'none';
+            }
+        </script>
 
 
-                                <div class="col-md-12 col-sm-12">
-
-                                    <div class="input-group mb-3">
-                                        <div class="input-group-append">
-                                            <span class="input-group-text" id="basic-addon2">{{domain}}_</span>
-                                        </div>
-                                        <input required type="text" id="textInput"
-                                            oninput="removeSpacesAndSpecialChars(this);" name="databasename"
-                                            class="form-control" placeholder="Database Name"
-                                            aria-label="Recipient's username" aria-describedby="basic-addon2">
-                                        <input required type="text" id="textInput" name="front" class="form-control"
-                                            value="{{mymy.dir}}_" hidden>
-
-                                    </div>
 
 
 
 
-                                </div>
 
+
+        <!-- PHP Version Selector Modal — Modern Redesign -->
+        <div id="addphp" style="
+            display:none; position:fixed; inset:0; z-index:99999;
+            align-items:center; justify-content:center;
+            background:rgba(4,8,20,0.82); backdrop-filter:blur(8px);
+        ">
+            <div style="
+                background:linear-gradient(145deg,#0d1528,#0a0f1e);
+                border:1px solid rgba(99,102,241,0.25);
+                border-radius:22px; padding:34px 36px;
+                width:460px; max-width:95vw;
+                box-shadow: 0 30px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(99,102,241,0.1) inset;
+                animation: phpModalIn 0.25s cubic-bezier(.22,.8,.46,1);
+            ">
+                <!-- Header -->
+                <div style="display:flex; align-items:center; gap:14px; margin-bottom:28px;">
+                    <div style="
+                        width:44px; height:44px; border-radius:12px;
+                        background:linear-gradient(135deg,rgba(99,102,241,0.25),rgba(168,85,247,0.15));
+                        border:1px solid rgba(99,102,241,0.3);
+                        display:flex; align-items:center; justify-content:center; flex-shrink:0;
+                    ">
+                        <i class="fa fa-code" style="color:#a78bfa; font-size:1.1rem;"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:1.05rem; font-weight:700; color:#f1f5f9; line-height:1.2;">Change PHP Version</div>
+                        <div style="font-size:0.78rem; color:#64748b; margin-top:2px;">Switch the PHP runtime for your domain</div>
+                    </div>
+                    <button onclick="hidephp()" style="
+                        margin-left:auto; background:rgba(255,255,255,0.06);
+                        border:1px solid rgba(255,255,255,0.1); border-radius:8px;
+                        width:32px; height:32px; cursor:pointer; color:#64748b;
+                        display:flex; align-items:center; justify-content:center;
+                        transition:all 0.15s;
+                    " onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='#64748b'">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+
+                <form id="chphp" method="post" action="">{% csrf_token %}
+                    <!-- Target Domain -->
+                    <div style="margin-bottom:20px;">
+                        <label style="display:block; font-size:0.73rem; font-weight:700; color:#6366f1; text-transform:uppercase; letter-spacing:0.07em; margin-bottom:10px;">
+                            <i class="fa fa-globe" style="margin-right:5px;"></i> Target Domain
+                        </label>
+                        <div style="position:relative;">
+                            <select name="name" id="php-domain-select" required style="
+                                width:100%; padding:13px 18px; border-radius:12px;
+                                background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1);
+                                color:#f1f5f9; font-size:0.9rem; cursor:pointer; outline:none;
+                                font-family:'Inter',sans-serif; appearance:none;
+                                transition:border 0.2s, box-shadow 0.2s;
+                            " onfocus="this.style.borderColor='#6366f1'; this.style.boxShadow='0 0 0 3px rgba(99,102,241,0.18)'"
+                               onblur="this.style.borderColor='rgba(255,255,255,0.1)'; this.style.boxShadow='none'">
+                                <option value="" disabled selected style="color:#475569;">— Select domain or subdomain —</option>
+                                <option value="{{domain}}" style="background:#0d1528;">
+                                    {{domain}} · PHP {{domain_obj.php|default:"—"}}
+                                </option>
+                                {% for i in sub %}
+                                <option value="{{i.subdomain}}" style="background:#0d1528;">
+                                    {{i.subdomain}} · PHP {{i.php|default:"—"}}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <i class="fa fa-chevron-down" style="position:absolute; right:14px; top:50%; transform:translateY(-50%); color:#475569; pointer-events:none; font-size:0.8rem;"></i>
+                        </div>
+                    </div>
+
+                    <!-- PHP Version -->
+                    <div style="margin-bottom:28px;">
+                        <label style="display:block; font-size:0.73rem; font-weight:700; color:#6366f1; text-transform:uppercase; letter-spacing:0.07em; margin-bottom:10px;">
+                            <i class="fa fa-code-fork" style="margin-right:5px;"></i> PHP Version
+                        </label>
+                        <!-- PHP version pills -->
+                        <div id="php-version-pills" style="display:flex; gap:10px; flex-wrap:wrap;">
+                            {% for i in phpversion %}
+                            <label style="cursor:pointer;">
+                                <input type="radio" name="php" value="{{i.name}}" style="display:none;" class="php-pill-radio">
+                                <div class="php-pill" data-ver="{{i.name}}" style="
+                                    padding:10px 20px; border-radius:10px; font-size:0.88rem; font-weight:600;
+                                    border:1.5px solid rgba(99,102,241,0.25); color:#94a3b8;
+                                    background:rgba(255,255,255,0.03);
+                                    transition:all 0.18s; user-select:none;
+                                ">PHP {{i.name}}</div>
+                            </label>
+                            {% empty %}
+                            <div id="php-no-versions" style="color:#64748b; font-size:0.85rem; padding:10px 0;">
+                                <i class="fa fa-exclamation-triangle" style="color:#f59e0b;"></i>
+                                No PHP versions installed yet. Go to PHP Settings first.
                             </div>
+                            {% endfor %}
                         </div>
-                        <div class="modal-footer">
-                            <button id="addemailbtn" onclick="adddb(event);" style="display: block;"
-                                class="btn btn-primary">Add</button>
-                            <button type="button" class="btn btn-secondary" onclick="adddb1();">CLOSE</button>
-                            </p>
-                        </div>
-                    </form>
+                        <!-- hidden fallback select for non-JS submit -->
+                        <select name="php" id="php-fallback-select" style="display:none;">
+                            <option value="" disabled selected>— Choose Version —</option>
+                            {% for i in phpversion %}
+                            <option value="{{i.name}}">PHP {{i.name}}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </form>
+
+                <!-- Footer -->
+                <div style="display:flex; gap:10px; justify-content:flex-end;">
+                    <button onclick="hidephp()" style="
+                        padding:11px 22px; border-radius:11px; font-size:0.88rem; font-weight:600;
+                        background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);
+                        color:#94a3b8; cursor:pointer; transition:all 0.18s;
+                    " onmouseenter="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#fff'"
+                       onmouseleave="this.style.background='rgba(255,255,255,0.06)'; this.style.color='#94a3b8'">
+                        Cancel
+                    </button>
+                    <button id="addphpbtn" onclick="changephpversion(event)" style="
+                        padding:11px 26px; border-radius:11px; font-size:0.88rem; font-weight:700;
+                        background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff;
+                        border:none; cursor:pointer;
+                        box-shadow:0 4px 16px rgba(99,102,241,0.4);
+                        transition:all 0.2s; display:flex; align-items:center; gap:8px;
+                    " onmouseenter="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 22px rgba(99,102,241,0.55)'"
+                       onmouseleave="this.style.transform='none'; this.style.boxShadow='0 4px 16px rgba(99,102,241,0.4)'">
+                        <i class="fa fa-check"></i> Apply Version
+                    </button>
                 </div>
             </div>
         </div>
 
+        <style>
+            @keyframes phpModalIn {
+                from { opacity:0; transform:scale(0.92) translateY(12px); }
+                to { opacity:1; transform:scale(1) translateY(0); }
+            }
+            .php-pill-radio:checked + .php-pill {
+                background:linear-gradient(135deg,rgba(99,102,241,0.3),rgba(168,85,247,0.2)) !important;
+                border-color:#6366f1 !important;
+                color:#a78bfa !important;
+                box-shadow:0 0 0 3px rgba(99,102,241,0.18);
+            }
+            .php-pill:hover {
+                border-color:rgba(99,102,241,0.5) !important;
+                color:#c4b5fd !important;
+                background:rgba(99,102,241,0.08) !important;
+            }
+        </style>
 
+        <script>
+            // PHP pill selection logic
+            document.querySelectorAll('.php-pill-radio').forEach(function(radio) {
+                radio.addEventListener('change', function() {
+                    document.querySelectorAll('.php-pill').forEach(p => {
+                        p.style.background = 'rgba(255,255,255,0.03)';
+                        p.style.borderColor = 'rgba(99,102,241,0.25)';
+                        p.style.color = '#94a3b8';
+                        p.style.boxShadow = 'none';
+                    });
+                    // active pill styling done via :checked CSS above
+                    // Also sync fallback select
+                    document.getElementById('php-fallback-select').value = this.value;
+                });
+            });
 
+            // Override changephpversion to read the pill selection
+            async function changephpversion(event) {
+                if (event) event.preventDefault();
 
+                const selectedDomain = document.getElementById('php-domain-select').value;
+                const selectedPhp = document.querySelector('.php-pill-radio:checked');
 
+                if (!selectedDomain) {
+                    alert('Please select a domain or subdomain.');
+                    return;
+                }
+                if (!selectedPhp) {
+                    alert('Please select a PHP version.');
+                    return;
+                }
 
+                const btn = document.getElementById('addphpbtn');
+                const origHTML = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i> Applying...';
 
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                const formData = new FormData();
+                formData.append('csrfmiddlewaretoken', csrfToken);
+                formData.append('name', selectedDomain);
+                formData.append('php', selectedPhp.value);
 
-        <div class="modal animated fadeIn show" id="addphp" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Change PHP Version</h6>
-                    </div>
-                    <form id="chphp" method="post" action="">{% csrf_token %}
-                        <div class="modal-body">
-                            <div class="row clearfix">
+                try {
+                    const response = await fetch('/changephpversion/', {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'X-CSRFToken': csrfToken }
+                    });
+                    const result = await response.json();
+                    hidephp();
+                    const toast = document.getElementById('eeee');
+                    if (toast) {
+                        toast.style.display = 'flex';
+                        document.getElementById('statusemail').innerHTML = response.ok && result.status === 'success'
+                            ? '✅ ' + result.message
+                            : '❌ ' + (result.message || 'Error changing PHP version');
+                    }
+                } catch (e) {
+                    hidephp();
+                    const toast = document.getElementById('eeee');
+                    if (toast) {
+                        toast.style.display = 'flex';
+                        document.getElementById('statusemail').innerHTML = '❌ Network error';
+                    }
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = origHTML;
+                }
+            }
 
-
-                                <div class="col-md-12 col-sm-12">
-                                    <div class="row clearfix">
-                                        <div class="col-md-6 col-sm-12">
-                                            <select name="name" class="form-control show-tick" required>
-                                                <option>Domain</option>
-                                                <option value="{{domain}}">{{domain}} (PHP Version {{domain.php}})</option>
-                                                {% for i in sub %}
-                                                <option value="{{i.subdomain}}">{{i.subdomain}} (PHP Version {{i.php}})</option>
-                                                {% endfor %}
-
-                                            </select>
-                                        </div>
-
-                                        <div class="col-md-6 col-sm-12">
-                                            <select name="php" class="form-control show-tick" required>
-                                                <option>Php Version</option>
-                                                {% for i in phpversion %}
-                                                <option value="{{i.name}}">{{i.name}}</option>
-                                                {% endfor %}
-
-                                            </select>
-                                        </div>
-
-
-
-                                    </div>
-
-
-
-
-
-
-
-                                </div>
-
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button id="addemailbtn" onclick="changephpversion(event);" style="display: block;"
-                                class="btn btn-primary">Change PHP Version</button>
-                            <button type="button" class="btn btn-secondary" onclick="hidephp();">CLOSE</button>
-                            </p>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
+            function hidephp() {
+                document.getElementById('addphp').style.display = 'none';
+                // Reset pill selections
+                document.querySelectorAll('.php-pill-radio').forEach(r => r.checked = false);
+            }
+            function viewphp() {
+                document.getElementById('addphp').style.display = 'flex';
+            }
+        </script>
 
 
         <div class="modal animated fadeIn show" id="terminate" style="display: none; margin-top: 300px;">
@@ -1092,71 +1810,50 @@
         <script>
 
 
-            function hidephp() {
-                document.getElementById('addphp').style.display = "none"
-            }
-            function viewphp() {
-                document.getElementById('addphp').style.display = "block"
-            }
+            // viewphp / hidephp defined in PHP modal script block above
             async function addemail(event) {
-                // Prevent the default action (e.g., form submission)
                 if (event) {
                     event.preventDefault();
                 }
-                document.getElementById('pro').style.display = "block";
+                const pro = document.getElementById('pro_email') || document.getElementById('pro');
+                if(pro) pro.style.display = "block";
+                
+                const btn = document.getElementById('addemailbtn_ui') || document.getElementById('addemailbtn');
+                if(btn) btn.disabled = true;
+
                 const form = document.getElementById('copyForm');
                 const formData = new FormData(form);
+                
                 try {
-                    // Fetch request to submit form data
                     const response = await fetch('/addemailaccount/', {
                         method: 'POST',
                         body: formData,
                         headers: {
-                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value // CSRF token for Django
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
                         }
                     });
 
-                    // Handle response
-                    if (response.ok) {
-                        document.getElementById('pro').style.display = "none";
-                        document.getElementById('addemail').style.display = "none";
-                        document.getElementById('eeee').style.display = "block";
-                        document.getElementById('statusemail').innerHTML = "Email Added!"
-
-                    } 
-
-                    else if (response.ok && result.status === 'exceed') {
-               
-                        document.getElementById('pro').style.display = "none";
-                        document.getElementById('addemail').style.display = "none";
-                        document.getElementById('eeee').style.display = "block";
-                        document.getElementById('statusemail').innerHTML = " Limit Exceeded!"
-               
-
-           }
+                    const result = await response.json();
                     
+                    if(pro) pro.style.display = "none";
+                    document.getElementById('addemail').style.display = "none";
+                    document.getElementById('eeee').style.display = "flex";
                     
-                    
-                    else {
-
-                        document.getElementById('pro').style.display = "none";
-                        document.getElementById('addemail').style.display = "none";
-                        document.getElementById('eeee').style.display = "block";
-                        document.getElementById('statusemail').innerHTML = "Error Adding  Email!"
-
+                    if (response.ok && result.status === 'success') {
+                        document.getElementById('statusemail').innerHTML = "Email Created Successfully!";
+                        form.reset(); // clear the modal for next time
+                        setTimeout(() => window.location.reload(), 1500); // Reload to show new email
+                    } else {
+                        // Display the precise backend error block (like Quota Exceeded)
+                        document.getElementById('statusemail').innerHTML = result.message || "Failed to add email.";
                     }
                 } catch (error) {
-                    document.getElementById('pro').style.display = "none";
+                    if(pro) pro.style.display = "none";
                     document.getElementById('addemail').style.display = "none";
-                    document.getElementById('eeee').style.display = "block";
-                    document.getElementById('statusemail').innerHTML = "EMail Already  Exist!"
-
+                    document.getElementById('eeee').style.display = "flex";
+                    document.getElementById('statusemail').innerHTML = "Network Error Occurred.";
                 }
-
-
-
-
-
+                if(btn) btn.disabled = false;
             }
         </script>
 
@@ -1195,40 +1892,30 @@
                         method: 'POST',
                         body: formData,
                         headers: {
-                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
                         }
                     });
 
                     // Parse the JSON response
                     const result = await response.json();
 
-
-                    // Handle response
-                    if (response.ok && result.status === 'success') {
+                    if (result.status === 'success') {
                         document.getElementById('adddb').style.display = "none";
-                        document.getElementById('eeee').style.display = "block";
-                        document.getElementById('statusemail').innerHTML = "Database Created!";
-                    } 
-                    else if (response.ok && result.status === 'exceed') {
-               
-                    document.getElementById('adddb').style.display = "none";
-                        document.getElementById('eeee').style.display = "block";
-                        document.getElementById('statusemail').innerHTML = "limit Exceeded";
-                    
-
-                }
-                    
-                    else {
-
+                        document.getElementById('eeee').style.display = "flex";
+                        document.getElementById('statusemail').innerHTML = "Database Created Successfully!";
+                    } else if (result.status === 'exceed') {
                         document.getElementById('adddb').style.display = "none";
-                        document.getElementById('eeee').style.display = "block";
+                        document.getElementById('eeee').style.display = "flex";
+                        document.getElementById('statusemail').innerHTML = "Database Quota Limit Exceeded!";
+                    } else {
+                        document.getElementById('adddb').style.display = "none";
+                        document.getElementById('eeee').style.display = "flex";
                         document.getElementById('statusemail').innerHTML = result.message || "Error Creating Database!";
                     }
                 } catch (error) {
-
                     document.getElementById('adddb').style.display = "none";
-                    document.getElementById('eeee').style.display = "block";
-                    document.getElementById('statusemail').innerHTML = "Database Already Exists or Network Error!";
+                    document.getElementById('eeee').style.display = "flex";
+                    document.getElementById('statusemail').innerHTML = "Network Error: " + error.message;
                 }
             }
         </script>
@@ -1344,13 +2031,22 @@
 
             function addemail1() {
                 document.getElementById('addemail').style.display = 'none';
+                // Reset form state
+                const f = document.getElementById('copyForm');
+                if(f) f.reset();
+                const ind = document.getElementById('emailMatchIndicator');
+                if(ind) ind.innerHTML = '';
+                const btn = document.getElementById('addemailbtn_ui');
+                if(btn) btn.disabled = true;
             }
             function closedata() {
                 document.getElementById('eeee').style.display = 'none';
             }
 
             function viewemail() {
-                document.getElementById('addemail').style.display = 'block';
+                // Reset state before opening
+                addemail1();
+                document.getElementById('addemail').style.display = 'flex';
             }
 
 
@@ -1361,12 +2057,271 @@
 
 
             function viewdb() {
-                document.getElementById('adddb').style.display = 'block';
+                document.getElementById('adddb').style.display = 'flex';
             }
         </script>
 
+        <!-- Site Cloner -->
+        <div class="modal-overlay" id="modal-copysite">
+            <div class="modal-glass" style="max-width:540px;">
+                <div class="modal-head">
+                    <div class="modal-head-icon purple"><i class="fa fa-clone"></i></div>
+                    <div>
+                        <div class="modal-title">Site Cloner</div>
+                        <div class="modal-sub">Download & clone any website (including React / SPA) into your hosting directory</div>
+                    </div>
+                </div>
+                <form id="form-copysite">
+                    {% csrf_token %}
+                    <input type="hidden" name="domain" value="{{ domain }}">
+                    <div class="modal-field">
+                        <label>Target Website URL</label>
+                        <input type="url" id="cs-url" name="target_url" placeholder="https://example.com" required>
+                    </div>
+                    <div class="modal-field">
+                        <label>Destination Path <span style="color:#94a3b8;font-size:.7rem;">(optional — leave blank for default)</span></label>
+                        <input type="text" id="cs-dest" name="destination" placeholder="/home/{{ dir }}/public_html/my-clone">
+                        <div style="font-size: 0.72rem; color: #a78bfa; margin-top: 6px; background: rgba(167,139,250,0.08); border: 1px solid rgba(167,139,250,0.18); border-radius: 6px; padding: 6px 10px;">
+                            <i class="fa-solid fa-folder-open"></i> Default: <code>/home/{{ dir }}/public_html/&lt;target-domain&gt;/</code>
+                        </div>
+                    </div>
+                    <div style="font-size:.76rem;color:#94a3b8;background:rgba(168,85,247,.07);border:1px solid rgba(168,85,247,.2);border-radius:8px;padding:10px 14px;margin-bottom:4px;">
+                        <i class="fa fa-info-circle" style="color:#a855f7;"></i>
+                        &nbsp;Cloning runs in the background. Check the File Manager once complete. React / SPA bundled logic fully supported.
+                    </div>
+                </form>
 
+                <!-- Live Progress Panel (Hidden by default) -->
+                <div id="clone-progress-panel" style="display:none; margin-top: 14px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:0.84rem;">
+                        <span style="font-weight:600; color:#fff;" id="clone-status-label">Cloning in Progress...</span>
+                        <span id="clone-percent" style="font-weight:700; color:#a855f7;">0%</span>
+                    </div>
+                    <div style="width:100%; height:8px; background:rgba(255,255,255,0.08); border-radius:4px; overflow:hidden; margin-bottom:12px; border:1px solid rgba(255,255,255,0.05);">
+                        <div id="clone-pb" style="width:0%; height:100%; background:linear-gradient(90deg, #a855f7, #6366f1); border-radius:4px; transition:width 0.3s ease;"></div>
+                    </div>
+                    <div style="font-size:0.75rem; color:#94a3b8; margin-bottom:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                        Active: <code id="clone-active-file" style="color:#fde68a;">Initializing...</code>
+                    </div>
+                    <div style="font-size:0.72rem; color:#10b981; background:#040711; border:1px solid rgba(255,255,255,0.07); border-radius:8px; padding:12px; font-family:monospace; height:180px; overflow-y:auto; line-height:1.5; white-space:pre-wrap;" id="clone-logs-console">Ready to clone.</div>
+                </div>
 
+                <div class="modal-footer-btns" style="margin-top:16px;">
+                    <button class="btn-modal-cancel" onclick="closeModalAndReset('modal-copysite')">Cancel</button>
+                    <button class="btn-modal-confirm purple" id="cs-btn" onclick="submitCopySite()">
+                        <span id="cs-btn-text"><i class="fa fa-clone" style="margin-right:5px;"></i>Start Cloning</span>
+                        <span class="spin-ring" id="cs-spin" style="display:none;"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Result overlay -->
+        <div class="result-overlay" id="result-overlay">
+            <div class="result-glass">
+                <div class="result-icon" id="result-icon">✓</div>
+                <div class="result-msg" id="result-msg"></div>
+                <button class="btn-result-close" onclick="closeModal('result-overlay')">Close</button>
+            </div>
+        </div>
+
+        <script>
+            const CSRF = () => document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
+            function openModal(id)  { document.getElementById(id).classList.add('show'); }
+            function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+            function showResult(icon, color, msg) {
+                const el = document.getElementById('result-icon');
+                el.textContent = icon; el.style.color = color;
+                document.getElementById('result-msg').textContent = msg;
+                openModal('result-overlay');
+            }
+            let clonePollInterval = null;
+            function closeModalAndReset(id) {
+                closeModal(id);
+                if (clonePollInterval) {
+                    clearInterval(clonePollInterval);
+                    clonePollInterval = null;
+                }
+                document.getElementById('form-copysite').style.display = 'block';
+                document.getElementById('clone-progress-panel').style.display = 'none';
+                document.getElementById('cs-btn').style.display = 'inline-block';
+                document.querySelector('.btn-modal-cancel').innerText = "Cancel";
+                document.getElementById('cs-url').value = '';
+                document.getElementById('cs-dest').value = '';
+            }
+
+            async function submitCopySite() {
+                const url = document.getElementById('cs-url').value.trim();
+                if (!url) { toast('Please enter a target URL.', 'error'); return; }
+                
+                document.getElementById('form-copysite').style.display = 'none';
+                document.getElementById('clone-progress-panel').style.display = 'block';
+                document.getElementById('cs-btn').style.display = 'none';
+                
+                const consoleEl = document.getElementById('clone-logs-console');
+                consoleEl.innerHTML = "Initializing connection...\n";
+                document.getElementById('clone-percent').innerText = "0%";
+                document.getElementById('clone-pb').style.width = "0%";
+                document.getElementById('clone-active-file').innerText = "Starting task...";
+
+                const form = document.getElementById('form-copysite');
+                const fd = new FormData(form);
+                
+                try {
+                    const r = await fetch('/copysite/', {method:'POST', body:fd, headers:{'X-CSRFToken':CSRF()}});
+                    const d = await r.json();
+                    
+                    if (d.status === 'success') {
+                        const destination = d.destination;
+                        let lastLogLength = 0;
+                        
+                        clonePollInterval = setInterval(async () => {
+                            try {
+                                const domain = form.querySelector('[name=domain]').value;
+                                const resp = await fetch(`/copysite/status/?destination=${encodeURIComponent(destination)}&domain=${encodeURIComponent(domain)}`);
+                                const data = await resp.json();
+                                
+                                if (data.status === 'running' || data.status === 'success' || data.status === 'error') {
+                                    const percent = data.percentage || 0;
+                                    document.getElementById('clone-pb').style.width = percent + "%";
+                                    document.getElementById('clone-percent').innerText = percent + "%";
+                                    document.getElementById('clone-active-file').innerText = data.current_file || 'Processing...';
+                                    
+                                    const logs = data.logs || [];
+                                    if (logs.length > lastLogLength) {
+                                        for (let i = lastLogLength; i < logs.length; i++) {
+                                            consoleEl.innerHTML += logs[i] + "\n";
+                                        }
+                                        lastLogLength = logs.length;
+                                        consoleEl.scrollTop = consoleEl.scrollHeight;
+                                    }
+                                    
+                                    if (data.status === 'success') {
+                                        clearInterval(clonePollInterval);
+                                        document.getElementById('clone-status-label').innerText = "Cloning Completed!";
+                                        document.getElementById('clone-status-label').style.color = "#10b981";
+                                        document.getElementById('clone-percent').style.color = "#10b981";
+                                        consoleEl.innerHTML += "\n[SUCCESS] Site cloned successfully! You can now check the File Manager.\n";
+                                        consoleEl.scrollTop = consoleEl.scrollHeight;
+                                        document.querySelector('.btn-modal-cancel').innerText = "Done";
+                                    } else if (data.status === 'error') {
+                                        clearInterval(clonePollInterval);
+                                        document.getElementById('clone-status-label').innerText = "Cloning Failed";
+                                        document.getElementById('clone-status-label').style.color = "#ef4444";
+                                        document.getElementById('clone-percent').style.color = "#ef4444";
+                                        consoleEl.innerHTML += `\n[ERROR] ${data.error || 'Clone failed.'}\n`;
+                                        consoleEl.scrollTop = consoleEl.scrollHeight;
+                                        document.querySelector('.btn-modal-cancel').innerText = "Close";
+                                    }
+                                }
+                            } catch (e) {
+                                console.error("Polling error:", e);
+                            }
+                        }, 1000);
+                        
+                    } else {
+                        document.getElementById('clone-status-label').innerText = "Cloning Failed";
+                        document.getElementById('clone-status-label').style.color = "#ef4444";
+                        consoleEl.innerHTML += `\n[ERROR] ${d.message || 'Failed to start cloning.'}\n`;
+                        document.querySelector('.btn-modal-cancel').innerText = "Close";
+                    }
+                } catch(e) {
+                    document.getElementById('clone-status-label').innerText = "Connection Error";
+                    document.getElementById('clone-status-label').style.color = "#ef4444";
+                    consoleEl.innerHTML += `\n[ERROR] Network connection failed. Please try again.\n`;
+                    document.querySelector('.btn-modal-cancel').innerText = "Close";
+                }
+            }
+            document.querySelectorAll('.modal-overlay, .result-overlay').forEach(el => {
+                el.addEventListener('click', e => { if(e.target===el) closeModalAndReset('modal-copysite'); });
+            });
+        </script>
+        <!-- ── Site Config Modal ── -->
+        <div id="modal-siteconfig" class="modal-overlay">
+            <div class="glass-modal" style="max-width: 800px; width: 95%;">
+                <h3 style="color:#f8fafc; font-size:1.3rem; margin-bottom:12px; display:flex; align-items:center; gap:10px;">
+                    <i class="fa fa-code" style="color:#818cf8;"></i> Web Server Config Editor
+                </h3>
+                <p style="color:var(--muted); font-size:0.9rem; margin-bottom:16px;">
+                    Editing configuration for <strong id="sc-domain-label" style="color:#fde68a;">domain</strong>.
+                    <span id="sc-engine-label" style="background:rgba(255,255,255,0.1); padding:2px 8px; border-radius:4px; font-size:0.75rem; margin-left:8px;"></span>
+                </p>
+                
+                <div id="sc-error-box" style="display:none; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; padding:12px; border-radius:8px; margin-bottom:16px; font-family:monospace; font-size:0.8rem; white-space:pre-wrap; max-height:150px; overflow-y:auto;">
+                </div>
+
+                <div style="position:relative;">
+                    <textarea id="sc-textarea" spellcheck="false" style="width:100%; height:400px; background:#0f172a; color:#e2e8f0; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:16px; font-family:monospace; font-size:0.85rem; line-height:1.5; outline:none; resize:vertical;"></textarea>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:20px;">
+                    <button type="button" class="btn-cancel" onclick="closeModal('modal-siteconfig')">Cancel</button>
+                    <button type="button" class="glass-btn btn-primary" id="sc-btn" onclick="submitSiteConfig()">
+                        <i id="sc-spin" class="fa fa-circle-notch fa-spin" style="display:none; margin-right:6px;"></i>
+                        <span id="sc-btn-text">Save & Reload Server</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            let scCurrentDomain = '';
+            async function openSiteConfigEditor(domain) {
+                scCurrentDomain = domain;
+                document.getElementById('sc-domain-label').textContent = domain;
+                document.getElementById('sc-error-box').style.display = 'none';
+                document.getElementById('sc-textarea').value = 'Loading config...';
+                openModal('modal-siteconfig');
+                try {
+                    const res = await fetch(`/control/api/site-config/get/?domain=${domain}`);
+                    const data = await res.json();
+                    if (data.status === 'success') {
+                        document.getElementById('sc-textarea').value = data.config;
+                        document.getElementById('sc-engine-label').textContent = (data.engine || '').toUpperCase();
+                    } else {
+                        document.getElementById('sc-textarea').value = `Error loading config: ${data.message}`;
+                    }
+                } catch(e) {
+                    document.getElementById('sc-textarea').value = 'Network error fetching configuration.';
+                }
+            }
+
+            async function submitSiteConfig() {
+                const text = document.getElementById('sc-textarea').value;
+                const errBox = document.getElementById('sc-error-box');
+                errBox.style.display = 'none';
+
+                const btn = document.getElementById('sc-btn');
+                const spin = document.getElementById('sc-spin');
+                const btnText = document.getElementById('sc-btn-text');
+                btn.disabled = true;
+                btnText.textContent = 'Testing & Saving...';
+                spin.style.display = 'inline-block';
+
+                try {
+                    const res = await fetch('/control/api/site-config/save/', {
+                        method: 'POST',
+                        body: JSON.stringify({ domain: scCurrentDomain, config: text }),
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    const d = await res.json();
+                    if (d.status === 'success') {
+                        closeModal('modal-siteconfig');
+                        showResult('✅', '#22c55e', 'Configuration saved & server reloaded successfully!');
+                    } else {
+                        errBox.style.display = 'block';
+                        errBox.textContent = `Syntax Error. Reverted to previous config:\n\n${d.message}`;
+                    }
+                } catch(e) {
+                    errBox.style.display = 'block';
+                    errBox.textContent = 'Network or internal error.';
+                } finally {
+                    btn.disabled = false;
+                    btnText.textContent = 'Save & Reload Server';
+                    spin.style.display = 'none';
+                }
+            }
+        </script>
 
         <!-- Javascript -->
         <script src="/static/assets/bundles/libscripts.bundle.js"></script>
@@ -1385,6 +2340,8 @@
         <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
         <script src="/static/assets/bundles/chartjs.js"></script>
         <script src="/static/assets/index2.js"></script>
+
+
 
 
 </body>

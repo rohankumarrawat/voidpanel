@@ -1,484 +1,803 @@
+{% load static %}
 <!doctype html>
 <html lang="en">
-
 <head>
-    <title>:: VoidPanel :: Package</title>
+    <title>:: VoidPanel :: Package Management</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="VoidPanel Package ">
-    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
-    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
-
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
     <!-- VENDOR CSS -->
     <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
 
-    <!-- MAIN Project CSS file -->
-    <link rel="stylesheet" href="/static/assets/css/main.css">
-
-    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
     <style>
-        /* Basic styling for the p tag */
-        p.processing {
-            font-size: 18px;
-            font-weight: bold;
-
+        .pkg-container {
+            --bg-card: rgba(15, 23, 42, 0.85);
+            --border: rgba(99, 102, 241, 0.2);
+            --border-light: rgba(255,255,255,0.07);
+            --accent: #6366f1;
+            --accent-hover: #818cf8;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #475569;
+            --radius: 12px;
+            --radius-sm: 8px;
+            font-family: 'Inter', sans-serif;
+            color: var(--text-primary);
+            padding: 25px 5px;
+            margin-top: 10px;
         }
 
-        /* Animation for the dots */
-        .dots::after {
-            content: '';
-            display: inline-block;
-            width: 1em;
-            text-align: left;
-            animation: dots 1.5s steps(4, end) infinite;
+        .pkg-container * { box-sizing: border-box; }
+
+        .pkg-container .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 35px; background: transparent; padding: 10px 0; box-shadow: none; border: none; }
+        .pkg-container .page-title { display: flex; align-items: center; gap: 15px; }
+        .pkg-container .page-title .icon {
+            width: 44px; height: 44px; border-radius: 10px;
+            background: rgba(99,102,241,0.12); color: var(--accent-hover);
+            display: flex; align-items: center; justify-content: center; font-size: 1.2rem;
+        }
+        .pkg-container .page-title h1 { font-size: 1.25rem; font-weight: 700; margin:0; color:var(--text-primary); }
+        .pkg-container .page-title p { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; margin-bottom: 0; }
+
+        .pkg-grid { display: grid; grid-template-columns: minmax(350px, 1fr) 1fr; gap: 24px; }
+        @media (max-width: 900px) { .pkg-grid { grid-template-columns: 1fr; } }
+
+        .glass-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius);
+            padding: 24px;
+            backdrop-filter: blur(20px);
         }
 
-        /* Keyframes for the dots animation */
-        @keyframes dots {
+        .glass-card h3 { font-size: 1.1rem; margin-bottom: 20px; color: var(--text-primary); font-weight: 600; display: flex; align-items: center; gap: 10px; margin-top:0; }
 
-            0%,
-            100% {
-                content: '';
-            }
-
-            25% {
-                content: '.';
-            }
-
-            50% {
-                content: '..';
-            }
-
-            75% {
-                content: '...';
-            }
+        /* Form elements */
+        .pkg-field { margin-bottom: 18px; }
+        .pkg-field label { display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 8px; color: var(--text-secondary); }
+        .pkg-input-group { position: relative; display: flex; align-items: stretch; }
+        
+        .pkg-input-group input[type="text"] {
+            flex: 1; padding: 10px 14px; border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+            background: rgba(0,0,0,0.2) !important; border: 1px solid var(--border-light) !important;
+            color: var(--text-primary) !important; font-size: 0.85rem; font-family: 'Inter', sans-serif;
+            transition: all 0.2s; outline: none; height: auto;
         }
+        .pkg-input-group input[type="text"]:focus { border-color: var(--accent) !important; background: rgba(0,0,0,0.3) !important; z-index: 2; }
+        .pkg-input-group input[type="text"][readonly] { color: var(--success) !important; opacity: 1; font-weight: 600; }
+
+        .btn-unlimited {
+            background: rgba(16,185,129,0.1); color: var(--success); border: 1px solid rgba(16,185,129,0.3); border-left: none;
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 0 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; justify-content: center; gap: 6px;
+        }
+        .btn-unlimited.active { background: rgba(16,185,129,0.25); border-color: var(--success); box-shadow: inset 0 0 5px rgba(0,0,0,0.2); }
+        .btn-unlimited:hover { background: rgba(16,185,129,0.2); }
+
+        .btn-modern {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 12px 20px; border-radius: var(--radius-sm); width: 100%;
+            font-size: 0.85rem; font-weight: 600; cursor: pointer;
+            border: 1px solid transparent; transition: all 0.2s; margin-top: 10px;
+        }
+        .btn-modern.primary { background: linear-gradient(135deg, var(--accent), var(--accent-hover)); color: white; box-shadow: 0 4px 15px rgba(99,102,241,0.2); }
+        .btn-modern.primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-modern:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+
+        /* Fancy Table */
+        .pkg-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+        .pkg-table th { padding: 12px 16px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border-light); }
+        .pkg-table td { padding: 16px; background: rgba(255,255,255,0.03); font-size: 0.85rem; vertical-align: middle; }
+        .pkg-table tbody tr { transition: transform 0.2s; }
+        .pkg-table tbody tr:hover { transform: translateX(2px); background: rgba(255,255,255,0.05); }
+        .pkg-table td:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); font-weight: 600; color: #fff; }
+        .pkg-table td:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; text-align: right; }
+
+        .val-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; background: rgba(255,255,255,0.1); color: var(--text-secondary); margin-bottom: 4px; }
+        .val-badge.unlimited { background: rgba(16,185,129,0.15); color: var(--success); }
+
+        .btn-del {
+            background: rgba(239,68,68,0.15); color: var(--danger); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; padding: 6px 12px; font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn-del:hover { background: rgba(239,68,68,0.25); }
+        .btn-del:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Toast Notifications */
+        #toast-stack { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+        .toast-msg {
+            min-width: 260px; padding: 14px 20px; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 500;
+            backdrop-filter: blur(20px); box-shadow: 0 10px 40px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 12px;
+            animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; background: rgba(15, 23, 42, 0.95); color: white; border: 1px solid var(--border-light);
+        }
+        .toast-msg.success { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.3); color: var(--success); }
+        .toast-msg.error { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.3); color: var(--danger); }
+        @keyframes toastSlideIn { from { opacity: 0; transform: translateX(50px); } to { opacity: 1; transform: translateX(0); } }
+
+        /* Modal specific */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(8,12,26,0.88); backdrop-filter: blur(10px); z-index: 10000; align-items: center; justify-content: center; }
+        .modal-overlay.show { display: flex; }
+        .modal-glass { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 20px; padding: 32px 36px; width: 100%; max-width: 420px; animation: popIn 0.22s ease; }
+        @keyframes popIn { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     </style>
-    <style>
-        .myname {
-            border-radius: 30px;
-            box-shadow: inset;
-            border-width: 4px;
-
-
-        }
-
-        .text-container {
-
-            border: 1px solid #ccc;
-
-            word-wrap: break-word;
-            /* Force text to wrap */
-            white-space: normal;
-            /* Ensure normal wrapping */
-            overflow-wrap: break-word;
-            /* Ensure long words break */
-        }
-    </style>
-
 </head>
 
-<body data-theme="light" class="font-nunito">
+<body class="font-nunito active-dark-mode">
+<div id="wrapper" class="theme-cyan">
 
-    <div id="wrapper" class="theme-cyan">
-
-        <!-- Page Loader -->
-        <div class="page-loader-wrapper">
-            <div class="loader">
-                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
-                </div>
-                <p>Please wait...</p>
+    <!-- Page Loader -->
+        <div class="page-loader-wrapper" style="background: var(--void-bg, #080c14) !important;">
+        <div class="loader">
+            <div class="m-t-30" style="display: flex; justify-content: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="130" height="30" viewBox="0 0 180 40" role="img" aria-label="VoidPanel">
+                  <rect x="0" y="4" width="34" height="34" rx="8" ry="8" fill="rgba(255,255,255,0.12)"/>
+                  <rect x="7" y="13" width="20" height="4" rx="1.5" fill="#ffffff" opacity="0.9"/>
+                  <rect x="7" y="19.5" width="14" height="4" rx="1.5" fill="#ffffff" opacity="0.65"/>
+                  <rect x="7" y="26" width="10" height="4" rx="1.5" fill="#60a5fa" opacity="0.95"/>
+                  <text x="43" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#ffffff">Void</text>
+                  <text x="91" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#60a5fa">Panel</text>
+                </svg>
             </div>
+            <div class="loading-bar-container">
+                <div class="loading-bar"></div>
+            </div>
+            <p style="color: var(--text-secondary, #475569) !important;">Please wait...</p>
         </div>
+    </div>
 
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
 
-
-        {% include 'navbar.html' %}
-
-        <!-- main left menu -->
-        {% include 'left.html' %}
-        <!-- rightbar icon div -->
-        {% include 'right.html' %}
-
-
-        <!-- mani page content body part -->
-
-        <div id="main-content">
-
-            <div class="container-fluid">
-                <div class="block-header">
-                    <div class="row">
-                        <div class="col-lg-10 col-md-6 col-sm-12">
-                            <h2>Edit/Add Package</h2>
-                            <ul class="breadcrumb">
-                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
-                                </li>
-                                <li class="breadcrumb-item">Dashboard</li>
-                                <li class="breadcrumb-item">Package Wizard</li>
-
-                            </ul>
-                        </div>
-
-
-
-
-
-
-
-                    </div>
-                </div>
-
-                <div class="row clearfix">
-                    <div class="col-lg-12">
-
-                        <div class="">
-                            <div class="header">
-                                <h2>Package Wizard</h2>
-
-
-                            </div>
-
-
+    <div id="main-content">
+        <div class="container-fluid">
+            <div class="pkg-container">
+                
+                <div class="page-header">
+                    <div class="page-title">
+                        <div class="icon"><i class="fa-solid fa-cube"></i></div>
+                        <div>
+                            <h1>Package Management</h1>
+                            <p>Design rigid hosting tiers safely and seamlessly.</p>
                         </div>
                     </div>
+                    <a href="/control/admin/suite/plans/" target="_blank"
+                       style="display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(99,102,241,.18),rgba(139,92,246,.18));border:1px solid rgba(139,92,246,.35);color:#c4b5fd;font-size:12.5px;font-weight:700;text-decoration:none;transition:all .2s"
+                       onmouseover="this.style.background='linear-gradient(135deg,rgba(99,102,241,.28),rgba(139,92,246,.28))'" onmouseout="this.style.background='linear-gradient(135deg,rgba(99,102,241,.18),rgba(139,92,246,.18))'">
+                        <i class="fa-solid fa-sliders"></i> Manage Suite Plans
+                    </a>
                 </div>
 
-
-
-
-
-                <div class="row clearfix" style="margin-top: 30px;">
-                    <div class="col-lg-6 col-md-12">
-                        <div class="">
-                            <!-- <div class="header">
-                                <h4>Add Package</h4>
-                            </div> -->
-                            <form method="post" action="">{%csrf_token%}
-                            <div class=" card m-2">
-                                {% for message in messages  %}            
-                                <div class="form-group" role="alert">
-                                      <strong>Message : </strong> {{ message }}
-                                      </button>
-                                    </div>
-                                {% endfor %}   
-                                <div class="body">
-                                    <form id="basic-form" method="post" novalidate="">
-                                        <div class="form-group">
-                                            <label>Package Name</label>
-                                            <input id="package" value="" name="package" type="text" class="form-control" required>
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Storage (IN MB)</label>
-                                            <div class="row">
-                                                <div class="col-8">
-                                                    <input id="mainstorage" name="storage" type="text" class="form-control"
-                                                        placeholder="1000" value="" required>
-
-                                                </div>
-                                                <div class="col-4">
-                                                    <label class="fancy-radio">
-                                                        <input id="storage" type="checkbox" name="gender"
-                                                            value="storage" 
-                                                            data-parsley-errors-container="#error-radio"
-                                                            data-parsley-multiple="gender">
-                                                        <span><i></i>Unlimited</span>
-                                                    </label>
-
-                                                </div>
-                                            </div>
-
-
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label>FTP</label>
-                                            <div class="row">
-                                                <div class="col-8">
-                                                    <input id="mainftp" type="text" class="form-control"
-                                                        placeholder="1" value="" name="ftp" required>
-
-                                                </div>
-                                                <div class="col-4">
-                                                    <label class="fancy-radio">
-                                                        <input id="ftp" type="checkbox" name="gender" value="male"
-                                                             data-parsley-errors-container="#error-radio"
-                                                            data-parsley-multiple="gender">
-                                                        <span><i></i>Unlimited</span>
-                                                    </label>
-
-                                                </div>
-                                            </div>
-
-
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label>Bandwidth (IN MB)</label>
-                                            <div class="row">
-                                                <div class="col-8">
-                                                    <input id="mainbandwidth" type="text" class="form-control"
-                                                        placeholder="1000" value="" name="bandwidth" required>
-
-                                                </div>
-                                                <div class="col-4">
-                                                    <label class="fancy-radio">
-                                                        <input id="bandwidth" type="checkbox" name="gender" value="male"
-                                                             data-parsley-errors-container="#error-radio"
-                                                            data-parsley-multiple="gender">
-                                                        <span><i></i>Unlimited</span>
-                                                    </label>
-
-                                                </div>
-                                            </div>
-
-
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label>Subdomains</label>
-                                            <div class="row">
-                                                <div class="col-8">
-                                                    <input id="maindubdomain" type="text" class="form-control"
-                                                        placeholder="4" value="" name="subdomain" required>
-
-                                                </div>
-                                                <div class="col-4">
-                                                    <label class="fancy-radio">
-                                                        <input id="subdomain" type="checkbox" name="gender" value="male"
-                                                             data-parsley-errors-container="#error-radio"
-                                                            data-parsley-multiple="gender">
-                                                        <span><i></i>Unlimited</span>
-                                                    </label>
-
-                                                </div>
-                                            </div>
-
-
-                                        </div>
-
-                                        <!-- <div class="form-group">
-                                            <label>Addon Domain</label>
-                                            <div class="row">
-                                                <div class="col-8">
-                                                    <input id="mainaddondomain" type="text" class="form-control"
-                                                        placeholder="2" value=""  name="addondomain" required>
-
-                                                </div>
-                                                <div class="col-4">
-                                                    <label class="fancy-radio">
-                                                        <input id="addondomain" type="checkbox" name="gender"
-                                                            value="male" 
-                                                            data-parsley-errors-container="#error-radio"
-                                                            data-parsley-multiple="gender">
-                                                        <span><i></i>Unlimited</span>
-                                                    </label>
-
-                                                </div>
-                                            </div> -->
-
-                                            <div class="form-group">
-                                                <label>Databases</label>
-                                                <div class="row">
-                                                    <div class="col-8">
-                                                        <input id="maindatabase" type="text" class="form-control"
-                                                            placeholder="2" value="" name="database" required>
-    
-                                                    </div>
-                                                    <div class="col-4">
-                                                        <label class="fancy-radio">
-                                                            <input id="database" type="checkbox" name="gender" value="male"
-                                                                 data-parsley-errors-container="#error-radio"
-                                                                data-parsley-multiple="gender">
-                                                            <span><i></i>Unlimited</span>
-                                                        </label>
-    
-                                                    </div>
-                                                </div>
-    
-    
-                                            </div>
-    
-                                            <div class="form-group">
-                                                <label>Email Accounts</label>
-                                                <div class="row">
-                                                    <div class="col-8">
-                                                        <input id="mainemailaccount" type="text" class="form-control"
-                                                            placeholder="3" value="" name="email" required>
-    
-                                                    </div>
-                                                    <div class="col-4">
-                                                        <label class="fancy-radio">
-                                                            <input id="emailaccount" type="checkbox" name="gender"
-                                                                value="male" 
-                                                                data-parsley-errors-container="#error-radio"
-                                                                data-parsley-multiple="gender">
-                                                            <span><i></i>Unlimited</span>
-                                                        </label>
-    
-                                                    </div>
-                                                </div>
-    
-    
-                                            </div>
-
-                                        </div>
-
-                                       
-
-                                       
-
-                                        <br>
-                                        <div style="text-align: center;">
-                                            <button type="submit" class="btn btn-primary">
-                                                Add Package
-                                            </button>
-                                        </div>
+                <div class="pkg-grid">
+                    <!-- ADD PACKAGE CARD -->
+                    <div class="glass-card">
+                        <h3><i class="fa-solid fa-folder-plus"></i> Architect New Package</h3>
+                        <form id="add-package-form" onsubmit="submitPackage(event)">
+                            <div class="pkg-field">
+                                <label>Package Identifier</label>
+                                <div class="pkg-input-group">
+                                    <input type="text" id="pkg-name" name="package" placeholder="e.g. Gold Tier" required style="border-radius: var(--radius-sm)">
                                 </div>
                             </div>
-                        </div>
-                    </form>
-             
-                    
-                    <div class="col-lg-6 col-md-12">
-                        <div class="">
-                            <div class="header">
-                                <h4>Package Info</h4>
+                            
+                            <div class="pkg-field">
+                                <label>Disk Storage Base (MB)</label>
+                                <div class="pkg-input-group">
+                                    <input type="text" id="pkg-storage" name="storage" placeholder="1000" class="num-only" required>
+                                    <button type="button" class="btn-unlimited" onclick="toggleUnlimited('pkg-storage', this)"><i class="fa-solid fa-infinity"></i> Unlimited</button>
+                                </div>
                             </div>
-                            <div class="body table-responsive social_media_table"
-                                style="max-height: 300px; overflow-y: auto;">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
 
-                                            <th>Package Name</th>
-                                           
-
-                                            <th>Action</th>
-
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for i in packages %}
-
-                                        <tr>
-
-
-                                            <td>{{i.name}}</td>
-
-                                        
-
-
-                                            
-                                    
-
-                                            <td>
-
-                                               <a href="/delpackage/{{i.name}}"><button 
-                                                    class="btn btn-danger">  Delete <i
-                                                        class="fa fa-edit"></i></button></a> 
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-
-
-                                    </tbody>
-                                </table>
+                            <div class="pkg-field">
+                                <label>Premium Bandwidth Limit (MB)</label>
+                                <div class="pkg-input-group">
+                                    <input type="text" id="pkg-bandwidth" name="bandwidth" placeholder="5000" class="num-only" required>
+                                    <button type="button" class="btn-unlimited" onclick="toggleUnlimited('pkg-bandwidth', this)"><i class="fa-solid fa-infinity"></i> Unlimited</button>
+                                </div>
                             </div>
-                        </div>
+
+                            <div class="pkg-field">
+                                <label>Maximum Subdomains</label>
+                                <div class="pkg-input-group">
+                                    <input type="text" id="pkg-subdomain" name="subdomain" placeholder="5" class="num-only" required>
+                                    <button type="button" class="btn-unlimited" onclick="toggleUnlimited('pkg-subdomain', this)"><i class="fa-solid fa-infinity"></i> Unlimited</button>
+                                </div>
+                            </div>
+
+                            <div class="pkg-field">
+                                <label>FTP Accounts Provision</label>
+                                <div class="pkg-input-group">
+                                    <input type="text" id="pkg-ftp" name="ftp" placeholder="2" class="num-only" required>
+                                    <button type="button" class="btn-unlimited" onclick="toggleUnlimited('pkg-ftp', this)"><i class="fa-solid fa-infinity"></i> Unlimited</button>
+                                </div>
+                            </div>
+
+                            <div class="pkg-field">
+                                <label>Total Hosted Databases</label>
+                                <div class="pkg-input-group">
+                                    <input type="text" id="pkg-db" name="database" placeholder="3" class="num-only" required>
+                                    <button type="button" class="btn-unlimited" onclick="toggleUnlimited('pkg-db', this)"><i class="fa-solid fa-infinity"></i> Unlimited</button>
+                                </div>
+                            </div>
+
+                            <div class="pkg-field" style="margin-top:0">
+                                <label>Email Boxes Capacity</label>
+                                <div class="pkg-input-group">
+                                    <input type="text" id="pkg-email" name="email" placeholder="5" class="num-only" required>
+                                    <button type="button" class="btn-unlimited" onclick="toggleUnlimited('pkg-email', this)"><i class="fa-solid fa-infinity"></i> Unlimited</button>
+                                </div>
+                            </div>
+
+                            <!-- Suite Add-ons — only if at least one is licensed -->
+                            {% if license_features.social_media or license_features.seo_tools or license_features.marketing_suite %}
+                            <div style="margin-top:22px">
+                              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                                <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#a5b4fc"><i class="fa-solid fa-bolt"></i> Suite Add-ons</span>
+                                <a href="/control/admin/suite/plans/" target="_blank" style="font-size:10px;color:#818cf8;text-decoration:none;font-weight:600"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size:9px"></i> Manage Plans</a>
+                              </div>
+                              <div style="display:flex;flex-direction:column;gap:8px">
+
+                                {% if license_features.social_media %}
+                                <!-- Social -->
+                                <div id="pkg-card-social" style="border-radius:10px;border:1px solid rgba(244,114,182,.2);background:rgba(244,114,182,.04);padding:12px 14px;transition:all .2s">
+                                  <div style="display:flex;align-items:center;gap:10px">
+                                    <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#be185d,#9d174d);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                                      <i class="fa-brands fa-instagram" style="color:#fff;font-size:14px"></i>
+                                    </div>
+                                    <div style="flex:1;min-width:0">
+                                      <div style="font-size:12.5px;font-weight:700;color:#f9fafb">Social Media Suite</div>
+                                      <div style="font-size:10px;color:#9ca3af;margin-top:1px">Schedule posts · Analytics · AI captions</div>
+                                    </div>
+                                    <label style="position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0;cursor:pointer">
+                                      <input type="checkbox" name="includes_social" id="pkg-inc-social" onchange="toggleSuiteCard('pkg-card-social','pkg-social-plan',this,'#f472b6')" style="opacity:0;width:0;height:0">
+                                      <span id="pkg-toggle-social" style="position:absolute;inset:0;background:rgba(255,255,255,.1);border-radius:20px;transition:.3s;border:1px solid rgba(255,255,255,.15)"></span>
+                                      <span id="pkg-thumb-social" style="position:absolute;left:2px;top:2px;width:16px;height:16px;background:#6b7280;border-radius:50%;transition:.3s"></span>
+                                    </label>
+                                  </div>
+                                  <div id="pkg-social-wrap" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(244,114,182,.15)">
+                                    <label style="font-size:10px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Plan Tier</label>
+                                    <select name="social_plan" id="pkg-social-plan" style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(244,114,182,.3);border-radius:7px;padding:7px 10px;color:#f9fafb;font-size:12px;font-family:inherit">
+                                      <option value="starter">Starter — ₹699/mo · 5 accounts · 90 posts</option>
+                                      <option value="growth">Growth — ₹1,999/mo · 15 accounts · 400 posts</option>
+                                      <option value="agency">Agency — ₹4,999/mo · Unlimited + White Label</option>
+                                    </select>
+                                  </div>
+                                </div>
+                                {% endif %}
+
+                                {% if license_features.seo_tools %}
+                                <!-- SEO -->
+                                <div id="pkg-card-seo" style="border-radius:10px;border:1px solid rgba(99,102,241,.2);background:rgba(99,102,241,.04);padding:12px 14px;transition:all .2s">
+                                  <div style="display:flex;align-items:center;gap:10px">
+                                    <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#4338ca,#3730a3);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                                      <i class="fa-solid fa-magnifying-glass-chart" style="color:#fff;font-size:14px"></i>
+                                    </div>
+                                    <div style="flex:1;min-width:0">
+                                      <div style="font-size:12.5px;font-weight:700;color:#f9fafb">SEO Suite</div>
+                                      <div style="font-size:10px;color:#9ca3af;margin-top:1px">Keyword tracking · Audits · Backlinks</div>
+                                    </div>
+                                    <label style="position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0;cursor:pointer">
+                                      <input type="checkbox" name="includes_seo" id="pkg-inc-seo" onchange="toggleSuiteCard('pkg-card-seo','pkg-seo-plan',this,'#818cf8')" style="opacity:0;width:0;height:0">
+                                      <span id="pkg-toggle-seo" style="position:absolute;inset:0;background:rgba(255,255,255,.1);border-radius:20px;transition:.3s;border:1px solid rgba(255,255,255,.15)"></span>
+                                      <span id="pkg-thumb-seo" style="position:absolute;left:2px;top:2px;width:16px;height:16px;background:#6b7280;border-radius:50%;transition:.3s"></span>
+                                    </label>
+                                  </div>
+                                  <div id="pkg-seo-wrap" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(99,102,241,.15)">
+                                    <label style="font-size:10px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Plan Tier</label>
+                                    <select name="seo_plan" id="pkg-seo-plan" style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(99,102,241,.3);border-radius:7px;padding:7px 10px;color:#f9fafb;font-size:12px;font-family:inherit">
+                                      <option value="lite">Lite — ₹999/mo · 1 domain · 150 keywords</option>
+                                      <option value="standard">Standard — ₹2,999/mo · 5 domains · 750 keywords</option>
+                                      <option value="advanced">Advanced — ₹7,999/mo · 25 domains · Unlimited</option>
+                                    </select>
+                                  </div>
+                                </div>
+                                {% endif %}
+
+                                {% if license_features.marketing_suite %}
+                                <!-- Marketing -->
+                                <div id="pkg-card-mkt" style="border-radius:10px;border:1px solid rgba(245,158,11,.2);background:rgba(245,158,11,.04);padding:12px 14px;transition:all .2s">
+                                  <div style="display:flex;align-items:center;gap:10px">
+                                    <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#b45309,#92400e);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                                      <i class="fa-solid fa-bullhorn" style="color:#fff;font-size:14px"></i>
+                                    </div>
+                                    <div style="flex:1;min-width:0">
+                                      <div style="font-size:12.5px;font-weight:700;color:#f9fafb">Marketing Suite</div>
+                                      <div style="font-size:10px;color:#9ca3af;margin-top:1px">Email · SMS · WhatsApp campaigns</div>
+                                    </div>
+                                    <label style="position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0;cursor:pointer">
+                                      <input type="checkbox" name="includes_marketing" id="pkg-inc-mkt" onchange="toggleSuiteCard('pkg-card-mkt','pkg-mkt-plan',this,'#fbbf24')" style="opacity:0;width:0;height:0">
+                                      <span id="pkg-toggle-mkt" style="position:absolute;inset:0;background:rgba(255,255,255,.1);border-radius:20px;transition:.3s;border:1px solid rgba(255,255,255,.15)"></span>
+                                      <span id="pkg-thumb-mkt" style="position:absolute;left:2px;top:2px;width:16px;height:16px;background:#6b7280;border-radius:50%;transition:.3s"></span>
+                                    </label>
+                                  </div>
+                                  <div id="pkg-mkt-wrap" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(245,158,11,.15)">
+                                    <label style="font-size:10px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px">Plan Tier</label>
+                                    <select name="marketing_plan" id="pkg-mkt-plan" style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(245,158,11,.3);border-radius:7px;padding:7px 10px;color:#f9fafb;font-size:12px;font-family:inherit">
+                                      <option value="starter">Starter — ₹799/mo · 2,500 contacts · 10 campaigns</option>
+                                      <option value="pro">Pro — ₹2,499/mo · 15K contacts · Automation + WhatsApp</option>
+                                      <option value="agency">Agency — ₹6,999/mo · Unlimited + White Label</option>
+                                    </select>
+                                  </div>
+                                </div>
+                                {% endif %}
+
+                              </div>
+                            </div>
+                            {% endif %}{# /suite add-ons #}
+
+                            <button type="submit" class="btn-modern primary" id="btn-submit" style="margin-top:18px">
+                                <i class="fa-solid fa-check"></i> Initialize Package
+                            </button>
+                        </form>
                     </div>
 
+                    <!-- LIST PACKAGES CARD -->
+                    <div class="glass-card" style="align-self: flex-start;">
+                        <h3><i class="fa-solid fa-cubes-stacked"></i> Unified Packaging Deployments</h3>
+                        <div style="overflow-x: auto;">
+                            <table class="pkg-table">
+                                <thead>
+                                    <tr>
+                                        <th>Identifier</th>
+                                        <th>Config Summary</th>
+                                        <th style="text-align: right;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for p in packages %}
+                                    <tr>
+                                        <td><i class="fa-solid fa-cube" style="color:var(--accent); margin-right:8px;"></i>{{ p.name }}</td>
+                                        <td>
+                                            {% if p.storage == '0' %}<span class="val-badge unlimited">Disk: ∞</span>{% else %}<span class="val-badge">Disk: {{p.storage}}MB</span>{% endif %}
+                                            {% if p.bandwidth == '0' %}<span class="val-badge unlimited">BW: ∞</span>{% else %}<span class="val-badge">BW: {{p.bandwidth}}MB</span>{% endif %}
+                                            {% if p.databases_allowed == '0' %}<span class="val-badge unlimited">DBs: ∞</span>{% else %}<span class="val-badge">DBs: {{p.databases_allowed}}</span>{% endif %}
+                                        </td>
+                                        <td>
+                                            <button type="button" class="btn-del" style="background:rgba(99,102,241,0.15); color:var(--accent-hover); border-color:rgba(99,102,241,0.3); margin-right:6px;" onclick="openEditPackage({{ p.id }}, '{{ p.name|escapejs }}', '{{ p.storage }}', '{{ p.bandwidth }}', '{{ p.subdomain }}', '{{ p.ftp }}', '{{ p.databases_allowed }}', '{{ p.email_accounts }}', {{ p.includes_social|lower|default:'false' }}, '{{ p.social_plan|default:"starter" }}', {{ p.includes_seo|lower|default:'false' }}, '{{ p.seo_plan|default:"lite" }}', {{ p.includes_marketing|lower|default:'false' }}, '{{ p.marketing_plan|default:"starter" }}')">
+                                                <i class="fa-solid fa-pen-to-square"></i> Edit
+                                            </button>
+                                            <button type="button" class="btn-del" onclick="confirmDelete('{{ p.name }}')">
+                                                <i class="fa-solid fa-trash-can"></i> Obliterate
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 30px;">Architecture empty. Build your first tier.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
 
+            </div> <!-- end pkg-container -->
+        </div> 
+    </div>
 
+</div> <!-- wrapper -->
 
+<div id="toast-stack"></div>
 
-
-
-
-
-
-
-
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="modal-edit">
+    <div class="modal-glass" style="max-width:480px;display:flex;flex-direction:column;max-height:90vh;padding:0;">
+        <div style="padding:24px 28px 16px;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0">
+          <h3 style="color:#fff; font-size:1.1rem; margin:0; display:flex; align-items:center; gap:8px;">
+              <i class="fa-solid fa-pen-to-square" style="color:var(--accent);"></i> Modify Package Tier
+          </h3>
+        </div>
+        <form id="edit-package-form" onsubmit="submitEditPackage(event)" style="display:flex;flex-direction:column;flex:1;min-height:0">
+            <div style="overflow-y:auto;flex:1;padding:20px 28px;">
+            <input type="hidden" name="package_id" id="edit-pkg-id">
+            <div class="pkg-field">
+                <label>Package Identifier</label>
+                <div class="pkg-input-group">
+                    <input type="text" id="edit-pkg-name" name="package" placeholder="e.g. Gold Tier" required style="border-radius: var(--radius-sm)">
+                </div>
+            </div>
+            
+            <div class="pkg-field">
+                <label>Disk Storage Base (MB)</label>
+                <div class="pkg-input-group">
+                    <input type="text" id="edit-pkg-storage" name="storage" class="num-only" required>
+                    <button type="button" class="btn-unlimited" onclick="toggleUnlimited('edit-pkg-storage', this)"><i class="fa-solid fa-infinity"></i> Unlimited</button>
+                </div>
             </div>
 
+            <div class="pkg-field">
+                <label>Premium Bandwidth Limit (MB)</label>
+                <div class="pkg-input-group">
+                    <input type="text" id="edit-pkg-bandwidth" name="bandwidth" class="num-only" required>
+                    <button type="button" class="btn-unlimited" onclick="toggleUnlimited('edit-pkg-bandwidth', this)"><i class="fa-solid fa-infinity"></i> Unlimited</button>
+                </div>
+            </div>
+
+            <div class="pkg-field">
+                <label>Maximum Subdomains</label>
+                <div class="pkg-input-group">
+                    <input type="text" id="edit-pkg-subdomain" name="subdomain" class="num-only" required>
+                    <button type="button" class="btn-unlimited" onclick="toggleUnlimited('edit-pkg-subdomain', this)"><i class="fa-solid fa-infinity"></i> Unlimited</button>
+                </div>
+            </div>
+
+            <div class="pkg-field">
+                <label>FTP Accounts Provision</label>
+                <div class="pkg-input-group">
+                    <input type="text" id="edit-pkg-ftp" name="ftp" class="num-only" required>
+                    <button type="button" class="btn-unlimited" onclick="toggleUnlimited('edit-pkg-ftp', this)"><i class="fa-solid fa-infinity"></i> Unlimited</button>
+                </div>
+            </div>
+
+            <div class="pkg-field">
+                <label>Total Hosted Databases</label>
+                <div class="pkg-input-group">
+                    <input type="text" id="edit-pkg-db" name="database" class="num-only" required>
+                    <button type="button" class="btn-unlimited" onclick="toggleUnlimited('edit-pkg-db', this)"><i class="fa-solid fa-infinity"></i> Unlimited</button>
+                </div>
+            </div>
+
+            <div class="pkg-field" style="margin-top:0">
+                <label>Email Boxes Capacity</label>
+                <div class="pkg-input-group">
+                    <input type="text" id="edit-pkg-email" name="email" class="num-only" required>
+                    <button type="button" class="btn-unlimited" onclick="toggleUnlimited('edit-pkg-email', this)"><i class="fa-solid fa-infinity"></i> Unlimited</button>
+                </div>
+            </div>
+
+            <!-- Suite Add-ons (Edit) — only if at least one is licensed -->
+            {% if license_features.social_media or license_features.seo_tools or license_features.marketing_suite %}
+            <div style="margin-top:18px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#a5b4fc"><i class="fa-solid fa-bolt"></i> Suite Add-ons</span>
+                <a href="/control/admin/suite/plans/" target="_blank" style="font-size:10px;color:#818cf8;text-decoration:none;font-weight:600"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size:9px"></i> Manage Plans</a>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:7px">
+
+                {% if license_features.social_media %}
+                <!-- Social -->
+                <div id="edit-card-social" style="border-radius:10px;border:1px solid rgba(244,114,182,.2);background:rgba(244,114,182,.04);padding:11px 13px;transition:all .2s">
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div style="width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,#be185d,#9d174d);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                      <i class="fa-brands fa-instagram" style="color:#fff;font-size:12px"></i>
+                    </div>
+                    <div style="flex:1;min-width:0">
+                      <div style="font-size:12px;font-weight:700;color:#f9fafb">Social Media Suite</div>
+                    </div>
+                    <label style="position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0;cursor:pointer">
+                      <input type="checkbox" name="includes_social" id="edit-inc-social" onchange="toggleSuiteCard('edit-card-social','edit-social-plan',this,'#f472b6')" style="opacity:0;width:0;height:0">
+                      <span id="edit-toggle-social" style="position:absolute;inset:0;background:rgba(255,255,255,.1);border-radius:20px;transition:.3s;border:1px solid rgba(255,255,255,.15)"></span>
+                      <span id="edit-thumb-social" style="position:absolute;left:2px;top:2px;width:16px;height:16px;background:#6b7280;border-radius:50%;transition:.3s"></span>
+                    </label>
+                  </div>
+                  <div id="edit-social-wrap" style="display:none;margin-top:9px;padding-top:9px;border-top:1px solid rgba(244,114,182,.15)">
+                    <select name="social_plan" id="edit-social-plan" style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(244,114,182,.3);border-radius:7px;padding:6px 10px;color:#f9fafb;font-size:12px;font-family:inherit">
+                      <option value="starter">Starter — ₹699/mo</option>
+                      <option value="growth">Growth — ₹1,999/mo</option>
+                      <option value="agency">Agency — ₹4,999/mo</option>
+                    </select>
+                  </div>
+                </div>
+                {% endif %}
+
+                {% if license_features.seo_tools %}
+                <!-- SEO -->
+                <div id="edit-card-seo" style="border-radius:10px;border:1px solid rgba(99,102,241,.2);background:rgba(99,102,241,.04);padding:11px 13px;transition:all .2s">
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div style="width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,#4338ca,#3730a3);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                      <i class="fa-solid fa-magnifying-glass-chart" style="color:#fff;font-size:12px"></i>
+                    </div>
+                    <div style="flex:1;min-width:0">
+                      <div style="font-size:12px;font-weight:700;color:#f9fafb">SEO Suite</div>
+                    </div>
+                    <label style="position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0;cursor:pointer">
+                      <input type="checkbox" name="includes_seo" id="edit-inc-seo" onchange="toggleSuiteCard('edit-card-seo','edit-seo-plan',this,'#818cf8')" style="opacity:0;width:0;height:0">
+                      <span id="edit-toggle-seo" style="position:absolute;inset:0;background:rgba(255,255,255,.1);border-radius:20px;transition:.3s;border:1px solid rgba(255,255,255,.15)"></span>
+                      <span id="edit-thumb-seo" style="position:absolute;left:2px;top:2px;width:16px;height:16px;background:#6b7280;border-radius:50%;transition:.3s"></span>
+                    </label>
+                  </div>
+                  <div id="edit-seo-wrap" style="display:none;margin-top:9px;padding-top:9px;border-top:1px solid rgba(99,102,241,.15)">
+                    <select name="seo_plan" id="edit-seo-plan" style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(99,102,241,.3);border-radius:7px;padding:6px 10px;color:#f9fafb;font-size:12px;font-family:inherit">
+                      <option value="lite">Lite — ₹999/mo</option>
+                      <option value="standard">Standard — ₹2,999/mo</option>
+                      <option value="advanced">Advanced — ₹7,999/mo</option>
+                    </select>
+                  </div>
+                </div>
+                {% endif %}
+
+                {% if license_features.marketing_suite %}
+                <!-- Marketing -->
+                <div id="edit-card-mkt" style="border-radius:10px;border:1px solid rgba(245,158,11,.2);background:rgba(245,158,11,.04);padding:11px 13px;transition:all .2s">
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div style="width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,#b45309,#92400e);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                      <i class="fa-solid fa-bullhorn" style="color:#fff;font-size:12px"></i>
+                    </div>
+                    <div style="flex:1;min-width:0">
+                      <div style="font-size:12px;font-weight:700;color:#f9fafb">Marketing Suite</div>
+                    </div>
+                    <label style="position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0;cursor:pointer">
+                      <input type="checkbox" name="includes_marketing" id="edit-inc-mkt" onchange="toggleSuiteCard('edit-card-mkt','edit-mkt-plan',this,'#fbbf24')" style="opacity:0;width:0;height:0">
+                      <span id="edit-toggle-mkt" style="position:absolute;inset:0;background:rgba(255,255,255,.1);border-radius:20px;transition:.3s;border:1px solid rgba(255,255,255,.15)"></span>
+                      <span id="edit-thumb-mkt" style="position:absolute;left:2px;top:2px;width:16px;height:16px;background:#6b7280;border-radius:50%;transition:.3s"></span>
+                    </label>
+                  </div>
+                  <div id="edit-mkt-wrap" style="display:none;margin-top:9px;padding-top:9px;border-top:1px solid rgba(245,158,11,.15)">
+                    <select name="marketing_plan" id="edit-mkt-plan" style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(245,158,11,.3);border-radius:7px;padding:6px 10px;color:#f9fafb;font-size:12px;font-family:inherit">
+                      <option value="starter">Starter — ₹799/mo</option>
+                      <option value="pro">Pro — ₹2,499/mo</option>
+                      <option value="agency">Agency — ₹6,999/mo</option>
+                    </select>
+                  </div>
+                </div>
+                {% endif %}
+
+              </div>
+            </div>
+            {% endif %}{# /suite add-ons edit #}
+            </div><!-- end scrollable area -->
+
+            <!-- Sticky footer with Save/Cancel always visible -->
+            <div style="padding:16px 28px;border-top:1px solid rgba(255,255,255,.07);flex-shrink:0;display:flex;gap:12px;background:var(--bg-card);border-radius:0 0 20px 20px">
+                <button type="button" style="flex:1; padding:11px; border-radius:var(--radius-sm); border:1px solid var(--border-light); background:rgba(255,255,255,0.05); color:#fff; cursor:pointer;font-size:13px;font-weight:500" onclick="closeEdit()">Cancel</button>
+                <button type="submit" id="btn-confirm-edit" style="flex:1; padding:11px; border-radius:var(--radius-sm); border:none; background:linear-gradient(135deg, var(--accent), var(--accent-hover)); color:#fff; font-weight:700; cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px"><i class="fa-solid fa-check"></i> Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- DELETE MODAL -->
+<div class="modal-overlay" id="modal-delete">
+    <div class="modal-glass" style="max-width:360px; text-align:center;">
+        <i class="fa-solid fa-triangle-exclamation" style="font-size:3rem; color:var(--danger); margin-bottom:16px;"></i>
+        <h3 style="color:#fff; font-size:1.2rem; margin-bottom:10px;">Verify Destruction</h3>
+        <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:24px;">Are you certain you want to purge "<strong id="del-pkg-target" style="color:#fff;"></strong>"? This tier structure cannot be resurrected.</p>
+        <div style="display:flex; gap:12px;">
+            <button style="flex:1; padding:10px; border-radius:var(--radius-sm); border:1px solid var(--border-light); background:rgba(255,255,255,0.05); color:#fff; cursor:pointer;" onclick="closeDelete()">Abort</button>
+            <button id="btn-confirm-del" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:none; background:var(--danger); color:#fff; font-weight:600; cursor:pointer;" onclick="executeDelete()">Erase Entity</button>
         </div>
+    </div>
+</div>
 
-      
+<script>
+    const CSRF_TOKEN = "{{ csrf_token }}";
+    let pendingDeletion = null;
 
+    function toast(msg, type='info') {
+        const stack = document.getElementById('toast-stack');
+        const el = document.createElement('div');
+        el.className = `toast-msg ${type}`;
+        el.innerHTML = `<i class="fa-solid ${type==='success'?'fa-circle-check':'fa-triangle-exclamation'}"></i> <span>${msg}</span>`;
+        stack.appendChild(el);
+        setTimeout(() => el.remove(), 4500);
+    }
 
-
-
-
-
-
-        <script>
-            // Function to handle enabling/disabling input fields
-            function toggleInput(checkboxId, inputId) {
-                const checkbox = document.getElementById(checkboxId);
-                const input = document.getElementById(inputId);
-
-                checkbox.addEventListener('change', function () {
-                    if (checkbox.checked) {
-                        input.value = 'unlimited'; // Set value to 0
-                        input.setAttribute('readonly', true);
-                    } else {
-                        input.value = ''; // Clear the value
-                        input.removeAttribute('readonly');
-                    }
-                });
+    // Replace Non-digits
+    document.querySelectorAll('.num-only').forEach(inp => {
+        inp.addEventListener('input', function() {
+            if (this.value !== 'unlimited') {
+                this.value = this.value.replace(/\D/g, '');
             }
-
-            // Initialize the toggle behavior for all relevant fields
-            toggleInput('storage', 'mainstorage');
-            toggleInput('ftp', 'mainftp');
-            toggleInput('bandwidth', 'mainbandwidth');
-            toggleInput('subdomain', 'maindubdomain');
-            // toggleInput('addondomain', 'mainaddondomain');
-            toggleInput('database', 'maindatabase');
-            toggleInput('emailaccount', 'mainemailaccount');
-
-
-            document.addEventListener('DOMContentLoaded', function () {
-    // Select all input fields except the one with id="package"
-    const inputs = document.querySelectorAll('input[type="text"]:not(#package)');
-
-    // Loop through each input field
-    inputs.forEach(input => {
-        // Add event listener to handle the input event
-        input.addEventListener('input', function () {
-            // Replace any non-digit characters with an empty string
-            this.value = this.value.replace(/\D/g, '');
         });
     });
-});
 
-        </script>
+    function toggleUnlimited(inputId, btn) {
+        const inp = document.getElementById(inputId);
+        if (inp.value === 'unlimited') {
+            inp.value = '';
+            inp.removeAttribute('readonly');
+            btn.classList.remove('active');
+            btn.innerHTML = '<i class="fa-solid fa-infinity"></i> Unlimited';
+        } else {
+            inp.value = 'unlimited';
+            inp.setAttribute('readonly', 'true');
+            btn.classList.add('active');
+            btn.innerHTML = '<i class="fa-solid fa-lock"></i> Locked';
+        }
+    }
 
+    async function submitPackage(e) {
+        e.preventDefault();
+        const form = e.target;
+        const btn = document.getElementById('btn-submit');
+        const defaultHtml = btn.innerHTML;
+        
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Processing...';
+        btn.disabled = true;
 
+        const formData = new FormData(form);
+        
+        try {
+            const resp = await fetch('/package/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': CSRF_TOKEN, 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData
+            });
+            const data = await resp.json();
+            
+            if (resp.ok && data.status === 'success') {
+                toast(data.message, 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                toast(data.message || 'Error executing generation structure', 'error');
+                btn.innerHTML = defaultHtml;
+                btn.disabled = false;
+            }
+        } catch(err) {
+            toast('Catastrophic network dropout', 'error');
+            btn.innerHTML = defaultHtml;
+            btn.disabled = false;
+        }
+    }
 
+    function confirmDelete(pkgName) {
+        pendingDeletion = pkgName;
+        document.getElementById('del-pkg-target').textContent = pkgName;
+        document.getElementById('modal-delete').classList.add('show');
+    }
 
-        <!-- Javascript -->
-        <script src="/static/assets/bundles/libscripts.bundle.js"></script>
-        <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+    function closeDelete() {
+        pendingDeletion = null;
+        document.getElementById('modal-delete').classList.remove('show');
+        const btn = document.getElementById('btn-confirm-del');
+        btn.innerHTML = 'Erase Entity';
+        btn.disabled = false;
+    }
 
-        <!-- page vendor js file -->
-        <script src="/static/assets/vendor/toastr/toastr.js"></script>
-        <script src="/static/assets/bundles/c3.bundle.js"></script>
+    async function executeDelete() {
+        if (!pendingDeletion) return;
+        const btn = document.getElementById('btn-confirm-del');
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Erasing...';
+        btn.disabled = true;
 
+        const url = `/delpackage/${encodeURIComponent(pendingDeletion)}/`;
+        
+        try {
+            const resp = await fetch(url, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': CSRF_TOKEN, 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const data = await resp.json();
+            
+            if (resp.ok && data.status === 'success') {
+                toast(data.message, 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                toast(data.message || 'Permission denied or structural failure.', 'error');
+                closeDelete();
+            }
+        } catch(err) {
+            toast('Network termination error.', 'error');
+            closeDelete();
+        }
+    }
 
-        <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
-        <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
+    function openEditPackage(id, name, storage, bandwidth, subdomain, ftp, db, email,
+                             incSocial, socialPlan, incSeo, seoPlan, incMkt, mktPlan) {
+        document.getElementById('edit-pkg-id').value = id;
+        setupEditField('edit-pkg-name', name);
+        setupEditField('edit-pkg-storage', storage);
+        setupEditField('edit-pkg-bandwidth', bandwidth);
+        setupEditField('edit-pkg-subdomain', subdomain);
+        setupEditField('edit-pkg-ftp', ftp);
+        setupEditField('edit-pkg-db', db);
+        setupEditField('edit-pkg-email', email);
+        // Suite add-ons
+        var cbS = document.getElementById('edit-inc-social');
+        var cbE = document.getElementById('edit-inc-seo');
+        var cbM = document.getElementById('edit-inc-mkt');
+        cbS.checked = !!incSocial; document.getElementById('edit-social-plan').value = socialPlan || 'starter';
+        cbE.checked = !!incSeo;    document.getElementById('edit-seo-plan').value = seoPlan || 'lite';
+        cbM.checked = !!incMkt;    document.getElementById('edit-mkt-plan').value = mktPlan || 'starter';
+        // Sync toggle cards to loaded state
+        toggleSuiteCard('edit-card-social','edit-social-plan',cbS,'#f472b6');
+        toggleSuiteCard('edit-card-seo','edit-seo-plan',cbE,'#818cf8');
+        toggleSuiteCard('edit-card-mkt','edit-mkt-plan',cbM,'#fbbf24');
+        document.getElementById('modal-edit').classList.add('show');
+    }
 
+    function setupEditField(id, val) {
+        const inp = document.getElementById(id);
+        const btn = inp.nextElementSibling;
+        inp.value = val;
+        
+        if (val === '0' || val === 'unlimited') {
+            inp.value = 'unlimited';
+            inp.setAttribute('readonly', 'true');
+            if (btn && btn.classList.contains('btn-unlimited')) {
+                btn.classList.add('active');
+                btn.innerHTML = '<i class="fa-solid fa-lock"></i> Locked';
+            }
+        } else {
+            inp.removeAttribute('readonly');
+            if (btn && btn.classList.contains('btn-unlimited')) {
+                btn.classList.remove('active');
+                btn.innerHTML = '<i class="fa-solid fa-infinity"></i> Unlimited';
+            }
+        }
+    }
 
-        <!-- page js file -->
-        <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
-        <script src="/static/assets/bundles/chartjs.js"></script>
-        <script src="/static/assets/index2.js"></script>
+    function toggleSuiteCard(cardId, selectId, checkbox, color) {
+        var suffix  = cardId.includes('social') ? 'social' : cardId.includes('seo') ? 'seo' : 'mkt';
+        var pfx     = cardId.startsWith('pkg-') ? 'pkg' : 'edit';
+        var toggle  = document.getElementById(pfx + '-toggle-' + suffix);
+        var thumb   = document.getElementById(pfx + '-thumb-' + suffix);
+        var wrap    = document.getElementById(pfx + '-' + suffix + '-wrap');
+        var card    = document.getElementById(cardId);
+        if (checkbox.checked) {
+            if (toggle) { toggle.style.background = color; toggle.style.borderColor = color; }
+            if (thumb)  { thumb.style.transform = 'translateX(16px)'; thumb.style.background = '#fff'; }
+            if (wrap)   wrap.style.display = 'block';
+            if (card)   { card.style.borderColor = color; card.style.background = color.replace('#','rgba(').replace(/^rgba\(([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})\)/, function(m,r,g,b){return 'rgba('+parseInt(r,16)+','+parseInt(g,16)+','+parseInt(b,16)+',.1)'}); }
+        } else {
+            if (toggle) { toggle.style.background = 'rgba(255,255,255,.1)'; toggle.style.borderColor = 'rgba(255,255,255,.15)'; }
+            if (thumb)  { thumb.style.transform = 'translateX(0)'; thumb.style.background = '#6b7280'; }
+            if (wrap)   wrap.style.display = 'none';
+            if (card)   { card.style.borderColor = ''; card.style.background = ''; }
+        }
+    }
+    function toggleSuitePlan(selectId, checkbox) {}
 
+    function closeEdit() {
+        document.getElementById('modal-edit').classList.remove('show');
+    }
 
+    async function submitEditPackage(e) {
+        e.preventDefault();
+        const form = e.target;
+        const btn = document.getElementById('btn-confirm-edit');
+        const defaultHtml = btn.innerHTML;
+        
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...';
+        btn.disabled = true;
+
+        const formData = new FormData(form);
+        
+        try {
+            const resp = await fetch('/editpackage/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': CSRF_TOKEN, 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData
+            });
+            const data = await resp.json();
+            
+            if (resp.ok && data.status === 'success') {
+                toast(data.message, 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                toast(data.message || 'Error updating package', 'error');
+                btn.innerHTML = defaultHtml;
+                btn.disabled = false;
+            }
+        } catch(err) {
+            toast('Network connection error', 'error');
+            btn.innerHTML = defaultHtml;
+            btn.disabled = false;
+        }
+    }
+
+    // Flash Django fallback messages if they exist via POST reload
+    {% if messages %}
+        {% for msg in messages %}
+            {% if msg.tags == 'success' %}toast("{{ msg }}", "success");
+            {% else %}toast("{{ msg }}", "error");{% endif %}
+        {% endfor %}
+    {% endif %}
+
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+        el.addEventListener('click', function(e){ if(e.target===this) { closeDelete(); closeEdit(); } });
+    });
+</script>
+
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
 </body>
-
 </html>

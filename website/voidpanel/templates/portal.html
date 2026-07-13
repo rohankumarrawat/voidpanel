@@ -1,0 +1,822 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Client Portal | VoidPanel</title>
+    <meta name="description" content="VoidPanel client portal — manage your hosting, billing, and support.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#070f1c;color:#e2e8f0;min-height:100vh}
+a{text-decoration:none;color:inherit}
+
+/* Layout */
+.portal-wrap{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+
+/* Sidebar */
+.sidebar{position:sticky;top:0;height:100vh;overflow-y:auto;background:rgba(5,10,20,0.97);border-right:1px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;padding:20px 14px;scrollbar-width:thin}
+.sidebar-logo{display:flex;align-items:center;gap:10px;padding:8px 8px 20px;border-bottom:1px solid rgba(255,255,255,0.07);margin-bottom:18px}
+.sidebar-logo img{width:28px;height:28px;border-radius:8px}
+.sidebar-logo span{font-weight:800;font-size:.95rem;color:#fff}
+.user-card{background:linear-gradient(135deg,rgba(89,196,188,0.1),rgba(99,102,241,0.08));border:1px solid rgba(89,196,188,0.18);border-radius:14px;padding:12px;margin-bottom:20px;display:flex;align-items:center;gap:10px}
+.user-avatar{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#59c4bc,#6366f1);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1rem;color:#fff;flex-shrink:0}
+.user-name{font-weight:700;font-size:.85rem;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.user-role{font-size:.7rem;color:#59c4bc;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.nav-label{font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#475569;padding:0 8px;margin:14px 0 6px}
+.nav-btn{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;color:#94a3b8;font-size:.85rem;font-weight:600;transition:all .15s;cursor:pointer;margin-bottom:2px;border:none;background:transparent;width:100%;text-align:left}
+.nav-btn:hover{background:rgba(255,255,255,0.05);color:#e2e8f0}
+.nav-btn.active{background:rgba(89,196,188,0.12);color:#59c4bc;border-left:2px solid #59c4bc}
+.nav-btn i{width:16px;text-align:center;opacity:.8}
+.nav-badge{margin-left:auto;background:rgba(245,158,11,0.2);color:#fbbf24;font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:999px}
+.sidebar-spacer{flex:1}
+.sidebar-foot{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.foot-btn{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:10px;font-size:.82rem;font-weight:600;transition:all .15s;cursor:pointer}
+.foot-btn.primary{background:rgba(89,196,188,0.1);color:#59c4bc;border:1px solid rgba(89,196,188,0.18)}
+.foot-btn.primary:hover{background:rgba(89,196,188,0.18)}
+.foot-btn.indigo{background:rgba(99,102,241,0.1);color:#a5b4fc;border:1px solid rgba(99,102,241,0.18)}
+.foot-btn.indigo:hover{background:rgba(99,102,241,0.18)}
+.foot-btn.ghost{background:rgba(255,255,255,0.03);color:#64748b;border:1px solid rgba(255,255,255,0.06)}
+.foot-btn.ghost:hover{color:#f87171;border-color:rgba(248,113,113,0.2)}
+
+/* Main content */
+.portal-main{padding:28px 32px 60px;overflow-y:auto}
+
+/* Tab panels */
+.tab-panel{display:none;animation:fadein .25s ease}
+.tab-panel.active{display:block}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* Page header */
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.page-title{font-size:1.4rem;font-weight:800;color:#fff}
+.page-title span{color:#59c4bc}
+.page-sub{font-size:.82rem;color:#64748b;margin-top:3px}
+.btn-group{display:flex;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:10px;font-size:.84rem;font-weight:700;cursor:pointer;border:none;transition:all .15s}
+.btn-teal{background:rgba(89,196,188,0.12);color:#59c4bc;border:1px solid rgba(89,196,188,0.22)}
+.btn-teal:hover{background:rgba(89,196,188,0.2)}
+.btn-violet{background:rgba(99,102,241,0.12);color:#a5b4fc;border:1px solid rgba(99,102,241,0.22)}
+.btn-violet:hover{background:rgba(99,102,241,0.2)}
+.btn-green{background:rgba(74,222,128,0.12);color:#4ade80;border:1px solid rgba(74,222,128,0.22)}
+.btn-amber{background:rgba(245,158,11,0.14);color:#fbbf24;border:1px solid rgba(245,158,11,0.25)}
+.btn-amber:hover{background:rgba(245,158,11,0.22)}
+
+/* KPI Strip */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.kpi{background:rgba(13,20,35,0.8);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:18px 20px;display:flex;align-items:flex-start;gap:14px;transition:border-color .2s}
+.kpi:hover{border-color:rgba(89,196,188,0.2)}
+.kpi-ico{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0}
+.kpi-ico.teal{background:rgba(89,196,188,0.12);color:#59c4bc}
+.kpi-ico.green{background:rgba(74,222,128,0.12);color:#4ade80}
+.kpi-ico.amber{background:rgba(245,158,11,0.12);color:#fbbf24}
+.kpi-ico.violet{background:rgba(99,102,241,0.12);color:#a5b4fc}
+.kpi-ico.red{background:rgba(248,113,113,0.12);color:#f87171}
+.kpi-num{font-size:1.6rem;font-weight:800;color:#fff;line-height:1}
+.kpi-lbl{font-size:.72rem;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-top:4px}
+
+/* Alert banner */
+.alert-banner{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px;border-radius:14px;margin-bottom:20px;flex-wrap:wrap}
+.alert-warn{background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.22)}
+.alert-text{font-size:.87rem;font-weight:600;color:#fde68a;display:flex;align-items:center;gap:10px}
+.alert-sub{font-size:.77rem;color:#92400e;margin-top:2px}
+
+/* Cards */
+.card{background:rgba(10,17,30,0.85);border:1px solid rgba(255,255,255,0.07);border-radius:18px;padding:22px;margin-bottom:18px}
+.card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:10px}
+.card-title{font-size:.95rem;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px}
+.card-title i{color:#59c4bc;font-size:.82rem}
+
+/* Two-col layout */
+.grid-2{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}
+
+/* Service rows */
+.svc-row{padding:14px;border-radius:12px;background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.05);margin-bottom:10px;transition:border-color .18s}
+.svc-row:last-child{margin-bottom:0}
+.svc-row:hover{border-color:rgba(89,196,188,0.18)}
+.svc-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.svc-name{font-weight:700;font-size:.9rem;color:#fff}
+.svc-domain{font-size:.78rem;color:#64748b;margin-top:3px}
+.svc-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.05)}
+.meta-lbl{font-size:.7rem;color:#475569;text-transform:uppercase;letter-spacing:.05em}
+.meta-val{font-size:.82rem;font-weight:700;color:#e2e8f0;margin-top:2px}
+
+/* Ticket rows */
+.ticket-row{padding:14px;border-radius:12px;background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.05);margin-bottom:10px;transition:border-color .18s}
+.ticket-row:last-child{margin-bottom:0}
+.ticket-row:hover{border-color:rgba(99,102,241,0.2)}
+.ticket-subj{font-weight:700;font-size:.88rem;color:#fff}
+.ticket-meta{font-size:.74rem;color:#64748b;margin-top:4px}
+
+/* Invoice rows */
+.inv-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-radius:10px;background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.05);margin-bottom:8px}
+.inv-row:last-child{margin-bottom:0}
+.inv-num{font-size:.84rem;font-weight:700;color:#fff}
+.inv-desc{font-size:.74rem;color:#64748b;margin-top:2px}
+.inv-amt{font-size:.9rem;font-weight:800;color:#fff;white-space:nowrap}
+
+/* Activity */
+.act-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.act-row:last-child{border-bottom:none}
+.act-dot{width:8px;height:8px;border-radius:50%;background:#59c4bc;flex-shrink:0;margin-top:5px}
+.act-title{font-size:.84rem;font-weight:600;color:#e2e8f0}
+.act-time{font-size:.73rem;color:#475569;margin-top:2px}
+
+/* Status badges */
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:.7rem;font-weight:700;white-space:nowrap}
+.b-active,.b-paid,.b-answered{background:rgba(74,222,128,0.12);color:#4ade80}
+.b-pending,.b-open,.b-in_progress,.b-unpaid{background:rgba(245,158,11,0.12);color:#fbbf24}
+.b-suspended,.b-closed,.b-overdue{background:rgba(248,113,113,0.12);color:#f87171}
+
+/* Link buttons */
+.lbtn{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:8px;font-size:.75rem;font-weight:700;transition:all .15s}
+.lbtn-teal{background:rgba(89,196,188,0.08);color:#59c4bc;border:1px solid rgba(89,196,188,0.15)}
+.lbtn-teal:hover{background:rgba(89,196,188,0.16)}
+.lbtn-violet{background:rgba(99,102,241,0.08);color:#a5b4fc;border:1px solid rgba(99,102,241,0.15)}
+.lbtn-violet:hover{background:rgba(99,102,241,0.16)}
+.lbtn-ghost{background:rgba(255,255,255,0.04);color:#94a3b8;border:1px solid rgba(255,255,255,0.08)}
+.lbtn-ghost:hover{color:#fff}
+
+/* Empty state */
+.empty{text-align:center;padding:36px 20px;color:#475569;font-size:.88rem}
+.empty i{font-size:2rem;display:block;margin-bottom:12px;opacity:.4}
+
+/* Priority mini-cards on overview */
+.priority-card{padding:14px;border-radius:12px;background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.05);margin-bottom:12px}
+.priority-card:last-child{margin-bottom:0}
+.priority-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.priority-label{font-size:.82rem;font-weight:700;color:#e2e8f0}
+.priority-desc{font-size:.77rem;color:#475569}
+
+/* Responsive */
+@media(max-width:1080px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:900px){
+  .portal-wrap{grid-template-columns:1fr}
+  .sidebar{display:none}
+  .grid-2{grid-template-columns:1fr}
+}
+@media(max-width:600px){
+  .portal-main{padding:16px 14px 48px}
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+}
+/* Flash */
+.flash{padding:12px 16px;border-radius:10px;background:rgba(89,196,188,0.1);border:1px solid rgba(89,196,188,0.2);color:#e2e8f0;font-size:.88rem;margin-bottom:16px}
+</style>
+</head>
+<body>
+{% include 'header.html' %}
+<div class="portal-wrap">
+
+<!-- ═══ SIDEBAR ═══ -->
+<aside class="sidebar">
+  <a href="/portal/" class="sidebar-logo">
+    <img src="/static/fav.png" alt="VP">
+    <span>Client Portal</span>
+  </a>
+
+  <div class="user-card">
+    <div class="user-avatar">{{ request.user.get_full_name|default:request.user.username|first|upper }}</div>
+    <div>
+      <div class="user-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+      <div class="user-role">{{ profile.portal_role|default:"Client" }}</div>
+    </div>
+  </div>
+
+  <div class="balance-card" style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:10px 12px; margin-bottom:18px; display:flex; flex-direction:column; gap:6px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.78rem;">
+      <span style="color:#94a3b8; font-weight:600;"><i class="fas fa-wallet" style="margin-right:6px; color:#59c4bc;"></i> Available Funds:</span>
+      <span style="color:#fff; font-weight:700;">₹{{ request.user.customer_profile.balance_funds|default:"0.00" }}</span>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.78rem;">
+      <span style="color:#94a3b8; font-weight:600;"><i class="fas fa-coins" style="margin-right:6px; color:#fbbf24;"></i> Available Coins:</span>
+      <span style="color:#fbbf24; font-weight:700;">{{ request.user.customer_profile.balance_chips|default:"0" }}</span>
+    </div>
+    <button onclick="openAddFundsModal()" style="margin-top:6px; padding:6px 12px; font-size:0.72rem; font-weight:800; border-radius:8px; border:none; background:linear-gradient(135deg, #59c4bc, #0ea5e9); color:#fff; cursor:pointer; width:100%; display:flex; align-items:center; justify-content:center; gap:6px; transition:0.2s;">
+      <i class="fas fa-circle-plus"></i> Add Funds
+    </button>
+    <button onclick="openBuyChipsModal()" style="margin-top:4px; padding:6px 12px; font-size:0.72rem; font-weight:800; border-radius:8px; border:none; background:linear-gradient(135deg, #fbbf24, #d97706); color:#fff; cursor:pointer; width:100%; display:flex; align-items:center; justify-content:center; gap:6px; transition:0.2s;">
+      <i class="fas fa-coins"></i> Buy Chips
+    </button>
+  </div>
+
+  <script>
+  function openAddFundsModal() {
+      document.getElementById('addFundsModal').style.display = 'flex';
+  }
+  function closeAddFundsModal() {
+      document.getElementById('addFundsModal').style.display = 'none';
+  }
+  function setFundsAmount(val) {
+      document.getElementById('funds-amount-input').value = val;
+  }
+  function openBuyChipsModal() {
+      document.getElementById('buyChipsModal').style.display = 'flex';
+      updateChipsYield(document.getElementById('chips-amount-input').value);
+  }
+  function closeBuyChipsModal() {
+      document.getElementById('buyChipsModal').style.display = 'none';
+  }
+  function setChipsAmount(val) {
+      document.getElementById('chips-amount-input').value = val;
+      updateChipsYield(val);
+  }
+  function updateChipsYield(val) {
+      let parsed = parseFloat(val) || 0;
+      let rate = parseInt('{{ credits_per_rupee|default:100 }}') || 100;
+      let yieldVal = parsed * rate;
+      document.getElementById('chips-yield-text').innerText = yieldVal.toLocaleString() + ' Coins';
+  }
+  </script>
+
+  <div class="nav-label">Menu</div>
+  <button class="nav-btn active" onclick="showTab('overview',this)"><i class="fas fa-house"></i> Overview</button>
+  <button class="nav-btn" onclick="showTab('services',this)"><i class="fas fa-server"></i> My Services
+    {% if stats.total_services %}<span class="nav-badge">{{ stats.total_services }}</span>{% endif %}
+  </button>
+  {% if licenses %}
+  <button class="nav-btn" onclick="showTab('licenses',this)"><i class="fas fa-key"></i> Licenses
+    <span class="nav-badge" style="background:rgba(89,196,188,0.15);color:#59c4bc;">{{ licenses|length }}</span>
+  </button>
+  {% endif %}
+  <button class="nav-btn" onclick="showTab('billing',this)"><i class="fas fa-receipt"></i> Billing
+    {% if stats.unpaid_invoices and stats.unpaid_invoices > 0 %}<span class="nav-badge">{{ stats.unpaid_invoices }}</span>{% endif %}
+  </button>
+  <button class="nav-btn" onclick="showTab('support',this)"><i class="fas fa-headset"></i> Support
+    {% if stats.open_tickets and stats.open_tickets > 0 %}<span class="nav-badge">{{ stats.open_tickets }}</span>{% endif %}
+  </button>
+  <button class="nav-btn" onclick="showTab('activity',this)"><i class="fas fa-clock-rotate-left"></i> Activity</button>
+
+  <div class="sidebar-spacer"></div>
+
+  <div class="sidebar-foot">
+    <a href="/web-hosting/" class="foot-btn primary"><i class="fas fa-plus"></i> Order Hosting</a>
+    <a href="/portal/ticket/new/" class="foot-btn indigo"><i class="fas fa-headset"></i> Open Ticket</a>
+    {% if request.user.is_superuser %}
+    <a href="/super-admin/" class="foot-btn primary"><i class="fas fa-shield-halved"></i> Admin Console</a>
+    {% endif %}
+    <a href="/logout/" class="foot-btn ghost"><i class="fas fa-right-from-bracket"></i> Sign Out</a>
+  </div>
+</aside>
+
+<!-- ═══ MAIN ═══ -->
+<main class="portal-main">
+  {% if messages %}{% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}{% endif %}
+
+  <!-- ─── OVERVIEW ─── -->
+  <div id="tab-overview" class="tab-panel active">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Hello, <span>{{ request.user.get_full_name|default:request.user.username }}</span> 👋</div>
+        <div class="page-sub">{{ request.user.email }} &nbsp;•&nbsp; Member since {{ stats.customer_since|date:"M Y" }}</div>
+      </div>
+      <div class="btn-group">
+        <a href="/web-hosting/" class="btn btn-teal"><i class="fas fa-plus"></i> New Service</a>
+        <a href="/portal/ticket/new/" class="btn btn-violet"><i class="fas fa-headset"></i> Get Support</a>
+      </div>
+    </div>
+
+    <!-- KPI Strip -->
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-ico teal"><i class="fas fa-server"></i></div><div><div class="kpi-num">{{ stats.total_services }}</div><div class="kpi-lbl">Total Services</div></div></div>
+      <div class="kpi"><div class="kpi-ico green"><i class="fas fa-circle-check"></i></div><div><div class="kpi-num">{{ service_mix.active }}</div><div class="kpi-lbl">Active</div></div></div>
+      <div class="kpi"><div class="kpi-ico {% if stats.unpaid_invoices and stats.unpaid_invoices > 0 %}amber{% else %}green{% endif %}"><i class="fas fa-file-invoice-dollar"></i></div><div><div class="kpi-num">₹{{ stats.unpaid_total }}</div><div class="kpi-lbl">Balance Due</div></div></div>
+      <div class="kpi"><div class="kpi-ico {% if stats.open_tickets and stats.open_tickets > 0 %}violet{% else %}teal{% endif %}"><i class="fas fa-headset"></i></div><div><div class="kpi-num">{{ stats.open_tickets }}</div><div class="kpi-lbl">Open Tickets</div></div></div>
+    </div>
+
+    <!-- Alert -->
+    {% if stats.unpaid_invoices and stats.unpaid_invoices > 0 %}
+    <div class="alert-banner alert-warn">
+      <div class="alert-text"><i class="fas fa-triangle-exclamation"></i> {{ stats.unpaid_invoices }} unpaid invoice{{ stats.unpaid_invoices|pluralize }} totalling ₹{{ stats.unpaid_total }}</div>
+      {% if next_invoice %}<a href="/portal/invoice/{{ next_invoice.id }}/pay/" class="btn btn-amber"><i class="fas fa-credit-card"></i> Pay Now</a>{% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Overview two-col -->
+    <div class="grid-2">
+      <!-- Recent Services -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title"><i class="fas fa-server"></i> My Services</div>
+          <a href="/web-hosting/" class="lbtn lbtn-teal"><i class="fas fa-plus"></i> Order New</a>
+        </div>
+        {% for service in services|slice:":4" %}
+        <a href="/portal/service/{{ service.id }}/" class="svc-row" style="display:block;">
+          <div class="svc-top">
+            <div><div class="svc-name">{{ service.service_name }}</div><div class="svc-domain">{{ service.domain }}</div></div>
+            <span class="badge b-{{ service.status }}">{{ service.get_status_display }}</span>
+          </div>
+          <div class="svc-meta">
+            <div><div class="meta-lbl">Billing</div><div class="meta-val">₹{{ service.monthly_price }}/{{ service.get_billing_cycle_display }}</div></div>
+            <div><div class="meta-lbl">Storage</div><div class="meta-val">{{ service.storage_gb }} GB</div></div>
+            <div><div class="meta-lbl">Due</div><div class="meta-val">{{ service.next_due_date }}</div></div>
+          </div>
+          <div style="margin-top:9px;">
+            <span class="lbtn lbtn-teal"><i class="fas fa-rocket"></i> Manage Service</span>
+          </div>
+        </a>
+        {% empty %}<div class="empty"><i class="fas fa-server"></i>No services yet<br><a href="/web-hosting/" style="color:#59c4bc;margin-top:8px;display:inline-block;">Browse plans →</a></div>
+        {% endfor %}
+
+        {# ── Professional Email Services ── #}
+        {% for esvc in email_services %}
+        <a href="/portal/email/{{ esvc.id }}/" class="svc-row" style="display:block;border-top:1px solid rgba(255,255,255,.06);">
+          <div class="svc-top">
+            <div>
+              <div class="svc-name">
+                <i class="fas fa-envelope" style="color:#38bdf8;margin-right:6px;font-size:.85rem;"></i>
+                {{ esvc.plan.name|default:"Professional Email" }}
+              </div>
+              <div class="svc-domain">{{ esvc.domain }}</div>
+            </div>
+            <span class="badge b-{{ esvc.status }}">{{ esvc.get_status_display }}</span>
+          </div>
+          <div class="svc-meta">
+            <div><div class="meta-lbl">Billing</div><div class="meta-val">₹{{ esvc.monthly_price }}/mo</div></div>
+            <div><div class="meta-lbl">Mailboxes</div><div class="meta-val">{{ esvc.mailbox_count }}/{{ esvc.max_mailboxes }}</div></div>
+            <div><div class="meta-lbl">Due</div><div class="meta-val">{{ esvc.next_due_date|default:"—" }}</div></div>
+          </div>
+          <div style="margin-top:9px;display:flex;gap:8px;">
+            <span class="lbtn lbtn-teal"><i class="fas fa-envelope-open"></i> Manage Email</span>
+            {% if esvc.webmail_url %}
+            <span class="lbtn" style="background:rgba(56,189,248,.1);color:#38bdf8;border:1px solid rgba(56,189,248,.2);border-radius:8px;padding:5px 12px;font-size:.78rem;">
+              <i class="fas fa-globe"></i> Webmail
+            </span>
+            {% endif %}
+          </div>
+        </a>
+        {% endfor %}
+
+        {# ── SSL Certificate Services ── #}
+        {% for ssvc in ssl_services %}
+        <a href="/portal/ssl/{{ ssvc.id }}/" class="svc-row" style="display:block;border-top:1px solid rgba(255,255,255,.06);">
+          <div class="svc-top">
+            <div>
+              <div class="svc-name">
+                <i class="fas fa-shield-halved" style="color:#a5b4fc;margin-right:6px;font-size:.85rem;"></i>
+                {{ ssvc.plan.name|default:"SSL Certificate" }}
+              </div>
+              <div class="svc-domain">{{ ssvc.domain }}</div>
+            </div>
+            <span class="badge b-{{ ssvc.status }}">{{ ssvc.get_status_display }}</span>
+          </div>
+          <div class="svc-meta">
+            <div><div class="meta-lbl">Billing</div><div class="meta-val">₹{{ ssvc.monthly_price }}/mo</div></div>
+            <div><div class="meta-lbl">Type</div><div class="meta-val">{{ ssvc.plan.get_ssl_type_display|default:"DV SSL" }}</div></div>
+            <div><div class="meta-lbl">Expires</div><div class="meta-val">{{ ssvc.expires_at|date:"M d, Y"|default:"—" }}</div></div>
+          </div>
+          <div style="margin-top:9px;">
+            <span class="lbtn lbtn-teal"><i class="fas fa-lock"></i> Manage SSL</span>
+          </div>
+        </a>
+        {% endfor %}
+
+        {# ── Digital Suite Services ── #}
+        {% for svc in suite_services %}
+        <div class="svc-row" style="border-top:1px solid rgba(255,255,255,.06);">
+          <div class="svc-top">
+            <div>
+              <div class="svc-name">
+                {% if svc.suite == 'social' %}<i class="fa-brands fa-instagram" style="color:#f472b6;margin-right:6px;font-size:.85rem;"></i>
+                {% elif svc.suite == 'seo' %}<i class="fas fa-magnifying-glass-chart" style="color:#818cf8;margin-right:6px;font-size:.85rem;"></i>
+                {% else %}<i class="fas fa-bullhorn" style="color:#fbbf24;margin-right:6px;font-size:.85rem;"></i>{% endif %}
+                {{ svc.service_name }}
+              </div>
+              <div class="svc-domain">{{ svc.get_suite_display }} &middot; {{ svc.billing_cycle|title }}</div>
+            </div>
+            <span class="badge b-{{ svc.status }}">{{ svc.get_status_display }}</span>
+          </div>
+          <div class="svc-meta">
+            <div><div class="meta-lbl">Billing</div><div class="meta-val">₹{{ svc.monthly_price }}/mo</div></div>
+            <div><div class="meta-lbl">Plan</div><div class="meta-val">{{ svc.plan.name }}</div></div>
+            <div><div class="meta-lbl">Due</div><div class="meta-val">{{ svc.next_due_date|default:"—" }}</div></div>
+          </div>
+          <div style="margin-top:9px;display:flex;gap:8px;">
+            {% if svc.is_active %}
+            <a href="/portal/suite-sso/{{ svc.id }}/" target="_blank" class="lbtn lbtn-teal" style="text-decoration:none;">
+              <i class="fas fa-rocket"></i> Launch Suite
+            </a>
+            {% else %}
+            <span class="lbtn lbtn-ghost" style="opacity:.6;cursor:not-allowed;"><i class="fas fa-clock"></i> {{ svc.get_status_display }}</span>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+
+
+      </div>
+
+      <!-- Priority actions -->
+      <div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-bolt"></i> Priority Actions</div></div>
+          <!-- Billing -->
+          <div class="priority-card">
+            <div class="priority-top">
+              <span class="priority-label">Billing Status</span>
+              <span class="badge {% if stats.unpaid_invoices %}b-unpaid{% else %}b-paid{% endif %}">{{ stats.unpaid_invoices|default:0 }} unpaid</span>
+            </div>
+            <div class="priority-desc">₹{{ stats.unpaid_total }} outstanding</div>
+            {% if next_invoice %}<a href="/portal/invoice/{{ next_invoice.id }}/pay/" class="lbtn lbtn-teal" style="margin-top:8px;display:inline-flex;"><i class="fas fa-credit-card"></i> Pay {{ next_invoice.invoice_number }}</a>{% endif %}
+          </div>
+          <!-- Latest ticket -->
+          <div class="priority-card">
+            <div class="priority-top">
+              <span class="priority-label">Latest Ticket</span>
+              {% if latest_ticket %}<span class="badge b-{{ latest_ticket.status }}">{{ latest_ticket.get_status_display }}</span>
+              {% else %}<span class="badge b-paid">All clear</span>{% endif %}
+            </div>
+            {% if latest_ticket %}
+            <div class="priority-desc">{{ latest_ticket.subject|truncatechars:55 }}</div>
+            <a href="/portal/ticket/{{ latest_ticket.id }}/" class="lbtn lbtn-violet" style="margin-top:8px;display:inline-flex;"><i class="fas fa-comments"></i> View Thread</a>
+            {% else %}<div class="priority-desc">No open tickets right now.</div>
+            <a href="/portal/ticket/new/" class="lbtn lbtn-ghost" style="margin-top:8px;display:inline-flex;"><i class="fas fa-plus"></i> Open Ticket</a>{% endif %}
+          </div>
+          <!-- Service health -->
+          <div class="priority-card">
+            <div class="priority-top"><span class="priority-label">Service Health</span></div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;margin-top:6px;">
+              <div style="padding:10px;border-radius:10px;background:rgba(74,222,128,0.07);border:1px solid rgba(74,222,128,0.12);">
+                <div style="font-size:1.2rem;font-weight:800;color:#4ade80;">{{ service_mix.active }}</div>
+                <div style="font-size:.68rem;color:#475569;margin-top:2px;">Active</div>
+              </div>
+              <div style="padding:10px;border-radius:10px;background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.12);">
+                <div style="font-size:1.2rem;font-weight:800;color:#fbbf24;">{{ service_mix.pending }}</div>
+                <div style="font-size:.68rem;color:#475569;margin-top:2px;">Pending</div>
+              </div>
+              <div style="padding:10px;border-radius:10px;background:rgba(248,113,113,0.07);border:1px solid rgba(248,113,113,0.12);">
+                <div style="font-size:1.2rem;font-weight:800;color:#f87171;">{{ service_mix.suspended }}</div>
+                <div style="font-size:.68rem;color:#475569;margin-top:2px;">Suspended</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Activity mini -->
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-clock-rotate-left"></i> Recent Activity</div><button class="lbtn lbtn-ghost" onclick="showTab('activity',null)">See all</button></div>
+          {% for a in activities|slice:":4" %}
+          <div class="act-row"><div class="act-dot"></div><div><div class="act-title">{{ a.title }}</div><div class="act-time">{{ a.created_at|date:"M d, H:i" }}</div></div></div>
+          {% empty %}<div class="empty" style="padding:16px 0;"><i class="fas fa-clock-rotate-left"></i>No recent activity</div>{% endfor %}
+        </div>
+      </div>
+    </div>
+  </div><!-- /overview -->
+  <!-- ─── SERVICES ─── -->
+  <div id="tab-services" class="tab-panel">
+    <div class="page-header">
+      <div><div class="page-title">My Services</div><div class="page-sub">All your active hosting, email, and security subscriptions</div></div>
+      <a href="/web-hosting/" class="btn btn-teal"><i class="fas fa-plus"></i> Order New</a>
+    </div>
+    <div class="card">
+      <!-- 1. Hosting Services -->
+      {% for service in services %}
+      <a href="/portal/service/{{ service.id }}/" class="svc-row" style="display:block;">
+        <div class="svc-top">
+          <div>
+            <div class="svc-name"><i class="fas fa-server" style="color:#2dd4bf;margin-right:6px;"></i> {{ service.service_name }}</div>
+            <div class="svc-domain">{{ service.domain }}</div>
+          </div>
+          <span class="badge b-{{ service.status }}">{{ service.get_status_display }}</span>
+        </div>
+        <div class="svc-meta">
+          <div><div class="meta-lbl">Billing</div><div class="meta-val">₹{{ service.monthly_price }}/{{ service.get_billing_cycle_display }}</div></div>
+          <div><div class="meta-lbl">Storage</div><div class="meta-val">{{ service.storage_gb }} GB</div></div>
+          <div><div class="meta-lbl">Due Date</div><div class="meta-val">{{ service.next_due_date }}</div></div>
+        </div>
+        <div style="margin-top:9px;display:flex;gap:8px;flex-wrap:wrap;">
+          <span class="lbtn lbtn-teal"><i class="fas fa-rocket"></i> Open Control Panel</span>
+          {% if service.is_hosting_service %}
+          <span class="lbtn lbtn-ghost"><i class="fas fa-folder-open"></i> File Manager</span>
+          <span class="lbtn lbtn-ghost"><i class="fas fa-envelope"></i> Email</span>
+          <span class="lbtn lbtn-ghost"><i class="fas fa-database"></i> Database</span>
+          {% endif %}
+        </div>
+      </a>
+      {% endfor %}
+
+      <!-- 2. Email Services -->
+      {% for esvc in email_services %}
+      <a href="/portal/email/{{ esvc.id }}/" class="svc-row" style="display:block;">
+        <div class="svc-top">
+          <div>
+            <div class="svc-name"><i class="fas fa-envelope" style="color:#60a5fa;margin-right:6px;"></i> {{ esvc.plan_name }}</div>
+            <div class="svc-domain">{{ esvc.domain }}</div>
+          </div>
+          <span class="badge b-{{ esvc.status }}">{{ esvc.status|title }}</span>
+        </div>
+        <div class="svc-meta">
+          <div><div class="meta-lbl">Billing</div><div class="meta-val">₹{{ esvc.monthly_price }}/{{ esvc.billing_cycle|title }}</div></div>
+          <div><div class="meta-lbl">Mailboxes</div><div class="meta-val">{{ esvc.mailboxes.count }}/{{ esvc.max_mailboxes }}</div></div>
+          <div><div class="meta-lbl">Due Date</div><div class="meta-val">{{ esvc.next_due_date }}</div></div>
+        </div>
+        <div style="margin-top:9px;display:flex;gap:8px;flex-wrap:wrap;">
+          <span class="lbtn lbtn-teal"><i class="fas fa-cog"></i> Manage Email</span>
+          <span class="lbtn lbtn-ghost"><i class="fas fa-envelope-open-text"></i> Webmail</span>
+        </div>
+      </a>
+      {% endfor %}
+
+      <!-- 3. SSL Services -->
+      {% for ssvc in ssl_services %}
+      <a href="/portal/ssl/{{ ssvc.id }}/" class="svc-row" style="display:block;">
+        <div class="svc-top">
+          <div>
+            <div class="svc-name"><i class="fas fa-shield-halved" style="color:#c084fc;margin-right:6px;"></i> {{ ssvc.plan_name }}</div>
+            <div class="svc-domain">{{ ssvc.domain }}</div>
+          </div>
+          <span class="badge b-{{ ssvc.status }}">{{ ssvc.status|title }}</span>
+        </div>
+        <div class="svc-meta">
+          <div><div class="meta-lbl">Billing</div><div class="meta-val">₹{{ ssvc.monthly_price }}/{{ ssvc.billing_cycle|title }}</div></div>
+          <div><div class="meta-lbl">SSL Type</div><div class="meta-val">{{ ssvc.ssl_type|upper }}</div></div>
+          <div><div class="meta-lbl">Due Date</div><div class="meta-val">{{ ssvc.next_due_date }}</div></div>
+        </div>
+        <div style="margin-top:9px;display:flex;gap:8px;flex-wrap:wrap;">
+          <span class="lbtn lbtn-teal"><i class="fas fa-cog"></i> Manage Certificate</span>
+        </div>
+      </a>
+      {% endfor %}
+
+      {# ── 4. Digital Suite Services ── #}
+      {% for svc in suite_services %}
+      <div class="svc-row" style="display:block;border-top:1px solid rgba(255,255,255,.06);">
+        <div class="svc-top">
+          <div>
+            <div class="svc-name">
+              {% if svc.suite == 'social' %}<i class="fa-brands fa-instagram" style="color:#f472b6;margin-right:6px;"></i>
+              {% elif svc.suite == 'seo' %}<i class="fas fa-magnifying-glass-chart" style="color:#818cf8;margin-right:6px;"></i>
+              {% else %}<i class="fas fa-bullhorn" style="color:#fbbf24;margin-right:6px;"></i>{% endif %}
+              {{ svc.service_name }}
+            </div>
+            <div class="svc-domain">{{ svc.get_suite_display }} &middot; {{ svc.billing_cycle|title }}</div>
+          </div>
+          <span class="badge b-{{ svc.status }}">{{ svc.get_status_display }}</span>
+        </div>
+        <div class="svc-meta">
+          <div><div class="meta-lbl">Billing</div><div class="meta-val">₹{{ svc.monthly_price }}/mo</div></div>
+          <div><div class="meta-lbl">Plan</div><div class="meta-val">{{ svc.plan.name }}</div></div>
+          <div><div class="meta-lbl">Due Date</div><div class="meta-val">{{ svc.next_due_date|default:"—" }}</div></div>
+        </div>
+        <div style="margin-top:9px;display:flex;gap:8px;flex-wrap:wrap;">
+          {% if svc.is_active %}
+          <a href="/portal/suite-sso/{{ svc.id }}/" target="_blank" class="lbtn lbtn-teal" style="text-decoration:none;">
+            <i class="fas fa-rocket"></i> Launch Suite
+          </a>
+          {% else %}
+          <span class="lbtn lbtn-ghost" style="opacity:.6;cursor:not-allowed;"><i class="fas fa-clock"></i> {{ svc.get_status_display }}</span>
+          {% endif %}
+          <a href="/{{ svc.suite }}-suite/" class="lbtn lbtn-ghost" style="text-decoration:none;font-size:.78rem;">
+            <i class="fas fa-arrow-up-right-from-square"></i> View Plans
+          </a>
+        </div>
+      </div>
+      {% endfor %}
+
+      {% if not services and not email_services and not ssl_services and not suite_services %}
+      <div class="empty"><i class="fas fa-server"></i>No services yet<br><a href="/web-hosting/" style="color:#59c4bc;margin-top:8px;display:inline-block;">Browse plans →</a></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ─── LICENSES ─── -->
+  <div id="tab-licenses" class="tab-panel">
+    <div class="page-header">
+      <div><div class="page-title">VoidPanel Licenses</div><div class="page-sub">Your panel license keys and server details</div></div>
+      <a href="/get-voidpanel/" class="btn btn-teal"><i class="fas fa-plus"></i> New License</a>
+    </div>
+    <div class="card">
+      {% for lic in licenses %}
+      <a href="/portal/license/{{ lic.id }}/" class="svc-row" style="display:block;">
+        <div class="svc-top">
+          <div>
+            <div class="svc-name" style="display:flex;align-items:center;gap:8px;"><i class="fas fa-key" style="font-size:.8rem;color:#59c4bc;"></i> VoidPanel — {{ lic.hostname|default:"Panel Instance" }}</div>
+            <div class="svc-domain" style="font-family:monospace;font-size:.73rem;">{{ lic.key|slice:":24" }}&hellip;</div>
+          </div>
+          <span class="badge b-{% if lic.status == 'active' %}active{% else %}suspended{% endif %}">{{ lic.status|title }}</span>
+        </div>
+        <div class="svc-meta">
+          <div><div class="meta-lbl">Server IP</div><div class="meta-val">{{ lic.server_ip|default:"Pending" }}</div></div>
+          <div><div class="meta-lbl">Hostname</div><div class="meta-val">{{ lic.hostname|default:"—" }}</div></div>
+          <div><div class="meta-lbl">Last Ping</div><div class="meta-val">{{ lic.last_ping|date:"M d, H:i"|default:"Never" }}</div></div>
+        </div>
+        <div style="margin-top:9px;"><span class="lbtn lbtn-teal"><i class="fas fa-arrow-right"></i> View License Details</span></div>
+      </a>
+      {% empty %}
+      <div class="empty">
+        <i class="fas fa-key"></i>No license yet<br>
+        <a href="/get-voidpanel/" style="color:#59c4bc;margin-top:8px;display:inline-flex;align-items:center;gap:6px;font-size:.84rem;font-weight:700;"><i class="fas fa-plus" style="font-size:.75rem;"></i> Get a free VoidPanel license →</a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- ─── BILLING ─── -->
+  <div id="tab-billing" class="tab-panel">
+    <div class="page-header">
+      <div><div class="page-title">Billing &amp; Invoices</div><div class="page-sub">Paid to date: ₹{{ stats.paid_total }}</div></div>
+    </div>
+    {% if stats.unpaid_invoices and stats.unpaid_invoices > 0 %}
+    <div class="alert-banner alert-warn">
+      <div class="alert-text"><i class="fas fa-triangle-exclamation"></i> {{ stats.unpaid_invoices }} invoice{{ stats.unpaid_invoices|pluralize }} unpaid — total ₹{{ stats.unpaid_total }}</div>
+      {% if next_invoice %}<a href="/portal/invoice/{{ next_invoice.id }}/pay/" class="btn btn-amber"><i class="fas fa-credit-card"></i> Pay Now</a>{% endif %}
+    </div>
+    {% endif %}
+    <div class="card">
+      {% for invoice in invoices %}
+      <div class="inv-row">
+        <div>
+          <div class="inv-num">{{ invoice.invoice_number }}</div>
+          <div class="inv-desc">{{ invoice.description|truncatechars:48 }}</div>
+          <div style="font-size:.72rem;color:#475569;margin-top:2px;">Due {{ invoice.due_date }}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="inv-amt">₹{{ invoice.total }}</span>
+          <span class="badge b-{{ invoice.status }}">{{ invoice.get_status_display }}</span>
+          {% if invoice.status != 'paid' %}
+          <a href="/portal/invoice/{{ invoice.id }}/pay/" class="lbtn lbtn-teal"><i class="fas fa-credit-card"></i></a>
+          {% else %}
+          <a href="/portal/invoice/{{ invoice.id }}/pay/" class="lbtn lbtn-ghost"><i class="fas fa-eye"></i></a>
+          {% endif %}
+        </div>
+      </div>
+      {% empty %}<div class="empty"><i class="fas fa-file-invoice"></i>No invoices yet</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- ─── SUPPORT ─── -->
+  <div id="tab-support" class="tab-panel">
+    <div class="page-header">
+      <div><div class="page-title">Support Tickets</div><div class="page-sub">{{ stats.open_tickets }} open ticket{{ stats.open_tickets|pluralize }}</div></div>
+      <a href="/portal/ticket/new/" class="btn btn-violet"><i class="fas fa-plus"></i> New Ticket</a>
+    </div>
+    <div class="card">
+      {% for ticket in tickets %}
+      <div class="ticket-row">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
+          <div class="ticket-subj">{{ ticket.subject|truncatechars:60 }}</div>
+          <span class="badge b-{{ ticket.status }}" style="flex-shrink:0;">{{ ticket.get_status_display }}</span>
+        </div>
+        <div class="ticket-meta">{{ ticket.ticket_number }} &nbsp;•&nbsp; {{ ticket.department }} &nbsp;•&nbsp; {{ ticket.get_priority_display }} priority &nbsp;•&nbsp; {{ ticket.last_reply_at|date:"M d, H:i" }}</div>
+        <a href="/portal/ticket/{{ ticket.id }}/" class="lbtn lbtn-ghost" style="margin-top:8px;display:inline-flex;"><i class="fas fa-comments"></i> View Thread</a>
+      </div>
+      {% empty %}
+      <div class="empty"><i class="fas fa-headset"></i>No open tickets<br><a href="/portal/ticket/new/" style="color:#a5b4fc;margin-top:8px;display:inline-block;font-size:.82rem;">Open your first ticket →</a></div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- ─── ACTIVITY ─── -->
+  <div id="tab-activity" class="tab-panel">
+    <div class="page-header">
+      <div><div class="page-title">Activity Log</div><div class="page-sub">Your recent account activity</div></div>
+    </div>
+    <div class="card">
+      {% for a in activities %}
+      <div class="act-row"><div class="act-dot"></div><div><div class="act-title">{{ a.title }}</div><div class="act-time">{{ a.created_at|date:"M d, Y H:i" }} &nbsp;•&nbsp; {{ a.description|truncatechars:80 }}</div></div></div>
+      {% empty %}<div class="empty"><i class="fas fa-clock-rotate-left"></i>No recent activity</div>
+      {% endfor %}
+    </div>
+  </div>
+
+
+</main>
+</div><!-- /portal-wrap -->
+
+{% include 'footer.html' %}
+
+<script>
+function showTab(id, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById('tab-' + id);
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
+  window.scrollTo(0, 0);
+}
+// Handle hash on load
+const hash = window.location.hash.replace('#','');
+if (['services','licenses','billing','support','activity','reseller'].includes(hash)) {
+  const btn = document.querySelector(`.nav-btn[onclick*="${hash}"]`);
+  showTab(hash, btn);
+}
+// Auto-open reseller modal if provisioned
+{% if reseller_provision_result and reseller_provision_result.status == 'provisioned' %}
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('resellerModal').style.display = 'flex';
+});
+{% endif %}
+</script>
+
+{% if reseller_provision_result and reseller_provision_result.status == 'provisioned' %}
+<div id="resellerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#0d1527;border:1px solid rgba(167,139,250,.3);border-radius:24px;padding:36px;max-width:520px;width:90%;text-align:center;">
+    <div style="font-size:3rem;margin-bottom:14px;">🎉</div>
+    <div style="font-size:1.3rem;font-weight:800;color:#fff;margin-bottom:6px;">Reseller Account Activated!</div>
+    <div style="font-size:.88rem;color:#64748b;margin-bottom:24px;">Your reseller hosting dashboard is ready. Save these credentials securely — they won't be shown again.</div>
+    <div style="background:rgba(167,139,250,.06);border:1px solid rgba(167,139,250,.2);border-radius:14px;padding:20px;margin-bottom:22px;text-align:left;line-height:2;font-size:.88rem;">
+      <div><span style="color:#64748b;">Username:</span> <strong style="color:#a78bfa;">{{ reseller_provision_result.username }}</strong></div>
+      {% if reseller_provision_result.password %}
+      <div><span style="color:#64748b;">Password:</span> <strong style="color:#fbbf24;font-family:monospace;">{{ reseller_provision_result.password }}</strong></div>
+      {% endif %}
+      <div><span style="color:#64748b;">Global Storage:</span> <strong style="color:#34d399;">{{ reseller_provision_result.storage_gb }}GB</strong></div>
+      <div><span style="color:#64748b;">Max Accounts:</span> <strong style="color:#60a5fa;">{{ reseller_provision_result.max_accounts }}</strong></div>
+      <div><span style="color:#64748b;">Dashboard:</span> <a href="{{ reseller_provision_result.reseller_dashboard_url }}" style="color:#a78bfa;">{{ reseller_provision_result.reseller_dashboard_url }}</a></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <a href="{{ reseller_provision_result.reseller_dashboard_url }}" style="background:linear-gradient(135deg,#a78bfa,#60a5fa);border:none;border-radius:12px;padding:12px 28px;color:#fff;font-weight:800;font-size:.9rem;text-decoration:none;">
+        <i class="fa-solid fa-rocket"></i> Open Reseller Dashboard
+      </a>
+      <button onclick="document.getElementById('resellerModal').style.display='none'" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px 22px;color:#94a3b8;font-size:.88rem;cursor:pointer;">
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Modal for Add Funds -->
+<div id="addFundsModal" style="display:none;position:fixed;inset:0;background:rgba(8,12,24,0.85);backdrop-filter:blur(8px);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#090e1a;border:1px solid rgba(89,196,188,0.2);border-radius:20px;padding:30px;max-width:420px;width:90%;box-shadow:0 15px 35px rgba(0,0,0,0.5), 0 0 15px rgba(89,196,188,0.15);position:relative;">
+    <button type="button" onclick="closeAddFundsModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;"><i class="fas fa-times"></i></button>
+    
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;text-align:left;">
+      <div style="width:40px;height:40px;border-radius:10px;background:rgba(89,196,188,0.15);display:flex;align-items:center;justify-content:center;color:#59c4bc;font-size:1.1rem;"><i class="fas fa-wallet"></i></div>
+      <div>
+        <h4 style="margin:0;font-size:1.1rem;font-weight:800;color:#fff;">Deposit Funds</h4>
+        <p style="margin:0;font-size:0.75rem;color:#64748b;">Add INR balance to your client wallet</p>
+      </div>
+    </div>
+    
+    <form id="funds-modal-form" method="POST" action="/portal/wallet/deposit/" style="display:flex;flex-direction:column;gap:16px;">
+      {% csrf_token %}
+      <div style="display:flex;flex-direction:column;gap:6px;text-align:left;">
+        <label style="font-size:0.75rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Amount to Add (INR)</label>
+        <div style="position:relative;display:flex;align-items:center;">
+          <span style="position:absolute;left:14px;color:#94a3b8;font-weight:700;font-size:0.9rem;">₹</span>
+          <input type="number" id="funds-amount-input" name="amount" value="500" min="10" step="1" required style="width:100%;background:#05070c;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 14px 12px 28px;color:#fff;font-size:0.95rem;font-weight:700;outline:none;">
+        </div>
+      </div>
+      
+      <div style="display:flex;gap:8px;">
+        <button type="button" onclick="setFundsAmount(100)" style="flex:1;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:6px;color:#fff;font-size:0.78rem;cursor:pointer;font-weight:600;">₹100</button>
+        <button type="button" onclick="setFundsAmount(500)" style="flex:1;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:6px;color:#fff;font-size:0.78rem;cursor:pointer;font-weight:600;">₹500</button>
+        <button type="button" onclick="setFundsAmount(1000)" style="flex:1;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:6px;color:#fff;font-size:0.78rem;cursor:pointer;font-weight:600;">₹1000</button>
+        <button type="button" onclick="setFundsAmount(2000)" style="flex:1;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:6px;color:#fff;font-size:0.78rem;cursor:pointer;font-weight:600;">₹2000</button>
+      </div>
+      
+      <button type="submit" style="background:linear-gradient(135deg, #59c4bc, #0ea5e9);border:none;border-radius:10px;padding:12px;color:#fff;font-weight:800;font-size:0.88rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 12px rgba(89,196,188,0.2);">
+        <i class="fas fa-credit-card"></i> Proceed to Pay
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Modal for Buy Chips -->
+<div id="buyChipsModal" style="display:none;position:fixed;inset:0;background:rgba(8,12,24,0.85);backdrop-filter:blur(8px);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#090e1a;border:1px solid rgba(245,158,11,0.2);border-radius:20px;padding:30px;max-width:420px;width:90%;box-shadow:0 15px 35px rgba(0,0,0,0.5), 0 0 15px rgba(245,158,11,0.15);position:relative;">
+    <button type="button" onclick="closeBuyChipsModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;"><i class="fas fa-times"></i></button>
+    
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;text-align:left;">
+      <div style="width:40px;height:40px;border-radius:10px;background:rgba(245,158,11,0.15);display:flex;align-items:center;justify-content:center;color:#fbbf24;font-size:1.1rem;"><i class="fas fa-coins"></i></div>
+      <div>
+        <h4 style="margin:0;font-size:1.1rem;font-weight:800;color:#fff;">Buy AI Chips</h4>
+        <p style="margin:0;font-size:0.75rem;color:#64748b;">Purchase credits to run Agentic AI commands</p>
+      </div>
+    </div>
+    
+    <form id="chips-modal-form" method="POST" action="/portal/wallet/buy_chips/" style="display:flex;flex-direction:column;gap:16px;">
+      {% csrf_token %}
+      <div style="display:flex;flex-direction:column;gap:6px;text-align:left;">
+        <label style="font-size:0.75rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Payment Amount (INR)</label>
+        <div style="position:relative;display:flex;align-items:center;">
+          <span style="position:absolute;left:14px;color:#94a3b8;font-weight:700;font-size:0.9rem;">₹</span>
+          <input type="number" id="chips-amount-input" name="amount" value="100" min="10" step="1" required style="width:100%;background:#05070c;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 14px 12px 28px;color:#fff;font-size:0.95rem;font-weight:700;outline:none;" oninput="updateChipsYield(this.value)">
+        </div>
+      </div>
+      
+      <div style="display:flex;gap:8px;">
+        <button type="button" onclick="setChipsAmount(50)" style="flex:1;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:6px;color:#fff;font-size:0.78rem;cursor:pointer;font-weight:600;">₹50</button>
+        <button type="button" onclick="setChipsAmount(100)" style="flex:1;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:6px;color:#fff;font-size:0.78rem;cursor:pointer;font-weight:600;">₹100</button>
+        <button type="button" onclick="setChipsAmount(200)" style="flex:1;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:6px;color:#fff;font-size:0.78rem;cursor:pointer;font-weight:600;">₹200</button>
+        <button type="button" onclick="setChipsAmount(500)" style="flex:1;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:6px;color:#fff;font-size:0.78rem;cursor:pointer;font-weight:600;">₹500</button>
+      </div>
+
+      <div style="background:rgba(245,158,11,0.06);border:1px dashed rgba(245,158,11,0.2);border-radius:10px;padding:12px;text-align:center;font-size:0.84rem;color:#fff;">
+        You will receive: <strong style="color:#fbbf24;font-size:1rem;" id="chips-yield-text">10,000 Coins</strong>
+      </div>
+      
+      <button type="submit" style="background:linear-gradient(135deg, #f59e0b, #d97706);border:none;border-radius:10px;padding:12px;color:#fff;font-weight:800;font-size:0.88rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 12px rgba(245,158,11,0.2);">
+        <i class="fas fa-credit-card"></i> Proceed to Pay
+      </button>
+    </form>
+  </div>
+</div>
+
+</body>
+</html>

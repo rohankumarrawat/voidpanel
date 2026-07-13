@@ -1,360 +1,336 @@
+{% load static %}
 <!doctype html>
 <html lang="en">
-
 <head>
-    <title>:: VoidPanel :: Cron</title>
+    <title>:: VoidPanel :: Cron Manager</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="VoidPanel  Cron ">
-    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
-    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
-
-    <!-- VENDOR CSS -->
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    
+    
+    
+    <link rel="stylesheet" href="/static/static/css/plugins/fontawesome-all.min.css">
     <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
 
-    <!-- MAIN Project CSS file -->
-    <link rel="stylesheet" href="/static/assets/css/main.css">
-
-    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
     <style>
-        .myname {
-            border-radius: 30px;
-            box-shadow: inset;
-            border-width: 4px;
-
-
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f1f5f9; }
+        
+        .vp-glass-panel {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            padding: 24px;
+            margin-bottom: 24px;
         }
 
-        .text-container {
-
-            border: 1px solid #ccc;
-
-            word-wrap: break-word;
-            /* Force text to wrap */
-            white-space: normal;
-            /* Ensure normal wrapping */
-            overflow-wrap: break-word;
-            /* Ensure long words break */
+        .vp-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
+
+        .vp-panel-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #fff;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .vp-form-group { margin-bottom: 16px; }
+        .vp-form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #94a3b8;
+        }
+        
+        .vp-input {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.2) !important;
+            border: 1px solid rgba(255,255,255,0.1) !important;
+            color: #fff !important;
+            font-family: 'Courier New', Courier, monospace;
+            transition: all 0.2s;
+        }
+        .vp-input:focus {
+            border-color: #6366f1 !important;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important;
+            outline: none;
+        }
+
+        /* Buttons */
+        .vp-btn-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+            cursor: pointer;
+            width: 100%;
+        }
+        .vp-btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(99, 102, 241, 0.35); }
+        .vp-btn-danger {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .vp-btn-danger:hover { background: rgba(239, 68, 68, 0.25); }
+
+        /* Tables */
+        .vp-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; }
+        .vp-table th {
+            color: #94a3b8;
+            font-weight: 500;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .vp-table td {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 14px 16px;
+            color: #e2e8f0;
+            vertical-align: middle;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+        }
+        .vp-table tr td:first-child { border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
+        .vp-table tr td:last-child { border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
+        .vp-table tr:hover td { background: rgba(255, 255, 255, 0.04); }
+
+        /* Toasts */
+        .vp-toast-container { position: fixed; bottom: 24px; left: 24px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; }
+        .vp-toast {
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(12px);
+            border-left: 4px solid #6366f1;
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transform: translateX(-120%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .vp-toast.show { transform: translateX(0); }
+        .vp-toast.success { border-color: #10b981; }
+        .vp-toast.error { border-color: #ef4444; }
+
+        /* Helper List */
+        .cron-helper {
+            font-family: monospace;
+            color: #94a3b8;
+            background: rgba(0,0,0,0.2);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            margin-bottom: 8px;
+        }
+        .cron-helper span { color: #f59e0b; font-weight: bold; }
     </style>
-
 </head>
 
-<body data-theme="light" class="font-nunito">
-
-    <div id="wrapper" class="theme-cyan">
-
-        <!-- Page Loader -->
-        <div class="page-loader-wrapper">
-            <div class="loader">
-                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
-
-                </div>
-                <p>Please wait...</p>
-            </div>
-        </div>
-
-
-
+<body>
+    {% csrf_token %}
+    <div id="wrapper">
         {% include 'control/navbar.html' %}
-
-        <!-- main left menu -->
         {% include 'control/left.html' %}
-        <!-- rightbar icon div -->
         {% include 'control/right.html' %}
 
-
-        <!-- mani page content body part -->
-
         <div id="main-content">
+            <div class="container-fluid" style="padding: 24px;">
+                
+                <div class="row">
+                    <!-- Create Cron Section -->
+                    <div class="col-lg-4">
+                        <div class="vp-glass-panel">
+                            <div class="vp-panel-header">
+                                <h2 class="vp-panel-title">
+                                    <i class="fa fa-clock-o" style="color: #6366f1;"></i> Add Cron Job
+                                </h2>
+                            </div>
+                            
+                            <form id="cronAddForm" onsubmit="submitCron(event)">
+                                <div class="vp-form-group">
+                                    <label>Cron Time Configuration</label>
+                                    <input type="text" id="cronTime" name="time" class="vp-input" placeholder="* * * * *" required>
+                                </div>
+                                <div class="vp-form-group">
+                                    <label>Absolute Command Path</label>
+                                    <input type="text" id="cronPath" name="path" class="vp-input" placeholder="/usr/bin/php /home/user/script.php" required>
+                                </div>
+                                <button type="submit" id="btnSubmitCron" class="vp-btn-primary" style="margin-top: 10px;">
+                                    <i class="fa fa-plus"></i> Deploy Cronjob
+                                </button>
+                            </form>
 
-            <div class="container-fluid">
-                <div class="block-header">
-                    <div class="row">
-                        <div class="col-lg-10 col-md-6 col-sm-12">
-                            <h2>Edit/Add Crons</h2>
-                            <ul class="breadcrumb">
-                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
-                                </li>
-                                <li class="breadcrumb-item">Dashboard</li>
-                                <li class="breadcrumb-item">Edit/Add Cron Jobs</li>
-
-                            </ul>
+                            <hr style="border-color: rgba(255,255,255,0.05); margin: 24px 0;">
+                            
+                            <!-- Cheat Sheet Module -->
+                            <h5 style="color: #fff; font-size: 0.95rem; margin-bottom: 12px;"><i class="fa fa-book"></i> Syntax Cheat Sheet</h5>
+                            <div class="cron-helper"><span>*</span> * * * * &rarr; Every minute</div>
+                            <div class="cron-helper"><span>30</span> * * * * &rarr; Every 30th minute</div>
+                            <div class="cron-helper">* <span>2</span> * * * &rarr; Run at 2 AM daily</div>
+                            <div class="cron-helper">* * <span>1</span> * * &rarr; Run on 1st of month</div>
                         </div>
+                    </div>
 
-
-
-
-
-
-
+                    <!-- Existing Crons Table Section -->
+                    <div class="col-lg-8">
+                        <div class="vp-glass-panel">
+                            <div class="vp-panel-header">
+                                <h2 class="vp-panel-title">
+                                    <i class="fa fa-list" style="color: #10b981;"></i> Active Scheduled Jobs
+                                </h2>
+                            </div>
+                            
+                            <div style="overflow-x: auto;">
+                                <table class="vp-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 150px;">Timing</th>
+                                            <th>Execute Path</th>
+                                            <th style="width: 100px; text-align: right;">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for i in crondata %}
+                                        <tr>
+                                            <td style="color: #f59e0b;">{{ i.duratioin }}</td>
+                                            <td style="word-break: break-all;">{{ i.path }}</td>
+                                            <td style="text-align: right;">
+                                                <button onclick="deleteCron(event, '{{ i.id }}')" class="vp-btn-danger">
+                                                    <i class="fa fa-trash"></i> Drop
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="3" style="text-align: center; color: #94a3b8; padding: 30px;">
+                                                No cronjobs are currently active for this domain.
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
-
-                <div class="row clearfix">
-                    <div class="col-lg-12">
-
-                        <div class="">
-                            <div class="header">
-                                <h2>CronJob Wizard</h2>
-
-
-                            </div>
-
-
-                        </div>
-                    </div>
-                </div>
-                <form method="post" action="">{% csrf_token %}
-                    <div class="row clearfix " style="margin-top: 30px;">
-
-
-                        <div class="col-lg-1 col-md-6 col-sm-12">
-                            <img src="/static/icons/cron.svg" style="height: 50px; width: 80px;">
-
-                        </div>
-
-                        <div class="col-lg-3 col-md-6 col-sm-12">
-                            <div class="form-group">
-                                <input type="text" id="cronin" name="time" class="form-control"
-                                    onkeypress="restrictInput(event)" placeholder="* * * * *" required>
-
-                            </div>
-
-
-                        </div>
-
-                        <div class="col-lg-3 col-md-6 col-sm-12">
-                            <div class="form-group">
-                                <input type="text" id="cronin" name="path" class="form-control" placeholder="path"
-                                    required>
-                            </div>
-
-
-                        </div>
-
-
-                        <div class="col-lg-3 col-md-6 col-sm-12">
-                            <div class="form-group">
-                                <button type="submit" class="btn btn-primary"> Create a CronJob</button>
-                            </div>
-                        </div>
-                 
-                </form>
-
 
             </div>
-
-
         </div>
-
-
-
-        <div class="row clearfix" style="margin-top: 30px;">
-            <div class="col-lg-6 col-md-12">
-                <div class="">
-                    <div class="header">
-                        <h4>Cron Tab Info</h4>
-                    </div>
-                    <div class="body table-responsive">
-                        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-                            <table class="table  mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>Function</th>
-                                        <th>Duration</th>
-                                        <th>Refference</th>
-
-                                    </tr>
-                                </thead>
-                                <tbody>
-
-                                    <tr>
-                                        <td>
-                                            <h5><span style="color: red;">*</span> * * * *</h5>
-                                            <small>Syntax </small>
-                                        </td>
-                                        <td>
-                                            <h5>Minute (0-59)</h5>
-                                            <small>Minutes In Number </small>
-                                        </td>
-                                        <td>
-                                            <h5><span style="color: red;">30</span> * * * * /path/</h5>
-                                            <small>This Will Excute after every <span style="color: red;">30
-                                                    Minutes</span> </small>
-                                        </td>
-                                    </tr>
-
-                                    <tr>
-                                        <td>
-                                            <h5>* <span style="color: red;">*</span> * * *</h5>
-                                            <small>Syntax </small>
-                                        </td>
-                                        <td>
-                                            <h5>Hour (0-23)</h5>
-                                            <small>Hours In Number </small>
-                                        </td>
-                                        <td>
-                                            <h5>* <span style="color: red;">2</span> * * * /path/</h5>
-                                            <small>This Will Excute after every <span style="color: red;">2 Hours</span>
-                                            </small>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <h5>* * <span style="color: red;">*</span> * *</h5>
-                                            <small>Syntax </small>
-                                        </td>
-                                        <td>
-                                            <h5>Day Of Month (1-31)</h5>
-                                            <small>Days In Number </small>
-                                        </td>
-                                        <td>
-                                            <h5>* * <span style="color: red;">30</span> * * /path/</h5>
-                                            <small>This Will Excute after every <span style="color: red;">30 Days</span>
-                                            </small>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <h5>* * * <span style="color: red;">*</span> *</h5>
-                                            <small>Syntax </small>
-                                        </td>
-                                        <td>
-                                            <h5>Month (1-12)</h5>
-                                            <small>Month In Number </small>
-                                        </td>
-                                        <td>
-                                            <h5>* * * <span style="color: red;">3</span> * /path/</h5>
-                                            <small>This Will Excute after every <span style="color: red;">3 Month</span>
-                                            </small>
-                                        </td>
-                                    </tr>
-
-                                    <tr>
-                                        <td>
-                                            <h5>* * * * <span style="color: red;">*</span> </h5>
-                                            <small>Syntax </small>
-                                        </td>
-                                        <td>
-                                            <h5>Day of Week (0-7)</h5>
-                                            <small>Week In Number </small>
-                                        </td>
-                                        <td>
-                                            <h5>* * * * <span style="color: red;">3</span> /path/</h5>
-                                            <small>This Will Excute after every <span style="color: red;">3 Week</span>
-                                            </small>
-                                        </td>
-                                    </tr>
-
-                                </tbody>
-                            </table>
-                        </div>
-
-                        </table>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-6 col-md-12">
-                <div class="">
-                    <div class="header">
-                        <h4>Added Crontab</h4>
-                    </div>
-                    <div class="body table-responsive social_media_table" style="max-height: 300px; overflow-y: auto;">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-
-                                    <th>Domain</th>
-                                    <th>Duration</th>
-                                    <th>Path</th>
-                                    <th>Delete</th>
-
-                                </tr>
-                            </thead>
-                            <tbody>
-
-
-
-                                {% for i in crondata %}
-                                <tr>
-                                    <td>{{i.domain}}
-                                    </td>
-
-                                    <td>{{i.duratioin}}</td>
-
-
-                                    <td>
-
-                                       {{i.path}}
-                                    </td>
-                                    <td>
-
-                                        <a href="/control/deletecron/{{i.id}}/"> <button class="btn btn-danger">Delete
-                                                <i class="fa fa-trash"></i></button></a>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-
-
-
-
-
-
-
-
-
-
-
     </div>
 
-    </div>
-
-
-
-
-
+    <!-- Toast Notifications -->
+    <div class="vp-toast-container" id="toastContainer"></div>
 
     <script>
-        function restrictInput(event) {
-            const allowedChars = /^[0-9* ]$/; // Allow digits, * and space
-            const inputChar = String.fromCharCode(event.which);
-            if (!allowedChars.test(inputChar)) {
-                event.preventDefault(); // Prevent the input if it's not allowed
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const currentDomain = "{{ domain.domain|default:domain }}";
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `vp-toast ${type}`;
+            const icon = type === 'success' ? 'check-circle' : 'exclamation-circle';
+            toast.innerHTML = `<i class="fa fa-${icon}"></i> <span>${message}</span>`;
+            container.appendChild(toast);
+            
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        async function submitCron(event) {
+            event.preventDefault();
+            const btn = document.getElementById('btnSubmitCron');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i> Securing...';
+            btn.disabled = true;
+
+            const formData = new FormData(event.target);
+
+            try {
+                // Route correlates to control/urls.py (e.g. /control/cron/domain.com/)
+                const response = await fetch(`/control/cron/${currentDomain}`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-CSRFToken': csrfToken }
+                });
+                
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    showToast(result.message, 'success');
+                    setTimeout(() => location.reload(), 800);
+                } else {
+                    showToast(result.message || 'Error configuring cron tab.', 'error');
+                }
+            } catch (err) {
+                showToast('Network error while saving cron job.', 'error');
+            } finally {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
+        }
+
+        async function deleteCron(event, targetId) {
+            event.preventDefault();
+            const btn = event.currentTarget;
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(`/control/deletecron/${targetId}/`, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken }
+                });
+                
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    showToast(result.message, 'success');
+                    setTimeout(() => location.reload(), 800);
+                } else {
+                    showToast(result.message || 'Error purging command schedule.', 'error');
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                showToast('Network error while deleting.', 'error');
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
             }
         }
     </script>
-
-
-    <!-- Javascript -->
-    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
-    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
-
-    <!-- page vendor js file -->
-    <script src="/static/assets/vendor/toastr/toastr.js"></script>
-    <script src="/static/assets/bundles/c3.bundle.js"></script>
-
-
-    <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
-    <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
-
-
-    <!-- page js file -->
-    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
-    <script src="/static/assets/bundles/chartjs.js"></script>
-    <script src="/static/assets/index2.js"></script>
-
-
 </body>
-
 </html>

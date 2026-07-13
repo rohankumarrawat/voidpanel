@@ -1,433 +1,310 @@
 <!doctype html>
 <html lang="en">
-
 <head>
-    <title>:: VoidPanel ::Create Python Project</title>
+    <title>New Python App — {{ domain }} | VoidPanel</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="VoidPanel Python ">
-    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
-    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
-
-    <!-- VENDOR CSS -->
-    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    
+    
+    
     <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="/static/static/css/plugins/fontawesome-all.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
 
-    <!-- MAIN Project CSS file -->
-    <link rel="stylesheet" href="/static/assets/css/main.css">
-
-    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
     <style>
-        /* Basic styling for the p tag */
-        p.processing {
-            font-size: 18px;
-            font-weight: bold;
+        *, *::before, *::after { box-sizing: border-box; }
+        body { background: #070b14; color: #e2e8f0; font-family: 'Inter', sans-serif; min-height: 100vh; }
 
+        .page-container { padding: 30px 28px; max-width: 800px; margin: 0 auto; }
+
+        /* Header */
+        .page-header { margin-bottom: 32px; }
+        .page-header h1 {
+            font-size: 1.5rem; font-weight: 700; margin: 0 0 4px;
+            background: linear-gradient(135deg, #60a5fa, #6366f1);
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .breadcrumb-trail { font-size: 0.8rem; color: #64748b; }
+        .breadcrumb-trail a { color: #6366f1; text-decoration: none; }
+
+        /* Card */
+        .dash-card {
+            background: linear-gradient(135deg, rgba(22,33,58,0.95), rgba(10,14,26,0.95));
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 20px; padding: 28px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+        }
+        .dash-card-header { margin-bottom: 24px; }
+        .dash-card-header h3 {
+            font-size: 1.05rem; font-weight: 700; color: #fff; margin: 0 0 4px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .dash-card-header h3 span { font-size: 1.3rem; }
+        .dash-card-header p { font-size: 0.85rem; color: #64748b; margin: 0; }
+
+        /* Info box */
+        .info-row {
+            display: flex; align-items: flex-start; gap: 10px;
+            background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.15);
+            border-radius: 10px; padding: 12px 16px; margin-bottom: 24px;
+            font-size: 0.82rem; color: #94a3b8; line-height: 1.6;
+        }
+        .info-row i { color: #818cf8; margin-top: 2px; flex-shrink: 0; }
+
+        /* Fields */
+        .field { margin-bottom: 20px; }
+        .dash-label {
+            display: block; font-size: 0.75rem; color: #64748b; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;
+        }
+        .dash-select, .dash-input {
+            width: 100%; padding: 11px 16px; border-radius: 12px;
+            background: rgba(0,0,0,0.3) !important; color: #fff !important;
+            border: 1px solid rgba(255,255,255,0.1); outline: none; font-family: 'Inter', sans-serif;
+            font-size: 0.95rem; transition: border 0.2s;
+            -webkit-appearance: none; appearance: none;
+        }
+        .dash-select:focus, .dash-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.18); }
+        .dash-input::placeholder { color: #475569; }
+        
+        /* Name input with prefix */
+        .name-group { display: flex; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); transition: border 0.2s, box-shadow 0.2s; }
+        .name-group:focus-within { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.18); }
+        .name-prefix { background: rgba(0,0,0,0.4); padding: 11px 14px; color: #94a3b8; font-family: 'Fira Code', monospace; font-size: 0.85rem; border-right: 1px solid rgba(255,255,255,0.06); white-space: nowrap; }
+        .name-input { flex: 1; padding: 11px 14px; background: rgba(0,0,0,0.2); border: none; outline: none; color: #fff; font-family: 'Fira Code', monospace; font-size: 0.95rem; }
+        .name-hint { font-size: 0.75rem; color: #475569; margin-top: 6px; }
+
+        /* Submit */
+        .dash-btn-primary {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            width: 100%; padding: 13px; border-radius: 12px; font-size: 0.92rem; font-weight: 700;
+            background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; border: none; cursor: pointer;
+            box-shadow: 0 4px 16px rgba(99,102,241,0.35); transition: all 0.2s; margin-top: 8px;
+        }
+        .dash-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(99,102,241,0.5); }
+        .dash-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        /* Progress */
+        .progress-wrap { margin-top: 20px; display: none; }
+        .progress-wrap label { font-size: 0.75rem; color: #94a3b8; margin-bottom: 8px; display: flex; justify-content: space-between; }
+        .progress-track { height: 6px; background: rgba(255,255,255,0.06); border-radius: 999px; overflow: hidden; }
+        .progress-fill {
+            height: 100%; border-radius: 999px; width: 0%;
+            background: linear-gradient(90deg, #6366f1, #818cf8);
+            transition: width 0.6s ease;
+            animation: shimmer 1.5s infinite;
+            background-size: 200% 100%;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
         }
 
-        /* Animation for the dots */
-        .dots::after {
-            content: '';
-            display: inline-block;
-            width: 1em;
-            text-align: left;
-            animation: dots 1.5s steps(4, end) infinite;
+        /* Toast */
+        .vp-toast {
+            position: fixed; bottom: 30px; right: 30px; z-index: 99999;
+            background: rgba(22,33,58,0.97); border: 1px solid rgba(99,102,241,0.3);
+            border-radius: 12px; padding: 14px 20px; font-size: 0.88rem; color: #e2e8f0;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: none; min-width: 260px;
+            animation: toastIn 0.25s ease;
         }
-
-        /* Keyframes for the dots animation */
-        @keyframes dots {
-
-            0%,
-            100% {
-                content: '';
-            }
-
-            25% {
-                content: '.';
-            }
-
-            50% {
-                content: '..';
-            }
-
-            75% {
-                content: '...';
-            }
-        }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
     </style>
-    <style>
-        .myname {
-            border-radius: 30px;
-            box-shadow: inset;
-            border-width: 4px;
-
-
-        }
-
-        .text-container {
-
-            border: 1px solid #ccc;
-
-            word-wrap: break-word;
-            /* Force text to wrap */
-            white-space: normal;
-            /* Ensure normal wrapping */
-            overflow-wrap: break-word;
-            /* Ensure long words break */
-        }
-    </style>
-
 </head>
 
-<body data-theme="light" class="font-nunito">
+<body>
+{% include 'control/navbar.html' %}
+{% include 'control/left.html' %}
+{% include 'control/right.html' %}
 
-    <div id="wrapper" class="theme-cyan">
+<div id="main-content">
+<div class="page-container">
 
-        <!-- Page Loader -->
-        <div class="page-loader-wrapper">
-            <div class="loader">
-                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
-                </div>
-                <p>Please wait...</p>
-            </div>
+    <div class="page-header">
+        <h1>🐍 New Python Application</h1>
+        <div class="breadcrumb-trail">
+            <a href="/control/">Dashboard</a> / <a href="/control/python/{{ domain }}">Python Apps</a> / Create
+        </div>
+    </div>
+
+    <div class="dash-card">
+        <div class="dash-card-header">
+            <h3><span>⚙️</span> Application Setup</h3>
+            <p>Provisions a new Python WSGI environment with a uWSGI socket and Nginx integration.</p>
         </div>
 
+        <div class="info-row">
+            <i class="fa fa-info-circle"></i>
+            <span>VoidPanel will scaffold a virtual environment, uWSGI service, and Nginx configuration. 
+            After creation, upload your project files to <code style="color:#a78bfa;">/home/{{ dir }}/&lt;project-name&gt;/</code> and restart the service.</span>
+        </div>
 
-
-        {% include 'control/navbar.html' %}
-
-        <!-- main left menu -->
-        {% include 'control/left.html' %}
-        <!-- rightbar icon div -->
-        {% include 'control/right.html' %}
-
-
-        <!-- mani page content body part -->
-
-        <div id="main-content">
-
-            <div class="container-fluid">
-                <div class="block-header">
-                    <div class="row">
-                        <div class="col-lg-10 col-md-6 col-sm-12">
-                            <h2>Create Backup</h2>
-                            <ul class="breadcrumb">
-                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
-                                </li>
-                                <li class="breadcrumb-item">Dashboard</li>
-                                <li class="breadcrumb-item">Create Python App</li>
-
-                            </ul>
-                        </div>
-
-
-
-
-
-
-
-                    </div>
-                </div>
-
-                <div class="row clearfix">
-                    <div class="col-lg-10 col-md-12 col-sm-12">
-                        <div class="">
-                            <div class="header">
-                                <h2 style="display: inline-block;"> Python App</h2>
-
-                                <img src="/static/icons/python.png" style="height: 80px; width: 80px; border-radius: 5%;">
-
-
-                            </div>
-
-
-                        </div>
-                    </div>
-                   
-                </div>
-                <div id="addpermission" style="display: block; margin-top: 18px;">
-                    <div class="modal-dialog modal-lg" role="document">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h6 class="title" id="defaultModalLabel">Add Python Project </h6>
-                            </div>
-                            <form id="myForm" method="post" action="">{% csrf_token %}
-                                <div class="modal-body">
-                                    <div class="row clearfix">
-                                        <div class="col-md-12 col-sm-12">
-                                            <div class="form-group">
-                                                <label class="control-inline fancy-checkbox">
-                                            
-                                                    <span>Select Domain Name</span>
-                                                </label>
-                                             
-                                                    <select id="myInput" class="form-control" name="domain">
-                                                        <option value="{{domain}}" selected>{{domain}}</option>
-                                                        {% for i in subdomain %}
-                                                        <option value="{{i.subdomain}}">{{i.subdomain}}</option>
-                                                        {% endfor %}
-
-                                                    </select>
-                                            </div>
-                                            <div class="form-group">
-                                                <label class="control-inline fancy-checkbox">
-                                            
-                                                    <span>Project Name</span>
-                                                </label>
-                                                <input type="text" name="addwebsite" id="myInput2" class="form-control"
-                                                    placeholder="Project Name" required>
-                                            </div>
-                                        </div>
-
-                                        
-                                    </div>
-                                </div>
-                                <div id="progress" style="display: none;">
-                                    <div class="progress">
-                                        <div id="pbar"
-                                            class="progress-bar progress-bar-success progress-bar-striped active"
-                                            role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"
-                                            style="width: 0%">
-
-                                        </div>
-
-                                    </div>
-                                </div>
-                                <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
-                                    <div class="modal-dialog modal-sm" role="document">
-                                        <div class="modal-content">
-                                            <div class="modal-header">
-                                                <h6 class="title" id="defaultModalLabel">Status</h6>
-                                            </div>
-                
-                                            <div class="modal-body">
-                                                <div class="col-md-12 col-sm-12">
-                                                    <div id="statusemail" style="text-align: center;" class="row clearfix">
-                
-                
-                
-                                                    </div>
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button  onclick="closee();"
-                                                        class="btn btn-danger">Close</button>
-                                                </div>
-                                            </div>
-                
-                                        </div>
-                                    </div>
-                                </div>
-        
-                                <div class="modal-footer">
-                                    <button id="addemailbtn"  type="submit" style="display: block;"
-                                        class="btn btn-primary">Add Website</button>
-
-
-                                </div>
-
-
-                            </form>
-
-                        </div>
-                    </div>
-                </div>
-
-
-               
-
-                
-
-
-
-
-
-
-
-
-
-
-
-
-
+        <form id="createPythonForm">{% csrf_token %}
+            <div class="field">
+                <label class="dash-label">Target Domain / Subdomain</label>
+                <select name="domain" id="domainSelect" class="dash-select" required>
+                    <option value="{{ domain }}" selected>{{ domain }} (primary)</option>
+                    {% for i in subdomain %}
+                    <option value="{{ i.subdomain }}">{{ i.subdomain }}</option>
+                    {% endfor %}
+                </select>
             </div>
 
-        </div>
-       
-    
-        <script>
-            function closee(){
-                document.getElementById('eeee').style.display='none';
+            <div class="field">
+                <label class="dash-label">Project Name</label>
+                <div class="name-group">
+                    <span class="name-prefix">/home/{{ dir }}/</span>
+                    <input type="text" id="nameInput" name="addwebsite" class="name-input"
+                        placeholder="myapp" required pattern="[a-z0-9_\-]+" maxlength="30"
+                        oninput="this.value = this.value.toLowerCase().replace(/[^a-z0-9_\-]/g,'')">
+                </div>
+                <div class="name-hint">Only lowercase letters, numbers, hyphens, and underscores.</div>
+            </div>
+
+            <!-- Progress indicator -->
+            <div class="progress-wrap" id="progressWrap">
+                <label>
+                    <span id="progressLabel">Setting up environment...</span>
+                    <span id="progressPct">0%</span>
+                </label>
+                <div class="progress-track">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+
+            <button type="submit" id="submitBtn" class="dash-btn-primary">
+                <i class="fa fa-rocket"></i> Deploy Application
+            </button>
+        </form>
+    </div>
+
+</div>
+</div>
+
+<div class="vp-toast" id="toast"></div>
+
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+
+<script>
+function showToast(msg, isError) {
+    const t = document.getElementById('toast');
+    t.innerHTML = (isError
+        ? '<i class="fa fa-times-circle" style="color:#ef4444;margin-right:8px;"></i>'
+        : '<i class="fa fa-check-circle" style="color:#22c55e;margin-right:8px;"></i>') + msg;
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 4000);
+}
+
+let progressTimer;
+
+function startProgress() {
+    const fill = document.getElementById('progressFill');
+    const pct = document.getElementById('progressPct');
+    const label = document.getElementById('progressLabel');
+    const wrap = document.getElementById('progressWrap');
+
+    wrap.style.display = 'block';
+    let w = 0;
+    const steps = [
+        [10, 'Creating directory structure...'],
+        [30, 'Initializing virtual environment...'],
+        [55, 'Configuring uWSGI service...'],
+        [75, 'Writing Nginx configuration...'],
+        [88, 'Validating Nginx config (nginx -t)...'],
+        [95, 'Starting service...'],
+    ];
+    let stepIdx = 0;
+
+    progressTimer = setInterval(() => {
+        if (stepIdx < steps.length && w >= steps[stepIdx][0] - 1) {
+            label.textContent = steps[stepIdx][1];
+            stepIdx++;
+        }
+        if (w < 95) {
+            w += 1;
+            fill.style.width = w + '%';
+            pct.textContent = w + '%';
+        }
+    }, 250);
+}
+
+function finishProgress(success) {
+    clearInterval(progressTimer);
+    const fill = document.getElementById('progressFill');
+    const pct = document.getElementById('progressPct');
+    const label = document.getElementById('progressLabel');
+
+    fill.style.width = '100%';
+    pct.textContent = '100%';
+    label.textContent = success ? '✅ Application deployed!' : '❌ Deployment failed.';
+    if (success) fill.style.background = 'linear-gradient(90deg, #22c55e, #4ade80)';
+    else fill.style.background = 'linear-gradient(90deg, #ef4444, #f87171)';
+}
+
+document.getElementById('createPythonForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const btn = document.getElementById('submitBtn');
+    const domain = document.getElementById('domainSelect').value;
+    const name = document.getElementById('nameInput').value;
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i> Deploying...';
+    startProgress();
+
+    try {
+        const res = await fetch('{% url "addpython" %}', {
+            method: 'POST',
+            body: JSON.stringify({ domain, name }),
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
             }
-        </script>
+        });
+        const data = await res.json();
 
-        <script>
-
-            document.getElementById('myForm').addEventListener('submit', function (event) {
-                // Prevent the default form submission
-                event.preventDefault();
-                var xx = document.getElementById("addemailbtn");
-                xx.style.display = "none";
-                let width = 0;
-                const progressBar = document.getElementById('pbar');
-                const progressContainer = document.getElementById('progress');
-                progressContainer.style.display = 'block';  // Show progress bar
-                function updateProgress() {
-                    if (width <= 90) {
-                        width++;
-                        width++;
-                        width++;
-                        width++;
-                        width++;
-                        width++;
-                        width++;
-                        width++;
-                        width++;
-                        width++;
-                        width++;
-                        width++;
-                        width++;
-                        width++;
-                        width++;
-                        width++;
-
-
-                        progressBar.style.width = width + '%';  // Update visual width
-                        progressBar.setAttribute('aria-valuenow', width);  // Update ARIA value
-                        setTimeout(updateProgress, 1000);  // Call again in 2 seconds
-                    }
-                }
-                updateProgress();
-                // Capture the values from the input fields
-                var domain = document.getElementById('myInput').value;
-                var name = document.getElementById('myInput2').value;
-               
-                
-
-                // Create the data object to send
-                var data = {
-                    'domain': domain,
-                    'name': name
-              
-                };
-
-                // Send the data using fetch
-                fetch("{% url 'addpython' %}", {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': '{{ csrf_token }}' // Include the CSRF token for security
-                    },
-                    body: JSON.stringify(data) // Convert the data to a JSON string
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            progressBar.style.width = 100 + '%';  // Update visual width
-                        progressBar.setAttribute('aria-valuenow', 100);
-               
-                        document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Python project have been successfully submitted!";
-                        
-                        // Optionally reset the form
-                        document.getElementById('myForm').reset();
-                        xx.style.display = "block";
-
-                            setTimeout(function () {
-                                window.location.href = "/control/python/{{domain}}";
-                            }, 2000);
-
-                        }
-
-                        else if (data.status === 'already') {
-                            
-                            document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Domain Already Exist";
-                            xx.style.display = "block";
-                            progressContainer.style.display = 'none';
-                            progressContainer.style.display = 'none';
-                            document.getElementById('myForm').reset();
-
-                        }
-
-                        else if (data.status === 'already1') {
-                            
-                            document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "please Change Name";
-                            xx.style.display = "block";
-                            progressContainer.style.display = 'none';
-                            progressContainer.style.display = 'none';
-                            document.getElementById('myForm').reset();
-
-                        }
-
-
-
-                        else if (data.status === 'package') {
-                            document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Coudn't find the package";
-                            xx.style.display = "block";
-                            progressContainer.style.display = 'none';
-                            progressContainer.style.display = 'none';
-                            document.getElementById('myForm').reset();
-
-                        }
-
-                        else if (data.status === 'error') {
-              
-                            document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "There was an error submitting your data. Please try again.";
-                            xx.style.display = "block";
-                            progressContainer.style.display = 'none';
-                            document.getElementById('myForm').reset();
-                        } else {
-                
-                            document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Unexpected response from the server.!";
-                            xx.style.display = "block";
-                            progressContainer.style.display = 'none';
-                            document.getElementById('myForm').reset();
-                        }
-                    })
-                    .catch(error => {
-                        progressBar.style.width = 100 + '%';  // Update visual width
-                        progressBar.setAttribute('aria-valuenow', 100);
-               
-                        document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "User  have been successfully submitted!";
-                        
-                        // Optionally reset the form
-                        document.getElementById('myForm').reset();
-                        xx.style.display = "block";
-                        setTimeout(function () {
-                            window.location.href = "/control/python/{{domain}}";
-                        }, 2000);
-                    });
-            });
-
-
-        </script>
-
-        <!-- Javascript -->
-        <script src="/static/assets/bundles/libscripts.bundle.js"></script>
-        <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
-
-        <!-- page vendor js file -->
-        <script src="/static/assets/vendor/toastr/toastr.js"></script>
-        <script src="/static/assets/bundles/c3.bundle.js"></script>
-
-
-        <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
-        <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
-
-
-        <!-- page js file -->
-        <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
-        <script src="/static/assets/bundles/chartjs.js"></script>
-        <script src="/static/assets/index2.js"></script>
-
-
+        if (data.status === 'success') {
+            finishProgress(true);
+            showToast(data.message || 'Application deployed successfully!');
+            setTimeout(() => {
+                window.location.href = '/control/python/{{ domain }}';
+            }, 1800);
+        } else if (data.status === 'already1') {
+            finishProgress(false);
+            showToast('A project with that name already exists. Choose another.', true);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa fa-rocket"></i> Deploy Application';
+        } else if (data.status === 'already') {
+            finishProgress(false);
+            showToast('This domain already has a Python app configured.', true);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa fa-rocket"></i> Deploy Application';
+        } else if (data.status === 'quota') {
+            finishProgress(false);
+            showToast('Storage quota exceeded. Please free up space first.', true);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa fa-rocket"></i> Deploy Application';
+        } else {
+            finishProgress(false);
+            showToast(data.message || 'Deployment failed. Check server logs.', true);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa fa-rocket"></i> Deploy Application';
+        }
+    } catch (err) {
+        finishProgress(false);
+        showToast('Network error during deployment.', true);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa fa-rocket"></i> Deploy Application';
+    }
+});
+</script>
 </body>
-
 </html>

@@ -1,0 +1,682 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Checkout — VoidPanel {{ tier_label }} | VoidPanel</title>
+    <meta name="description" content="Subscribe to VoidPanel {{ tier_label }} for ₹{{ price }}/month. Instant license, promo codes accepted.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css?v=3.0">
+<style>
+/* ── Reset & Base ──────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', sans-serif; background: #f0f4ff; min-height: 100vh; }
+
+/* ── Page wrapper ─────────────────────────── */
+.ck-page {
+    min-height: 100vh;
+    padding: 90px 20px 80px;
+    background:
+        radial-gradient(ellipse 80% 45% at 50% -5%, rgba(99,102,241,0.12) 0%, transparent 65%),
+        radial-gradient(ellipse 40% 30% at 90% 90%, rgba(139,92,246,0.08) 0%, transparent 55%),
+        #f0f4ff;
+}
+.ck-wrap { max-width: 1080px; margin: 0 auto; }
+
+/* ── Page header ──────────────────────────── */
+.ck-header { text-align: center; margin-bottom: 44px; }
+.ck-breadcrumb {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 0.75rem; font-weight: 700; color: #6366f1;
+    background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.18);
+    padding: 5px 14px; border-radius: 999px; margin-bottom: 18px; text-decoration: none;
+    transition: background 0.2s;
+}
+.ck-breadcrumb:hover { background: rgba(99,102,241,0.14); }
+.ck-header h1 {
+    font-size: clamp(1.9rem, 4vw, 2.6rem); font-weight: 900;
+    letter-spacing: -0.04em; color: #0f172a; margin-bottom: 8px;
+}
+.ck-header p { font-size: 0.92rem; color: #64748b; }
+
+/* ── Plan switcher ────────────────────────── */
+.ck-switcher { display: flex; justify-content: center; gap: 8px; margin-bottom: 38px; flex-wrap: wrap; }
+.ck-plan-pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 9px 22px; border-radius: 999px; font-size: 0.82rem; font-weight: 800;
+    border: 2px solid #e2e8f0; background: #fff; color: #64748b;
+    text-decoration: none; transition: all 0.2s; cursor: pointer;
+}
+.ck-plan-pill:hover { border-color: #6366f1; color: #6366f1; background: rgba(99,102,241,0.04); }
+.ck-plan-pill.active {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff; border-color: transparent;
+    box-shadow: 0 4px 18px rgba(99,102,241,0.35);
+}
+.ck-plan-pill .pill-price { opacity: 0.75; font-weight: 600; font-size: 0.75rem; }
+
+/* ── Two-column grid ─────────────────────── */
+.ck-grid { display: grid; grid-template-columns: 1fr 400px; gap: 24px; align-items: start; }
+@media (max-width: 900px) { .ck-grid { grid-template-columns: 1fr; } }
+
+/* ── Shared card ──────────────────────────── */
+.ck-card {
+    background: #fff; border: 1.5px solid #e8edf5;
+    border-radius: 22px; overflow: hidden;
+    box-shadow: 0 4px 30px rgba(15, 23, 42, 0.06);
+}
+
+/* ── Left card: order summary ──────────────── */
+.ck-summary-head {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    padding: 28px 30px; color: #fff;
+}
+.ck-summary-head-label {
+    font-size: 0.68rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.1em; opacity: 0.75; margin-bottom: 10px;
+}
+.ck-plan-name-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.ck-plan-big { font-size: 1.65rem; font-weight: 900; letter-spacing: -0.03em; }
+.ck-plan-badge-head {
+    font-size: 0.68rem; font-weight: 800; padding: 3px 9px; border-radius: 999px;
+    background: rgba(255,255,255,0.2); backdrop-filter: blur(4px);
+}
+.ck-plan-price-row { display: flex; align-items: baseline; gap: 4px; }
+.ck-plan-price-main { font-size: 2.8rem; font-weight: 900; letter-spacing: -0.05em; line-height: 1; }
+.ck-plan-price-period { font-size: 0.92rem; opacity: 0.72; font-weight: 500; }
+
+.ck-summary-body { padding: 24px 30px; }
+.ck-section-label {
+    font-size: 0.65rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.1em; color: #94a3b8; margin-bottom: 14px;
+}
+
+/* Feature list */
+.ck-features { list-style: none; display: flex; flex-direction: column; gap: 9px; margin-bottom: 24px; }
+.ck-features li { display: flex; align-items: center; gap: 10px; font-size: 0.855rem; color: #374151; }
+.ck-feat-chk {
+    width: 19px; height: 19px; border-radius: 6px;
+    background: rgba(16,185,129,0.1); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+}
+.ck-feat-chk i { color: #10b981; font-size: 0.6rem; }
+.ck-features li strong { color: #0f172a; }
+
+/* Guarantee */
+.ck-guarantee {
+    background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px;
+    padding: 12px 16px; display: flex; align-items: center; gap: 12px;
+    font-size: 0.8rem; color: #15803d; line-height: 1.4;
+}
+.ck-guarantee i { font-size: 1.1rem; flex-shrink: 0; }
+
+/* ── Right card: checkout form ──────────────── */
+.ck-checkout-head {
+    padding: 26px 28px 0; border-bottom: 1px solid #f1f5f9; padding-bottom: 22px;
+}
+.ck-checkout-title { font-size: 1.05rem; font-weight: 900; color: #0f172a; margin-bottom: 3px; }
+.ck-checkout-sub { font-size: 0.8rem; color: #94a3b8; }
+.ck-checkout-body { padding: 22px 28px 28px; }
+
+/* Step indicators */
+.ck-steps { display: flex; gap: 0; margin-bottom: 24px; }
+.ck-step {
+    flex: 1; text-align: center; font-size: 0.68rem; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8;
+    position: relative; padding-bottom: 10px;
+    border-bottom: 2px solid #f1f5f9;
+}
+.ck-step.active { color: #6366f1; border-bottom-color: #6366f1; }
+.ck-step.done { color: #10b981; border-bottom-color: #10b981; }
+
+/* Form group */
+.ck-field { margin-bottom: 16px; }
+.ck-label {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: #64748b; margin-bottom: 7px;
+}
+.ck-label-opt { font-weight: 500; text-transform: none; letter-spacing: 0; color: #94a3b8; font-size: 0.7rem; }
+.ck-input {
+    width: 100%; padding: 11px 14px; border: 1.5px solid #e8edf5;
+    border-radius: 11px; font-size: 0.88rem; color: #0f172a; font-family: 'Inter', sans-serif;
+    outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+    background: #fafbff;
+}
+.ck-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); background: #fff; }
+.ck-input.valid { border-color: #10b981; }
+.ck-input.invalid { border-color: #ef4444; }
+
+/* ── Promo code row ──────────────────────── */
+.ck-promo-row { display: flex; gap: 8px; }
+.ck-promo-row .ck-input { flex: 1; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; }
+.ck-promo-apply {
+    padding: 11px 18px; border-radius: 11px; border: 1.5px solid #6366f1;
+    background: transparent; color: #6366f1; font-weight: 800; font-size: 0.82rem;
+    cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s;
+    white-space: nowrap;
+}
+.ck-promo-apply:hover { background: #6366f1; color: #fff; }
+.ck-promo-apply:disabled { opacity: 0.5; cursor: not-allowed; }
+.ck-promo-feedback {
+    font-size: 0.75rem; font-weight: 700; margin-top: 6px;
+    display: none; align-items: center; gap: 5px;
+}
+.ck-promo-feedback.show { display: flex; }
+.ck-promo-feedback.ok { color: #10b981; }
+.ck-promo-feedback.err { color: #ef4444; }
+
+/* ── Price breakdown ──────────────────────── */
+.ck-price-box {
+    background: linear-gradient(135deg, rgba(99,102,241,0.04) 0%, rgba(139,92,246,0.03) 100%);
+    border: 1.5px solid rgba(99,102,241,0.12);
+    border-radius: 14px; padding: 16px 18px; margin: 18px 0 20px;
+}
+.ck-price-row {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 0.84rem; color: #64748b; padding: 4px 0;
+}
+.ck-price-row + .ck-price-row { border-top: 1px dashed rgba(99,102,241,0.1); margin-top: 4px; padding-top: 8px; }
+.ck-price-row.discount-row { color: #10b981; }
+.ck-price-row.discount-row .ck-price-amount { color: #10b981; font-weight: 800; }
+.ck-price-divider { height: 1px; background: rgba(99,102,241,0.15); margin: 10px 0; }
+.ck-price-row.total-row { color: #0f172a; font-weight: 900; font-size: 1.05rem; }
+.ck-price-row.total-row .ck-price-amount { font-size: 1.35rem; letter-spacing: -0.03em; }
+.ck-price-label { display: flex; align-items: center; gap: 6px; }
+.ck-price-label .ck-orig { text-decoration: line-through; color: #94a3b8; font-size: 0.78rem; font-weight: 500; }
+.ck-savings-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(16,185,129,0.1); color: #059669;
+    font-size: 0.68rem; font-weight: 800; padding: 2px 8px; border-radius: 999px;
+    margin-left: 6px; opacity: 0; transition: opacity 0.3s;
+}
+.ck-savings-badge.show { opacity: 1; }
+
+/* ── Pay button ──────────────────────────── */
+.ck-pay-btn {
+    width: 100%; padding: 15px 20px; border-radius: 13px;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: #fff; font-weight: 900; font-size: 1rem; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    font-family: 'Inter', sans-serif; transition: all 0.2s;
+    box-shadow: 0 5px 24px rgba(99,102,241,0.38);
+    position: relative; overflow: hidden;
+}
+.ck-pay-btn::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%);
+    pointer-events: none;
+}
+.ck-pay-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 36px rgba(99,102,241,0.45); }
+.ck-pay-btn:active:not(:disabled) { transform: translateY(0); }
+.ck-pay-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* ── Trust row ──────────────────────────── */
+.ck-trust { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 14px; flex-wrap: wrap; }
+.ck-trust-item { display: flex; align-items: center; gap: 5px; font-size: 0.7rem; color: #94a3b8; font-weight: 600; }
+.ck-trust-item i { color: #10b981; }
+.ck-trust-sep { width: 3px; height: 3px; border-radius: 50%; background: #e2e8f0; }
+
+/* ── No-gateway warning ──────────────────── */
+.ck-no-gateway {
+    background: #fffbeb; border: 1.5px solid #fde68a;
+    border-radius: 12px; padding: 16px 20px; margin-bottom: 18px;
+    font-size: 0.84rem; color: #92400e; display: flex; align-items: flex-start; gap: 10px;
+}
+.ck-no-gateway i { font-size: 1.1rem; margin-top: 1px; flex-shrink: 0; }
+
+/* ── Login wall ──────────────────────────── */
+.ck-login-wall { padding: 40px 28px; text-align: center; }
+.ck-login-icon {
+    width: 68px; height: 68px; border-radius: 20px;
+    background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem; color: #6366f1; margin: 0 auto 20px;
+}
+.ck-login-wall h3 { font-size: 1.2rem; font-weight: 900; color: #0f172a; margin-bottom: 8px; }
+.ck-login-wall p { font-size: 0.85rem; color: #64748b; margin-bottom: 28px; line-height: 1.6; }
+.ck-login-btn {
+    width: 100%; padding: 13px; border-radius: 12px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff; font-weight: 900; font-size: 0.92rem;
+    border: none; text-decoration: none; display: flex;
+    align-items: center; justify-content: center; gap: 8px;
+    font-family: 'Inter', sans-serif;
+    box-shadow: 0 4px 18px rgba(99,102,241,0.3); transition: all 0.2s;
+    margin-bottom: 12px;
+}
+.ck-login-btn:hover { transform: translateY(-2px); }
+.ck-login-link { font-size: 0.82rem; color: #6366f1; font-weight: 700; text-decoration: none; }
+.ck-login-link:hover { text-decoration: underline; }
+
+/* ── Toast notification ──────────────────── */
+.ck-toast {
+    position: fixed; bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: #0f172a; color: #f8fafc;
+    padding: 13px 22px; border-radius: 14px;
+    font-size: 0.86rem; font-weight: 700; z-index: 9999;
+    transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.22); max-width: 420px;
+}
+.ck-toast.show { transform: translateX(-50%) translateY(0); }
+.ck-toast.toast-error { background: #991b1b; }
+.ck-toast.toast-success { background: #065f46; }
+.ck-toast.toast-info { background: #1e3a5f; }
+
+/* ── Divider ──────────────────────────────── */
+.ck-divider { height: 1px; background: #f1f5f9; margin: 18px 0; }
+
+/* ── Terms note ──────────────────────────── */
+.ck-terms-note { font-size: 0.7rem; color: #94a3b8; text-align: center; line-height: 1.7; }
+.ck-terms-note a { color: #6366f1; text-decoration: none; }
+.ck-terms-note a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+{% include 'header.html' %}
+
+<div class="ck-page">
+  <div class="ck-wrap">
+
+    <!-- Header -->
+    <div class="ck-header">
+      <a href="/get-voidpanel/" class="ck-breadcrumb">
+        <i class="fas fa-arrow-left"></i> Back to Plans
+      </a>
+      <h1>Complete Your Order</h1>
+      <p>Instant license activation · Secure Razorpay checkout · 30-day money-back guarantee</p>
+    </div>
+
+    <!-- Plan switcher -->
+    <div class="ck-switcher">
+      <a href="/license/subscribe/?tier=pro"       class="ck-plan-pill {% if tier == 'pro' %}active{% endif %}">
+        <i class="fas fa-rocket"></i> Pro <span class="pill-price">₹999/mo</span>
+      </a>
+      <a href="/license/subscribe/?tier=advanced"  class="ck-plan-pill {% if tier == 'advanced' %}active{% endif %}">
+        <i class="fas fa-bolt"></i> Advanced <span class="pill-price">₹2,499/mo</span>
+      </a>
+      <a href="/license/subscribe/?tier=unlimited" class="ck-plan-pill {% if tier == 'unlimited' %}active{% endif %}">
+        <i class="fas fa-crown"></i> Unlimited <span class="pill-price">₹4,999/mo</span>
+      </a>
+    </div>
+
+    <div class="ck-grid">
+
+      <!-- ── LEFT: Order Summary ── -->
+      <div class="ck-card">
+        <div class="ck-summary-head">
+          <div class="ck-summary-head-label">Your Order</div>
+          <div class="ck-plan-name-row">
+            <div class="ck-plan-big">VoidPanel {{ tier_label }}</div>
+            {% if tier == 'unlimited' %}<span class="ck-plan-badge-head">⭐ Best Value</span>
+            {% elif tier == 'advanced' %}<span class="ck-plan-badge-head">🔥 Popular</span>{% endif %}
+          </div>
+          <div class="ck-plan-price-row">
+            <div class="ck-plan-price-main">₹{{ price }}</div>
+            <div class="ck-plan-price-period">/month</div>
+          </div>
+        </div>
+        <div class="ck-summary-body">
+          <div class="ck-section-label">What's Included</div>
+          <ul class="ck-features">
+            <li><span class="ck-feat-chk"><i class="fas fa-check"></i></span> Hosting Management</li>
+            <li><span class="ck-feat-chk"><i class="fas fa-check"></i></span> Email &amp; SSL Plans</li>
+            <li><span class="ck-feat-chk"><i class="fas fa-check"></i></span> Billing Module</li>
+            <li><span class="ck-feat-chk"><i class="fas fa-check"></i></span> Live Chat Widget</li>
+            <li><span class="ck-feat-chk"><i class="fas fa-check"></i></span> Marketing Suite (Email · SMS · WhatsApp)</li>
+            <li><span class="ck-feat-chk"><i class="fas fa-check"></i></span> SEO Tools &amp; Social Media Suite</li>
+            {% if tier == 'advanced' or tier == 'unlimited' %}
+            <li><span class="ck-feat-chk"><i class="fas fa-check"></i></span> Docker Manager</li>
+            <li><span class="ck-feat-chk"><i class="fas fa-check"></i></span> Script Installer (MERN · Python · Laravel)</li>
+            <li><span class="ck-feat-chk"><i class="fas fa-check"></i></span> Agentic AI Assistant</li>
+            <li><span class="ck-feat-chk"><i class="fas fa-check"></i></span> Reseller Hosting Module</li>
+            {% endif %}
+            {% if tier == 'unlimited' %}
+            <li><span class="ck-feat-chk"><i class="fas fa-check"></i></span> <strong>White-Label Branding</strong></li>
+            <li><span class="ck-feat-chk"><i class="fas fa-check"></i></span> Priority Support &amp; Account Manager</li>
+            <li><span class="ck-feat-chk"><i class="fas fa-check"></i></span> Custom Feature Requests</li>
+            {% endif %}
+          </ul>
+          <div class="ck-guarantee">
+            <i class="fas fa-shield-halved"></i>
+            <span><strong>30-day money-back guarantee.</strong> Not satisfied? Get a full refund — no questions asked.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── RIGHT: Checkout Form ── -->
+      <div class="ck-card">
+        <div class="ck-checkout-head">
+          <div class="ck-checkout-title">Payment Details</div>
+          <div class="ck-checkout-sub">Secure checkout · Powered by Razorpay</div>
+        </div>
+
+        {% if not request.user.is_authenticated %}
+        <!-- Login wall -->
+        <div class="ck-login-wall">
+          <div class="ck-login-icon"><i class="fas fa-lock"></i></div>
+          <h3>Sign in to continue</h3>
+          <p>Create a free account or sign in to complete your purchase. Your plan selection will be remembered.</p>
+          <a href="/register/?next=/license/subscribe/?tier={{ tier }}" class="ck-login-btn">
+            <i class="fas fa-user-plus"></i> Create Free Account
+          </a>
+          <a href="/login/?next=/license/subscribe/?tier={{ tier }}" class="ck-login-link">
+            Already have an account? Sign in →
+          </a>
+        </div>
+
+        {% else %}
+        <div class="ck-checkout-body">
+
+          {% if not razorpay_active %}
+          <div class="ck-no-gateway">
+            <i class="fas fa-triangle-exclamation"></i>
+            <div><strong>Payment gateway not configured.</strong><br>Please contact support or check back shortly.</div>
+          </div>
+          {% endif %}
+
+          <!-- Server hostname -->
+          <div class="ck-field">
+            <div class="ck-label">
+              Server Hostname <span class="ck-label-opt">optional</span>
+            </div>
+            <input type="text" id="ck-hostname" class="ck-input" placeholder="e.g. panel.yourdomain.com"
+                   autocomplete="off" spellcheck="false">
+          </div>
+
+          <!-- Promo Code -->
+          <div class="ck-field">
+            <div class="ck-label">Promo / Coupon Code</div>
+            <div class="ck-promo-row">
+              <input type="text" id="ck-promo-input" class="ck-input" placeholder="Enter code (e.g. LAUNCH20)"
+                     autocomplete="off" spellcheck="false" maxlength="32">
+              <button class="ck-promo-apply" id="ck-promo-apply-btn" onclick="applyPromo()">
+                Apply
+              </button>
+            </div>
+            <div class="ck-promo-feedback" id="ck-promo-msg">
+              <i class="fas"></i><span></span>
+            </div>
+          </div>
+
+          <!-- Price breakdown -->
+          <div class="ck-price-box" id="ck-price-box">
+            <div class="ck-price-row">
+              <span class="ck-price-label">VoidPanel {{ tier_label }}</span>
+              <span class="ck-price-amount" id="ck-base-price">₹{{ price }}</span>
+            </div>
+            <div class="ck-price-row discount-row" id="ck-discount-row" style="display:none;">
+              <span class="ck-price-label" id="ck-discount-label">
+                <i class="fas fa-tag" style="font-size:0.75rem;"></i> Promo discount
+              </span>
+              <span class="ck-price-amount" id="ck-discount-amt">−₹0</span>
+            </div>
+            <div class="ck-price-divider"></div>
+            <div class="ck-price-row total-row">
+              <span class="ck-price-label">
+                Total due today
+                <span class="ck-savings-badge" id="ck-savings-badge">
+                  <i class="fas fa-bolt" style="font-size:0.6rem;"></i> You save <span id="ck-savings-pct"></span>
+                </span>
+              </span>
+              <span class="ck-price-amount" id="ck-total-price">₹{{ price }}</span>
+            </div>
+            <div style="font-size:0.7rem;color:#94a3b8;margin-top:8px;">
+              Monthly subscription · renews automatically · cancel anytime
+            </div>
+          </div>
+
+          <!-- Pay button -->
+          <button class="ck-pay-btn" id="ck-pay-btn" onclick="startPayment()"
+            {% if not razorpay_active %}disabled{% endif %}>
+            <i class="fas fa-lock"></i>
+            <span id="ck-pay-label">Pay ₹{{ price }} &amp; Activate License</span>
+          </button>
+
+          <!-- Trust badges -->
+          <div class="ck-trust">
+            <div class="ck-trust-item"><i class="fas fa-shield-halved"></i> PCI DSS</div>
+            <div class="ck-trust-sep"></div>
+            <div class="ck-trust-item"><i class="fas fa-lock"></i> 256-bit SSL</div>
+            <div class="ck-trust-sep"></div>
+            <div class="ck-trust-item"><i class="fas fa-rotate-left"></i> 30-day refund</div>
+            <div class="ck-trust-sep"></div>
+            <div class="ck-trust-item"><i class="fas fa-bolt"></i> Instant license</div>
+          </div>
+
+          <div class="ck-divider"></div>
+
+          <div class="ck-terms-note">
+            By completing this purchase, you agree to our
+            <a href="/terms/">Terms of Service</a> &amp; <a href="/privacy/">Privacy Policy</a>.<br>
+            Your license key is activated instantly after payment confirmation.
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+    </div><!-- /ck-grid -->
+  </div><!-- /ck-wrap -->
+</div><!-- /ck-page -->
+
+<div class="ck-toast" id="ck-toast"></div>
+
+{% include 'footer.html' %}
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+// ── State ────────────────────────────────────────────────
+const TIER  = '{{ tier }}';
+const BASE  = {{ price }};   // INR, integer
+let   FINAL = BASE;          // updated after promo
+let   PROMO_CODE = '';
+let   PROMO_DISCOUNT = 0;    // INR amount saved
+
+// ── Helpers ──────────────────────────────────────────────
+function getCookie(name) {
+    for (const c of document.cookie.split(';')) {
+        const p = c.trim();
+        if (p.startsWith(name + '=')) return decodeURIComponent(p.slice(name.length + 1));
+    }
+    return null;
+}
+
+function fmt(n) { return '₹' + n.toLocaleString('en-IN'); }
+
+function showToast(msg, type) {
+    const t = document.getElementById('ck-toast');
+    const ic = { error:'fa-circle-exclamation', success:'fa-circle-check', info:'fa-circle-info' }[type] || 'fa-circle-info';
+    t.innerHTML = `<i class="fas ${ic}"></i><span>${msg}</span>`;
+    t.className = `ck-toast toast-${type || 'info'} show`;
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.classList.remove('show'), 4500);
+}
+
+function setPayBtn(loading) {
+    const btn = document.getElementById('ck-pay-btn');
+    const lbl = document.getElementById('ck-pay-label');
+    if (!btn) return;
+    btn.disabled = loading || !{{ 'true' if razorpay_active else 'false' }};
+    lbl.innerHTML = loading
+        ? '<i class="fas fa-spinner fa-spin"></i> Processing…'
+        : `<i class="fas fa-lock"></i> Pay ${fmt(FINAL)} &amp; Activate License`;
+}
+
+// ── Update price breakdown ────────────────────────────────
+function updatePriceUI() {
+    const discountRow = document.getElementById('ck-discount-row');
+    const discountAmt = document.getElementById('ck-discount-amt');
+    const discountLbl = document.getElementById('ck-discount-label');
+    const totalEl     = document.getElementById('ck-total-price');
+    const saveBadge   = document.getElementById('ck-savings-badge');
+    const savePct     = document.getElementById('ck-savings-pct');
+    const payLbl      = document.getElementById('ck-pay-label');
+
+    FINAL = Math.max(0, BASE - PROMO_DISCOUNT);
+
+    if (PROMO_DISCOUNT > 0) {
+        discountRow.style.display = 'flex';
+        discountAmt.textContent = `−${fmt(PROMO_DISCOUNT)}`;
+        discountLbl.querySelector('span') && (discountLbl.querySelector('span').textContent = '');
+        // rebuild label
+        discountLbl.innerHTML = `<i class="fas fa-tag" style="font-size:.75rem;"></i> Promo: ${PROMO_CODE}`;
+
+        const pct = Math.round((PROMO_DISCOUNT / BASE) * 100);
+        saveBadge.classList.add('show');
+        savePct.textContent = `${pct}%`;
+    } else {
+        discountRow.style.display = 'none';
+        saveBadge.classList.remove('show');
+    }
+
+    totalEl.textContent = fmt(FINAL);
+    if (payLbl) payLbl.innerHTML = `<i class="fas fa-lock"></i> Pay ${fmt(FINAL)} &amp; Activate License`;
+}
+
+// ── Promo code apply ─────────────────────────────────────
+async function applyPromo() {
+    const inp = document.getElementById('ck-promo-input');
+    const btn = document.getElementById('ck-promo-apply-btn');
+    const msg = document.getElementById('ck-promo-msg');
+    const code = inp.value.trim().toUpperCase();
+
+    if (!code) { showToast('Please enter a promo code first', 'info'); return; }
+
+    // If already applied and re-clicking — remove
+    if (PROMO_CODE && code === PROMO_CODE) {
+        PROMO_CODE = ''; PROMO_DISCOUNT = 0;
+        inp.value = '';
+        inp.className = 'ck-input';
+        btn.textContent = 'Apply';
+        msg.className = 'ck-promo-feedback';
+        updatePriceUI();
+        showToast('Promo code removed', 'info');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '…';
+    msg.className = 'ck-promo-feedback';
+
+    try {
+        const res = await fetch('/api/coupon/validate/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ code, billing_cycle: 'monthly' })
+        });
+        const data = await res.json();
+
+        if (data.status === 'ok') {
+            PROMO_CODE = data.code;
+            if (data.discount_type === 'percentage') {
+                PROMO_DISCOUNT = Math.round(BASE * data.discount_value / 100);
+            } else {
+                PROMO_DISCOUNT = Math.min(Math.round(data.discount_value), BASE);
+            }
+            inp.className = 'ck-input valid';
+            btn.textContent = 'Remove';
+            btn.disabled = false;
+
+            // Success feedback
+            const pct = data.discount_type === 'percentage'
+                ? `${data.discount_value}% off`
+                : `₹${data.discount_value} off`;
+            msg.innerHTML = `<i class="fas fa-circle-check"></i><span>Code applied — you save ${pct}!</span>`;
+            msg.className = 'ck-promo-feedback show ok';
+            showToast(`🎉 Promo "${PROMO_CODE}" applied! You save ${pct}`, 'success');
+            updatePriceUI();
+        } else {
+            PROMO_CODE = ''; PROMO_DISCOUNT = 0;
+            inp.className = 'ck-input invalid';
+            btn.textContent = 'Apply';
+            btn.disabled = false;
+            msg.innerHTML = `<i class="fas fa-circle-exclamation"></i><span>${data.error || 'Invalid code'}</span>`;
+            msg.className = 'ck-promo-feedback show err';
+        }
+    } catch(e) {
+        btn.textContent = 'Apply';
+        btn.disabled = false;
+        showToast('Network error — could not validate code', 'error');
+    }
+}
+
+// Allow Enter key in promo input
+document.addEventListener('DOMContentLoaded', function() {
+    const inp = document.getElementById('ck-promo-input');
+    if (inp) {
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') applyPromo(); });
+        // Auto-uppercase
+        inp.addEventListener('input', e => { e.target.value = e.target.value.toUpperCase(); });
+    }
+});
+
+// ── Start payment ─────────────────────────────────────────
+async function startPayment() {
+    const hostname = (document.getElementById('ck-hostname')?.value || '').trim();
+    setPayBtn(true);
+
+    try {
+        const res = await fetch('/api/license/create-order/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ tier: TIER, hostname, promo_code: PROMO_CODE, final_amount: FINAL })
+        });
+        const d = await res.json();
+        if (!res.ok) { showToast(d.error || 'Failed to create order', 'error'); setPayBtn(false); return; }
+
+        const rzp = new Razorpay({
+            key:         d.key_id,
+            amount:      d.amount,          // paise from server (verified)
+            currency:    d.currency || 'INR',
+            name:        'VoidPanel',
+            description: `VoidPanel ${TIER.charAt(0).toUpperCase() + TIER.slice(1)} License — Monthly`,
+            image:       '/static/fav.png',
+            order_id:    d.order_id,
+            prefill:     d.prefill || {},
+            theme:       { color: '#6366f1' },
+            modal: { ondismiss: () => setPayBtn(false) },
+            handler: async function(resp) {
+                showToast('Payment received! Activating your license…', 'info');
+                try {
+                    const vr = await fetch('/api/license/verify-order/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                        body: JSON.stringify({
+                            razorpay_order_id:   resp.razorpay_order_id,
+                            razorpay_payment_id: resp.razorpay_payment_id,
+                            razorpay_signature:  resp.razorpay_signature,
+                        })
+                    });
+                    const vd = await vr.json();
+                    if (vd.status === 'ok') {
+                        showToast('🎉 License activated! Redirecting…', 'success');
+                        setTimeout(() => window.location.href = vd.redirect, 2000);
+                    } else {
+                        showToast(vd.error || 'Verification failed — please contact support', 'error');
+                        setPayBtn(false);
+                    }
+                } catch(e) {
+                    showToast('Network error during verification. Contact support.', 'error');
+                    setPayBtn(false);
+                }
+            }
+        });
+        rzp.on('payment.failed', r => {
+            showToast(`Payment failed: ${r.error.description}`, 'error');
+            setPayBtn(false);
+        });
+        rzp.open();
+    } catch(e) {
+        showToast('Network error — please try again', 'error');
+        setPayBtn(false);
+    }
+}
+</script>
+</body>
+</html>

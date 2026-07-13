@@ -1,302 +1,313 @@
 <!doctype html>
 <html lang="en">
-
 <head>
-    <title>:: VoidPanel :: FTP</title>
+    <title>:: VoidPanel :: FTP Configuration</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="VoidPanel FTP ">
-    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
-    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
 
-    <!-- VENDOR CSS -->
+    <!-- CSS -->
     <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v={{ theme_version }}">
+
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
     <style>
-        /* Basic styling for the p tag */
-        p.processing {
-            font-size: 18px;
-            font-weight: bold;
-
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
         }
 
-        /* Animation for the dots */
-        .dots::after {
-            content: '';
-            display: inline-block;
-            width: 1em;
-            text-align: left;
-            animation: dots 1.5s steps(4, end) infinite;
+        html[data-theme="light"] {
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(0, 0, 0, 0.1);
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
         }
 
-        /* Keyframes for the dots animation */
-        @keyframes dots {
+        /* Glassmorphic Container */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+            margin-bottom: 24px;
+            color: var(--text-primary);
+        }
 
-            0%,
-            100% {
-                content: '';
-            }
+        /* Custom Switch */
+        .switch-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+            margin-bottom: 20px;
+        }
 
-            25% {
-                content: '.';
-            }
+        .switch-label {
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
 
-            50% {
-                content: '..';
-            }
+        .switch-label i {
+            color: var(--success);
+            font-size: 1.3rem;
+        }
+        
+        html[data-theme="light"] .switch-container {
+            background: rgba(255,255,255,0.5);
+        }
 
-            75% {
-                content: '...';
-            }
+        /* Connecting Info Box */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .info-card {
+            background: rgba(0,0,0,0.15);
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        html[data-theme="light"] .info-card {
+            background: rgba(255,255,255,0.4);
+        }
+
+        .info-card span.label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .info-card span.value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            font-family: monospace;
+            color: var(--text-primary);
+        }
+
+        /* Toast Container */
+        #toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toast-msg {
+            background: rgba(15, 23, 42, 0.9);
+            color: white;
+            padding: 14px 24px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            animation: slideInBottom 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(8px);
+        }
+        .toast-msg.success i { color: #10b981; }
+        .toast-msg.error i { color: #ef4444; }
+
+        @keyframes slideInBottom {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
     </style>
-
-    <!-- MAIN Project CSS file -->
-    <link rel="stylesheet" href="/static/assets/css/main.css">
-
-    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
-
-     
-    <style>
-        .myname {
-            border-radius: 30px;
-            box-shadow: inset;
-            border-width: 4px;
-
-
-        }
-
-        .text-container {
-
-            border: 1px solid #ccc;
-
-            word-wrap: break-word;
-            /* Force text to wrap */
-            white-space: normal;
-            /* Ensure normal wrapping */
-            overflow-wrap: break-word;
-            /* Ensure long words break */
-        }
-    </style>
-
 </head>
 
-<body data-theme="light" class="font-nunito">
-
+<body class="font-nunito active-dark-mode">
     <div id="wrapper" class="theme-cyan">
-
+        
         <!-- Page Loader -->
-        <div class="page-loader-wrapper">
-            <div class="loader">
-                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
-                </div>
-                <p>Please wait...</p>
+            <div class="page-loader-wrapper" style="background: var(--void-bg, #080c14) !important;">
+        <div class="loader">
+            <div class="m-t-30" style="display: flex; justify-content: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="130" height="30" viewBox="0 0 180 40" role="img" aria-label="VoidPanel">
+                  <rect x="0" y="4" width="34" height="34" rx="8" ry="8" fill="rgba(255,255,255,0.12)"/>
+                  <rect x="7" y="13" width="20" height="4" rx="1.5" fill="#ffffff" opacity="0.9"/>
+                  <rect x="7" y="19.5" width="14" height="4" rx="1.5" fill="#ffffff" opacity="0.65"/>
+                  <rect x="7" y="26" width="10" height="4" rx="1.5" fill="#60a5fa" opacity="0.95"/>
+                  <text x="43" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#ffffff">Void</text>
+                  <text x="91" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#60a5fa">Panel</text>
+                </svg>
             </div>
+            <div class="loading-bar-container">
+                <div class="loading-bar"></div>
+            </div>
+            <p style="color: var(--text-secondary, #475569) !important;">Please wait...</p>
         </div>
-
-
+    </div>
 
         {% include 'navbar.html' %}
-
-        <!-- main left menu -->
         {% include 'left.html' %}
-        <!-- rightbar icon div -->
         {% include 'right.html' %}
 
-
-        <!-- mani page content body part -->
-
         <div id="main-content">
-
             <div class="container-fluid">
+                
                 <div class="block-header">
                     <div class="row">
                         <div class="col-lg-6 col-md-6 col-sm-12">
-                            <h2>CSF Firewall</h2>
-                            <ul class="breadcrumb">
-                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
-                                </li>
-                                <li class="breadcrumb-item">Dashboard</li>
-                                <li class="breadcrumb-item active">FTP Server</li>
+                            <h2><i class="fa-solid fa-server" style="color:var(--success); margin-right:8px;"></i> FTP Server Settings</h2>
+                            <ul class="breadcrumb" style="background:transparent; padding:0;">
+                                <li class="breadcrumb-item"><a href="/"><i class="fa-solid fa-gauge"></i></a></li>
+                                <li class="breadcrumb-item">Services</li>
+                                <li class="breadcrumb-item active">FTP Protocol</li>
                             </ul>
                         </div>
-                        
                     </div>
                 </div>
 
                 <div class="row clearfix">
-                    <div class="col-lg-12">
-                        <div class="">
-                            
-                            <div class="tab-content">
-
-                             
-
-                                    <form  id="adddbform" method="post" action="">{% csrf_token %}
-                                        
-                                        
-                                            <div class="col-lg-12 col-md-12">
-                                                <div style="margin-left: 20px;" class="p-2 m-2">
-                                                    <form method="post" id="copyForm" action="">{% csrf_token %}
+                    <div class="col-lg-7 col-md-12">
                         
-                      
-                        {% if ftp.status %}
-                                                        <div class="form-check form-switch">
-                                                            <input class="form-check-input" type="checkbox" role="switch" checked onchange="install(event);" >
-                                                            <label class="form-check-label" for="flexSwitchCheckDefault"> FTP Enabled</label>
-                                                          </div>
-                                                      
-                                               {% else %}
-                                               <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" role="switch" onchange="install(event);">
-                                                <label class="form-check-label" for="flexSwitchCheckDefault"> FTP Disabled</label>
-                                              </div>
+                        <div class="glass-panel">
+                            <h4 style="margin-bottom: 20px; font-weight:600;">Service Status</h4>
+                            <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                                Enabling the FTP server allows your users to connect securely using standard FTP clients such as FileZilla or Cyberduck to upload and manage their hosted files.
+                            </p>
 
-                                               {%  endif %}
-                                                
-                                                 
-                         
-
-                                                            <p id="pro" style="display: none;" class="processing">Processing<span
-                                                                    class="dots"></span>
-                                                            </p>
-                                          
-                        
-                        
-                        
-                        
-                                                </div>
-                                                
-                                            </div>
-                                
-
-
-                                    </form>
-
+                            <form id="ftp-form">
+                                {% csrf_token %}
+                                <div class="switch-container">
+                                    <div class="switch-label">
+                                        <i class="fa-solid fa-power-off" id="ftp-icon" style="color: {% if ftp.status %}var(--success){% else %}var(--danger){% endif %}"></i>
+                                        Global FTP Service
+                                    </div>
+                                    <div class="form-check form-switch" style="font-size: 1.5rem; margin:0;">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="ftp-toggle" {% if ftp.status %}checked{% endif %} onchange="toggleFTP(event)">
+                                    </div>
                                 </div>
-
-                                
-                                   
-                            </div>
+                            </form>
                         </div>
                     </div>
 
+                    <div class="col-lg-5 col-md-12">
+                        <div class="glass-panel">
+                            <h4 style="margin-bottom: 12px; font-weight:600;"><i class="fa-solid fa-network-wired"></i> Connection Credentials</h4>
+                            <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                                Industry Standard Configuration applied. Server natively respects operating system file quotas for strict user tier restrictions.
+                            </p>
 
-                 
-                
+                            <div class="info-grid">
+                                <div class="info-card">
+                                    <span class="label">Default Port</span>
+                                    <span class="value">21</span>
+                                </div>
+                                <div class="info-card">
+                                    <span class="label">Protocol</span>
+                                    <span class="value">FTP (Pure)</span>
+                                </div>
+                                <div class="info-card" style="grid-column: 1 / -1;">
+                                    <span class="label">Authentication Engine</span>
+                                    <span class="value"><i class="fa-solid fa-lock" style="font-size: 0.9rem; color:var(--warning);"></i> Isolated System Users via PAM</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
-
-
-
-
-
-
-
         </div>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     </div>
 
-    </div>
-
-
-   
+    <!-- Toasts container -->
+    <div id="toast-container"></div>
 
     <script>
-         async function install(event) {
-                // Prevent the default action (e.g., form submission)
-                if (event) {
-                    event.preventDefault();
-                }
+        const CSRF_TOKEN = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        // Modern UI Notification system
+        function toast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const el = document.createElement('div');
+            el.className = `toast-msg ${type}`;
+            
+            const icon = type === 'success' 
+                ? '<i class="fa-solid fa-check-circle"></i>' 
+                : '<i class="fa-solid fa-circle-exclamation"></i>';
                 
-                document.getElementById('pro').style.display='block';
-                const form = document.getElementById('adddbform');
-                const formData = new FormData(form);
+            el.innerHTML = `${icon} <span>${message}</span>`;
+            container.appendChild(el);
+            
+            setTimeout(() => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(100%)';
+                setTimeout(() => el.remove(), 300);
+            }, 3000);
+        }
 
+        // Secure AJAX Toggle Form Handler
+        async function toggleFTP(event) {
+            const toggle = event.target;
+            const icon = document.getElementById('ftp-icon');
+            const originalState = !toggle.checked;
 
+            try {
+                // Instantly update icon state visually during processing
+                icon.style.color = 'var(--text-secondary)'; 
 
-                try {
-                    // Fetch request to submit form data
-                    const response = await fetch('/ftp/', {
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-                        }
-                    });
-
-                    // Parse the JSON response
-                    const result = await response.json();
-
-
-                    // Handle response
-                    if (response.ok && result.status === 'success') {
-                        document.getElementById('pro').style.display='none';
-                 
-                        window.location.reload();
-                        
-                    } else {
-                        document.getElementById('pro').style.display='none';
-       
-                        window.location.reload();
-
-                       
+                const response = await fetch('/ftp/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': CSRF_TOKEN,
+                        'X-Requested-With': 'XMLHttpRequest'
                     }
-                } catch (error) {
-                    document.getElementById('pro').style.display='none';
-     
-                    window.location.reload();
+                });
 
-                  
+                const result = await response.json();
+
+                if (response.ok && result.status === 'success') {
+                    toast(result.message, 'success');
+                    // Lock visual color into new state
+                    icon.style.color = toggle.checked ? 'var(--success)' : 'var(--danger)';
+                } else {
+                    toast(result.message || 'Server error occurred.', 'error');
+                    // Revert UI Toggle
+                    toggle.checked = originalState;
+                    icon.style.color = originalState ? 'var(--success)' : 'var(--danger)';
                 }
+            } catch (error) {
+                toast('Network connection failed. Try again.', 'error');
+                console.error("AJAX Error:", error);
+                
+                // Revert UI Toggle safely
+                toggle.checked = originalState;
+                icon.style.color = originalState ? 'var(--success)' : 'var(--danger)';
             }
-
-
-         
+        }
     </script>
-
-
-
-
-
 
     <!-- Javascript -->
     <script src="/static/assets/bundles/libscripts.bundle.js"></script>
     <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
-
-    <!-- page vendor js file -->
-    <script src="/static/assets/vendor/toastr/toastr.js"></script>
-    <script src="/static/assets/bundles/c3.bundle.js"></script>
-
-
-    <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
-    <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
-
-
-    <!-- page js file -->
     <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
-    <script src="/static/assets/bundles/chartjs.js"></script>
-    <script src="/static/assets/index2.js"></script>
-
-
 </body>
-
 </html>

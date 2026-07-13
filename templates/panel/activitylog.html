@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Server Activity Log | VoidPanel</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+    <style>
+  :root {
+    --bg-primary: #0d0f17;
+    --bg-card: #13161f;
+    --bg-panel: #1a1d29;
+    --border: rgba(255,255,255,0.07);
+    --accent-green: #00e676;
+    --accent-blue: #448aff;
+    --accent-red: #ff5252;
+    --accent-yellow: #ffd740;
+    --accent-purple: #d500f9;
+    --accent-cyan: #18ffff;
+    --text-primary: #f0f3ff;
+    --text-muted: #6b7280;
+  }
+
+  body, #wrapper { background: var(--bg-primary) !important; color: var(--text-primary); }
+
+  .log-page { padding: 32px 32px; min-height: 100vh; background: transparent; }
+
+  /* ─── Header ─────────────────────────────── */
+  .log-header {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 32px; flex-wrap: wrap;
+  }
+  .log-header-icon {
+    width: 48px; height: 48px; border-radius: 12px;
+    background: linear-gradient(135deg, #448aff22 0%, #448aff44 100%);
+    border: 1px solid #448aff33;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+  }
+  .log-header h1 { font-size: 1.6rem; font-weight: 800; color: var(--text-primary); margin: 0; letter-spacing: -0.01em; }
+  .log-header p { font-size: 0.85rem; color: var(--text-muted); margin: 3px 0 0; }
+  .log-header-right { margin-left: auto; display: flex; gap: 12px; flex-wrap: wrap; }
+
+  /* ─── KPI cards ──────────────────────────── */
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap: 16px; margin-bottom: 32px; }
+  .kpi-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px 22px;
+    display: flex; flex-direction: column; gap: 4px; position: relative; overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  }
+  .kpi-card::before {
+    content:''; position:absolute; top:0; left:0; width:4px; height:100%; border-radius:2px 0 0 2px;
+  }
+  .kpi-card.success::before { background: var(--accent-green); }
+  .kpi-card.error::before   { background: var(--accent-red); }
+  .kpi-card.info::before    { background: var(--accent-blue); }
+  .kpi-card.warning::before { background: var(--accent-yellow); }
+  .kpi-card .kpi-num { font-size: 2.1rem; font-weight: 900; color: var(--text-primary); line-height: 1; letter-spacing: -0.02em; }
+  .kpi-card .kpi-label { font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+
+  /* ─── Filter bar ─────────────────────────── */
+  .filter-bar {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px 20px; margin-bottom: 24px; align-items: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+  }
+  .filter-bar input, .filter-bar select {
+    background: var(--bg-panel); border: 1px solid var(--border);
+    color: var(--text-primary); border-radius: 10px; padding: 9px 15px;
+    font-size: 0.85rem; outline: none; transition: all .2s;
+  }
+  .filter-bar input { flex: 1; min-width: 220px; }
+  .filter-bar input:focus, .filter-bar select:focus { border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(68,138,255,0.15); }
+  .filter-bar select { min-width: 140px; cursor: pointer; }
+  .filter-bar select option { background: #1a1d29; }
+  
+  .btn-filter, .btn-clear {
+    border: none; border-radius: 10px; padding: 9px 20px;
+    font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all .2s;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .btn-filter { background: var(--accent-blue); color: #fff; }
+  .btn-clear  { background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid var(--border); }
+  .btn-filter:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(68,138,255,0.3); } 
+  .btn-clear:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+
+  /* ─── Table ──────────────────────────────── */
+  .log-table-wrap {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 16px; overflow: auto;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  }
+  .log-table-head {
+    display: grid;
+    grid-template-columns: 140px 95px 115px 1.2fr 1.5fr 90px;
+    padding: 14px 22px; border-bottom: 1px solid var(--border);
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: .1em;
+    color: var(--text-muted); font-weight: 700;
+    background: rgba(255,255,255,0.03);
+    min-width: 900px;
+  }
+  .log-row {
+    display: grid;
+    grid-template-columns: 140px 95px 115px 1.2fr 1.5fr 90px;
+    padding: 14px 22px; border-bottom: 1px solid var(--border);
+    font-size: 0.85rem; align-items: center;
+    transition: all .2s; cursor: pointer;
+    min-width: 900px;
+  }
+  .log-row:last-child { border-bottom: none; }
+  .log-row:hover { background: rgba(68,138,255,0.05); border-left: 3px solid var(--accent-blue); }
+
+  .log-ts { color: var(--text-muted); font-size: 0.78rem; font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
+  .log-action { color: var(--text-primary); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .log-domain { color: #96a2c5; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .log-detail { color: var(--text-muted); font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .log-user   { color: var(--text-muted); font-size: 0.78rem; font-weight: 500; }
+
+  /* badges */
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    border-radius: 6px; padding: 3px 9px; font-size: 0.7rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .05em; white-space: nowrap;
+  }
+  .badge-success { background: #00e67618; color: var(--accent-green); border: 1px solid #00e67630; }
+  .badge-error   { background: #ff525218; color: var(--accent-red);   border: 1px solid #ff525230; }
+  .badge-info    { background: #448aff18; color: var(--accent-blue);  border: 1px solid #448aff30; }
+  .badge-warning { background: #ffd74018; color: var(--accent-yellow);border: 1px solid #ffd74030; }
+
+  .cat-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    border-radius: 5px; padding: 2px 8px; font-size: 0.7rem; font-weight: 600;
+    background: rgba(255,255,255,0.05); color: #a0abc7;
+    border: 1px solid var(--border);
+  }
+
+  /* ─── Detail slide panel ─────────────────── */
+  .detail-panel {
+    position: fixed; right: 0; top: 0; height: 100vh; width: 480px; max-width: 100vw;
+    background: #16192A; border-left: 1px solid var(--border);
+    z-index: 9999; transform: translateX(100%); transition: transform .25s cubic-bezier(.4,0,.2,1);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .detail-panel.open { transform: translateX(0); }
+  .detail-panel-header {
+    padding: 22px 22px 16px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: flex-start;
+  }
+  .detail-panel-header h3 { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+  .detail-close { background: none; border: none; color: var(--text-muted); font-size: 1.3rem; cursor: pointer; }
+  .detail-body  { padding: 20px 22px; overflow-y: auto; flex: 1; }
+  .detail-field { margin-bottom: 16px; }
+  .detail-field label { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin-bottom: 5px; }
+  .detail-field .dval { color: var(--text-primary); font-size: 0.85rem; line-height: 1.5; }
+  .detail-field .dval-code {
+    background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 14px; font-family: monospace; font-size: 0.8rem;
+    color: #a8c7fa; white-space: pre-wrap; word-break: break-all; max-height: 220px; overflow-y: auto;
+  }
+
+  /* ─── Pagination ─────────────────────────── */
+  .pagination { display: flex; gap: 8px; padding: 14px 18px; align-items: center; justify-content: flex-end; }
+  .page-btn {
+    background: var(--bg-panel); border: 1px solid var(--border); color: var(--text-primary);
+    border-radius: 7px; padding: 5px 14px; font-size: 0.8rem; cursor: pointer; transition: .15s;
+  }
+  .page-btn:hover { background: #448aff22; border-color: #448aff44; }
+  .page-btn:disabled { opacity: .35; cursor: not-allowed; }
+  .page-info { font-size: 0.78rem; color: var(--text-muted); }
+
+  /* ─── Empty / loading ────────────────────── */
+  .log-empty {
+    text-align: center; padding: 60px 20px;
+    color: var(--text-muted); font-size: 0.9rem;
+  }
+  .log-empty .empty-icon { font-size: 2.5rem; margin-bottom: 10px; display: block; }
+  .spinner { width:22px;height:22px;border:3px solid #ffffff18;border-top-color:#448aff;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .overlay { position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9998;display:none; }
+  .overlay.open { display:block; }
+
+  /* ─── Clear button ───────────────────────── */
+  .btn-danger {
+    background: #ff525218; color: var(--accent-red); border: 1px solid #ff525230;
+    border-radius: 8px; padding: 7px 18px; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+    transition: .15s;
+  }
+  .btn-danger:hover { background: #ff525230; }
+</style>
+</head>
+<body class="font-nunito active-dark-mode">
+
+    <div id="wrapper" class="theme-cyan">
+        <!-- navbar -->
+        {% if is_control %}
+            {% include 'control/navbar.html' %}
+        {% else %}
+            {% include 'navbar.html' %}
+        {% endif %}
+
+        <!-- main left menu -->
+        {% if is_control %}
+            {% include 'control/left.html' %}
+        {% else %}
+            {% include 'left.html' %}
+        {% endif %}
+
+        <!-- rightbar icon div -->
+        {% if is_control %}
+            {% include 'control/right.html' %}
+        {% else %}
+            {% include 'right.html' %}
+        {% endif %}
+
+        <!-- main page content body part -->
+        <div id="main-content">
+            <div class="container-fluid">
+                <div class="log-page">
+
+  <!-- Header -->
+  <div class="log-header">
+    <div class="log-header-icon">📋</div>
+    <div>
+      <h1>Server Activity Log</h1>
+      <p>Real-time provisioning events, errors, and system actions</p>
+    </div>
+    <div class="log-header-right">
+      {% if request.user.is_superuser %}
+      <button class="btn-danger" onclick="clearLogs()">🗑 Clear All</button>
+      {% endif %}
+      <button class="btn-filter" onclick="loadLogs(0)">↺ Refresh</button>
+    </div>
+  </div>
+
+  <!-- KPI row -->
+  <div class="kpi-row" id="kpiRow">
+    <div class="kpi-card success"><span class="kpi-num" id="kpiSuccess">—</span><span class="kpi-label">Success</span></div>
+    <div class="kpi-card error">  <span class="kpi-num" id="kpiError">—</span>  <span class="kpi-label">Errors</span></div>
+    <div class="kpi-card warning"><span class="kpi-num" id="kpiWarning">—</span><span class="kpi-label">Warnings</span></div>
+    <div class="kpi-card info">  <span class="kpi-num" id="kpiTotal">—</span>  <span class="kpi-label">Total Events</span></div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <input type="text" id="fSearch" placeholder="🔍  Search action, domain, or error…" onkeyup="debounced()">
+    <select id="fLevel" onchange="loadLogs(0)">
+      <option value="">All Levels</option>
+      <option value="success">✅ Success</option>
+      <option value="error">❌ Error</option>
+      <option value="warning">⚠️ Warning</option>
+      <option value="info">ℹ️ Info</option>
+    </select>
+    <select id="fCategory" onchange="loadLogs(0)">
+      <option value="">All Categories</option>
+      <option value="domain">Domain</option>
+      <option value="python">Python App</option>
+      <option value="mern">MERN Stack</option>
+      <option value="email">Email</option>
+      <option value="db">Database</option>
+      <option value="ssl">SSL</option>
+      <option value="ftp">FTP</option>
+      <option value="nginx">Nginx</option>
+      <option value="backup">Backup</option>
+      <option value="system">System</option>
+    </select>
+    {% if request.user.is_superuser %}
+    <input type="text" id="fUser" placeholder="👤 User filter" style="max-width:140px" onkeyup="debounced()">
+    <input type="text" id="fDomain" placeholder="🌐 Domain filter" style="max-width:160px" onkeyup="debounced()">
+    {% endif %}
+    <button class="btn-clear" onclick="clearFilters()">Clear</button>
+  </div>
+
+  <!-- Table -->
+  <div class="log-table-wrap">
+    <div class="log-table-head">
+      <div>Timestamp</div>
+      <div>Level</div>
+      <div>Category</div>
+      <div>Action</div>
+      <div>Detail</div>
+      <div>User</div>
+    </div>
+    <div id="logBody">
+      <div class="log-empty"><span class="empty-icon">📡</span>Loading logs…<br><br><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pagination">
+    <button class="page-btn" id="btnPrev" onclick="goPage(-1)" disabled>← Prev</button>
+    <span class="page-info" id="pageInfo">—</span>
+    <button class="page-btn" id="btnNext" onclick="goPage(1)" disabled>Next →</button>
+  </div>
+
+</div><!-- /log-page -->
+
+<!-- Detail slide panel -->
+<div class="overlay" id="overlay" onclick="closeDetail()"></div>
+<div class="detail-panel" id="detailPanel">
+  <div class="detail-panel-header">
+    <div>
+      <h3 id="dpAction">—</h3>
+      <div id="dpBadges" style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;"></div>
+    </div>
+    <button class="detail-close" onclick="closeDetail()">✕</button>
+  </div>
+  <div class="detail-body">
+    <div class="detail-field">
+      <label>Timestamp</label>
+      <div class="dval" id="dpTs">—</div>
+    </div>
+    <div class="detail-field">
+      <label>Domain / Scope</label>
+      <div class="dval" id="dpDomain">—</div>
+    </div>
+    <div class="detail-field">
+      <label>User</label>
+      <div class="dval" id="dpUser">—</div>
+    </div>
+    <div class="detail-field">
+      <label>IP Address</label>
+      <div class="dval" id="dpIp">—</div>
+    </div>
+    <div class="detail-field">
+      <label>Full Detail / Error</label>
+      <div class="dval-code" id="dpDetail">—</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const LIMIT = 50;
+let currentOffset = 0, totalRows = 0;
+let debounceTimer = null;
+
+const CAT_ICONS = {
+  domain:'🌐', python:'🐍', mern:'⚛️', email:'✉️', db:'🗄️',
+  ssl:'🔒', ftp:'📁', nginx:'🔧', backup:'💾', system:'⚙️'
+};
+const LEVEL_DOTS = {
+  success:'🟢', error:'🔴', warning:'🟡', info:'🔵'
+};
+
+function debounced() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => loadLogs(0), 350);
+}
+
+function buildParams(offset) {
+  const p = new URLSearchParams();
+  const q = document.getElementById('fSearch').value.trim();
+  const lv = document.getElementById('fLevel').value;
+  const cat = document.getElementById('fCategory').value;
+  const fdom = document.getElementById('fDomain');
+  const fuser = document.getElementById('fUser');
+  if (q)   p.set('q', q);
+  if (lv)  p.set('level', lv);
+  if (cat) p.set('category', cat);
+  if (fdom && fdom.value.trim()) p.set('domain', fdom.value.trim());
+  if (fuser && fuser.value.trim()) p.set('username', fuser.value.trim());
+  p.set('limit', LIMIT);
+  p.set('offset', offset);
+  return p.toString();
+}
+
+function initFiltersFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const q = params.get('q'), lv = params.get('level'), cat = params.get('category');
+  const dom = params.get('domain'), usr = params.get('username');
+  if (q)   document.getElementById('fSearch').value = q;
+  if (lv)  document.getElementById('fLevel').value  = lv;
+  if (cat) document.getElementById('fCategory').value = cat;
+  const fd = document.getElementById('fDomain'), fu = document.getElementById('fUser');
+  if (dom && fd) fd.value = dom;
+  if (usr && fu) fu.value = usr;
+}
+
+async function loadLogs(offset) {
+  currentOffset = offset;
+  document.getElementById('logBody').innerHTML =
+    '<div class="log-empty"><div class="spinner"></div></div>';
+  try {
+    const res = await fetch('/api/activity-logs/?' + buildParams(offset), {
+      headers: {'X-Requested-With': 'XMLHttpRequest'}
+    });
+    const data = await res.json();
+    if (data.status !== 'ok') throw new Error(data.message || 'API error');
+    totalRows = data.total;
+    renderLogs(data.logs);
+    updatePagination();
+    loadKpis();
+  } catch(e) {
+    document.getElementById('logBody').innerHTML =
+      `<div class="log-empty" style="color:#ff5252">⚠️ Failed to load logs: ${e.message}</div>`;
+  }
+}
+
+function renderLogs(logs) {
+  if (!logs.length) {
+    document.getElementById('logBody').innerHTML =
+      '<div class="log-empty"><span class="empty-icon">📭</span>No log entries match your filters.</div>';
+    return;
+  }
+  document.getElementById('logBody').innerHTML = logs.map(r => {
+    const ts = new Date(r.timestamp).toLocaleString('en-IN', {
+      day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false
+    });
+    const lvClass  = `badge badge-${r.level}`;
+    const catIcon  = CAT_ICONS[r.category] || '📌';
+    const lvDot    = LEVEL_DOTS[r.level]   || '⚪';
+    const detail   = (r.detail||'').substring(0,100) + ((r.detail||'').length > 100 ? '…' : '');
+    const safeData = encodeURIComponent(JSON.stringify(r));
+    return `
+    <div class="log-row" onclick='openDetail(${JSON.stringify(r)})' title="Click to view full detail">
+      <span class="log-ts">${ts}</span>
+      <span><span class="${lvClass}">${lvDot} ${r.level}</span></span>
+      <span><span class="cat-badge">${catIcon} ${r.category}</span></span>
+      <span class="log-action">${escHtml(r.action)}</span>
+      <span class="log-detail">${escHtml(detail)}</span>
+      <span class="log-user">${escHtml(r.username||'—')}</span>
+    </div>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function updatePagination() {
+  const start = currentOffset + 1;
+  const end   = Math.min(currentOffset + LIMIT, totalRows);
+  document.getElementById('pageInfo').textContent =
+    totalRows ? `${start}–${end} of ${totalRows}` : 'No results';
+  document.getElementById('btnPrev').disabled = currentOffset <= 0;
+  document.getElementById('btnNext').disabled = currentOffset + LIMIT >= totalRows;
+}
+
+function goPage(dir) {
+  const next = currentOffset + (dir * LIMIT);
+  if (next < 0 || next >= totalRows) return;
+  loadLogs(next);
+}
+
+async function loadKpis() {
+  try {
+    const r = await fetch('/api/activity-logs/?limit=0&offset=0', {headers:{'X-Requested-With':'XMLHttpRequest'}});
+    // Use individual filtered calls for KPIs
+    const [s,e,w] = await Promise.all([
+      fetch('/api/activity-logs/?level=success&limit=1&offset=0',{headers:{'X-Requested-With':'XMLHttpRequest'}}).then(x=>x.json()),
+      fetch('/api/activity-logs/?level=error&limit=1&offset=0',  {headers:{'X-Requested-With':'XMLHttpRequest'}}).then(x=>x.json()),
+      fetch('/api/activity-logs/?level=warning&limit=1&offset=0',{headers:{'X-Requested-With':'XMLHttpRequest'}}).then(x=>x.json()),
+    ]);
+    document.getElementById('kpiSuccess').textContent = s.total ?? '—';
+    document.getElementById('kpiError').textContent   = e.total ?? '—';
+    document.getElementById('kpiWarning').textContent = w.total ?? '—';
+    document.getElementById('kpiTotal').textContent   = totalRows;
+  } catch { /* non-critical */ }
+}
+
+function openDetail(r) {
+  document.getElementById('dpAction').textContent  = r.action || '—';
+  document.getElementById('dpTs').textContent      = new Date(r.timestamp).toLocaleString();
+  document.getElementById('dpDomain').textContent  = r.domain || '—';
+  document.getElementById('dpUser').textContent    = r.username || 'system';
+  document.getElementById('dpIp').textContent      = r.ip || '—';
+  document.getElementById('dpDetail').textContent  = r.detail || 'No additional detail.';
+  const catIcon = CAT_ICONS[r.category] || '📌';
+  const lvDot   = LEVEL_DOTS[r.level]   || '⚪';
+  document.getElementById('dpBadges').innerHTML =
+    `<span class="badge badge-${r.level}">${lvDot} ${r.level}</span>
+     <span class="cat-badge">${catIcon} ${r.category}</span>`;
+  document.getElementById('detailPanel').classList.add('open');
+  document.getElementById('overlay').classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detailPanel').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
+}
+
+function clearFilters() {
+  document.getElementById('fSearch').value   = '';
+  document.getElementById('fLevel').value    = '';
+  document.getElementById('fCategory').value = '';
+  const fd = document.getElementById('fDomain');
+  if (fd) fd.value = '';
+  loadLogs(0);
+}
+
+async function clearLogs() {
+  if (!confirm('Clear ALL activity logs? This cannot be undone.')) return;
+  const csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
+  const csrf   = csrfEl ? csrfEl.value : getCookie('csrftoken');
+  const res    = await fetch('/api/activity-logs/clear/', {
+    method:'POST', headers:{'X-CSRFToken': csrf, 'X-Requested-With':'XMLHttpRequest'}
+  });
+  const data = await res.json();
+  if (data.status === 'ok') { loadLogs(0); }
+  else alert('Failed: ' + data.message);
+}
+
+function getCookie(name) {
+  const m = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  return m ? decodeURIComponent(m[2]) : '';
+}
+
+// Load on init
+document.addEventListener('DOMContentLoaded', () => {
+  initFiltersFromUrl();
+  loadLogs(0);
+});
+// Auto-refresh every 30s
+setInterval(() => { if (!document.getElementById('detailPanel').classList.contains('open')) loadLogs(currentOffset); }, 30000);
+</script>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Javascript bundles for VoidPanel UI mechanics -->
+    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+
+</body>
+</html>

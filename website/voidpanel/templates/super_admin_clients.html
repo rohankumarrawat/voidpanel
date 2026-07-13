@@ -1,0 +1,87 @@
+{% extends 'super_admin_base.html' %}
+{% block title %}Clients | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}Clients{% endblock %}
+{% block admin_content %}
+
+<div class="sa-page-header">
+    <div>
+        <div class="sa-page-title">Client Accounts</div>
+        <div class="sa-page-sub">{{ client_data|length }} total clients registered on the platform</div>
+    </div>
+    <div class="sa-header-actions">
+        <div class="sa-stat-chip green"><span class="val">{{ admin_stats.client_count }}</span> Clients</div>
+        <div class="sa-stat-chip violet"><span class="val">{{ admin_stats.open_ticket_count }}</span> Open Tickets</div>
+    </div>
+</div>
+
+<div class="sa-card" style="padding:0;overflow:hidden;">
+    <div style="padding:16px 22px;border-bottom:1px solid var(--border);">
+        <div class="sa-card-title"><i class="fas fa-users"></i> All Clients</div>
+    </div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead>
+                <tr>
+                    <th>Client</th>
+                    <th>Email</th>
+                    <th>Services</th>
+                    <th>Balance</th>
+                    <th>Joined</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in client_data %}
+                <tr>
+                    <td>
+                        <div style="font-weight:700;color:var(--text-1);">{{ item.user.get_full_name|default:item.user.username }}</div>
+                        {% if item.open_tickets > 0 %}
+                        <span class="sa-badge violet" style="margin-top:3px;">{{ item.open_tickets }} ticket{{ item.open_tickets|pluralize }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ item.user.email }}</td>
+                    <td><span class="sa-badge green">{{ item.active_services }}/{{ item.total_services }} active</span></td>
+                    <td>
+                        {% if item.unpaid_balance > 0 %}
+                        <span style="font-weight:800;color:var(--amber-2);">₹{{ item.unpaid_balance }}</span>
+                        {% else %}
+                        <span class="sa-badge green">Paid</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:0.78rem;white-space:nowrap;">{{ item.user.date_joined|date:"M d, Y" }}</td>
+                    <td>
+                        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                            <a href="/super-admin/billing/?user={{ item.user.id }}" class="sa-btn sky sm"><i class="fas fa-receipt"></i> Invoices</a>
+                            <a href="/super-admin/tickets/?user={{ item.user.id }}" class="sa-btn ghost sm"><i class="fas fa-headset"></i> Tickets</a>
+                            {% if item.active_services > 0 %}
+                            <form method="POST" action="/super-admin/clients/" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="suspend_all">
+                                <input type="hidden" name="user_id" value="{{ item.user.id }}">
+                                <button type="submit"
+                                    onclick="return confirm('Suspend all services for {{ item.user.username }}?')"
+                                    class="sa-btn red sm">
+                                    <i class="fas fa-ban"></i> Suspend
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6">
+                        <div class="sa-empty">
+                            <i class="fas fa-users"></i>
+                            <div class="sa-empty-title">No client accounts yet</div>
+                            <div class="sa-empty-sub">Clients will appear here once they register.</div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

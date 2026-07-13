@@ -1,0 +1,535 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>License Details | VoidPanel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f8fafc; color: var(--text-primary); -webkit-font-smoothing: antialiased; }
+ 
+        .ld-page { padding: 100px 20px 60px; min-height: 100vh; background: radial-gradient(ellipse 60% 40% at 80% 5%, rgba(37,99,235,0.06) 0%, transparent 60%); }
+        .ld-wrap { max-width: 860px; margin: 0 auto; }
+ 
+        .ld-back { display: inline-flex; align-items: center; gap: 7px; color: var(--text-secondary); font-size: 0.84rem; font-weight: 600; text-decoration: none; margin-bottom: 28px; transition: color 0.18s; }
+        .ld-back:hover { color: #2563eb; }
+ 
+        .ld-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 28px; }
+        .ld-title { font-size: 1.5rem; font-weight: 900; color: var(--text-primary); display: flex; align-items: center; gap: 12px; }
+        .ld-status { display: inline-flex; align-items: center; gap: 7px; padding: 6px 14px; border-radius: 999px; font-size: 0.8rem; font-weight: 800; }
+        .ld-status.active   { background: rgba(22,163,74,0.08);  color: #16a34a; border: 1px solid rgba(22,163,74,0.15); }
+        .ld-status.suspended{ background: rgba(217,119,6,0.08);  color: #d97706; border: 1px solid rgba(217,119,6,0.15); }
+        .ld-status.revoked  { background: rgba(220,38,38,0.08); color: #dc2626; border: 1px solid rgba(220,38,38,0.15); }
+ 
+        .ld-grid { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
+        @media(max-width:760px) { .ld-grid { grid-template-columns: 1fr; } }
+ 
+        .ld-card { background: #ffffff; border: 1px solid var(--border-subtle); border-radius: 18px; padding: 24px; box-shadow: 0 4px 12px rgba(15,23,42,0.03); }
+        .ld-card-title { font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 18px; display: flex; align-items: center; gap: 7px; }
+ 
+        /* Detail rows */
+        .ld-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border-subtle); flex-wrap: wrap; }
+        .ld-row:last-child { border-bottom: none; }
+        .ld-row-label { font-size: 0.78rem; color: var(--text-secondary); font-weight: 600; flex-shrink: 0; }
+        .ld-row-val { font-size: 0.85rem; font-weight: 700; color: var(--text-primary); text-align: right; word-break: break-all; }
+ 
+        /* Key display */
+        .ld-key-card { background: #ffffff; border: 1px solid rgba(37,99,235,0.25); border-radius: 18px; padding: 24px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(15,23,42,0.03); }
+        .ld-key-block {
+            font-family: 'Courier New', monospace; font-size: 0.78rem;
+            color: #2563eb; background: rgba(37,99,235,0.06);
+            border: 1px solid rgba(37,99,235,0.15); border-radius: 10px;
+            padding: 12px 16px; word-break: break-all; line-height: 1.8;
+            letter-spacing: 0.04em; position: relative;
+        }
+        .ld-copy-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: rgba(37,99,235,0.08); border: 1px solid rgba(37,99,235,0.2);
+            color: #2563eb; padding: 7px 14px; border-radius: 8px;
+            font-size: 0.78rem; font-weight: 700; cursor: pointer;
+            transition: background 0.18s; margin-top: 12px;
+            font-family: 'Inter', sans-serif;
+        }
+        .ld-copy-btn:hover { background: rgba(37,99,235,0.16); }
+ 
+        /* Server info card */
+        .ld-server-card { background: #ffffff; border: 1px solid rgba(99,102,241,0.25); border-radius: 18px; padding: 24px; box-shadow: 0 4px 12px rgba(15,23,42,0.03); }
+        .ld-server-stat { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border-subtle); }
+        .ld-server-stat:last-child { border-bottom: none; }
+        .ld-server-icon { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; flex-shrink: 0; }
+        .ld-server-icon.violet { background: rgba(99,102,241,0.08); color: #4f46e5; }
+        .ld-server-icon.teal   { background: rgba(37,99,235,0.08);  color: #2563eb; }
+        .ld-server-icon.amber  { background: rgba(217,119,6,0.08);  color: #d97706; }
+        .ld-server-icon.green  { background: rgba(22,163,74,0.08);  color: #16a34a; }
+        .ld-server-info-label  { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.06em; }
+        .ld-server-info-val    { font-size: 0.88rem; font-weight: 700; color: var(--text-primary); }
+ 
+        /* Installation banner */
+        .ld-install-banner {
+            background: var(--bg-card-2); border: 1px solid var(--border-subtle);
+            border-radius: 14px; padding: 20px; margin-top: 20px;
+        }
+        .ld-install-title { font-size: 0.88rem; font-weight: 800; color: var(--text-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .ld-cmd { background: #ffffff; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 14px; font-family: monospace; font-size: 0.8rem; color: #16a34a; overflow-x: auto; margin-bottom: 8px; }
+ 
+        /* Ping status */
+        .ld-ping-status { padding: 14px 18px; border-radius: 12px; margin-top: 16px; }
+        .ld-ping-status.ok    { background: rgba(22,163,74,0.06); border: 1px solid rgba(22,163,74,0.15); }
+        .ld-ping-status.stale { background: rgba(217,119,6,0.06); border: 1px solid rgba(217,119,6,0.15); }
+        .ld-ping-status.never { background: var(--bg-card-2); border: 1px solid var(--border-subtle); }
+        .ld-ping-title { font-size: 0.8rem; font-weight: 700; margin-bottom: 3px; }
+        .ld-ping-status.ok .ld-ping-title { color: #16a34a; }
+        .ld-ping-status.stale .ld-ping-title { color: #d97706; }
+        .ld-ping-status.never .ld-ping-title { color: var(--text-secondary); }
+        .ld-ping-val { font-size: 0.75rem; color: var(--text-muted); }
+ 
+        /* Web Installer Button */
+        .ld-web-install-btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            width: 100%; margin-top: 14px; padding: 12px; border-radius: 8px;
+            background: rgba(37,99,235,0.08); border: 1px solid rgba(37,99,235,0.25);
+            color: #2563eb; font-size: 0.84rem; font-weight: 700; cursor: pointer;
+            transition: all 0.2s ease; font-family: 'Inter', sans-serif;
+        }
+        .ld-web-install-btn:hover { background: rgba(37,99,235,0.16); border-color: rgba(37,99,235,0.4); }
+        .ld-web-install-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+ 
+        /* Modal Overlays */
+        .gvp-modal-wrap { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.4); backdrop-filter: blur(8px); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
+        .gvp-modal { background: #ffffff; border: 1px solid var(--border-subtle); border-radius: 16px; padding: 24px; width: 100%; max-width: 420px; box-shadow: 0 20px 40px rgba(15,23,42,0.08); position: relative; }
+        .gvp-modal-close { position: absolute; top: 16px; right: 18px; color: var(--text-muted); cursor: pointer; font-size: 1.1rem; transition: color 0.15s; }
+        .gvp-modal-close:hover { color: #f87171; }
+        .gvp-modal-title { font-size: 1.1rem; font-weight: 800; color: var(--text-primary); margin-bottom: 6px; }
+        .gvp-modal-sub { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 20px; line-height: 1.5; }
+        
+        .gvp-warn-box { background: rgba(217,119,6,0.06); border: 1px solid rgba(217,119,6,0.15); border-radius: 10px; padding: 12px; display: flex; align-items: flex-start; gap: 10px; margin-bottom: 20px; }
+        .gvp-warn-box i { color: #d97706; margin-top: 2px; }
+        .gvp-warn-box div { font-size: 0.75rem; color: #9a3412; line-height: 1.6; }
+        .gvp-warn-box strong { color: #c2410c; }
+ 
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; }
+        .form-group input { width: 100%; background: #ffffff; border: 1px solid var(--border-subtle); border-radius: 8px; color: var(--text-primary); padding: 10px 12px; font-size: 0.85rem; font-family: 'Inter', sans-serif; transition: border-color 0.2s; }
+        .form-group input:focus { outline: none; border-color: #2563eb; }
+ 
+        .btn-submit { width: 100%; background: #2563eb; color: #ffffff; font-weight: 800; font-size: 0.9rem; padding: 12px; border: none; border-radius: 8px; cursor: pointer; transition: opacity 0.2s; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; font-family: 'Inter', sans-serif; }
+        .btn-submit:hover { opacity: 0.9; }
+ 
+        /* Terminal Overlay Fullscreen */
+        .gvp-term-wrap { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f172a; z-index: 2000; display: none; flex-direction: column; padding: 40px; }
+        .term-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .term-title { font-size: 1.2rem; font-weight: 800; color: #ffffff; display: flex; align-items: center; gap: 10px; }
+        
+        .prog-bar-bg { background: rgba(255,255,255,0.15); width: 100%; height: 8px; border-radius: 999px; overflow: hidden; margin-bottom: 8px; }
+        .prog-bar-fill { background: #4ade80; width: 0%; height: 100%; transition: width 0.4s ease; }
+        .prog-text { font-size: 0.8rem; font-weight: 700; color: #4ade80; text-align: right; margin-bottom: 20px; }
+ 
+        .term-console { flex: 1; background: #090d16; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; font-family: 'Courier New', monospace; font-size: 0.85rem; color: #4ade80; overflow-y: auto; line-height: 1.6; box-shadow: inset 0 0 20px rgba(0,0,0,0.5); }
+        .term-line { margin: 0; word-break: break-all; }
+        .term-line.err { color: #f87171; }
+        .term-line.sys { color: #38bdf8; }
+ 
+        /* Credential Success Card */
+        .cred-card { background: rgba(22,163,74,0.06); border: 1px solid rgba(22,163,74,0.18); border-radius: 12px; padding: 20px; text-align: center; margin-top: 20px; display: none; }
+        .cred-title { font-size: 1rem; font-weight: 800; color: #16a34a; margin-bottom: 12px; }
+        .cred-item { background: #ffffff; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .cred-item span.lbl { font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; }
+        .cred-item span.val { font-family: monospace; font-size: 0.9rem; color: var(--text-primary); font-weight: 700; }
+        .cred-notice { font-size: 0.75rem; color: #7a9ab5; margin-top: 14px; }
+    </style>
+</head>
+<body>
+{% include 'header.html' %}
+
+<main class="ld-page">
+    <div class="ld-wrap">
+
+        <a href="/portal/" class="ld-back"><i class="fas fa-arrow-left"></i> Back to Portal</a>
+
+        <div class="ld-header">
+            <div>
+                <div class="ld-title"><i class="fas fa-key" style="color:#59c4bc;font-size:1.2rem;"></i> VoidPanel License</div>
+                <div style="font-size:0.82rem;color:#3a5a74;margin-top:4px;">Issued {{ license.issued_at|date:"F d, Y" }}</div>
+            </div>
+            <span class="ld-status {{ license.status }}">
+                <i class="fas {% if license.status == 'active' %}fa-circle-check{% elif license.status == 'suspended' %}fa-pause-circle{% else %}fa-ban{% endif %}" style="font-size:0.75rem;"></i>
+                {{ license.status|title }}
+            </span>
+        </div>
+
+        <!-- Key Display -->
+        <div class="ld-key-card">
+            <div class="ld-card-title"><i class="fas fa-fingerprint"></i> License Key</div>
+            <div class="ld-key-block" id="licenseKey">{{ license.key }}</div>
+            <button class="ld-copy-btn" onclick="copyKey()">
+                <i class="fas fa-copy" id="copyIcon"></i> <span id="copyText">Copy Key</span>
+            </button>
+            <div style="font-size:0.74rem;color:#3a5a74;margin-top:10px;"><i class="fas fa-lock" style="margin-right:5px;"></i> This key is unique to your server and must not be shared.</div>
+        </div>
+
+        <div class="ld-grid">
+
+            <!-- Left: Server details -->
+            <div>
+                <div class="ld-server-card">
+                    <div class="ld-card-title"><i class="fas fa-server"></i> Installation Details</div>
+
+                    <div class="ld-server-stat">
+                        <div class="ld-server-icon violet"><i class="fas fa-globe"></i></div>
+                        <div>
+                            <div class="ld-server-info-label">Server Hostname</div>
+                            <div class="ld-server-info-val">{{ license.hostname|default:"Not yet set" }}</div>
+                        </div>
+                    </div>
+
+                    <div class="ld-server-stat">
+                        <div class="ld-server-icon teal"><i class="fas fa-network-wired"></i></div>
+                        <div>
+                            <div class="ld-server-info-label">Server IP Address</div>
+                            <div class="ld-server-info-val">
+                                {% if license.server_ip %}
+                                    {{ license.server_ip }} <span style="font-size:0.72rem;color:#3a5a74;font-weight:500;">(IP-locked)</span>
+                                {% else %}
+                                    <span style="color:#3a5a74;font-weight:500;">Pending first activation</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="ld-server-stat">
+                        <div class="ld-server-icon amber"><i class="fas fa-calendar"></i></div>
+                        <div>
+                            <div class="ld-server-info-label">License Issued</div>
+                            <div class="ld-server-info-val">{{ license.issued_at|date:"M d, Y — H:i" }} UTC</div>
+                        </div>
+                    </div>
+
+                    <div class="ld-server-stat">
+                        <div class="ld-server-icon {% if license.last_ping %}green{% else %}violet{% endif %}"><i class="fas fa-satellite-dish"></i></div>
+                        <div>
+                            <div class="ld-server-info-label">Last Validation Ping</div>
+                            <div class="ld-server-info-val">
+                                {% if license.last_ping %}
+                                    {{ license.last_ping|date:"M d, Y — H:i" }} UTC
+                                {% else %}
+                                    <span style="color:#3a5a74;">Never — panel not yet activated</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ping health -->
+                {% if license.last_ping %}
+                <div class="ld-ping-status ok">
+                    <div class="ld-ping-title"><i class="fas fa-circle-check" style="margin-right:6px;"></i> Panel is Live</div>
+                    <div class="ld-ping-val">Your VoidPanel installation is communicating normally with voidpanel.com.</div>
+                </div>
+                {% elif license.status == 'active' %}
+                <div class="ld-ping-status never">
+                    <div class="ld-ping-title"><i class="fas fa-clock" style="margin-right:6px;"></i> Awaiting First Activation</div>
+                    <div class="ld-ping-val">Install VoidPanel on your server and enter this key during the activation wizard to go live.</div>
+                </div>
+                {% endif %}
+
+                <div class="ld-install-banner">
+                    <div class="ld-install-title"><i class="fas fa-terminal" style="color:#4ade80;"></i> Quick Installation</div>
+                    <div style="font-size:0.74rem;color:#5a7a94;margin-bottom:10px;">Run on a fresh Ubuntu 22.04+ or AlmaLinux 8+ server:</div>
+                    <div class="ld-cmd">wget https://voidpanel.com/install.sh &amp;&amp; sudo bash install.sh</div>
+                    <div style="font-size:0.74rem;color:#3a5a74;">The installer will prompt for your license key. Enter the key shown above.</div>
+                    
+                    <button class="ld-web-install-btn" onclick="openInstallModal()" {% if license.last_ping %}disabled title="Panel already installed"{% endif %}>
+                        <i class="fas fa-terminal"></i> Install via Web UI
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right: License metadata -->
+            <div>
+                <div class="ld-card" style="margin-bottom:16px;">
+                    <div class="ld-card-title"><i class="fas fa-circle-info"></i> License Info</div>
+
+                    <div class="ld-row">
+                        <span class="ld-row-label">License ID</span>
+                        <span class="ld-row-val" style="font-family:monospace;font-size:0.78rem;">#{{ license.id }}</span>
+                    </div>
+                    <div class="ld-row">
+                        <span class="ld-row-label">Account</span>
+                        <span class="ld-row-val">{{ license.user.email }}</span>
+                    </div>
+                    <div class="ld-row">
+                        <span class="ld-row-label">Status</span>
+                        <span class="ld-row-val">
+                            <span class="ld-status {{ license.status }}" style="font-size:0.7rem;padding:3px 9px;">{{ license.status|title }}</span>
+                        </span>
+                    </div>
+                    <div class="ld-row">
+                        <span class="ld-row-label">IP Binding</span>
+                        <span class="ld-row-val">1 server max</span>
+                    </div>
+                    <div class="ld-row">
+                        <span class="ld-row-label">Plan</span>
+                        <span class="ld-row-val" style="color:#4ade80;">Free Forever</span>
+                    </div>
+                    <div class="ld-row">
+                        <span class="ld-row-label">Validation</span>
+                        <span class="ld-row-val">Nightly via API</span>
+                    </div>
+                </div>
+
+                <!-- Quick actions -->
+                <div class="ld-card">
+                    <div class="ld-card-title"><i class="fas fa-bolt"></i> Quick Actions</div>
+                    <div style="display:flex;flex-direction:column;gap:8px;">
+                        <a href="/portal/" style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:9px;background:rgba(89,196,188,0.08);border:1px solid rgba(89,196,188,0.15);color:#59c4bc;font-size:0.82rem;font-weight:700;text-decoration:none;transition:background 0.15s;" onmouseover="this.style.background='rgba(89,196,188,0.15)'" onmouseout="this.style.background='rgba(89,196,188,0.08)'">
+                            <i class="fas fa-th-large"></i> Client Portal
+                        </a>
+                        <a href="/portal/ticket/new/" style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:9px;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.15);color:#a5b4fc;font-size:0.82rem;font-weight:700;text-decoration:none;transition:background 0.15s;" onmouseover="this.style.background='rgba(129,140,248,0.15)'" onmouseout="this.style.background='rgba(129,140,248,0.08)'">
+                            <i class="fas fa-headset"></i> Get Support
+                        </a>
+                        <a href="/get-voidpanel/" style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:9px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#5a7a94;font-size:0.82rem;font-weight:700;text-decoration:none;transition:all 0.15s;" onmouseover="this.style.color='#e2eaf6'" onmouseout="this.style.color='#5a7a94'">
+                            <i class="fas fa-plus"></i> Issue Another License
+                        </a>
+                    </div>
+                </div>
+
+                {% if license.notes %}
+                <div class="ld-card" style="margin-top:16px;">
+                    <div class="ld-card-title"><i class="fas fa-sticky-note"></i> Notes</div>
+                    <p style="font-size:0.82rem;color:#5a7a94;line-height:1.65;margin:0;">{{ license.notes }}</p>
+                </div>
+                {% endif %}
+
+                <!-- Danger Zone -->
+                <div class="ld-card" style="margin-top:16px;border:1px solid rgba(239,68,68,0.25);">
+                    <div class="ld-card-title" style="color:#ef4444;"><i class="fas fa-trash-can"></i> Danger Zone</div>
+                    <p style="font-size:0.75rem;color:#5a7a94;line-height:1.6;margin-bottom:12px;">
+                        Deleting this license key will permanently invalidate it. Any active panel servers using this key will immediately lose license validation and stop functioning.
+                    </p>
+                    <button onclick="deleteLicenseService()" style="width:100%;padding:10px 12px;border-radius:9px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.15);color:#ef4444;font-size:0.82rem;font-weight:700;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='rgba(239,68,68,0.15)'" onmouseout="this.style.background='rgba(239,68,68,0.08)'">
+                        <i class="fas fa-trash-can"></i> Delete License Key
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- Credentials Modal -->
+<div class="gvp-modal-wrap" id="installModal">
+    <div class="gvp-modal">
+        <i class="fas fa-times gvp-modal-close" onclick="closeInstallModal()"></i>
+        <div class="gvp-modal-title">Web Installer</div>
+        <div class="gvp-modal-sub">We'll connect to your server via SSH and automatically install VoidPanel for you.</div>
+        
+        <div class="gvp-warn-box">
+            <i class="fas fa-shield-halved"></i>
+            <div>
+                <strong>Zero Trace Security</strong><br>
+                We do not save your SSH credentials anywhere in our database. They are only held temporarily in memory during the installation thread and destroyed immediately.
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label>Server IP Address</label>
+            <input type="text" id="sshIp" value="{{ license.server_ip|default:'' }}" placeholder="e.g. 192.168.1.1">
+        </div>
+        <div class="form-group">
+            <label>SSH Username</label>
+            <input type="text" id="sshUser" value="root">
+        </div>
+        <div class="form-group">
+            <label>SSH Password</label>
+            <input type="password" id="sshPass" placeholder="Enter root password">
+        </div>
+        
+        <button class="btn-submit" id="startInstallBtn" onclick="startInstall()">
+            <i class="fas fa-rocket"></i> Begin Installation
+        </button>
+        <div id="installError" style="color:#f87171;font-size:0.8rem;margin-top:10px;text-align:center;display:none;"></div>
+    </div>
+</div>
+
+<!-- Fullscreen Terminal / Progress -->
+<div class="gvp-term-wrap" id="termOverlay">
+    <div class="term-header">
+        <div class="term-title"><i class="fas fa-sync fa-spin"></i> Installing VoidPanel</div>
+        <div id="termAction" style="display:none;">
+            <a href="/portal/" style="color:#59c4bc;text-decoration:none;font-weight:700;font-size:0.85rem;"><i class="fas fa-arrow-left"></i> Return to Portal</a>
+        </div>
+    </div>
+    
+    <div>
+        <div class="prog-bar-bg"><div class="prog-bar-fill" id="progFill"></div></div>
+        <div class="prog-text" id="progText">0% Complete</div>
+    </div>
+    
+    <div class="term-console" id="termConsole">
+        <div class="term-line sys">> Initializing VoidPanel Web Installer...</div>
+    </div>
+    
+    <!-- Credentials reveal on completion -->
+    <div class="cred-card" id="credCard">
+        <div class="cred-title"><i class="fas fa-check-circle"></i> Installation Successful</div>
+        <p style="font-size:0.85rem;color:#c8ddef;margin-bottom:16px;">We've emailed these credentials to <strong>{{ request.user.email }}</strong>.</p>
+        
+        <div class="cred-item">
+            <span class="lbl">Admin Username</span>
+            <span class="val" id="resUsr">admin</span>
+        </div>
+        <div class="cred-item">
+            <span class="lbl">Admin Password</span>
+            <span class="val" id="resPwd" style="color:#59c4bc;">********</span>
+        </div>
+        <div class="cred-notice">
+            Please log into your panel and navigate to Settings > Security to change this password immediately.
+        </div>
+    </div>
+</div>
+
+<script>
+function copyKey() {
+    const key = document.getElementById('licenseKey').textContent.trim();
+    navigator.clipboard.writeText(key).then(() => {
+        document.getElementById('copyText').textContent = 'Copied!';
+        document.getElementById('copyIcon').className = 'fas fa-check';
+        setTimeout(() => {
+            document.getElementById('copyText').textContent = 'Copy Key';
+            document.getElementById('copyIcon').className = 'fas fa-copy';
+        }, 2000);
+    });
+}
+
+// Web Installer Logic
+const csrfToken = '{{ csrf_token }}';
+const licenseId = '{{ license.id }}';
+let statusInterval = null;
+
+function openInstallModal() {
+    document.getElementById('installModal').style.display = 'flex';
+}
+function closeInstallModal() {
+    document.getElementById('installModal').style.display = 'none';
+}
+
+function startInstall() {
+    const ip = document.getElementById('sshIp').value.trim();
+    const user = document.getElementById('sshUser').value.trim();
+    const pass = document.getElementById('sshPass').value;
+    const errDiv = document.getElementById('installError');
+    const btn = document.getElementById('startInstallBtn');
+
+    if(!ip || !user || !pass) {
+        errDiv.textContent = 'Please fill out all fields.';
+        errDiv.style.display = 'block';
+        return;
+    }
+    errDiv.style.display = 'none';
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connecting...';
+
+    const formData = new FormData();
+    formData.append('ip', ip);
+    formData.append('username', user);
+    formData.append('password', pass);
+
+    fetch(`/portal/license/${licenseId}/remote-install/start/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken },
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if(data.status === 'ok') {
+            closeInstallModal();
+            document.getElementById('termOverlay').style.display = 'flex';
+            statusInterval = setInterval(() => pollStatus(data.job_id), 2000);
+        } else {
+            errDiv.textContent = data.error;
+            errDiv.style.display = 'block';
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-rocket"></i> Begin Installation';
+        }
+    })
+    .catch(err => {
+        errDiv.textContent = "A network error occurred.";
+        errDiv.style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-rocket"></i> Begin Installation';
+    });
+}
+
+function pollStatus(jobId) {
+    fetch(`/portal/license/${licenseId}/remote-install/status/${jobId}/`)
+    .then(r => r.json())
+    .then(data => {
+        if (data.status !== 'ok') return;
+
+        // Update progress
+        document.getElementById('progFill').style.width = data.progress + '%';
+        document.getElementById('progText').textContent = data.progress + '% Complete';
+
+        // Update logs
+        const con = document.getElementById('termConsole');
+        // split logs and render
+        con.innerHTML = '';
+        data.logs.split('\n').filter(l => l.trim().length > 0).forEach(line => {
+            const div = document.createElement('div');
+            div.className = 'term-line';
+            if(line.includes('ERROR:') || line.includes('[stderr]')) div.classList.add('err');
+            if(line.startsWith('>')) div.classList.add('sys');
+            div.textContent = line;
+            con.appendChild(div);
+        });
+        con.scrollTop = con.scrollHeight;
+
+        // Handle completion
+        if (data.job_status === 'completed' || data.job_status === 'failed') {
+            clearInterval(statusInterval);
+            document.querySelector('.term-title i').className = data.job_status === 'completed' ? 'fas fa-check-circle' : 'fas fa-times-circle';
+            document.querySelector('.term-title').style.color = data.job_status === 'completed' ? '#4ade80' : '#f87171';
+            document.getElementById('termAction').style.display = 'block';
+
+            if(data.job_status === 'completed' && data.credentials) {
+                document.getElementById('resUsr').textContent = data.credentials.username;
+                document.getElementById('resPwd').textContent = data.credentials.password;
+                document.getElementById('credCard').style.display = 'block';
+            }
+        }
+    });
+}
+
+function deleteLicenseService() {
+    if (!confirm("Are you absolutely sure you want to delete and invalidate this license key? Any servers using this key will lose activation immediately!")) {
+        return;
+    }
+    const token = '{{ csrf_token }}';
+    fetch('/portal/delete-service/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': token
+        },
+        body: 'service_type=license&service_id={{ license.id }}'
+    })
+    .then(resp => resp.json())
+    .then(data => {
+        if (data.ok) {
+            alert(data.message);
+            window.location.href = '/portal/';
+        } else {
+            alert("Error: " + data.message);
+        }
+    })
+    .catch(err => {
+        alert("Request failed. Please try again.");
+    });
+}
+</script>
+
+{% include 'footer.html' %}
+</body>
+</html>

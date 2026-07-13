@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>:: VoidPanel :: Notifications Settings</title>
+    <!-- ★ Early theme detection — prevents flash/mix on load ★ -->
+    <script>
+    (function() {
+        var t = 'light';
+        try { t = localStorage.getItem('vp-theme') || 'dark'; } catch(e) {}
+        document.documentElement.setAttribute('data-theme', t);
+    })();
+    </script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    
+    <style>
+        html[data-theme="light"] {
+            --neon: #4f46e5;
+            --neon-purple: #7c3aed;
+            --glass-bg: rgba(255, 255, 255, 0.90);
+            --glass-border: rgba(99, 102, 241, 0.15);
+            --card-bg: rgba(0, 0, 0, 0.03);
+            --input-bg: #ffffff;
+            --input-border: rgba(15, 23, 42, 0.15);
+            --text-dim: #475569;
+            --body-bg: #f1f5f9;
+            --text-main: #0f172a;
+            --icon-color: rgba(79, 70, 229, 0.45);
+            --strength-bg: rgba(0,0,0,.08);
+            --border-subtle: rgba(15, 23, 42, 0.08);
+            --overlay-bg: rgba(241, 245, 249, 0.85);
+            --shadow-color: rgba(99, 102, 241, 0.1);
+        }
+
+        html[data-theme="dark"] {
+            --neon: #00e5ff;
+            --neon-purple: #a855f7;
+            --glass-bg: rgba(15,20,40,0.82);
+            --glass-border: rgba(0,229,255,0.15);
+            --card-bg: rgba(255,255,255,0.04);
+            --input-bg: rgba(0, 229, 255, 0.06);
+            --input-border: rgba(0, 229, 255, 0.25);
+            --text-dim: rgba(180, 200, 230, 0.7);
+            --body-bg: #080c1a;
+            --text-main: #ffffff;
+            --icon-color: rgba(0,229,255,.45);
+            --strength-bg: rgba(255,255,255,.08);
+            --border-subtle: rgba(255,255,255,.05);
+            --overlay-bg: rgba(8,12,26,.85);
+            --shadow-color: rgba(0, 229, 255, 0.15);
+        }
+
+        body { font-family:'Inter',sans-serif; background:var(--body-bg) !important; }
+
+        .page-header { padding:28px 0 8px; }
+        .page-header h2 { font-size:1.55rem; font-weight:700; color:var(--text-main); letter-spacing:.5px; margin-bottom:4px; }
+        .page-header .breadcrumb { background:transparent; padding:0; margin:0; }
+        .page-header .breadcrumb-item, .page-header .breadcrumb-item a { font-size:.8rem; color:var(--text-dim); }
+        .page-header .breadcrumb-item.active { color:var(--neon); }
+
+        .adduser-grid { display:grid; grid-template-columns:1fr 380px; gap:24px; align-items:start; margin-top:10px; }
+        @media (max-width:900px) { .adduser-grid { grid-template-columns:1fr; } }
+
+        .glass-card {
+            background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:18px;
+            backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); padding:32px 36px;
+            position:relative; overflow:hidden; margin-bottom:24px;
+        }
+        .glass-card::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(0,229,255,.04) 0%,transparent 60%); pointer-events:none; }
+
+        .card-head { display:flex; align-items:center; gap:14px; margin-bottom:24px; }
+        .card-head-icon {
+            width:46px; height:46px; border-radius:12px; background:linear-gradient(135deg,rgba(0,229,255,.2),rgba(168,85,247,.2));
+            border:1px solid rgba(0,229,255,.2); display:flex; align-items:center; justify-content:center; font-size:1.2rem; color:var(--neon);
+        }
+        .card-head-icon { animation:iconPulse 2.5s ease infinite; }
+        @keyframes iconPulse { 0%,100%{box-shadow:0 0 0 0 rgba(0,229,255,.25)} 50%{box-shadow:0 0 0 8px rgba(0,229,255,0)} }
+        
+        .card-head-title { font-size:1.05rem; font-weight:600; color:var(--text-main); }
+        .card-head-sub   { font-size:.78rem; color:var(--text-dim); margin-top:2px; }
+
+        .section-label { font-size:.7rem; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:var(--neon); margin:22px 0 12px; }
+        .section-label:first-child { margin-top:0; }
+
+        .field-wrap { margin-bottom:18px; }
+        .field-wrap label { display:block; font-size:.78rem; font-weight:500; color:var(--text-dim); margin-bottom:6px; }
+        .field-wrap label span.required { color:var(--neon); margin-left:3px; }
+
+        .field-inner { position:relative; }
+        .field-inner .fi-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--icon-color); font-size:.85rem; pointer-events:none; }
+        
+        .form-control {
+            width:100%; background:var(--input-bg) !important; border:1px solid var(--input-border) !important;
+            border-radius:10px; color:var(--text-main) !important; font-family:'Inter',sans-serif; font-size:.88rem;
+            padding:11px 14px 11px 38px; outline:none; transition:border-color .22s, box-shadow .22s;
+        }
+        .form-control:focus { border-color:var(--neon) !important; box-shadow:0 0 0 3px rgba(0,229,255,.1) !important; }
+        .form-control::placeholder { color:rgba(150,170,210,.4); }
+
+        /* Custom Checkbox Group styling */
+        .notification-options {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 14px;
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            user-select: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+        .checkbox-row:hover {
+            background: rgba(0, 229, 255, 0.04);
+        }
+        .checkbox-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--neon);
+            cursor: pointer;
+        }
+        .checkbox-label {
+            font-size: 0.88rem;
+            color: var(--text-main);
+            font-weight: 500;
+        }
+        .checkbox-desc {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-top: 2px;
+            display: block;
+        }
+
+        /* Locked state warning */
+        .locked-warning {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(245, 158, 11, 0.08);
+            border: 1px solid rgba(245, 158, 11, 0.25);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-top: 14px;
+            color: #f59e0b;
+            font-size: 0.85rem;
+        }
+
+        .btn-submit {
+            width:100%; margin-top:20px; padding:14px; border-radius:12px; border:none;
+            background:linear-gradient(135deg,#00e5ff,#0ea5e9); color:#fff; font-family:'Inter',sans-serif;
+            font-size:.95rem; font-weight:600; letter-spacing:.3px; cursor:pointer; position:relative;
+            overflow:hidden; transition:opacity .22s, transform .12s;
+        }
+        .btn-submit:hover { opacity:.88; }
+        .btn-submit:active { transform:scale(.985); }
+        .btn-submit:disabled { opacity:.4; cursor:not-allowed; }
+        
+        .info-card { padding:28px 28px; }
+        .info-feature { display:flex; align-items:flex-start; gap:14px; padding:14px 0; border-bottom:1px solid var(--border-subtle); }
+        .info-feature:last-child { border-bottom:none; }
+        .info-feature-icon { width:36px; height:36px; flex-shrink:0; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:.9rem; }
+        .info-feature-icon.cyan   { background:rgba(0,229,255,.1); color:var(--neon); border:1px solid rgba(0,229,255,.2); }
+        .info-feature-icon.purple { background:rgba(168,85,247,.1); color:#a855f7; border:1px solid rgba(168,85,247,.2); }
+        .info-feature-icon.green  { background:rgba(34,211,238,.1); color:#22d3ee; border:1px solid rgba(34,211,238,.2); }
+        
+        .info-feature-title { font-size:.83rem; font-weight:600; color:var(--text-main); }
+        .info-feature-desc  { font-size:.75rem; color:var(--text-dim); margin-top:2px; line-height:1.5; }
+
+        /* Full-screen process overlay */
+        .process-overlay { display:none; position:fixed; inset:0; background:var(--overlay-bg); backdrop-filter:blur(15px); z-index:9999; flex-direction:column; align-items:center; justify-content:center; }
+        .process-overlay.show { display:flex; }
+        .scanner-box { position:relative; width:120px; height:120px; border-radius:24px; border:2px solid rgba(0,229,255,.2); display:flex; align-items:center; justify-content:center; overflow:hidden; margin-bottom:28px; box-shadow:0 0 30px rgba(0,229,255,.1); }
+        .scanner-box i { font-size:3rem; color:var(--neon); z-index:2; }
+        .scanner-line { position:absolute; left:0; right:0; top:0; height:4px; background:var(--neon); box-shadow:0 0 15px var(--neon); animation:scan 2s ease-in-out infinite alternate; z-index:3; }
+        .scanner-glow { position:absolute; bottom:0; left:0; right:0; height:100%; background:linear-gradient(to bottom, rgba(0,229,255,0) 0%, rgba(0,229,255,.1) 100%); animation:scan-glow 2s ease-in-out infinite alternate; z-index:1; }
+        @keyframes scan { 0%{top:0} 100%{top:100%} }
+        @keyframes scan-glow { 0%{height:0;bottom:auto;top:0} 100%{height:100%;bottom:0;top:auto} }
+        .process-title { font-size:1.4rem; font-weight:700; color:var(--text-main); margin-bottom:8px; }
+        .process-sub { font-size:.9rem; color:var(--text-dim); }
+
+        .result-overlay { display:none; position:fixed; inset:0; background:var(--overlay-bg); backdrop-filter:blur(10px); z-index:10000; align-items:center; justify-content:center; }
+        .result-overlay.show { display:flex; }
+        .result-glass { background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:20px; padding:36px 40px; text-align:center; max-width:380px; animation:popIn .3s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes popIn { from{transform:scale(.92);opacity:0} to{transform:scale(1);opacity:1} }
+        .result-icon-v { font-size:3rem; margin-bottom:18px; }
+        .result-title { font-size:1.1rem; font-weight:700; color:var(--text-main); margin-bottom:8px;}
+        .result-msg  { font-size:.9rem; color:var(--text-dim); margin-bottom:24px; line-height:1.6; }
+        .btn-result-close { background:var(--strength-bg); border:1px solid var(--border-subtle); color:var(--text-main); border-radius:999px; padding:10px 32px; font-weight:500; font-size:.88rem; cursor:pointer; width:100%; }
+        .btn-result-close:hover { background:rgba(255,255,255,.15); }
+    </style>
+</head>
+
+<body class="font-nunito active-dark-mode">
+<script>
+    document.body.setAttribute('data-theme', localStorage.getItem('vp-theme') || 'dark');
+</script>
+<div id="wrapper" class="theme-cyan">
+
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
+
+    <div id="main-content">
+        <div class="container-fluid">
+            
+            <div class="page-header">
+                <div>
+                    <h2>Notification Center</h2>
+                    <ul class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="/"><i class="fa fa-home"></i> Dashboard</a></li>
+                        <li class="breadcrumb-item active">Admin Notifications</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="adduser-grid">
+                
+                <!-- LEFT: Main Control Forms -->
+                <div>
+                    
+                    <!-- Form 1: SMTP Config -->
+                    <div class="glass-card">
+                        <div class="card-head">
+                            <div class="card-head-icon"><i class="fa fa-envelope"></i></div>
+                            <div>
+                                <div class="card-head-title">SMTP Mail Server Config</div>
+                                <div class="card-head-sub">Configure external SMTP credentials to deliver event notifications.</div>
+                            </div>
+                        </div>
+
+                        <form id="smtpForm" onsubmit="testSMTPConnection(event)">
+                            {% csrf_token %}
+                            
+                            <div class="row">
+                                <div class="col-md-8 col-12 field-wrap">
+                                    <label>SMTP Host <span class="required">*</span></label>
+                                    <div class="field-inner">
+                                        <i class="fa fa-server fi-icon"></i>
+                                        <input type="text" name="smtp_host" id="smtp_host" class="form-control" 
+                                               value="{{ cfg.smtp_host|default_if_none:'' }}" placeholder="e.g. smtp.gmail.com" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 col-12 field-wrap">
+                                    <label>Port <span class="required">*</span></label>
+                                    <div class="field-inner">
+                                        <i class="fa fa-plug fi-icon"></i>
+                                        <input type="number" name="smtp_port" id="smtp_port" class="form-control" 
+                                               value="{{ cfg.smtp_port|default:587 }}" placeholder="587" required>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 col-12 field-wrap">
+                                    <label>Username / Login <span class="required">*</span></label>
+                                    <div class="field-inner">
+                                        <i class="fa fa-user fi-icon"></i>
+                                        <input type="text" name="smtp_user" id="smtp_user" class="form-control" 
+                                               value="{{ cfg.smtp_user|default_if_none:'' }}" placeholder="smtp_user@domain.com" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 col-12 field-wrap">
+                                    <label>Password <span class="required">*</span></label>
+                                    <div class="field-inner">
+                                        <i class="fa fa-lock fi-icon"></i>
+                                        <input type="password" name="smtp_password" id="smtp_password" class="form-control" 
+                                               value="{{ cfg.smtp_password|default_if_none:'' }}" placeholder="••••••••••••" required>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 col-12 field-wrap">
+                                    <label>Encryption <span class="required">*</span></label>
+                                    <div class="field-inner">
+                                        <i class="fa fa-shield fi-icon"></i>
+                                        <select name="smtp_encryption" id="smtp_encryption" class="form-control" style="padding-left:38px;">
+                                            <option value="tls" {% if cfg.smtp_encryption == 'tls' %}selected{% endif %}>TLS (587)</option>
+                                            <option value="ssl" {% if cfg.smtp_encryption == 'ssl' %}selected{% endif %}>SSL (465)</option>
+                                            <option value="none" {% if cfg.smtp_encryption == 'none' %}selected{% endif %}>None (25)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 col-12 field-wrap">
+                                    <label>From Email Address <span class="required">*</span></label>
+                                    <div class="field-inner">
+                                        <i class="fa fa-envelope-open fi-icon"></i>
+                                        <input type="email" name="from_email" id="from_email" class="form-control" 
+                                               value="{{ cfg.from_email|default_if_none:'' }}" placeholder="no-reply@domain.com" required>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn-submit" id="smtpBtn">
+                                <i class="fa fa-paper-plane" style="margin-right:6px;"></i> Test & Save SMTP
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Form 2: Alert Events Checks -->
+                    <div class="glass-card">
+                        <div class="card-head">
+                            <div class="card-head-icon"><i class="fa fa-bell"></i></div>
+                            <div>
+                                <div class="card-head-title">Administrative Event Toggles</div>
+                                <div class="card-head-sub">Select which administrative events should trigger real-time emails to the administrator.</div>
+                            </div>
+                        </div>
+
+                        {% if not cfg.is_smtp_verified %}
+                        <div class="locked-warning" id="lockedWarning">
+                            <i class="fa fa-lock" style="font-size:1.1rem;"></i>
+                            <span>Please verify your SMTP credentials first. Event alerts will unlock once tested successfully.</span>
+                        </div>
+                        {% endif %}
+
+                        <form id="settingsForm" onsubmit="saveNotificationSettings(event)">
+                            {% csrf_token %}
+                            
+                            <div class="notification-options" id="optionsContainer" style="{% if not cfg.is_smtp_verified %}opacity: 0.5; pointer-events: none;{% endif %}">
+                                <!-- Select All -->
+                                <label class="checkbox-row" style="border-bottom:1px solid var(--border-subtle); padding-bottom:12px; margin-bottom:6px;">
+                                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)">
+                                    <div>
+                                        <span class="checkbox-label" style="font-weight:700;">Select All Events</span>
+                                        <span class="checkbox-desc">Check or uncheck all alerts simultaneously.</span>
+                                    </div>
+                                </label>
+
+                                <!-- User Created -->
+                                <label class="checkbox-row">
+                                    <input type="checkbox" name="notify_user_created" id="notify_user_created" {% if cfg.notify_user_created %}checked{% endif %} class="event-checkbox">
+                                    <div>
+                                        <span class="checkbox-label">New User Creation</span>
+                                        <span class="checkbox-desc">Receive an alert whenever a new hosting account or sub-account is created.</span>
+                                    </div>
+                                </label>
+
+                                <!-- User Suspended -->
+                                <label class="checkbox-row">
+                                    <input type="checkbox" name="notify_user_suspended" id="notify_user_suspended" {% if cfg.notify_user_suspended %}checked{% endif %} class="event-checkbox">
+                                    <div>
+                                        <span class="checkbox-label">User Account Suspended</span>
+                                        <span class="checkbox-desc">Receive an alert whenever a hosting account or sub-account is suspended.</span>
+                                    </div>
+                                </label>
+
+                                <!-- User Unsuspended -->
+                                <label class="checkbox-row">
+                                    <input type="checkbox" name="notify_user_unsuspended" id="notify_user_unsuspended" {% if cfg.notify_user_unsuspended %}checked{% endif %} class="event-checkbox">
+                                    <div>
+                                        <span class="checkbox-label">User Account Unsuspended</span>
+                                        <span class="checkbox-desc">Receive an alert whenever a hosting account or sub-account is unsuspended.</span>
+                                    </div>
+                                </label>
+
+                                <!-- User Terminated -->
+                                <label class="checkbox-row">
+                                    <input type="checkbox" name="notify_user_terminated" id="notify_user_terminated" {% if cfg.notify_user_terminated %}checked{% endif %} class="event-checkbox">
+                                    <div>
+                                        <span class="checkbox-label">User Account Terminated</span>
+                                        <span class="checkbox-desc">Receive an alert whenever a hosting account or sub-account is terminated.</span>
+                                    </div>
+                                </label>
+
+                                <!-- SSL Generated -->
+                                <label class="checkbox-row">
+                                    <input type="checkbox" name="notify_ssl_generated" id="notify_ssl_generated" {% if cfg.notify_ssl_generated %}checked{% endif %} class="event-checkbox">
+                                    <div>
+                                        <span class="checkbox-label">SSL Provision Success</span>
+                                        <span class="checkbox-desc">Receive an alert when Let's Encrypt certificates generate successfully.</span>
+                                    </div>
+                                </label>
+
+                                <!-- Backup Created -->
+                                <label class="checkbox-row">
+                                    <input type="checkbox" name="notify_backup_created" id="notify_backup_created" {% if cfg.notify_backup_created %}checked{% endif %} class="event-checkbox">
+                                    <div>
+                                        <span class="checkbox-label">Backup Created Successfully</span>
+                                        <span class="checkbox-desc">Receive an alert when a user or administrator backup process finishes successfully.</span>
+                                    </div>
+                                </label>
+
+                                <!-- Script Installed -->
+                                <label class="checkbox-row">
+                                    <input type="checkbox" name="notify_script_installed" id="notify_script_installed" {% if cfg.notify_script_installed %}checked{% endif %} class="event-checkbox">
+                                    <div>
+                                        <span class="checkbox-label">One-Click Script Installed</span>
+                                        <span class="checkbox-desc">Receive an alert when WordPress, Ghost, Nextcloud, or other apps install successfully.</span>
+                                    </div>
+                                </label>
+
+                                <!-- Login Alert -->
+                                <label class="checkbox-row">
+                                    <input type="checkbox" name="notify_login_alert" id="notify_login_alert" {% if cfg.notify_login_alert %}checked{% endif %} class="event-checkbox">
+                                    <div>
+                                        <span class="checkbox-label">Panel Login Detected</span>
+                                        <span class="checkbox-desc">Receive an alert with IP address when any user logs in.</span>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <button type="submit" class="btn-submit" id="saveSettingsBtn" {% if not cfg.is_smtp_verified %}disabled{% endif %}>
+                                <i class="fa fa-check" style="margin-right:6px;"></i> Save Notification Choices
+                            </button>
+                        </form>
+                    </div>
+
+                </div>
+                
+                <!-- RIGHT: Details Info Card -->
+                <div>
+                    <div class="glass-card info-card">
+                        <div class="card-head" style="margin-bottom:18px;">
+                            <div class="card-head-icon" style="background:linear-gradient(135deg,rgba(168,85,247,.2),rgba(0,229,255,.2));color:#a855f7;"><i class="fa fa-info-circle"></i></div>
+                            <div>
+                                <div class="card-head-title">Administrative Info</div>
+                                <div class="card-head-sub">Alert delivery details</div>
+                            </div>
+                        </div>
+
+                        <div class="info-feature">
+                            <div class="info-feature-icon cyan"><i class="fa fa-envelope"></i></div>
+                            <div>
+                                <div class="info-feature-title">Destination Address</div>
+                                <div class="info-feature-desc">All alerts are dispatched directly to: <strong>{{ quick.email }}</strong></div>
+                            </div>
+                        </div>
+                        <div class="info-feature">
+                            <div class="info-feature-icon purple"><i class="fa fa-cogs"></i></div>
+                            <div>
+                                <div class="info-feature-title">Hostname Settings</div>
+                                <div class="info-feature-desc">To change the destination email address, update the Administrator Email field in the <a href="/hostname" style="color:var(--neon);font-weight:600;">Hostname Settings</a> page.</div>
+                            </div>
+                        </div>
+                        <div class="info-feature">
+                            <div class="info-feature-icon green"><i class="fa fa-check-circle"></i></div>
+                            <div>
+                                <div class="info-feature-title">Robust SMTP</div>
+                                <div class="info-feature-desc">External SMTP delivery prevents notifications from ending up in junk/spam folders.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Process Loader Overlay -->
+<div class="process-overlay" id="loaderOverlay">
+    <div class="scanner-box">
+        <i class="fa fa-paper-plane"></i>
+        <div class="scanner-line"></div>
+        <div class="scanner-glow"></div>
+    </div>
+    <div class="process-title" id="loaderTitle">Testing connection...</div>
+    <div class="process-sub" id="loaderSub">Sending test email verification</div>
+</div>
+
+<!-- Success/Error Notification Modal -->
+<div class="result-overlay" id="resultOverlay">
+    <div class="result-glass">
+        <div class="result-icon-v" id="resultIcon"></div>
+        <div class="result-title" id="resultTitle">Connection Verified</div>
+        <div class="result-msg" id="resultMsg">SMTP parameters verified successfully.</div>
+        <button class="btn-result-close" onclick="closeResultModal()">Okay</button>
+    </div>
+</div>
+
+<script>
+const CSRF = "{{ csrf_token }}";
+
+function toggleSelectAll(master) {
+    const checkboxes = document.querySelectorAll('.event-checkbox');
+    checkboxes.forEach(c => c.checked = master.checked);
+}
+
+// Automatically handle master checkbox state on child changes
+document.querySelectorAll('.event-checkbox').forEach(box => {
+    box.addEventListener('change', () => {
+        const total = document.querySelectorAll('.event-checkbox').length;
+        const checked = document.querySelectorAll('.event-checkbox:checked').length;
+        document.getElementById('selectAll').checked = (total === checked);
+    });
+});
+
+// Update selectAll initial state on page load
+(function() {
+    const total = document.querySelectorAll('.event-checkbox').length;
+    const checked = document.querySelectorAll('.event-checkbox:checked').length;
+    if (total > 0 && total === checked) {
+        document.getElementById('selectAll').checked = true;
+    }
+})();
+
+function showLoader(title, sub) {
+    document.getElementById('loaderTitle').textContent = title;
+    document.getElementById('loaderSub').textContent = sub;
+    document.getElementById('loaderOverlay').classList.add('show');
+}
+
+function hideLoader() {
+    document.getElementById('loaderOverlay').classList.remove('show');
+}
+
+function showResult(success, title, msg) {
+    const icon = document.getElementById('resultIcon');
+    if (success) {
+        icon.className = "result-icon-v fa fa-check-circle";
+        icon.style.color = "var(--void-green)";
+    } else {
+        icon.className = "result-icon-v fa fa-times-circle";
+        icon.style.color = "var(--void-red)";
+    }
+    document.getElementById('resultTitle').textContent = title;
+    document.getElementById('resultMsg').textContent = msg;
+    document.getElementById('resultOverlay').classList.add('show');
+}
+
+function closeResultModal() {
+    document.getElementById('resultOverlay').classList.remove('show');
+}
+
+function testSMTPConnection(e) {
+    e.preventDefault();
+    showLoader("SMTP Handshake", "Contacting SMTP server and sending verification email...");
+    
+    const payload = {
+        smtp_host: document.getElementById('smtp_host').value,
+        smtp_port: parseInt(document.getElementById('smtp_port').value),
+        smtp_user: document.getElementById('smtp_user').value,
+        smtp_password: document.getElementById('smtp_password').value,
+        encryption: document.getElementById('smtp_encryption').value,
+        from_email: document.getElementById('from_email').value
+    };
+    
+    fetch('/notify/test/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': CSRF
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(d => {
+        hideLoader();
+        if (d.status === 'success') {
+            showResult(true, "SMTP Connection Verified!", d.message);
+            // Unlock checkboxes and save buttons
+            const warn = document.getElementById('lockedWarning');
+            if (warn) warn.remove();
+            
+            document.getElementById('optionsContainer').style.opacity = '1';
+            document.getElementById('optionsContainer').style.pointerEvents = 'auto';
+            document.getElementById('saveSettingsBtn').removeAttribute('disabled');
+        } else {
+            showResult(false, "SMTP Validation Failed", d.message);
+        }
+    })
+    .catch(err => {
+        hideLoader();
+        showResult(false, "Connection Error", "Network or server failure: " + err);
+    });
+}
+
+function saveNotificationSettings(e) {
+    e.preventDefault();
+    
+    const payload = {
+        notify_user_created: document.getElementById('notify_user_created').checked,
+        notify_user_suspended: document.getElementById('notify_user_suspended').checked,
+        notify_user_unsuspended: document.getElementById('notify_user_unsuspended').checked,
+        notify_user_terminated: document.getElementById('notify_user_terminated').checked,
+        notify_login_alert: document.getElementById('notify_login_alert').checked,
+        notify_ssl_generated: document.getElementById('notify_ssl_generated').checked,
+        notify_backup_created: document.getElementById('notify_backup_created').checked,
+        notify_script_installed: document.getElementById('notify_script_installed').checked
+    };
+    
+    fetch('/notify/save/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': CSRF
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.status === 'success') {
+            showResult(true, "Settings Saved!", d.message);
+        } else {
+            showResult(false, "Error Saving Settings", d.message);
+        }
+    })
+    .catch(err => {
+        showResult(false, "Connection Error", "Network error: " + err);
+    });
+}
+</script>
+</body>
+
+</html>

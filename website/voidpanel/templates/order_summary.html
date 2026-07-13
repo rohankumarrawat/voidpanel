@@ -1,0 +1,128 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Web Hosting Order Summary | VoidPanel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css">
+    <style>
+        .order-page{padding:112px 18px 44px;min-height:100vh;background:radial-gradient(circle at top left, rgba(37,99,235,.08), transparent 24%),#f8fafc}
+        .wrap{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1.1fr .9fr;gap:24px}
+        .surface{background:#ffffff;border:1px solid var(--border-subtle);box-shadow:0 10px 30px rgba(15,23,42,0.05);border-radius:30px;padding:28px}
+        .muted{color:var(--text-secondary);line-height:1.7}
+        .section-title{margin:0 0 16px;color:var(--text-primary)}
+        .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+        .field-card{padding:18px}
+        .summary-list{display:flex;flex-direction:column;gap:10px}
+        .summary-list div{display:flex;justify-content:space-between;gap:12px;padding:0 0 10px;border-bottom:1px solid var(--border-subtle)}
+        .summary-list div:last-child{border-bottom:none;padding-bottom:0}
+        .total{font-size:2.2rem;color:var(--text-primary);font-weight:800;margin-top:14px}
+        @media(max-width:980px){.wrap,.form-grid{grid-template-columns:1fr}}
+    </style>
+</head>
+<body>
+{% include 'header.html' %}
+<main class="order-page">
+  <div class="wrap">
+    <section class="surface">
+      <h2 class="section-title">Order Summary</h2>
+      <p class="muted">Choose a billing cycle, tell us how the domain should be handled, and then proceed. The final order payload will be logged to the browser console for your payment gateway and provisioning API wiring.</p>
+      <div class="form-grid" style="margin-top:18px;">
+        <div class="field-card void-panel-soft">
+          <label class="void-field-label">Billing Cycle</label>
+          <select id="billingCycle" class="void-select">
+            <option value="monthly">Monthly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="annually">Annually</option>
+          </select>
+        </div>
+        <div class="field-card void-panel-soft">
+          <label class="void-field-label">Domain Option</label>
+          <select id="domainMode" class="void-select">
+            <option value="register_new">Register New Domain</option>
+            <option value="use_existing">Use Existing Domain</option>
+          </select>
+        </div>
+        <div class="field-card void-panel-soft" style="grid-column:1 / -1;">
+          <label class="void-field-label">Domain Name</label>
+          <input type="text" id="domainName" class="void-input" placeholder="example.com">
+        </div>
+      </div>
+    </section>
+    <aside class="surface">
+      <h2 class="section-title">Final Review</h2>
+      <div class="summary-list" id="orderSummaryList"></div>
+      <div class="total" id="orderTotal" data-price-inr="0.00">₹0.00</div>
+      <div class="actions" style="margin-top:18px;"><button class="btn-void btn-void-primary" id="checkoutBtn">Proceed to Checkout</button></div>
+    </aside>
+  </div>
+</main>
+{{ builder_config|json_script:"order-config" }}
+<script>
+const draft = JSON.parse(sessionStorage.getItem('voidpanelOrderDraft') || '{}');
+const orderConfig = JSON.parse(document.getElementById('order-config').textContent);
+const billingCycle = document.getElementById('billingCycle');
+function updateDisplay() {
+  const pricing = recalcOrder();
+  const totalDiv = document.getElementById('orderTotal');
+  if (window.CurrencyEngine && window.CurrencyEngine.getState().ready) {
+      totalDiv.textContent = window.CurrencyEngine.format(pricing.total);
+  } else {
+      totalDiv.textContent = `₹${pricing.total.toFixed(2)}`;
+  }
+}
+
+window.addEventListener('vp:currency:ready', updateDisplay);
+
+const domainMode = document.getElementById('domainMode');
+const domainName = document.getElementById('domainName');
+function recalcOrder() {
+  const base = Number(draft.monthlyPrice || 0);
+  const cycle = billingCycle.value;
+  const discount = Number(orderConfig.discounts[cycle] || 0);
+  const months = cycle === 'quarterly' ? 3 : cycle === 'annually' ? 12 : 1;
+  const subtotal = base * months;
+  const total = subtotal * (1 - discount / 100);
+  const specs = draft.specs || {};
+  document.getElementById('orderSummaryList').innerHTML = `
+    <div><span>Package</span><strong>${draft.name || 'No selection'}</strong></div>
+    <div><span>Storage</span><strong>${specs.storage || '-'}${specs.storage ? ' GB NVMe' : ''}</strong></div>
+    <div><span>Email Accounts</span><strong>${specs.email || specs.mailboxes || 'Included'}</strong></div>
+    <div><span>Databases & FTP</span><strong>${specs.db || specs.ftp || 'Included'}</strong></div>
+    <div><span>SSL Certificate</span><strong>Free Let's Encrypt SSL</strong></div>
+    <div><span>Bandwidth</span><strong>${specs.bandwidth || 'Unmetered'}</strong></div>
+    <div><span>Billing Cycle</span><strong>${cycle}</strong></div>
+    <div><span>Discount</span><strong>${discount}%</strong></div>
+  `;
+  const totalDiv = document.getElementById('orderTotal');
+  totalDiv.setAttribute('data-price-inr', total.toFixed(2));
+  if (window.CurrencyEngine && window.CurrencyEngine.getState().ready) {
+      totalDiv.textContent = window.CurrencyEngine.format(total);
+  } else {
+      totalDiv.textContent = `₹${total.toFixed(2)}`;
+  }
+  return {cycle, discount, total: Number(total.toFixed(2))};
+}
+['change','input'].forEach(evt => { billingCycle.addEventListener(evt, recalcOrder); domainMode.addEventListener(evt, recalcOrder); domainName.addEventListener(evt, recalcOrder); });
+document.getElementById('checkoutBtn').addEventListener('click', () => {
+  const pricing = recalcOrder();
+  const payload = {
+    ...draft,
+    billingCycle: pricing.cycle,
+    discountPercent: pricing.discount,
+    finalTotal: pricing.total,
+    domain: {
+      mode: domainMode.value,
+      name: domainName.value.trim(),
+    },
+  };
+  console.log('VoidPanel Order Payload', payload);
+  alert('Order payload logged to console.');
+});
+recalcOrder();
+</script>
+</body>
+</html>

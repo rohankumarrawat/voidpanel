@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>:: VoidPanel :: Reseller Dashboard</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+    <style>
+        :root {
+            --neon: #00e5ff; --purple: #a855f7; --green: #22c55e;
+            --amber: #f59e0b; --red: #ef4444;
+            --bg: #080c1a; --card: rgba(255,255,255,0.04);
+            --border: rgba(0,229,255,0.12); --text2: rgba(180,200,230,0.7);
+        }
+        body { font-family:'Inter',sans-serif; background:var(--bg) !important; }
+
+        /* ── Page Header ── */
+        .page-hdr { padding:28px 0 16px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+        .page-hdr h2 { font-size:1.5rem; font-weight:800; color:#fff; margin:0; }
+        .page-hdr .sub { font-size:.8rem; color:var(--text2); margin-top:4px; }
+
+        /* ── KPI Cards ── */
+        .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+        @media(max-width:900px){ .kpi-grid{grid-template-columns:1fr 1fr;} }
+        @media(max-width:500px){ .kpi-grid{grid-template-columns:1fr;} }
+
+        .kpi { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:20px 22px; display:flex; align-items:center; gap:16px; }
+        .kpi-icon { width:46px; height:46px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
+        .kpi-icon.cyan   { background:rgba(0,229,255,.12); color:var(--neon); border:1px solid rgba(0,229,255,.2); }
+        .kpi-icon.purple { background:rgba(168,85,247,.12); color:var(--purple); border:1px solid rgba(168,85,247,.2); }
+        .kpi-icon.green  { background:rgba(34,197,94,.12); color:var(--green); border:1px solid rgba(34,197,94,.2); }
+        .kpi-icon.amber  { background:rgba(245,158,11,.12); color:var(--amber); border:1px solid rgba(245,158,11,.2); }
+        .kpi-val  { font-size:1.6rem; font-weight:800; color:#fff; line-height:1; }
+        .kpi-lbl  { font-size:.74rem; color:var(--text2); margin-top:4px; }
+
+        /* ── Quota Bars ── */
+        .quota-section { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:24px 28px; margin-bottom:24px; }
+        .quota-title { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:1.2px; color:var(--neon); margin-bottom:18px; }
+        .quota-row { display:grid; grid-template-columns:1fr 1fr; gap:28px; }
+        @media(max-width:640px){ .quota-row{grid-template-columns:1fr;} }
+        .quota-item-label { display:flex; justify-content:space-between; font-size:.82rem; color:#e4eaf8; font-weight:600; margin-bottom:8px; }
+        .quota-item-sub { font-size:.72rem; color:var(--text2); margin-top:6px; }
+        .bar-track { height:8px; background:rgba(255,255,255,.07); border-radius:999px; overflow:hidden; }
+        .bar-fill { height:100%; border-radius:999px; transition:width .6s ease; }
+        .bar-fill.storage { background:linear-gradient(90deg,var(--neon),var(--purple)); }
+        .bar-fill.accounts { background:linear-gradient(90deg,var(--green),#06b6d4); }
+        .bar-fill.warn { background:linear-gradient(90deg,var(--amber),#f97316); }
+        .bar-fill.danger { background:linear-gradient(90deg,var(--red),#db2777); }
+
+        /* ── Glass card / table ── */
+        .glass { background:var(--card); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+        .glass-head { display:flex; align-items:center; justify-content:space-between; padding:20px 24px 0; }
+        .glass-title { font-size:.95rem; font-weight:700; color:#fff; }
+        .glass-sub { font-size:.75rem; color:var(--text2); margin-top:2px; }
+
+        .vtable { width:100%; border-collapse:collapse; font-size:.84rem; }
+        .vtable th { padding:12px 18px; color:var(--text2); font-size:.72rem; font-weight:600; letter-spacing:.5px; text-transform:uppercase; border-bottom:1px solid rgba(255,255,255,.06); }
+        .vtable td { padding:14px 18px; color:#e4eaf8; border-bottom:1px solid rgba(255,255,255,.04); vertical-align:middle; }
+        .vtable tr:last-child td { border-bottom:none; }
+        .vtable tr:hover td { background:rgba(0,229,255,.03); }
+
+        .badge-ok  { background:rgba(34,197,94,.12); color:#4ade80; border:1px solid rgba(34,197,94,.2); padding:3px 10px; border-radius:999px; font-size:.7rem; font-weight:600; }
+        .badge-sus { background:rgba(239,68,68,.12); color:#f87171; border:1px solid rgba(239,68,68,.2); padding:3px 10px; border-radius:999px; font-size:.7rem; font-weight:600; }
+
+        .btn-tiny { padding:5px 12px; border-radius:7px; font-size:.74rem; font-weight:600; border:none; cursor:pointer; transition:all .2s; }
+        .btn-tiny.cyan   { background:rgba(0,229,255,.1); color:var(--neon); border:1px solid rgba(0,229,255,.2); }
+        .btn-tiny.red    { background:rgba(239,68,68,.1); color:#f87171; border:1px solid rgba(239,68,68,.2); }
+        .btn-tiny.amber  { background:rgba(245,158,11,.1); color:var(--amber); border:1px solid rgba(245,158,11,.2); }
+        .btn-tiny:hover  { filter:brightness(1.3); }
+
+        .btn-primary-glow { padding:10px 20px; border-radius:10px; font-size:.84rem; font-weight:600; border:none; background:linear-gradient(135deg,var(--neon),var(--purple)); color:#fff; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:8px; transition:opacity .2s; }
+        .btn-primary-glow:hover { opacity:.85; color:#fff; text-decoration:none; }
+
+        .empty-state { text-align:center; padding:60px 20px; color:var(--text2); }
+        .empty-state i { font-size:2.5rem; color:rgba(0,229,255,.2); margin-bottom:16px; }
+        .empty-state h4 { color:#e4eaf8; font-size:1rem; font-weight:600; }
+
+        /* Confirm delete modal */
+        .confirm-overlay { display:none; position:fixed; inset:0; background:rgba(8,12,26,.85); backdrop-filter:blur(8px); z-index:9999; align-items:center; justify-content:center; }
+        .confirm-overlay.show { display:flex; }
+        .confirm-box { background:rgba(12,18,38,.98); border:1px solid rgba(239,68,68,.3); border-radius:18px; padding:36px 40px; text-align:center; max-width:380px; animation:popIn .2s ease; }
+        @keyframes popIn { from{transform:scale(.9);opacity:0} to{transform:scale(1);opacity:1} }
+        .confirm-icon { font-size:2.5rem; color:#f87171; margin-bottom:12px; }
+        .confirm-msg  { color:#e4eaf8; font-size:.9rem; line-height:1.6; margin-bottom:24px; }
+        .confirm-btns { display:flex; gap:10px; justify-content:center; }
+        .confirm-cancel { padding:9px 20px; border-radius:9px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); color:#e4eaf8; font-size:.82rem; cursor:pointer; }
+        .confirm-delete { padding:9px 20px; border-radius:9px; background:rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.3); color:#f87171; font-size:.82rem; font-weight:700; cursor:pointer; }
+    </style>
+</head>
+<body class="font-nunito active-dark-mode">
+<div id="wrapper" class="theme-cyan">
+    <div class="page-loader-wrapper" style="display:none !important;"></div>
+    <script>document.addEventListener('DOMContentLoaded',function(){var l=document.querySelector('.page-loader-wrapper');if(l)l.style.display='none';});</script>
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
+
+    <div id="main-content">
+        <div class="container-fluid">
+
+            <!-- Header -->
+            <div class="page-hdr">
+                <div>
+                    <h2>🏪 Reseller Dashboard</h2>
+                    <div class="sub">
+                        {% if profile.company_name %}{{ profile.company_name }} &nbsp;·&nbsp; {% endif %}
+                        {{ profile.branding_name }} &nbsp;·&nbsp;
+                        Welcome, <strong style="color:var(--neon);">{{ request.user.username }}</strong>
+                    </div>
+                </div>
+                <a href="/reseller/adduser/" class="btn-primary-glow">
+                    <i class="fas fa-user-plus"></i> Add Sub-Account
+                </a>
+            </div>
+
+            <!-- KPI Cards -->
+            <div class="kpi-grid">
+                <div class="kpi">
+                    <div class="kpi-icon cyan"><i class="fas fa-server"></i></div>
+                    <div>
+                        <div class="kpi-val">{{ acct_count }}<span style="font-size:.9rem;color:var(--text2);font-weight:500;"> / {{ profile.max_accounts }}</span></div>
+                        <div class="kpi-lbl">Sub-Accounts Used</div>
+                    </div>
+                </div>
+                <div class="kpi">
+                    <div class="kpi-icon purple"><i class="fas fa-hdd"></i></div>
+                    <div>
+                        <div class="kpi-val">{{ used_gb|floatformat:1 }}<span style="font-size:.9rem;color:var(--text2);font-weight:500;"> / {{ profile.storage_quota_gb }} GB</span></div>
+                        <div class="kpi-lbl">Storage Used</div>
+                    </div>
+                </div>
+                <div class="kpi">
+                    <div class="kpi-icon green"><i class="fas fa-database"></i></div>
+                    <div>
+                        <div class="kpi-val">{{ remaining_gb|floatformat:1 }} GB</div>
+                        <div class="kpi-lbl">Storage Remaining</div>
+                    </div>
+                </div>
+                <div class="kpi">
+                    <div class="kpi-icon amber"><i class="fas fa-users"></i></div>
+                    <div>
+                        <div class="kpi-val">{{ profile.max_accounts|add:"-"|add:acct_count }}</div>
+                        <div class="kpi-lbl">Account Slots Left</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quota Meters -->
+            <div class="quota-section">
+                <div class="quota-title"><i class="fas fa-gauge-high" style="margin-right:6px;"></i> Resource Pool</div>
+                <div class="quota-row">
+                    <div>
+                        <div class="quota-item-label">
+                            <span>Storage Pool</span>
+                            <span style="color:{% if used_pct > 85 %}var(--red){% elif used_pct > 65 %}var(--amber){% else %}var(--neon){% endif %}">{{ used_gb|floatformat:1 }} GB / {{ profile.storage_quota_gb }} GB</span>
+                        </div>
+                        <div class="bar-track">
+                            <div class="bar-fill {% if used_pct > 85 %}danger{% elif used_pct > 65 %}warn{% else %}storage{% endif %}" style="width:{{ used_pct }}%"></div>
+                        </div>
+                        <div class="quota-item-sub">{{ used_pct }}% consumed &nbsp;·&nbsp; {{ remaining_gb|floatformat:1 }} GB free</div>
+                    </div>
+                    <div>
+                        <div class="quota-item-label">
+                            <span>Account Slots</span>
+                            <span style="color:{% if acct_pct > 85 %}var(--red){% elif acct_pct > 65 %}var(--amber){% else %}var(--green){% endif %}">{{ acct_count }} / {{ profile.max_accounts }}</span>
+                        </div>
+                        <div class="bar-track">
+                            <div class="bar-fill {% if acct_pct > 85 %}danger{% elif acct_pct > 65 %}warn{% else %}accounts{% endif %}" style="width:{{ acct_pct }}%"></div>
+                        </div>
+                        <div class="quota-item-sub">{{ acct_pct }}% used &nbsp;·&nbsp; {% widthratio acct_count profile.max_accounts profile.max_accounts as _u %}{{ profile.max_accounts|add:"-"|add:acct_count }} slots free</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sub-accounts table -->
+            <div class="glass">
+                <div class="glass-head" style="padding-bottom:16px;">
+                    <div>
+                        <div class="glass-title"><i class="fas fa-list" style="color:var(--neon);margin-right:8px;"></i> Sub-Accounts</div>
+                        <div class="glass-sub">{{ sub_accounts|length }} account{{ sub_accounts|length|pluralize }}</div>
+                    </div>
+                    <a href="/reseller/listusers/" class="btn-tiny cyan"><i class="fas fa-expand"></i> Full View</a>
+                </div>
+
+                {% if sub_accounts %}
+                <div style="overflow-x:auto; padding:0 0 8px;">
+                    <table class="vtable">
+                        <thead>
+                            <tr>
+                                <th>Domain</th>
+                                <th>System User</th>
+                                <th>Package</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for acct in sub_accounts %}
+                            <tr>
+                                <td>
+                                    <div style="font-weight:700;color:#e4eaf8;">{{ acct.domain }}</div>
+                                    <div style="font-size:.72rem;color:var(--text2);">{{ acct.email }}</div>
+                                </td>
+                                <td style="font-family:monospace;color:var(--neon);">{{ acct.username }}</td>
+                                <td style="color:var(--text2);">{{ acct.hosting_package }}</td>
+                                <td>
+                                    {% if acct.status %}<span class="badge-ok">● Active</span>
+                                    {% else %}<span class="badge-sus">● Suspended</span>{% endif %}
+                                </td>
+                                <td>
+                                    <div style="display:flex;gap:7px;flex-wrap:wrap;">
+                                        {% if acct.status %}
+                                        <a href="/reseller/suspend/{{ acct.username }}/" class="btn-tiny amber">
+                                            <i class="fas fa-pause"></i> Suspend
+                                        </a>
+                                        {% else %}
+                                        <a href="/reseller/unsuspend/{{ acct.username }}/" class="btn-tiny cyan">
+                                            <i class="fas fa-play"></i> Activate
+                                        </a>
+                                        {% endif %}
+                                        <button class="btn-tiny red" onclick="confirmDelete('{{ acct.username }}', '{{ acct.domain }}')">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-server"></i>
+                    <h4>No sub-accounts yet</h4>
+                    <p style="font-size:.8rem;margin-bottom:20px;">Create your first sub-account to start using your hosting pool.</p>
+                    <a href="/reseller/adduser/" class="btn-primary-glow"><i class="fas fa-user-plus"></i> Create First Account</a>
+                </div>
+                {% endif %}
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Confirm Delete -->
+<div class="confirm-overlay" id="confirmOverlay">
+    <div class="confirm-box">
+        <div class="confirm-icon"><i class="fas fa-triangle-exclamation"></i></div>
+        <div class="confirm-msg" id="confirmMsg">Are you sure you want to permanently delete this account?</div>
+        <div class="confirm-btns">
+            <button class="confirm-cancel" onclick="document.getElementById('confirmOverlay').classList.remove('show')">Cancel</button>
+            <button class="confirm-delete" id="confirmBtn" onclick="doDelete()"><i class="fas fa-trash"></i> Delete</button>
+        </div>
+    </div>
+</div>
+
+
+<script src="/static/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/static/assets/vendor/metismenu/metisMenu.min.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+<script>
+    // Always hide loader when page fully loads
+    $(window).on('load', function () {
+        $('.page-loader-wrapper').fadeOut(300);
+    });
+    // Safety fallback: hide after 1.5s even if load event is slow
+    setTimeout(function() { $('.page-loader-wrapper').fadeOut(300); }, 1500);
+</script>
+<script>
+let _deleteTarget = null;
+
+function confirmDelete(username, domain) {
+    _deleteTarget = username;
+    document.getElementById('confirmMsg').innerHTML =
+        `Permanently delete <strong style="color:#f87171">${domain}</strong>?<br>
+         <span style="color:rgba(239,68,68,.7);font-size:.78rem;">All files, databases and emails will be erased. This cannot be undone.</span>`;
+    document.getElementById('confirmOverlay').classList.add('show');
+}
+
+async function doDelete() {
+    if (!_deleteTarget) return;
+    const btn = document.getElementById('confirmBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting…';
+    try {
+        const r = await fetch(`/reseller/terminate/${_deleteTarget}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+        });
+        const d = await r.json();
+        if (d.status === 'success') {
+            window.location.reload();
+        } else {
+            alert(d.message || 'Delete failed');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-trash"></i> Delete';
+        }
+    } catch(e) {
+        alert('Network error. Please try again.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-trash"></i> Delete';
+    }
+}
+</script>
+    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+</body>
+</html>

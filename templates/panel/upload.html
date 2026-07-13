@@ -9,25 +9,40 @@
     <!-- VENDOR CSS -->
     <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="/static/assets/vendor/dropify/css/dropify.min.css">
 
     <!-- MAIN CSS -->
-    <link rel="stylesheet" href="/static/assets/css/main.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
 
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
 </head>
 
-<body data-theme="light" class="font-nunito">
+<body class="font-nunito active-dark-mode">
 
     <div id="wrapper" class="theme-cyan">
 
         <!-- Page Loader -->
-        <div class="page-loader-wrapper">
-            <div class="loader">
-                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
-                </div>
-                <p>Please wait...</p>
+            <div class="page-loader-wrapper" style="background: var(--void-bg, #080c14) !important;">
+        <div class="loader">
+            <div class="m-t-30" style="display: flex; justify-content: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="130" height="30" viewBox="0 0 180 40" role="img" aria-label="VoidPanel">
+                  <rect x="0" y="4" width="34" height="34" rx="8" ry="8" fill="rgba(255,255,255,0.12)"/>
+                  <rect x="7" y="13" width="20" height="4" rx="1.5" fill="#ffffff" opacity="0.9"/>
+                  <rect x="7" y="19.5" width="14" height="4" rx="1.5" fill="#ffffff" opacity="0.65"/>
+                  <rect x="7" y="26" width="10" height="4" rx="1.5" fill="#60a5fa" opacity="0.95"/>
+                  <text x="43" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#ffffff">Void</text>
+                  <text x="91" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#60a5fa">Panel</text>
+                </svg>
             </div>
+            <div class="loading-bar-container">
+                <div class="loading-bar"></div>
+            </div>
+            <p style="color: var(--text-secondary, #475569) !important;">Please wait...</p>
         </div>
+    </div>
 
         <!-- Top navbar div start -->
 
@@ -55,7 +70,7 @@
                     </div>
 
                     <div class="body">
-                        <input type="file" id="file" name="file" class="dropify" required>
+                        <input type="file" id="file" name="file" class="dropify" required multiple>
                         <input type="text" id="file_path" name="file_path" hidden value="{{location}}">
 
                     </div>
@@ -87,105 +102,81 @@
         <script>
 
             function uploadFile() {
-
                 var myList = {{ data| safe}};
-
-            var formData = new FormData();
-            var fileInput = $('#file')[0];
-            var filePath = $('#file_path').val();
-            var file = fileInput.files[0];
-            var searchString = file.name;
-
-            formData.append('file', file);
-            formData.append('file_path', filePath);  // Add file path to formData
-       
-            if (myList.includes(searchString)) {
-                if (confirm("File Already Exist! Do you want to Overwrite?")) {
-                    let width = 0;
-                    const progressBar = document.getElementById('pbar');
-                    const progressContainer = document.getElementById('progress');
-                    progressContainer.style.display = 'block';  // Show progress bar
-                    function updateProgress() {
-                        if (width < 80) {
-                            width++;  // Increment width by 1%
-                            progressBar.style.width = width + '%';  // Update visual width
-                            progressBar.setAttribute('aria-valuenow', width);  // Update ARIA value
-                            setTimeout(updateProgress, 2000);  // Call again in 2 seconds
-                        }
-                    }
-                    updateProgress();
-                    $.ajax({
-                        url: "{% url 'upload_file' %}",  // The URL from Django's URL patterns
-                        type: 'POST',
-                        data: formData,
-                        processData: false,
-                        contentType: false,
-                        headers: {
-                            'X-CSRFToken': '{{ csrf_token }}'  // Add CSRF token
-                        },
-                        success: function (response) {
-                            if (response.status === 'success') {
-                                width = 100;
-                                progressBar.style.width = width + '%';  // Update the width visually
-                                progressBar.setAttribute('aria-valuenow', width);
-                                progressBar.setAttribute('aria-valuenow', 100);
-                                //document.getElementById('myButton').onclick = null;
-
-                                // Disable the button
-                                //document.getElementById('myButton').disabled = true;
-                                document.getElementById('saved').style.display="block";
-                            }
-                        },
-                        error: function (xhr, status, error) {
-                            document.getElementById('error').style.display="block";
-                        }
-                    });
+                var formData = new FormData();
+                var fileInput = $('#file')[0];
+                var filePath = $('#file_path').val();
+                
+                if (fileInput.files.length === 0) {
+                    alert('Please select files first.');
+                    return;
                 }
-            } else {
+                
+                formData.append('file_path', filePath);
+                
+                let conflict = false;
+                for(let i=0; i<fileInput.files.length; i++) {
+                    let f = fileInput.files[i];
+                    formData.append('file', f);
+                    if (myList.includes(f.name)) {
+                        conflict = true;
+                    }
+                }
+                
+                if (conflict) {
+                    if (!confirm("One or more files already exist in this folder! Do you want to Overwrite them?")) {
+                        return;
+                    }
+                }
+
                 let width = 0;
                 const progressBar = document.getElementById('pbar');
                 const progressContainer = document.getElementById('progress');
-                progressContainer.style.display = 'block';  // Show progress bar
+                document.getElementById('error').style.display="none";
+                document.getElementById('saved').style.display="none";
+                progressContainer.style.display = 'block';  
+
                 function updateProgress() {
                     if (width < 80) {
-                        width++;  // Increment width by 1%
-                        progressBar.style.width = width + '%';  // Update visual width
-                        progressBar.setAttribute('aria-valuenow', width);  // Update ARIA value
-                        setTimeout(updateProgress, 2000);  // Call again in 2 seconds
+                        width++;  
+                        progressBar.style.width = width + '%';  
+                        progressBar.setAttribute('aria-valuenow', width); 
+                        setTimeout(updateProgress, 2000); 
                     }
                 }
                 updateProgress();
+
                 $.ajax({
-                    url: "{% url 'upload_file' %}",  // The URL from Django's URL patterns
+                    url: "{% url 'upload_file' %}",  
                     type: 'POST',
                     data: formData,
                     processData: false,
                     contentType: false,
                     headers: {
-                        'X-CSRFToken': '{{ csrf_token }}'  // Add CSRF token
+                        'X-CSRFToken': '{{ csrf_token }}'  
                     },
                     success: function (response) {
                         if (response.status === 'success') {
                             width = 100;
-                            progressBar.style.width = width + '%';  // Update the width visually
+                            progressBar.style.width = width + '%';  
                             progressBar.setAttribute('aria-valuenow', width);
-                            progressBar.setAttribute('aria-valuenow', 100);
-                            //document.getElementById('myButton').onclick = null;
-
-                            // Disable the button
-                            //document.getElementById('myButton').disabled = true;
-                 
                             document.getElementById('saved').style.display="block";
+                            document.getElementById('saved').innerHTML = "<strong>Success!</strong> " + response.message;
+                            
+                            // Reset dropify UI
+                            if($('.dropify-clear').length) {
+                                $('.dropify-clear').trigger('click');
+                            }
+                        } else {
+                            document.getElementById('error').style.display="block";
+                            document.getElementById('error').innerHTML = "<strong>Error!</strong> " + response.message;
                         }
                     },
                     error: function (xhr, status, error) {
-           
                         document.getElementById('error').style.display="block";
-
+                        document.getElementById('error').innerHTML = "<strong>Error!</strong> Upload request failed.";
                     }
                 });
-            }
-               
             }
         </script>
 

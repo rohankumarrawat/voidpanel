@@ -1,0 +1,971 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Admin Console | VoidPanel{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:           #070d18;
+            --bg-raised:    #0b1422;
+            --bg-card:      #0f1c2e;
+            --surface:      rgba(255,255,255,0.03);
+            --border:       rgba(255,255,255,0.07);
+            --border-hover: rgba(255,255,255,0.13);
+            --text-1:       #f0f4ff;
+            --text-2:       #8fa3c0;
+            --text-3:       #4d637e;
+            --green:        #22c55e;
+            --green-2:      #4ade80;
+            --sky:          #0ea5e9;
+            --sky-2:        #7dd3fc;
+            --amber:        #f59e0b;
+            --amber-2:      #fbbf24;
+            --red:          #ef4444;
+            --red-2:        #f87171;
+            --violet:       #7c3aed;
+            --violet-2:     #c4b5fd;
+            --sidebar-w:    248px;
+        }
+
+        html, body { height: 100%; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text-1);
+            display: flex;
+            min-height: 100vh;
+            font-size: 14px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        a { text-decoration: none; color: inherit; }
+
+        /* ═══════════════════════════════════════════════════
+           SIDEBAR
+        ═══════════════════════════════════════════════════ */
+        .sa-sidebar {
+            position: fixed;
+            top: 0; left: 0;
+            width: var(--sidebar-w);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-raised);
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(34,197,94,0.15) transparent;
+            z-index: 200;
+        }
+
+        /* Brand */
+        .sa-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 20px 18px 16px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .sa-brand-icon {
+            width: 34px; height: 34px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #22c55e 0%, #059669 100%);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .sa-brand-icon img { width: 20px; height: 20px; filter: brightness(0) invert(1); }
+        .sa-brand-text { line-height: 1.2; }
+        .sa-brand-name { font-size: 0.9rem; font-weight: 800; color: var(--text-1); }
+        .sa-brand-sub  { font-size: 0.62rem; font-weight: 700; color: var(--green-2); text-transform: uppercase; letter-spacing: 0.08em; }
+
+        /* User chip */
+        .sa-user {
+            margin: 12px 12px 6px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: rgba(34,197,94,0.06);
+            border: 1px solid rgba(34,197,94,0.12);
+            display: flex;
+            align-items: center;
+            gap: 9px;
+        }
+        .sa-avatar {
+            width: 32px; height: 32px; border-radius: 9px;
+            background: linear-gradient(135deg, var(--green), var(--green) 50%, #059669);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.8rem; font-weight: 800; color: #021f0a;
+            flex-shrink: 0;
+        }
+        .sa-user-name { font-size: 0.8rem; font-weight: 700; color: var(--text-1); }
+        .sa-user-role { font-size: 0.62rem; font-weight: 700; color: var(--green-2); text-transform: uppercase; letter-spacing: 0.06em; }
+
+        /* Nav */
+        .sa-nav { padding: 6px 10px; flex: 1; }
+        .sa-section {
+            font-size: 0.62rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            color: var(--text-3);
+            padding: 12px 8px 5px;
+        }
+        .sa-link {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 10px; border-radius: 9px;
+            color: var(--text-2);
+            font-size: 0.82rem; font-weight: 600;
+            transition: background 0.14s, color 0.14s;
+            margin-bottom: 1px;
+            position: relative;
+        }
+        .sa-link:hover { background: rgba(255,255,255,0.04); color: var(--text-1); }
+        .sa-link.active {
+            background: rgba(34,197,94,0.08);
+            color: var(--green-2);
+            border-left: 2px solid var(--green);
+            padding-left: 9px;
+        }
+        .sa-link i { width: 16px; text-align: center; font-size: 0.78rem; flex-shrink: 0; }
+        .sa-badge {
+            margin-left: auto;
+            background: rgba(245,158,11,0.15);
+            color: var(--amber-2);
+            font-size: 0.62rem; font-weight: 800;
+            padding: 2px 7px;
+            border-radius: 999px;
+        }
+        .sa-badge.green { background: rgba(34,197,94,0.12); color: var(--green-2); }
+
+        /* Sidebar footer */
+        .sa-footer {
+            padding: 10px 10px 16px;
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .sa-mini-stats {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 10px;
+        }
+        .sa-stat-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 4px 0; font-size: 0.74rem;
+        }
+        .sa-stat-row + .sa-stat-row { border-top: 1px solid rgba(255,255,255,0.04); }
+        .sa-stat-row span:first-child { color: var(--text-3); }
+        .sa-stat-row span:last-child { font-weight: 700; color: var(--text-1); }
+        .sa-stat-row span:last-child.green { color: var(--green-2); }
+        .sa-stat-row span:last-child.amber { color: var(--amber-2); }
+        .sa-footer-btn {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 10px; border-radius: 9px;
+            font-size: 0.78rem; font-weight: 600;
+            transition: all 0.14s;
+            margin-bottom: 3px;
+        }
+        .sa-footer-btn.primary { background: rgba(34,197,94,0.07); color: var(--green-2); border: 1px solid rgba(34,197,94,0.14); }
+        .sa-footer-btn.primary:hover { background: rgba(34,197,94,0.13); }
+        .sa-footer-btn.ghost { background: transparent; color: var(--text-3); border: 1px solid transparent; }
+        .sa-footer-btn.ghost:hover { color: var(--red-2); background: rgba(248,113,113,0.05); border-color: rgba(248,113,113,0.12); }
+
+        /* ═══════════════════════════════════════════════════
+           MAIN AREA
+        ═══════════════════════════════════════════════════ */
+        .sa-main {
+            margin-left: var(--sidebar-w);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        /* Top bar */
+        .sa-topbar {
+            position: sticky; top: 0; z-index: 100;
+            display: flex; align-items: center; justify-content: space-between;
+            background: rgba(7,13,24,0.92);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 28px;
+            height: 56px;
+            flex-shrink: 0;
+        }
+        .sa-topbar-left { display: flex; align-items: center; gap: 14px; }
+        .sa-breadcrumb { font-size: 0.78rem; color: var(--text-2); display: flex; align-items: center; gap: 6px; }
+        .sa-breadcrumb span { color: var(--text-1); font-weight: 700; }
+        .sa-topbar-right { display: flex; align-items: center; gap: 10px; }
+        .sa-topbar-chip {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 12px; border-radius: 8px;
+            font-size: 0.76rem; font-weight: 700;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: var(--text-2);
+            transition: all 0.14s;
+        }
+        .sa-topbar-chip:hover { background: rgba(255,255,255,0.07); color: var(--text-1); }
+        .sa-topbar-chip i { font-size: 0.72rem; }
+
+        /* Content wrapper */
+        .sa-content {
+            padding: 28px 32px 60px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            flex: 1;
+            background:
+                radial-gradient(ellipse 50% 35% at 92% 2%, rgba(34,197,94,0.06) 0%, transparent 60%),
+                radial-gradient(ellipse 35% 25% at 5% 95%, rgba(14,165,233,0.05) 0%, transparent 55%);
+        }
+
+        /* ═══════════════════════════════════════════════════
+           PAGE HEADER
+        ═══════════════════════════════════════════════════ */
+        .sa-page-header {
+            display: flex; align-items: center;
+            justify-content: space-between;
+            gap: 16px; flex-wrap: wrap;
+        }
+        .sa-page-title { font-size: 1.4rem; font-weight: 900; color: var(--text-1); letter-spacing: -0.02em; }
+        .sa-page-sub { font-size: 0.78rem; color: var(--text-3); margin-top: 3px; }
+        .sa-header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+        /* ═══════════════════════════════════════════════════
+           FLASH MESSAGES
+        ═══════════════════════════════════════════════════ */
+        .sa-flash {
+            display: flex; align-items: center; gap: 10px;
+            padding: 11px 16px; border-radius: 10px;
+            font-size: 0.84rem; font-weight: 600;
+        }
+        .sa-flash.success { background: rgba(34,197,94,0.07); border: 1px solid rgba(34,197,94,0.2); color: var(--green-2); }
+        .sa-flash.error   { background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.2);  color: var(--red-2); }
+
+        /* ═══════════════════════════════════════════════════
+           CARDS
+        ═══════════════════════════════════════════════════ */
+        .sa-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px 22px;
+            transition: border-color 0.15s;
+        }
+        .sa-card:hover { border-color: var(--border-hover); }
+        .sa-card-head {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 18px;
+        }
+        .sa-card-title {
+            font-size: 0.88rem; font-weight: 800; color: var(--text-1);
+            display: flex; align-items: center; gap: 8px;
+        }
+        .sa-card-title i { font-size: 0.76rem; color: var(--green); }
+        .sa-card-count { font-size: 0.74rem; color: var(--text-3); font-weight: 600; }
+
+        /* ═══════════════════════════════════════════════════
+           KPI GRIDS
+        ═══════════════════════════════════════════════════ */
+        .sa-kpi-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+        .sa-kpi-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+        .sa-kpi-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+
+        .sa-kpi {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px 20px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            transition: border-color 0.15s, transform 0.15s;
+            cursor: default;
+        }
+        .sa-kpi:hover { border-color: var(--border-hover); transform: translateY(-1px); }
+        .sa-kpi-icon {
+            width: 40px; height: 40px; border-radius: 11px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.95rem; flex-shrink: 0;
+        }
+        .sa-kpi-icon.green  { background: rgba(34,197,94,0.12);  color: var(--green-2); }
+        .sa-kpi-icon.sky    { background: rgba(14,165,233,0.12);  color: var(--sky-2); }
+        .sa-kpi-icon.amber  { background: rgba(245,158,11,0.12);  color: var(--amber-2); }
+        .sa-kpi-icon.violet { background: rgba(167,139,250,0.12); color: var(--violet-2); }
+        .sa-kpi-icon.red    { background: rgba(239,68,68,0.12);   color: var(--red-2); }
+        .sa-kpi-val { font-size: 1.6rem; font-weight: 900; color: var(--text-1); line-height: 1; letter-spacing: -0.02em; }
+        .sa-kpi-lbl { font-size: 0.7rem; color: var(--text-3); font-weight: 700; margin-top: 3px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+        /* ═══════════════════════════════════════════════════
+           LAYOUT GRIDS
+        ═══════════════════════════════════════════════════ */
+        .sa-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+        .sa-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+        .sa-col-7-5 { display: grid; grid-template-columns: 7fr 5fr; gap: 18px; }
+
+        /* ═══════════════════════════════════════════════════
+           TABLES
+        ═══════════════════════════════════════════════════ */
+        .sa-table-wrap { overflow-x: auto; border-radius: 10px; }
+        .sa-table { width: 100%; border-collapse: collapse; }
+        .sa-table th {
+            font-size: 0.67rem; text-transform: uppercase; letter-spacing: 0.08em;
+            color: var(--text-3); padding: 10px 14px; font-weight: 700;
+            border-bottom: 1px solid var(--border); text-align: left;
+            white-space: nowrap;
+        }
+        .sa-table td {
+            padding: 12px 14px; font-size: 0.82rem;
+            color: var(--text-2); border-bottom: 1px solid rgba(255,255,255,0.04);
+            vertical-align: middle;
+        }
+        .sa-table tr:last-child td { border-bottom: none; }
+        .sa-table tbody tr { transition: background 0.1s; }
+        .sa-table tbody tr:hover td { background: rgba(255,255,255,0.025); }
+
+        /* ═══════════════════════════════════════════════════
+           BADGES
+        ═══════════════════════════════════════════════════ */
+        .sa-badge {
+            display: inline-flex; align-items: center;
+            padding: 3px 9px; border-radius: 999px;
+            font-size: 0.68rem; font-weight: 700;
+            white-space: nowrap;
+        }
+        .sa-badge.green  { background: rgba(34,197,94,0.12);  color: var(--green-2); }
+        .sa-badge.amber  { background: rgba(245,158,11,0.12);  color: var(--amber-2); }
+        .sa-badge.red    { background: rgba(239,68,68,0.12);   color: var(--red-2); }
+        .sa-badge.sky    { background: rgba(14,165,233,0.12);  color: var(--sky-2); }
+        .sa-badge.violet { background: rgba(167,139,250,0.12); color: var(--violet-2); }
+        .sa-badge.gray   { background: rgba(255,255,255,0.06); color: var(--text-2); }
+
+        /* ═══════════════════════════════════════════════════
+           BUTTONS
+        ═══════════════════════════════════════════════════ */
+        .sa-btn {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 8px 16px; border-radius: 9px;
+            font-size: 0.8rem; font-weight: 700;
+            border: none; cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.14s;
+            text-decoration: none;
+        }
+        .sa-btn.primary { background: linear-gradient(135deg, var(--green), #059669); color: #021f0a; }
+        .sa-btn.primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .sa-btn.sky    { background: rgba(14,165,233,0.1); color: var(--sky-2); border: 1px solid rgba(14,165,233,0.18); }
+        .sa-btn.sky:hover { background: rgba(14,165,233,0.18); }
+        .sa-btn.green  { background: rgba(34,197,94,0.1); color: var(--green-2); border: 1px solid rgba(34,197,94,0.18); }
+        .sa-btn.green:hover { background: rgba(34,197,94,0.18); }
+        .sa-btn.amber  { background: rgba(245,158,11,0.1); color: var(--amber-2); border: 1px solid rgba(245,158,11,0.18); }
+        .sa-btn.amber:hover { background: rgba(245,158,11,0.18); }
+        .sa-btn.red    { background: rgba(239,68,68,0.1); color: var(--red-2); border: 1px solid rgba(239,68,68,0.18); }
+        .sa-btn.red:hover { background: rgba(239,68,68,0.18); }
+        .sa-btn.ghost  { background: rgba(255,255,255,0.04); color: var(--text-2); border: 1px solid var(--border); }
+        .sa-btn.ghost:hover { background: rgba(255,255,255,0.08); color: var(--text-1); }
+        .sa-btn.sm { padding: 5px 11px; font-size: 0.74rem; border-radius: 7px; }
+
+        /* ═══════════════════════════════════════════════════
+           FORMS
+        ═══════════════════════════════════════════════════ */
+        .sa-label { display: block; font-size: 0.76rem; font-weight: 700; color: var(--text-2); margin-bottom: 6px; }
+        .sa-input {
+            width: 100%; border-radius: 9px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.03);
+            color: var(--text-1);
+            padding: 9px 12px;
+            font-size: 0.84rem;
+            font-family: 'Inter', sans-serif;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .sa-input:focus { outline: none; border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.03); }
+        .sa-input::placeholder { color: var(--text-3); }
+        textarea.sa-input { min-height: 80px; resize: vertical; }
+        select.sa-input { appearance: none; cursor: pointer; }
+        .sa-form-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .sa-form-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .sa-form-group { margin-bottom: 14px; }
+        .sa-form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+        /* ═══════════════════════════════════════════════════
+           FILTER TAB ROW
+        ═══════════════════════════════════════════════════ */
+        .sa-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+        .sa-tab {
+            padding: 7px 15px; border-radius: 8px;
+            font-size: 0.78rem; font-weight: 700;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: var(--text-2);
+            transition: all 0.14s;
+        }
+        .sa-tab:hover { background: rgba(255,255,255,0.07); color: var(--text-1); }
+        .sa-tab.active-green { background: rgba(34,197,94,0.1); color: var(--green-2); border-color: rgba(34,197,94,0.2); }
+        .sa-tab.active-amber { background: rgba(245,158,11,0.1); color: var(--amber-2); border-color: rgba(245,158,11,0.2); }
+        .sa-tab.active-red   { background: rgba(239,68,68,0.1);  color: var(--red-2);   border-color: rgba(239,68,68,0.2); }
+        .sa-tab.active-sky   { background: rgba(14,165,233,0.1); color: var(--sky-2);   border-color: rgba(14,165,233,0.2); }
+
+        /* ═══════════════════════════════════════════════════
+           SERVICE GROUPS (collapsible)
+        ═══════════════════════════════════════════════════ */
+        .sa-service-group { margin-bottom: 2px; }
+        .sa-service-head {
+            display: flex; align-items: center; gap: 8px;
+            padding: 7px 10px; border-radius: 9px;
+            color: var(--text-2); font-size: 0.82rem; font-weight: 600;
+            cursor: pointer; transition: background 0.14s, color 0.14s;
+            user-select: none;
+        }
+        .sa-service-head:hover { background: rgba(255,255,255,0.04); color: var(--text-1); }
+        .sa-service-head span { flex: 1; display: flex; align-items: center; gap: 8px; }
+        .sa-chevron {
+            font-size: 0.62rem; color: var(--text-3);
+            transition: transform 0.2s; flex-shrink: 0;
+        }
+        .sa-service-group.open .sa-chevron { transform: rotate(90deg); color: var(--text-2); }
+        .sa-service-body {
+            display: none;
+            padding: 2px 0 4px 10px;
+            border-left: 1px solid rgba(255,255,255,0.06);
+            margin-left: 13px;
+        }
+        .sa-service-group.open .sa-service-body { display: block; }
+        .sa-sub-link {
+            display: flex; align-items: center; gap: 8px;
+            padding: 5px 10px; border-radius: 7px;
+            color: var(--text-3); font-size: 0.78rem; font-weight: 600;
+            transition: background 0.12s, color 0.12s;
+            margin-bottom: 1px;
+        }
+        .sa-sub-link i { width: 13px; text-align: center; font-size: 0.72rem; flex-shrink: 0; }
+        .sa-sub-link:hover { background: rgba(255,255,255,0.04); color: var(--text-1); }
+        .sa-sub-link.active { color: var(--green-2); }
+        .sa-create-link { color: rgba(34,197,94,0.6); }
+        .sa-create-link:hover { color: var(--green-2); background: rgba(34,197,94,0.06); }
+
+        /* ═══════════════════════════════════════════════════
+           MISC UTILITIES
+        ═══════════════════════════════════════════════════ */
+        .sa-empty { text-align: center; padding: 48px 16px; color: var(--text-3); }
+        .sa-empty i { font-size: 1.8rem; display: block; margin-bottom: 12px; opacity: 0.35; }
+        .sa-empty-title { font-size: 0.9rem; font-weight: 700; color: var(--text-2); margin-bottom: 4px; }
+        .sa-empty-sub { font-size: 0.78rem; }
+        .sa-divider { height: 1px; background: var(--border); margin: 4px 0; }
+        .sa-stat-chip {
+            display: flex; align-items: center; gap: 6px;
+            padding: 8px 14px; border-radius: 10px;
+            font-size: 0.78rem; font-weight: 700;
+        }
+        .sa-stat-chip .val { font-size: 1.05rem; font-weight: 900; }
+        .sa-stat-chip.green { background: rgba(34,197,94,0.07); border: 1px solid rgba(34,197,94,0.14); color: var(--text-2); }
+        .sa-stat-chip.green .val { color: var(--green-2); }
+        .sa-stat-chip.amber { background: rgba(245,158,11,0.07); border: 1px solid rgba(245,158,11,0.14); color: var(--text-2); }
+        .sa-stat-chip.amber .val { color: var(--amber-2); }
+        .sa-stat-chip.violet { background: rgba(167,139,250,0.07); border: 1px solid rgba(167,139,250,0.14); color: var(--text-2); }
+        .sa-stat-chip.violet .val { color: var(--violet-2); }
+
+        /* ═══════════════════════════════════════════════════
+           INFO PANELS
+        ═══════════════════════════════════════════════════ */
+        .sa-info-panel {
+            display: flex; gap: 12px; align-items: flex-start;
+            background: rgba(99,102,241,0.04);
+            border: 1px solid rgba(99,102,241,0.14);
+            border-radius: 12px; padding: 16px 18px;
+        }
+        .sa-info-icon {
+            width: 32px; height: 32px; border-radius: 8px;
+            background: rgba(99,102,241,0.12);
+            display: flex; align-items: center; justify-content: center;
+            color: #818cf8; flex-shrink: 0;
+        }
+        .sa-info-title { font-size: 0.84rem; font-weight: 700; color: var(--text-1); margin-bottom: 4px; }
+        .sa-info-body { font-size: 0.78rem; color: var(--text-2); line-height: 1.65; }
+        .sa-info-body code { background: rgba(255,255,255,0.07); padding: 1px 5px; border-radius: 4px; }
+
+        /* ═══════════════════════════════════════════════════
+           RESPONSIVE
+        ═══════════════════════════════════════════════════ */
+        @media (max-width: 1200px) {
+            .sa-kpi-grid-4 { grid-template-columns: repeat(2, 1fr); }
+            .sa-form-grid-4 { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 1024px) {
+            .sa-col-7-5, .sa-grid-2 { grid-template-columns: 1fr; }
+            .sa-kpi-grid-3 { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 900px) {
+            :root { --sidebar-w: 0px; }
+            .sa-sidebar { transform: translateX(-100%); transition: transform 0.25s; }
+            .sa-sidebar.open { transform: translateX(0); --sidebar-w: 248px; }
+            .sa-main { margin-left: 0; }
+            .sa-content { padding: 18px 16px 40px; }
+        }
+        @media (max-width: 640px) {
+            .sa-kpi-grid-4, .sa-kpi-grid-3 { grid-template-columns: repeat(2, 1fr); }
+            .sa-form-grid-2, .sa-form-grid-4 { grid-template-columns: 1fr; }
+            .sa-page-header { flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ═══ SIDEBAR ═══════════════════════════════════════════ -->
+<aside class="sa-sidebar" id="saSidebar">
+
+    <div class="sa-brand">
+        <div class="sa-brand-icon">
+            <img src="/static/fav.png" alt="VP" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\'font-weight:900;font-size:1rem;color:#021f0a\'>V</span>'">
+        </div>
+        <div class="sa-brand-text">
+            <div class="sa-brand-name">VoidPanel</div>
+            <div class="sa-brand-sub">Admin Console</div>
+        </div>
+    </div>
+
+    <div class="sa-user">
+        <div class="sa-avatar">A</div>
+        <div>
+            <div class="sa-user-name">Super Admin</div>
+            <div class="sa-user-role">Full Access</div>
+        </div>
+    </div>
+
+    <nav class="sa-nav">
+        <div class="sa-section">Operations</div>
+        <a href="/super-admin/" class="sa-link {% if active_page == 'dashboard' %}active{% endif %}">
+            <i class="fas fa-gauge-high"></i> Dashboard
+        </a>
+        <a href="/super-admin/clients/" class="sa-link {% if active_page == 'clients' %}active{% endif %}">
+            <i class="fas fa-users"></i> Clients
+            {% if admin_stats.client_count %}<span class="sa-badge">{{ admin_stats.client_count }}</span>{% endif %}
+        </a>
+        <a href="/super-admin/billing/" class="sa-link {% if active_page == 'billing' %}active{% endif %}">
+            <i class="fas fa-receipt"></i> Billing
+            {% if admin_stats.unpaid_total %}<span class="sa-badge">₹{{ admin_stats.unpaid_total }}</span>{% endif %}
+        </a>
+        <a href="/super-admin/coupons/" class="sa-link {% if active_page == 'coupons' %}active{% endif %}">
+            <i class="fas fa-ticket-simple"></i> Coupons
+        </a>
+        <a href="/super-admin/tickets/" class="sa-link {% if active_page == 'tickets' %}active{% endif %}">
+            <i class="fas fa-headset"></i> Support
+            {% if admin_stats.open_ticket_count and admin_stats.open_ticket_count > 0 %}
+            <span class="sa-badge">{{ admin_stats.open_ticket_count }}</span>
+            {% endif %}
+        </a>
+        <a href="/super-admin/livechat/" class="sa-link {% if active_page == 'livechat' %}active{% endif %}">
+            <i class="fas fa-comments"></i> Live Chat
+        </a>
+        <a href="/super-admin/blogs/" class="sa-link {% if active_page == 'blogs' %}active{% endif %}">
+            <i class="fas fa-blog"></i> Blogs
+        </a>
+        <a href="/super-admin/whatsapp/" class="sa-link {% if active_page == 'whatsapp' %}active{% endif %}">
+            <i class="fa-brands fa-whatsapp"></i> WhatsApp Config
+        </a>
+
+        <div class="sa-section">Services</div>
+        <a href="/super-admin/services/" class="sa-link {% if active_page == 'super_admin_services' %}active{% endif %}">
+            <i class="fas fa-cubes"></i> Active Services
+        </a>
+
+        <!-- Web Hosting -->
+        <div class="sa-service-group {% if active_page in 'hosting' %}open{% endif %}" id="sg-hosting">
+          <div class="sa-service-head" onclick="toggleGroup('sg-hosting')">
+            <span><i class="fas fa-cube" style="color:#22c55e;width:16px;text-align:center;"></i> Web Hosting</span>
+            <i class="fas fa-chevron-right sa-chevron"></i>
+          </div>
+          <div class="sa-service-body">
+            <a href="/super-admin/hosting/" class="sa-sub-link {% if active_page == 'hosting' %}active{% endif %}">
+              <i class="fas fa-list"></i> All Packages
+            </a>
+            <a href="/super-admin/hosting/?create=shared" class="sa-sub-link sa-create-link">
+              <i class="fas fa-plus"></i> Create Shared Hosting
+            </a>
+            <a href="/super-admin/hosting/?create=wordpress" class="sa-sub-link sa-create-link">
+              <i class="fab fa-wordpress"></i> Create WordPress Plan
+            </a>
+          </div>
+        </div>
+
+        <!-- Reseller Hosting -->
+        <div class="sa-service-group {% if active_page == 'reseller' %}open{% endif %}" id="sg-reseller">
+          <div class="sa-service-head" onclick="toggleGroup('sg-reseller')">
+            <span><i class="fas fa-store" style="color:#a855f7;width:16px;text-align:center;"></i> Reseller Hosting</span>
+            {% if admin_stats.reseller_count %}<span class="sa-badge violet">{{ admin_stats.reseller_count }}</span>{% endif %}
+            <i class="fas fa-chevron-right sa-chevron"></i>
+          </div>
+          <div class="sa-service-body">
+            <a href="/super-admin/reseller/" class="sa-sub-link {% if active_page == 'reseller' %}active{% endif %}">
+              <i class="fas fa-list"></i> Manage Plans
+            </a>
+            <a href="/super-admin/reseller/?create=1" class="sa-sub-link sa-create-link">
+              <i class="fas fa-plus"></i> Create Reseller Plan
+            </a>
+          </div>
+        </div>
+
+
+        <!-- Email Plans -->
+        <div class="sa-service-group {% if active_page == 'email_plans' %}open{% endif %}" id="sg-email">
+          <div class="sa-service-head" onclick="toggleGroup('sg-email')">
+            <span><i class="fas fa-envelope-open-text" style="color:#f59e0b;width:16px;text-align:center;"></i> Email Plans</span>
+            <i class="fas fa-chevron-right sa-chevron"></i>
+          </div>
+          <div class="sa-service-body">
+            <a href="/super-admin/email-plans/" class="sa-sub-link {% if active_page == 'email_plans' %}active{% endif %}">
+              <i class="fas fa-list"></i> All Email Plans
+            </a>
+            <a href="/super-admin/email-plans/?create=1" class="sa-sub-link sa-create-link">
+              <i class="fas fa-plus"></i> Create Email Plan
+            </a>
+          </div>
+        </div>
+
+        <!-- SSL Plans -->
+        <div class="sa-service-group {% if active_page in 'ssl_plans,ssl_services' %}open{% endif %}" id="sg-ssl">
+          <div class="sa-service-head" onclick="toggleGroup('sg-ssl')">
+            <span><i class="fas fa-lock" style="color:#34d399;width:16px;text-align:center;"></i> SSL Plans</span>
+            <i class="fas fa-chevron-right sa-chevron"></i>
+          </div>
+          <div class="sa-service-body">
+            <a href="/super-admin/ssl-plans/" class="sa-sub-link {% if active_page == 'ssl_plans' %}active{% endif %}">
+              <i class="fas fa-list"></i> All SSL Plans
+            </a>
+            <a href="/super-admin/ssl-services/" class="sa-sub-link {% if active_page == 'ssl_services' %}active{% endif %}">
+              <i class="fas fa-certificate"></i> SSL Services
+            </a>
+            <a href="/super-admin/ssl-plans/?create=1" class="sa-sub-link sa-create-link">
+              <i class="fas fa-plus"></i> Create SSL Plan
+            </a>
+          </div>
+        </div>
+
+        <!-- SEO Suite -->
+        <div class="sa-service-group {% if active_page == 'suite_plans' and current_suite == 'seo' %}open{% endif %}" id="sg-seo-plans">
+          <div class="sa-service-head" onclick="toggleGroup('sg-seo-plans')">
+            <span><i class="fas fa-search-plus" style="color:#10b981;width:16px;text-align:center;"></i> SEO Suite</span>
+            <i class="fas fa-chevron-right sa-chevron"></i>
+          </div>
+          <div class="sa-service-body">
+            <a href="/super-admin/suite-plans/?suite=seo" class="sa-sub-link {% if active_page == 'suite_plans' and current_suite == 'seo' %}active{% endif %}">
+              <i class="fas fa-list"></i> SEO Plans
+            </a>
+          </div>
+        </div>
+
+        <!-- Social Media Suite -->
+        <div class="sa-service-group {% if active_page == 'social_api' or active_page == 'suite_plans' and current_suite == 'social' %}open{% endif %}" id="sg-social-suite-plans">
+          <div class="sa-service-head" onclick="toggleGroup('sg-social-suite-plans')">
+            <span><i class="fas fa-share-nodes" style="color:#f472b6;width:16px;text-align:center;"></i> Social Media Suite</span>
+            <i class="fas fa-chevron-right sa-chevron"></i>
+          </div>
+          <div class="sa-service-body">
+            <a href="/super-admin/suite-plans/?suite=social" class="sa-sub-link {% if active_page == 'suite_plans' and current_suite == 'social' %}active{% endif %}">
+              <i class="fas fa-list"></i> Social Plans
+            </a>
+            <a href="/super-admin/social-api/" class="sa-sub-link {% if active_page == 'social_api' %}active{% endif %}">
+              <i class="fas fa-key"></i> API Keys & Platforms
+            </a>
+          </div>
+        </div>
+
+        <!-- Marketing Suite -->
+        <div class="sa-service-group {% if active_page == 'suite_plans' and current_suite == 'marketing' %}open{% endif %}" id="sg-marketing-suite-plans">
+          <div class="sa-service-head" onclick="toggleGroup('sg-marketing-suite-plans')">
+            <span><i class="fas fa-bullhorn" style="color:#fbbf24;width:16px;text-align:center;"></i> Marketing Suite</span>
+            <i class="fas fa-chevron-right sa-chevron"></i>
+          </div>
+          <div class="sa-service-body">
+            <a href="/super-admin/suite-plans/?suite=marketing" class="sa-sub-link {% if active_page == 'suite_plans' and current_suite == 'marketing' %}active{% endif %}">
+              <i class="fas fa-list"></i> Marketing Plans
+            </a>
+          </div>
+        </div>
+
+        <!-- All Digital Suites -->
+        <div class="sa-service-group {% if active_page == 'suite_plans' and not current_suite %}open{% endif %}" id="sg-suites">
+          <div class="sa-service-head" onclick="toggleGroup('sg-suites')">
+            <span><i class="fas fa-cubes" style="color:#38bdf8;width:16px;text-align:center;"></i> Digital Suites (All)</span>
+            <i class="fas fa-chevron-right sa-chevron"></i>
+          </div>
+          <div class="sa-service-body">
+            <a href="/super-admin/suite-plans/" class="sa-sub-link {% if active_page == 'suite_plans' and not current_suite %}active{% endif %}">
+              <i class="fas fa-list"></i> All Suite Plans
+            </a>
+            <a href="/super-admin/suite-plans/" class="sa-sub-link sa-create-link">
+              <i class="fas fa-plus"></i> Create Suite Plan
+            </a>
+          </div>
+        </div>
+
+        <!-- Domain API -->
+        <div class="sa-service-group {% if active_page == 'domain-api' %}open{% endif %}" id="sg-domain">
+          <div class="sa-service-head" onclick="toggleGroup('sg-domain')">
+            <span><i class="fas fa-globe" style="color:#0ea5e9;width:16px;text-align:center;"></i> Domains</span>
+            <i class="fas fa-chevron-right sa-chevron"></i>
+          </div>
+          <div class="sa-service-body">
+            <a href="/super-admin/domain-api/" class="sa-sub-link {% if active_page == 'domain-api' %}active{% endif %}">
+              <i class="fas fa-plug"></i> Domain API Config
+            </a>
+          </div>
+        </div>
+
+        <div class="sa-section">Infrastructure</div>
+        <a href="/super-admin/servers/" class="sa-link {% if active_page == 'servers' %}active{% endif %}">
+            <i class="fas fa-server"></i> Servers
+        </a>
+        <a href="/super-admin/licenses/" class="sa-link {% if active_page == 'licenses' %}active{% endif %}">
+            <i class="fas fa-key"></i> Licenses
+            {% if license_active_count %}<span class="sa-badge green">{{ license_active_count }}</span>{% endif %}
+        </a>
+        <a href="/super-admin/payment-gateway/" class="sa-link {% if active_page == 'payment_gateway' %}active{% endif %}">
+            <i class="fas fa-credit-card"></i> Payment Gateway
+            {% if not razorpay_active %}<span class="sa-badge" style="background:rgba(239,68,68,0.1);color:#f87171;">Off</span>{% else %}<span class="sa-badge green">On</span>{% endif %}
+        </a>
+        <a href="/super-admin/ai-keys/" class="sa-link {% if active_page == 'ai_keys' %}active{% endif %}">
+            <i class="fas fa-robot"></i> AI Keys
+        </a>
+
+        <div class="sa-section">Access & Config</div>
+        <a href="/super-admin/staff/" class="sa-link {% if active_page == 'staff' %}active{% endif %}">
+            <i class="fas fa-user-shield"></i> Staff
+        </a>
+        <a href="/super-admin/roles/" class="sa-link {% if active_page == 'roles' %}active{% endif %}">
+            <i class="fas fa-layer-group"></i> Roles
+        </a>
+        <a href="/super-admin/emails/" class="sa-link {% if active_page == 'emails' %}active{% endif %}">
+            <i class="fas fa-envelope-circle-check"></i> Email Config
+        </a>
+        <a href="/super-admin/base-email/" class="sa-link {% if active_page == 'base_email' %}active{% endif %}">
+            <i class="fas fa-envelopes-bulk" style="color:#3b82f6;"></i> Base Email Templates
+        </a>
+        <a href="/super-admin/signals/" class="sa-link {% if active_page == 'signals' %}active{% endif %}">
+            <i class="fas fa-satellite-dish"></i> Signals
+        </a>
+        <a href="/super-admin/notifications/" class="sa-link {% if active_page == 'notifications' %}active{% endif %}">
+            <i class="fas fa-bullhorn"></i> Notifications
+        </a>
+        <a href="/super-admin/auto-suspend/" class="sa-link {% if active_page == 'auto_suspend' %}active{% endif %}">
+            <i class="fas fa-shield-halved"></i> Auto-Suspend
+        </a>
+        <a href="/super-admin/chips/" class="sa-link {% if active_page == 'chips' %}active{% endif %}">
+            <i class="fas fa-coins"></i> Void Chips
+        </a>
+        <a href="/super-admin/try-voidpanel/" class="sa-link {% if active_page == 'try_voidpanel' %}active{% endif %}">
+            <i class="fas fa-play-circle"></i> Try VoidPanel
+        </a>
+    </nav>
+
+    <div class="sa-footer">
+        <div class="sa-mini-stats">
+            <div class="sa-stat-row">
+                <span>MRR</span>
+                <span class="green">₹{{ admin_stats.monthly_revenue|default:"0" }}</span>
+            </div>
+            <div class="sa-stat-row">
+                <span>Outstanding</span>
+                <span class="{% if admin_stats.unpaid_total %}amber{% else %}green{% endif %}">₹{{ admin_stats.unpaid_total|default:"0" }}</span>
+            </div>
+            <div class="sa-stat-row">
+                <span>Staff</span>
+                <span>{{ admin_stats.staff_count|default:"0" }}</span>
+            </div>
+        </div>
+        <a href="/portal/" class="sa-footer-btn primary"><i class="fas fa-user-circle"></i> Client View</a>
+        <a href="/logout/" class="sa-footer-btn ghost"><i class="fas fa-right-from-bracket"></i> Sign Out</a>
+    </div>
+</aside>
+
+<!-- ═══ MAIN ══════════════════════════════════════════════ -->
+<div class="sa-main">
+
+    <!-- Top Bar -->
+    <div class="sa-topbar">
+        <div class="sa-topbar-left">
+            <div class="sa-breadcrumb">
+                <i class="fas fa-house-chimney" style="font-size:0.7rem;color:var(--text-3);"></i>
+                <span style="color:var(--text-3);">/</span>
+                <span>{% block breadcrumb %}Admin{% endblock %}</span>
+            </div>
+        </div>
+        <div class="sa-topbar-right">
+            <a href="/portal/" class="sa-topbar-chip"><i class="fas fa-arrow-left"></i> Back to Site</a>
+            <div class="sa-topbar-chip" style="background:rgba(34,197,94,0.07);border-color:rgba(34,197,94,0.14);color:var(--green-2);">
+                <i class="fas fa-circle" style="font-size:0.45rem;"></i> Live
+            </div>
+        </div>
+    </div>
+
+    <!-- Content Area -->
+    <div class="sa-content">
+        {% if messages %}
+        {% for message in messages %}
+        <div class="sa-flash {% if 'error' in message.tags or 'warning' in message.tags %}error{% else %}success{% endif %}">
+            <i class="fas {% if 'error' in message.tags or 'warning' in message.tags %}fa-triangle-exclamation{% else %}fa-circle-check{% endif %}"></i>
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        {% block admin_content %}{% endblock %}
+    </div>
+</div>
+<!-- ═══ GLOBAL LIVE CHAT STAFF NOTIFICATION POLLER ════════════════════ -->
+<div id="lcNotifToast" style="
+    display:none;position:fixed;bottom:28px;left:28px;z-index:99999;
+    background:#0f1c2e;border:1px solid rgba(89,196,188,0.4);border-radius:14px;
+    padding:14px 18px;min-width:300px;max-width:380px;
+    box-shadow:0 16px 40px rgba(0,0,0,0.6);
+    font-family:'Inter',sans-serif;cursor:pointer;
+    animation:lcSlideIn 0.3s ease;
+" onclick="this.style.display='none'">
+    <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:38px;height:38px;border-radius:50%;background:rgba(89,196,188,0.15);border:1px solid rgba(89,196,188,0.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.2rem;">💬</div>
+        <div style="flex:1;min-width:0;">
+            <div id="lcNotifTitle" style="font-size:0.84rem;font-weight:700;color:#e2eaf6;">New message</div>
+            <div id="lcNotifBody" style="font-size:0.75rem;color:#5a7a94;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+        </div>
+        <a id="lcNotifLink" href="#" style="font-size:0.72rem;font-weight:700;color:#59c4bc;white-space:nowrap;padding:6px 10px;border:1px solid rgba(89,196,188,0.25);border-radius:7px;transition:background 0.14s;" onmouseenter="this.style.background='rgba(89,196,188,0.08)'" onmouseleave="this.style.background='none'">Open →</a>
+    </div>
+</div>
+<style>
+@keyframes lcSlideIn { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+</style>
+
+<script>
+(function() {
+    let lcNotifLastId = parseInt(sessionStorage.getItem('lc_notif_last_id') || '0', 10);
+    let toastTimeout = null;
+
+    // ── Web Audio API beep (no external file needed) ──
+    function playRing() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            [0, 120, 240].forEach(delay => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, ctx.currentTime + delay / 1000);
+                osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + delay / 1000 + 0.15);
+                gain.gain.setValueAtTime(0.35, ctx.currentTime + delay / 1000);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay / 1000 + 0.2);
+                osc.start(ctx.currentTime + delay / 1000);
+                osc.stop(ctx.currentTime + delay / 1000 + 0.2);
+            });
+        } catch(e) {}
+    }
+
+    // ── Browser Notification (asks permission once) ──
+    function requestNotifPermission() {
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+    }
+    requestNotifPermission();
+
+    function showBrowserNotif(title, body, sessionId) {
+        if ('Notification' in window && Notification.permission === 'granted') {
+            const n = new Notification(title, {
+                body: body,
+                icon: '/static/fav.png',
+                tag: 'lc-' + sessionId,
+                renotify: true,
+            });
+            n.onclick = () => { window.focus(); window.location = '/super-admin/livechat/' + sessionId + '/'; n.close(); };
+            setTimeout(() => n.close(), 7000);
+        }
+    }
+
+    // ── Toast popup ──
+    function showToast(alert) {
+        const toast = document.getElementById('lcNotifToast');
+        const title = document.getElementById('lcNotifTitle');
+        const body = document.getElementById('lcNotifBody');
+        const link = document.getElementById('lcNotifLink');
+
+        title.textContent = '💬 ' + alert.user_label + ' — Session #' + alert.session_id;
+        body.textContent = alert.preview || '(attachment)';
+        link.href = '/super-admin/livechat/' + alert.session_id + '/';
+
+        toast.style.display = 'block';
+        if(toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => { toast.style.display = 'none'; }, 8000);
+    }
+
+    // ── Poll loop ──
+    function pollNotifications() {
+        fetch('/livechat/admin/notify/?last_id=' + lcNotifLastId)
+        .then(r => r.json())
+        .then(d => {
+            if(d.status === 'ok' && d.alerts && d.alerts.length > 0) {
+                d.alerts.forEach(alert => {
+                    playRing();
+                    showToast(alert);
+                    showBrowserNotif(
+                        '🔔 VoidPanel Live Chat — Session #' + alert.session_id,
+                        alert.user_label + ': ' + (alert.preview || '(attachment)'),
+                        alert.session_id
+                    );
+                });
+                lcNotifLastId = d.max_id;
+                sessionStorage.setItem('lc_notif_last_id', lcNotifLastId);
+            }
+        })
+        .catch(() => {});
+    }
+
+    // Start polling (every 5 seconds)
+    setInterval(pollNotifications, 5000);
+    // Kick off immediately after a short delay to get a baseline ID
+    setTimeout(function() {
+        fetch('/livechat/admin/notify/?last_id=0')
+        .then(r => r.json())
+        .then(d => {
+            if(d.status === 'ok' && d.max_id) {
+                lcNotifLastId = d.max_id;
+                sessionStorage.setItem('lc_notif_last_id', lcNotifLastId);
+            }
+        }).catch(() => {});
+    }, 800);
+})();
+</script>
+<script>
+// ── Sidebar collapsible service groups ──
+function toggleGroup(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle('open');
+    // Persist state
+    try { sessionStorage.setItem('sg_' + id, el.classList.contains('open') ? '1' : '0'); } catch(e){}
+}
+// Restore persisted states on load
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.sa-service-group').forEach(function(el) {
+        const saved = sessionStorage.getItem('sg_' + el.id);
+        if (saved === '1') el.classList.add('open');
+        else if (saved === '0') el.classList.remove('open');
+    });
+    // Auto-open group for current ?create= param
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('create') || params.get('type')) {
+        // Keep whichever group was already opened by Django template
+    }
+});
+</script>
+
+</body>
+</html>

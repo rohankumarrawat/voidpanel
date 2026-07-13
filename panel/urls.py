@@ -19,12 +19,13 @@ from django.urls import path,include
 from django.conf import settings
 from django.conf.urls.static import static
 from . import views
+from . import ai_views
 from django.contrib.auth.decorators import login_required
 
   
 urlpatterns = [
 
-  path('admin/', admin.site.urls),
+  # path('admin/', admin.site.urls),
     path('',views.login_user),
        path('logout/', views.logoutt, name='logout'),
     path('panel/',views.panel),
@@ -48,16 +49,21 @@ urlpatterns = [
      path('files/<str:data>/', views.files, name='files'),
      path('listwebsite/', views.listwebsite, name='listwebsite'),
      path('listusers/', views.listusers, name='listusers'),
+     path('services/', views.installed_services, name='installed_services'),
      path('listdns/', views.listdns, name='listdns'),
-    path('adddnsrecord/', views.adddnsrecord, name='adddnsrecord'),
-    path('addemailaccount/', views.addemailaccount, name='addemailaccount'),
-    path('loginuser/', views.loginuser, name='loginuser'),
+     path('adddnsrecord/', views.adddnsrecord, name='adddnsrecord'),
+     path('editdnsrecord/', views.editdnsrecord, name='editdnsrecord'),
+     path('addemailaccount/', views.addemailaccount, name='addemailaccount'),
+     path('loginuser/', views.loginuser, name='loginuser'),
+     path('processmanager/', views.processmanager, name='processmanager'),
+     path('api/process_action/', views.process_action, name='process_action'),
 
-    path('download/', views.download_file, name='download_file'),
+     path('download/', views.download_file, name='download_file'),
     path('deletefile/<path:file_path>/', views.delete_file, name='download_file'),
     path('editor_view/<path:file_path>/', views.editor_view, name='editor'),
     path('save/', views.save_file, name='save_file'),
      path('updatepanel/', views.updatepanel, name='updatepanel'),
+     path('checkversion/', views.checkversion, name='checkversion'),
      path('upload/<path:file_path>/', views.upload_files),
      path('listemail/<str:data>/', views.listemail),
      path('emailmarketing/<str:data>/', views.emailmarketing),
@@ -72,6 +78,18 @@ urlpatterns = [
           path('ddeletedata/', views.ddeletedata, name='ddeletedata'),
     path('renamedata/', views.renamedata, name='renamedata'),
     path('permissiondata/', views.permissiondata, name='permissiondata'),
+    path('trash/', views.trash_list, name='trash_list'),
+    path('trash/restore/', views.trash_restore, name='trash_restore'),
+    path('trash/empty/', views.trash_empty, name='trash_empty'),
+
+    # ── Web IDE ──────────────────────────────────────────────────────────────
+    path('webide/', views.webide_view, name='webide_root', kwargs={'folder_path': ''}),
+    path('webide/<path:folder_path>/', views.webide_view, name='webide'),
+    path('api/file-tree/', views.api_file_tree, name='api_file_tree'),
+    path('api/file-content/', views.api_file_content, name='api_file_content'),
+    path('api/webide-save/', views.webide_save, name='webide_save'),
+    # ─────────────────────────────────────────────────────────────────────────
+
       path('changeemailpassword/', views.changeemailpassword, name='changeemailpassword'),
       path('adddatabase/', views.adddatabase, name='adddatabase'),
       path('addpython/', views.addpython, name='addpython'),
@@ -82,6 +100,7 @@ urlpatterns = [
        path('dbuserremove/<str:data>/<str:database>/', views.dbuserremove, name='dbreomve'),
         path('changepasswordforuser/', views.changepasswordforuser, name='changepasswordforuser'),
         path('addpermissiontouser/', views.addpermissiontouser, name='addpermissiontouser'),
+        path('revokeprivilege/', views.revokeprivilege, name='revokeprivilege'),
         path('cron/<str:data>', views.cronn, name='cron'),
         path('subdomain/<str:data>', views.subdomain, name='subdomain'),
 
@@ -110,17 +129,26 @@ urlpatterns = [
            path('update/', views.update, name='update'),
            path('maincron/', views.maincron, name='maincron'),
            path('chpass/', views.chpass, name='chpass'),
+           path('copysite/', views.copysite, name='copysite'),
+           path('copysite/status/', views.copysite_status, name='copysite_status'),
             path('download_zip_backup/<str:filename>/<str:user>/', views.download_zip_backup, name='download_zip_backup'),
              path('runsslforall/', views.runsslforall, name='runsslforall'),
              path('runsslforall1/', views.runsslforall1, name='runsslforall1'),
              path('runsslall/', views.runsslall, name='runsslall'),
               path('hostname/', views.hostname, name='hostname'),
+              path('notify/', views.notify_settings, name='notify_settings'),
+              path('notify/test/', views.notify_test_smtp, name='notify_test_smtp'),
+              path('notify/save/', views.notify_save_settings, name='notify_save_settings'),
+              path('branding/', views.panel_branding_settings, name='panel_branding'),
+              path('branding/save/', views.panel_branding_save, name='panel_branding_save'),
               path('installphpversion/', views.installphpversion, name='installphpversion'),
 
-               path('cpbrute/', views.cpbrute, name='cpbrute'),
-               path('fulldbwizard/', views.fulldbwizard, name='fulldbwizard'),
-               path('allemailwizard/', views.allemailwizard, name='allemailwizard'),
+                path('cpbrute/', views.cpbrute, name='cpbrute'),
+                path('fulldbwizard/', views.fulldbwizard, name='fulldbwizard'),
+                path('allemailwizard/', views.allemailwizard, name='allemailwizard'),
+                path('emailconfig/', views.emailconfig, name='emailconfig'),
                 path('phpsetting/', views.phpsetting, name='phpsetting'),
+                path('savephpini/', views.savephpini, name='savephpini'),
                 path('allowip/', views.allowip, name='allowip'),
                 path('denyip/', views.denyip, name='denyip'),
                 path('ignoreip/', views.ignoreip, name='ignoreip'),
@@ -129,6 +157,7 @@ urlpatterns = [
 
 
                  path('cpbruteforce/', views.cpbruteforce, name='cpbruteforce'),
+                 path('installcsf/', views.installcsf, name='installcsf'),
                path('deleteemail/<str:data>/', views.deleteemail, name='deleteer'),
                path('deleteemai/<str:data>/', views.deleteemai, name='deletere'),
            
@@ -140,6 +169,7 @@ urlpatterns = [
 
                path('convertwebsite/', views.convertwebsite, name='convertwebsite'),
                path('delpackage/<str:data>/', views.delpackage, name='delpackage'),
+               path('editpackage/', views.editpackage, name='editpackage'),
                path('cwtd/', views.cwtd, name='cwtd'),
                path('serverstatus/', views.serverstatus, name='serverstatus'),
                path('restart_now/', views.restart_now, name='restart_now'),
@@ -155,6 +185,8 @@ urlpatterns = [
                path('restartservice/', views.restartservice, name='restartservice'),
                path('chpassuser/', views.chpassuser, name='chpassuser'),
      path('chpackageuser/', views.chpackageuser, name='chpackageuser'),
+      path('api/mail_diagnostics/', views.mail_diagnostics, name='mail_diagnostics'),
+      path('api/mail_diagnostics/repair/', views.mail_diagnostics_repair, name='mail_diagnostics_repair'),
        path('terminalname/', views.terminalname, name='terminalnamename'),
        path('terminalnamenpm/', views.terminalnamenpm, name='terminalnamenamenpm'),
 
@@ -165,11 +197,69 @@ urlpatterns = [
     path('api/suspend-account/', views.suspend_account, name='suspend_account'),
     path('api/unsuspend-account/', views.unsuspend_account, name='unsuspend_account'),
     path('api/terminate-account/', views.terminate_account, name='terminate_account'),
+    
+    # Internal automated provisioning paths for the frontend web portal
+    path('api/provision/create/', __import__('panel.api_provision').api_provision.portal_provision_create),
+    path('api/provision/suspend/', __import__('panel.api_provision').api_provision.portal_provision_suspend),
+    path('api/provision/unsuspend/', __import__('panel.api_provision').api_provision.portal_provision_unsuspend),
+
+    # ── PUBLIC REST API v2 (WHMCS / remote automation) ───────────────────────
+    path('api/v2/', include('panel.api_v2_urls')),
+
+       path('analytics/', views.analytics, name='analytics'),
+       path('webserver/', views.webserver_manager, name='webserver_manager'),
+       path('ols-admin/', views.ols_admin_proxy, name='ols_admin_proxy'),
+       path('api/site-config/get/', views.api_get_site_config, name='api_get_site_config'),
+       path('api/site-config/save/', views.api_save_site_config, name='api_save_site_config'),
+       path('api/email/suspend-incoming/', views.suspendemail_incoming, name='suspendemail_incoming'),
+       path('api/email/suspend-outgoing/', views.suspendemail_outgoing, name='suspendemail_outgoing'),
+       path('api/email/set-limit/', views.set_email_limit, name='set_email_limit'),
+       
+       # ── Support Ticket (Proxy to VoidPanel.com) ───────────────────────────
+       path('support/', views.support_page, name='support'),
+       path('api/tickets/create/',              views.api_ticket_create, name='api_ticket_create'),
+       path('api/tickets/list/',                views.api_ticket_list,   name='api_ticket_list'),
+       path('api/tickets/<str:ticket_id>/',     views.api_ticket_detail, name='api_ticket_detail'),
+       path('api/tickets/<str:ticket_id>/reply/', views.api_ticket_reply, name='api_ticket_reply'),
        
 
-    
+       path('restorewizard/', views.restore_wizard, name='restore_wizard'),
+       path('api/restore/process/', views.process_restore, name='process_restore'),
+       path('user-terminal/<str:username>/', views.user_terminal, name='user_terminal'),
+       path('api/toggle-shell/', views.toggle_shell_access, name='toggle_shell_access'),
+       path('api/admin/set-reseller/', views.api_set_reseller, name='api_set_reseller'),
+       path('api/nginx-cache/status/', views.api_nginx_cache_status, name='api_nginx_cache_status'),
+       path('api/nginx-cache/toggle/', views.api_nginx_cache_toggle, name='api_nginx_cache_toggle'),
 
-    
+       # ── Activity Log ──────────────────────────────────────────────────────
+       path('activitylog/', views.activitylog_page, name='activitylog'),
+       path('api/activity-logs/', views.api_activity_logs, name='api_activity_logs'),
+       path('api/activity-logs/clear/', views.api_clear_activity_logs, name='api_clear_activity_logs'),
+
+       # ── License / Activation (exempt from LicenseMiddleware) ─────────────
+       path('activate/', views.activate_panel, name='activate_panel'),
+       path('api/license/validate/', __import__('panel.api_provision').api_provision.portal_license_validate),
+
+       # ── API Token Management ──────────────────────────────────────────────
+       path('api-tokens/',               views.api_tokens_page,   name='api_tokens_page'),
+       path('api-tokens/create/',        views.api_token_create,  name='api_token_create'),
+       path('api-tokens/revoke/<int:token_id>/', views.api_token_revoke, name='api_token_revoke'),
+
+       # ── Email Hosting Services (portal-provisioned) ───────────────────────
+       path('email-services/', views.email_services_admin, name='email_services_admin'),
+
+       # ── SSO Auto-Login (from voidpanel.com client portal) ─────────────────
+       path('autologin/', views.autologin, name='autologin'),
+
+        # ── Agentic AI ───────────────────────────────────────────────────────────
+        path('api/agent/chat/',    ai_views.ai_chat_handler,  name='ai_chat_handler'),
+        path('api/agent/execute/', ai_views.ai_execute_tool,  name='ai_execute_tool'),
+
+        # ── License Management ────────────────────────────────────────────────
+        path('license/',           views.panel_license_page,     name='panel_license'),
+        path('license/refresh/',   views.panel_license_refresh,  name='panel_license_refresh'),
+        path('license/activate/',  views.panel_license_activate, name='panel_license_activate'),
+
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

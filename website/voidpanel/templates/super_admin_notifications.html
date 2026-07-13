@@ -1,0 +1,165 @@
+{% extends "super_admin_base.html" %}
+{% block title %}Notifications | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}Notifications{% endblock %}
+
+{% block admin_content %}
+
+<div class="sa-page-header">
+    <div>
+        <div class="sa-page-title">Notifications &amp; Broadcasts</div>
+        <div class="sa-page-sub">Communicate globally with portal users and VoidPanel control panel instances</div>
+    </div>
+</div>
+
+<!-- ── Quick Actions ── -->
+<div class="sa-grid-2">
+    <!-- Email All Users Card -->
+    <div class="sa-card" style="border-color:rgba(14,165,233,0.18);">
+        <div class="sa-card-head" style="margin-bottom:10px;">
+            <div class="sa-card-title"><i class="fas fa-envelopes-bulk" style="color:var(--sky);"></i> Email All Users</div>
+        </div>
+        <p style="font-size:0.78rem;color:var(--text-2);margin-bottom:18px;">
+            Broadcast an email message directly to all registered portal users.
+        </p>
+        <button class="sa-btn sky" onclick="document.getElementById('email-modal').classList.add('show')">
+            <i class="fas fa-paper-plane"></i> Compose Email
+        </button>
+    </div>
+
+    <!-- Panel Broadcast Card -->
+    <div class="sa-card" style="border-color:rgba(167,139,250,0.18);">
+        <div class="sa-card-head" style="margin-bottom:10px;">
+            <div class="sa-card-title"><i class="fas fa-satellite-dish" style="color:var(--violet);"></i> VoidPanel Notification</div>
+        </div>
+        <p style="font-size:0.78rem;color:var(--text-2);margin-bottom:18px;">
+            Send an instant notification that will appear in every active VoidPanel control panel.
+        </p>
+        <button class="sa-btn primary" onclick="document.getElementById('panel-notif-modal').classList.add('show')">
+            <i class="fas fa-satellite-dish"></i> New Broadcast
+        </button>
+    </div>
+</div>
+
+
+<!-- ── History ── -->
+<div class="sa-card" style="padding:0;overflow:hidden;margin-top:8px;">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);">
+        <div class="sa-card-title"><i class="fas fa-clock-rotate-left"></i> Previous VoidPanel Broadcasts</div>
+    </div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead>
+                <tr>
+                    <th>Broadcast Info</th>
+                    <th>Message</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for n in notifications %}
+                <tr>
+                    <td style="vertical-align:top;width:200px;">
+                        <div style="font-weight:700;color:var(--text-1);font-size:0.84rem;margin-bottom:3px;">{{ n.title|default:"VoidPanel Update" }}</div>
+                        <div style="font-size:0.72rem;color:var(--text-3);"><i class="fas fa-calendar-alt"></i> {{ n.date|date:"F d, Y H:i" }}</div>
+                        {% if n.photo %}
+                        <a href="{{ n.photo.url }}" target="_blank" style="font-size:0.72rem;color:var(--sky);display:inline-block;margin-top:6px;"><i class="fas fa-image"></i> View Image</a>
+                        {% endif %}
+                    </td>
+                    <td style="vertical-align:top;max-width:350px;">
+                        <div style="font-size:0.8rem;color:var(--text-2);line-height:1.5;white-space:pre-wrap;">{{ n.text }}</div>
+                    </td>
+                    <td style="text-align:right;vertical-align:top;">
+                        <form method="POST" action="/super-admin/notifications/" style="display:inline;" onsubmit="return confirm('Remove this notification from all instances?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete_panel_notification">
+                            <input type="hidden" name="notification_id" value="{{ n.id }}">
+                            <button type="submit" class="sa-btn ghost sm" style="color:var(--red-2);border-color:rgba(239,68,68,0.2);"><i class="fas fa-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3" class="sa-empty" style="padding:40px 0;"><i class="fas fa-satellite-dish"></i><div class="sa-empty-title">No broadcasts sent yet</div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ── Modals ── -->
+
+<!-- Email Broadcast Modal -->
+<div class="void-modal-bg" id="email-modal" style="display:none;position:fixed;inset:0;background:rgba(7,13,24,0.85);backdrop-filter:blur(8px);z-index:9999;align-items:center;justify-content:center;">
+    <div class="sa-card" style="width:100%;max-width:560px;margin:20px;position:relative;animation:popIn 0.3s cubic-bezier(0.34,1.56,0.64,1);">
+        <button onclick="document.getElementById('email-modal').classList.remove('show')" style="position:absolute;top:18px;right:18px;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:1rem;"><i class="fas fa-times"></i></button>
+        <div class="sa-card-head" style="margin-bottom:20px;">
+            <div class="sa-card-title"><i class="fas fa-envelopes-bulk" style="color:var(--sky);"></i> Email All Users</div>
+            <div class="sa-card-count">Send a mass email to all registered portal accounts</div>
+        </div>
+        <form method="POST" action="/super-admin/notifications/">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="email_all_users">
+            
+            <div class="sa-form-group">
+                <label class="sa-label">Subject</label>
+                <input type="text" name="subject" class="sa-input" placeholder="e.g. Important Maintenance Notice" required>
+            </div>
+            
+            <div class="sa-form-group">
+                <label class="sa-label">Message Body</label>
+                <textarea name="body" class="sa-input" style="min-height:180px;" placeholder="Type your email content here..." required></textarea>
+                <div style="font-size:0.7rem;color:var(--text-3);margin-top:6px;"><i class="fas fa-circle-info"></i> Your default email config will be used to dispatch this broadcast.</div>
+            </div>
+            
+            <div class="sa-form-actions">
+                <button type="button" class="sa-btn ghost" onclick="document.getElementById('email-modal').classList.remove('show')">Cancel</button>
+                <button type="submit" class="sa-btn sky"><i class="fas fa-paper-plane"></i> Send to All Users</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Panel Broadcast Modal -->
+<div class="void-modal-bg" id="panel-notif-modal" style="display:none;position:fixed;inset:0;background:rgba(7,13,24,0.85);backdrop-filter:blur(8px);z-index:9999;align-items:center;justify-content:center;">
+    <div class="sa-card" style="width:100%;max-width:560px;margin:20px;position:relative;animation:popIn 0.3s cubic-bezier(0.34,1.56,0.64,1);">
+        <button onclick="document.getElementById('panel-notif-modal').classList.remove('show')" style="position:absolute;top:18px;right:18px;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:1rem;"><i class="fas fa-times"></i></button>
+        <div class="sa-card-head" style="margin-bottom:20px;">
+            <div class="sa-card-title"><i class="fas fa-satellite-dish" style="color:var(--violet);"></i> VoidPanel Control Panel Broadcast</div>
+            <div class="sa-card-count">Send an alert down to every connected control panel instance</div>
+        </div>
+        <form method="POST" action="/super-admin/notifications/" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="send_panel_notification">
+            
+            <div class="sa-form-group">
+                <label class="sa-label">Title</label>
+                <input type="text" name="title" class="sa-input" placeholder="e.g. VoidPanel Update Available" value="VoidPanel Update" required>
+            </div>
+            
+            <div class="sa-form-group">
+                <label class="sa-label">Broadcast Text</label>
+                <textarea name="text" class="sa-input" style="min-height:100px;" placeholder="Enter the notification message to display inside the control panels..." required></textarea>
+            </div>
+
+            <div class="sa-form-group">
+                <label class="sa-label">Attach Image (Optional)</label>
+                <div style="position:relative;background:rgba(255,255,255,0.03);border:1px dashed rgba(255,255,255,0.15);border-radius:9px;padding:14px;text-align:center;">
+                    <input type="file" name="photo" accept="image/*" style="opacity:0;position:absolute;inset:0;cursor:pointer;width:100%;" onchange="document.getElementById('fileName').textContent=this.files[0]?this.files[0].name:'Choose an image...'">
+                    <i class="fas fa-image" style="font-size:1.5rem;color:var(--text-3);margin-bottom:8px;"></i>
+                    <div id="fileName" style="font-size:0.78rem;font-weight:600;color:var(--text-2);">Choose an image...</div>
+                </div>
+            </div>
+            
+            <div class="sa-form-actions">
+                <button type="button" class="sa-btn ghost" onclick="document.getElementById('panel-notif-modal').classList.remove('show')">Cancel</button>
+                <button type="submit" class="sa-btn primary"><i class="fas fa-broadcast-tower"></i> Broadcast to Panels</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .void-modal-bg.show { display: flex !important; }
+    @keyframes popIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+</style>
+
+{% endblock %}

@@ -1,423 +1,1389 @@
-# Variables
 #!/bin/bash
+set -euo pipefail
+
+# Global Configuration & Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+RESET='\033[0m'
+
+# Installation Log
+LOG_FILE="/var/log/voidpanel_install.log"
+exec > >(tee -i "$LOG_FILE") 2>&1
+
+print_header() {
+    clear
+    echo -e "${CYAN}=========================================================================="
+    echo "          VoidPanel Enterprise Installation Pipeline v2.5.24"
+    echo "=========================================================================="
+    echo -e " Time: $(date)"
+    echo -e " Logs: $LOG_FILE"
+    echo -e "==========================================================================${RESET}"
+}
+
+status_msg() { echo -e "${CYAN}[+] $1...${RESET}"; }
+success_msg() { echo -e "${GREEN}[✔] $1${RESET}"; }
+error_msg()   { echo -e "${RED}[!] $1${RESET}"; }
+warn_msg()    { echo -e "${YELLOW}[!] $1${RESET}"; }
+
+# ── Variables ──────────────────────────────────────────────────────────────────
 PROJECT_NAME="panel"
 PHP_VERSION="8.3"
 PROJECT_DIR="/var/www/$PROJECT_NAME"
 VENV_DIR="$PROJECT_DIR/venv"
-UWSGI_INI="$PROJECT_DIR/$PROJECT_NAME.ini"
 NGINX_CONF="/etc/nginx/sites-available/$PROJECT_NAME"
-NGINX_CONFf="/etc/nginx/sites-available/phpmyadmin"
-NGINX_CONF_LINK="/etc/nginx/sites-enabled/$PROJECT_NAME"
-DJANGO_SETTINGS="$PROJECT_DIR/$PROJECT_NAME/settings.py"
-PUBLIC_IP=$(curl -s ifconfig.me)
-MYSQL_USER="panel"
-MYSQL_USER_PASS=$(openssl rand -base64 12)
-DJANGO_SUPERUSER_PASSWORD=$(openssl rand -base64 12)
-MYSQL_ROOT_PASSWORD=$(openssl rand -base64 12)
-ROUNDCUBE_PASSWORD=$(openssl rand -base64 12)
-MYSQL_ROOT_PASS=$(openssl rand -base64 12)
-INSTALL_DIR="/usr/share/phpmyadmin"
-ROUNDCUBE_DB="roundcube"
-ROUNDCUBE_USER="roundcubeuser"
-NGINX_CONFR="/etc/nginx/sites-available/roundcube"
-PORT="9000"
-LOG_FILE="/root/error_log.txt"
-HOSTNAME=$(hostname)
-MYSQL_USERR="mailuser"
-MYSQL_PASS=$(openssl rand -base64 12)       
-NEWUSER=$(openssl rand -base64 12)     
-MYSQL_DB="mailserver"
+PUBLIC_IP=$(curl -4 -s --max-time 8 ifconfig.me 2>/dev/null \
+         || curl -4 -s --max-time 8 api.ipify.org 2>/dev/null \
+         || echo "127.0.0.1")
+MYSQL_ROOT_PASS=$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 20)
+DJANGO_SUPERUSER_PASS=$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 20)
+HOSTNAME_FQDN=$(hostname -f 2>/dev/null || hostname)
+INSTALL_START_DIR="$PWD"
 
+print_header
 
+# =============================================================================
+#  UBUNTU 22.04 VERSION CHECK
+# =============================================================================
+if [[ -f /etc/os-release ]]; then
+    source /etc/os-release
+    if [[ "$ID" != "ubuntu" ]]; then
+        warn_msg "This script is designed for Ubuntu 22.04. Detected: $PRETTY_NAME — proceeding anyway."
+    elif [[ "$VERSION_ID" != "22.04" && "$VERSION_ID" != "24.04" ]]; then
+        warn_msg "Recommended Ubuntu version is 22.04 or 24.04. Detected: $VERSION_ID — some packages may differ."
+    else
+        success_msg "Ubuntu $VERSION_ID detected — fully supported."
+    fi
+fi
 
+# =============================================================================
+#  SYSTEM UPDATE & CORE BOOTSTRAP
+# =============================================================================
+export DEBIAN_FRONTEND=noninteractive
 
+status_msg "Updating system packages"
+apt-get update -y
+apt-get upgrade -y -o Dpkg::Options::="--force-confold"
 
-#log error
-log_error() {
-    echo "$(date): $1" >> "$LOG_FILE"
-}
+status_msg "Installing bootstrap tools"
+apt-get install -y software-properties-common ca-certificates gnupg lsb-release curl wget
 
-#check installled service
-check_installed() {
-    if dpkg -l | grep -q "$1"; then
-        echo "$1 is installed."
-        log_error "Other Web Service is Installed"
+# ── Add PHP 8.3 PPA BEFORE installing PHP ────────────────────────────────────
+status_msg "Adding PHP 8.3 repository (ondrej/php PPA)"
+add-apt-repository -y ppa:ondrej/php
+apt-get update -y
+
+# ── Install all packages in one shot ─────────────────────────────────────────
+status_msg "Installing all system dependencies"
+apt-get install -y \
+    git unzip zip openssl \
+    python3 python3-venv python3-pip python3-dev \
+    build-essential libssl-dev libffi-dev \
+    mysql-server redis-server \
+    nginx \
+    php${PHP_VERSION} php${PHP_VERSION}-fpm php${PHP_VERSION}-mysql \
+    php${PHP_VERSION}-mbstring php${PHP_VERSION}-zip php${PHP_VERSION}-gd \
+    php${PHP_VERSION}-curl php${PHP_VERSION}-xml php${PHP_VERSION}-intl \
+    php${PHP_VERSION}-bcmath php${PHP_VERSION}-opcache php${PHP_VERSION}-cli \
+    certbot python3-certbot-nginx \
+    bind9 bind9utils bind9-doc dnsutils \
+    quota quotatool \
+    opendkim opendkim-tools \
+    vsftpd \
+    postfix postfix-mysql \
+    docker.io \
+    dovecot-core dovecot-imapd dovecot-pop3d dovecot-lmtpd \
+    mailutils \
+    perl libwww-perl
+
+status_msg "Installing Node.js and PM2 for MERN environment"
+export DEBIAN_FRONTEND=noninteractive
+apt-get install -y npm
+npm install -g n
+n 20
+hash -r
+npm install -g pm2
+
+# ── WP-CLI (required for WordPress one-click installer) ──────────────────────
+status_msg "Installing WP-CLI for WordPress management"
+curl -fsSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar \
+    -o /usr/local/bin/wp 2>/dev/null && \
+    chmod +x /usr/local/bin/wp && \
+    wp --info --allow-root &>/dev/null && \
+    success_msg "WP-CLI installed" || \
+    warn_msg "WP-CLI install failed — WordPress installer will use fallback curl method"
+# =============================================================================
+#  WEB SERVER SELECTION — NGINX (default and only engine for this release)
+# =============================================================================
+VOIDPANEL_STATE_DIR="/etc/voidpanel"
+VOIDPANEL_ENGINE_FILE="$VOIDPANEL_STATE_DIR/web_engine"
+WEB_ENGINE="nginx"
+
+mkdir -p "$VOIDPANEL_STATE_DIR"
+echo "$WEB_ENGINE" > "$VOIDPANEL_ENGINE_FILE"
+chmod 644 "$VOIDPANEL_ENGINE_FILE"
+success_msg "NGINX selected as primary web engine"
+
+# =============================================================================
+#  DUMMY SSL
+# =============================================================================
+status_msg "Generating self-signed SSL certificate"
+mkdir -p /etc/nginx/ssl
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /etc/nginx/dummy.key \
+    -out    /etc/nginx/dummy.crt \
+    -subj   "/C=US/ST=State/L=City/O=VoidPanel/CN=localhost" 2>/dev/null
+
+# =============================================================================
+#  MySQL — Secure & configure
+# =============================================================================
+status_msg "Securing MySQL"
+systemctl enable --now mysql
+
+# Wait for MySQL to be ready (sometimes slow on first boot)
+for i in {1..10}; do
+    mysqladmin ping --silent 2>/dev/null && break || true
+    sleep 2
+done
+
+mysql -u root 2>/dev/null <<MSQL || true
+ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '${MYSQL_ROOT_PASS}';
+FLUSH PRIVILEGES;
+MSQL
+
+cat > /root/.my.cnf <<MYCNF
+[client]
+user=root
+password=${MYSQL_ROOT_PASS}
+MYCNF
+chmod 600 /root/.my.cnf
+
+# Write VoidPanel MySQL credential file (read by the panel application)
+echo "${MYSQL_ROOT_PASS}" > /etc/dontdelete.txt
+chmod 644 /etc/dontdelete.txt
+success_msg "MySQL secured"
+
+# =============================================================================
+#  PANEL CORE SETUP
+# =============================================================================
+panelsetup() {
+    status_msg "Creating Project Directories"
+    mkdir -p "$PROJECT_DIR"
+    cd "$PROJECT_DIR"
+
+    status_msg "Deploying VoidPanel Source Code"
+    if [[ -f "$INSTALL_START_DIR/Archive.zip" ]]; then
+        success_msg "Local Archive.zip found, copying to project directory."
+        cp "$INSTALL_START_DIR/Archive.zip" Archive.zip
+    elif ! wget -q https://voidpanel.com/static/voidpanel.zip -O Archive.zip; then
+        error_msg "Failed to download voidpanel.zip from voidpanel.com"
         exit 1
     fi
-}
+    unzip -o Archive.zip -d "$PROJECT_DIR" > /dev/null
+    rm -f Archive.zip
+
+    # Remove any venv/ that came from the zip — it may contain hardcoded paths
+    # from a developer's machine (e.g. /Users/rohan/...) which are invalid on Linux.
+    # We always create a fresh virtualenv on the target server.
+    if [[ -d "$PROJECT_DIR/venv" ]]; then
+        rm -rf "$PROJECT_DIR/venv"
+    fi
+
+    status_msg "Initializing Python Virtual Environment"
+    cd "$PROJECT_DIR"
+    python3 -m venv venv
+    source venv/bin/activate
+
+    status_msg "Installing Python Dependencies"
+    pip install --upgrade pip --quiet
+    if [[ -f "$PROJECT_DIR/requirements.txt" ]]; then
+        pip install --quiet -r "$PROJECT_DIR/requirements.txt"
+    else
+        pip install --quiet \
+            django celery redis uwsgi psutil pexpect requests \
+            mysql-connector-python djangorestframework django-cors-headers \
+            channels channels_redis daphne geoip2
+    fi
+
+    status_msg "Downloading GeoIP Database for Traffic Analytics"
+    mkdir -p "$PROJECT_DIR/geoip"
+    curl -L -s -o "$PROJECT_DIR/geoip/GeoLite2-Country.mmdb" https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb
+
+    # ── Fix Django settings ──────────────────────────────────────────────────
+    status_msg "Configuring Django settings"
+    DJANGO_SETTINGS=$(find "$PROJECT_DIR" -name "settings.py" | grep -v venv | head -n 1)
+    if [[ -z "$DJANGO_SETTINGS" ]]; then
+        error_msg "settings.py not found — check Archive.zip contents"
+        exit 1
+    fi
+
+    # Generate a URL-safe secret key (no special chars that break systemd EnvironmentFile)
+    SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(50))")
+    echo "$SECRET_KEY" > "$PROJECT_DIR/.secret_key"
+    chmod 600 "$PROJECT_DIR/.secret_key"
+    chown www-data:www-data "$PROJECT_DIR/.secret_key"
+
+    # Write .env — systemd EnvironmentFile loads these into the service process
+    cat > "$PROJECT_DIR/.env" <<ENVFILE
+DJANGO_SECRET_KEY=${SECRET_KEY}
+DJANGO_ALLOWED_HOSTS=*
+DJANGO_CSRF_ORIGINS=http://${PUBLIC_IP}:8080,https://${PUBLIC_IP}:8082,http://${PUBLIC_IP},https://${PUBLIC_IP}
+DJANGO_DEBUG=false
+ENVFILE
+    chmod 640 "$PROJECT_DIR/.env"
+    chown www-data:www-data "$PROJECT_DIR/.env"
+
+    # Directly patch settings.py with CSRF_TRUSTED_ORIGINS — guaranteed to work
+    # regardless of env var loading order or systemd EnvironmentFile parsing edge cases
+    cat >> "$DJANGO_SETTINGS" <<PYEOF
+
+# ── Production CSRF & Host config injected by installer ──────────────────────
+_PANEL_IP = '${PUBLIC_IP}'
+_PANEL_HOST = '${HOSTNAME_FQDN}'
+CSRF_TRUSTED_ORIGINS = [
+    f'http://{_PANEL_IP}',
+    f'http://{_PANEL_IP}:8080',
+    f'https://{_PANEL_IP}',
+    f'https://{_PANEL_IP}:8082',
+    f'http://{_PANEL_HOST}',
+    f'http://{_PANEL_HOST}:8080',
+    f'https://{_PANEL_HOST}',
+    f'https://{_PANEL_HOST}:8082',
+]
+ALLOWED_HOSTS = ['*', _PANEL_IP, _PANEL_HOST, 'localhost', '127.0.0.1']
+
+# Critical for HTTPS proxying (port 8082 -> 8080) to pass CSRF validation
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+PYEOF
+
+    # ── Migrations, static files & first-run bootstrap ────────────────────────
+    status_msg "Running Django migrations"
+    cd "$PROJECT_DIR"
+    python manage.py makemigrations --no-input 2>/dev/null || true   # catch new model fields
+    python manage.py migrate --noinput
+    python manage.py collectstatic --noinput --clear 2>/dev/null || true
+
+    # ── Inject VoidPanel website URL into .env for SSO token validation ───────
+    status_msg "Configuring SSO website URL"
+    if ! grep -q "VOIDPANEL_WEBSITE_URL" "$PROJECT_DIR/.env" 2>/dev/null; then
+        echo "VOIDPANEL_WEBSITE_URL=https://voidpanel.com" >> "$PROJECT_DIR/.env"
+    fi
+
+    # ── Inject VOIDPANEL_WEBSITE_URL into Django settings ─────────────────────
+    if ! grep -q "VOIDPANEL_WEBSITE_URL" "$DJANGO_SETTINGS" 2>/dev/null; then
+        cat >> "$DJANGO_SETTINGS" <<PYEOF
+
+# SSO — URL of the voidpanel.com website (used to validate one-time SSO tokens)
+import os as _os
+VOIDPANEL_WEBSITE_URL = _os.environ.get('VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com')
+PYEOF
+    fi
+
+    status_msg "Running first-run setup (license placeholder + activation wizard)"
+    python manage.py first_run_setup 2>/dev/null || {
+        # Fallback: create the license record inline if the command fails
+        python manage.py shell <<PYEOF
+import secrets, socket
+from control.models import PanelLicense
+if not PanelLicense.objects.exists():
+    PanelLicense.objects.create(
+        key='PENDING-' + secrets.token_hex(16),
+        email='',
+        status='pending_activation',
+        hostname=socket.getfqdn(),
+    )
+    print("Placeholder license created.")
+else:
+    print("License already exists, skipping.")
+PYEOF
+    }
+
+    status_msg "Creating admin superuser"
+    python manage.py shell <<PYEOF
+from django.contrib.auth import get_user_model
+User = get_user_model()
+
+# Create or update the admin user
+if not User.objects.filter(username='admin').exists():
+    user = User.objects.create_superuser('admin', 'admin@voidpanel.com', '${DJANGO_SUPERUSER_PASS}')
+    # Explicitly call set_password to guarantee the hash is correct
+    user.set_password('${DJANGO_SUPERUSER_PASS}')
+    user.is_active = True
+    user.is_staff = True
+    user.is_superuser = True
+    user.save()
+    print("Superuser created and password set.")
+else:
+    # If user already exists, force-reset password to the generated one
+    user = User.objects.get(username='admin')
+    user.set_password('${DJANGO_SUPERUSER_PASS}')
+    user.is_active = True
+    user.is_staff = True
+    user.is_superuser = True
+    user.save()
+    print("Superuser already exists — password reset to generated value.")
+
+# Verify the password works
+from django.contrib.auth import authenticate
+test = authenticate(username='admin', password='${DJANGO_SUPERUSER_PASS}')
+if test:
+    print("Password verification: OK")
+else:
+    print("WARNING: Password verification FAILED — check Django AUTH settings")
+PYEOF
+
+    # Write admin password to a secure file for recovery
+    echo "${DJANGO_SUPERUSER_PASS}" > /etc/voidpanel_admin_pass
+    chmod 600 /etc/voidpanel_admin_pass
+    success_msg "Admin superuser ready (password saved to /etc/voidpanel_admin_pass)"
+
+    status_msg "Generating API Token for remote management"
+    API_TOKEN=$(python manage.py shell -c "
+import secrets
+from control.models import APIToken
+if not APIToken.objects.filter(is_active=True).exists():
+    key = secrets.token_urlsafe(48)
+    APIToken.objects.create(key=key, label='Auto-generated', is_active=True)
+    print(key)
+else:
+    print(APIToken.objects.filter(is_active=True).first().key)
+" 2>/dev/null | tail -1)
+    echo "$API_TOKEN" > /etc/voidpanel_api_token
+    chmod 644 /etc/voidpanel_api_token
+    success_msg "API Token generated"
 
 
-#check sudo permission
-check_permission(){
-    if sudo -n true 2>/dev/null; then
-    echo "You have sudo privileges."
-else
-    log_error "You do NOT have sudo privileges. Exiting script."
-    exit 1
-fi
-}
-
-
-#install all packages
-packages() {
-    
-    sudo apt update
-    # Install software-properties-common to manage repositories
-    sudo apt install -y software-properties-common
-    sudo apt-get install -y debconf-utils
-    # Add the PHP PPA (Personal Package Archive) to your system automatically
-    sudo add-apt-repository -y ppa:ondrej/php
-    echo "Updating and upgrading the system..."
-    echo "Installing necessary packages..."
-    sudo apt install -y python3-pip python3-dev python3-venv nginx unzip
-    sudo apt-get install -y certbot python3-certbot-nginx
-    sudo apt install -y bind9 bind9utils bind9-doc opendkim opendkim-tools
-    log_error "Packages Installed till bind"
-    sudo apt install quota
-    log_error "Installing PHP Now"
-    sudo apt install -y git php${PHP_VERSION}-mbstring php${PHP_VERSION}-zip php${PHP_VERSION}-gd php${PHP_VERSION}-curl nginx mysql-server
-    log_error "PHP Installed"
-    sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/nginx/dummy.key -out /etc/nginx/dummy.crt -subj "/CN=localhost"
-
-}
-
-#setupBasic Panel Requirement ll
-panelsetup(){
-
-# Create project directory
-echo "Creating project directory..."
-sudo mkdir -p $PROJECT_DIR
-sudo chown $USER:$USER $PROJECT_DIR
-# Navigate to project directory
-cd $PROJECT_DIR
-# Create virtual environment
-echo "Creating virtual environment..."
-python3 -m venv venv
-# Activate virtual environment
-source $VENV_DIR/bin/activate
-# Upgrade pip and install Django and uWSGI
-echo "Upgrading pip and installing Django and uWSGI..."
-pip install --upgrade pip
-pip install django uwsgi
-pip install psutil
-pip install pexpect
-pip install requests
-pip install mysql-connector-python
-pip install huggingface_hub
-
-pip install djangorestframework
-
-
-
-# Download and unzip project files
-echo "Downloading and unzipping project files..."
-wget https://voidpanel.com/op/install/ubuntu/Archive.zip
-unzip Archive.zip
-echo "from django.contrib.auth import get_user_model; 
-User = get_user_model(); 
-user = User.objects.get(username='admin'); 
-user.set_password('$DJANGO_SUPERUSER_PASSWORD'); 
-user.save();" | python manage.py shell
-
-#deactivating
-deactivate
-sed -i "/ALLOWED_HOSTS = \[/c\ALLOWED_HOSTS = ['$PUBLIC_IP', 'localhost', '127.0.0.1','*']" $DJANGO_SETTINGS
-
-sed -i "s/changetoip/$PUBLIC_IP/g" $DJANGO_SETTINGS
-
-
-cat << EOF > $UWSGI_INI
+    # ── uWSGI config ──────────────────────────────────────────────────────────
+    status_msg "Configuring uWSGI"
+    cat > "$PROJECT_DIR/panel.ini" <<INI
 [uwsgi]
-chdir = $PROJECT_DIR
-module = $PROJECT_NAME.wsgi:application
-home = $VENV_DIR
-master = true
-processes = 5
-socket = $PROJECT_DIR/$PROJECT_NAME.sock
-chmod-socket = 664
-vacuum = true
-die-on-term = true
-EOF
+chdir           = ${PROJECT_DIR}
+module          = panel.wsgi:application
+home            = ${VENV_DIR}
+master          = true
+processes       = 4
+socket          = ${PROJECT_DIR}/panel.sock
+chmod-socket    = 660
+uid             = www-data
+gid             = www-data
+vacuum          = true
+die-on-term     = true
+logto           = /var/log/voidpanel_uwsgi.log
+INI
 
-cat <<EOF | tee /etc/version.txt
-1.0
-EOF
+    # Pre-create log file so www-data can write to it immediately on service start
+    touch /var/log/voidpanel_uwsgi.log
+    chown www-data:www-data /var/log/voidpanel_uwsgi.log
+    chmod 640 /var/log/voidpanel_uwsgi.log
 
-cat <<EOF | tee /var/log/ssl.txt
-SSL Informations
-EOF
-
-# Create systemd service for uWSGI
-echo "Creating uWSGI systemd service..."
-sudo bash -c "cat > /etc/systemd/system/uwsgi.service" << EOL
+    # ── systemd service ───────────────────────────────────────────────────────
+    cat > /etc/systemd/system/voidpanel.service <<SVC
 [Unit]
-Description=uWSGI Emperor service
+Description=VoidPanel uWSGI Application Server
+After=network.target mysql.service redis.service
+Wants=mysql.service redis.service
 
 [Service]
-ExecStart=$VENV_DIR/bin/uwsgi --ini $UWSGI_INI
-
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=${PROJECT_DIR}
+EnvironmentFile=${PROJECT_DIR}/.env
+ExecStart=${VENV_DIR}/bin/uwsgi --ini ${PROJECT_DIR}/panel.ini
+Restart=on-failure
+RestartSec=5s
+KillSignal=SIGQUIT
+TimeoutStopSec=30
 
 [Install]
 WantedBy=multi-user.target
-EOL
+SVC
 
-# Start and enable uWSGI service
-echo "Starting and enabling uWSGI service..."
-sudo chown root:www-data /var/www/panel
-sudo chmod g+s /var/www/panel
-sudo systemctl daemon-reload
-sudo systemctl start uwsgi
+    cat > /etc/systemd/system/voidpanel-daphne.service <<SVC
+[Unit]
+Description=VoidPanel Daphne ASGI Application Server
+After=network.target redis-server.service
+Wants=redis-server.service
 
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=${PROJECT_DIR}
+EnvironmentFile=${PROJECT_DIR}/.env
+ExecStart=${VENV_DIR}/bin/daphne -b 127.0.0.1 -p 8001 panel.asgi:application
+Restart=on-failure
+RestartSec=5s
+LimitNOFILE=65535
 
+[Install]
+WantedBy=multi-user.target
+SVC
 
+    cat > /etc/systemd/system/voidpanel-backup.service <<SVC
+[Unit]
+Description=VoidPanel Backup Dashboard (Always-On Port 8081)
+After=network.target redis-server.service mysql.service
+Wants=redis-server.service mysql.service
 
-sudo systemctl enable uwsgi
+[Service]
+Type=simple
+User=root
+WorkingDirectory=${PROJECT_DIR}
+EnvironmentFile=${PROJECT_DIR}/.env
+Environment=PYTHONPATH=${PROJECT_DIR}
+Environment=DJANGO_SETTINGS_MODULE=panel.settings
+ExecStart=${VENV_DIR}/bin/daphne -b 0.0.0.0 -p 8081 panel.asgi:application
+Restart=always
+RestartSec=5s
 
-# Configure Nginx for Django
-echo "Configuring Nginx for Django..."
-sudo bash -c "cat > $NGINX_CONF" << EOL
+[Install]
+WantedBy=multi-user.target
+SVC
+
+    # ── Celery worker service ──────────────────────────────────────────
+    status_msg "Installing Celery worker service"
+    mkdir -p /var/run/celery
+    chown www-data:www-data /var/run/celery
+    cat > /etc/systemd/system/voidpanel-celery.service <<SVC
+[Unit]
+Description=VoidPanel Celery Worker
+After=network.target redis-server.service mysql.service
+Wants=redis-server.service mysql.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=${PROJECT_DIR}
+EnvironmentFile=${PROJECT_DIR}/.env
+Environment=PYTHONPATH=${PROJECT_DIR}
+Environment=DJANGO_SETTINGS_MODULE=panel.settings
+ExecStart=${VENV_DIR}/bin/celery -A panel worker \\
+    --loglevel=info \\
+    --concurrency=4 \\
+    --logfile=/var/log/voidpanel/celery.log
+Restart=on-failure
+RestartSec=10s
+KillSignal=SIGTERM
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target
+SVC
+
+    cat > /etc/systemd/system/voidpanel-celery-beat.service <<SVC
+[Unit]
+Description=VoidPanel Celery Beat Scheduler
+After=network.target redis-server.service mysql.service voidpanel-celery.service
+Wants=redis-server.service mysql.service voidpanel-celery.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=${PROJECT_DIR}
+EnvironmentFile=${PROJECT_DIR}/.env
+Environment=PYTHONPATH=${PROJECT_DIR}
+Environment=DJANGO_SETTINGS_MODULE=panel.settings
+ExecStart=${VENV_DIR}/bin/celery -A panel beat \\
+    --loglevel=info \\
+    --logfile=/var/log/voidpanel/celery-beat.log \\
+    --scheduler django_celery_beat.schedulers:DatabaseScheduler
+Restart=on-failure
+RestartSec=10s
+KillSignal=SIGTERM
+
+[Install]
+WantedBy=multi-user.target
+SVC
+
+    # Grant www-data restricted passwordless sudo to manage system services/PHP
+    echo "www-data ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/voidpanel
+    chmod 440 /etc/sudoers.d/voidpanel
+
+    # ── Nginx config ──────────────────────────────────────────────────────────
+    status_msg "Configuring Nginx panel bridge"
+    cat > "$NGINX_CONF" <<NGINXCONF
 server {
     listen 8080;
-    server_name $PUBLIC_IP;
+    server_name ${PUBLIC_IP} localhost;
+    client_max_body_size 0;
 
-    location = /favicon.ico { access_log off; log_not_found off; }
+    # /voidpanel shortcut — redirect any domain/voidpanel hit to HTTPS panel
+    location = /voidpanel {
+        return 301 https://${HOSTNAME_FQDN}:8082;
+    }
+
     location /static/ {
-        alias $PROJECT_DIR/static/;
+        alias ${PROJECT_DIR}/staticfiles/;
+        expires 30d;
+        add_header Cache-Control "public";
     }
 
-    location /view/ {
-        alias /;
-    }
-   
-
-    location / {
-        include uwsgi_params;
-        uwsgi_pass unix:$PROJECT_DIR/$PROJECT_NAME.sock;
-        uwsgi_buffering off; # Important for streaming
-        uwsgi_read_timeout 600s;
-    }
-    client_max_body_size 300M; 
-    client_body_timeout 600s; 
-}
-server {
-    listen 8082 ssl;
-    server_name $PUBLIC_IP $HOSTNAME;
-
-    ssl_certificate /etc/nginx/dummy.crt ;
-    ssl_certificate_key /etc/nginx/dummy.key ;
-
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_prefer_server_ciphers on;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-
-    location / {
-        proxy_pass http://127.0.0.1:8080;
+    location /ws/ {
+        proxy_pass http://127.0.0.1:8001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_buffering off;
-        proxy_request_buffering off;
-
-        # Increase timeout for long-running connections
-        proxy_read_timeout 600s;
-        proxy_send_timeout 600s;
-
-        # Optional: Adjust buffer sizes
-        proxy_buffers 16 16k;
-        proxy_buffer_size 32k;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
     }
-       http2_max_field_size 16k;
-    http2_max_header_size 32k;
-       client_max_body_size 300M; 
-    client_body_timeout 600s; 
 
-}
-EOL
-
-# Enable Nginx configuration
-echo "Enabling Nginx configuration..."
-sudo ln -s $NGINX_CONF $NGINX_CONF_LINK
-
-# Set permissions for the socket file
-echo "Setting permissions for the socket file..."
-sudo chmod 664 $PROJECT_DIR/$PROJECT_NAME.sock
-sudo chown $USER:www-data $PROJECT_DIR/$PROJECT_NAME.sock
-
-# Set permissions for static files
-echo "Setting permissions for static files..."
-sudo chown -R $USER:www-data $PROJECT_DIR/static/
-sudo chmod -R 775 $PROJECT_DIR/static/
-log_error "Panel Installed"
+    location / {
+        include         uwsgi_params;
+        uwsgi_pass      unix:${PROJECT_DIR}/panel.sock;
+        uwsgi_read_timeout  3600s;
+        uwsgi_send_timeout  3600s;
+    }
 }
 
-bind(){
-    sudo cp /etc/bind/named.conf.options /etc/bind/named.conf.options.backup
+server {
+    listen 8082 ssl;
+    server_name ${PUBLIC_IP} ${HOSTNAME_FQDN};
 
-# Configure BIND with default options
-sudo bash -c 'cat > /etc/bind/named.conf.options' << EOF
+    ssl_certificate     /etc/nginx/dummy.crt;
+    ssl_certificate_key /etc/nginx/dummy.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    client_max_body_size 0;
+
+    # /voidpanel shortcut on HTTPS — already here, just serve the panel
+    location = /voidpanel {
+        return 301 /;
+    }
+
+    location /ws/ {
+        proxy_pass http://127.0.0.1:8001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+
+    location / {
+        proxy_pass         http://127.0.0.1:8080;
+        proxy_set_header   Host \$host;
+        proxy_set_header   X-Real-IP \$remote_addr;
+        proxy_set_header   X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+}
+NGINXCONF
+
+    ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/
+    rm -f /etc/nginx/sites-enabled/default
+
+    # ── VoidPanel log directory (must exist before Django/Celery start) ────────
+    status_msg "Creating VoidPanel log directory"
+    mkdir -p /var/log/voidpanel
+    chown www-data:www-data /var/log/voidpanel
+    chmod 750 /var/log/voidpanel
+    touch /var/log/voidpanel/panel.log \
+          /var/log/voidpanel/error.log \
+          /var/log/voidpanel/celery.log \
+          /var/log/voidpanel/celery-beat.log
+    chown www-data:www-data \
+          /var/log/voidpanel/panel.log \
+          /var/log/voidpanel/error.log \
+          /var/log/voidpanel/celery.log \
+          /var/log/voidpanel/celery-beat.log
+
+    # ── Permissions & Media Setup ─────────────────────────────────────────────
+    status_msg "Creating Media Directories"
+    mkdir -p "$PROJECT_DIR/media/wa_campaigns" "$PROJECT_DIR/media/wa_broadcasts"
+    
+    status_msg "Applying permission hardening"
+    chown -R www-data:www-data "$PROJECT_DIR"
+    chmod -R 750 "$PROJECT_DIR"
+    chmod -R 775 "$PROJECT_DIR/media"
+    chmod 711 /home
+
+    # ── Version tracking file — must be writable by www-data (Django update process) ──
+    # Without this, the update flow can't record the new version after applying an update.
+    VFILE="/etc/version.txt"
+    echo "2.5.24" > "$VFILE"
+    chown www-data:www-data "$VFILE"
+    chmod 664 "$VFILE"
+    # Also write to panel dir as a reliable fallback
+    echo "2.5.24" > "$PROJECT_DIR/version.txt"
+    chown www-data:www-data "$PROJECT_DIR/version.txt"
+
+
+    systemctl daemon-reload
+    systemctl enable voidpanel voidpanel-daphne voidpanel-backup voidpanel-celery voidpanel-celery-beat
+    systemctl start  voidpanel voidpanel-daphne voidpanel-backup voidpanel-celery voidpanel-celery-beat
+
+    # ── WhatsApp Web Microservice (Baileys — Self-Hosted, Zero Third-Party) ─────
+    status_msg "Setting up WhatsApp Web microservice (Baileys)"
+
+    WA_DIR="$PROJECT_DIR/wa_service"
+
+    # Install Node.js 20 LTS if not present or version < 18
+    NODE_BIN=""
+    for candidate in /usr/local/bin/node /usr/bin/node; do
+        if [[ -x "$candidate" ]]; then
+            NODE_VER=$("$candidate" -e "console.log(parseInt(process.versions.node.split('.')[0]))" 2>/dev/null)
+            if [[ "$NODE_VER" -ge 18 ]]; then
+                NODE_BIN="$candidate"
+                break
+            fi
+        fi
+    done
+
+    if [[ -z "$NODE_BIN" ]]; then
+        echo "Node.js >= 18 not found — installing Node.js 20 LTS..."
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - >/dev/null 2>&1
+        apt-get install -y -qq nodejs
+        # NodeSource on Ubuntu installs to /usr/bin/node; check both locations
+        for candidate in /usr/bin/node /usr/local/bin/node; do
+            if [[ -x "$candidate" ]]; then
+                NODE_BIN="$candidate"
+                break
+            fi
+        done
+        if [[ -z "$NODE_BIN" ]]; then
+            echo "[WARN] Node.js install failed — skipping WhatsApp setup"
+        fi
+    fi
+
+    # Install npm dependencies and configure service
+    if [[ -d "$WA_DIR" && -n "$NODE_BIN" ]]; then
+        cd "$WA_DIR"
+        # Use plain npm install (no --prefer-offline on fresh servers — npm cache is empty)
+        npm install --omit=dev >/dev/null 2>&1
+        cd "$PROJECT_DIR"
+
+        # Create the auth_sessions directory up-front with correct ownership
+        mkdir -p "$WA_DIR/auth_sessions"
+        chown -R root:root "$WA_DIR/auth_sessions"
+        chmod 700 "$WA_DIR/auth_sessions"
+
+        # Write systemd service with correct node path
+        cat > /etc/systemd/system/voidpanel-wa.service <<EOF
+[Unit]
+Description=VoidPanel WhatsApp Web Microservice (Baileys)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$WA_DIR
+ExecStart=$NODE_BIN $WA_DIR/server.js
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=voidpanel-wa
+Environment=NODE_ENV=production
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=HOST=127.0.0.1
+Environment=PORT=3001
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+        systemctl daemon-reload
+        systemctl enable voidpanel-wa
+        systemctl start  voidpanel-wa
+        sleep 3
+        if systemctl is-active --quiet voidpanel-wa; then
+            # Quick health check — the service must respond on :3001
+            if curl -sf http://127.0.0.1:3001/health >/dev/null 2>&1; then
+                success_msg "WhatsApp Web microservice is running"
+            else
+                echo "[WARN] voidpanel-wa started but health check failed — run: journalctl -u voidpanel-wa -n 20"
+            fi
+        else
+            echo "[WARN] voidpanel-wa service failed to start — run: journalctl -u voidpanel-wa -n 20"
+        fi
+    elif [[ ! -d "$WA_DIR" ]]; then
+        echo "[WARN] wa_service directory not found at $WA_DIR — skipping WhatsApp setup"
+    fi
+    # ─────────────────────────────────────────────────────────────────────────────
+
+
+    success_msg "Panel Core Setup Complete"
+}
+
+# =============================================================================
+#  DNS (BIND9)
+# =============================================================================
+bindsetup() {
+    status_msg "Configuring Authoritative DNS (BIND9)"
+    cp /etc/bind/named.conf.options /etc/bind/named.conf.options.backup 2>/dev/null || true
+
+    cat > /etc/bind/named.conf.options <<EOF
 options {
     directory "/var/cache/bind";
-
-    // Uncomment and set your DNS forwarders here if needed
-    // forwarders {
-    //     8.8.8.8;
-    //     8.8.4.4;
-    // };
-
+    forwarders { 8.8.8.8; 8.8.4.4; 1.1.1.1; };
     dnssec-validation auto;
-
-    auth-nxdomain no;    # conform to RFC1035
+    listen-on { any; };
     listen-on-v6 { any; };
+    allow-query { any; };
+    recursion yes;
 };
 EOF
-
-sudo apt autoremove -y
-sudo apt clean
-log_error "bind Installed"
+    # On Ubuntu 22.04+, bind9.service is an alias — use 'named' for enable
+    systemctl enable --now named 2>/dev/null || systemctl enable --now bind9 2>/dev/null || true
+    systemctl restart named 2>/dev/null || systemctl restart bind9 2>/dev/null || true
+    success_msg "DNS Service Configured"
 }
 
-quota(){
-    MOUNTPOINT="/"          
-sudo sed -i "s/errors=remount-ro/errors=remount-ro,usrquota,grpquota/g" /etc/fstab
-
-echo "Reloading systemd to recognize changes in /etc/fstab..."
-sudo systemctl daemon-reload
-
-echo "Remounting ${MOUNTPOINT} to apply quota settings..."
-sudo mount -o remount ${MOUNTPOINT}
-
-sudo quotacheck -ugm / -f
-sudo quotaon -v /
-
+# =============================================================================
+#  FILESYSTEM QUOTAS
+# =============================================================================
+quotasetup() {
+    status_msg "Initializing Filesystem Quotas"
+    # Only add quota options if not already present
+    if ! grep -q "usrquota" /etc/fstab; then
+        # Use awk for safer fstab editing
+        awk '/errors=remount-ro/ && !/usrquota/ { sub("errors=remount-ro","errors=remount-ro,usrquota,grpquota") } { print }' \
+            /etc/fstab > /tmp/fstab.new && mv /tmp/fstab.new /etc/fstab
+        mount -o remount / 2>/dev/null || true
+    fi
+    quotacheck -ugm / > /dev/null 2>&1 || true
+    quotaon -v /       > /dev/null 2>&1 || true
+    success_msg "Quotas Active"
 }
 
-roundcube(){
- sudo debconf-set-selections <<< "roundcube-core roundcube/dbconfig-install boolean true"
-sudo debconf-set-selections <<< "roundcube-core roundcube/database-type select mysql"
-sudo debconf-set-selections <<< "roundcube-core roundcube/mysql/admin-pass password $MYSQL_ROOT_PASSWORD"
-sudo debconf-set-selections <<< "roundcube-core roundcube/db/dbname string $ROUNDCUBE_DB"
-sudo debconf-set-selections <<< "roundcube-core roundcube/mysql/app-pass password $ROUNDCUBE_PASSWORD"
-sudo debconf-set-selections <<< "roundcube-core roundcube/app-password-confirm password $ROUNDCUBE_PASSWORD"
-sudo debconf-set-selections <<< "roundcube-core roundcube/dbconfig-reinstall boolean false"
+# =============================================================================
+#  EMAIL (Postfix + Dovecot)
+# =============================================================================
+emailsetup() {
+    status_msg "Configuring Enterprise Mail Stack (Postfix/Dovecot)"
 
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y roundcube roundcube-mysql nginx php${PHP_VERSION}-fpm php${PHP_VERSION}-mbstring php${PHP_VERSION}-mysqli
-cd /var/www/
-wget https://github.com/roundcube/roundcubemail/releases/download/1.6.9/roundcubemail-1.6.9-complete.tar.gz
-tar -xvzf roundcubemail-1.6.9-complete.tar.gz
-mv roundcubemail-1.6.9 roundcube
-sudo chown -R www-data:www-data /var/www/roundcube/temp /var/www/roundcube/logs
-sudo chmod -R 755 /var/www/roundcube/temp /var/www/roundcube/logs
-cd /var/www/roundcube
-rm -r installer
-sudo cp /var/www/roundcube/config/config.inc.php.sample /var/www/roundcube/config/config.inc.php
-sudo sed -i "s|^\\\$config\['db_dsnw'\] = 'mysql://roundcube:.*@localhost/roundcubemail';|\\\$config['db_dsnw'] = 'mysql://$ROUNDCUBE_USER:$ROUNDCUBE_PASSWORD@localhost/$ROUNDCUBE_DB';|" /var/www/roundcube/config/config.inc.php
+    groupadd -g 5000 vmail 2>/dev/null || true
+    useradd -s /usr/sbin/nologin -u 5000 -g 5000 -d /home/vmail vmail 2>/dev/null || true
+    usermod -aG www-data vmail 2>/dev/null || true
+    mkdir -p /home/vmail/mail
+    chown -R vmail:vmail /home/vmail
 
-# Secure MySQL installation and create database and user
-sudo mysql -u root -p$MYSQL_ROOT_PASSWORD <<EOF
--- Delete the user if it exists
-DROP USER IF EXISTS '$ROUNDCUBE_USER'@'localhost';
+    # Write hostname to mailname
+    echo "$HOSTNAME_FQDN" > /etc/mailname
 
--- Create the user
-CREATE USER '$ROUNDCUBE_USER'@'localhost' IDENTIFIED BY '$ROUNDCUBE_PASSWORD';
+    # ── Postfix main.cf ────────────────────────────────────────────────────────
+    cat > /etc/postfix/main.cf <<EOF
+myhostname = ${HOSTNAME_FQDN}
+myorigin = /etc/mailname
+smtpd_banner = \$myhostname ESMTP VoidPanel
+biff = no
+append_dot_mydomain = no
+readme_directory = no
 
--- Create the database if it does not exist
-CREATE DATABASE IF NOT EXISTS $ROUNDCUBE_DB;
+smtpd_tls_cert_file = /etc/nginx/dummy.crt
+smtpd_tls_key_file  = /etc/nginx/dummy.key
+smtpd_use_tls = yes
+smtpd_tls_auth_only = yes
+smtpd_tls_security_level = may
+smtpd_tls_protocols = !SSLv2, !SSLv3
+smtp_tls_security_level = may
 
--- Grant all privileges to the user for the Roundcube database
-GRANT ALL PRIVILEGES ON $ROUNDCUBE_DB.* TO '$ROUNDCUBE_USER'@'localhost';
+smtpd_sasl_type = dovecot
+smtpd_sasl_path = private/auth
+smtpd_sasl_auth_enable = yes
 
--- Flush privileges to ensure changes are applied
+virtual_mailbox_domains = /etc/postfix/virtual_domains
+virtual_mailbox_maps    = hash:/etc/postfix/vmailbox
+virtual_alias_maps      = hash:/etc/postfix/virtual_alias
+virtual_transport       = lmtp:unix:private/dovecot-lmtp
+inet_protocols          = ipv4
+
+# Milter configuration
+milter_protocol = 6
+milter_default_action = accept
+smtpd_milters = inet:127.0.0.1:8891
+non_smtpd_milters = inet:127.0.0.1:8891
+
+smtpd_recipient_restrictions = check_recipient_access hash:/etc/postfix/vp_suspended_incoming, check_policy_service unix:private/voidpanel-mail-policy, permit_sasl_authenticated, permit_mynetworks, reject_unauth_destination
+smtpd_sender_restrictions = check_sender_access hash:/etc/postfix/vp_suspended_outgoing, permit_sasl_authenticated, permit_mynetworks, reject_unauth_destination
+EOF
+
+    # Initialize empty suspension maps
+    touch /etc/postfix/vp_suspended_incoming /etc/postfix/vp_suspended_outgoing
+    postmap /etc/postfix/vp_suspended_incoming /etc/postfix/vp_suspended_outgoing
+
+    # ── Postfix master.cf — enable ports 587 (submission) and 465 (smtps) ─────
+    cat > /etc/postfix/master.cf <<'EOF'
+# ==========================================================================
+# service type  private unpriv  chroot  wakeup  maxproc command + args
+# ==========================================================================
+smtp       inet  n       -       n       -       -       smtpd
+0.0.0.0:587    inet  n       -       n       -       -       smtpd
+  -o syslog_name=postfix/submission
+  -o smtpd_tls_security_level=encrypt
+  -o smtpd_sasl_auth_enable=yes
+  -o smtpd_sasl_type=dovecot
+  -o smtpd_sasl_path=private/auth
+  -o smtpd_relay_restrictions=permit_sasl_authenticated,reject
+  -o smtpd_recipient_restrictions=check_policy_service,unix:private/voidpanel-mail-policy,permit_sasl_authenticated,reject
+  -o milter_macro_daemon_name=ORIGINATING
+0.0.0.0:465    inet  n       -       n       -       -       smtpd
+  -o syslog_name=postfix/smtps
+  -o smtpd_tls_wrappermode=yes
+  -o smtpd_sasl_auth_enable=yes
+  -o smtpd_sasl_type=dovecot
+  -o smtpd_sasl_path=private/auth
+  -o smtpd_relay_restrictions=permit_sasl_authenticated,reject
+  -o smtpd_recipient_restrictions=check_policy_service,unix:private/voidpanel-mail-policy,permit_sasl_authenticated,reject
+  -o milter_macro_daemon_name=ORIGINATING
+pickup     unix  n       -       n       60      1       pickup
+cleanup    unix  n       -       n       -       0       cleanup
+qmgr       unix  n       -       n       300     1       qmgr
+tlsmgr     unix  -       -       n       1000?   1       tlsmgr
+rewrite    unix  -       -       n       -       -       trivial-rewrite
+bounce     unix  -       -       n       -       0       bounce
+defer      unix  -       -       n       -       0       bounce
+trace      unix  -       -       n       -       0       bounce
+verify     unix  -       -       n       -       1       verify
+flush      unix  n       -       n       1000?   0       flush
+proxymap   unix  -       -       n       -       -       proxymap
+proxywrite unix  -       -       n       -       1       proxymap
+smtp       unix  -       -       n       -       -       smtp
+relay      unix  -       -       n       -       -       smtp
+        -o syslog_name=postfix/relay
+showq      unix  n       -       n       -       -       showq
+error      unix  -       -       n       -       -       error
+retry      unix  -       -       n       -       -       error
+discard    unix  -       -       n       -       -       discard
+local      unix  -       n       n       -       -       local
+virtual    unix  -       n       n       -       -       virtual
+lmtp       unix  -       -       n       -       -       lmtp
+anvil      unix  -       -       n       -       1       anvil
+scache     unix  -       -       n       -       1       scache
+EOF
+
+    touch /etc/postfix/virtual_domains /etc/postfix/vmailbox /etc/postfix/virtual_alias
+    postmap /etc/postfix/virtual_alias /etc/postfix/vmailbox 2>/dev/null || true
+
+    # ── OpenDKIM configuration ─────────────────────────────────────────────────
+    status_msg "Configuring OpenDKIM"
+    mkdir -p /etc/opendkim/keys
+    cat > /etc/opendkim.conf <<'EOF'
+Syslog                  yes
+RequiredHeaders         yes
+UMask                   007
+Mode                    sv
+Socket                  inet:8891@127.0.0.1
+PidFile                 /run/opendkim/opendkim.pid
+OversignHeaders         From
+TrustAnchorFile         /usr/share/dns/root.key
+
+KeyTable                /etc/opendkim/KeyTable
+SigningTable            refile:/etc/opendkim/SigningTable
+TrustedHosts            /etc/opendkim/TrustedHosts
+EOF
+
+    # Configure default socket in /etc/default/opendkim for Debian/Ubuntu
+    if [ -f /etc/default/opendkim ]; then
+        echo 'SOCKET="inet:8891@127.0.0.1"' > /etc/default/opendkim
+    fi
+
+    # Create empty OpenDKIM tables if they don't exist
+    touch /etc/opendkim/KeyTable /etc/opendkim/SigningTable /etc/opendkim/TrustedHosts
+    echo "127.0.0.1" > /etc/opendkim/TrustedHosts
+    echo "localhost" >> /etc/opendkim/TrustedHosts
+
+    # Set proper ownership and permissions
+    chown -R opendkim:opendkim /etc/opendkim
+    chmod -R 700 /etc/opendkim
+
+    # ── Dovecot core config ────────────────────────────────────────────────────
+    cat > /etc/dovecot/dovecot.conf <<EOF
+protocols = imap pop3 lmtp
+listen = *, ::
+!include conf.d/*.conf
+!include_try /usr/share/dovecot/protocols.d/*.conf
+EOF
+
+    # ── Dovecot master service (LMTP + auth socket + port listeners) ──────────
+    cat > /etc/dovecot/conf.d/10-master.conf <<EOF
+service imap-login {
+  inet_listener imap {
+    port = 143
+  }
+  inet_listener imaps {
+    port = 993
+    ssl = yes
+  }
+}
+service pop3-login {
+  inet_listener pop3 {
+    port = 110
+  }
+  inet_listener pop3s {
+    port = 995
+    ssl = yes
+  }
+}
+service auth {
+  unix_listener /var/spool/postfix/private/auth {
+    mode = 0660
+    user = postfix
+    group = postfix
+  }
+}
+service lmtp {
+  unix_listener /var/spool/postfix/private/dovecot-lmtp {
+    mode = 0600
+    user = postfix
+    group = postfix
+  }
+}
+EOF
+
+    # ── Dovecot SSL config ─────────────────────────────────────────────────────
+    cat > /etc/dovecot/conf.d/10-ssl.conf <<EOF
+ssl = yes
+ssl_cert = </etc/nginx/dummy.crt
+ssl_key  = </etc/nginx/dummy.key
+ssl_min_protocol = TLSv1.2
+ssl_prefer_server_ciphers = yes
+EOF
+
+    # ── Dovecot auth config ────────────────────────────────────────────────────
+    cat > /etc/dovecot/conf.d/10-auth.conf <<EOF
+disable_plaintext_auth = yes
+auth_mechanisms = plain login
+passdb {
+  driver = passwd-file
+  args = /etc/dovecot/users
+}
+userdb {
+  driver = passwd-file
+  args = /etc/dovecot/users
+  default_fields = uid=vmail gid=vmail
+}
+EOF
+
+    # ── Dovecot mail location ──────────────────────────────────────────────────
+    cat > /etc/dovecot/conf.d/10-mail.conf <<EOF
+mail_location = maildir:%h/Maildir
+namespace inbox {
+  inbox = yes
+}
+mail_uid = vmail
+mail_gid = vmail
+EOF
+
+    touch /etc/dovecot/users
+    chown vmail:dovecot /etc/dovecot/users
+    chmod 640 /etc/dovecot/users
+
+    # Create voidemail wrapper script for API v2
+    cat > /usr/bin/voidemail <<'EOF'
+#!/bin/bash
+action=$1
+email=$2
+password=$3
+
+if [ "$action" = "add" ]; then
+    bash /var/www/panel/emailadd.sh "$email" "$password"
+elif [ "$action" = "del" ]; then
+    sed -i "/^${email}:/d" /etc/dovecot/users
+    systemctl reload dovecot || true
+elif [ "$action" = "chpass" ]; then
+    HASH=$(doveadm pw -s SHA512-CRYPT -p "$password")
+    sed -i "s|^${email}:[^:]*|${email}:${HASH}|" /etc/dovecot/users
+    systemctl reload dovecot || true
+fi
+EOF
+    chmod +x /usr/bin/voidemail
+
+    # ── VoidPanel Mail Rate Limit Policy Daemon ───────────────────────────────
+    status_msg "Configuring Mail Rate Limit Policy Daemon"
+    
+    cat > /usr/local/bin/voidpanel-mail-policy <<'DAEMONEOF'
+#!/usr/bin/env python3
+import os, time, sqlite3, socket, threading
+
+POLICY_SOCKET = '/var/spool/postfix/private/voidpanel-mail-policy'
+DB_PATH       = '/var/lib/voidpanel-mail-policy/rate.db'
+CONFIG_PATH   = '/etc/voidpanel-mail-policy.conf'
+WHITELIST_PATH = '/etc/voidpanel-mail-policy-whitelist.conf'
+DEFAULT_LIMIT = 100
+
+def get_global_limit():
+    try:
+        with open(CONFIG_PATH) as f:
+            for line in f:
+                if line.startswith('hourly_limit='):
+                    return int(line.strip().split('=', 1)[1])
+    except Exception:
+        pass
+    return DEFAULT_LIMIT
+
+def get_whitelisted_domains():
+    try:
+        if os.path.exists(WHITELIST_PATH):
+            with open(WHITELIST_PATH) as f:
+                content = f.read()
+            return {d.strip().lower() for d in content.replace('\n', ',').split(',') if d.strip()}
+    except Exception:
+        pass
+    return set()
+
+def get_user_limit(sasl_username):
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=1)
+        c = conn.cursor()
+        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='user_limits'")
+        if c.fetchone():
+            c.execute('SELECT limit_val FROM user_limits WHERE username=?', (sasl_username.lower(),))
+            row = c.fetchone()
+            if row and row[0] > 0:
+                conn.close()
+                return row[0]
+        conn.close()
+    except Exception:
+        pass
+    return None
+
+def check_and_record(sasl_username, limit):
+    now          = int(time.time())
+    window_start = now - 3600
+    conn = sqlite3.connect(DB_PATH, timeout=5)
+    try:
+        c = conn.cursor()
+        c.execute('CREATE TABLE IF NOT EXISTS sends (username TEXT NOT NULL, ts INTEGER NOT NULL)')
+        c.execute('CREATE INDEX IF NOT EXISTS idx_user_ts ON sends(username, ts)')
+        c.execute('DELETE FROM sends WHERE ts < ?', (window_start,))
+        c.execute('SELECT COUNT(*) FROM sends WHERE username=? AND ts>=?', (sasl_username, window_start))
+        count = c.fetchone()[0]
+        if count >= limit:
+            conn.commit()
+            return False
+        c.execute('INSERT INTO sends (username, ts) VALUES (?, ?)', (sasl_username, now))
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+def init_db():
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute('CREATE TABLE IF NOT EXISTS sends (username TEXT NOT NULL, ts INTEGER NOT NULL)')
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_user_ts ON sends(username, ts)')
+    conn.execute('CREATE TABLE IF NOT EXISTS user_limits (username TEXT PRIMARY KEY, limit_val INTEGER, timespan INTEGER)')
+    conn.commit()
+    conn.close()
+    os.chmod(os.path.dirname(DB_PATH), 0o755)
+    if os.path.exists(DB_PATH):
+        os.chmod(DB_PATH, 0o666)
+
+def handle_client(conn):
+    data = {}
+    buf = ''
+    try:
+        while True:
+            chunk = conn.recv(4096).decode('utf-8', errors='ignore')
+            if not chunk:
+                break
+            buf += chunk
+            if '\n\n' in buf:
+                break
+        for line in buf.strip().split('\n'):
+            line = line.strip()
+            if '=' in line:
+                k, v = line.split('=', 1)
+                data[k.strip()] = v.strip()
+        sasl_username = data.get('sasl_username', '').strip()
+        if not sasl_username:
+            conn.sendall(b'action=DUNNO\n\n')
+            return
+        domain = sasl_username.split('@')[-1].lower() if '@' in sasl_username else ''
+        whitelisted = get_whitelisted_domains()
+        if domain and domain in whitelisted:
+            conn.sendall(b'action=DUNNO\n\n')
+            return
+        user_limit = get_user_limit(sasl_username)
+        limit = user_limit if user_limit is not None else get_global_limit()
+        if check_and_record(sasl_username, limit):
+            conn.sendall(b'action=DUNNO\n\n')
+        else:
+            msg = 'action=REJECT Rate limit exceeded: maximum {} emails per hour allowed\n\n'.format(limit)
+            conn.sendall(msg.encode())
+    except Exception:
+        try:
+            conn.sendall(b'action=DUNNO\n\n')
+        except Exception:
+            pass
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+def main():
+    init_db()
+    if os.path.exists(POLICY_SOCKET):
+        os.unlink(POLICY_SOCKET)
+    server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    server.bind(POLICY_SOCKET)
+    os.chmod(POLICY_SOCKET, 0o666)
+    server.listen(50)
+    while True:
+        try:
+            conn, _ = server.accept()
+            t = threading.Thread(target=handle_client, args=(conn,), daemon=True)
+            t.start()
+        except Exception:
+            pass
+
+if __name__ == '__main__':
+    main()
+DAEMONEOF
+
+    chmod +x /usr/local/bin/voidpanel-mail-policy
+
+    # Write systemd service file
+    cat > /etc/systemd/system/voidpanel-mail-policy.service <<'SVCEOF'
+[Unit]
+Description=VoidPanel Mail Rate Limit Policy Daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/voidpanel-mail-policy
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+
+    systemctl daemon-reload
+    systemctl enable --now voidpanel-mail-policy
+
+    systemctl enable --now opendkim voidpanel-mail-policy postfix dovecot
+    systemctl restart opendkim voidpanel-mail-policy postfix dovecot
+    success_msg "Mail Stack Online — ports 25, 465, 587 (SMTP) | 143, 993 (IMAP) | 110, 995 (POP3)"
+}
+
+# =============================================================================
+#  ROUNDCUBE WEBMAIL
+# =============================================================================
+roundcubesetup() {
+    status_msg "Preparing Roundcube Database"
+    DB_NAME="roundcube"
+    DB_USER="roundcube"
+    DB_PASS=$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 20)
+
+    mysql <<EOF
+CREATE DATABASE IF NOT EXISTS ${DB_NAME} DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+DROP USER IF EXISTS '${DB_USER}'@'localhost';
+CREATE USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';
+GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';
 FLUSH PRIVILEGES;
 EOF
-sudo apt install -y php7.4 php7.4-fpm php7.4-mysql php7.4-imap php7.4-xml php7.4-mbstring php7.4-curl php7.4-zip php7.4-gd php7.4-intl
 
+    status_msg "Downloading Roundcube Webmail"
+    mkdir -p /var/www/roundcube
+    cd /tmp
+    wget -q https://github.com/roundcube/roundcubemail/releases/download/1.6.9/roundcubemail-1.6.9-complete.tar.gz \
+         -O roundcube.tar.gz
+    tar -xzf roundcube.tar.gz
+    cp -r roundcubemail-1.6.9/. /var/www/roundcube/
+    rm -rf roundcubemail-1.6.9 roundcube.tar.gz 2>/dev/null || true
 
+    cd /var/www/roundcube
+    cp config/config.inc.php.sample config/config.inc.php
+    sed -i "s|.*db_dsnw.*|\$config['db_dsnw'] = 'mysql://${DB_USER}:${DB_PASS}@localhost/${DB_NAME}';|" \
+        config/config.inc.php
 
-# Configure Nginx to use port 9000 for Roundcube with server IP address
-sudo bash -c "cat > $NGINX_CONFR" <<EOL
+    # ── Write IMAP + SMTP settings ────────────────────────────────────────────
+    # Postfix uses Dovecot SASL for auth on port 587 (STARTTLS).
+    # Roundcube MUST authenticate with the email credentials (not anonymous).
+    cat >> config/config.inc.php << 'RCCONF'
+
+// ── VoidPanel: IMAP ────────────────────────────────────────────────────────
+$config['imap_host'] = 'ssl://localhost:993';
+$config['imap_auth_type'] = 'LOGIN';
+$config['imap_conn_options'] = array(
+    'ssl' => array(
+        'verify_peer'       => false,
+        'verify_peer_name'  => false,
+        'allow_self_signed' => true,
+    ),
+);
+
+// ── VoidPanel: SMTP ────────────────────────────────────────────────────────
+// Postfix listens on 587 (STARTTLS, Dovecot SASL required)
+$config['smtp_host'] = 'tls://localhost:587';
+$config['smtp_port'] = 587;
+$config['smtp_user'] = '%u';     // Use the logged-in user's email
+$config['smtp_pass'] = '%p';     // Use the logged-in user's password
+$config['smtp_auth_type'] = 'LOGIN';
+$config['smtp_conn_options'] = array(
+    'ssl' => array(
+        'verify_peer'       => false,
+        'verify_peer_name'  => false,
+        'allow_self_signed' => true,
+    ),
+);
+
+// ── VoidPanel: General ─────────────────────────────────────────────────────
+$config['product_name']           = 'VoidPanel Webmail';
+$config['session_lifetime']       = 60;
+$config['default_charset']        = 'UTF-8';
+$config['language']               = 'en_US';
+$config['enable_installer']       = false;
+$config['mime_param_folding']     = 1;
+$config['force_https']            = false;
+$config['use_https']              = false;
+$config['login_lc']               = 2;   // lowercase username on login
+RCCONF
+
+    mysql -u "${DB_USER}" -p"${DB_PASS}" "${DB_NAME}" < SQL/mysql.initial.sql
+
+    cat > /etc/nginx/sites-available/roundcube <<NGINXCONF
 server {
-    listen $PORT;
-    server_name $PUBLIC_IP;
-
+    listen 9000;
+    server_name ${PUBLIC_IP};
     root /var/www/roundcube;
     index index.php;
-
-    location / {
-        try_files \$uri \$uri/ /index.php;
-    }
-
+    client_max_body_size 25M;
+    location / { try_files \$uri \$uri/ /index.php; }
     location ~ \.php\$ {
         include snippets/fastcgi-php.conf;
-        fastcgi_pass unix:/var/run/php/php7.4-fpm.sock;
-        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-        include fastcgi_params;
+        fastcgi_pass unix:/var/run/php/php${PHP_VERSION}-fpm.sock;
     }
-
-    location ~* ^/(README|INSTALL|LICENSE|CHANGELOG|UPGRADING)\$ {
-        deny all;
-    }
-
-    location ~ /\. {
-        deny all;
-        access_log off;
-        log_not_found off;
-    }
+    location ~ /\.(ht|svn|git) { deny all; }
 }
 server {
-    listen 9002 ssl;
-    server_name $PUBLIC_IP $HOSTNAME;
-
-    ssl_certificate /etc/nginx/dummy.crt ;
-    ssl_certificate_key /etc/nginx/dummy.key ;
-
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_prefer_server_ciphers on;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-
+    listen 9002 ssl http2;
+    server_name ${PUBLIC_IP} ${HOSTNAME_FQDN};
+    ssl_certificate     /etc/nginx/dummy.crt;
+    ssl_certificate_key /etc/nginx/dummy.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
     root /var/www/roundcube;
     index index.php;
-
-    location / {
-        try_files \$uri \$uri/ /index.php;
-    }
-
+    client_max_body_size 25M;
+    location / { try_files \$uri \$uri/ /index.php; }
     location ~ \.php\$ {
         include snippets/fastcgi-php.conf;
-        fastcgi_pass unix:/var/run/php/php7.4-fpm.sock;
-        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-        include fastcgi_params;
+        fastcgi_pass unix:/var/run/php/php${PHP_VERSION}-fpm.sock;
     }
-
-    location ~* ^/(README|INSTALL|LICENSE|CHANGELOG|UPGRADING)\$ {
-        deny all;
-    }
-
-    location ~ /\. {
-        deny all;
-        access_log off;
-        log_not_found off;
-    }
-
+    location ~ /\.(ht|svn|git) { deny all; }
 }
-EOL
-sudo ln -s /etc/nginx/sites-available/roundcube /etc/nginx/sites-enabled/
-sudo apt-get remove --purge apache2 -y
+NGINXCONF
+
+    ln -sf /etc/nginx/sites-available/roundcube /etc/nginx/sites-enabled/
+
+    # ── Install VoidPanel Auto-Login Plugin ───────────────────────────────────
+    status_msg "Installing VoidPanel Roundcube auto-login plugin"
+    mkdir -p /var/www/roundcube/plugins/vp_autologin
+    mkdir -p /var/www/roundcube/temp
+    # sticky-bit + world-writable so both Django (www-data) and php-fpm can use it
+    chmod 1777 /var/www/roundcube/temp
+
+    # Uses the 'authenticate' hook (not 'startup') so it fires DURING Roundcubes
+    # normal login flow — after the session is ready. The Django view POSTs
+    # vp_token as a hidden form field, so we must accept INPUT_POST | INPUT_GET.
+    cat > /var/www/roundcube/plugins/vp_autologin/vp_autologin.php << 'RCPLUGIN'
+<?php
+/**
+ * VoidPanel SSO Auto-Login Plugin for Roundcube 1.6.x
+ *
+ * Uses the authenticate hook so Roundcube manages its own session.
+ * Django panel writes a one-time token file; this plugin reads it and
+ * injects credentials into Roundcubes normal login flow.
+ *
+ * Token file: /var/www/roundcube/temp/rc_sso_<uuid>
+ *   Line 1: email address
+ *   Line 2: password (plain text, deleted immediately after read)
+ */
+class vp_autologin extends rcube_plugin
+{
+    public $task = 'login';
+
+    public function init()
+    {
+        $this->add_hook('authenticate', [$this, 'handle_vp_token']);
+    }
+
+    public function handle_vp_token($args)
+    {
+        // Accept token from POST (auto-submit form) or GET (fallback redirect)
+        $token = rcube_utils::get_input_value(
+            'vp_token',
+            rcube_utils::INPUT_POST | rcube_utils::INPUT_GET
+        );
+
+        if (empty($token) || !preg_match('/^[a-f0-9\-]{36}$/', $token)) {
+            return $args;
+        }
+
+        $token    = preg_replace('/[^a-f0-9\-]/', '', $token);
+        $sso_file = "/var/www/roundcube/temp/rc_sso_{$token}";
+
+        if (!file_exists($sso_file)) {
+            return $args;  // Token expired or already used
+        }
+
+        // One-time use: read then immediately delete
+        $content = file_get_contents($sso_file);
+        @unlink($sso_file);
+
+        $lines = explode("\n", trim($content), 2);
+        if (count($lines) < 2) {
+            return $args;
+        }
+
+        $email    = trim($lines[0]);
+        $password = trim($lines[1]);
+
+        if (empty($email) || empty($password)) {
+            return $args;
+        }
+
+        // Inject credentials into Roundcubes authenticate flow
+        $args['user']  = $email;
+        $args['pass']  = $password;
+        $args['host']  = 'localhost';
+        $args['valid'] = true;
+
+        return $args;
+    }
+}
+RCPLUGIN
+
+    # Enable vp_autologin in Roundcube config
+    if grep -q "vp_autologin" /var/www/roundcube/config/config.inc.php 2>/dev/null; then
+        true  # already present
+    else
+        # Append plugin to existing plugins array or add it
+        if grep -q "\$config\['plugins'\]" /var/www/roundcube/config/config.inc.php 2>/dev/null; then
+            sed -i "s/\$config\['plugins'\] = \[/\$config['plugins'] = ['vp_autologin', /" \
+                /var/www/roundcube/config/config.inc.php || true
+        else
+            echo "\$config['plugins'] = ['vp_autologin'];" >> /var/www/roundcube/config/config.inc.php
+        fi
+    fi
+
+    chown -R www-data:www-data /var/www/roundcube
+    success_msg "Roundcube Webmail Integrated"
 }
 
 
-ftp(){
-    # Install vsftpd
-echo "Installing vsftpd..."
-sudo apt-get install vsftpd -y
+# =============================================================================
+#  VSFTPD
+# =============================================================================
+ftpsetup() {
+    status_msg "Configuring vsftpd"
+    cp /etc/vsftpd.conf /etc/vsftpd.conf.bak 2>/dev/null || true
 
-# Backup the original vsftpd configuration file
-echo "Backing up the original vsftpd.conf..."
-sudo cp /etc/vsftpd.conf /etc/vsftpd.conf.bak
-
-# Configure vsftpd
-echo "Configuring vsftpd..."
-sudo tee /etc/vsftpd.conf > /dev/null <<EOL
+    cat > /etc/vsftpd.conf <<EOF
 listen=YES
 listen_ipv6=NO
 anonymous_enable=NO
@@ -432,773 +1398,440 @@ chroot_local_user=YES
 allow_writeable_chroot=YES
 pam_service_name=vsftpd
 userlist_enable=YES
-tcp_wrappers=YES
-EOL
+pasv_enable=YES
+pasv_min_port=40000
+pasv_max_port=50000
+EOF
 
+    systemctl enable --now vsftpd
+    systemctl restart vsftpd
+    success_msg "FTP Service Hardened"
 }
 
-phpmyadmin(){
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y phpmyadmin
-    # Create symbolic link for phpMyAdmin
-if [ -L "/var/www/html/phpmyadmin" ]; then
-    echo "Symbolic link for phpMyAdmin already exists. Skipping link creation."
-else
-    sudo ln -s "$INSTALL_DIR" /var/www/html/phpmyadmin
-fi
+# =============================================================================
+#  phpMyAdmin
+phpmyadminsetup() {
+    status_msg "Integrating phpMyAdmin"
+    # Pre-answer debconf so it doesn't prompt
+    echo "phpmyadmin phpmyadmin/dbconfig-install boolean true"     | debconf-set-selections
+    echo "phpmyadmin phpmyadmin/mysql/admin-pass password ${MYSQL_ROOT_PASS}" | debconf-set-selections
+    echo "phpmyadmin phpmyadmin/mysql/app-pass password ${MYSQL_ROOT_PASS}"   | debconf-set-selections
+    echo "phpmyadmin phpmyadmin/reconfigure-webserver multiselect none"       | debconf-set-selections
+    apt-get install -y phpmyadmin 2>/dev/null || warn_msg "phpMyAdmin install failed — skipped"
 
-if [ ! -f /etc/nginx/sites-available/phpmyadmin ]; then
-    sudo bash -c "cat > /etc/nginx/sites-available/phpmyadmin <<EOF
-
+    cat > /etc/nginx/sites-available/phpmyadmin <<NGINXCONF
 server {
     listen 8090;
-    server_name $PUBLIC_IP;
-
-   root /usr/share/phpmyadmin;
-    index index.php index.html index.htm;
-    client_max_body_size 1500M;
-
-    
-
-    location ~ \.php$ {
+    server_name ${PUBLIC_IP};
+    root /usr/share/phpmyadmin;
+    index index.php;
+    location / { try_files \$uri \$uri/ =404; }
+    location ~ \.php\$ {
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:/var/run/php/php${PHP_VERSION}-fpm.sock;
-        fastcgi_param SCRIPT_FILENAME  loll;
-        include fastcgi_params;
     }
-
-    location /phpmyadmin {
-        alias /usr/share/phpmyadmin;
-        index index.php;
-
-        location ~ ^/phpmyadmin/(.+\.php)$ {
-            alias /usr/share/phpmyadmin/$1;
-            fastcgi_pass unix:/var/run/php/php${PHP_VERSION}-fpm.sock;
-            fastcgi_index index.php;
-            include fastcgi_params;
-        }
-
-        location ~ ^/phpmyadmin/(.+\.(gif|jpe?g|png|ico|css|js))$ {
-            alias /usr/share/phpmyadmin/$1;
-        }
-    }
+    location ~ /\.(ht|svn|git) { deny all; }
 }
 server {
-    listen 8092 ssl;
-    server_name $PUBLIC_IP $HOSTNAME;
-    client_max_body_size 64M;
-
-    ssl_certificate /etc/nginx/dummy.crt ;
-    ssl_certificate_key /etc/nginx/dummy.key ;
-
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_prefer_server_ciphers on;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-
-    location / {
-        proxy_pass http://127.0.0.1:8090;
-        proxy_set_header Host zod;
-        proxy_set_header X-Real-IP wwe;
-        proxy_set_header X-Forwarded-For yum;
-        proxy_set_header X-Forwarded-Proto hum;
+    listen 8092 ssl http2;
+    server_name ${PUBLIC_IP} ${HOSTNAME_FQDN};
+    ssl_certificate     /etc/nginx/dummy.crt;
+    ssl_certificate_key /etc/nginx/dummy.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    root /usr/share/phpmyadmin;
+    index index.php;
+    location / { try_files \$uri \$uri/ =404; }
+    location ~ \.php\$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/var/run/php/php${PHP_VERSION}-fpm.sock;
     }
-
+    location ~ /\.(ht|svn|git) { deny all; }
 }
-EOF"
-fi
-sudo sed -i 's|loll|$document_root$fastcgi_script_name|' $NGINX_CONFf
-sudo sed -i 's|zod|$host|' $NGINX_CONFf
-sudo sed -i 's|wwe|$remote_addr|' $NGINX_CONFf
-sudo sed -i 's|yum|$proxy_add_x_forwarded_for|' $NGINX_CONFf
-sudo sed -i 's|hum|$scheme|' $NGINX_CONFf
-sudo ln -s /etc/nginx/sites-available/phpmyadmin /etc/nginx/sites-enabled/
-sudo chown -R www-data:www-data /usr/share/phpmyadmin
-sudo chmod -R 755 /usr/share/phpmyadmin
+NGINXCONF
+
+    ln -sf /etc/nginx/sites-available/phpmyadmin /etc/nginx/sites-enabled/
+
+    # ── Deploy VoidPanel SSO gateway for phpMyAdmin ───────────────────────────
+    status_msg "Deploying phpMyAdmin SSO gateway"
+    cat > /usr/share/phpmyadmin/vp_sso.php << 'PMASSOEOF'
+<?php
+/**
+ * VoidPanel phpMyAdmin Single Sign-On gateway
+ * Called via cross-origin form POST from the VoidPanel dashboard.
+ * Sets the PMA signon session then redirects to phpMyAdmin index.
+ */
+
+// Must match the session name phpMyAdmin uses
+session_name('phpMyAdmin');
+
+// Ensure session cookie is sent with proper flags
+$port = (int)$_SERVER['SERVER_PORT'];
+$secure = ($port === 8092);  // HTTPS port
+ini_set('session.cookie_samesite', 'None');
+if ($secure) {
+    ini_set('session.cookie_secure', '1');
+}
+ini_set('session.cookie_httponly', '0');
+
+session_start();
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    // If accessed via GET (e.g., phpMyAdmin redirecting here), show a helpful page
+    http_response_code(200);
+    echo '<!DOCTYPE html><html><head><title>VoidPanel Database Access</title>';
+    echo '<meta http-equiv="refresh" content="0;url=index.php">';
+    echo '</head><body><p>Redirecting to phpMyAdmin...</p>';
+    echo '<script>window.location.href="index.php";</script></body></html>';
+    exit;
 }
 
+$user     = isset($_POST['temp_user'])     ? trim($_POST['temp_user'])     : '';
+$password = isset($_POST['temp_password']) ? trim($_POST['temp_password']) : '';
 
-restart(){
-sudo systemctl start uwsgi
-sudo systemctl enable uwsgi
-sudo systemctl restart nginx
-sudo systemctl enable nginx
-sudo systemctl restart php7.4-fpm
-sudo systemctl enable php7.4-fpm
-sudo systemctl enable postfix
-sudo systemctl enable dovecot
-
-sudo systemctl restart php${PHP_VERSION}-fpm
-# Restart BIND to apply changes
-sudo systemctl restart bind9
-# Enable BIND to start on boot
-sudo systemctl enable named
-sudo systemctl enable php${PHP_VERSION}-fpm
-systemctl restart postfix
-systemctl restart dovecot
-
-
+if (empty($user) || empty($password)) {
+    http_response_code(400);
+    die('<h3 style="font-family:sans-serif;color:#ef4444;padding:40px;">&#9888; Missing credentials. Please use the VoidPanel dashboard to access phpMyAdmin.</h3>');
 }
 
+if (!preg_match('/^vp_temp_[a-z0-9]+$/', $user)) {
+    http_response_code(403);
+    die('<h3 style="font-family:sans-serif;color:#ef4444;padding:40px;">&#128274; Access denied.</h3>');
+}
 
+// Store credentials in the phpMyAdmin signon session
+$_SESSION['PMA_single_signon_user']     = $user;
+$_SESSION['PMA_single_signon_password'] = $password;
+$_SESSION['PMA_single_signon_host']     = 'localhost';
+$_SESSION['PMA_single_signon_port']     = '3306';
+
+// CRITICAL: flush the session to disk BEFORE redirect
+// Without this, phpMyAdmin reads an empty session on index.php
+session_write_close();
+
+// Redirect to phpMyAdmin main interface
+header('Location: index.php');
+exit;
+PMASSOEOF
+
+    chown www-data:www-data /usr/share/phpmyadmin/vp_sso.php
+    chmod 644 /usr/share/phpmyadmin/vp_sso.php
+
+    # ── Configure phpMyAdmin SSO auth ────────────────────────────────────────
+    # Force-write the signon config (overwrite any existing auth_type to ensure signon is set)
+    for PMA_CONF in "/etc/phpmyadmin/config.inc.php" "/usr/share/phpmyadmin/config.inc.php"; do
+        if [[ -f "$PMA_CONF" ]]; then
+            # Remove any existing signon config lines to avoid duplicates
+            sed -i '/PMA_single_signon\|auth_type.*signon\|SignonSession\|SignonURL\|LogoutURL/d' "$PMA_CONF" 2>/dev/null || true
+            # Append fresh signon configuration
+            cat >> "$PMA_CONF" << 'PMACONF'
+
+/* VoidPanel SSO Configuration */
+$cfg['Servers'][1]['auth_type']     = 'signon';
+$cfg['Servers'][1]['SignonSession'] = 'phpMyAdmin';
+$cfg['Servers'][1]['SignonURL']     = '/vp_sso.php';
+$cfg['Servers'][1]['LogoutURL']     = '/vp_sso.php';
+PMACONF
+        fi
+    done
+
+    # ── Deploy update.sh for future panel updates ─────────────────────────────
+    status_msg "Installing panel update script"
+    cat > /var/www/panel/update.sh << 'UPDATEEOF'
 #!/bin/bash
-
-emailset() {
-
-
-
-
-# Update and install necessary packages
-apt-get update
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y postfix dovecot-core dovecot-pop3d dovecot-imapd
-groupadd -g 5000 vmail
-useradd -s /usr/sbin/nologin -u 5000 -g 5000 vmail
-usermod -aG vmail postfix
-usermod -aG vmail dovecot
-touch /var/log/dovecot
-chgrp vmail /var/log/dovecot
-chmod 660 /var/log/dovecot
-touch /etc/postfix/virtual_domains
-touch /etc/postfix/vmailbox
-touch /etc/postfix/virtual_alias
-postmap /etc/postfix/virtual_alias
-
-
-file_path="/etc/postfix/main.cf"
-lines_to_add="
-virtual_mailbox_domains = /etc/postfix/virtual_domains
-virtual_mailbox_base = /var/mail/vhosts
-virtual_mailbox_maps = hash:/etc/postfix/vmailbox
-virtual_alias_maps = hash:/etc/postfix/virtual_alias
-virtual_minimum_uid = 100
-virtual_uid_maps = static:5000
-virtual_gid_maps = static:5000
-virtual_transport = virtual
-virtual_mailbox_limit = 104857600
-##SASL##
-smtpd_sasl_auth_enable = yes
-smtpd_sasl_type = dovecot
-smtpd_sasl_path = private/auth
-smtpd_sasl_security_options = noanonymous
-broken_sasl_auth_clients = yes
-
-smtpd_milters = inet:localhost:8891
-non_smtpd_milters = \$smtpd_milters
-milter_default_action = accept
-
-##TLS##
-smtpd_use_tls = yes
-smtpd_tls_security_level = may
-smtpd_tls_auth_only = no
-smtpd_tls_received_header = yes
-smtpd_tls_security_level = may
-smtp_tls_security_level = may
-tls_random_source = dev:/dev/urandom
-
-##restrictions##
-smtpd_helo_required = no
-smtpd_delay_reject = yes
-strict_rfc821_envelopes = yes
-disable_vrfy_command = yes
-
-##limit rate##
-anvil_rate_time_unit = 60s
-smtpd_client_connection_rate_limit = 5
-smtpd_client_connection_count_limit = 5
-
-smtpd_error_sleep_time = 5s
-smtpd_soft_error_limit = 2
-smtpd_hard_error_limit = 3
-##################
-
-smtpd_helo_restrictions = permit_mynetworks,
-  permit_sasl_authenticated,
-  reject_non_fqdn_hostname,
-  reject_invalid_helo_hostname,
-  reject_unknown_helo_hostname
-
-smtpd_client_restrictions = permit_mynetworks,
-  permit_sasl_authenticated,
-  reject_unknown_client_hostname,
-  reject_unauth_pipelining,
-  reject_rbl_client zen.spamhaus.org
-
-smtpd_sender_restrictions = reject_non_fqdn_sender,
-  reject_unknown_sender_domain
-
-smtpd_recipient_restrictions = permit_mynetworks,
-  permit_sasl_authenticated,
-  reject_invalid_hostname,
-  reject_non_fqdn_hostname,
-  reject_non_fqdn_sender,
-  reject_non_fqdn_recipient,
-  reject_unauth_destination,
-  reject_unauth_pipelining,
-  reject_rbl_client zen.spamhaus.org,
-  reject_rbl_client cbl.abuseat.org,
-  reject_rbl_client dul.dnsbl.sorbs.net
-
-smtpd_recipient_limit = 250
-broken_sasl_auth_clients = yes"
-echo "$lines_to_add" >> "$file_path"
-
-
-# Configure Dovecot
-cat > /etc/dovecot/dovecot.conf <<EOF
-auth_mechanisms = plain login
-disable_plaintext_auth = no
-log_path = /var/log/dovecot
-mail_location = maildir:/var/mail/vhosts/%d/%n
-
-
-passdb {
-	args = /var/mail/vhosts/%d/shadow
-	driver = passwd-file
-}
-
-protocols = imap pop3
-
-service auth {
-	unix_listener /var/spool/postfix/private/auth {
-		group = vmail
-		mode = 0660
-		user = postfix
-	}
-		unix_listener auth-master {
-		group = vmail
-		mode = 0600
-		user = vmail
-	}
-}
-
-
-userdb {
-	args = /var/mail/vhosts/%d/passwd
-	driver = passwd-file
-}
-
-protocol lda {
-	auth_socket_path = /var/run/dovecot/auth-master
-	hostname = CHANGETHIS, example: imouto.moe
-	mail_plugin_dir = /usr/lib/dovecot/modules
-	mail_plugins = sieve
-	postmaster_address = CHANGETHIS, example: postmaster@imouto.moe
-}
-EOF
-
-# Configure Dovecot
-cat > /etc/dovecot/conf.d/10-mail.conf <<EOF
-mail_location = maildir:/var/mail/vhosts/%d/%n
-	namespace inbox {
-
-   
-  inbox = yes
-
-}
-mail_privileged_group = mail
-
-protocol !indexer-worker {
-
-}
-EOF
-
-cat > /etc/dovecot/conf.d/10-master.conf <<EOF
-
-service imap-login {
-  inet_listener imap {
-    port = 143
-  }
-  inet_listener imaps {
-   port = 993
-    ssl = yes   
-  }
-
-
-}
-
-service pop3-login {
-  inet_listener pop3 {
-    port = 110
-  }
-  inet_listener pop3s {
-   port = 995 
-    ssl = yes
-  }
-}
-
-service submission-login {
-  inet_listener submission {
-    #port = 587
-  }
-}
-
-service lmtp {
-  unix_listener lmtp {
-   
-  }
-
- 
-}
-
-service imap {
-  
-}
-
-service pop3 {
- 
-}
-
-service submission {
-
-}
-service auth {
-  
-  unix_listener auth-userdb {
- 
-  }
-
-
-}
-
-service auth-worker {
-
-}
-
-service dict {
-  
-  unix_listener dict {
-
-  }
-}
-
-EOF
-
-
-
-
-
-
-cat > /etc/dovecot/conf.d/10-mail.conf <<EOF
-auth_mechanisms = plain login
-!include auth-system.conf.ext
-EOF
-
-
-cat > /etc/postfix/master.cf <<EOF
-smtp       inet  n       -       -       -       -       smtpd
-587       inet  n       -       -       -       -       smtpd
-smtps      inet  n       -       -       -       -       smtpd
-submission inet  n       -       n       -       -       smtpd
-pickup     fifo  n       -       -       60      1       pickup
-cleanup    unix  n       -       -       -       0       cleanup
-qmgr       fifo  n       -       n       300     1       qmgr
-tlsmgr     unix  -       -       -       1000?   1       tlsmgr
-rewrite    unix  -       -       -       -       -       trivial-rewrite
-bounce     unix  -       -       -       -       0       bounce
-defer      unix  -       -       -       -       0       bounce
-trace      unix  -       -       -       -       0       bounce
-verify     unix  -       -       -       -       1       verify
-flush      unix  n       -       -       1000?   0       flush
-proxymap   unix  -       -       n       -       -       proxymap
-proxywrite unix  -       -       n       -       1       proxymap
-smtp       unix  -       -       -       -       -       smtp
-relay      unix  -       -       -       -       -       smtp
-showq      unix  n       -       -       -       -       showq
-error      unix  -       -       -       -       -       error
-retry      unix  -       -       -       -       -       error
-discard    unix  -       -       -       -       -       discard
-local      unix  -       n       n       -       -       local
-virtual    unix  -       n       n       -       -       virtual
-lmtp       unix  -       -       -       -       -       lmtp
-anvil      unix  -       -       -       -       1       anvil
-scache     unix  -       -       -       -       1       scache
-uucp       unix  -       n       n       -       -       pipe
-  flags=Fqhu user=uucp argv=uux -r -n -z -a\$sender - \$nexthop!rmail (\$recipient)
-ifmail     unix  -       n       n       -       -       pipe
-  flags=F user=ftn argv=/usr/lib/ifmail/ifmail -r \$nexthop (\$recipient)
-bsmtp      unix  -       n       n       -       -       pipe
-  flags=Fq. user=bsmtp argv=/usr/lib/bsmtp/bsmtp -t\$nexthop -f\sender \$recipient
-scalemail-backend unix	-	n	n	-	2	pipe
-  flags=R user=scalemail argv=/usr/lib/scalemail/bin/scalemail-store \${nexthop} \${user} \${extension}
-mailman    unix  -       n       n       -       -       pipe
-  flags=FR user=list argv=/usr/lib/mailman/bin/postfix-to-mailman.py
-  \${nexthop} \${user}
-dovecot    unix  -       n       n       -       -       pipe
-  flags=DRhu user=vmail:vmail argv=/usr/lib/dovecot/deliver -f \${sender} -d \${recipient}
-EOF
-
-
-
-
-
-
-mkdir -p /var/mail/vhosts/
-chown -R vmail:vmail /var/mail/vhosts
-chmod -R 775 /var/mail/vhosts
-
-
-# Restart services
-systemctl restart postfix
-systemctl restart dovecot
-
-
-
-
-
-}
-
-
-install_ftp_server() {
-    # Update package list
-    echo "Updating package list..."
-    sudo apt update
-
-    # Install vsftpd if not already installed
-    if ! command -v vsftpd &> /dev/null; then
-        echo "vsftpd not found, installing..."
-        sudo apt install -y vsftpd
-    else
-        echo "vsftpd is already installed."
-    fi
-
-    # Backup the original configuration file
-    echo "Backing up the original configuration file..."
-    sudo cp /etc/vsftpd.conf /etc/vsftpd.conf.bak
-
-    # Configure vsftpd
-    echo "Configuring vsftpd..."
-    {
-        echo "# Custom vsftpd configuration"
-        echo "listen=YES"
-        echo "anonymous_enable=NO"
-        echo "local_enable=YES"
-        echo "write_enable=YES"
-        echo "local_umask=022"
-        echo "dirmessage_enable=YES"
-        echo "xferlog_enable=YES"
-        echo "connect_from_port_20=YES"
-        echo "xferlog_file=/var/log/vsftpd.log"
-        echo "xferlog_std_format=YES"
-        echo "pam_service_name=vsftpd"
-        echo "userlist_enable=YES"
-        echo "tcp_wrappers=YES"
-        echo "chroot_local_user=YES"
-        echo "allow_writeable_chroot=YES"
-        echo "userlist_file=/etc/vsftpd.userlist"
-        echo "userlist_deny=NO"
-
-
-
-
-
-      
-
-    } | sudo tee /etc/vsftpd.conf
-
-    # Restart vsftpd service
-    # echo "Starting vsftpd service..."
-    # sudo systemctl restart vsftpd
-
-    # # Enable vsftpd to start on boot
-    # echo "Enabling vsftpd to start on boot..."
-    # sudo systemctl enable vsftpd
-
-    echo "FTP server installation and configuration complete."
-}
-
-
-firewall(){
-
-
-# Install necessary dependencies
-echo "Installing required packages..."
-sudo apt-get install -y perl libwww-perl unzip || sudo yum install -y perl-libwww-perl.noarch unzip
-
-# Download and install CSF
-echo "Downloading and installing CSF..."
-cd /usr/src
-sudo wget https://download.configserver.com/csf.tgz
-sudo tar -xzf csf.tgz
-cd csf
-sudo sh install.sh
-
-ports=(
-  "443"
-  "80"
-  "22"
-  "9000"
-  "9002"
-  "143"
-  "21"
-  "20"
-  "53"
-  "33060"
-  "3306"
-  "110"
-  "993"
-  "995"
-  "25"
-  "587"
-  "465"
-  "953"
-  "8080"
-  "8082"
-  "8090"
-  "8092"
-)
-
-CONFIG_FILE="/etc/csf/csf.conf"
-
-for port in "${ports[@]}"
-do
-
-# Check if the port is already in the configuration
-if grep -q "$port" $CONFIG_FILE; then
-  echo "Port $port is already configured in CSF."
+# VoidPanel — live update script
+# Usage: bash update.sh (run as root on the panel server)
+set -euo pipefail
+GREEN='\033[0;32m'; CYAN='\033[0;36m'; RED='\033[0;31m'; RESET='\033[0m'
+info()  { echo -e "${CYAN}[+] $1${RESET}"; }
+ok()    { echo -e "${GREEN}[✔] $1${RESET}"; }
+err()   { echo -e "${RED}[!] $1${RESET}"; exit 1; }
+
+PROJECT_DIR="/var/www/panel"
+VENV="$PROJECT_DIR/venv"
+
+info "Fetching latest version info from voidpanel.com"
+LATEST=$(curl -fsSL --max-time 10 https://voidpanel.com/version.txt 2>/dev/null | tr -d '[:space:]') || LATEST=""
+if [[ -z "$LATEST" ]]; then
+    err "Could not fetch version from voidpanel.com — check your internet connection."
+fi
+
+CURRENT=$(cat /var/www/panel/version.txt 2>/dev/null | tr -d '[:space:]') || CURRENT="0"
+if [[ "$CURRENT" == "$LATEST" ]]; then
+    ok "Already on the latest version ($CURRENT). Nothing to do."
+    exit 0
+fi
+
+info "Downloading VoidPanel $LATEST"
+cd /tmp
+curl -fsSL --max-time 300 "https://voidpanel.com/releases/voidpanel-${LATEST}.tar.gz" -o voidpanel-update.tar.gz \
+    || curl -fsSL --max-time 300 "https://voidpanel.com/static/voidpanel.zip" -o voidpanel-update.zip
+
+if [[ -f /tmp/voidpanel-update.tar.gz ]]; then
+    info "Extracting tarball"
+    mkdir -p /tmp/voidpanel-src
+    tar -xzf voidpanel-update.tar.gz -C /tmp/voidpanel-src --strip-components=1
+    rm -f voidpanel-update.tar.gz
+elif [[ -f /tmp/voidpanel-update.zip ]]; then
+    info "Extracting zip"
+    mkdir -p /tmp/voidpanel-src
+    unzip -o voidpanel-update.zip -d /tmp/voidpanel-src > /dev/null
+    rm -f voidpanel-update.zip
 else
-# Add the port to TCP_IN and TCP_OUT in the CSF configuration
-echo "Adding port $port to TCP_IN and TCP_OUT..."
-sudo sed -i "/^TCP_IN/s/\"$/,$port\"/" $CONFIG_FILE
-sudo sed -i "/^TCP_OUT/s/\"$/,$port\"/" $CONFIG_FILE
-
-
-echo "Port $port added and CSF reloaded successfully."
-
+    err "Download failed — no update package found."
 fi
 
-done
-# Reload CSF to apply changes
-echo "Reloading CSF..."
-sudo csf -r
+info "Syncing files (preserving .env, venv, staticfiles)"
+rsync -a --exclude='venv/' --exclude='.env' --exclude='staticfiles/' \
+    --exclude='*.log' --exclude='*.sock' --exclude='__pycache__/' \
+    /tmp/voidpanel-src/ "$PROJECT_DIR/"
+rm -rf /tmp/voidpanel-src
 
+info "Installing/updating Python dependencies"
+source "$VENV/bin/activate"
+pip install --quiet --upgrade pip
+[[ -f "$PROJECT_DIR/requirements.txt" ]] && pip install --quiet -r "$PROJECT_DIR/requirements.txt" || true
 
+info "Running database migrations"
+cd "$PROJECT_DIR"
+python manage.py makemigrations --no-input 2>/dev/null || true
+python manage.py migrate --noinput
+python manage.py collectstatic --noinput --clear 2>/dev/null || true
 
+info "Restarting services"
+systemctl restart voidpanel voidpanel-daphne voidpanel-celery 2>/dev/null || true
 
-
-
-
-
-
-
-# sudo csf --deny 3306
-sudo systemctl start csf
-sudo systemctl enable csf
-sudo systemctl enable lfd
+info "Re-applying phpMyAdmin SSO configuration"
+# Redeploy vp_sso.php with session_write_close fix
+if [[ -d /usr/share/phpmyadmin ]]; then
+    cat > /usr/share/phpmyadmin/vp_sso.php << 'VPSSOPHP'
+<?php
+/**
+ * VoidPanel phpMyAdmin Single Sign-On gateway
+ */
+session_name('phpMyAdmin');
+$port = (int)$_SERVER['SERVER_PORT'];
+$secure = ($port === 8092);
+ini_set('session.cookie_samesite', 'None');
+if ($secure) { ini_set('session.cookie_secure', '1'); }
+ini_set('session.cookie_httponly', '0');
+session_start();
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(200);
+    echo '<!DOCTYPE html><html><head><title>VoidPanel Database Access</title>';
+    echo '<meta http-equiv="refresh" content="0;url=index.php">';
+    echo '</head><body><p>Redirecting to phpMyAdmin...</p></body></html>';
+    exit;
 }
-#!/bin/bash
+$user     = isset($_POST['temp_user'])     ? trim($_POST['temp_user'])     : '';
+$password = isset($_POST['temp_password']) ? trim($_POST['temp_password']) : '';
+if (empty($user) || empty($password)) { http_response_code(400); die('Missing credentials.'); }
+if (!preg_match('/^vp_temp_[a-z0-9]+$/', $user)) { http_response_code(403); die('Forbidden.'); }
+$_SESSION['PMA_single_signon_user']     = $user;
+$_SESSION['PMA_single_signon_password'] = $password;
+$_SESSION['PMA_single_signon_host']     = 'localhost';
+$_SESSION['PMA_single_signon_port']     = '3306';
+session_write_close();
+header('Location: index.php');
+exit;
+VPSSOPHP
+    chown www-data:www-data /usr/share/phpmyadmin/vp_sso.php
+    chmod 644 /usr/share/phpmyadmin/vp_sso.php
+    # Re-apply SSO config in phpMyAdmin config
+    for PMA_CONF in "/etc/phpmyadmin/config.inc.php" "/usr/share/phpmyadmin/config.inc.php"; do
+        if [[ -f "$PMA_CONF" ]]; then
+            sed -i '/PMA_single_signon\|auth_type.*signon\|SignonSession\|SignonURL\|LogoutURL\|VoidPanel SSO/d' "$PMA_CONF" 2>/dev/null || true
+            printf "\n/* VoidPanel SSO */\n\$cfg['Servers'][1]['auth_type']='signon';\n\$cfg['Servers'][1]['SignonSession']='phpMyAdmin';\n\$cfg['Servers'][1]['SignonURL']='/vp_sso.php';\n\$cfg['Servers'][1]['LogoutURL']='/vp_sso.php';\n" >> "$PMA_CONF"
+        fi
+    done
+fi
 
-# Define the function
-save_details() {
-    cat <<EOF | tee /etc/details.txt
-VoidPanel_Username='admin'
-VoidPanel_Password="$DJANGO_SUPERUSER_PASSWORD"
-MYSQL_ROOT_Username='root'
-MYSQL_ROOT_Password="$MYSQL_ROOT_PASSWORD"
-ROUNDCUBE_Password="$ROUNDCUBE_PASSWORD"
-EOF
+ok "VoidPanel updated to $LATEST successfully!"
+UPDATEEOF
+    chmod +x /var/www/panel/update.sh
 
-    # Echo the details to the terminal
-    echo "Details saved in /etc/details.txt:"
-    cat /etc/details.txt
-}
-
-
-  
-
-
-
-
-echo_details() {
-    # Echo the details
-    echo "Admin_Link: https://$PUBLIC_IP:8082"
-    echo "----------------or-----------------"
-    echo "Admin_Link: http://$PUBLIC_IP:8080"
-    echo "username: admin"
-    echo "Password: $DJANGO_SUPERUSER_PASSWORD"
-    
-    
-}
-
-ioncube(){
-
-IONCUBE_URL="https://downloads.ioncube.com/loader_downloads/ioncube_loaders_lin_x86-64.tar.gz"
-TMP_DIR="/tmp/ioncube"
-IONCUBE_DIR="$TMP_DIR/ioncube"
-
-# Download and extract IonCube Loader
-echo "Downloading IonCube Loader..."
-mkdir -p $TMP_DIR
-wget -qO- $IONCUBE_URL | tar -xz -C $TMP_DIR
-
-
-# Iterate over each PHP version
-for PHP_VERSION in $PHP_VERSIONS; do
-  echo "Processing PHP $PHP_VERSION..."
-
-  # Verify if PHP is installed for this version
-  if ! command -v php$PHP_VERSION >/dev/null 2>&1; then
-    echo "PHP $PHP_VERSION binary not found. Skipping..."
-    continue
-  fi
-
-  # Determine PHP extension directory
-  EXT_DIR=$(php$PHP_VERSION -i | grep extension_dir | awk '{print $3}')
-  if [ -z "$EXT_DIR" ]; then
-    echo "Failed to locate PHP extension directory for PHP $PHP_VERSION. Skipping..."
-    continue
-  fi
-
-  # Determine PHP INI file
-  INI_FILE=$(php$PHP_VERSION --ini | grep "Loaded Configuration File" | awk '{print $4}')
-  if [ -z "$INI_FILE" ]; then
-    echo "Failed to locate PHP INI file for PHP $PHP_VERSION. Skipping..."
-    continue
-  fi
-
-  # Copy the appropriate IonCube loader
-  IONCUBE_SO="ioncube_loader_lin_$PHP_VERSION.so"
-  if [ ! -f "$IONCUBE_DIR/$IONCUBE_SO" ]; then
-    echo "IonCube Loader for PHP $PHP_VERSION is not available. Skipping..."
-    continue
-  fi
-
-  echo "Installing IonCube Loader for PHP $PHP_VERSION..."
-  cp "$IONCUBE_DIR/$IONCUBE_SO" "$EXT_DIR"
-
-  # Enable IonCube Loader in PHP INI
-  if ! grep -q "ioncube_loader" $INI_FILE; then
-    echo "zend_extension = $EXT_DIR/$IONCUBE_SO" >> $INI_FILE
-  fi
-
-  # Restart PHP-FPM
-  echo "Restarting PHP-FPM for PHP $PHP_VERSION..."
-  systemctl restart php$PHP_VERSION-fpm
-done
-
-# Clean up
-echo "Cleaning up..."
-rm -rf $TMP_DIR
-
-# Verify installation
-for PHP_VERSION in $PHP_VERSIONS; do
-  if php$PHP_VERSION -m | grep -q "ionCube Loader"; then
-    echo "IonCube Loader installed successfully for PHP $PHP_VERSION!"
-  else
-    echo "IonCube Loader installation failed for PHP $PHP_VERSION."
-  fi
-done
-
-echo "IonCube Loader installation process completed."
-
+    success_msg "phpMyAdmin Integrated"
 }
 
-#main
 
-check installation
-check_permission
-packages
-panelsetup
-bind
-quota
-emailset
-roundcube
-phpmyadmin
-install_ftp_server
-ioncube
+# =============================================================================
+#  FIREWALL (CSF)
+# =============================================================================
+firewallsetup() {
+    status_msg "Installing ConfigServer Firewall (CSF)"
+    cd /tmp
+    if ! wget -q --timeout=30 https://download.configserver.com/csf.tgz -O csf.tgz; then
+        warn_msg "Could not download CSF — falling back to UFW"
+        _install_ufw_fallback
+        return 0
+    fi
+    if ! tar -xzf csf.tgz 2>/dev/null; then
+        warn_msg "CSF archive corrupted — falling back to UFW"
+        rm -f csf.tgz
+        _install_ufw_fallback
+        return 0
+    fi
+    cd csf
+    sh install.sh > /dev/null 2>&1 || true
 
-# sudo phpenmod mbstring
-sudo  apt-get install -y shellinabox
-cd /etc/shellinabox/options-enabled
-sudo mv 00+Black\ on\ White.css 00_Black\ on\ White.css
-sudo mv 00_White\ On\ Black.css 00+White\ On\ Black.css
+    if [[ -f /etc/csf/csf.conf ]]; then
+        TCP_IN="20,21,22,25,53,80,110,143,443,465,587,953,993,995,3306,7080,8080,8081,8082,8090,8092,9000,9002,33060"
+        UDP_IN="53,953"
+        sed -i "s/^TCP_IN = .*/TCP_IN = \"${TCP_IN}\"/"   /etc/csf/csf.conf
+        sed -i "s/^UDP_IN = .*/UDP_IN = \"${UDP_IN}\"/"   /etc/csf/csf.conf
+        sed -i 's/^TESTING = .*/TESTING = "0"/'           /etc/csf/csf.conf
+        csf -r > /dev/null 2>&1 || true
+        success_msg "CSF Firewall Active"
+    else
+        warn_msg "CSF installed but config not found — falling back to UFW"
+        _install_ufw_fallback
+    fi
+    cd /tmp && rm -rf csf csf.tgz 2>/dev/null || true
+}
 
+_install_ufw_fallback() {
+    status_msg "Configuring UFW firewall (fallback)"
+    apt-get install -y ufw 2>/dev/null || true
+    ufw --force reset > /dev/null 2>&1 || true
+    ufw default deny incoming > /dev/null 2>&1 || true
+    ufw default allow outgoing > /dev/null 2>&1 || true
+    # Allow all required ports
+    for port in 22 25 53 80 110 143 443 465 587 993 995 3306 8080 8081 8082 8090 8092 9000 9002; do
+        ufw allow "$port" > /dev/null 2>&1 || true
+    done
+    ufw allow 40000:50000/tcp > /dev/null 2>&1 || true  # FTP passive
+    ufw --force enable > /dev/null 2>&1 || true
+    success_msg "UFW Firewall Active (CSF fallback)"
+}
 
+# =============================================================================
+#  FINAL SERVICE RESTART
+# =============================================================================
+final_restart() {
+    status_msg "Synchronizing all services"
+    # Ensure redis is running first (required by celery/channels)
+    systemctl enable --now redis-server 2>/dev/null || systemctl enable --now redis 2>/dev/null || true
 
+    # Test nginx config before reloading
+    nginx -t
+    systemctl restart nginx
+    systemctl restart php${PHP_VERSION}-fpm
+    systemctl restart mysql
+    systemctl restart named 2>/dev/null || systemctl restart bind9 2>/dev/null || true
+    systemctl restart vsftpd 2>/dev/null || true
+    systemctl restart postfix
+    systemctl restart dovecot
+    systemctl restart docker 2>/dev/null || true
+    systemctl restart voidpanel
+    systemctl restart voidpanel-daphne
+    systemctl restart voidpanel-celery
+    systemctl restart voidpanel-wa 2>/dev/null || true
 
+    # Enable all on boot — use 'named' not 'bind9' (bind9 is an alias on Ubuntu 22.04+)
+    systemctl enable nginx php${PHP_VERSION}-fpm mysql named postfix dovecot voidpanel voidpanel-daphne voidpanel-celery voidpanel-wa redis-server docker 2>/dev/null || \
+    systemctl enable nginx php${PHP_VERSION}-fpm mysql bind9 postfix dovecot voidpanel voidpanel-daphne voidpanel-celery voidpanel-wa redis-server docker 2>/dev/null || true
 
-rm -rf /var/www/html/*
-cp -r /var/www/panel/voidpanel/*  /var/www/html/
-mkdir -p /var/www/suspend/
-cp -r /var/www/panel/suspend/*  /var/www/suspend/
+    success_msg "All services online and boot-enabled"
+}
 
+# =============================================================================
+#  CRON JOBS — Auto-suspend overdue services
+# =============================================================================
+cronsetup() {
+    status_msg "Installing VoidPanel scheduled tasks (cron)"
 
+    # Note: This cron is for the PANEL server only.
+    # The check_overdue command belongs to the WEBSITE (billing) project.
+    # If the website is co-located with the panel on this server, uncomment below.
+    # Otherwise, set this up on the website server separately.
 
+    # Auto-suspend cron placeholder (safe no-op if website not present here)
+    CRON_COMMENT="# VoidPanel: check overdue invoices daily (website billing project)"
+    CRON_LINE="0 6 * * * www-data cd /var/www/voidpanel-web && /var/www/voidpanel-web/venv/bin/python manage.py check_overdue >> /var/log/voidpanel_overdue.log 2>&1"
 
-#firewall
-# success: function (response) {
-#                             if (response.status === 'success') {
-#                                 alert('File deleted successfully!');
-#                                 var row = document.getElementById(name);
-#                                 if (row) {
-#                                     row.parentNode.removeChild(row);
-#                                 }
-#                             } else {
-#                                 alert("Error Deleting File!");
-#                             }
-#                         },
-#                         error: function (xhr, errmsg, err) {
-#                             alert("Error Deleting File!");
-#                         }
+    # Create log file
+    touch /var/log/voidpanel_overdue.log
+    chmod 640 /var/log/voidpanel_overdue.log
+    chown www-data:www-data /var/log/voidpanel_overdue.log 2>/dev/null || true
 
-#   try:
-#             os.remove(f'/{file_path}')
-#             return JsonResponse({'status':'success'})
+    # Write cron file for panel-level cleanup tasks
+    cat > /etc/cron.d/voidpanel <<CRONEOF
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-#         except Exception as e:
-          
-#             return JsonResponse({'error':'error'})
-#   return JsonResponse({'error':'error'})
+# VoidPanel scheduled maintenance
+# Clear old Django sessions weekly
+0 3 * * 0 www-data cd ${PROJECT_DIR} && ${VENV_DIR}/bin/python manage.py clearsessions >> /var/log/voidpanel_uwsgi.log 2>&1
 
+# Check disk usage and update panel stats hourly
+0 * * * * www-data cd ${PROJECT_DIR} && ${VENV_DIR}/bin/python manage.py update_disk_stats >> /var/log/voidpanel_uwsgi.log 2>&1 || true
 
-# echo "Stopping MySQL service..."
-# sudo systemctl stop mysql
+# Check for and apply auto updates nightly at midnight
+0 0 * * * www-data cd ${PROJECT_DIR} && ${VENV_DIR}/bin/python manage.py auto_update >> /var/log/voidpanel_auto_update.log 2>&1
 
-# # Start MySQL in safe mode (skip-grant-tables)
-# echo "Starting MySQL in safe mode (skip-grant-tables)..."
-# sudo mysqld_safe --skip-grant-tables > /dev/null 2>&1 &
+CRONEOF
+    touch /var/log/voidpanel_auto_update.log 2>/dev/null || true
+    chmod 644 /var/log/voidpanel_auto_update.log 2>/dev/null || true
+    chown www-data:www-data /var/log/voidpanel_auto_update.log 2>/dev/null || true
+    chmod 644 /etc/cron.d/voidpanel
+    success_msg "Cron jobs installed"
+}
 
-# # Wait for MySQL to start
-# echo "Waiting for MySQL to start..."
-# sleep 5
+# =============================================================================
+#  SAVE CREDENTIALS
+# =============================================================================
+save_credentials() {
+    cat > /root/voidpanel_access.txt <<EOF
+==========================================================
+       VoidPanel — Access Credentials
+==========================================================
+ Panel URL (HTTP):   http://${PUBLIC_IP}:8080
+ Panel URL (HTTPS):  https://${PUBLIC_IP}:8082
+ Username:           admin
+ Password:           ${DJANGO_SUPERUSER_PASS}
+ (Also saved to:     /etc/voidpanel_admin_pass)
+----------------------------------------------------------
+ phpMyAdmin:         http://${PUBLIC_IP}:8090
+ Roundcube Mail:     http://${PUBLIC_IP}:9000
+----------------------------------------------------------
+ MySQL Root Pass:    ${MYSQL_ROOT_PASS}
+ Web Engine:         ${WEB_ENGINE}
+ SSO Website URL:    https://voidpanel.com
 
-# # Check if MySQL is running
-# if mysqladmin ping -u root > /dev/null 2>&1; then
-#     echo "MySQL is running. Proceeding to reset the password..."
-#     mysql -u root <<EOF
-# FLUSH PRIVILEGES;
-# ALTER USER 'root'@'localhost' IDENTIFIED WITH 'mysql_native_password' BY '${MYSQL_ROOT_PASSWORD}';
-# FLUSH PRIVILEGES;
-# EOF
-
-# fi
-
-# # Stop the MySQL safe mode
-# echo "Stopping MySQL safe mode..."
-# sudo killall -w mysqld_safe
-
-# # Restart the MySQL service normally
-# echo "Restarting MySQL service..."
-# sudo systemctl start mysql
-
-
-
-sudo mysql -u root -p"$MYSQL_ROOT_PASSWORD" <<EOF
-CREATE USER 'newuser'@'localhost' IDENTIFIED BY '$NEWUSER';
-GRANT ALL PRIVILEGES ON *.* TO 'newuser'@'localhost' WITH GRANT OPTION;
-FLUSH PRIVILEGES;
-EOF
-
-cat <<EOF | tee /etc/dontdelete.txt
-$NEWUSER
+----------------------------------------------------------
+ Install Log:        ${LOG_FILE}
+ This file:          /root/voidpanel_access.txt
+==========================================================
 EOF
 
 
-echo  "Now Rebooting The server"
-restart
-echo  "Configuring Firewall"
-firewall
-echo  " Details"
-save_details
-echo_details
+    chmod 600 /root/voidpanel_access.txt
+    echo ""
+    cat /root/voidpanel_access.txt
+}
 
-rm -r /var/www/panel/Archive.zip
+# =============================================================================
+#  MAIN
+# =============================================================================
+install_main_system() {
+    status_msg "VoidPanel v2.5.24 — Enterprise Installation Starting (Ubuntu 22.04)"
+    panelsetup
+    bindsetup
+    quotasetup
+    emailsetup
+    roundcubesetup
+    ftpsetup
+    phpmyadminsetup
+    firewallsetup
+    cronsetup
+    final_restart
+    save_credentials
 
+    echo ""
+    echo -e "${GREEN}==========================================================${RESET}"
+    echo -e "${GREEN}   VoidPanel Enterprise Installation Complete!            ${RESET}"
+    echo -e "${GREEN}   Credentials saved to /root/voidpanel_access.txt        ${RESET}"
+    echo -e "${GREEN}==========================================================${RESET}"
+    echo ""
+}
 
+install_main_system

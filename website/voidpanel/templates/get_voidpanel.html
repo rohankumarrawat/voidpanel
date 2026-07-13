@@ -1,0 +1,674 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Get VoidPanel Free — Open-Source Server Control Panel | VoidPanel</title>
+    <meta name="description" content="Install VoidPanel on your own VPS or dedicated server. Free forever, open-source, with Agentic AI built-in. One command install on Ubuntu 22.04+ or AlmaLinux 9+.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css?v=3.0">
+    <style>
+        /* ── Layout ── */
+        .gvp-page { min-height: 100vh; background: #f8fafc; }
+
+        /* ── Hero ── */
+        .gvp-hero {
+            background: linear-gradient(160deg, #0f172a 0%, #1e293b 60%, #0f172a 100%);
+            padding: 120px 5% 80px;
+            position: relative;
+            overflow: hidden;
+        }
+        .gvp-hero::before {
+            content: '';
+            position: absolute;
+            top: -20%; right: -10%;
+            width: 60%; height: 100%;
+            background: radial-gradient(ellipse, rgba(37,99,235,0.15), transparent 55%);
+            pointer-events: none;
+        }
+        .gvp-hero::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px);
+            background-size: 28px 28px;
+            pointer-events: none;
+        }
+        .gvp-hero-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 64px;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+        }
+        @media(max-width: 900px) { .gvp-hero-inner { grid-template-columns: 1fr; gap: 48px; } }
+        .gvp-hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(37,99,235,0.2);
+            border: 1px solid rgba(37,99,235,0.35);
+            color: #93c5fd;
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            margin-bottom: 24px;
+        }
+        .gvp-hero-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: #60a5fa; animation: pulse-dot 2s infinite; }
+        .gvp-hero h1 {
+            font-size: clamp(2.4rem, 5vw, 4rem);
+            font-weight: 900;
+            letter-spacing: -0.04em;
+            line-height: 1.08;
+            color: #f1f5f9;
+            margin-bottom: 18px;
+        }
+        .gvp-hero h1 span { color: #60a5fa; }
+        .gvp-hero p { font-size: 1rem; color: #94a3b8; line-height: 1.75; margin-bottom: 28px; max-width: 480px; }
+
+        /* Install command box */
+        .install-box {
+            background: #0a0f1a;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 28px;
+        }
+        .install-box-bar {
+            background: #111827;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .install-box-bar .dots { display: flex; gap: 6px; }
+        .install-box-bar .dots span { width: 10px; height: 10px; border-radius: 50%; display: block; }
+        .install-box-bar span.label { font-size: 0.72rem; color: #475569; font-family: 'JetBrains Mono', monospace; }
+        .install-box-cmd {
+            padding: 18px 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            color: #34d399;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .copy-btn {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #94a3b8;
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+            transition: all 0.18s;
+            font-family: inherit;
+        }
+        .copy-btn:hover { background: rgba(255,255,255,0.12); color: #e2e8f0; }
+
+        /* Steps row */
+        .gvp-steps-row {
+            display: flex;
+            align-items: center;
+            gap: 0;
+        }
+        .gvp-step-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .gvp-step-num {
+            width: 30px; height: 30px;
+            border-radius: 9px;
+            background: rgba(37,99,235,0.2);
+            border: 1px solid rgba(37,99,235,0.3);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.78rem;
+            font-weight: 900;
+            color: #60a5fa;
+            flex-shrink: 0;
+        }
+        .gvp-step-text { font-size: 0.8rem; font-weight: 700; color: #94a3b8; }
+        .gvp-step-arrow { width: 28px; text-align: center; color: rgba(255,255,255,0.15); font-size: 0.75rem; flex-shrink: 0; }
+
+        /* ── Right panel (form card) ── */
+        .gvp-card {
+            background: #ffffff;
+            border: 1.5px solid var(--border);
+            border-radius: 24px;
+            padding: 32px;
+            box-shadow: var(--shadow-xl);
+        }
+        .gvp-card-title { font-size: 1.15rem; font-weight: 900; color: var(--text-primary); margin-bottom: 4px; }
+        .gvp-card-sub   { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 20px; }
+        .gvp-free-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d;
+            padding: 5px 12px; border-radius: 999px;
+            font-size: 0.78rem; font-weight: 800;
+            margin-bottom: 22px;
+        }
+        .gvp-form-group { margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px; }
+        .gvp-label { font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; }
+        .gvp-input {
+            padding: 12px 14px;
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            background: #ffffff;
+            color: var(--text-primary);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s;
+            width: 100%;
+        }
+        .gvp-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+        .gvp-input::placeholder { color: var(--text-faint); }
+        .gvp-ip-note {
+            display: flex; align-items: flex-start; gap: 10px;
+            background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 12px 14px;
+            margin-bottom: 18px;
+        }
+        .gvp-ip-note i { color: #b45309; font-size: 0.8rem; margin-top: 2px; flex-shrink: 0; }
+        .gvp-ip-note span { font-size: 0.78rem; color: #78350f; line-height: 1.6; }
+        .gvp-btn {
+            width: 100%; padding: 14px;
+            border-radius: var(--r-pill);
+            background: var(--gradient-brand);
+            color: #fff; font-weight: 900; font-size: 0.9rem;
+            border: none; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            box-shadow: var(--shadow-blue);
+            transition: opacity 0.2s, transform 0.18s;
+            text-decoration: none;
+        }
+        .gvp-btn:hover { opacity: 0.9; transform: translateY(-1px); color: #fff; }
+        .gvp-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .gvp-divider { height: 1px; background: var(--border); margin: 18px 0; }
+        .gvp-incl { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+        .gvp-incl li { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--text-secondary); }
+        .gvp-incl li i { color: #059669; font-size: 0.72rem; width: 16px; text-align: center; flex-shrink: 0; }
+        .gvp-fine { font-size: 0.73rem; color: var(--text-muted); text-align: center; line-height: 1.6; }
+        .gvp-fine a { color: var(--accent); text-decoration: none; }
+        .gvp-auth-notice {
+            background: var(--blue-50); border: 1px solid var(--blue-100); border-radius: 14px;
+            padding: 18px; text-align: center; font-size: 0.85rem; color: var(--text-secondary);
+        }
+        .gvp-auth-notice strong { display: block; margin-bottom: 4px; font-size: 0.92rem; color: var(--text-primary); }
+        .gvp-auth-notice a { color: var(--accent); font-weight: 700; text-decoration: none; }
+        .gvp-error   { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 10px; padding: 11px 14px; font-size: 0.84rem; margin-bottom: 14px; }
+        .gvp-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; border-radius: 10px; padding: 11px 14px; font-size: 0.84rem; margin-bottom: 14px; }
+
+        /* ── Feature Section ── */
+        .gvp-features { padding: 80px 5%; background: #ffffff; }
+        .gvp-features-inner { max-width: 1100px; margin: 0 auto; }
+        .feat-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-top: 48px; }
+        @media(max-width: 700px) { .feat-cards { grid-template-columns: 1fr; } }
+        .feat-card {
+            background: var(--bg-subtle);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 24px;
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            transition: all 0.22s var(--ease);
+        }
+        .feat-card:hover { background: #fff; border-color: var(--blue-200); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+        .feat-card .feat-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+        .feat-card .feat-title { font-size: 0.95rem; font-weight: 800; color: var(--text-primary); margin-bottom: 6px; }
+        .feat-card .feat-desc  { font-size: 0.83rem; color: var(--text-muted); line-height: 1.65; }
+        .feat-card code { background: rgba(37,99,235,0.08); color: #1d4ed8; padding: 1px 5px; border-radius: 4px; font-size: 0.82em; }
+
+        /* ── Requirements ── */
+        .gvp-req { padding: 64px 5%; background: var(--bg-subtle); }
+        .gvp-req-inner { max-width: 1100px; margin: 0 auto; }
+        .req-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 40px; }
+        @media(max-width: 700px) { .req-cards { grid-template-columns: 1fr; } }
+        .req-card {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 24px 22px;
+            text-align: center;
+            box-shadow: var(--shadow-xs);
+        }
+        .req-emoji { font-size: 2rem; margin-bottom: 12px; display: block; }
+        .req-label { font-size: 0.88rem; font-weight: 800; color: var(--text-primary); margin-bottom: 6px; }
+        .req-val   { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }
+
+        /* ── License list in card ── */
+        .lic-item {
+            background: var(--bg-subtle);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+        }
+        .lic-item-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+        .lic-hostname { font-size: 0.85rem; font-weight: 700; color: var(--text-primary); }
+        .lic-status-badge { padding: 3px 9px; border-radius: 999px; font-size: 0.68rem; font-weight: 800; }
+        .ls-active   { background: #f0fdf4; color: #15803d; }
+        .ls-suspended { background: #fffbeb; color: #b45309; }
+        .ls-revoked   { background: #fef2f2; color: #b91c1c; }
+        .lic-key { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .lic-ip  { font-size: 0.73rem; color: var(--text-faint); margin-top: 4px; }
+    </style>
+</head>
+<body class="gvp-page">
+{% include 'header.html' %}
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- HERO                                                         -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<section class="gvp-hero">
+    <div class="gvp-hero-inner">
+        <!-- Left: Copy + terminal -->
+        <div>
+            <div class="gvp-hero-badge"><span class="dot"></span> Free &amp; Open Source</div>
+            <h1>Deploy VoidPanel on<br><span>Your Own Server</span></h1>
+            <p>Get a free license key tied to your server IP. Install VoidPanel in minutes and manage your hosting infrastructure from one modern, powerful interface.</p>
+
+            <!-- Install command -->
+            <div class="install-box">
+                <div class="install-box-bar">
+                    <div class="dots">
+                        <span style="background:#ef4444;"></span>
+                        <span style="background:#f59e0b;"></span>
+                        <span style="background:#10b981;"></span>
+                    </div>
+                    <span class="label">bash — Ubuntu 22.04 / AlmaLinux 9+</span>
+                </div>
+                <div class="install-box-cmd">
+                    <code style="color:#34d399;">bash &lt;(curl -sL voidpanel.com/install.sh)</code>
+                    <button class="copy-btn" onclick="copyCmd(this)" id="copy-install-cmd">
+                        <i class="fas fa-copy"></i> Copy
+                    </button>
+                </div>
+            </div>
+
+            <!-- Steps row -->
+            <div class="gvp-steps-row">
+                <div class="gvp-step-item">
+                    <div class="gvp-step-num">1</div>
+                    <div class="gvp-step-text">Create Account</div>
+                </div>
+                <div class="gvp-step-arrow"><i class="fas fa-chevron-right"></i></div>
+                <div class="gvp-step-item">
+                    <div class="gvp-step-num">2</div>
+                    <div class="gvp-step-text">Get License Key</div>
+                </div>
+                <div class="gvp-step-arrow"><i class="fas fa-chevron-right"></i></div>
+                <div class="gvp-step-item">
+                    <div class="gvp-step-num">3</div>
+                    <div class="gvp-step-text">Run Installer</div>
+                </div>
+                <div class="gvp-step-arrow"><i class="fas fa-chevron-right"></i></div>
+                <div class="gvp-step-item">
+                    <div class="gvp-step-num">4</div>
+                    <div class="gvp-step-text">Activate Panel</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: License Card -->
+        <div class="gvp-card">
+            <div class="gvp-card-title">🔑 Get Your License</div>
+            <div class="gvp-card-sub">Issued instantly — no credit card required</div>
+            <div class="gvp-free-badge"><i class="fas fa-check"></i> 100% Free Forever</div>
+
+            {% if messages %}
+                {% for msg in messages %}
+                <div class="{% if 'error' in msg.tags %}gvp-error{% else %}gvp-success{% endif %}">
+                    <i class="fas {% if 'error' in msg.tags %}fa-triangle-exclamation{% else %}fa-circle-check{% endif %}"></i>
+                    {{ msg }}
+                </div>
+                {% endfor %}
+            {% endif %}
+
+            {% if request.user.is_authenticated %}
+
+                {% if user_licenses %}
+                <div style="margin-bottom:16px;">
+                    <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:10px;">Your Active Licenses</div>
+                    {% for lic in user_licenses %}
+                    <div class="lic-item">
+                        <div class="lic-item-top">
+                            <span class="lic-hostname">{{ lic.hostname|default:"VoidPanel Instance" }}</span>
+                            <span class="lic-status-badge {% if lic.status == 'active' %}ls-active{% elif lic.status == 'suspended' %}ls-suspended{% else %}ls-revoked{% endif %}">{{ lic.status|title }}</span>
+                        </div>
+                        <div class="lic-key">{{ lic.key|slice:":32" }}…</div>
+                        {% if lic.server_ip %}<div class="lic-ip"><i class="fas fa-server" style="margin-right:4px;"></i>{{ lic.server_ip }}</div>{% endif %}
+                        <a href="/portal/license/{{ lic.id }}/" style="display:inline-flex;align-items:center;gap:5px;margin-top:10px;font-size:0.78rem;font-weight:700;color:var(--accent);text-decoration:none;">View Details <i class="fas fa-arrow-right" style="font-size:0.7rem;"></i></a>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="gvp-divider"></div>
+                {% endif %}
+
+                <form method="POST" action="/get-voidpanel/">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="issue_license">
+                    <div class="gvp-form-group">
+                        <label class="gvp-label">Server Hostname (optional)</label>
+                        <input type="text" name="hostname" class="gvp-input" placeholder="e.g. panel.yourdomain.com">
+                    </div>
+                    <div class="gvp-ip-note" style="margin-bottom:18px;">
+                        <i class="fas fa-triangle-exclamation"></i>
+                        <span>Your license will be bound to the <strong>server IP</strong> that sends the first activation request. Activate from your production server.</span>
+                    </div>
+                    <button type="submit" class="gvp-btn">
+                        <i class="fas fa-key"></i> Issue My License Key
+                    </button>
+                </form>
+
+                <div class="gvp-divider"></div>
+                <ul class="gvp-incl">
+                    <li><i class="fas fa-check-circle"></i> 64-character cryptographic key</li>
+                    <li><i class="fas fa-check-circle"></i> Bound to one server IP</li>
+                    <li><i class="fas fa-check-circle"></i> Nightly validation via API</li>
+                    <li><i class="fas fa-check-circle"></i> Manage from your client portal</li>
+                    <li><i class="fas fa-check-circle"></i> All future VoidPanel updates</li>
+                </ul>
+
+            {% else %}
+                <div class="gvp-auth-notice">
+                    <strong>Create a free account to get started</strong>
+                    Sign up in seconds — no billing information needed.
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px;">
+                    <a href="/register/?next=/get-voidpanel/" class="gvp-btn">
+                        <i class="fas fa-user-plus"></i> Create Free Account
+                    </a>
+                    <a href="/login/?next=/get-voidpanel/" class="btn-void btn-void-outline w-full" style="justify-content:center;border-radius:var(--r-pill);">
+                        <i class="fas fa-right-to-bracket"></i> Sign In
+                    </a>
+                </div>
+                <div class="gvp-divider"></div>
+                <ul class="gvp-incl">
+                    <li><i class="fas fa-check-circle"></i> 100% Free — no billing info</li>
+                    <li><i class="fas fa-check-circle"></i> IP-locked for security</li>
+                    <li><i class="fas fa-check-circle"></i> Managed from client portal</li>
+                    <li><i class="fas fa-check-circle"></i> All future updates included</li>
+                </ul>
+            {% endif %}
+
+            <div class="gvp-fine">
+                By getting a license, you agree to our <a href="/docs/">Terms of Service</a>.<br>
+                Need help? <a href="/portal/ticket/new/">Open a support ticket</a>.
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- TIER PRICING                                                 -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<section style="padding:80px 5%;background:#f8fafc;" id="pricing">
+    <div style="max-width:1140px;margin:0 auto;">
+        <div class="section-header-center reveal">
+            <span class="section-eyebrow"><span class="dot"></span> License Plans</span>
+            <h2 class="section-title">Pick the plan that fits your stack</h2>
+            <p class="section-subtitle">Start free. Upgrade when you need advanced tools, AI, or white-labeling for your clients.</p>
+        </div>
+
+        <style>
+            .vp-plans { display:grid; grid-template-columns:repeat(4,1fr); gap:24px; margin-top:48px; }
+            @media(max-width:900px) { .vp-plans { grid-template-columns:repeat(2,1fr); } }
+            @media(max-width:560px) { .vp-plans { grid-template-columns:1fr; } }
+            .vp-plan {
+                background:#fff; border-radius:20px; padding:2rem 1.5rem;
+                border:1.5px solid #e2e8f0; position:relative;
+                display:flex; flex-direction:column; transition:transform .2s,box-shadow .2s;
+            }
+            .vp-plan:hover { transform:translateY(-4px); box-shadow:0 16px 48px rgba(0,0,0,0.1); }
+            .vp-plan.popular {
+                border-color:#6366f1; box-shadow:0 0 0 2px #6366f122;
+                background:linear-gradient(160deg,#fafafa 0%,#f5f3ff 100%);
+            }
+            .vp-plan-badge {
+                position:absolute; top:-13px; left:50%; transform:translateX(-50%);
+                background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff;
+                font-size:0.68rem; font-weight:800; padding:4px 14px; border-radius:999px;
+                letter-spacing:0.06em; text-transform:uppercase; white-space:nowrap;
+            }
+            .vp-plan-name { font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:#64748b; margin-bottom:8px; }
+            .vp-plan-price { font-size:2.25rem; font-weight:900; color:#0f172a; line-height:1; }
+            .vp-plan-price sup { font-size:1.1rem; vertical-align:super; }
+            .vp-plan-price sub { font-size:0.85rem; font-weight:500; color:#64748b; }
+            .vp-plan-desc { font-size:0.82rem; color:#64748b; margin:10px 0 20px; line-height:1.6; }
+            .vp-plan hr { border-color:#f1f5f9; margin:0 0 16px; }
+            .vp-plan-features { list-style:none; padding:0; margin:0 0 24px; flex:1; }
+            .vp-plan-features li {
+                display:flex; align-items:flex-start; gap:8px;
+                font-size:0.83rem; color:#374151; padding:5px 0;
+            }
+            .vp-plan-features li .chk { color:#10b981; font-size:0.75rem; margin-top:2px; flex-shrink:0; }
+            .vp-plan-features li .nope { color:#e5e7eb; font-size:0.75rem; margin-top:2px; flex-shrink:0; }
+            .vp-plan-features li .locked { color:#94a3b8; }
+            .vp-plan-cta {
+                display:block; text-align:center; padding:11px; border-radius:12px;
+                font-size:0.875rem; font-weight:700; text-decoration:none;
+                background:#f1f5f9; color:#374151;
+                transition:background .2s,color .2s;
+            }
+            .vp-plan-cta:hover { background:#e2e8f0; color:#111827; }
+            .vp-plan-cta.primary {
+                background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff;
+            }
+            .vp-plan-cta.primary:hover { opacity:.9; }
+            .vp-plan-cta.gold {
+                background:linear-gradient(135deg,#f59e0b,#d97706); color:#000;
+            }
+            .vp-plan-cta.gold:hover { opacity:.9; }
+        </style>
+
+        <div class="vp-plans">
+            <!-- Starter -->
+            <div class="vp-plan reveal">
+                <div class="vp-plan-name">Starter</div>
+                <div class="vp-plan-price"><sup>Free</sup></div>
+                <div class="vp-plan-desc">Perfect for personal hosting and learning the platform.</div>
+                <hr>
+                <ul class="vp-plan-features">
+                    <li><i class="fas fa-check chk"></i> Hosting Management</li>
+                    <li><i class="fas fa-check chk"></i> Email & SSL</li>
+                    <li><i class="fas fa-check chk"></i> Billing Module</li>
+                    <li><i class="fas fa-check chk"></i> Live Chat</li>
+                    <li><i class="fas fa-times nope"></i> <span class="locked">Marketing Suite</span></li>
+                    <li><i class="fas fa-times nope"></i> <span class="locked">SEO Tools</span></li>
+                    <li><i class="fas fa-times nope"></i> <span class="locked">AI Assistant</span></li>
+                    <li><i class="fas fa-times nope"></i> <span class="locked">White-Label</span></li>
+                </ul>
+                <a href="/license/subscribe/?tier=pro" class="vp-plan-cta">Get Free Trial</a>
+            </div>
+
+            <!-- Pro -->
+            <div class="vp-plan reveal">
+                <div class="vp-plan-name">Pro</div>
+                <div class="vp-plan-price"><sup>₹</sup>999<sub>/mo</sub></div>
+                <div class="vp-plan-desc">For agencies running active client hosting operations.</div>
+                <hr>
+                <ul class="vp-plan-features">
+                    <li><i class="fas fa-check chk"></i> Everything in Starter</li>
+                    <li><i class="fas fa-check chk"></i> Marketing Suite</li>
+                    <li><i class="fas fa-check chk"></i> SEO Tools</li>
+                    <li><i class="fas fa-check chk"></i> Social Media Suite</li>
+                    <li><i class="fas fa-check chk"></i> WhatsApp Automation</li>
+                    <li><i class="fas fa-times nope"></i> <span class="locked">Docker Manager</span></li>
+                    <li><i class="fas fa-times nope"></i> <span class="locked">AI Assistant</span></li>
+                    <li><i class="fas fa-times nope"></i> <span class="locked">White-Label</span></li>
+                </ul>
+                <a href="/license/subscribe/?tier=pro" class="vp-plan-cta">Subscribe — ₹999/mo</a>
+            </div>
+
+            <!-- Advanced -->
+            <div class="vp-plan popular reveal">
+                <div class="vp-plan-badge">Most Popular</div>
+                <div class="vp-plan-name">Advanced</div>
+                <div class="vp-plan-price"><sup>₹</sup>2,499<sub>/mo</sub></div>
+                <div class="vp-plan-desc">Full feature access including AI and developer tools.</div>
+                <hr>
+                <ul class="vp-plan-features">
+                    <li><i class="fas fa-check chk"></i> Everything in Pro</li>
+                    <li><i class="fas fa-check chk"></i> Docker Manager</li>
+                    <li><i class="fas fa-check chk"></i> Script Installer (MERN, Python)</li>
+                    <li><i class="fas fa-check chk"></i> AI Assistant</li>
+                    <li><i class="fas fa-check chk"></i> Digital Suite</li>
+                    <li><i class="fas fa-check chk"></i> Reseller Hosting</li>
+                    <li><i class="fas fa-times nope"></i> <span class="locked">White-Label Branding</span></li>
+                    <li><i class="fas fa-times nope"></i> <span class="locked">Priority Support</span></li>
+                </ul>
+                <a href="/license/subscribe/?tier=advanced" class="vp-plan-cta primary">Subscribe — ₹2,499/mo</a>
+            </div>
+
+            <!-- Unlimited -->
+            <div class="vp-plan reveal">
+                <div class="vp-plan-name">Unlimited</div>
+                <div class="vp-plan-price"><sup>₹</sup>4,999<sub>/mo</sub></div>
+                <div class="vp-plan-desc">Complete platform ownership with white-label and priority support.</div>
+                <hr>
+                <ul class="vp-plan-features">
+                    <li><i class="fas fa-check chk"></i> Everything in Advanced</li>
+                    <li><i class="fas fa-check chk"></i> <strong>White-Label Branding</strong></li>
+                    <li><i class="fas fa-check chk"></i> Custom Logo & Panel Name</li>
+                    <li><i class="fas fa-check chk"></i> Custom Accent Colours</li>
+                    <li><i class="fas fa-check chk"></i> Hide VoidPanel Badge</li>
+                    <li><i class="fas fa-check chk"></i> Priority Support</li>
+                    <li><i class="fas fa-check chk"></i> Dedicated Account Manager</li>
+                    <li><i class="fas fa-check chk"></i> Custom Feature Requests</li>
+                </ul>
+                <a href="/license/subscribe/?tier=unlimited" class="vp-plan-cta gold">Subscribe — ₹4,999/mo</a>
+            </div>
+        </div>
+
+        <p style="text-align:center;margin-top:28px;font-size:0.82rem;color:#94a3b8;">
+            All paid plans include a <strong>30-day free trial</strong> — no credit card required at sign-up.
+            <a href="/get-voidpanel/" style="color:#6366f1;">Claim free trial →</a>
+        </p>
+    </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- FEATURE CARDS                                                -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<section class="gvp-features">
+    <div class="gvp-features-inner">
+        <div class="section-header-center reveal">
+            <span class="section-eyebrow"><span class="dot"></span> Why VoidPanel</span>
+            <h2 class="section-title">A complete server management<br>experience, for free</h2>
+        </div>
+        <div class="feat-cards" data-stagger="80">
+            <div class="feat-card">
+                <div class="feat-icon ib-blue"><i class="fas fa-shield-halved"></i></div>
+                <div>
+                    <div class="feat-title">IP-Locked Security</div>
+                    <div class="feat-desc">Each license is bound to a single server IP. Your installation is uniquely identified — no key sharing, no abuse. Move servers? Simply request a transfer from the client portal.</div>
+                </div>
+            </div>
+            <div class="feat-card">
+                <div class="feat-icon ib-green"><i class="fas fa-bolt"></i></div>
+                <div>
+                    <div class="feat-title">One-Command Install</div>
+                    <div class="feat-desc">Run <code>bash &lt;(curl -sL voidpanel.com/install.sh)</code> and the wizard automatically detects your OS, installs Nginx, Django, SSL, Celery, and everything else.</div>
+                </div>
+            </div>
+            <div class="feat-card">
+                <div class="feat-icon ib-purple"><i class="fas fa-rotate"></i></div>
+                <div>
+                    <div class="feat-title">Automatic Validation</div>
+                    <div class="feat-desc">VoidPanel pings voidpanel.com nightly via Celery Beat to confirm the license status. If your server can't reach us, it retains the last known state — no surprise outages.</div>
+                </div>
+            </div>
+            <div class="feat-card">
+                <div class="feat-icon ib-amber"><i class="fas fa-robot"></i></div>
+                <div>
+                    <div class="feat-title">Agentic AI Built In</div>
+                    <div class="feat-desc">VoidPanel's AI knows your entire server context — Nginx configs, PHP-FPM, error logs, DNS zones. Ask it to diagnose, configure, or fix anything. You approve every command.</div>
+                </div>
+            </div>
+            <div class="feat-card">
+                <div class="feat-icon ib-cyan"><i class="fas fa-eye"></i></div>
+                <div>
+                    <div class="feat-title">Full Portal Visibility</div>
+                    <div class="feat-desc">View your active licenses from the client portal — see the key, issue date, last ping time, server hostname, and IP. Everything managed in one place.</div>
+                </div>
+            </div>
+            <div class="feat-card">
+                <div class="feat-icon ib-rose"><i class="fas fa-code-branch"></i></div>
+                <div>
+                    <div class="feat-title">100% Open Source</div>
+                    <div class="feat-desc">VoidPanel is fully open source. Fork it, customize it, deploy it. The license is free forever — you're never locked in. Contribute on GitHub and shape the roadmap.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- SERVER REQUIREMENTS                                          -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<section class="gvp-req">
+    <div class="gvp-req-inner">
+        <div class="section-header-center reveal">
+            <span class="section-eyebrow"><span class="dot"></span> Before You Install</span>
+            <h2 class="section-title">Server Requirements</h2>
+            <p class="section-subtitle">VoidPanel is optimized for fresh Ubuntu or AlmaLinux VPS instances.</p>
+        </div>
+        <div class="req-cards" data-stagger="80">
+            <div class="req-card">
+                <span class="req-emoji">🐧</span>
+                <div class="req-label">Operating System</div>
+                <div class="req-val">Ubuntu 22.04+ LTS<br>or AlmaLinux 9+</div>
+            </div>
+            <div class="req-card">
+                <span class="req-emoji">💾</span>
+                <div class="req-label">RAM</div>
+                <div class="req-val">Minimum 1 GB<br>(2 GB recommended)</div>
+            </div>
+            <div class="req-card">
+                <span class="req-emoji">💿</span>
+                <div class="req-label">Disk Space</div>
+                <div class="req-val">Minimum 10 GB<br>free disk space</div>
+            </div>
+        </div>
+
+        <!-- CTA row -->
+        <div style="text-align:center;margin-top:48px;" class="reveal">
+            <a href="/docs/" class="btn-void btn-void-outline btn-void-lg">
+                <i class="fas fa-book"></i> Read Installation Guide
+            </a>
+        </div>
+    </div>
+</section>
+
+{% include 'footer.html' %}
+
+<script src="/static/assets/js/void-utils.js"></script>
+<script>
+function copyCmd(btn) {
+    navigator.clipboard.writeText('bash <(curl -sL voidpanel.com/install.sh)').then(() => {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        btn.style.color = '#34d399';
+        setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 2000);
+    }).catch(() => {});
+}
+</script>
+</body>
+</html>

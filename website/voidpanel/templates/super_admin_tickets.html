@@ -1,0 +1,87 @@
+{% extends 'super_admin_base.html' %}
+{% block title %}Support | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}Support{% endblock %}
+{% block admin_content %}
+
+<div class="sa-page-header">
+    <div>
+        <div class="sa-page-title">Support Tickets</div>
+        <div class="sa-page-sub">View and respond to all client support requests</div>
+    </div>
+    <div class="sa-header-actions">
+        <div class="sa-stat-chip violet"><span class="val">{{ admin_stats.open_ticket_count }}</span> Open</div>
+    </div>
+</div>
+
+<!-- Filter Tabs -->
+<div class="sa-tabs">
+    <a href="?" class="sa-tab {% if not status_filter %}active-green{% endif %}">All</a>
+    <a href="?status=open" class="sa-tab {% if status_filter == 'open' %}active-amber{% endif %}">Open</a>
+    <a href="?status=answered" class="sa-tab {% if status_filter == 'answered' %}active-green{% endif %}">Answered</a>
+    <a href="?status=in_progress" class="sa-tab {% if status_filter == 'in_progress' %}active-sky{% endif %}">In Progress</a>
+    <a href="?status=closed" class="sa-tab {% if status_filter == 'closed' %}active-sky{% endif %}">Closed</a>
+</div>
+
+<!-- Tickets Table -->
+<div class="sa-card" style="padding:0;overflow:hidden;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid var(--border);">
+        <div class="sa-card-title">
+            <i class="fas fa-headset"></i>
+            {% if status_filter %}{{ status_filter|title }}{% else %}All{% endif %} Tickets
+        </div>
+        <span style="font-size:0.75rem;color:var(--text-3);">{{ tickets|length }} shown</span>
+    </div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead>
+                <tr>
+                    <th>Subject</th>
+                    <th>Client</th>
+                    <th>Dept</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Last Reply</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ticket in tickets %}
+                <tr>
+                    <td style="max-width:220px;">
+                        <a href="/super-admin/tickets/{{ ticket.id }}/" style="font-weight:700;color:var(--text-1);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ ticket.subject }}</a>
+                        <div style="font-size:0.7rem;color:var(--text-3);margin-top:2px;">{{ ticket.ticket_number }}</div>
+                    </td>
+                    <td>{{ ticket.user.get_full_name|default:ticket.user.username }}</td>
+                    <td style="font-size:0.78rem;">{{ ticket.department }}</td>
+                    <td>
+                        <span class="sa-badge {% if ticket.priority == 'high' %}red{% elif ticket.priority == 'medium' %}amber{% else %}gray{% endif %}">
+                            {{ ticket.get_priority_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="sa-badge {% if ticket.status == 'open' %}amber{% elif ticket.status == 'answered' %}green{% elif ticket.status == 'in_progress' %}sky{% else %}gray{% endif %}">
+                            {{ ticket.get_status_display }}
+                        </span>
+                    </td>
+                    <td style="font-size:0.76rem;white-space:nowrap;">{{ ticket.last_reply_at|date:"M d, H:i" }}</td>
+                    <td>
+                        <a href="/super-admin/tickets/{{ ticket.id }}/" class="sa-btn sky sm"><i class="fas fa-reply"></i> Reply</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7">
+                        <div class="sa-empty">
+                            <i class="fas fa-check-circle"></i>
+                            <div class="sa-empty-title">No tickets found</div>
+                            <div class="sa-empty-sub">All clear! No support tickets at the moment.</div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

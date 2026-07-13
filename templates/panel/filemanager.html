@@ -1,1592 +1,1026 @@
+{% load static %}
 <!doctype html>
 <html lang="en">
-
 <head>
-    <title>:: VoidPanel :: FileManager</title>
-
-
-    <!-- VENDOR CSS -->
-    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
-
-    <!-- MAIN Project CSS file -->
-    <link rel="stylesheet" href="/static/assets/css/main.css">
-
-    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>:: VoidPanel :: File Manager</title>
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
     <style>
-        /* Basic styling for the p tag */
-        p.processing {
-            font-size: 18px;
-            font-weight: bold;
-         
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html[data-theme="light"] {
+            --fm-bg: #f1f5f9;
+            --fm-sidebar-bg: rgba(255,255,255,0.95);
+            --fm-sidebar-border: rgba(99,102,241,0.12);
+            --fm-toolbar-bg: rgba(248,250,252,0.95);
+            --fm-breadcrumb-bg: rgba(241,245,249,0.8);
+            --fm-panel-bg: linear-gradient(135deg,rgba(255,255,255,0.8),rgba(241,245,249,0.95));
+            --fm-panel-border: rgba(0,0,0,0.06);
+            --fm-text: #0f172a;
+            --fm-text-dim: #64748b;
+            --fm-btn-bg: rgba(0,0,0,0.05);
+            --fm-btn-border: rgba(0,0,0,0.08);
+            --fm-btn-color: #0f172a;
+            --fm-search-bg: rgba(0,0,0,0.04);
+            --fm-search-border: rgba(0,0,0,0.08);
+            --fm-ctx-bg: rgba(255,255,255,0.99);
+            --fm-ctx-border: rgba(99,102,241,0.2);
+            --fm-ctx-color: #0f172a;
+            --fm-modal-bg: linear-gradient(135deg,rgba(255,255,255,0.99),rgba(241,245,249,0.99));
+            --fm-modal-border: rgba(99,102,241,0.15);
+            --fm-modal-color: #0f172a;
+            --fm-input-bg: rgba(0,0,0,0.04);
+            --fm-input-color: #0f172a;
+            --fm-th-color: #475569;
+            --fm-td-color: #334155;
+            --fm-name-color: #0f172a;
+        }
+        html[data-theme="dark"] {
+            --fm-bg: #0a0e1a;
+            --fm-sidebar-bg: rgba(15,23,42,0.85);
+            --fm-sidebar-border: rgba(99,102,241,0.18);
+            --fm-toolbar-bg: rgba(10,14,26,0.9);
+            --fm-breadcrumb-bg: rgba(10,14,26,0.6);
+            --fm-panel-bg: linear-gradient(135deg,rgba(30,41,59,0.7),rgba(15,23,42,0.9));
+            --fm-panel-border: rgba(255,255,255,0.05);
+            --fm-text: #f1f5f9;
+            --fm-text-dim: #64748b;
+            --fm-btn-bg: rgba(255,255,255,0.06);
+            --fm-btn-border: rgba(255,255,255,0.08);
+            --fm-btn-color: #cbd5e1;
+            --fm-search-bg: rgba(255,255,255,0.06);
+            --fm-search-border: rgba(255,255,255,0.08);
+            --fm-ctx-bg: rgba(10,14,26,0.98);
+            --fm-ctx-border: rgba(99,102,241,0.25);
+            --fm-ctx-color: #e2e8f0;
+            --fm-modal-bg: linear-gradient(135deg,rgba(22,33,58,0.99),rgba(10,14,26,0.99));
+            --fm-modal-border: rgba(99,102,241,0.2);
+            --fm-modal-color: #fff;
+            --fm-input-bg: rgba(0,0,0,0.3);
+            --fm-input-color: #fff;
+            --fm-th-color: #475569;
+            --fm-td-color: #cbd5e1;
+            --fm-name-color: #e2e8f0;
+        }
+        body { font-family: 'Inter', sans-serif; background: var(--fm-bg); color: var(--fm-text); min-height: 100vh; }
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: -1;
+            background:
+                radial-gradient(ellipse at 20% 20%, rgba(99,102,241,0.12) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(16,185,129,0.07) 0%, transparent 50%);
         }
 
-        /* Animation for the dots */
-        .dots::after {
-            content: '';
-            display: inline-block;
-            width: 1em;
-            text-align: left;
-            animation: dots 1.5s steps(4, end) infinite;
+        /* ── Layout ── */
+        .fm-layout { display: flex; min-height: 100vh; }
+        .fm-sidebar {
+            width: 240px; flex-shrink: 0;
+            background: var(--fm-sidebar-bg); border-right: 1px solid var(--fm-sidebar-border);
+            backdrop-filter: blur(20px); padding: 20px 14px;
+            display: flex; flex-direction: column;
+        }
+        .fm-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+        /* ── Sidebar ── */
+        .sidebar-logo {
+            display: flex; align-items: center; gap: 10px;
+            text-decoration: none; color: var(--fm-text); font-size: 1rem; font-weight: 700; margin-bottom: 28px;
+        }
+        .sidebar-logo img { width: 30px; height: 30px; border-radius: 6px; }
+        .sidebar-section {
+            font-size: 0.65rem; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.08em; color: #475569; margin-bottom: 6px; padding: 0 8px;
+        }
+        .sidebar-nav a {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 12px; border-radius: 8px;
+            color: var(--fm-text-dim); text-decoration: none;
+            font-size: 0.83rem; transition: all 0.18s; margin-bottom: 2px;
+        }
+        .sidebar-nav a:hover, .sidebar-nav a.active {
+            background: rgba(99,102,241,0.15); color: #818cf8;
+        }
+        .sidebar-nav a i { width: 16px; text-align: center; flex-shrink: 0; }
+        .sidebar-divider { border: none; border-top: 1px solid rgba(255,255,255,0.05); margin: 14px 0; }
+
+        /* ── Toolbar ── */
+        .fm-toolbar {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+            padding: 14px 24px;
+            background: var(--fm-toolbar-bg);
+            border-bottom: 1px solid var(--fm-panel-border);
+            position: sticky; top: 0; z-index: 100;
+        }
+        .fm-toolbar-brand { font-weight: 700; font-size: 1rem; color: var(--fm-text); margin-right: 12px; display: flex; align-items: center; gap: 8px; }
+        .fm-toolbar-brand i { color: #6366f1; }
+        .fm-search {
+            background: var(--fm-search-bg); border: 1px solid var(--fm-search-border);
+            border-radius: 8px; padding: 7px 14px; color: var(--fm-text); font-size: 0.84rem;
+            outline: none; width: 200px; margin-left: auto; font-family: 'Inter', sans-serif;
+        }
+        .fm-search:focus { border-color: #6366f1; }
+        .fm-search::placeholder { color: #64748b; }
+
+        /* ── Buttons ── */
+        .fm-btn {
+            background: var(--fm-btn-bg); border: 1px solid var(--fm-btn-border);
+            color: var(--fm-btn-color); padding: 6px 12px; border-radius: 8px;
+            font-size: 0.8rem; font-weight: 500; cursor: pointer;
+            transition: all 0.18s; display: inline-flex; align-items: center; gap: 6px;
+            white-space: nowrap; text-decoration: none;
+        }
+        .fm-btn:hover { background: rgba(99,102,241,0.2); border-color: #6366f1; color: #fff; }
+        .fm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .fm-btn.primary { background: linear-gradient(135deg,#6366f1,#4f46e5); border-color: transparent; color: #fff; }
+        .fm-btn.danger  { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.3); color: #f87171; }
+        .fm-btn.success { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.3); color: #34d399; }
+        .fm-btn.trash   { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.3); color: #fbbf24; }
+
+        /* ── Breadcrumb ── */
+        .fm-breadcrumb {
+            padding: 10px 24px; background: var(--fm-breadcrumb-bg);
+            border-bottom: 1px solid var(--fm-panel-border);
+            font-size: 0.8rem; color: var(--fm-text-dim);
+            display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+        }
+        .fm-breadcrumb a { color: #818cf8; text-decoration: none; }
+        .fm-breadcrumb a:hover { color: #a5b4fc; text-decoration: underline; }
+
+        /* ── Selection bar ── */
+        #sel-bar {
+            display: none; align-items: center; gap: 10px;
+            margin: 12px 24px 0; padding: 10px 16px;
+            background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2);
+            border-radius: 10px; font-size: 0.82rem; color: #818cf8;
+        }
+        #sel-bar.visible { display: flex; }
+        #sel-bar .sel-actions { display: flex; gap: 8px; margin-left: auto; }
+
+        /* ── File Panel ── */
+        .fm-panel {
+            margin: 16px 24px 24px;
+            background: var(--fm-panel-bg);
+            backdrop-filter: blur(16px); border: 1px solid var(--fm-panel-border);
+            border-radius: 16px; overflow: hidden;
         }
 
-        /* Keyframes for the dots animation */
-        @keyframes dots {
+        /* ── Table ── */
+        .fm-table { width: 100%; border-collapse: collapse; }
+        .fm-table th {
+            padding: 12px 16px; font-size: 0.72rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.05em; color: var(--fm-th-color);
+            border-bottom: 1px solid var(--fm-panel-border);
+            background: rgba(0,0,0,0.08); text-align: left;
+        }
+        .fm-table td { padding: 10px 16px; color: var(--fm-td-color); font-size: 0.87rem; vertical-align: middle; border-bottom: 1px solid var(--fm-panel-border); }
+        .fm-table tr:last-child td { border-bottom: none; }
+        .fm-table tbody tr { transition: background 0.15s; cursor: pointer; }
+        .fm-table tbody tr:hover td { background: rgba(99,102,241,0.07); }
+        .fm-table tbody tr.selected td { background: rgba(99,102,241,0.12); }
+        .file-name { display: flex; align-items: center; gap: 10px; font-weight: 500; color: var(--fm-name-color); }
+        .file-icon {
+            width: 30px; height: 30px; border-radius: 7px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center; font-size: 0.9rem;
+        }
+        .icon-folder  { background: rgba(245,158,11,0.12); color: #f59e0b; }
+        .icon-image   { background: rgba(99,102,241,0.12); color: #818cf8; }
+        .icon-code    { background: rgba(16,185,129,0.12); color: #10b981; }
+        .icon-archive { background: rgba(239,68,68,0.12);  color: #ef4444; }
+        .icon-text    { background: rgba(148,163,184,0.08); color: #94a3b8; }
+        .icon-generic { background: rgba(99,102,241,0.07);  color: #6366f1; }
+        .perms { font-family: 'Courier New', monospace; font-size: 0.76rem; color: #64748b; background: rgba(255,255,255,0.04); padding: 2px 7px; border-radius: 4px; }
+        .size-badge { font-size: 0.78rem; color: #64748b; }
+        .type-badge { font-size: 0.72rem; padding: 2px 8px; border-radius: 20px; background: rgba(99,102,241,0.1); color: #818cf8; white-space: nowrap; }
+        input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: #6366f1; }
 
-            0%,
-            100% {
-                content: '';
-            }
+        /* ── Right-click Context Menu ── */
+        #ctx-menu {
+            position: fixed; z-index: 9999; display: none; min-width: 205px;
+            background: var(--fm-ctx-bg); border: 1px solid var(--fm-ctx-border);
+            border-radius: 10px; backdrop-filter: blur(24px);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(99,102,241,0.08);
+            padding: 5px; animation: ctxIn 0.12s ease;
+        }
+        @keyframes ctxIn { from { opacity:0; transform:scale(0.94) translateY(-4px); } to { opacity:1; transform:scale(1) translateY(0); } }
+        .ctx-label { padding: 5px 13px 3px; font-size: 0.69rem; color: var(--fm-th-color); text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ctx-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 13px; border-radius: 6px;
+            font-size: 0.82rem; color: var(--fm-ctx-color); cursor: pointer;
+            transition: background 0.12s; white-space: nowrap;
+        }
+        .ctx-item:hover { background: rgba(99,102,241,0.18); color: #fff; }
+        .ctx-item i { width: 14px; text-align: center; color: #6366f1; font-size: 0.78rem; flex-shrink: 0; }
+        .ctx-sep { border: none; border-top: 1px solid rgba(255,255,255,0.05); margin: 4px 2px; }
+        .ctx-item.ctx-warn  { color: #fbbf24; }
+        .ctx-item.ctx-warn i { color: #f59e0b; }
+        .ctx-item.ctx-warn:hover { background: rgba(245,158,11,0.12); }
+        .ctx-item.ctx-danger { color: #f87171; }
+        .ctx-item.ctx-danger i { color: #ef4444; }
+        .ctx-item.ctx-danger:hover { background: rgba(239,68,68,0.12); }
 
-            25% {
-                content: '.';
-            }
+        /* ── Modals ── */
+        .fm-modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.65); backdrop-filter: blur(5px);
+            z-index: 8000; align-items: center; justify-content: center;
+        }
+        .fm-modal-overlay.open { display: flex; }
+        .fm-modal {
+            background: var(--fm-modal-bg);
+            border: 1px solid var(--fm-modal-border); border-radius: 16px;
+            padding: 28px 30px; width: 420px; max-width: 95vw;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.4);
+            animation: modalIn 0.22s ease;
+        }
+        @keyframes modalIn { from { opacity:0; transform:scale(0.94); } to { opacity:1; transform:scale(1); } }
+        .fm-modal h3 { margin: 0 0 6px; font-size: 1rem; color: var(--fm-modal-color); display: flex; align-items: center; gap: 10px; }
+        .fm-modal h3 i { color: #6366f1; }
+        .fm-modal label { font-size: 0.79rem; color: #64748b; display: block; margin: 14px 0 6px; }
+        .fm-input {
+            width: 100%; padding: 10px 14px; border-radius: 8px;
+            background: var(--fm-input-bg); border: 1px solid var(--fm-modal-border);
+            color: var(--fm-input-color); font-size: 0.88rem; outline: none; font-family: 'Courier New', monospace;
+        }
+        .fm-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+        .fm-modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+        .modal-msg { padding: 9px 12px; border-radius: 7px; font-size: 0.8rem; margin-top: 10px; display: none; }
+        .modal-msg.success { background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.2); }
+        .modal-msg.error   { background: rgba(239,68,68,0.12);  color: #ef4444; border: 1px solid rgba(239,68,68,0.2);  }
 
-            50% {
-                content: '..';
-            }
+        /* Upload drop zone */
+        .upload-zone {
+            border: 2px dashed rgba(99,102,241,0.35); border-radius: 10px;
+            padding: 28px; text-align: center; cursor: pointer;
+            transition: all 0.2s; background: rgba(99,102,241,0.04); margin-top: 14px;
+        }
+        .upload-zone:hover, .upload-zone.drag-over { border-color: #6366f1; background: rgba(99,102,241,0.1); }
+        .upload-zone i { font-size: 1.8rem; color: #6366f1; margin-bottom: 8px; display: block; }
+        .upload-zone p { color: #94a3b8; font-size: 0.84rem; margin: 0; }
+        #uploadProgress { height: 4px; background: rgba(255,255,255,0.06); border-radius: 4px; margin-top: 12px; display: none; }
+        #uploadProgressBar { height: 100%; background: linear-gradient(90deg,#6366f1,#10b981); border-radius: 4px; width: 0%; transition: width 0.3s; }
 
-            75% {
-                content: '...';
-            }
+        /* ── Toast ── */
+        #toast-stack { position: fixed; bottom: 24px; right: 24px; z-index: 10000; display: flex; flex-direction: column; gap: 8px; }
+        .toast {
+            min-width: 240px; padding: 12px 18px; border-radius: 10px;
+            font-size: 0.82rem; font-weight: 500; backdrop-filter: blur(20px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            animation: toastIn 0.25s ease; display: flex; align-items: center; gap: 10px;
+        }
+        @keyframes toastIn { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
+        .toast.success { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.25); color: #34d399; }
+        .toast.error   { background: rgba(239,68,68,0.15);  border: 1px solid rgba(239,68,68,0.25);  color: #f87171; }
+        .toast.info    { background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.25); color: #818cf8; }
+
+        /* ── Empty state ── */
+        .fm-empty { text-align: center; padding: 52px; color: #475569; }
+        .fm-empty i { font-size: 2.5rem; margin-bottom: 12px; display: block; opacity: 0.5; }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.3); border-radius: 3px; }
+
+        @media(max-width:768px){
+            .fm-sidebar { display: none; }
+            .fm-toolbar { padding: 10px; }
+            .fm-panel { margin: 10px; }
+            .fm-btn span { display: none; }
         }
     </style>
 </head>
+<body>
+{% csrf_token %}
 
-<body  data-theme="light" class="font-nunito">
+<div class="fm-layout">
+    <!-- ══ Sidebar ══ -->
+    <aside class="fm-sidebar">
+        <a href="/panel/" class="sidebar-logo">
+            <img src="/static/fav.png" alt="VoidPanel">
+            VoidPanel
+        </a>
 
-    <div id="wrapper" class="theme-cyan">
+        <div class="sidebar-section">Main</div>
+        <nav class="sidebar-nav">
+            <a href="/panel/"><i class="fa-solid fa-gauge"></i> Dashboard</a>
+            <a href="/filemanager/" class="active"><i class="fa-solid fa-folder-open"></i> File Manager</a>
+            <a href="/trash/"><i class="fa-solid fa-trash-can"></i> Recycle Bin</a>
+            {% if request.user.is_superuser %}
+            <a href="/terminal/"><i class="fa-solid fa-terminal"></i> Terminal</a>
+            {% endif %}
+        </nav>
 
-        <!-- Page Loader -->
-        <div class="page-loader-wrapper">
-            <div class="loader">
-                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
-                </div>
-                <p>Please wait...</p>
+        {% if primary_domain %}
+        <hr class="sidebar-divider">
+        <div class="sidebar-section">Files &amp; Domain</div>
+        <nav class="sidebar-nav">
+            <a href="/panel/app-installer/{{ primary_domain }}/"><i class="fa-solid fa-layer-group"></i> App Installer</a>
+            <a href="/control/eadns/?domain={{ primary_domain }}"><i class="fa-solid fa-globe"></i> DNS Manager</a>
+            <a href="/control/subdomain/{{ primary_domain }}"><i class="fa-solid fa-code-branch"></i> Subdomains</a>
+            <a href="/control/runssl/{{ primary_domain }}/"><i class="fa-solid fa-lock"></i> SSL Certificate</a>
+        </nav>
+
+        <hr class="sidebar-divider">
+        <div class="sidebar-section">Databases</div>
+        <nav class="sidebar-nav">
+            <a href="/control/dbconnect/{{ primary_domain }}/"><i class="fa-solid fa-database"></i> MySQL Database</a>
+            <a href="/control/pma_login/{{ primary_domain }}/" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> phpMyAdmin</a>
+        </nav>
+
+        <hr class="sidebar-divider">
+        <div class="sidebar-section">Email</div>
+        <nav class="sidebar-nav">
+            <a href="/control/listemail/{{ primary_domain }}/"><i class="fa-solid fa-envelope"></i> Email Accounts</a>
+            <a href="/control/roundcube_login/{{ primary_domain }}/" target="_blank"><i class="fa-solid fa-home"></i> Webmail</a>
+        </nav>
+
+        <hr class="sidebar-divider">
+        <div class="sidebar-section">System</div>
+        <nav class="sidebar-nav">
+            <a href="/control/ftp/{{ primary_domain }}/"><i class="fa-solid fa-terminal"></i> FTP Accounts</a>
+            <a href="/control/cron/{{ primary_domain }}"><i class="fa-solid fa-clock"></i> Cron Jobs</a>
+            <a href="/control/backup/{{ primary_domain }}/"><i class="fa-solid fa-upload"></i> Backup</a>
+            <a href="/control/activitylog/{{ primary_domain }}/"><i class="fa-solid fa-pen-to-square"></i> Activity Log</a>
+        </nav>
+        {% endif %}
+
+        {% if request.user.is_superuser %}
+        <hr class="sidebar-divider">
+        <div class="sidebar-section">Quick Jump</div>
+        <nav class="sidebar-nav">
+            <a href="/filemanager/?key=/var/www"><i class="fa-solid fa-globe"></i> /var/www</a>
+            <a href="/filemanager/?key=/home"><i class="fa-solid fa-house"></i> /home</a>
+            <a href="/filemanager/?key=/etc"><i class="fa-solid fa-gear"></i> /etc</a>
+            <a href="/filemanager/?key=/tmp"><i class="fa-solid fa-clock-rotate-left"></i> /tmp</a>
+        </nav>
+        {% else %}
+        <hr class="sidebar-divider">
+        <div class="sidebar-section">Home</div>
+        <nav class="sidebar-nav">
+            <a href="/filemanager/?key=/home/{{ request.user.username }}"><i class="fa-solid fa-house"></i> /home/{{ request.user.username }}</a>
+        </nav>
+        {% endif %}
+
+        <hr class="sidebar-divider">
+        <nav class="sidebar-nav">
+            <a href="/logout" style="color:#f87171;"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+        </nav>
+    </aside>
+
+    <!-- ══ Main ══ -->
+    <div class="fm-main">
+
+        <!-- Toolbar -->
+        <div class="fm-toolbar">
+            <div class="fm-toolbar-brand"><i class="fa-solid fa-folder-open"></i> File Manager</div>
+
+            <a href="/filemanager/?key=/" class="fm-btn"><i class="fa fa-home"></i><span>Home</span></a>
+            <a href="/filemanager/?key={{ last }}" class="fm-btn"><i class="fa fa-arrow-up"></i><span>Up</span></a>
+            <button onclick="goBack()" class="fm-btn"><i class="fa fa-arrow-left"></i></button>
+            <button onclick="goForward()" class="fm-btn"><i class="fa fa-arrow-right"></i></button>
+            <a href="/filemanager/?key={{ main_dir }}" class="fm-btn"><i class="fa fa-refresh"></i></a>
+
+            <div style="width:1px;height:24px;background:rgba(255,255,255,0.08);margin:0 4px;"></div>
+
+            <button onclick="openModal('modal-newfile')"   class="fm-btn"><i class="fa fa-file-o"></i><span>New File</span></button>
+            <button onclick="openModal('modal-newfolder')" class="fm-btn"><i class="fa fa-folder-o"></i><span>New Folder</span></button>
+            <button onclick="openModal('modal-upload')"    class="fm-btn success"><i class="fa fa-cloud-upload"></i><span>Upload</span></button>
+            <a href="/trash/" class="fm-btn trash"><i class="fa fa-trash"></i><span>Recycle Bin</span></a>
+
+            <input type="text" class="fm-search" id="searchdata" placeholder="Search files..." onkeyup="filterTable()">
+        </div>
+
+        <!-- Breadcrumb -->
+        <div class="fm-breadcrumb">
+            <a href="/filemanager/?key=/"><i class="fa fa-home"></i></a>
+            <span id="breadcrumb-segments"></span>
+            <script>
+            (function(){
+                const raw = "{{ main_dir|escapejs }}";
+                const parts = raw.replace(/\/+/g,'/').split('/').filter(Boolean);
+                let html='', built='';
+                parts.forEach(function(p){
+                    built += '/' + p;
+                    html += '<span style="color:#475569;margin:0 2px;">/</span><a href="/filemanager/?key='+encodeURIComponent(built)+'">'+p+'</a>';
+                });
+                document.getElementById('breadcrumb-segments').innerHTML = html;
+            })();
+            </script>
+        </div>
+
+        <!-- Selection Bar -->
+        <div id="sel-bar">
+            <i class="fa fa-check-circle"></i>
+            <span id="sel-count">0 items selected</span>
+            <div class="sel-actions">
+                <button class="fm-btn" onclick="batchCopy()"><i class="fa fa-copy"></i> Copy</button>
+                <button class="fm-btn" onclick="batchMove()"><i class="fa fa-scissors"></i> Move</button>
+                <button class="fm-btn" onclick="batchCompress()"><i class="fa fa-file-zip-o"></i> Compress</button>
+                <button class="fm-btn danger" onclick="batchDelete()"><i class="fa fa-trash"></i> Trash</button>
+                <button class="fm-btn danger" onclick="batchDeletePerm()"><i class="fa fa-skull-crossbones"></i> Delete</button>
             </div>
         </div>
 
-
-
-      
-    <!-- Top navbar div start -->
-    <nav class="navbar navbar-fixed-top">
-        <div class="container-fluid">
-            <div class="navbar-brand">
-                <button type="button" class="btn-toggle-offcanvas"><i class="fa fa-bars"></i></button>
-                <button type="button" class="btn-toggle-fullwidth"><i class="fa fa-bars"></i></button>
-                <a href="/">VoidPanel</a>                
-            </div>
-            
-            <div class="navbar-right">
-                <form id="navbar-search" class="navbar-form search-form">
-                    <input value="" class="form-control" id="searchdata" placeholder="Search here..." type="text" onkeyup="filterTable()">
-                    <button type="button" class="btn btn-default"><i class="icon-magnifier"></i></button>
-                </form>
-            </div>
-        </div>
-    </nav>
-
-        <!-- main left menu -->
-        {% include 'leftfile.html' %}
-        <!-- rightbar icon div -->
-        {% include 'right.html' %}
-
-
-        <!-- mani page content body part -->
-
-        <div id="main-content">
-
-            <div class="container-fluid">
-                <div class="block-header">
-                    <div class="row">
-                        <div class="col-lg-10 col-md-10 col-sm-12">
-                            <h2>File Manager</h2>
-                            <ul class="breadcrumb">
-                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
-                                </li>
-                                <li class="breadcrumb-item">Dashboard</li>
-                                <li class="breadcrumb-item active">File Manager</li>
-                            </ul>
-                        </div>
-                        <div class="col-lg-2 col-md-2 col-sm-12">
-                            <a href="/upload//{{main_dir}}" target="_blank"> <button class="btn btn-success"> Upload
-                                    Data <i class="fa icon-cloud-upload"></i></button></a>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-
-                <div class="body">
-                    <div class="btn-group">
-                        <a href="/filemanager/" class="btn btn-outline-secondary btn-sm"><i
-                                class="fa fa-home">Home</i></a>
-                        <a onclick="viewfile();" class="btn btn-outline-secondary btn-sm hidden-sm">File</a>
-                        <a onclick="viewfolder();" class="btn btn-outline-secondary btn-sm hidden-sm">Folder</a>
-                        <a href="{{request.path}}?key={{last}}" class="btn btn-outline-secondary btn-sm">Previous
-                            Directory</a>
-                        <a onclick="goBack()" class="btn btn-outline-secondary btn-sm">Backward</a>
-                        <a onclick="goForward();" class="btn btn-outline-secondary btn-sm">Forward</a>
-                        <a onclick="viewcopy();" class="btn btn-outline-secondary btn-sm">Copy</a>
-                        <a onclick="viewmove();" class="btn btn-outline-secondary btn-sm">Move</a>
-                        <a onclick="extract(event);" class="btn btn-outline-secondary btn-sm">Extract</a>
-                        <a onclick="compress(event);" class="btn btn-outline-secondary btn-sm">Compress</a>
-                        <a onclick="deletedata();" class="btn btn-outline-secondary btn-sm">Delete</a>
-                        <a href="/upload//{{main_dir}}" target="_blank"
-                            class="btn btn-outline-secondary btn-sm hidden-sm">Upload</a>
-                        <a onclick="viewrename();" class="btn btn-outline-secondary btn-sm hidden-sm">Rename</a>
-                        <a onclick="viewpermission();" class="btn btn-outline-secondary btn-sm">Permission</a>
-                        <a href="{{request.path}}?key={{main_dir}}" class="btn btn-outline-secondary btn-sm">Reload</a>
-                    </div>
-
-
-                    <div class="table-responsive p-2">
-                        <table id="checkboxTable" class="table table-hover mb-0 c_list">
-                            <thead>
-                                <tr>
-                                    <th>
-                                        <label class="fancy-checkbox">
-                                            <input id="selectAll" onclick="toggleCheckboxes(this)" class="select-all"
-                                                type="checkbox" name="checkbox">
-                                            <span></span>
-                                        </label>
-                                    </th>
-                                    <th>Name</th>
-                                    <th>Size</th>
-                                    <th>Permission</th>
-                                    <th>Type</th>
-
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-
-                                {% for key in items%}
-
-                                <tr id="{{key.name}}">
-
-                                    <td style="width: 50px;">
-                                        <label class="fancy-checkbox">
-                                            <input class="checkbox-tick" value="{{key.name}}" type="checkbox"
-                                                name="checkbox">
-                                            <span></span>
-                                        </label>
-                                    </td>
-
-                                    <td onclick='redir("{{key.name}}")'>
-                                        {% if key.name == 'public_html' %}
-                                        <img src="/static/icons/fav.png" class="avatar" alt="">
-                                        {% else %}
-                                        <img src="/static/icons/folder.svg" class="avatar" alt="">
-                                        {% endif %}
-                                        <p class="c_name">{{key.name}}</p>
-                                    </td>
-                                    <td onclick='redir("{{key.name}}")'>
-                                        <span class="phone"><i class="zmdi zmdi-phone m-r-10"></i>{{key.size}}</span>
-                                    </td>
-
-                                    <td onclick='redir("{{key.name}}")'>
-                                        <address><i class="zmdi zmdi-pin"></i>{{key.permissions}}</address>
-                                    </td>
-
-                                    <td onclick='redir("{{key.name}}")'>
-                                        <address><i class="zmdi zmdi-pin"></i>{{key.type}}</address>
-                                    </td>
-
-                                    <td>
-
-                                        <a onclick="mydel('{{key.name}}','/deletefile{{main_dir}}/{{key.name}}/')">
-                                            <button type="button" data-type="confirm"
-                                                class="btn btn-danger js-sweetalert" title="Delete"><i
-                                                    class="fa fa-trash-o"></i></button></a>
-
-
-
-
-                                    </td>
-
-                                </tr>
-
-                                {% endfor %}
-
-
-
-
-                                {% for key in files%}
-                                <tr id="{{key.name}}">
-                                    <td style="width: 50px;">
-                                        <label class="fancy-checkbox">
-                                            <input class="checkbox-tick" value="{{key.name}}" type="checkbox"
-                                                name="checkbox">
-                                            <span></span>
-                                        </label>
-                                    </td>
-
-                                    <td>
-                                        <img src="assets/images/xs/avatar1.jpg" class="rounded-circle avatar" alt="">
-                                        <p class="c_name">{{key.name}}</p>
-                                    </td>
-                                    <td>
-                                        <span class="phone"><i class="zmdi zmdi-phone m-r-10"></i>{{key.size}}</span>
-                                    </td>
-
-                                    <td>
-                                        <address><i class="zmdi zmdi-pin"></i>{{key.permissions}}</address>
-                                    </td>
-                                    {% if 'image' in key.type or 'application' in key.type or 'video' in key.type %}
-
-                                    <td>
-                                        <address><i class="zmdi zmdi-pin"></i>{{key.type}}</address>
-                                    </td>
-
-                                    <td>
-                                        {% if 'zip' not in key.type or 'csv' not in key.type %}
-                                        {% if 'sh' not in key.type %}
-                                        <a href="/view{{main_dir}}/{{key.name}}" target="_blank"><button type="button"
-                                                class="btn btn-info" title="view"><i class="fa fa-eye"></i></button></a>
-
-                                        {% else %}
-                                        <a href="/editor_view{{main_dir}}/{{key.name}}" target="_blank"> <button
-                                                type="button" class="btn btn-info" title="Edit"><i
-                                                    class="fa fa-edit"></i></button></a>
-
-                                        {% endif %}
-                                        {% endif %}
-
-                                        <a href="/download/?key={{main_dir}}/{{key.name}}"><button type="button"
-                                                class="btn btn-info" title="Download"><i
-                                                    class="fa fa-download"></i></button></a>
-                                        <a onclick="mydel('{{key.name}}','/deletefile{{main_dir}}/{{key.name}}/')">
-                                            <button type="button" data-type="confirm"
-                                                class="btn btn-danger js-sweetalert" title="Delete"><i
-                                                    class="fa fa-trash-o"></i></button></a>
-                                    </td>
-                                    {% else %}
-                                    <td>
-                                        <address><i class="zmdi zmdi-pin"></i>{{key.type}}</address>
-                                    </td>
-                                    <td>
-                                        <a href="/editor_view{{main_dir}}/{{key.name}}" target="_blank"> <button
-                                                type="button" class="btn btn-info" title="Edit"><i
-                                                    class="fa fa-edit"></i></button></a>
-
-                                        <a href="/download/?key={{main_dir}}/{{key.name}}"><button type="button"
-                                                class="btn btn-info" title="Download"><i
-                                                    class="fa fa-download"></i></button></a>
-                                        <!-- <a href="/deletefile/{{main_dir}}/{{key.name}}" onclick="mydel('{{key.name}}')"><button type="button" data-type="confirm" class="btn btn-danger js-sweetalert" title="Delete"><i class="fa fa-trash-o"></i></button></a>
-                                     -->
-                                        <a onclick="mydel('{{key.name}}','/deletefile{{main_dir}}/{{key.name}}/')">
-                                            <button type="button" data-type="confirm"
-                                                class="btn btn-danger js-sweetalert" title="Delete"><i
-                                                    class="fa fa-trash-o"></i></button></a>
-
-                                    </td>
-                                    {% endif %}
-                                </tr>
-                                {% endfor %}
-
-
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-
-
-
-
-
-
-
-
-            </div>
-        </div>
-        <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Status</h6>
-                    </div>
-
-                    <div class="modal-body">
-                        <div class="col-md-12 col-sm-12">
-                            <div id="statusemail" style="text-align: center;" class="row clearfix">
-
-
-
+        <!-- File Table -->
+        <div class="fm-panel">
+            <table class="fm-table" id="fm-table">
+                <thead>
+                    <tr>
+                        <th style="width:40px;"><input type="checkbox" id="sel-all" onclick="toggleAll(this)"></th>
+                        <th>Name</th>
+                        <th>Size</th>
+                        <th>Permissions</th>
+                        <th>Type</th>
+                        <th style="width:60px;text-align:right;">⋮</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for key in items %}
+                    <tr data-name="{{ key.name }}" data-type="dir"
+                        oncontextmenu="showCtx(event,'{{ key.name }}','dir')"
+                        onclick="navigate('{{ key.name }}')">
+                        <td onclick="event.stopPropagation()">
+                            <input type="checkbox" class="row-check" value="{{ key.name }}" onchange="updateSel()">
+                        </td>
+                        <td>
+                            <div class="file-name">
+                                <div class="file-icon icon-folder"><i class="fa-solid fa-folder"></i></div>
+                                {{ key.name }}
                             </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button  onclick="closeelol();"
-                                class="btn btn-danger">Close</button>
-                        </div>
-                    </div>
+                        </td>
+                        <td><span class="size-badge">—</span></td>
+                        <td><span class="perms">{{ key.permissions }}</span></td>
+                        <td><span class="type-badge">Directory</span></td>
+                        <td style="text-align:right;" onclick="event.stopPropagation()">
+                            <button class="fm-btn" style="padding:4px 8px;font-size:0.72rem;" onclick="showCtxBtn(event,'{{ key.name }}','dir')">
+                                <i class="fa fa-ellipsis-v"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
 
-                </div>
-            </div>
+                    {% for key in files %}
+                    <tr data-name="{{ key.name }}" data-type="file"
+                        oncontextmenu="showCtx(event,'{{ key.name }}','file')"
+                        onclick="rowClick(event,this)">
+                        <td onclick="event.stopPropagation()">
+                            <input type="checkbox" class="row-check" value="{{ key.name }}" onchange="updateSel()">
+                        </td>
+                        <td>
+                            <div class="file-name">
+                                <div class="file-icon {% if 'image' in key.type %}icon-image{% elif key.name|slice:'-3:' == '.py' or key.name|slice:'-3:' == '.js' or key.name|slice:'-4:' == '.php' or key.name|slice:'-5:' == '.html' %}icon-code{% elif 'zip' in key.type or 'tar' in key.type or 'gzip' in key.type %}icon-archive{% elif 'text' in key.type %}icon-text{% else %}icon-generic{% endif %}">
+                                    <i class="fa-solid {% if 'image' in key.type %}fa-image{% elif 'zip' in key.type or 'tar' in key.type %}fa-file-zipper{% elif 'text' in key.type or 'html' in key.type %}fa-file-code{% elif 'pdf' in key.type %}fa-file-pdf{% else %}fa-file{% endif %}"></i>
+                                </div>
+                                {{ key.name }}
+                            </div>
+                        </td>
+                        <td><span class="size-badge">{{ key.size }} KB</span></td>
+                        <td><span class="perms">{{ key.permissions }}</span></td>
+                        <td><span class="type-badge" style="{% if 'text' in key.type %}background:rgba(16,185,129,0.1);color:#10b981;{% endif %}">{{ key.type|truncatechars:20 }}</span></td>
+                        <td style="text-align:right;" onclick="event.stopPropagation()">
+                            <button class="fm-btn" style="padding:4px 8px;font-size:0.72rem;" onclick="showCtxBtn(event,'{{ key.name }}','file')">
+                                <i class="fa fa-ellipsis-v"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                    {% if not items and not files %}
+                    <tr><td colspan="6">
+                        <div class="fm-empty">
+                            <i class="fa fa-folder-open-o"></i>
+                            <p>This directory is empty.</p>
+                        </div>
+                    </td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
         </div>
+    </div><!-- /fm-main -->
+</div><!-- /fm-layout -->
+
+<!-- ══ Right-click Context Menu ══ -->
+<div id="ctx-menu">
+    <div class="ctx-label" id="ctx-filename"></div>
+    <div class="ctx-item" id="ctx-open"    onclick="ctxNavigate()"><i class="fa fa-folder-open"></i> Open / Navigate</div>
+    <div class="ctx-item" id="ctx-webide"  onclick="ctxWebIde()">  <i class="fa fa-code"></i>        Open in Web IDE</div>
+    <div class="ctx-item" id="ctx-edit"    onclick="ctxEdit()">    <i class="fa fa-pencil"></i>      Edit File</div>
+    <div class="ctx-item" id="ctx-view"    onclick="ctxView()">    <i class="fa fa-eye"></i>         View</div>
+    <div class="ctx-item"                  onclick="ctxDownload()"><i class="fa fa-download"></i>     Download</div>
+    <hr class="ctx-sep">
+    <div class="ctx-item" onclick="ctxRename()">    <i class="fa fa-font"></i>       Rename</div>
+    <div class="ctx-item" onclick="ctxCopy()">      <i class="fa fa-copy"></i>       Copy To...</div>
+    <div class="ctx-item" onclick="ctxMove()">      <i class="fa fa-scissors"></i>   Move To...</div>
+    <div class="ctx-item" onclick="ctxCompress()">  <i class="fa fa-file-zip-o"></i> Compress</div>
+    <div class="ctx-item" id="ctx-extract" onclick="ctxExtract()"><i class="fa fa-expand"></i>   Extract</div>
+    <div class="ctx-item" onclick="ctxPermission()"><i class="fa fa-lock"></i>       Chmod</div>
+    <hr class="ctx-sep">
+    <div class="ctx-item ctx-warn"  onclick="ctxDelete()">       <i class="fa fa-trash"></i>         Move to Bin</div>
+    <div class="ctx-item ctx-danger" onclick="ctxDeletePermanent()"><i class="fa fa-times-circle"></i> Delete Permanently</div>
+</div>
+
+<!-- ══ Toast Container ══ -->
+<div id="toast-stack"></div>
+
+<!-- ══ Modals ══ -->
+<!-- New File -->
+<div class="fm-modal-overlay" id="modal-newfile">
+    <div class="fm-modal">
+        <h3><i class="fa fa-file-o"></i> Create New File</h3>
+        <label>File Name</label>
+        <input type="text" class="fm-input" id="inp-newfile" placeholder="e.g. index.php">
+        <div class="modal-msg" id="msg-newfile"></div>
+        <div class="fm-modal-footer">
+            <button onclick="closeModal('modal-newfile')" class="fm-btn">Cancel</button>
+            <button onclick="doCreateFile()" class="fm-btn primary"><i class="fa fa-plus"></i> Create</button>
+        </div>
+    </div>
+</div>
+
+<!-- New Folder -->
+<div class="fm-modal-overlay" id="modal-newfolder">
+    <div class="fm-modal">
+        <h3><i class="fa fa-folder-o"></i> Create New Folder</h3>
+        <label>Folder Name</label>
+        <input type="text" class="fm-input" id="inp-newfolder" placeholder="e.g. uploads">
+        <div class="modal-msg" id="msg-newfolder"></div>
+        <div class="fm-modal-footer">
+            <button onclick="closeModal('modal-newfolder')" class="fm-btn">Cancel</button>
+            <button onclick="doCreateFolder()" class="fm-btn primary"><i class="fa fa-plus"></i> Create</button>
+        </div>
+    </div>
+</div>
+
+<!-- Upload -->
+<div class="fm-modal-overlay" id="modal-upload">
+    <div class="fm-modal" style="width: min(480px, 92vw);">
+        <h3><i class="fa fa-cloud-upload"></i> Upload Files</h3>
+        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('uploadInput').click()">
+            <i class="fa fa-cloud-upload"></i>
+            <p>Click to browse or drag &amp; drop files here</p>
+            <p id="uploadFileName" style="color:#818cf8;margin-top:6px;font-size:0.8rem;"></p>
+        </div>
+        <input type="file" id="uploadInput" multiple hidden>
+        <div id="uploadProgress"><div id="uploadProgressBar"></div></div>
+        <div id="uploadPercentageText" style="text-align:right; font-size:0.75rem; color:#818cf8; margin-top:4px; font-weight:700;"></div>
+        <div class="fm-modal-footer">
+            <button onclick="closeModal('modal-upload')" class="fm-btn">Cancel</button>
+            <button onclick="doUpload()" id="btnUpload" class="fm-btn primary"><i class="fa fa-upload"></i> Upload</button>
+        </div>
+    </div>
+</div>
+
+<!-- Conflict Warning Modal -->
+<div class="fm-modal-overlay" id="modal-conflict">
+    <div class="fm-modal" style="width: min(500px, 92vw);">
+        <h3 style="color:#f59e0b;"><i class="fa fa-exclamation-triangle"></i> File Conflict</h3>
+        <p id="conflict-msg" style="color:#94a3b8;margin:0 0 12px;"></p>
+        <div id="conflict-list" style="background:rgba(0,0,0,0.25);border-radius:8px;padding:10px 14px;max-height:180px;overflow-y:auto;font-size:0.8rem;color:#f87171;margin-bottom:16px;"></div>
+        <p style="color:#94a3b8;font-size:0.83rem;margin:0 0 16px;">Do you want to overwrite the existing file(s)?</p>
+        <div class="fm-modal-footer">
+            <button onclick="closeModal('modal-conflict')" class="fm-btn">Cancel</button>
+            <button id="btnConflictOverwrite" class="fm-btn" style="background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;">
+                <i class="fa fa-exclamation-triangle"></i> Overwrite All
+            </button>
+        </div>
+    </div>
+</div>
+
+
+<!-- Rename -->
+<div class="fm-modal-overlay" id="modal-rename">
+    <div class="fm-modal">
+        <h3><i class="fa fa-pencil"></i> Rename</h3>
+        <label>New Name</label>
+        <input type="text" class="fm-input" id="inp-rename" placeholder="New name">
+        <div class="modal-msg" id="msg-rename"></div>
+        <div class="fm-modal-footer">
+            <button onclick="closeModal('modal-rename')" class="fm-btn">Cancel</button>
+            <button onclick="doRename()" class="fm-btn primary"><i class="fa fa-check"></i> Rename</button>
+        </div>
+    </div>
+</div>
+
+<!-- Copy -->
+<div class="fm-modal-overlay" id="modal-copy">
+    <div class="fm-modal">
+        <h3><i class="fa fa-copy"></i> Copy To</h3>
+        <label>Destination Path</label>
+        <input type="text" class="fm-input" id="inp-copy" placeholder="/var/www/destination">
+        <div class="modal-msg" id="msg-copy"></div>
+        <div class="fm-modal-footer">
+            <button onclick="closeModal('modal-copy')" class="fm-btn">Cancel</button>
+            <button onclick="doCopy()" class="fm-btn primary"><i class="fa fa-copy"></i> Copy</button>
+        </div>
+    </div>
+</div>
+
+<!-- Move -->
+<div class="fm-modal-overlay" id="modal-move">
+    <div class="fm-modal">
+        <h3><i class="fa fa-scissors"></i> Move To</h3>
+        <label>Destination Path</label>
+        <input type="text" class="fm-input" id="inp-move" placeholder="/var/www/destination">
+        <div class="modal-msg" id="msg-move"></div>
+        <div class="fm-modal-footer">
+            <button onclick="closeModal('modal-move')" class="fm-btn">Cancel</button>
+            <button onclick="doMove()" class="fm-btn primary"><i class="fa fa-arrows"></i> Move</button>
+        </div>
+    </div>
+</div>
+
+<!-- Permissions -->
+<div class="fm-modal-overlay" id="modal-perm">
+    <div class="fm-modal">
+        <h3><i class="fa fa-lock"></i> Change Permissions</h3>
+        <p style="color:#64748b;font-size:0.79rem;margin-top:4px;">Common: 000, 400, 500, 644, 666, 700, 750, 755, 770, 777</p>
+        <label>Permission Code</label>
+        <input type="text" class="fm-input" id="inp-perm" placeholder="755" maxlength="4">
+        <div class="modal-msg" id="msg-perm"></div>
+        <div class="fm-modal-footer">
+            <button onclick="closeModal('modal-perm')" class="fm-btn">Cancel</button>
+            <button onclick="doPermission()" class="fm-btn primary"><i class="fa fa-check"></i> Apply</button>
+        </div>
+    </div>
+</div>
 
 <script>
-    function closeelol(){
-        document.getElementById('eeee').style.display='none';
+const CURRENT_DIR = "{{ main_dir }}";
+const CSRF = document.querySelector('[name=csrfmiddlewaretoken]').value;
+let _ctx = null;
+let _ctxTargets = [];
+
+/* ── Toast ── */
+function toast(msg, type='info') {
+    const stack = document.getElementById('toast-stack');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    const icons = { success:'fa-circle-check', error:'fa-circle-xmark', info:'fa-circle-info' };
+    el.innerHTML = `<i class="fa-solid ${icons[type]||'fa-circle-info'}"></i> ${msg}`;
+    stack.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+}
+
+/* ── Modals ── */
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.fm-modal-overlay').forEach(o =>
+    o.addEventListener('click', e => { if(e.target === o) o.classList.remove('open'); })
+);
+
+function showMsg(id, msg, type) {
+    const el = document.getElementById(id);
+    el.textContent = msg; el.className = `modal-msg ${type}`; el.style.display = 'block';
+}
+
+function api(url, body, cb) {
+    fetch(url, { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF}, body:JSON.stringify(body) })
+        .then(r=>r.json()).then(cb)
+        .catch(e => toast('Network error', 'error'));
+}
+
+/* ── Navigation ── */
+function navigate(name) { window.location.href = `/filemanager/?key=${CURRENT_DIR}/${name}`; }
+function goBack()    { window.history.back(); }
+function goForward() { window.history.forward(); }
+
+/* ── Selection ── */
+function toggleAll(cb) {
+    document.querySelectorAll('.row-check').forEach(c => c.checked = cb.checked);
+    document.querySelectorAll('#fm-table tbody tr').forEach(r => r.classList.toggle('selected', cb.checked));
+    updateSel();
+}
+function rowClick(e, row) {
+    if(e.target.tagName === 'INPUT') return;
+    const cb = row.querySelector('.row-check');
+    cb.checked = !cb.checked;
+    row.classList.toggle('selected', cb.checked);
+    updateSel();
+}
+function updateSel() {
+    const checked = document.querySelectorAll('.row-check:checked');
+    document.getElementById('sel-count').textContent = `${checked.length} item(s) selected`;
+    document.getElementById('sel-bar').classList.toggle('visible', checked.length > 0);
+}
+function getSelected() {
+    return [...document.querySelectorAll('.row-check:checked')].map(c => c.value);
+}
+
+/* ── Search ── */
+function filterTable() {
+    const f = document.getElementById('searchdata').value.toUpperCase();
+    document.querySelectorAll('#fm-table tbody tr').forEach(tr => {
+        tr.style.display = (tr.innerText||tr.textContent).toUpperCase().includes(f) ? '' : 'none';
+    });
+}
+
+/* ── Context Menu ── */
+document.addEventListener('click',   () => document.getElementById('ctx-menu').style.display = 'none');
+document.addEventListener('scroll',  () => document.getElementById('ctx-menu').style.display = 'none', true);
+document.addEventListener('keydown', e => { if(e.key==='Escape') document.getElementById('ctx-menu').style.display='none'; });
+
+function showCtx(e, name, type) {
+    e.preventDefault(); e.stopPropagation();
+    _ctx = { name, type };
+    const menu = document.getElementById('ctx-menu');
+    document.getElementById('ctx-filename').textContent = name;
+    document.getElementById('ctx-open').style.display    = type==='dir'  ? 'flex' : 'none';
+    document.getElementById('ctx-webide').style.display  = type==='dir'  ? 'flex' : 'none';
+    document.getElementById('ctx-edit').style.display    = type==='file' ? 'flex' : 'none';
+    document.getElementById('ctx-view').style.display    = type==='file' ? 'flex' : 'none';
+    document.getElementById('ctx-extract').style.display = (name.endsWith('.zip')||name.endsWith('.tar.gz')) ? 'flex' : 'none';
+    menu.style.display = 'block';
+    let x = e.clientX, y = e.clientY;
+    setTimeout(() => {
+        if(x + menu.offsetWidth  + 10 > window.innerWidth)  x = window.innerWidth  - menu.offsetWidth  - 10;
+        if(y + menu.offsetHeight + 10 > window.innerHeight)  y = window.innerHeight - menu.offsetHeight - 10;
+        menu.style.left = x+'px'; menu.style.top = y+'px';
+    }, 0);
+}
+function showCtxBtn(e, name, type) { e.preventDefault(); e.stopPropagation(); showCtx(e, name, type); }
+
+function ctxNavigate()  { if(_ctx) navigate(_ctx.name); }
+function ctxWebIde()    { if(_ctx) window.open(`/webide/${CURRENT_DIR.replace(/^\//, '')}/${_ctx.name}/`, '_blank'); }
+function ctxEdit()      { if(_ctx) window.open(`/editor_view${CURRENT_DIR}/${_ctx.name}`, '_blank'); }
+function ctxView()      { if(_ctx) window.open(`/view${CURRENT_DIR}/${_ctx.name}`, '_blank'); }
+function ctxDownload()  { if(_ctx) window.location.href = `/download/?key=${CURRENT_DIR}/${_ctx.name}`; }
+
+
+function ctxRename() {
+    if(!_ctx) return;
+    document.getElementById('inp-rename').value = _ctx.name;
+    _ctxTargets = [_ctx.name];
+    openModal('modal-rename');
+}
+function ctxCopy() {
+    if(!_ctx) return;
+    _ctxTargets = [_ctx.name];
+    document.getElementById('inp-copy').value = CURRENT_DIR;
+    openModal('modal-copy');
+}
+function ctxMove() {
+    if(!_ctx) return;
+    _ctxTargets = [_ctx.name];
+    document.getElementById('inp-move').value = CURRENT_DIR;
+    openModal('modal-move');
+}
+function ctxCompress() {
+    if(!_ctx) return;
+    toast('Compressing...','info');
+    api("{% url 'compressdata' %}", {selected:[_ctx.name],path:CURRENT_DIR}, d => {
+        toast(d.status==='success'?'Compressed!':d.message, d.status==='success'?'success':'error');
+        if(d.status==='success') setTimeout(()=>location.reload(),900);
+    });
+}
+function ctxExtract() {
+    if(!_ctx) return;
+    toast('Checking for conflicts...', 'info');
+    api("{% url 'extractdata' %}", {selected:[_ctx.name], path:CURRENT_DIR, force:false}, d => {
+        if (d.status === 'conflict') {
+            // Show conflict warning
+            document.getElementById('conflict-msg').textContent = d.message;
+            const list = document.getElementById('conflict-list');
+            list.innerHTML = d.conflicts.map(f => `<div>⚠ ${f}</div>`).join('');
+            document.getElementById('btnConflictOverwrite').onclick = () => {
+                closeModal('modal-conflict');
+                toast('Extracting...', 'info');
+                api("{% url 'extractdata' %}", {selected:[_ctx.name], path:CURRENT_DIR, force:true}, r => {
+                    toast(r.status==='success' ? 'Extracted!' : r.message,
+                          r.status==='success' ? 'success' : 'error');
+                    if (r.status === 'success') setTimeout(() => location.reload(), 900);
+                });
+            };
+            openModal('modal-conflict');
+        } else {
+            toast(d.status==='success' ? 'Extracted!' : d.message,
+                  d.status==='success' ? 'success' : 'error');
+            if (d.status === 'success') setTimeout(() => location.reload(), 900);
+        }
+    });
+}
+function ctxPermission() {
+    if(!_ctx) return;
+    _ctxTargets = [_ctx.name];
+    document.getElementById('inp-perm').value = '';
+    openModal('modal-perm');
+}
+function ctxDelete() {
+    if(!_ctx) return;
+    if(!confirm(`Move "${_ctx.name}" to Recycle Bin?`)) return;
+    api("{% url 'deletedata' %}", {selected:[_ctx.name],path:CURRENT_DIR}, d => {
+        toast(d.message, d.status==='success'?'success':'error');
+        if(d.status==='success') document.querySelector(`tr[data-name="${_ctx.name}"]`)?.remove();
+    });
+}
+function ctxDeletePermanent() {
+    if(!_ctx) return;
+    if(!confirm(`⚠️ PERMANENTLY delete "${_ctx.name}"? This CANNOT be undone.`)) return;
+    api("{% url 'ddeletedata' %}", {selected:[_ctx.name],path:CURRENT_DIR}, d => {
+        toast(d.message, d.status==='success'?'success':'error');
+        if(d.status==='success') document.querySelector(`tr[data-name="${_ctx.name}"]`)?.remove();
+    });
+}
+
+/* ── Batch Actions ── */
+function batchCopy() {
+    const sel = getSelected();
+    if(!sel.length){ toast('Select items first','error'); return; }
+    _ctxTargets = sel;
+    document.getElementById('inp-copy').value = CURRENT_DIR;
+    openModal('modal-copy');
+}
+function batchMove() {
+    const sel = getSelected();
+    if(!sel.length){ toast('Select items first','error'); return; }
+    _ctxTargets = sel;
+    document.getElementById('inp-move').value = CURRENT_DIR;
+    openModal('modal-move');
+}
+function batchCompress() {
+    const sel = getSelected();
+    if(!sel.length){ toast('Select items first','error'); return; }
+    toast('Compressing...','info');
+    api("{% url 'compressdata' %}", {selected:sel,path:CURRENT_DIR}, d => {
+        toast(d.status==='success'?'Compressed!':d.message, d.status==='success'?'success':'error');
+        if(d.status==='success') setTimeout(()=>location.reload(),900);
+    });
+}
+function batchDelete() {
+    const sel = getSelected();
+    if(!sel.length){ toast('Select items first','error'); return; }
+    if(!confirm(`Move ${sel.length} item(s) to Recycle Bin?`)) return;
+    api("{% url 'deletedata' %}", {selected:sel,path:CURRENT_DIR}, d => {
+        toast(d.message, d.status==='success'?'success':'error');
+        if(d.status==='success') { sel.forEach(n => document.querySelector(`tr[data-name="${n}"]`)?.remove()); updateSel(); }
+    });
+}
+function batchDeletePerm() {
+    const sel = getSelected();
+    if(!sel.length){ toast('Select items first','error'); return; }
+    if(!confirm(`⚠️ Permanently delete ${sel.length} item(s)?`)) return;
+    api("{% url 'ddeletedata' %}", {selected:sel,path:CURRENT_DIR}, d => {
+        toast(d.message, d.status==='success'?'success':'error');
+        if(d.status==='success') { sel.forEach(n => document.querySelector(`tr[data-name="${n}"]`)?.remove()); updateSel(); }
+    });
+}
+
+/* ── CRUD ── */
+function doCreateFile() {
+    const name = document.getElementById('inp-newfile').value.trim();
+    if(!name){ showMsg('msg-newfile','Enter a file name','error'); return; }
+    fetch("{% url 'create_file' %}", { method:'POST', headers:{'X-CSRFToken':CSRF},
+        body: new URLSearchParams({xfile:name, xfilepath:CURRENT_DIR})
+    }).then(r=>r.json()).then(d=>{
+        if(d.status==='success'){ toast('File created!','success'); closeModal('modal-newfile'); location.reload(); }
+        else showMsg('msg-newfile', d.message||'Error','error');
+    });
+}
+function doCreateFolder() {
+    const name = document.getElementById('inp-newfolder').value.trim();
+    if(!name){ showMsg('msg-newfolder','Enter a folder name','error'); return; }
+    fetch("{% url 'create_folder' %}", { method:'POST', headers:{'X-CSRFToken':CSRF},
+        body: new URLSearchParams({xfolder:name, xfolderpath:CURRENT_DIR})
+    }).then(r=>r.json()).then(d=>{
+        if(d.status==='success'){ toast('Folder created!','success'); closeModal('modal-newfolder'); location.reload(); }
+        else showMsg('msg-newfolder', d.message||'Error','error');
+    });
+}
+function doRename() {
+    const newName = document.getElementById('inp-rename').value.trim();
+    if(!newName){ showMsg('msg-rename','Enter a name','error'); return; }
+    const items = _ctxTargets.length ? _ctxTargets : getSelected();
+    api("{% url 'renamedata' %}", {selected:items,path:CURRENT_DIR,copy:newName}, d=>{
+        if(d.status==='success'){ toast('Renamed!','success'); closeModal('modal-rename'); location.reload(); }
+        else showMsg('msg-rename', d.message||'Error','error');
+    });
+}
+function doCopy() {
+    const dest = document.getElementById('inp-copy').value.trim();
+    if(!dest){ showMsg('msg-copy','Enter destination','error'); return; }
+    const items = _ctxTargets.length ? _ctxTargets : getSelected();
+    api("{% url 'copydata' %}", {selected:items,path:CURRENT_DIR,copy:dest}, d=>{
+        showMsg('msg-copy', d.message, d.status==='success'?'success':'error');
+        if(d.status==='success') setTimeout(()=>{ closeModal('modal-copy'); location.reload(); },900);
+    });
+}
+function doMove() {
+    const dest = document.getElementById('inp-move').value.trim();
+    if(!dest){ showMsg('msg-move','Enter destination','error'); return; }
+    const items = _ctxTargets.length ? _ctxTargets : getSelected();
+    api("{% url 'movedata' %}", {selected:items,path:CURRENT_DIR,copy:dest}, d=>{
+        showMsg('msg-move', d.message, d.status==='success'?'success':'error');
+        if(d.status==='success') setTimeout(()=>{ closeModal('modal-move'); location.reload(); },900);
+    });
+}
+function doPermission() {
+    const perm = document.getElementById('inp-perm').value.trim();
+    const valid = ['000','400','500','644','666','700','750','755','770','777'];
+    if(!valid.includes(perm)){ showMsg('msg-perm','Invalid code. Use: '+valid.join(', '),'error'); return; }
+    const items = _ctxTargets.length ? _ctxTargets : getSelected();
+    api("{% url 'permissiondata' %}", {selected:items,path:CURRENT_DIR,copy:perm}, d=>{
+        showMsg('msg-perm', d.message||'Done', d.status==='success'?'success':'error');
+        if(d.status==='success') setTimeout(()=>closeModal('modal-perm'),900);
+    });
+}
+
+/* ── Upload ── */
+const uploadInput = document.getElementById('uploadInput');
+const uploadZone  = document.getElementById('uploadZone');
+uploadInput.addEventListener('change', () => {
+    document.getElementById('uploadFileName').textContent =
+        [...uploadInput.files].map(f=>f.name).join(', ');
+});
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+    e.preventDefault(); uploadZone.classList.remove('drag-over');
+    uploadInput.files = e.dataTransfer.files;
+    document.getElementById('uploadFileName').textContent = [...uploadInput.files].map(f=>f.name).join(', ');
+});
+async function doUpload(force) {
+    if(!uploadInput.files.length) { toast('Select files first','error'); return; }
+    const btn = document.getElementById('btnUpload');
+    btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading...';
+    const prog = document.getElementById('uploadProgress');
+    const bar  = document.getElementById('uploadProgressBar');
+    const pctTxt = document.getElementById('uploadPercentageText');
+    prog.style.display = 'block'; 
+    bar.style.width = '0%';
+    if (pctTxt) pctTxt.textContent = '0%';
+
+    const fd = new FormData();
+    [...uploadInput.files].forEach(f=>fd.append('file', f));
+    fd.append('file_path', CURRENT_DIR);
+    if (force) fd.append('force', 'true');
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', "{% url 'upload_file' %}", true);
+    xhr.setRequestHeader('X-CSRFToken', CSRF);
+
+    xhr.upload.addEventListener('progress', e => {
+        if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            bar.style.width = pct + '%';
+            if (pctTxt) {
+                const loadedMB = (e.loaded / (1024 * 1024)).toFixed(1);
+                const totalMB = (e.total / (1024 * 1024)).toFixed(1);
+                pctTxt.textContent = pct + '% (' + loadedMB + 'MB of ' + totalMB + 'MB)';
+            }
+        }
+    });
+
+    xhr.onload = function() {
+        if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+                const d = JSON.parse(xhr.responseText);
+                bar.style.width = '100%';
+                if (pctTxt) pctTxt.textContent = '100% (Complete)';
+                if (d.status === 'success') {
+                    toast(d.message, 'success');
+                    closeModal('modal-upload');
+                    setTimeout(() => location.reload(), 600);
+                } else if (d.status === 'conflict') {
+                    // Show conflict modal
+                    document.getElementById('conflict-msg').textContent = d.message;
+                    const list = document.getElementById('conflict-list');
+                    list.innerHTML = d.conflicts.map(f => `<div>⚠ ${f}</div>`).join('');
+                    document.getElementById('btnConflictOverwrite').onclick = () => {
+                        closeModal('modal-conflict');
+                        doUpload(true); // re-upload with force=true
+                    };
+                    openModal('modal-conflict');
+                } else {
+                    toast(d.message || 'Upload failed', 'error');
+                }
+            } catch (e) {
+                toast('Upload finished but server response was invalid', 'error');
+            }
+        } else {
+            toast('Upload failed with status ' + xhr.status, 'error');
+        }
+        cleanup();
+    };
+
+    xhr.onerror = function() {
+        toast('Network error during upload', 'error');
+        cleanup();
+    };
+
+    xhr.send(fd);
+
+    function cleanup() {
+        prog.style.display = 'none';
+        bar.style.width = '0%';
+        if (pctTxt) pctTxt.textContent = '';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa fa-upload"></i> Upload';
     }
+}
 </script>
-
-
-        <!-- content
-end-->
-
-        <div class="modal animated fadeIn show" id="addfile" tabindex="-1" role="dialog"
-            style="display: none; margin-top: 300px;" aria-modal="true">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Add File</h6>
-                    </div>
-                    <form id="fileForm" method="post" action="">{% csrf_token %}
-                        <div class="modal-body">
-                            <div class="row clearfix">
-                                <div class="col-md-12 col-sm-12">
-                                    <div class="form-group">
-                                        <input type="text" name="xfile" id="myInput" class="form-control"
-                                            placeholder="File Name *">
-                                        <input type="text" name="xfilepath"
-                                            value="{{main_dir|cut:'///'|cut:'////'|cut:'//'}}" hidden>
-                                    </div>
-                                </div>
-
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button onclick="sub();" class="btn btn-primary">Add</button>
-                            <button type="button" class="btn btn-secondary" onclick="addfile();">CLOSE</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-
-
-
-        <div class="modal animated fadeIn show" id="addfolder" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Add Folder</h6>
-                    </div>
-                    <form id="folderForm" method="post" action="">{% csrf_token %}
-                        <div class="modal-body">
-                            <div class="row clearfix">
-                                <div class="col-md-12 col-sm-12">
-                                    <div class="form-group">
-                                        <input type="text" name="xfolder" id="myInput1" class="form-control"
-                                            placeholder="Folder Name *">
-                                        <input type="text" name="xfolderpath"
-                                            value="{{main_dir|cut:'///'|cut:'////'|cut:'//'}}" hidden>
-                                    </div>
-                                </div>
-
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button onclick="sub1();" class="btn btn-primary">Add</button>
-                            <button type="button" class="btn btn-secondary" onclick="addfolder();">CLOSE</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-
-
-
-        <div class="modal animated fadeIn show" id="addcopy" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Add Location</h6>
-                    </div>
-                    <form id="copyForm" method="post" action="">{% csrf_token %}
-                        <div class="modal-body">
-                            <div class="row clearfix">
-                                <div class="col-md-12 col-sm-12">
-                                    <div class="form-group">
-                                        <input type="text" name="addcopy" id="myInput2" class="form-control"
-                                            placeholder="{{main_dir|cut:'///'|cut:'////'|cut:'//'}}"
-                                            value="{{main_dir|cut:'///'|cut:'////'|cut:'//'}}">
-                                        <input type="text" name="xfolderpath"
-                                            value="{{main_dir|cut:'///'|cut:'////'|cut:'//'}}" hidden>
-                                    </div>
-                                </div>
-
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button id="addcopybtn" onclick="copy(event);" style="display: block;"
-                                class="btn btn-primary">Add</button>
-                            <button type="button" class="btn btn-secondary" onclick="addcopy();">CLOSE</button>
-                            <p id="pro" style="display: none;" class="processing">Processing<span class="dots"></span>
-                            </p>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-
-
-        <div class="modal animated fadeIn show" id="addmove" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Add Location</h6>
-                    </div>
-                    <form id="moveForm" method="post" action="">{% csrf_token %}
-                        <div class="modal-body">
-                            <div class="row clearfix">
-                                <div class="col-md-12 col-sm-12">
-                                    <div class="form-group">
-                                        <input type="text" name="movecopy" id="myInput3" class="form-control"
-                                            placeholder="{{main_dir|cut:'///'|cut:'////'|cut:'//'}}"
-                                            value="{{main_dir|cut:'///'|cut:'////'|cut:'//'}}">
-                                        <input type="text" name="xfolderpath"
-                                            value="{{main_dir|cut:'///'|cut:'////'|cut:'//'}}" hidden>
-                                    </div>
-                                </div>
-
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button id="mymybutton" onclick="move(event);" class="btn btn-primary">Add</button>
-                            <button type="button" class="btn btn-secondary" onclick="addmove();">CLOSE</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-
-
-        <div class="modal animated fadeIn show" id="addrename" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Rename</h6>
-                    </div>
-                    <form id="renameForm" method="post" action="">{% csrf_token %}
-                        <div class="modal-body">
-                            <div class="row clearfix">
-                                <div class="col-md-12 col-sm-12">
-                                    <div class="form-group">
-                                        <input type="text" name="renamecopy" id="myInput5" class="form-control"
-                                            placeholder=" Name *">
-                                        <input type="text" name="xfolderpath"
-                                            value="{{main_dir|cut:'///'|cut:'////'|cut:'//'}}" hidden>
-                                    </div>
-                                </div>
-
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button onclick="rename(event);" class="btn btn-primary">Rename</button>
-                            <button type="button" class="btn btn-secondary" onclick="addrename();">CLOSE</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-
-
-        <div class="modal animated fadeIn show" id="addpermission" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Add Permission</h6>
-                    </div>
-                    <form id="permission" method="post" action="">{% csrf_token %}
-                        <div class="modal-body">
-                            <div class="row clearfix">
-                                <div class="col-md-12 col-sm-12">
-                                    <div class="form-group">
-                                        <p>Available Permission Options 000,644,755,666,700,777,644,750, 770,400,500</p>
-                                        <input type="text" name="renamecopy" id="myInput6" class="form-control"
-                                            placeholder="777">
-                                        <input type="text" name="xfolderpath"
-                                            value="{{main_dir|cut:'///'|cut:'////'|cut:'//'}}" hidden>
-                                    </div>
-                                </div>
-
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button onclick="permission(event);" class="btn btn-primary">Permit</button>
-                            <button type="button" class="btn btn-secondary" onclick="addpermission();">CLOSE</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-
-        <div class="modal animated fadeIn show" id="pro1" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <p class="processing">Processing<span class="dots"></span></p>
-
-                    </div>
-
-                </div>
-            </div>
-        </div>
-
-
-
-        <!-- end -->
-
-        <script>
-            var input3 = document.getElementById('myInput6');
-
-            // Disable spaces in the input field
-            input3.addEventListener('keydown', function (event) {
-                // Prevent space character from being entered (Keycode 32 is space)
-                if (event.key === ' ') {
-                    event.preventDefault();
-                }
-            });
-
-            // Optional: Disable pasting spaces
-            input3.addEventListener('input', function () {
-                this.value = this.value.replace(/\s+/g, '');
-            });
-            function addpermission() {
-                var a = document.getElementById('addpermission');
-                a.style.display = 'none';
-            }
-            function viewpermission() {
-                var checkedBoxes = document.querySelectorAll('#checkboxTable .checkbox-tick:checked');
-                var selectedValues = [];
-
-                // Loop through checked checkboxes and get their values
-                checkedBoxes.forEach(function (checkbox) {
-
-                    selectedValues.push(checkbox.value);
-                });
-                if (selectedValues.length > 0) {
-                    var a = document.getElementById('addpermission');
-                    a.style.display = 'block';
-                }
-
-                else {
-                    
-                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "please Select File/Folder";
-
-                }
-            }
-
-            function permission(event) {
-                // Prevent default form submission behavior
-                event.preventDefault();
-
-                var checkedBoxes = document.querySelectorAll('#checkboxTable .checkbox-tick:checked');
-                var selectedValues = [];
-
-                // Loop through checked checkboxes and get their values
-                checkedBoxes.forEach(function (checkbox) {
-                    selectedValues.push(checkbox.value);
-                });
-
-                const commonPermissions = [
-                    "000", "644", "755", "666", "700", "777",
-                    "644", "750", "770", "400", "500"
-                ];
-
-                var per = document.getElementById('myInput6').value;
-
-                if (commonPermissions.includes(per)) {
-                    if (selectedValues.length > 0) {
-                        var data = {
-                            'selected': selectedValues,
-                            'path': "{{main_dir|cut:'///'|cut:'////'|cut:'//'}}",
-                            'copy': per
-                        };
-
-                        fetch("{% url 'permissiondata' %}", {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRFToken': '{{ csrf_token }}'
-                            },
-                            body: JSON.stringify(data)
-                        })
-                            .then(response => response.json())
-                            .then(data => {
-                                // Reload the page or show success message
-                                document.getElementById('addpermission').style.display = "none";
-                         
-                                document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "File permissions have been successfully updated!";
-
-                                
-                            })
-                            .catch(error => {
-                                // Error handling for server or network issues
-                    
-                                document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "There was an error processing the request. Please try again.";
-
-                            });
-                    } else {
-                     
-                        document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Please select at least one file or folder to apply the permission.";
-
-                    }
-                } else {
-                    
-                    document.getElementById('addpermission').style.display = "none";
-
-
-                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Invalid permission code entered. Please enter a valid permission from the list (e.g., 644, 755, 777).";
-
-                }
-            }
-
-
-
-        </script>
-
-
-
-        <script>
-            var input3 = document.getElementById('myInput5');
-
-            // Disable spaces in the input field
-            input3.addEventListener('keydown', function (event) {
-                // Prevent space character from being entered (Keycode 32 is space)
-                if (event.key === ' ') {
-                    event.preventDefault();
-                }
-            });
-
-            // Optional: Disable pasting spaces
-            input3.addEventListener('input', function () {
-                this.value = this.value.replace(/\s+/g, '');
-            });
-            function addmove() {
-                var a = document.getElementById('addmove');
-                a.style.display = 'none';
-            }
-            function viewrename() {
-                var checkedBoxes = document.querySelectorAll('#checkboxTable .checkbox-tick:checked');
-                var selectedValues = [];
-
-                // Loop through checked checkboxes and get their values
-                checkedBoxes.forEach(function (checkbox) {
-
-                    selectedValues.push(checkbox.value);
-                });
-                if (selectedValues.length > 0 && selectedValues.length < 2) {
-                    var a = document.getElementById('addrename');
-                    a.style.display = 'block';
-                    document.getElementById('myInput5').value=selectedValues;
-                }
-                else if (selectedValues.length > 2) {
-        
-                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = 'please Select 1 File/Folder';
-
-                }
-                else {
-             
-                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "please Select File/Folder";
-
-                }
-            }
-            function rename(event) {
-                // Prevent default behavior if an event is provided
-                if (event) {
-                    event.preventDefault();
-                }
-
-                var checkedBoxes = document.querySelectorAll('#checkboxTable .checkbox-tick:checked');
-                var selectedValues = [];
-
-                // Loop through checked checkboxes and get their values
-                checkedBoxes.forEach(function (checkbox) {
-                    selectedValues.push(checkbox.value);
-                });
-
-                if (selectedValues.length > 0 && selectedValues.length < 2) {
-                    var data = {
-                        'selected': selectedValues,
-                        'path': "{{main_dir|cut:'///'|cut:'////'|cut:'//'}}",
-                        'copy': document.getElementById('myInput5').value // Use a more descriptive key (new_name)
-                    };
-
-                    fetch("{% url 'renamedata' %}", {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': '{{ csrf_token }}'
-                        },
-                        body: JSON.stringify(data)
-                    })
-                        .then(response => {
-                            if (!response.ok) {
-                                throw new Error('Network response was not ok');
-                            }
-                            return response.json();
-                        })
-                        .then(data => {
-                            switch (data.status) {
-                                case 'success':
-                                  
-                                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "File/Folder renamed successfully!";
-
-                                    location.reload(true); // Optionally reload the page
-                                    break;
-                                case 'error':
-                               
-                                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = 'Error renaming file/folder: ' + data.message;
-
-                                    break;
-                                default:
-                           
-                                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Unexpected response status!";
-
-                            }
-                        })
-                        .catch(error => {
-                       
-                            document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Error renaming data!";
-
-                            console.error('Error:', error);
-                        });
-
-                } else if (selectedValues.length > 1) {
-              
-                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = 'Please select only one file or folder to rename.';
-
-                } else {
-             
-                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = 'Please select at least one file/folder.';
-
-                }
-            }
-
-
-
-        </script>
-
-
-
-
-
-
-
-
-        <script>
-
-
-
-            function deletedata() {
-
-                var checkedBoxes = document.querySelectorAll('#checkboxTable .checkbox-tick:checked');
-                var selectedValues = [];
-
-                // Loop through checked checkboxes and get their values
-                checkedBoxes.forEach(function (checkbox) {
-
-                    selectedValues.push(checkbox.value);
-                });
-
-                if (selectedValues.length > 0) {
-                    var data = {
-                        'selected': selectedValues,
-                        'path': "{{main_dir|cut:'///'|cut:'////'|cut:'//'}}",
-
-                    };
-
-                    if (confirm("Are you sure you want to delete the selected data?")) {
-                        fetch("{% url 'ddeletedata' %}", {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRFToken': '{{ csrf_token }}'
-                            },
-                            body: JSON.stringify(data)
-                        })
-                            .then(response => {
-                                if (!response.ok) {
-                                    throw new Error('Network response was not ok');
-                                }
-                                return response.json();
-                            })
-                            .then(data => {
-                                switch (data.status) {
-                                    case 'success':
-                                      // Success message
-                                        document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Data deleted successfully!";
-
-                                        location.reload(true); // Optionally reload the page
-                                        break;
-                                    case 'error':
-                                  // Error message from the server
-                                        document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = 'Error deleting data: ' + data.message;
-
-                                        break;
-                                    default:
-                                        
-                                        document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = 'Unexpected response status!';
-
-                                }
-                            })
-                            .catch(error => {
-                        
-                                document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = 'Error deleting data!';
-
-                                console.error('Error:', error);
-                            });
-
-                    }
-
-
-                }
-
-
-                else {
-                    
-                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = 'please Select atleast on File/Folder';
-
-                }
-            }
-        </script>
-
-        <script>
-
-
-
-            function compress(event) {
-                // Prevent default behavior if an event is provided
-                if (event) {
-                    event.preventDefault();
-                }
-
-
-                var checkedBoxes = document.querySelectorAll('#checkboxTable .checkbox-tick:checked');
-                var selectedValues = [];
-
-                // Loop through checked checkboxes and get their values
-                checkedBoxes.forEach(function (checkbox) {
-                    selectedValues.push(checkbox.value);
-                });
-
-                if (selectedValues.length > 0) {
-                    var pro = document.getElementById('pro1');
-
-                    pro.style.display = 'block';
-                    var data = {
-                        'selected': selectedValues,
-                        'path': "{{main_dir|cut:'///'|cut:'////'|cut:'//'}}",
-                    };
-
-                    fetch("{% url 'compressdata' %}", {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': '{{ csrf_token }}'
-                        },
-                        body: JSON.stringify(data)
-                    })
-                        .then(response => {
-                            if (!response.ok) {
-                                throw new Error('Network response was not ok');
-                            }
-                            return response.json();
-                        })
-                        .then(data => {
-                            switch (data.status) {
-                                case 'success':
-                              // Display a success message
-                                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = 'Compression Successful!';
-
-                                    location.reload(true); // Optionally reload the page
-                                    pro.style.display = 'none';
-                                    break;
-                                case 'error':
-                                // Display the error message from the server
-                                    pro.style.display = 'none';
-                                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = 'Error Compressing Data: ' + data.message;
-
-                                    break;
-                                default:
-                              
-                                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Unexpected response status!";
-
-                            }
-                        })
-                        .catch(error => {
-                         
-                            document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Error Compressing Data! ";
-
-                            console.error('Error:', error);
-                        });
-
-                } else {
-                 
-                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Please select at least one file/folder.";
-
-                }
-            }
-
-        </script>
-
-
-        <script>
-
-
-
-            function extract(event) {
-                // Prevent default behavior if an event is provided
-                if (event) {
-                    event.preventDefault();
-                }
-
-                var checkedBoxes = document.querySelectorAll('#checkboxTable .checkbox-tick:checked');
-                var selectedValues = [];
-
-                // Loop through checked checkboxes and get their values
-                checkedBoxes.forEach(function (checkbox) {
-                    selectedValues.push(checkbox.value);
-                });
-
-                if (selectedValues.length > 0 && selectedValues.length < 2) {
-
-                    var data = {
-                        'selected': selectedValues,
-                        'path': "{{main_dir|cut:'///'|cut:'////'|cut:'//'}}",
-                    };
-                    var pro = document.getElementById('pro1');
-
-                    pro.style.display = 'block';
-
-                    fetch("{% url 'extractdata' %}", {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': '{{ csrf_token }}'
-                        },
-                        body: JSON.stringify(data)
-                    })
-                        .then(response => {
-                            if (!response.ok) {
-                                throw new Error('Network response was not ok');
-                            }
-                            return response.json();
-                        })
-                        .then(data => {
-                            switch (data.status) {
-                                case 'success':
-                       
-                                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "'Extraction Successful!'";
-
-                                    pro.style.display = 'none';
-
-
-                                    break;
-                                case 'error':
-                                // Error message from the server
-                                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = 'Error Extracting Data: ' + data.message;
-
-                                    pro.style.display = 'none';
-                                    break;
-                                default:
-                                
-                                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Unexpected response status!";
-
-                                    pro.style.display = 'none';
-                            }
-                        })
-                        .catch(error => {
-                        
-                            document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Error Extracting Data! Please use a ZIP file.";
-
-                            pro.style.display = 'none';
-                            console.error('Error:', error);
-                        });
-
-                } else if (selectedValues.length > 1) {
-                
-                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Please select only one file/folder.";
-
-                } else {
-            
-                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Please select at least one file/folder.";
-
-                }
-            }
-
-        </script>
-
-
-        <script>
-            // Function to check/uncheck all checkboxes
-            function toggleCheckboxes(selectAllCheckbox) {
-                // Get all checkboxes with the class 'itemCheckbox' within the table
-                var checkboxes = document.querySelectorAll('#checkboxTable .checkbox-tick');
-
-                // Loop through all checkboxes and set their checked state based on the main checkbox
-                checkboxes.forEach(function (checkbox) {
-                    checkbox.checked = selectAllCheckbox.checked;
-                });
-            }
-            var input2 = document.getElementById('myInput2');
-
-            // Disable spaces in the input field
-            input2.addEventListener('keydown', function (event) {
-                // Prevent space character from being entered (Keycode 32 is space)
-                if (event.key === ' ') {
-                    event.preventDefault();
-                }
-            });
-
-            // Optional: Disable pasting spaces
-            input2.addEventListener('input', function () {
-                this.value = this.value.replace(/\s+/g, '');
-            });
-
-            var input3 = document.getElementById('myInput3');
-
-            // Disable spaces in the input field
-            input3.addEventListener('keydown', function (event) {
-                // Prevent space character from being entered (Keycode 32 is space)
-                if (event.key === ' ') {
-                    event.preventDefault();
-                }
-            });
-
-            // Optional: Disable pasting spaces
-            input3.addEventListener('input', function () {
-                this.value = this.value.replace(/\s+/g, '');
-            });
-            function addmove() {
-                var a = document.getElementById('addmove');
-                a.style.display = 'none';
-            }
-            function viewmove() {
-                var checkedBoxes = document.querySelectorAll('#checkboxTable .checkbox-tick:checked');
-                var selectedValues = [];
-
-                // Loop through checked checkboxes and get their values
-                checkedBoxes.forEach(function (checkbox) {
-
-                    selectedValues.push(checkbox.value);
-                });
-                if (selectedValues.length > 0) {
-                    var a = document.getElementById('addmove');
-                    a.style.display = 'block';
-                }
-                else {
-                  
-                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "please Select File/Folder";
-
-                }
-            }
-            function move(event) {
-                if (event) {
-                    event.preventDefault();
-                }
-
-
-
-                var checkedBoxes = document.querySelectorAll('#checkboxTable .checkbox-tick:checked');
-                var selectedValues = [];
-
-                // Loop through checked checkboxes and get their values
-                checkedBoxes.forEach(function (checkbox) {
-                    selectedValues.push(checkbox.value);
-                });
-
-                if (selectedValues.length > 0) {
-                    var abutton = document.getElementById('mymybutton');
-                    var pro = document.getElementById('pro');
-                    abutton.style.display = 'none';
-                    pro.style.display = 'block';
-                    var data = {
-                        'selected': selectedValues,
-                        'path': "{{main_dir|cut:'///'|cut:'////'|cut:'//'}}",
-                        'copy': document.getElementById('myInput3').value
-                    };
-
-                    fetch("{% url 'movedata' %}", {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': '{{ csrf_token }}'
-                        },
-                        body: JSON.stringify(data)
-                    })
-                        .then(response => {
-                            // Check if response is OK
-                            if (!response.ok) {
-                                throw new Error('Network response was not ok');
-                            }
-                            return response.json(); // Parse JSON from response
-                        })
-                        .then(data => {
-                            // Handle the parsed JSON data
-                            switch (data.status) {
-                                case 'success':
-                                    // Handle success
-                                
-                                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Moved Successfully!";
-
-                                    document.getElementById('addmove').style.display = "none";
-                                    abutton.style.display = 'block';
-                                    pro.style.display = 'none';
-                                    // Optionally reload the page
-                                    // location.reload(true);
-                                    break;
-                                case 'error':
-                                    // Handle error
-                               
-                                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Cannot move";
-
-                                    break;
-                                default:
-                                    // Handle unexpected status
-                        
-                                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Unexpected response status!";
-
-                            }
-                        })
-                        .catch(error => {
-                            // Handle network errors or other fetch issues
-                      
-                            document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Error moving data!";
-
-                            console.error('Error:', error);
-                        });
-
-                } else {
-                 
-                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Please select at least one file/folder";
-
-                }
-            }
-
-
-
-
-
-            function addcopy() {
-                var a = document.getElementById('addcopy');
-                a.style.display = 'none';
-            }
-            function viewcopy() {
-                var checkedBoxes = document.querySelectorAll('#checkboxTable .checkbox-tick:checked');
-                var selectedValues = [];
-
-                // Loop through checked checkboxes and get their values
-                checkedBoxes.forEach(function (checkbox) {
-
-                    selectedValues.push(checkbox.value);
-                });
-                if (selectedValues.length > 0) {
-                    var a = document.getElementById('addcopy');
-                    a.style.display = 'block';
-                }
-                else {
-           
-                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = 'please Select File/Folder';
-
-                }
-            }
-            function copy(event) {
-                // Prevent the default action (e.g., form submission)
-                if (event) {
-                    event.preventDefault();
-                }
-
-
-                var checkedBoxes = document.querySelectorAll('#checkboxTable .checkbox-tick:checked');
-                var selectedValues = [];
-
-                // Loop through checked checkboxes and get their values
-                checkedBoxes.forEach(function (checkbox) {
-                    selectedValues.push(checkbox.value);
-                });
-
-                if (selectedValues.length > 0) {
-                    var abutton = document.getElementById('addcopybtn');
-                    var pro = document.getElementById('pro');
-
-                    abutton.style.display = 'none';
-                    pro.style.display = 'block';
-                    var data = {
-                        'selected': selectedValues,
-                        'path': "{{main_dir|cut:'///'|cut:'////'|cut:'//'}}",
-                        'copy': document.getElementById('myInput2').value
-                    };
-
-                    fetch("{% url 'copydata' %}", {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': '{{ csrf_token }}'
-                        },
-                        body: JSON.stringify(data)
-                    })
-                        .then(response => response.json())
-                        .then(data => {
-                            switch (data.status) {
-                                case 'success':
-                                    // Handle success
-                               // Displays 'File uploaded successfully!'
-                                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Copied Successfully!";
-
-                                    document.getElementById('addcopy').style.display = "none";
-
-                                    abutton.style.display = 'block';
-                                    pro.style.display = 'none';
-                                    // location.reload(true); // Optionally reload the page
-                                    break;
-                                case 'already':
-                                   
-                                  
-                                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "File Already Exist" + data.message;
-
-                                    document.getElementById('addcopy').style.display = "none";
-                                    abutton.style.display = 'block';
-                                    pro.style.display = 'none';
-                                    // Optional: handle any specific logic for already uploaded files
-                                    break;
-                                case 'error':
-                                    // Handle error
-                                    // Displays 'File upload Failed!'
-                                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Cannot copy";
-
-                                    break;
-                                default:
-                                    // Handle unexpected status
-                               
-                                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Unexpected response status!";
-
-                            }
-                        })
-                        .catch(error => {
-                            // Handle network errors or other fetch issues
-                       
-                            document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "'Error copying data!'";
-
-                            console.error('Error:', error);
-                        });
-                } else {
-     
-                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Please select at least one file/folder.";
-
-                }
-            }
-
-
-
-        </script>
-        <script>
-            function filterTable() {
-                // Declare variables
-                var input, filter, table, tr, td, i, j, txtValue;
-                input = document.getElementById("searchdata");
-                filter = input.value.toUpperCase();
-                table = document.getElementById("checkboxTable");
-                tr = table.getElementsByTagName("tr");
-            
-                // Loop through all table rows (except the first which contains table headers)
-                for (i = 1; i < tr.length; i++) {
-                    tr[i].style.display = "none"; // Initially hide all rows
-                    td = tr[i].getElementsByTagName("td");
-                    
-                    // Loop through each cell in the row
-                    for (j = 0; j < td.length; j++) {
-                        if (td[j]) {
-                            txtValue = td[j].textContent || td[j].innerText;
-                            if (txtValue.toUpperCase().indexOf(filter) > -1) {
-                                tr[i].style.display = ""; // Show the row if any cell matches the search query
-                                break; // Exit the loop if a match is found
-                            }
-                        }
-                    }
-                }
-            }
-            </script>
-        <script>
-
-
-            function sub1() {
-
-                var formm = document.getElementById('folderForm');
-                var formData = new FormData(formm);
-
-
-                $.ajax({
-                    url: "{% url 'create_folder' %}",  // Set the correct URL pattern
-                    type: "POST",
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    headers: {
-                        'X-CSRFToken': csrftoken  // Pass the CSRF token
-                    },
-                    success: function (response) {
-                        if (response.status === 'success') {
-                          
-                            document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = 'Folder Created successfully!';
-
-
-
-                        }
-                        else if (response.status === 'already') {
-                      
-                            document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = 'Folder Already successfully!';
-
-
-
-                        }
-
-
-                    },
-
-
-                });
-            };
-
-
-
-        </script>
-        <script>
-            function goBack() {
-                window.history.back();
-            }
-            function goForward() {
-                window.history.forward();
-            }
-            function getCookie(name) {
-                let cookieValue = null;
-                if (document.cookie && document.cookie !== '') {
-                    const cookies = document.cookie.split(';');
-                    for (let i = 0; i < cookies.length; i++) {
-                        const cookie = cookies[i].trim();
-                        // Does this cookie string begin with the name we want?
-                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                            break;
-                        }
-                    }
-                }
-                return cookieValue;
-            }
-            const csrftoken = getCookie('csrftoken');
-
-
-            function sub() {
-
-                var form = document.getElementById('fileForm');
-                var formData = new FormData(form);
-
-
-                $.ajax({
-                    url: "{% url 'create_file' %}",  // Set the correct URL pattern
-                    type: "POST",
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    headers: {
-                        'X-CSRFToken': csrftoken  // Pass the CSRF token
-                    },
-                    success: function (response) {
-                        if (response.status === 'success') {
-                  
-                            document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = 'File Created successfully!';
-
-
-
-                        }
-                        else if (response.status === 'already') {
-                    
-                            document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = 'File Already successfully!';
-
-
-
-                        }
-
-
-                    },
-
-
-
-                });
-            };
-
-            function addfile() {
-                var a = document.getElementById('addfile');
-                a.style.display = 'none';
-            }
-
-
-
-            function addfolder() {
-                var a = document.getElementById('addfolder');
-                a.style.display = 'none';
-            }
-            function viewfolder() {
-                var a = document.getElementById('addfolder');
-                a.style.display = 'block';
-            }
-
-            function viewfile() {
-                var a = document.getElementById('addfile');
-                a.style.display = 'block';
-            }
-            var input = document.getElementById('myInput');
-
-            // Disable spaces in the input field
-            input.addEventListener('keydown', function (event) {
-                // Prevent space character from being entered (Keycode 32 is space)
-                if (event.key === ' ') {
-                    event.preventDefault();
-                }
-            });
-
-            // Optional: Disable pasting spaces
-            input.addEventListener('input', function () {
-                this.value = this.value.replace(/\s+/g, '');
-            });
-
-            var input1 = document.getElementById('myInput1');
-
-            // Disable spaces in the input field
-            input1.addEventListener('keydown', function (event) {
-                // Prevent space character from being entered (Keycode 32 is space)
-                if (event.key === ' ') {
-                    event.preventDefault();
-                }
-            });
-
-            // Optional: Disable pasting spaces
-            input1.addEventListener('input', function () {
-                this.value = this.value.replace(/\s+/g, '');
-            });
-        </script>
-
-        <script>
-            function mydel(name, path) {
-                if (confirm('Are you sure you want to delete this file?')) {
-
-                    $.ajax({
-                        url: path,  // URL to send the request to
-                        type: 'POST',  // Use POST for deleting
-                        data: {
-                            'csrfmiddlewaretoken': '{{ csrf_token }}'  // CSRF token for security
-                        },
-                        success: function (response) {
-                            if (response.status === 'success') {
-                         
-                                document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = 'File deleted successfully!';
-
-                                var row = document.getElementById(name);
-                                if (row) {
-                                    row.parentNode.removeChild(row);
-                                }
-                                else {
-                                    location.reload(true);
-                                }
-                            } else {
-            
-                                document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Error Deleting File!";
-
-                            }
-                        },
-                        error: function (xhr, errmsg, err) {
-                
-                            document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML ="Error Deleting File!";
-
-                        }
-                    });
-                }
-            }
-        </script>
-        <!-- Javascript -->
-        <script src="/static/assets/bundles/libscripts.bundle.js"></script>
-        <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
-
-        <!-- page vendor js file -->
-        <script src="/static/assets/vendor/toastr/toastr.js"></script>
-        <script src="/static/assets/bundles/c3.bundle.js"></script>
-
-
-        <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
-        <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
-
-
-        <!-- page js file -->
-        <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
-        <script src="/static/assets/bundles/chartjs.js"></script>
-        <script src="/static/assets/index2.js"></script>
-
-
 </body>
-
-
 </html>

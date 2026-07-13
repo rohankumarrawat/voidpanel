@@ -1,0 +1,255 @@
+{% extends "super_admin_base.html" %}
+{% block title %}Social Media API Keys | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}Social Media API Keys{% endblock %}
+
+{% block admin_content %}
+<style>
+.platform-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:22px 24px;margin-bottom:18px;transition:border-color .2s;}
+.platform-card.enabled{border-color:rgba(89,196,188,.35);}
+.platform-card.disabled{opacity:.75;}
+.platform-header{display:flex;align-items:center;gap:14px;margin-bottom:16px;}
+.platform-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;}
+.platform-title{font-size:1rem;font-weight:700;color:#fff;}
+.platform-sub{font-size:.78rem;color:#64748b;}
+.toggle-wrap{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.toggle-label{font-size:.82rem;color:#94a3b8;}
+.toggle{position:relative;width:46px;height:26px;cursor:pointer;}
+.toggle input{opacity:0;width:0;height:0;}
+.toggle-slider{position:absolute;inset:0;background:#1e293b;border:1px solid rgba(255,255,255,.1);border-radius:26px;transition:.25s;}
+.toggle-slider:before{content:"";position:absolute;width:18px;height:18px;left:3px;bottom:3px;background:#64748b;border-radius:50%;transition:.25s;}
+.toggle input:checked + .toggle-slider{background:rgba(89,196,188,.2);border-color:rgba(89,196,188,.5);}
+.toggle input:checked + .toggle-slider:before{transform:translateX(20px);background:#59c4bc;}
+.api-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px;}
+.api-input{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:9px 12px;color:#e2e8f0;font-size:.85rem;width:100%;outline:none;transition:border-color .2s;font-family:monospace;}
+.api-input:focus{border-color:rgba(89,196,188,.4);}
+.api-input::placeholder{color:#475569;}
+label.api-lbl{font-size:.75rem;color:#64748b;margin-bottom:4px;display:block;text-transform:uppercase;letter-spacing:.05em;}
+.enabled-badge{font-size:.7rem;padding:3px 9px;border-radius:10px;font-weight:700;background:rgba(74,222,128,.12);color:#4ade80;}
+.disabled-badge{font-size:.7rem;padding:3px 9px;border-radius:10px;font-weight:700;background:rgba(248,113,113,.1);color:#f87171;}
+.sa-save-btn{background:linear-gradient(135deg,#59c4bc,#3b82f6);color:#fff;border:none;border-radius:10px;padding:11px 28px;font-size:.9rem;font-weight:700;cursor:pointer;transition:opacity .2s;}
+.sa-save-btn:hover{opacity:.88;}
+.note-box{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:10px;padding:14px 18px;font-size:.83rem;color:#fcd34d;margin-bottom:24px;}
+.api-endpoint-box{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:14px 18px;font-size:.82rem;color:#94a3b8;margin-bottom:28px;font-family:monospace;}
+</style>
+
+<div class="sa-page-header">
+  <div>
+    <h1 class="sa-page-title"><i class="fa-solid fa-share-nodes" style="color:#f472b6;margin-right:10px;"></i>Social Media API Keys</h1>
+    <p class="sa-page-sub">Configure OAuth credentials and enable/disable platforms for all installed VoidPanel instances.</p>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;">
+    <span class="enabled-badge">{{ enabled_count }} Enabled</span>
+    <span class="disabled-badge">{{ disabled_count }} Disabled</span>
+  </div>
+</div>
+
+{% if messages %}{% for msg in messages %}
+<div class="alert alert-{% if msg.tags == 'error' %}danger{% else %}success{% endif %} mb-3">{{ msg }}</div>
+{% endfor %}{% endif %}
+
+<div class="note-box">
+  <i class="fas fa-triangle-exclamation" style="margin-right:8px;"></i>
+  <strong>How this works:</strong> Enable a platform and enter its OAuth API keys. Installed VoidPanel panels will show a
+  <strong>Connect</strong> button for enabled platforms and an <strong>Upgrade</strong> badge for disabled ones.
+  Panels sync settings via the API endpoint below.
+</div>
+
+<div class="api-endpoint-box">
+  <i class="fas fa-link" style="margin-right:8px;color:#59c4bc;"></i>
+  Panel sync endpoint: <strong>GET https://voidpanel.com/api/social/platform-config/</strong>
+  <span style="margin-left:12px;font-size:.75rem;color:#475569;">(called by panel admin → Settings → Sync Social Config)</span>
+</div>
+
+<form method="POST">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="save_api_config">
+
+  <!-- FACEBOOK -->
+  <div class="platform-card {% if cfg.facebook_enabled %}enabled{% else %}disabled{% endif %}" id="card-fb">
+    <div class="platform-header">
+      <div class="platform-icon" style="background:rgba(24,119,242,.15);color:#1877f2;"><i class="fab fa-facebook-f"></i></div>
+      <div>
+        <div class="platform-title">Facebook</div>
+        <div class="platform-sub">Pages, posts, ads — Meta Graph API v19+</div>
+      </div>
+      <div class="toggle-wrap">
+        <span class="toggle-label">{% if cfg.facebook_enabled %}<span class="enabled-badge">Enabled</span>{% else %}<span class="disabled-badge">Disabled</span>{% endif %}</span>
+        <label class="toggle"><input type="checkbox" name="facebook_enabled" {% if cfg.facebook_enabled %}checked{% endif %} onchange="toggleCard('fb',this)"><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+    <div class="api-grid">
+      <div><label class="api-lbl">App ID</label><input class="api-input" type="text" name="facebook_app_id" value="{{ cfg.facebook_app_id }}" placeholder="e.g. 1234567890123456"></div>
+      <div><label class="api-lbl">App Secret</label><input class="api-input" type="password" name="facebook_app_secret" value="{{ cfg.facebook_app_secret }}" placeholder="••••••••••••••••"></div>
+    </div>
+  </div>
+
+  <!-- INSTAGRAM -->
+  <div class="platform-card {% if cfg.instagram_enabled %}enabled{% else %}disabled{% endif %}" id="card-ig">
+    <div class="platform-header">
+      <div class="platform-icon" style="background:rgba(225,48,108,.12);color:#e1306c;"><i class="fab fa-instagram"></i></div>
+      <div>
+        <div class="platform-title">Instagram</div>
+        <div class="platform-sub">Business & Creator accounts — same Meta app as Facebook</div>
+      </div>
+      <div class="toggle-wrap">
+        <span class="toggle-label">{% if cfg.instagram_enabled %}<span class="enabled-badge">Enabled</span>{% else %}<span class="disabled-badge">Disabled</span>{% endif %}</span>
+        <label class="toggle"><input type="checkbox" name="instagram_enabled" {% if cfg.instagram_enabled %}checked{% endif %} onchange="toggleCard('ig',this)"><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+    <div class="api-grid">
+      <div><label class="api-lbl">Instagram App ID</label><input class="api-input" type="text" name="instagram_app_id" value="{{ cfg.instagram_app_id }}" placeholder="Same as Facebook App ID if using unified app"></div>
+      <div><label class="api-lbl">App Secret</label><input class="api-input" type="password" name="instagram_app_secret" value="{{ cfg.instagram_app_secret }}" placeholder="••••••••••••••••"></div>
+    </div>
+  </div>
+
+  <!-- TWITTER/X -->
+  <div class="platform-card {% if cfg.twitter_enabled %}enabled{% else %}disabled{% endif %}" id="card-tw">
+    <div class="platform-header">
+      <div class="platform-icon" style="background:rgba(0,0,0,.4);color:#fff;"><i class="fab fa-x-twitter"></i></div>
+      <div>
+        <div class="platform-title">Twitter / X</div>
+        <div class="platform-sub">OAuth 2.0 — Paid developer plan required for posting</div>
+      </div>
+      <div class="toggle-wrap">
+        <span class="toggle-label">{% if cfg.twitter_enabled %}<span class="enabled-badge">Enabled</span>{% else %}<span class="disabled-badge">Disabled</span>{% endif %}</span>
+        <label class="toggle"><input type="checkbox" name="twitter_enabled" {% if cfg.twitter_enabled %}checked{% endif %} onchange="toggleCard('tw',this)"><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+    <div class="api-grid">
+      <div><label class="api-lbl">API Key (Client ID)</label><input class="api-input" type="text" name="twitter_api_key" value="{{ cfg.twitter_api_key }}" placeholder="from developer.x.com"></div>
+      <div><label class="api-lbl">API Secret</label><input class="api-input" type="password" name="twitter_api_secret" value="{{ cfg.twitter_api_secret }}" placeholder="••••••••••••••••"></div>
+      <div style="grid-column:span 2"><label class="api-lbl">Bearer Token</label><input class="api-input" type="text" name="twitter_bearer_token" value="{{ cfg.twitter_bearer_token }}" placeholder="AAAAAAAAAAAAAAAAAAA..."></div>
+    </div>
+  </div>
+
+  <!-- LINKEDIN -->
+  <div class="platform-card {% if cfg.linkedin_enabled %}enabled{% else %}disabled{% endif %}" id="card-li">
+    <div class="platform-header">
+      <div class="platform-icon" style="background:rgba(0,119,181,.15);color:#0077b5;"><i class="fab fa-linkedin-in"></i></div>
+      <div>
+        <div class="platform-title">LinkedIn</div>
+        <div class="platform-sub">Pages & personal profiles — linkedin.com/developers</div>
+      </div>
+      <div class="toggle-wrap">
+        <span class="toggle-label">{% if cfg.linkedin_enabled %}<span class="enabled-badge">Enabled</span>{% else %}<span class="disabled-badge">Disabled</span>{% endif %}</span>
+        <label class="toggle"><input type="checkbox" name="linkedin_enabled" {% if cfg.linkedin_enabled %}checked{% endif %} onchange="toggleCard('li',this)"><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+    <div class="api-grid">
+      <div><label class="api-lbl">Client ID</label><input class="api-input" type="text" name="linkedin_client_id" value="{{ cfg.linkedin_client_id }}" placeholder="86xxxxxxxxxxxx"></div>
+      <div><label class="api-lbl">Client Secret</label><input class="api-input" type="password" name="linkedin_client_secret" value="{{ cfg.linkedin_client_secret }}" placeholder="••••••••••••••••"></div>
+    </div>
+  </div>
+
+  <!-- YOUTUBE / GOOGLE -->
+  <div class="platform-card {% if cfg.youtube_enabled %}enabled{% else %}disabled{% endif %}" id="card-yt">
+    <div class="platform-header">
+      <div class="platform-icon" style="background:rgba(255,0,0,.12);color:#ff0000;"><i class="fab fa-youtube"></i></div>
+      <div>
+        <div class="platform-title">YouTube & Google Business</div>
+        <div class="platform-sub">One Google OAuth app covers both — console.cloud.google.com</div>
+      </div>
+      <div class="toggle-wrap">
+        <span class="toggle-label">{% if cfg.youtube_enabled %}<span class="enabled-badge">Enabled</span>{% else %}<span class="disabled-badge">Disabled</span>{% endif %}</span>
+        <label class="toggle"><input type="checkbox" name="youtube_enabled" {% if cfg.youtube_enabled %}checked{% endif %} onchange="toggleCard('yt',this)"><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+    <div class="api-grid">
+      <div><label class="api-lbl">Google Client ID</label><input class="api-input" type="text" name="google_client_id" value="{{ cfg.google_client_id }}" placeholder="xxxx.apps.googleusercontent.com"></div>
+      <div><label class="api-lbl">Google Client Secret</label><input class="api-input" type="password" name="google_client_secret" value="{{ cfg.google_client_secret }}" placeholder="••••••••••••••••"></div>
+    </div>
+  </div>
+
+  <!-- TIKTOK -->
+  <div class="platform-card {% if cfg.tiktok_enabled %}enabled{% else %}disabled{% endif %}" id="card-tt">
+    <div class="platform-header">
+      <div class="platform-icon" style="background:rgba(0,0,0,.4);color:#fff;font-size:.95rem;"><i class="fab fa-tiktok"></i></div>
+      <div>
+        <div class="platform-title">TikTok</div>
+        <div class="platform-sub">Video posting — developers.tiktok.com</div>
+      </div>
+      <div class="toggle-wrap">
+        <span class="toggle-label">{% if cfg.tiktok_enabled %}<span class="enabled-badge">Enabled</span>{% else %}<span class="disabled-badge">Disabled</span>{% endif %}</span>
+        <label class="toggle"><input type="checkbox" name="tiktok_enabled" {% if cfg.tiktok_enabled %}checked{% endif %} onchange="toggleCard('tt',this)"><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+    <div class="api-grid">
+      <div><label class="api-lbl">Client Key</label><input class="api-input" type="text" name="tiktok_client_key" value="{{ cfg.tiktok_client_key }}" placeholder="aw6xxxxxxxxxxxx"></div>
+      <div><label class="api-lbl">Client Secret</label><input class="api-input" type="password" name="tiktok_client_secret" value="{{ cfg.tiktok_client_secret }}" placeholder="••••••••••••••••"></div>
+    </div>
+  </div>
+
+  <!-- PINTEREST -->
+  <div class="platform-card {% if cfg.pinterest_enabled %}enabled{% else %}disabled{% endif %}" id="card-pi">
+    <div class="platform-header">
+      <div class="platform-icon" style="background:rgba(230,0,35,.12);color:#e60023;"><i class="fab fa-pinterest-p"></i></div>
+      <div>
+        <div class="platform-title">Pinterest</div>
+        <div class="platform-sub">Pins & boards — developers.pinterest.com</div>
+      </div>
+      <div class="toggle-wrap">
+        <span class="toggle-label">{% if cfg.pinterest_enabled %}<span class="enabled-badge">Enabled</span>{% else %}<span class="disabled-badge">Disabled</span>{% endif %}</span>
+        <label class="toggle"><input type="checkbox" name="pinterest_enabled" {% if cfg.pinterest_enabled %}checked{% endif %} onchange="toggleCard('pi',this)"><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+    <div class="api-grid">
+      <div><label class="api-lbl">App ID</label><input class="api-input" type="text" name="pinterest_app_id" value="{{ cfg.pinterest_app_id }}" placeholder="1234567890123456789"></div>
+      <div><label class="api-lbl">App Secret</label><input class="api-input" type="password" name="pinterest_app_secret" value="{{ cfg.pinterest_app_secret }}" placeholder="••••••••••••••••"></div>
+    </div>
+  </div>
+
+  <!-- THREADS -->
+  <div class="platform-card {% if cfg.threads_enabled %}enabled{% else %}disabled{% endif %}" id="card-th">
+    <div class="platform-header">
+      <div class="platform-icon" style="background:rgba(255,255,255,.07);color:#fff;"><i class="fab fa-threads"></i></div>
+      <div>
+        <div class="platform-title">Threads (Meta)</div>
+        <div class="platform-sub">Text posts — Meta developer account required</div>
+      </div>
+      <div class="toggle-wrap">
+        <span class="toggle-label">{% if cfg.threads_enabled %}<span class="enabled-badge">Enabled</span>{% else %}<span class="disabled-badge">Disabled</span>{% endif %}</span>
+        <label class="toggle"><input type="checkbox" name="threads_enabled" {% if cfg.threads_enabled %}checked{% endif %} onchange="toggleCard('th',this)"><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+    <div class="api-grid">
+      <div><label class="api-lbl">App ID</label><input class="api-input" type="text" name="threads_app_id" value="{{ cfg.threads_app_id }}" placeholder="Same Meta developer account as Facebook"></div>
+      <div><label class="api-lbl">App Secret</label><input class="api-input" type="password" name="threads_app_secret" value="{{ cfg.threads_app_secret }}" placeholder="••••••••••••••••"></div>
+    </div>
+  </div>
+
+  <!-- GOOGLE BUSINESS (no extra keys needed beyond Google) -->
+  <div class="platform-card {% if cfg.gbusiness_enabled %}enabled{% else %}disabled{% endif %}" id="card-gb">
+    <div class="platform-header">
+      <div class="platform-icon" style="background:rgba(66,133,244,.12);color:#4285f4;"><i class="fab fa-google"></i></div>
+      <div>
+        <div class="platform-title">Google Business Profile</div>
+        <div class="platform-sub">Uses same Google OAuth app as YouTube — enable to expose this option</div>
+      </div>
+      <div class="toggle-wrap">
+        <span class="toggle-label">{% if cfg.gbusiness_enabled %}<span class="enabled-badge">Enabled</span>{% else %}<span class="disabled-badge">Disabled</span>{% endif %}</span>
+        <label class="toggle"><input type="checkbox" name="gbusiness_enabled" {% if cfg.gbusiness_enabled %}checked{% endif %} onchange="toggleCard('gb',this)"><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+    <p style="font-size:.82rem;color:#64748b;margin:0;">Google Business uses the same Client ID/Secret as YouTube above. Enable YouTube first, then toggle this on.</p>
+  </div>
+
+  <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+    <button type="submit" class="sa-save-btn"><i class="fas fa-save" style="margin-right:8px;"></i>Save All Settings</button>
+  </div>
+</form>
+
+<script>
+function toggleCard(code, el) {
+  const card = document.getElementById('card-' + code);
+  if (el.checked) {
+    card.classList.add('enabled');
+    card.classList.remove('disabled');
+    el.closest('.toggle-wrap').querySelector('.toggle-label').innerHTML = '<span class="enabled-badge">Enabled</span>';
+  } else {
+    card.classList.remove('enabled');
+    card.classList.add('disabled');
+    el.closest('.toggle-wrap').querySelector('.toggle-label').innerHTML = '<span class="disabled-badge">Disabled</span>';
+  }
+}
+</script>
+{% endblock %}

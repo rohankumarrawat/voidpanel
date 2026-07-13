@@ -1,0 +1,198 @@
+{% extends "super_admin_base.html" %}
+{% block title %}Live Chat #{{ chat_session.id }} | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}<a href="/super-admin/livechat/">Live Chat</a> / Session #{{ chat_session.id }}{% endblock %}
+
+{% block admin_content %}
+<div class="sa-page-header">
+    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
+        <div>
+            <div class="sa-page-title">
+                Session #{{ chat_session.id }}
+                <span class="sa-badge {% if chat_session.status == 'active' %}green{% else %}red{% endif %}" style="margin-left:10px;">{{ chat_session.status|title }}</span>
+            </div>
+            <div class="sa-page-sub">
+                User: {% if chat_session.user %}<strong>{{ chat_session.user.email }}</strong> (Registered Member ✅)
+                {% else %}<strong>{{ chat_session.guest_name }}</strong> — {{ chat_session.guest_email }} (Guest 👤){% endif %}
+            </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+            {% if not chat_session.assigned_agent and chat_session.status == 'active' %}
+                <a href="/super-admin/livechat/{{ chat_session.id }}/assign/" class="sa-btn green"><i class="fas fa-hand-paper"></i> Claim Session</a>
+            {% elif chat_session.assigned_agent %}
+                <span class="sa-badge green"><i class="fas fa-user-shield"></i> @{{ chat_session.assigned_agent.username }}</span>
+                {% if chat_session.assigned_agent != request.user and chat_session.status == 'active' %}
+                <a href="/super-admin/livechat/{{ chat_session.id }}/assign/" class="sa-btn amber sm"><i class="fas fa-exchange-alt"></i> Reassign to me</a>
+                {% endif %}
+            {% endif %}
+            {% if chat_session.status == 'active' %}
+            <button onclick="closeSession()" class="sa-btn red"><i class="fas fa-times-circle"></i> Close & Email Transcript</button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="sa-card" style="padding:0;display:flex;flex-direction:column;height:620px;position:relative;">
+    <!-- Chat History -->
+    <div id="chatHistory" style="flex:1;padding:24px 28px;overflow-y:auto;background:var(--bg);display:flex;flex-direction:column;gap:14px;"></div>
+
+    {% if chat_session.assigned_agent == request.user and chat_session.status == 'active' %}
+    <!-- Emoji Picker -->
+    <div id="adminEmojiPicker" style="display:none;position:absolute;bottom:76px;left:0;right:0;background:var(--bg-raised);border-top:1px solid var(--border);padding:12px;flex-wrap:wrap;gap:6px;max-height:150px;overflow-y:auto;z-index:10;"></div>
+
+    <!-- Input Area -->
+    <div style="padding:12px 16px;background:var(--bg-raised);border-top:1px solid var(--border);flex-shrink:0;">
+        <!-- Toolbar -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <button onclick="toggleAdminEmoji()" title="Emoji" style="background:none;border:none;color:var(--green-2);cursor:pointer;font-size:1.25rem;padding:4px;">😊</button>
+            <label title="Attach file" style="color:var(--green-2);cursor:pointer;font-size:0.95rem;padding:4px 6px;"><i class="fas fa-paperclip"></i>
+                <input type="file" id="adminFileInput" style="display:none;" onchange="sendAdminAttachment()">
+            </label>
+            <label title="Send image" style="color:var(--green-2);cursor:pointer;font-size:0.95rem;padding:4px 6px;"><i class="fas fa-image"></i>
+                <input type="file" id="adminImageInput" accept="image/*" style="display:none;" onchange="sendAdminImage()">
+            </label>
+            <span style="font-size:0.72rem;color:var(--text-3);margin-left:auto;">💡 Press <kbd style="background:var(--border);padding:2px 6px;border-radius:4px;">Enter</kbd> to send</span>
+        </div>
+        <!-- Input Row -->
+        <div style="display:flex;gap:10px;align-items:center;">
+            <input type="text" id="adminMsgText"
+                style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text-1);padding:11px 16px;border-radius:10px;font-family:'Inter',sans-serif;font-size:0.85rem;outline:none;transition:border-color 0.15s;"
+                placeholder="Type your message…"
+                onkeydown="if(event.key==='Enter') sendAdminMessage()"
+                onfocus="this.style.borderColor='rgba(34,197,94,0.4)'"
+                onblur="this.style.borderColor='var(--border)'">
+            <button onclick="sendAdminMessage()" class="sa-btn green" style="padding:11px 20px;"><i class="fas fa-paper-plane"></i> Send</button>
+        </div>
+    </div>
+
+    {% elif chat_session.status == 'active' %}
+    <div style="padding:24px;text-align:center;color:var(--text-3);border-top:1px solid var(--border);">
+        You must <a href="/super-admin/livechat/{{ chat_session.id }}/assign/" style="color:var(--accent);">claim this session</a> to reply.
+    </div>
+    {% else %}
+    <div style="padding:20px 24px;text-align:center;color:var(--red-2);border-top:1px solid var(--border);font-size:0.85rem;">
+        🔒 This session is closed. A transcript has been emailed to both parties.
+    </div>
+    {% endif %}
+</div>
+
+<script>
+const sessionId = '{{ chat_session.id }}';
+const CSRF = '{{ csrf_token }}';
+let lastId = 0;
+const historyDiv = document.getElementById('chatHistory');
+
+const EMOJIS = ['😊','😂','❤️','👍','🙏','🎉','😎','🔥','✅','❌','💡','⚡','🛠️','📋','📎','🖼️','🤝','😢','😡','🚀','💬','📧','🔑','🛡️','🌐','⭐','💻','📞','✉️','👋','😅','🙌','💪','🤔','👀','🎯','🏆','📂','🔒','⚙️'];
+
+(function buildEmoji() {
+    const p = document.getElementById('adminEmojiPicker');
+    if(!p) return;
+    EMOJIS.forEach(em => {
+        const btn = document.createElement('button');
+        btn.textContent = em;
+        btn.style.cssText = 'background:none;border:none;font-size:1.3rem;cursor:pointer;padding:4px;border-radius:6px;';
+        btn.onclick = () => {
+            const inp = document.getElementById('adminMsgText');
+            inp.value += em; inp.focus();
+            p.style.display = 'none';
+        };
+        p.appendChild(btn);
+    });
+})();
+
+function toggleAdminEmoji() {
+    const p = document.getElementById('adminEmojiPicker');
+    p.style.display = (p.style.display === 'none' || !p.style.display) ? 'flex' : 'none';
+}
+
+function renderAdminMsg(m) {
+    const wrap = document.createElement('div');
+    wrap.dataset.msgId = m.id;
+    const isAgent = (m.sender === 'agent');
+    wrap.style.cssText = `display:flex;flex-direction:column;align-items:${isAgent ? 'flex-end' : 'flex-start'};`;
+
+    const bg = isAgent ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.05)';
+    const color = isAgent ? 'var(--green-2)' : 'var(--text-1)';
+    const br = isAgent ? '14px 14px 2px 14px' : '14px 14px 14px 2px';
+    const label = isAgent ? '🛡️ You (Agent)' : '👤 User';
+
+    let inner = '';
+    if(m.msg_type === 'image') {
+        inner = `<img src="${m.attachment_url}" alt="${m.attachment_name}" style="max-width:300px;border-radius:10px;border:1px solid var(--border);">`;
+    } else if(m.msg_type === 'file') {
+        inner = `<div style="background:${bg};color:${color};padding:11px 16px;border-radius:${br};font-size:0.85rem;">📎 <a href="${m.attachment_url}" target="_blank" style="color:var(--sky-2);">${m.attachment_name}</a></div>`;
+    } else {
+        inner = `<div style="background:${bg};color:${color};padding:11px 16px;border-radius:${br};font-size:0.85rem;max-width:65%;word-break:break-word;">${m.content}</div>`;
+    }
+
+    wrap.innerHTML = `<div style="font-size:0.68rem;color:var(--text-3);margin-bottom:4px;">${label} · ${m.timestamp}</div>${inner}`;
+    historyDiv.appendChild(wrap);
+    historyDiv.scrollTop = historyDiv.scrollHeight;
+}
+
+function pollAdmin() {
+    fetch(`/livechat/${sessionId}/poll/?last_id=${lastId}`)
+    .then(r => r.json()).then(d => {
+        if(d.status === 'ok') {
+            d.messages.forEach(m => {
+                if(m.id > lastId) { lastId = m.id; renderAdminMsg(m); }
+            });
+            if(d.session_status === 'closed') {
+                const note = document.createElement('div');
+                note.style.cssText = 'text-align:center;color:var(--red-2);font-size:0.78rem;padding:10px;background:rgba(239,68,68,0.06);border-radius:8px;';
+                note.innerHTML = '🔒 Session closed. Transcript emailed.';
+                historyDiv.appendChild(note);
+                clearInterval(pollTimer);
+            }
+        }
+    }).catch(() => {});
+}
+
+function sendAdminMessage() {
+    const inp = document.getElementById('adminMsgText');
+    const txt = inp.value.trim();
+    if(!txt) return;
+    inp.value = '';
+    const p = document.getElementById('adminEmojiPicker');
+    if(p) p.style.display = 'none';
+    fetch(`/livechat/${sessionId}/send/`, {
+        method: 'POST',
+        body: JSON.stringify({message: txt}),
+        headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'}
+    }).then(() => pollAdmin());
+}
+
+function sendAdminAttachment() {
+    const input = document.getElementById('adminFileInput');
+    if(!input.files[0]) return;
+    const fd = new FormData();
+    fd.append('attachment', input.files[0]);
+    fetch(`/livechat/${sessionId}/send/`, {
+        method: 'POST', body: fd,
+        headers: {'X-CSRFToken': CSRF}
+    }).then(() => { input.value = ''; pollAdmin(); });
+}
+
+function sendAdminImage() {
+    const input = document.getElementById('adminImageInput');
+    if(!input.files[0]) return;
+    const fd = new FormData();
+    fd.append('attachment', input.files[0]);
+    fetch(`/livechat/${sessionId}/send/`, {
+        method: 'POST', body: fd,
+        headers: {'X-CSRFToken': CSRF}
+    }).then(() => { input.value = ''; pollAdmin(); });
+}
+
+function closeSession() {
+    if(confirm("Close this session? A full transcript will be emailed to the user and the assigned agent.")) {
+        fetch(`/livechat/${sessionId}/close/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': CSRF}
+        }).then(() => window.location.reload());
+    }
+}
+
+const pollTimer = setInterval(pollAdmin, 2000);
+pollAdmin();
+</script>
+{% endblock %}

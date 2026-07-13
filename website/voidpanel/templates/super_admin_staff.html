@@ -1,0 +1,137 @@
+{% extends "super_admin_base.html" %}
+{% block title %}Staff | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}Staff{% endblock %}
+
+{% block admin_content %}
+
+<div class="sa-page-header">
+    <div>
+        <div class="sa-page-title">Staff Management</div>
+        <div class="sa-page-sub">Provision staff users and manage internal access controls</div>
+    </div>
+    <div class="sa-header-actions">
+        <div class="sa-stat-chip green"><span class="val">{{ admin_stats.staff_count }}</span> Total</div>
+        <div class="sa-stat-chip sky"><span class="val">{{ admin_stats.super_admin_count }}</span> Super Admins</div>
+    </div>
+</div>
+
+<!-- Stats + Create Form -->
+<div class="sa-grid-2">
+    <!-- Create Form -->
+    <div class="sa-card">
+        <div class="sa-card-head">
+            <div class="sa-card-title"><i class="fas fa-user-plus"></i> Create Staff Account</div>
+        </div>
+        <form method="POST" action="/super-admin/staff/">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create_staff">
+            <input type="hidden" name="next" value="/super-admin/staff/">
+            <div class="sa-form-grid-2">
+                <div class="sa-form-group"><label class="sa-label">Full Name</label><input type="text" name="staff_name" class="sa-input" required></div>
+                <div class="sa-form-group"><label class="sa-label">Email</label><input type="email" name="staff_email" class="sa-input" required></div>
+                <div class="sa-form-group"><label class="sa-label">Password</label><input type="password" name="staff_password" class="sa-input" required></div>
+                <div class="sa-form-group">
+                    <label class="sa-label">Role</label>
+                    <select name="role_id" class="sa-input">
+                        <option value="">Select role</option>
+                        {% for role in roles %}<option value="{{ role.id }}">{{ role.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="sa-form-group"><label class="sa-label">Department</label><input type="text" name="department" class="sa-input" placeholder="Support"></div>
+            </div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:var(--text-2);cursor:pointer;margin-bottom:14px;">
+                <input type="checkbox" name="is_super_admin" style="accent-color:var(--green);"> Grant super admin access
+            </label>
+            <div class="sa-form-actions">
+                <button type="submit" class="sa-btn primary"><i class="fas fa-plus"></i> Create Staff User</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Overview -->
+    <div class="sa-card">
+        <div class="sa-card-head">
+            <div class="sa-card-title"><i class="fas fa-chart-simple"></i> Staff Overview</div>
+        </div>
+        <div class="sa-kpi-grid-3" style="gap:10px;">
+            <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:1.4rem;font-weight:900;color:var(--text-1);">{{ admin_stats.staff_count }}</div>
+                <div style="font-size:0.7rem;color:var(--text-3);margin-top:3px;text-transform:uppercase;letter-spacing:0.06em;">Total Staff</div>
+            </div>
+            <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:1.4rem;font-weight:900;color:var(--sky-2);">{{ admin_stats.portal_admin_count }}</div>
+                <div style="font-size:0.7rem;color:var(--text-3);margin-top:3px;text-transform:uppercase;letter-spacing:0.06em;">Portal Admins</div>
+            </div>
+            <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:1.4rem;font-weight:900;color:var(--green-2);">{{ admin_stats.super_admin_count }}</div>
+                <div style="font-size:0.7rem;color:var(--text-3);margin-top:3px;text-transform:uppercase;letter-spacing:0.06em;">Super Admins</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Staff Directory -->
+<div class="sa-card" style="padding:0;overflow:hidden;">
+    <div style="padding:16px 22px;border-bottom:1px solid var(--border);">
+        <div class="sa-card-title"><i class="fas fa-address-book"></i> Staff Directory</div>
+    </div>
+    <div style="padding:16px 22px;display:flex;flex-direction:column;gap:12px;">
+        {% for staff in staff_profiles %}
+        <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:12px;padding:16px 18px;transition:border-color 0.14s;" onmouseover="this.style.borderColor='var(--border-hover)'" onmouseout="this.style.borderColor='var(--border)'">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;">
+                <div>
+                    <div style="font-weight:800;color:var(--text-1);font-size:0.9rem;">{{ staff.user.get_full_name|default:staff.user.username }}</div>
+                    <div style="font-size:0.75rem;color:var(--text-3);margin-top:2px;">{{ staff.user.email }}</div>
+                </div>
+                <div style="display:flex;gap:5px;flex-wrap:wrap;">
+                    {% if staff.user.is_superuser %}<span class="sa-badge violet">Super Admin</span>{% endif %}
+                    {% if staff.user.is_staff %}<span class="sa-badge sky">Staff</span>{% endif %}
+                    {% if staff.is_portal_admin %}<span class="sa-badge green">Portal Admin</span>{% endif %}
+                    {% if staff.role %}<span class="sa-badge gray">{{ staff.role.name }}</span>{% endif %}
+                </div>
+            </div>
+            <form method="POST" action="/super-admin/staff/">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_staff">
+                <input type="hidden" name="user_id" value="{{ staff.user.id }}">
+                <input type="hidden" name="next" value="/super-admin/staff/">
+                <div class="sa-form-grid-2" style="gap:10px;margin-bottom:10px;">
+                    <div>
+                        <label class="sa-label">Role</label>
+                        <select name="role_id" class="sa-input">
+                            <option value="">No role</option>
+                            {% for role in roles %}<option value="{{ role.id }}"{% if staff.role and role.id == staff.role.id %} selected{% endif %}>{{ role.name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="sa-label">Department</label>
+                        <input type="text" name="department" class="sa-input" value="{{ staff.department }}">
+                    </div>
+                    <div>
+                        <label class="sa-label">Display Title</label>
+                        <input type="text" name="display_title" class="sa-input" value="{{ staff.display_title }}">
+                    </div>
+                </div>
+                <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px;">
+                    <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--text-2);cursor:pointer;">
+                        <input type="checkbox" name="is_staff"{% if staff.user.is_staff %} checked{% endif %} style="accent-color:var(--green);"> Staff access
+                    </label>
+                    <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--text-2);cursor:pointer;">
+                        <input type="checkbox" name="is_portal_admin"{% if staff.is_portal_admin %} checked{% endif %} style="accent-color:var(--green);"> Portal admin
+                    </label>
+                    <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--text-2);cursor:pointer;">
+                        <input type="checkbox" name="is_superuser"{% if staff.user.is_superuser %} checked{% endif %} style="accent-color:var(--green);"> Super admin
+                    </label>
+                </div>
+                <div style="display:flex;justify-content:flex-end;">
+                    <button type="submit" class="sa-btn ghost sm"><i class="fas fa-save"></i> Update Access</button>
+                </div>
+            </form>
+        </div>
+        {% empty %}
+        <div class="sa-empty"><i class="fas fa-users"></i><div class="sa-empty-title">No staff members found</div></div>
+        {% endfor %}
+    </div>
+</div>
+
+{% endblock %}

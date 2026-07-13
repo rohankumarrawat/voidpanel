@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>:: VoidPanel :: Restore / Migrate</title>
+    <!-- ★ Early theme detection — prevents flash/mix on load ★ -->
+    <script>
+    (function() {
+        var t = 'light';
+        try { t = localStorage.getItem('vp-theme') || 'dark'; } catch(e) {}
+        document.documentElement.setAttribute('data-theme', t);
+    })();
+    </script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+        crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <style>
+        html[data-theme="light"] {
+            --neon: #4f46e5;
+            --neon-purple: #7c3aed;
+            --glass-bg: rgba(255, 255, 255, 0.90);
+            --glass-border: rgba(99, 102, 241, 0.15);
+            --text-dim: #475569;
+            --body-bg: #f1f5f9;
+            --text-main: #0f172a;
+            --input-bg: #ffffff;
+            --input-border: rgba(15, 23, 42, 0.15);
+            --strength-bg: rgba(0, 0, 0, 0.05);
+            --border-subtle: rgba(15, 23, 42, 0.08);
+            --overlay-bg: rgba(241, 245, 249, 0.85);
+            --box-bg: rgba(79, 70, 229, 0.05);
+            --box-border: rgba(79, 70, 229, 0.1);
+        }
+
+        html[data-theme="dark"] {
+            --neon: #00e5ff;
+            --neon-purple: #a855f7;
+            --glass-bg: rgba(15, 20, 40, 0.82);
+            --glass-border: rgba(0, 229, 255, 0.15);
+            --text-dim: rgba(180, 200, 230, 0.7);
+            --body-bg: #080c1a;
+            --text-main: #ffffff;
+            --input-bg: rgba(0, 229, 255, .06);
+            --input-border: rgba(0, 229, 255, .22);
+            --strength-bg: rgba(255, 255, 255, 0.05);
+            --border-subtle: rgba(255, 255, 255, 0.05);
+            --overlay-bg: rgba(8, 12, 26, .93);
+            --box-bg: rgba(0, 229, 255, 0.05);
+            --box-border: rgba(0, 229, 255, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--body-bg) !important;
+        }
+
+        /* Page Header */
+        .page-header {
+            padding: 24px 0 12px;
+        }
+
+        .page-hero {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+            padding: 20px 24px;
+            background: linear-gradient(135deg, rgba(0, 229, 255, 0.08), rgba(168, 85, 247, 0.06));
+            border: 1px solid rgba(0, 229, 255, 0.12);
+            border-radius: 16px;
+        }
+        html[data-theme="light"] .page-hero {
+            background: linear-gradient(135deg, rgba(79, 70, 229, 0.08), rgba(124, 58, 237, 0.06));
+            border: 1px solid rgba(79, 70, 229, 0.12);
+        }
+
+        .page-hero-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            flex-shrink: 0;
+            background: linear-gradient(135deg, #a855f7, #00e5ff);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            color: #fff;
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+        }
+        html[data-theme="light"] .page-hero-icon {
+            background: linear-gradient(135deg, #7c3aed, #4f46e5);
+            box-shadow: 0 0 20px rgba(79, 70, 229, 0.3);
+        }
+
+        .page-hero h1 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin: 0 0 2px;
+        }
+
+        .page-hero p {
+            font-size: 0.82rem;
+            color: var(--text-dim);
+            margin: 0;
+        }
+
+        .adduser-grid {
+            display: grid;
+            grid-template-columns: 1fr 360px;
+            gap: 24px;
+            align-items: start;
+        }
+
+        @media (max-width:900px) {
+            .adduser-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .glass-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            padding: 28px 32px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-head {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+
+        .card-head-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 11px;
+            background: linear-gradient(135deg, rgba(0, 229, 255, .2), rgba(168, 85, 247, .2));
+            border: 1px solid rgba(0, 229, 255, .2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            color: var(--neon);
+        }
+
+        .card-head-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .card-head-sub {
+            font-size: .76rem;
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+
+        .section-label {
+            font-size: .68rem;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--neon);
+            margin: 20px 0 10px;
+        }
+
+        .section-label:first-child {
+            margin-top: 0;
+        }
+
+        .field-wrap {
+            margin-bottom: 16px;
+        }
+
+        .field-wrap label {
+            display: block;
+            font-size: .77rem;
+            font-weight: 500;
+            color: var(--text-dim);
+            margin-bottom: 5px;
+        }
+
+        .form-control-dark,
+        input[type="file"].form-control-dark {
+            width: 100%;
+            background: var(--input-bg) !important;
+            border: 1px solid var(--input-border) !important;
+            border-radius: 10px;
+            color: var(--text-main) !important;
+            font-family: 'Inter', sans-serif;
+            font-size: .87rem;
+            padding: 10px 13px;
+            outline: none;
+            transition: border-color .2s, box-shadow .2s;
+        }
+
+        .form-control-dark:focus {
+            border-color: var(--neon) !important;
+            box-shadow: 0 0 0 3px rgba(0, 229, 255, .1) !important;
+        }
+
+        .tab-bar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            background: var(--strength-bg);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-dim);
+            padding: 7px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: .79rem;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            transition: all .2s;
+        }
+
+        .tab-btn:hover {
+            border-color: var(--neon);
+            color: var(--text-main);
+        }
+
+        .tab-btn.active {
+            background: var(--strength-bg);
+            border-color: var(--neon);
+            color: var(--neon);
+        }
+
+        .tab-content {
+            display: none;
+            margin-top: 14px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .btn-submit {
+            width: 100%;
+            margin-top: 22px;
+            padding: 13px;
+            border-radius: 12px;
+            border: none;
+            background: linear-gradient(135deg, #a855f7, #00e5ff);
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            font-size: .93rem;
+            font-weight: 600;
+            letter-spacing: .3px;
+            cursor: pointer;
+            transition: opacity .22s, transform .12s;
+            box-shadow: 0 4px 20px rgba(0, 229, 255, 0.25);
+        }
+        html[data-theme="light"] .btn-submit {
+            background: linear-gradient(135deg, #7c3aed, #4f46e5);
+            box-shadow: 0 4px 20px rgba(79, 70, 229, 0.25);
+        }
+
+        .btn-submit:hover {
+            opacity: .88;
+        }
+
+        .btn-submit:active {
+            transform: scale(.985);
+        }
+
+        /* Info list */
+        .info-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .info-list li {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            font-size: .8rem;
+            color: var(--text-dim);
+            line-height: 1.6;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .info-list li:last-child {
+            border-bottom: none;
+        }
+
+        .info-list li .info-icon {
+            color: var(--neon);
+            font-size: .85rem;
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
+
+        .info-list li strong {
+            color: var(--text-main);
+        }
+
+        /* Overlay */
+        .process-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: var(--overlay-bg);
+            backdrop-filter: blur(15px);
+            z-index: 9999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .process-overlay.show {
+            display: flex;
+        }
+
+        .process-spinner {
+            font-size: 3rem;
+            color: var(--neon);
+            margin-bottom: 20px;
+        }
+
+        .process-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 8px;
+        }
+
+        .process-sub {
+            font-size: .88rem;
+            color: var(--text-dim);
+            max-width: 360px;
+        }
+
+        /* ── Force sidebar always visible ──
+           The vendor main.css rule: .layout-fullwidth #wrapper .sidebar { left:-280px }
+           hides the sidebar on <1280px screens. Override it here. */
+        .layout-fullwidth #wrapper .sidebar,
+        .layout-fullwidth #wrapper #left-sidebar {
+            left: 0 !important;
+            display: block !important;
+        }
+
+        .layout-fullwidth #wrapper #main-content {
+            width: calc(100% - 280px) !important;
+            margin-left: 280px !important;
+        }
+
+        .layout-fullwidth #wrapper .navbar-fixed-top {
+            width: calc(100% - 280px) !important;
+            left: 280px !important;
+        }
+    </style>
+</head>
+
+<body class="font-nunito active-dark-mode">
+<script>
+    document.body.setAttribute('data-theme', localStorage.getItem('vp-theme') || 'dark');
+</script>
+    <div id="wrapper" class="theme-cyan">
+
+        <!-- Page Loader -->
+            <div class="page-loader-wrapper" style="background: var(--void-bg, #080c14) !important;">
+        <div class="loader">
+            <div class="m-t-30" style="display: flex; justify-content: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="130" height="30" viewBox="0 0 180 40" role="img" aria-label="VoidPanel">
+                  <rect x="0" y="4" width="34" height="34" rx="8" ry="8" fill="rgba(255,255,255,0.12)"/>
+                  <rect x="7" y="13" width="20" height="4" rx="1.5" fill="#ffffff" opacity="0.9"/>
+                  <rect x="7" y="19.5" width="14" height="4" rx="1.5" fill="#ffffff" opacity="0.65"/>
+                  <rect x="7" y="26" width="10" height="4" rx="1.5" fill="#60a5fa" opacity="0.95"/>
+                  <text x="43" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#ffffff">Void</text>
+                  <text x="91" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#60a5fa">Panel</text>
+                </svg>
+            </div>
+            <div class="loading-bar-container">
+                <div class="loading-bar"></div>
+            </div>
+            <p style="color: var(--text-secondary, #475569) !important;">Please wait...</p>
+        </div>
+    </div>
+
+        {% include 'navbar.html' %}
+        {% include 'left.html' %}
+        {% include 'right.html' %}
+
+        <div id="main-content">
+            <div class="container-fluid">
+
+                <div class="page-header">
+                    <div class="page-hero">
+                        <div class="page-hero-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                        <div>
+                            <h1>Restore &amp; Migrate</h1>
+                            <p>Import accounts from VoidPanel backups, cPanel, Plesk, or DirectAdmin — fully automated
+                                provisioning.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="adduser-grid">
+
+                    <!-- LEFT: Form Card -->
+                    <div class="glass-card">
+                        <div class="card-head">
+                            <div class="card-head-icon"><i class="fa fa-cogs"></i></div>
+                            <div>
+                                <div class="card-head-title">Migration Configuration</div>
+                                <div class="card-head-sub">Select your source platform and provide the required
+                                    credentials</div>
+                            </div>
+                        </div>
+
+                        <form id="restoreForm" onsubmit="submitForm(event)" enctype="multipart/form-data">
+                            {% csrf_token %}
+
+                            <div class="section-label">Source Platform</div>
+                            <div class="tab-bar">
+                                <button type="button" class="tab-btn active" onclick="switchTab('file')"><i
+                                        class="fa fa-upload" style="margin-right:5px;"></i>Local Backup</button>
+                                <button type="button" class="tab-btn" onclick="switchTab('cpanel')"><i
+                                        class="fa fa-server" style="margin-right:5px;"></i>cPanel</button>
+                                <button type="button" class="tab-btn" onclick="switchTab('plesk')"><i
+                                        class="fa fa-server" style="margin-right:5px;"></i>Plesk</button>
+                                <button type="button" class="tab-btn" onclick="switchTab('directadmin')"><i
+                                        class="fa fa-server" style="margin-right:5px;"></i>DirectAdmin</button>
+                            </div>
+
+                            <input type="hidden" name="source_type" id="sourceType" value="file">
+
+                            <!-- Tab: Local File -->
+                            <div id="tab-file" class="tab-content active">
+                                <div class="field-wrap">
+                                    <label><i class="fa fa-file-archive-o"
+                                            style="color:var(--neon);margin-right:5px;"></i>VoidPanel Backup Archive
+                                        (.zip, .tar.gz)</label>
+                                    <input type="file" name="backup_file" id="backupFile" accept=".zip,.tar,.gz"
+                                        class="form-control-dark">
+                                </div>
+                                <div
+                                    style="font-size:.75rem; color:var(--text-dim); background:var(--box-bg); border:1px solid var(--box-border); border-radius:8px; padding:10px 13px;">
+                                    <i class="fa fa-info-circle" style="color:var(--neon);"></i>
+                                    Archive will be automatically analyzed to detect the account structure, domains, and
+                                    databases.
+                                </div>
+                            </div>
+
+                            <!-- Tab: Remote Panels (cPanel/Plesk/DirectAdmin) -->
+                            <div id="tab-panel" class="tab-content">
+                                <div class="field-wrap">
+                                    <label><i class="fa fa-globe" style="color:var(--neon);margin-right:5px;"></i>Server
+                                        IP / Hostname</label>
+                                    <input type="text" name="server_host" id="serverHost" class="form-control-dark"
+                                        placeholder="e.g. 192.168.1.1 or panel.example.com">
+                                </div>
+                                <div class="field-wrap">
+                                    <label><i class="fa fa-user" style="color:var(--neon);margin-right:5px;"></i>Root /
+                                        Admin Username</label>
+                                    <input type="text" name="server_user" id="serverUser" class="form-control-dark"
+                                        placeholder="e.g. root">
+                                </div>
+                                <div class="field-wrap">
+                                    <label><i class="fa fa-key" style="color:var(--neon);margin-right:5px;"></i>Password
+                                        or API Key</label>
+                                    <input type="password" name="server_pass" id="serverPass" class="form-control-dark"
+                                        placeholder="••••••••">
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn-submit">
+                                <i class="fa fa-play-circle" style="margin-right:8px;"></i>Start Analysis &amp;
+                                Migration
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- RIGHT: Info Card -->
+                    <div>
+                        <div class="glass-card" style="padding:24px;">
+                            <div class="card-head" style="margin-bottom:16px;">
+                                <div class="card-head-icon"
+                                    style="background:linear-gradient(135deg,rgba(168,85,247,.2),rgba(0,229,255,.2));color:#a855f7;">
+                                    <i class="fa fa-info-circle"></i></div>
+                                <div>
+                                    <div class="card-head-title">How Migration Works</div>
+                                    <div class="card-head-sub">Automated provisioning engine</div>
+                                </div>
+                            </div>
+
+                            <ul class="info-list">
+                                <li>
+                                    <span class="info-icon"><i class="fa fa-upload"></i></span>
+                                    <span><strong>Local Backup:</strong> VoidPanel unpacks the archive, detects the
+                                        account structure, and automatically creates the Unix user, domains, and
+                                        databases.</span>
+                                </li>
+                                <li>
+                                    <span class="info-icon"><i class="fa fa-cloud-download"></i></span>
+                                    <span><strong>Remote Fetch:</strong> Connects via SSH/API to the source panel,
+                                        downloads the user archive, then restores files, SQL dumps, and email
+                                        accounts.</span>
+                                </li>
+                                <li>
+                                    <span class="info-icon"><i class="fa fa-shield"></i></span>
+                                    <span><strong>Conflict Protection:</strong> If the domain or username already exists
+                                        on this server, the migration is aborted to prevent data loss.</span>
+                                </li>
+                                <li>
+                                    <span class="info-icon"><i class="fa fa-cogs"></i></span>
+                                    <span><strong>Background Processing:</strong> Tasks run via the Celery async engine
+                                        — you can safely leave the page after submitting.</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Process Overlay -->
+    <div class="process-overlay" id="processOverlay">
+        <i class="fa fa-circle-o-notch fa-spin process-spinner" id="processIcon"></i>
+        <div class="process-title" id="processTitle">Initiating Migration...</div>
+        <div class="process-sub" id="processMsg">Uploading archive and preparing the background engine. Please wait.
+        </div>
+    </div>
+
+    <script>
+        function switchTab(type) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector(`[onclick="switchTab('${type}')"]`).classList.add('active');
+            document.getElementById('sourceType').value = type;
+
+            if (type === 'file') {
+                document.getElementById('tab-file').classList.add('active');
+                document.getElementById('tab-panel').classList.remove('active');
+            } else {
+                document.getElementById('tab-file').classList.remove('active');
+                document.getElementById('tab-panel').classList.add('active');
+            }
+        }
+
+        async function submitForm(e) {
+            e.preventDefault();
+            const form = document.getElementById('restoreForm');
+            const formData = new FormData(form);
+            const overlay = document.getElementById('processOverlay');
+            const icon = document.getElementById('processIcon');
+            const title = document.getElementById('processTitle');
+            const msg = document.getElementById('processMsg');
+
+            overlay.classList.add('show');
+            title.textContent = 'Initiating Migration...';
+            msg.textContent = 'Uploading archive and preparing the background engine.';
+            icon.className = 'fa fa-circle-o-notch fa-spin process-spinner';
+            icon.style.color = '#00e5ff';
+
+            try {
+                const res = await fetch("/api/restore/process/", {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    icon.className = 'fa fa-check-circle process-spinner';
+                    icon.style.color = '#10b981';
+                    title.textContent = 'Migration Queued!';
+                    msg.textContent = 'The job is now running in the background. Redirecting to Activity Logs...';
+                    setTimeout(() => window.location.href = '/panel/', 3500);
+                } else {
+                    icon.className = 'fa fa-times-circle process-spinner';
+                    icon.style.color = '#ef4444';
+                    title.textContent = 'Migration Failed';
+                    msg.textContent = data.message || 'An error occurred. Please check inputs and try again.';
+                    setTimeout(() => overlay.classList.remove('show'), 4000);
+                }
+            } catch (err) {
+                icon.className = 'fa fa-times-circle process-spinner';
+                icon.style.color = '#ef4444';
+                title.textContent = 'Network Error';
+                msg.textContent = 'Could not reach the server. Check your connection.';
+                setTimeout(() => overlay.classList.remove('show'), 4000);
+            }
+        }
+    </script>
+
+    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+    <script>
+        // Force sidebar always open — override the <1280px auto-collapse from mainscripts
+        $(document).ready(function () {
+            $('body').removeClass('layout-fullwidth sidebar_toggle');
+        });
+        $(window).on('load resize', function () {
+            setTimeout(function () {
+                $('body').removeClass('layout-fullwidth sidebar_toggle');
+            }, 10);
+        });
+    </script>
+</body>
+
+</html>

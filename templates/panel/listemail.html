@@ -7,18 +7,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <meta name="description" content="VoidPanel List EMails ">
     <meta name="author" content="Voidpanel, design by: Voidpanel.com">
-    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
 
     <!-- VENDOR CSS -->
     <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
     <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
 
     <!-- MAIN Project CSS file -->
-    <link rel="stylesheet" href="/static/assets/css/main.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
 
     <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
     <style>
         .myname {
             border-radius: 30px;
@@ -43,18 +47,29 @@
 
 </head>
 
-<body data-theme="light" class="font-nunito">
+<body class="font-nunito active-dark-mode">
 
     <div id="wrapper" class="theme-cyan">
 
         <!-- Page Loader -->
-        <div class="page-loader-wrapper">
-            <div class="loader">
-                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
-                </div>
-                <p>Please wait...</p>
+            <div class="page-loader-wrapper" style="background: var(--void-bg, #080c14) !important;">
+        <div class="loader">
+            <div class="m-t-30" style="display: flex; justify-content: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="130" height="30" viewBox="0 0 180 40" role="img" aria-label="VoidPanel">
+                  <rect x="0" y="4" width="34" height="34" rx="8" ry="8" fill="rgba(255,255,255,0.12)"/>
+                  <rect x="7" y="13" width="20" height="4" rx="1.5" fill="#ffffff" opacity="0.9"/>
+                  <rect x="7" y="19.5" width="14" height="4" rx="1.5" fill="#ffffff" opacity="0.65"/>
+                  <rect x="7" y="26" width="10" height="4" rx="1.5" fill="#60a5fa" opacity="0.95"/>
+                  <text x="43" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#ffffff">Void</text>
+                  <text x="91" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#60a5fa">Panel</text>
+                </svg>
             </div>
+            <div class="loading-bar-container">
+                <div class="loading-bar"></div>
+            </div>
+            <p style="color: var(--text-secondary, #475569) !important;">Please wait...</p>
         </div>
+    </div>
 
 
 
@@ -142,9 +157,9 @@
                                                 Password</button>
 
 
-                                             <a href="/deleteemai/{{i.email}}"
-                                                class="btn btn-danger"> Delete Email
-                                          </a>
+                                             <button type="button" class="btn btn-danger m-2" onclick="deleteEmail('{{i.email}}', this)">
+                                                 <i class="fa fa-trash"></i> Delete Email
+                                             </button>
 
 
                                         </div>
@@ -1220,5 +1235,48 @@ document.getElementById('change').style.display='block';
 
 
 </body>
+
+<!-- CSRF helper for AJAX calls -->
+<form id="__csrfForm" style="display:none">{% csrf_token %}</form>
+
+<script>
+/* ─── Delete Email (admin panel) ─── */
+function deleteEmail(email, btn) {
+    if (!confirm('Permanently delete ' + email + '?\nThis will remove the mailbox and all its data.')) return;
+    var origHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i> Deleting...';
+    var csrf = document.querySelector('#__csrfForm [name=csrfmiddlewaretoken]').value;
+    var fd = new FormData();
+    fetch('/deleteemai/' + encodeURIComponent(email) + '/', {
+        method: 'POST',
+        body: fd,
+        credentials: 'same-origin',
+        headers: { 'X-CSRFToken': csrf }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.status === 'success') {
+            toastr.success(email + ' deleted successfully.');
+            // Fade out the row/card
+            var card = btn.closest('tr') || btn.closest('.card') || btn.parentElement;
+            if (card) {
+                card.style.transition = 'opacity 0.35s';
+                card.style.opacity = '0';
+                setTimeout(function() { card.remove(); }, 370);
+            }
+        } else {
+            toastr.error('Delete failed: ' + (data.message || 'Unknown error'));
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+        }
+    })
+    .catch(function() {
+        toastr.error('Network error \u2014 please try again.');
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+    });
+}
+</script>
 
 </html>

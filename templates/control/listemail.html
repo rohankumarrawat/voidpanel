@@ -1,1215 +1,914 @@
 <!doctype html>
-<html lang="en">
-
+<html lang="en" data-theme="dark">
 <head>
-    <title>:: VoidPanel :: Emails</title>
+    <title>Email Accounts — {{ domain }} | VoidPanel</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="VoidPanel Emails ">
-    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
-    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
-
-    <!-- VENDOR CSS -->
-    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <meta name="description" content="Manage email accounts for {{ domain }}">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    
+    
+    
     <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="/static/static/css/plugins/fontawesome-all.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/assets/css/main.css?v=2">
 
-    <!-- MAIN Project CSS file -->
-    <link rel="stylesheet" href="/static/assets/css/main.css">
-
-    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
     <style>
-        .myname {
-            border-radius: 30px;
-            box-shadow: inset;
-            border-width: 4px;
+        /* ─── Google Fonts ─── */
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
-
+        /* ─── Variable definitions ─── */
+        html[data-theme="dark"] {
+            --vp-bg:          #080c14;
+            --vp-topbar-bg:   rgba(8,12,20,0.92);
+            --vp-body-bg:     linear-gradient(-45deg,#070c1b,#0f1729,#1a0533,#0c1a2e);
+            --vp-surface:     #0e1628;
+            --vp-surface2:    #131f36;
+            --vp-border:      rgba(255,255,255,0.07);
+            --vp-accent:      #6366f1;
+            --vp-accent2:     #8b5cf6;
+            --vp-text:        #cbd5e1;
+            --vp-text-bright: #f8fafc;
+            --vp-muted:       #64748b;
+            --vp-card-bg:     rgba(15,23,42,0.45);
+            --vp-card-border: rgba(255,255,255,0.06);
+            --vp-card-text:   #f1f5f9;
         }
 
-        .text-container {
+        *, *::before, *::after { box-sizing: border-box; }
 
-            border: 1px solid #ccc;
+        html[data-theme="dark"] body {
+            background: var(--vp-body-bg) !important;
+            background-size: 400% 400% !important;
+            animation: gradientBG 18s ease infinite !important;
+            min-height: 100vh;
+            color: var(--vp-text) !important;
+            font-family: 'Plus Jakarta Sans', 'Inter', sans-serif !important;
+        }
 
-            word-wrap: break-word;
-            /* Force text to wrap */
-            white-space: normal;
-            /* Ensure normal wrapping */
-            overflow-wrap: break-word;
-            /* Ensure long words break */
+        /* Prevent solid color background on wrapper / main-content */
+        html[data-theme="dark"] #wrapper,
+        html[data-theme="dark"] #main-content {
+            background: transparent !important;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* ─── Page Layout ─── */
+        .email-page {
+            padding: 40px 28px;
+            max-width: 1200px;
+            margin: 0 auto;
+            animation: fadeIn 0.4s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ─── Page Header ─── */
+        .page-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 32px; flex-wrap: wrap; gap: 16px;
+        }
+        .page-header-left h1 {
+            font-size: 1.8rem; font-weight: 800; margin: 0 0 6px;
+            background: linear-gradient(135deg, #a78bfa 10%, #6366f1 90%);
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .page-header-left h1 i {
+            font-size: 1.5rem;
+            color: #6366f1;
+            -webkit-text-fill-color: initial;
+        }
+        .page-header-left .breadcrumb-trail {
+            font-size: 0.8rem; color: var(--vp-muted); font-weight: 500;
+        }
+        .page-header-left .breadcrumb-trail a { color: var(--vp-accent); text-decoration: none; font-weight: 600; transition: color 0.2s; }
+        .page-header-left .breadcrumb-trail a:hover { color: var(--vp-accent2); text-decoration: underline; }
+
+        /* ─── Server Info Banner ─── */
+        .server-info-banner {
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px solid var(--vp-card-border);
+            border-radius: 20px;
+            padding: 20px; margin-bottom: 32px;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+        .sib-chip {
+            background: rgba(30, 41, 59, 0.35);
+            border: 1px solid rgba(255,255,255,0.04); border-radius: 16px; padding: 20px 18px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            display: flex; flex-direction: column; justify-content: center;
+            transition: transform 0.3s cubic-bezier(.25,.8,.25,1), border-color 0.3s, box-shadow 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        .sib-chip:hover {
+            transform: translateY(-3px);
+            border-color: rgba(99,102,241,0.25);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.25), 0 0 15px rgba(99,102,241,0.08);
+        }
+        .sib-chip::before {
+            content: '';
+            position: absolute; top: 0; left: 0; width: 4px; height: 100%;
+            background: transparent;
+            transition: background 0.3s;
+        }
+        .sib-chip.mail-server-chip::before { background: #6366f1; }
+        .sib-chip.smtp-chip::before { background: #a78bfa; }
+        .sib-chip.imap-chip::before { background: #38bdf8; }
+        .sib-chip.webmail-chip::before { background: #0ea5e9; }
+
+        .sib-label {
+            font-size: 0.72rem; color: var(--vp-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+        }
+        .sib-value {
+            font-size: 0.95rem; color: var(--vp-text-bright); font-weight: 600; font-family: 'Inter', sans-serif;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .sib-subtext {
+            font-size: 0.72rem; color: var(--vp-muted); margin-top: 10px; display: flex; align-items: center; gap: 8px; font-weight: 500;
+        }
+        .active-dot {
+            width: 8px; height: 8px; background: #10b981; border-radius: 50%; display: inline-block;
+            box-shadow: 0 0 10px #10b981; animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        .sib-port-badge {
+            background: rgba(99,102,241,0.15); color: #a78bfa; padding: 2px 6px; border-radius: 6px; font-weight: 700; border: 1px solid rgba(99,102,241,0.3); font-family: 'Courier New', monospace;
+        }
+
+        /* ─── Empty State ─── */
+        .empty-state {
+            text-align: center; padding: 80px 20px;
+            background: rgba(15,23,42,0.3); border: 1px dashed rgba(255,255,255,0.08); border-radius: 24px;
+            backdrop-filter: blur(12px);
+        }
+        .empty-state i { font-size: 3.5rem; color: var(--vp-muted); margin-bottom: 20px; display: block; }
+        .empty-state h3 { font-size: 1.3rem; color: var(--vp-text-bright); font-weight: 600; margin-bottom: 8px; }
+        .empty-state p { font-size: 0.9rem; color: var(--vp-muted); }
+
+        /* ─── Email Card ─── */
+        .email-card {
+            background: var(--vp-card-bg);
+            border: 1px solid var(--vp-card-border); border-radius: 20px;
+            margin-bottom: 24px; overflow: hidden;
+            transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            backdrop-filter: blur(20px);
+        }
+        .email-card:hover {
+            border-color: rgba(99,102,241,0.35);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3), 0 0 25px rgba(99,102,241,0.08);
+            transform: translateY(-4px);
+        }
+
+        .email-card-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 24px 28px; flex-wrap: wrap; gap: 18px;
+        }
+        .email-identity { display: flex; align-items: center; gap: 16px; }
+        .email-avatar {
+            width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
+            background: linear-gradient(135deg,#6366f1 0%,#a78bfa 100%);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; font-weight: 700; color: #fff; text-transform: uppercase;
+            box-shadow: 0 4px 14px rgba(99,102,241,0.3);
+            transition: transform 0.3s;
+        }
+        .email-card:hover .email-avatar {
+            transform: scale(1.05);
+        }
+        .email-name {
+            font-size: 1rem; font-weight: 700; color: var(--vp-text-bright); margin: 0;
+            font-family: 'Inter', sans-serif;
+            letter-spacing: -0.01em;
+        }
+        .email-domain-badge {
+            font-size: 0.72rem; color: #a78bfa; background: rgba(167,139,250,0.08);
+            border: 1px solid rgba(167,139,250,0.18); border-radius: 20px;
+            padding: 2px 10px; margin-top: 4px; display: inline-block; font-weight: 600;
+        }
+
+        .email-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .vp-btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 10px 18px; border-radius: 12px; font-size: 0.82rem; font-weight: 600;
+            border: 1px solid transparent; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); outline: none;
+            text-decoration: none;
+        }
+        .vp-btn-webmail {
+            background: linear-gradient(135deg,#0ea5e9,#6366f1); color: #fff;
+            box-shadow: 0 4px 14px rgba(14,165,233,0.25);
+            border: none;
+        }
+        .vp-btn-webmail:hover { box-shadow: 0 6px 20px rgba(14,165,233,0.45); color:#fff; transform:translateY(-1px); }
+        .vp-btn-connect {
+            background: rgba(99,102,241,0.06); border-color: rgba(99,102,241,0.2); color: #818cf8;
+        }
+        .vp-btn-connect:hover { background: rgba(99,102,241,0.16); color: #fff; border-color: #818cf8; box-shadow: 0 4px 12px rgba(99,102,241,0.2); }
+        .vp-btn-pass {
+            background: rgba(245,158,11,0.06); border-color: rgba(245,158,11,0.2); color: #fbbf24;
+        }
+        .vp-btn-pass:hover { background: rgba(245,158,11,0.16); color: #fff; border-color: #fbbf24; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2); }
+        .vp-btn-limits {
+            background: rgba(45,212,191,0.06); border-color: rgba(45,212,191,0.2); color: #2dd4bf;
+        }
+        .vp-btn-limits:hover { background: rgba(45,212,191,0.16); color: #fff; border-color: #2dd4bf; box-shadow: 0 4px 12px rgba(45, 212, 191, 0.2); }
+        .vp-btn-delete {
+            background: rgba(239,68,68,0.06); border-color: rgba(239,68,68,0.2); color: #f87171;
+        }
+        .vp-btn-delete:hover { background: rgba(239,68,68,0.16); color: #fff; border-color: #f87171; box-shadow: 0 4px 12px rgba(239,68,68,0.2); }
+
+        /* ─── Stats Strip ─── */
+        .email-stats {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            border-top: 1px solid rgba(255,255,255,0.05);
+            background: rgba(10, 15, 30, 0.25);
+        }
+        .stat-cell {
+            padding: 16px 20px; text-align: center; border-right: 1px solid rgba(255,255,255,0.05);
+            transition: background 0.3s, transform 0.3s;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+        }
+        .stat-cell:hover {
+            background: rgba(255,255,255,0.02);
+        }
+        .stat-cell:last-child { border-right: none; }
+        .stat-cell .stat-val {
+            font-size: 1.4rem; font-weight: 800; line-height: 1;
+            font-family: 'Inter', sans-serif;
+            transition: transform 0.2s;
+        }
+        .stat-cell:hover .stat-val {
+            transform: scale(1.08);
+        }
+        .stat-cell .stat-label {
+            font-size: 0.72rem; color: var(--vp-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .stat-sent { color: #10b981; text-shadow: 0 0 10px rgba(16,185,129,0.1); }
+        .stat-failed { color: #ef4444; text-shadow: 0 0 10px rgba(239,68,68,0.1); }
+        .stat-queue { color: #f59e0b; text-shadow: 0 0 10px rgba(245,158,11,0.1); }
+        .stat-inbox { color: #6366f1; text-shadow: 0 0 10px rgba(99,102,241,0.1); }
+
+        /* ─── Overlay / Modal ─── */
+        .vp-overlay {
+            position: fixed; inset: 0; background: rgba(3, 7, 18, 0.8); backdrop-filter: blur(8px);
+            z-index: 9999; display: none; align-items: center; justify-content: center;
+        }
+        .vp-modal {
+            background: linear-gradient(135deg, rgba(20,28,48,0.98), rgba(8,12,24,0.98));
+            border: 1px solid rgba(99,102,241,0.25); border-radius: 24px;
+            padding: 32px; max-width: 96vw;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.8), 0 0 40px rgba(99,102,241,0.05);
+            animation: modalIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes modalIn { from { opacity:0; transform:scale(0.92) translateY(10px); } to { opacity:1; transform:scale(1) translateY(0); } }
+        .vp-modal h3 { font-size: 1.25rem; font-weight: 800; color: #fff; margin: 0 0 24px; display: flex; align-items: center; gap: 12px; }
+        .vp-modal h3 i { color: #6366f1; }
+        .vp-field-label {
+            font-size: 0.72rem; color: var(--vp-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;
+        }
+        .vp-input {
+            width: 100%; padding: 12px 16px; border-radius: 12px; margin-bottom: 20px;
+            background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08);
+            color: #fff; font-size: 0.9rem; outline: none; font-family: 'Inter', sans-serif;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .vp-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.22); }
+        .vp-input::placeholder { color: #4b5563; }
+        .vp-modal-footer { display: flex; gap: 12px; justify-content: flex-end; margin-top: 4px; align-items: center; }
+        
+        .vp-btn-modal-primary {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 12px 24px; border-radius: 12px; font-size: 0.88rem; font-weight: 600;
+            background: linear-gradient(135deg,#6366f1,#4f46e5); color: #fff; border: none; cursor: pointer;
+            box-shadow: 0 4px 14px rgba(99,102,241,0.35); transition: all 0.2s;
+        }
+        .vp-btn-modal-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,0.5); }
+        .vp-btn-modal-ghost {
+            padding: 12px 20px; border-radius: 12px; font-size: 0.88rem; font-weight: 600;
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); color: var(--vp-muted); cursor: pointer;
+            transition: all 0.2s;
+        }
+        .vp-btn-modal-ghost:hover { background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.2); }
+
+        /* ─── Connection Details Panel ─── */
+        .conn-body-scroll {
+            max-height: 380px;
+            overflow-y: auto;
+            padding-right: 8px;
+            margin-bottom: 20px;
+        }
+        .conn-body-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .conn-body-scroll::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 3px;
+        }
+        .conn-body-scroll::-webkit-scrollbar-thumb {
+            background: rgba(99, 102, 241, 0.3);
+            border-radius: 3px;
+        }
+        .conn-body-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(99, 102, 241, 0.5);
+        }
+        .conn-section { margin-bottom: 24px; }
+        .conn-section:last-child { margin-bottom: 0; }
+        .conn-section-title {
+            font-size: 0.72rem; color: #a78bfa; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.08em; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+        }
+        .conn-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 16px; border-radius: 10px; background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.04); margin-bottom: 8px;
+            transition: background 0.2s;
+        }
+        .conn-row:hover { background: rgba(255,255,255,0.02); }
+        .conn-row-key { font-size: 0.8rem; color: var(--vp-muted); font-weight: 600; }
+        .conn-row-val {
+            font-size: 0.85rem; color: var(--vp-text-bright); font-weight: 600;
+            font-family: 'Courier New', monospace; display: flex; align-items: center; gap: 8px;
+        }
+        .conn-badge {
+            font-size: 0.65rem; padding: 2px 8px; border-radius: 8px; font-weight: 700; font-family: 'Plus Jakarta Sans', sans-serif;
+            text-transform: uppercase; letter-spacing: 0.02em;
+        }
+        .conn-badge-tls { background: rgba(16,185,129,0.12); color: #34d399; border: 1px solid rgba(16,185,129,0.25); }
+        .conn-badge-ssl { background: rgba(99,102,241,0.12); color: #818cf8; border: 1px solid rgba(99,102,241,0.25); }
+        .conn-badge-plain { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); }
+        .copy-btn {
+            background: none; border: none; color: var(--vp-muted); cursor: pointer; padding: 4px 6px;
+            border-radius: 6px; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center;
+        }
+        .copy-btn:hover { color: #818cf8; background: rgba(99,102,241,0.1); }
+
+        /* ─── Status Toast ─── */
+        .vp-toast {
+            position: fixed; bottom: 30px; right: 30px; z-index: 99999;
+            background: rgba(15,23,42,0.95); border: 1px solid rgba(99,102,241,0.3);
+            border-radius: 16px; padding: 16px 24px; font-size: 0.88rem; color: #fff;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6); display: none;
+            animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            backdrop-filter: blur(12px);
+        }
+        @keyframes toastIn { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+
+        @media (max-width: 768px) {
+            .email-stats { grid-template-columns: repeat(2, 1fr); }
+            .email-card-header { padding: 16px; }
+        }
+        @media (max-width: 500px) {
+            .email-stats { grid-template-columns: repeat(2, 1fr); }
+            .email-actions { flex-direction: column; }
+            .vp-btn { justify-content: center; }
+        }
+    </style>.email-actions { flex-direction: column; }
+            .vp-btn { justify-content: center; }
         }
     </style>
-
 </head>
 
-<body data-theme="light" class="font-nunito">
+<body>
+{% include 'control/navbar.html' %}
+{% include 'control/left.html' %}
+{% include 'control/right.html' %}
 
-    <div id="wrapper" class="theme-cyan">
+<div id="main-content">
+<div class="email-page">
 
-        <!-- Page Loader -->
-        <div class="page-loader-wrapper">
-            <div class="loader">
-
-                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
-                </div>
-                <p>Please wait...</p>
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1><i class="fa fa-envelope"></i> Email Accounts</h1>
+            <div class="breadcrumb-trail">
+                <a href="/control/">Dashboard</a> / <a href="/control/listemail/{{ domain }}/">Email Wizard</a> / {{ domain }}
             </div>
         </div>
-
-
-
-        {% include 'control/navbar.html' %}
-
-        <!-- main left menu -->
-        {% include 'control/left.html' %}
-        <!-- rightbar icon div -->
-        {% include 'control/right.html' %}
-
-
-        <!-- mani page content body part -->
-
-        <div id="main-content">
-
-            <div class="container-fluid">
-                <div class="block-header">
-                    <div class="row">
-                        <div class="col-lg-10 col-md-6 col-sm-12">
-                            <h2>Edit/Add Websites</h2>
-                            <ul class="breadcrumb">
-                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
-                                </li>
-                                <li class="breadcrumb-item">Dashboard</li>
-                                <li class="breadcrumb-item">Edit/Add Email</li>
-
-                            </ul>
-                        </div>
-
-
-
-
-                    </div>
-                </div>
-
-
-
-
-
-
-
-                <div class="row clearfix">
-                    <div class="col-lg-12">
-
-                        <div class="">
-                            <div class="row clearfix">
-                                <div class="col-lg-10 col-md-10 col-sm-12">
-                                    <div class="header">
-                                        <h2 style="display: inline-block;">List Email Accounts</h2>
-
-
-
-                                    </div>
-
-
-                                    
-                                </div>
-                                <div class="col-lg-2 col-md-2 col-sm-12">
-                                    <a href="https://voidpanel.com/comming-soon.html"><button type="button"
-                                            style="margin-top: 20px;" class="btn btn-success p-2 ">Email
-                                            Analysis</button></a>
-                                </div>
-                            </div>
-
-
-                            {% for i in allemail %}
-                            <div class="row clearfix" id="domainContainer" style="margin-top: 20px;">
-                                <div class="col-lg-9 col-md-9 col-sm-12">
-
-                                    <div class="row clearfix">
-
-                                        <div class="col-lg-4 col-md-6 col-sm-12">
-
-                                            <h5 class="p-2" style="margin-bottom: 36px;">{{i.email}}</h5>
-
-
-                                        </div>
-
-
-                                        <div class="col-lg-8 col-md-6 col-sm-12">
-                                           <a target="_blank" href="{{ip}}"> <button type="button" class="btn btn-secondary m-2"><i
-                                                    class="fa fa-check-circle "></i> Login</button></a>
-                                            <button type="button" class="btn btn-secondary m-2 " onclick="showconnect('{{i.email}}')";>Connect</button>
-                                            <button type="button" class="btn btn-secondary m-2" onclick="showpassword('{{i.email}}','{{i.domain}}');" >Change
-                                                Password</button>
-
-
-                                             <a href="/deleteemai/{{i.email}}"
-                                                class="btn btn-danger"> Delete Email
-                                          </a>
-
-
-                                        </div>
-
-
-
-
-
-                                    </div>
-
-
-                                    <div class="row clearfix">
-                                        {% for x in emaildata %}
-                                        {% if x.email == i.email %}
-                                        <div class="col-lg-3 col-md-6 col-sm-6">
-                                            <div class="card text-center bg-secondary"
-                                                style=" margin-left: 10px;  border: 1px solid #ccc;">
-                                                <div class="body">
-                                                    <div class=" text-light">
-                                                        <h5>{{x.sent}}</h5>
-                                                       <i class="fa  fa-send-o "></i> <span>Sent</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="col-lg-3 col-md-6 col-sm-6">
-                                            <div class="card text-center bg-secondary" style=" border: 1px solid #ccc;">
-                                                <div class="body">
-                                                    <div class=" text-light">
-                                                        <h5>{{x.failed}}</h5>
-                                                        <i class="fa  fa-crosshairs"></i><span>Failed</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="col-lg-3 col-md-6 col-sm-6">
-                                            <div class="card text-center bg-secondary" style=" border: 1px solid #ccc;">
-                                                <div class="body">
-                                                    <div class=" text-light">
-                                                        <h5>{{x.queue}}</h5>
-                                                       <i class="fa fa-minus-circle"></i> <span>Process</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="col-lg-3 col-md-6 col-sm-6">
-                                            <div class="card text-center bg-secondary" style=" border: 1px solid #ccc;">
-                                                <div class="body">
-                                                    <div class=" text-light">
-                                                        <h5>{{x.total_emails_count}}</h5>
-                                                       <i class="fa fa-minus-circle"></i> <span>Received</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        {% endif %}
-                                        {% endfor %}
-                                    </div>
-
-
-                                </div>
-                                {% for e in emaildata %}
-                                {% if e.email == i.email %}
-                                <div class="col-lg-3 col-md-3 col-sm-12">
-                                    <div style="margin-left: 30px;">
-                                        <div class="carousel slide " data-ride="carousel">
-                                            <div class="carousel-inner" role="listbox">
-                                                <div class="carousel-item">
-                                                    <svg width="195.5" height="208" style="overflow: hidden;">
-                                                        <defs>
-                                                            <clipPath id="c3-1726738082575-clip">
-                                                                <rect width="160.5" height="183.5"></rect>
-                                                            </clipPath>
-                                                            <clipPath id="c3-1726738082575-clip-xaxis">
-                                                                <rect x="-31" y="-20" width="257.5" height="40.5">
-                                                                </rect>
-                                                            </clipPath>
-                                                            <clipPath id="c3-1726738082575-clip-yaxis">
-                                                                <rect x="-29" y="-4" width="20" height="207.5"></rect>
-                                                            </clipPath>
-                                                            <clipPath id="c3-1726738082575-clip-grid">
-                                                                <rect width="195.5" height="183.5"></rect>
-                                                            </clipPath>
-                                                            <clipPath id="c3-1726738082575-clip-subchart">
-                                                                <rect width="195.5"></rect>
-                                                            </clipPath>
-                                                        </defs>
-                                                        <g transform="translate(0.5,4.5)"><text class="c3-text c3-empty"
-                                                                text-anchor="middle" dominant-baseline="middle"
-                                                                x="97.75" y="91.75" style="opacity: 0;"></text>
-                                                            <rect class="c3-zoom-rect" width="195.5" height="183.5"
-                                                                style="opacity: 0;"></rect>
-                                                            <g clip-path="url(https://wrraptheme.com/templates/iconic/dist/index9.html#c3-1726738082575-clip)"
-                                                                class="c3-regions" style="visibility: hidden;"></g>
-                                                            <g clip-path="url(https://wrraptheme.com/templates/iconic/dist/index9.html#c3-1726738082575-clip-grid)"
-                                                                class="c3-grid" style="visibility: hidden;">
-                                                                <g class="c3-xgrid-focus">
-                                                                    <line class="c3-xgrid-focus" x1="-10" x2="-10"
-                                                                        y1="0" y2="183.5" style="visibility: hidden;">
-                                                                    </line>
-                                                                </g>
-                                                            </g>
-                                                            <g clip-path="url(https://wrraptheme.com/templates/iconic/dist/index9.html#c3-1726738082575-clip)"
-                                                                class="c3-chart">
-                                                                <g class="c3-event-rects c3-event-rects-single"
-                                                                    style="fill-opacity: 0;">
-                                                                    <rect class=" c3-event-rect c3-event-rect-0"
-                                                                        x="0.25" y="0" width="195.5" height="183.5">
-                                                                    </rect>
-                                                                </g>
-                                                                <g class="c3-chart-bars">
-                                                                    <g class="c3-chart-bar c3-target c3-target-data1"
-                                                                        style="pointer-events: none;">
-                                                                        <g class=" c3-shapes c3-shapes-data1 c3-bars c3-bars-data1"
-                                                                            style="cursor: pointer;"></g>
-                                                                    </g>
-                                                                    <g class="c3-chart-bar c3-target c3-target-data2"
-                                                                        style="pointer-events: none;">
-                                                                        <g class=" c3-shapes c3-shapes-data2 c3-bars c3-bars-data2"
-                                                                            style="cursor: pointer;"></g>
-                                                                    </g>
-                                                                </g>
-                                                                <g class="c3-chart-lines">
-                                                                    <g class="c3-chart-line c3-target c3-target-data1"
-                                                                        style="opacity: 1; pointer-events: none;">
-                                                                        <g
-                                                                            class=" c3-shapes c3-shapes-data1 c3-lines c3-lines-data1">
-                                                                        </g>
-                                                                        <g
-                                                                            class=" c3-shapes c3-shapes-data1 c3-areas c3-areas-data1">
-                                                                        </g>
-                                                                        <g
-                                                                            class=" c3-selected-circles c3-selected-circles-data1">
-                                                                        </g>
-                                                                        <g class=" c3-shapes c3-shapes-data1 c3-circles c3-circles-data1"
-                                                                            style="cursor: pointer;"></g>
-                                                                    </g>
-                                                                    <g class="c3-chart-line c3-target c3-target-data2"
-                                                                        style="opacity: 1; pointer-events: none;">
-                                                                        <g
-                                                                            class=" c3-shapes c3-shapes-data2 c3-lines c3-lines-data2">
-                                                                        </g>
-                                                                        <g
-                                                                            class=" c3-shapes c3-shapes-data2 c3-areas c3-areas-data2">
-                                                                        </g>
-                                                                        <g
-                                                                            class=" c3-selected-circles c3-selected-circles-data2">
-                                                                        </g>
-                                                                        <g class=" c3-shapes c3-shapes-data2 c3-circles c3-circles-data2"
-                                                                            style="cursor: pointer;"></g>
-                                                                    </g>
-                                                                </g>
-                                                                <g class="c3-chart-arcs"
-                                                                    transform="translate(97.75,86.75)"><text
-                                                                        class="c3-chart-arcs-title"
-                                                                        style="text-anchor: middle; opacity: 1;"></text>
-                                                                    <g class="c3-chart-arc c3-target c3-target-data1">
-                                                                        <g
-                                                                            class=" c3-shapes c3-shapes-data1 c3-arcs c3-arcs-data1">
-                                                                            <path
-                                                                                class=" c3-shape c3-shape c3-arc c3-arc-data1"
-                                                                                transform=""
-                                                                                d="M5.046310216736562e-15,-82.4125A82.4125,82.4125 0 1,1 -66.67311304892534,48.44085210455345L-40.00386782935521,29.06451126273207A49.4475,49.4475 0 1,0 3.027786130041937e-15,-49.4475Z"
-                                                                                style="fill: rgb(231, 104, 134); cursor: pointer;">
-                                                                            </path>
-                                                                        </g><text dy=".35em" class=""
-                                                                            transform="translate(54.204103459460555,27.61837017962416)"
-                                                                            style="opacity: 1; text-anchor: middle; pointer-events: none;">{{e.sendp}}%</text>
-                                                                    </g>
-                                                                    <g class="c3-chart-arc c3-target c3-target-data2">
-                                                                        <g
-                                                                            class=" c3-shapes c3-shapes-data2 c3-arcs c3-arcs-data2">
-                                                                            <path
-                                                                                class=" c3-shape c3-shape c3-arc c3-arc-data2"
-                                                                                transform=""
-                                                                                d="M-66.67311304892534,48.44085210455345A82.4125,82.4125 0 0,1 -1.5138930650209686e-14,-82.4125L-9.083358390125811e-15,-49.4475A49.4475,49.4475 0 0,0 -40.00386782935521,29.06451126273207Z"
-                                                                                style="fill: rgb(99, 122, 174); cursor: pointer;">
-                                                                            </path>
-                                                                        </g><text dy=".35em" class=""
-                                                                            transform="translate(-54.204103459460555,-27.618370179624154)"
-                                                                            style="opacity: 1; text-anchor: middle; pointer-events: none;">{{e.processp}}%</text>
-                                                                    </g>
-                                                                </g>
-                                                                <g class="c3-chart-texts">
-                                                                    <g class="c3-chart-text c3-target c3-target-data1"
-                                                                        style="opacity: 1; pointer-events: none;">
-                                                                        <g class=" c3-texts c3-texts-data1"></g>
-                                                                    </g>
-                                                                    <g class="c3-chart-text c3-target c3-target-data2"
-                                                                        style="opacity: 1; pointer-events: none;">
-                                                                        <g class=" c3-texts c3-texts-data2"></g>
-                                                                    </g>
-                                                                </g>
-                                                            </g>
-                                                            <g clip-path="url(https://wrraptheme.com/templates/iconic/dist/index9.html#c3-1726738082575-clip-grid)"
-                                                                class="c3-grid c3-grid-lines">
-                                                                <g class="c3-xgrid-lines"></g>
-                                                                <g class="c3-ygrid-lines"></g>
-                                                            </g>
-                                                            <g class="c3-axis c3-axis-x"
-                                                                clip-path="url(https://wrraptheme.com/templates/iconic/dist/index9.html#c3-1726738082575-clip-xaxis)"
-                                                                transform="translate(0,183.5)"
-                                                                style="visibility: visible; opacity: 0;"><text
-                                                                    class="c3-axis-x-label" transform="" x="195.5"
-                                                                    dx="-0.5em" dy="-0.5em"
-                                                                    style="text-anchor: end;"></text>
-                                                                <g class="tick" transform="translate(98, 0)"
-                                                                    style="opacity: 1;">
-                                                                    <line x1="0" x2="0" y2="6"></line><text x="0" y="9"
-                                                                        transform=""
-                                                                        style="text-anchor: middle; display: block;">
-                                                                        <tspan x="0" dy=".71em" dx="0">0</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <path class="domain" d="M0,6V0H195.5V6"></path>
-                                                            </g>
-                                                            <g class="c3-axis c3-axis-y"
-                                                                clip-path="url(https://wrraptheme.com/templates/iconic/dist/index9.html#c3-1726738082575-clip-yaxis)"
-                                                                transform="translate(0,0)"
-                                                                style="visibility: visible; opacity: 0;"><text
-                                                                    class="c3-axis-y-label" transform="rotate(-90)"
-                                                                    x="0" dx="-0.5em" dy="1.2em"
-                                                                    style="text-anchor: end;"></text>
-                                                                <g class="tick" transform="translate(0,169)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="-6"></line><text x="-9" y="0"
-                                                                        style="text-anchor: end;">
-                                                                        <tspan x="-9" dy="3">35</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,143)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="-6"></line><text x="-9" y="0"
-                                                                        style="text-anchor: end;">
-                                                                        <tspan x="-9" dy="3">40</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,118)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="-6"></line><text x="-9" y="0"
-                                                                        style="text-anchor: end;">
-                                                                        <tspan x="-9" dy="3">45</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,93)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="-6"></line><text x="-9" y="0"
-                                                                        style="text-anchor: end;">
-                                                                        <tspan x="-9" dy="3">50</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,67)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="-6"></line><text x="-9" y="0"
-                                                                        style="text-anchor: end;">
-                                                                        <tspan x="-9" dy="3">55</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,42)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="-6"></line><text x="-9" y="0"
-                                                                        style="text-anchor: end;">
-                                                                        <tspan x="-9" dy="3">60</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,17)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="-6"></line><text x="-9" y="0"
-                                                                        style="text-anchor: end;">
-                                                                        <tspan x="-9" dy="3">65</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <path class="domain" d="M-6,1H0V183.5H-6"></path>
-                                                            </g>
-                                                            <g class="c3-axis c3-axis-y2" transform="translate(195.5,0)"
-                                                                style="visibility: hidden; opacity: 0;"><text
-                                                                    class="c3-axis-y2-label" transform="rotate(-90)"
-                                                                    x="0" dx="-0.5em" dy="-0.5em"
-                                                                    style="text-anchor: end;"></text>
-                                                                <g class="tick" transform="translate(0,184)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="6" y2="0"></line><text x="9" y="0"
-                                                                        style="text-anchor: start;">
-                                                                        <tspan x="9" dy="3">0</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,166)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="6" y2="0"></line><text x="9" y="0"
-                                                                        style="text-anchor: start;">
-                                                                        <tspan x="9" dy="3">0.1</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,147)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="6" y2="0"></line><text x="9" y="0"
-                                                                        style="text-anchor: start;">
-                                                                        <tspan x="9" dy="3">0.2</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,129)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="6" y2="0"></line><text x="9" y="0"
-                                                                        style="text-anchor: start;">
-                                                                        <tspan x="9" dy="3">0.3</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,111)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="6" y2="0"></line><text x="9" y="0"
-                                                                        style="text-anchor: start;">
-                                                                        <tspan x="9" dy="3">0.4</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,93)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="6" y2="0"></line><text x="9" y="0"
-                                                                        style="text-anchor: start;">
-                                                                        <tspan x="9" dy="3">0.5</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,74)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="6" y2="0"></line><text x="9" y="0"
-                                                                        style="text-anchor: start;">
-                                                                        <tspan x="9" dy="3">0.6</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,56)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="6" y2="0"></line><text x="9" y="0"
-                                                                        style="text-anchor: start;">
-                                                                        <tspan x="9" dy="3">0.7</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,38)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="6" y2="0"></line><text x="9" y="0"
-                                                                        style="text-anchor: start;">
-                                                                        <tspan x="9" dy="3">0.8</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,20)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="6" y2="0"></line><text x="9" y="0"
-                                                                        style="text-anchor: start;">
-                                                                        <tspan x="9" dy="3">0.9</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,1)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="6" y2="0"></line><text x="9" y="0"
-                                                                        style="text-anchor: start;">
-                                                                        <tspan x="9" dy="3">1</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <path class="domain" d="M6,1H0V183.5H6"></path>
-                                                            </g>
-                                                        </g>
-                                                        <g transform="translate(0.5,208.5)" style="visibility: hidden;">
-                                                            <g clip-path="url(https://wrraptheme.com/templates/iconic/dist/index9.html#c3-1726738082575-clip-subchart)"
-                                                                class="c3-chart">
-                                                                <g class="c3-chart-bars"></g>
-                                                                <g class="c3-chart-lines"></g>
-                                                            </g>
-                                                            <g clip-path="url(https://wrraptheme.com/templates/iconic/dist/index9.html#c3-1726738082575-clip)"
-                                                                class="c3-brush" style="pointer-events: all;">
-                                                                <rect class="background" x="0" width="195.5"
-                                                                    style="visibility: hidden; cursor: crosshair;">
-                                                                </rect>
-                                                                <rect class="extent" x="0" width="0"
-                                                                    style="cursor: move;"></rect>
-                                                                <g class="resize e" transform="translate(0,0)"
-                                                                    style="cursor: ew-resize; display: none;">
-                                                                    <rect x="-3" width="6" height="6"
-                                                                        style="visibility: hidden;"></rect>
-                                                                </g>
-                                                                <g class="resize w" transform="translate(0,0)"
-                                                                    style="cursor: ew-resize; display: none;">
-                                                                    <rect x="-3" width="6" height="6"
-                                                                        style="visibility: hidden;"></rect>
-                                                                </g>
-                                                            </g>
-                                                            <g class="c3-axis-x" transform="translate(0,0)"
-                                                                clip-path="url(https://wrraptheme.com/templates/iconic/dist/index9.html#c3-1726738082575-clip-xaxis)"
-                                                                style="visibility: hidden; opacity: 0;">
-                                                                <g class="tick" transform="translate(98, 0)"
-                                                                    style="opacity: 1;">
-                                                                    <line x1="0" x2="0" y2="6"></line><text x="0" y="9"
-                                                                        transform=""
-                                                                        style="text-anchor: middle; display: block;">
-                                                                        <tspan x="0" dy=".71em" dx="0">0</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <path class="domain" d="M0,6V0H195.5V6"></path>
-                                                            </g>
-                                                        </g>
-                                                        <g transform="translate(0,187.5)">
-                                                            <g class="c3-legend-item c3-legend-item-data1"
-                                                                style="visibility: visible; cursor: pointer; opacity: 1;">
-                                                                <text x="63.2421875" y="9"
-                                                                    style="pointer-events: none;">Sent</text>
-                                                                <rect class="c3-legend-item-event" x="49.2421875" y="-5"
-                                                                    width="58.09375" height="20.5"
-                                                                    style="fill-opacity: 0;"></rect>
-                                                                <line class="c3-legend-item-tile" x1="47.2421875" y1="4"
-                                                                    x2="57.2421875" y2="4" stroke-width="10"
-                                                                    style="stroke: rgb(231, 104, 134);pointer-events: none;">
-                                                                
-                                                                </line>
-                                                            </g>
-                                                            <g class="c3-legend-item c3-legend-item-data2"
-                                                                style="visibility: visible; cursor: pointer; opacity: 1;">
-                                                                <text x="121.3359375" y="9"
-                                                                    style="pointer-events: none;">Failed</text>
-                                                                <rect class="c3-legend-item-event" x="107.3359375"
-                                                                    y="-5" width="38.921875" height="20.5"
-                                                                    style="fill-opacity: 0;"></rect>
-                                                                <line class="c3-legend-item-tile" x1="105.3359375"
-                                                                    y1="4" x2="115.3359375" y2="4" stroke-width="10"
-                                                                    style="stroke: rgb(99, 122, 174); pointer-events: none;">
-                                                                </line>
-                                                            </g>
-                                                        </g><text class="c3-title" x="97.75" y="0"></text>
-                                                    </svg>
-                                                </div>
-                                                <div class="carousel-item active">
-
-                                                    <svg width="195.5" height="208" style="overflow: hidden;">
-                                                        <defs>
-                                                            <clipPath id="c3-1726738082575-clip">
-                                                                <rect width="160.5" height="183.5"></rect>
-                                                            </clipPath>
-                                                            <clipPath id="c3-1726738082575-clip-xaxis">
-                                                                <rect x="-31" y="-20" width="257.5" height="40.5">
-                                                                </rect>
-                                                            </clipPath>
-                                                            <clipPath id="c3-1726738082575-clip-yaxis">
-                                                                <rect x="-29" y="-4" width="20" height="207.5"></rect>
-                                                            </clipPath>
-                                                            <clipPath id="c3-1726738082575-clip-grid">
-                                                                <rect width="195.5" height="183.5"></rect>
-                                                            </clipPath>
-                                                            <clipPath id="c3-1726738082575-clip-subchart">
-                                                                <rect width="195.5"></rect>
-                                                            </clipPath>
-                                                        </defs>
-                                                        <g transform="translate(0.5,4.5)"><text class="c3-text c3-empty"
-                                                                text-anchor="middle" dominant-baseline="middle"
-                                                                x="97.75" y="91.75" style="opacity: 0;"></text>
-                                                            <rect class="c3-zoom-rect" width="195.5" height="183.5"
-                                                                style="opacity: 0;"></rect>
-                                                            <g clip-path="url(https://wrraptheme.com/templates/iconic/dist/index9.html#c3-1726738082575-clip)"
-                                                                class="c3-regions" style="visibility: hidden;"></g>
-                                                            <g clip-path="url(https://wrraptheme.com/templates/iconic/dist/index9.html#c3-1726738082575-clip-grid)"
-                                                                class="c3-grid" style="visibility: hidden;">
-                                                                <g class="c3-xgrid-focus">
-                                                                    <line class="c3-xgrid-focus" x1="-10" x2="-10"
-                                                                        y1="0" y2="183.5" style="visibility: hidden;">
-                                                                    </line>
-                                                                </g>
-                                                            </g>
-                                                            <g clip-path="url(https://wrraptheme.com/templates/iconic/dist/index9.html#c3-1726738082575-clip)"
-                                                                class="c3-chart">
-                                                                <g class="c3-event-rects c3-event-rects-single"
-                                                                    style="fill-opacity: 0;">
-                                                                    <rect class=" c3-event-rect c3-event-rect-0"
-                                                                        x="0.25" y="0" width="195.5" height="183.5">
-                                                                    </rect>
-                                                                </g>
-                                                                <g class="c3-chart-bars">
-                                                                    <g class="c3-chart-bar c3-target c3-target-data1"
-                                                                        style="pointer-events: none;">
-                                                                        <g class=" c3-shapes c3-shapes-data1 c3-bars c3-bars-data1"
-                                                                            style="cursor: pointer;"></g>
-                                                                    </g>
-                                                                    <g class="c3-chart-bar c3-target c3-target-data2"
-                                                                        style="pointer-events: none;">
-                                                                        <g class=" c3-shapes c3-shapes-data2 c3-bars c3-bars-data2"
-                                                                            style="cursor: pointer;"></g>
-                                                                    </g>
-                                                                </g>
-                                                                <g class="c3-chart-lines">
-                                                                    <g class="c3-chart-line c3-target c3-target-data1"
-                                                                        style="opacity: 1; pointer-events: none;">
-                                                                        <g
-                                                                            class=" c3-shapes c3-shapes-data1 c3-lines c3-lines-data1">
-                                                                        </g>
-                                                                        <g
-                                                                            class=" c3-shapes c3-shapes-data1 c3-areas c3-areas-data1">
-                                                                        </g>
-                                                                        <g
-                                                                            class=" c3-selected-circles c3-selected-circles-data1">
-                                                                        </g>
-                                                                        <g class=" c3-shapes c3-shapes-data1 c3-circles c3-circles-data1"
-                                                                            style="cursor: pointer;"></g>
-                                                                    </g>
-                                                                    <g class="c3-chart-line c3-target c3-target-data2"
-                                                                        style="opacity: 1; pointer-events: none;">
-                                                                        <g
-                                                                            class=" c3-shapes c3-shapes-data2 c3-lines c3-lines-data2">
-                                                                        </g>
-                                                                        <g
-                                                                            class=" c3-shapes c3-shapes-data2 c3-areas c3-areas-data2">
-                                                                        </g>
-                                                                        <g
-                                                                            class=" c3-selected-circles c3-selected-circles-data2">
-                                                                        </g>
-                                                                        <g class=" c3-shapes c3-shapes-data2 c3-circles c3-circles-data2"
-                                                                            style="cursor: pointer;"></g>
-                                                                    </g>
-                                                                </g>
-                                                                <g class="c3-chart-arcs"
-                                                                    transform="translate(97.75,86.75)"><text
-                                                                        class="c3-chart-arcs-title"
-                                                                        style="text-anchor: middle; opacity: 1;"></text>
-                                                                    <g class="c3-chart-arc c3-target c3-target-data1">
-                                                                        <g
-                                                                            class=" c3-shapes c3-shapes-data1 c3-arcs c3-arcs-data1">
-                                                                            <path
-                                                                                class=" c3-shape c3-shape c3-arc c3-arc-data1"
-                                                                                transform=""
-                                                                                d="M5.046310216736562e-15,-82.4125A82.4125,82.4125 0 1,1 -66.67311304892534,48.44085210455345L-40.00386782935521,29.06451126273207A49.4475,49.4475 0 1,0 3.027786130041937e-15,-49.4475Z"
-                                                                                style="fill: rgb(89, 196, 188); cursor: pointer;">
-                                                                            </path>
-                                                                        </g><text dy=".35em" class=""
-                                                                            transform="translate(54.204103459460555,27.61837017962416)"
-                                                                            style="opacity: 1; text-anchor: middle; pointer-events: none;">{{e.sendp}}%</text>
-                                                                    </g>
-                                                                    <g class="c3-chart-arc c3-target c3-target-data2">
-                                                                        <g
-                                                                            class=" c3-shapes c3-shapes-data2 c3-arcs c3-arcs-data2">
-                                                                            <path
-                                                                                class=" c3-shape c3-shape c3-arc c3-arc-data2"
-                                                                                transform=""
-                                                                                d="M-66.67311304892534,48.44085210455345A82.4125,82.4125 0 0,1 -1.5138930650209686e-14,-82.4125L-9.083358390125811e-15,-49.4475A49.4475,49.4475 0 0,0 -40.00386782935521,29.06451126273207Z"
-                                                                                style="fill: rgb(99, 122, 174); cursor: pointer;">
-                                                                            </path>
-                                                                        </g><text dy=".35em" class=""
-                                                                            transform="translate(-54.204103459460555,-27.618370179624154)"
-                                                                            style="opacity: 1; text-anchor: middle; pointer-events: none;">{{e.failedp}}%</text>
-                                                                    </g>
-                                                                </g>
-                                                                <g class="c3-chart-texts">
-                                                                    <g class="c3-chart-text c3-target c3-target-data1"
-                                                                        style="opacity: 1; pointer-events: none;">
-                                                                        <g class=" c3-texts c3-texts-data1"></g>
-                                                                    </g>
-                                                                    <g class="c3-chart-text c3-target c3-target-data2"
-                                                                        style="opacity: 1; pointer-events: none;">
-                                                                        <g class=" c3-texts c3-texts-data2"></g>
-                                                                    </g>
-                                                                </g>
-                                                            </g>
-                                                            <g clip-path="url(https://wrraptheme.com/templates/iconic/dist/index9.html#c3-1726738082575-clip-grid)"
-                                                                class="c3-grid c3-grid-lines">
-                                                                <g class="c3-xgrid-lines"></g>
-                                                                <g class="c3-ygrid-lines"></g>
-                                                            </g>
-                                                            <g class="c3-axis c3-axis-x"
-                                                                clip-path="url(https://wrraptheme.com/templates/iconic/dist/index9.html#c3-1726738082575-clip-xaxis)"
-                                                                transform="translate(0,183.5)"
-                                                                style="visibility: visible; opacity: 0;"><text
-                                                                    class="c3-axis-x-label" transform="" x="195.5"
-                                                                    dx="-0.5em" dy="-0.5em"
-                                                                    style="text-anchor: end;"></text>
-                                                                <g class="tick" transform="translate(98, 0)"
-                                                                    style="opacity: 1;">
-                                                                    <line x1="0" x2="0" y2="6"></line><text x="0" y="9"
-                                                                        transform=""
-                                                                        style="text-anchor: middle; display: block;">
-                                                                        <tspan x="0" dy=".71em" dx="0">0</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <path class="domain" d="M0,6V0H195.5V6"></path>
-                                                            </g>
-                                                            <g class="c3-axis c3-axis-y"
-                                                                clip-path="url(https://wrraptheme.com/templates/iconic/dist/index9.html#c3-1726738082575-clip-yaxis)"
-                                                                transform="translate(0,0)"
-                                                                style="visibility: visible; opacity: 0;"><text
-                                                                    class="c3-axis-y-label" transform="rotate(-90)"
-                                                                    x="0" dx="-0.5em" dy="1.2em"
-                                                                    style="text-anchor: end;"></text>
-                                                                <g class="tick" transform="translate(0,169)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="-6"></line><text x="-9" y="0"
-                                                                        style="text-anchor: end;">
-                                                                        <tspan x="-9" dy="3">35</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,143)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="-6"></line><text x="-9" y="0"
-                                                                        style="text-anchor: end;">
-                                                                        <tspan x="-9" dy="3">40</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,118)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="-6"></line><text x="-9" y="0"
-                                                                        style="text-anchor: end;">
-                                                                        <tspan x="-9" dy="3">45</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,93)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="-6"></line><text x="-9" y="0"
-                                                                        style="text-anchor: end;">
-                                                                        <tspan x="-9" dy="3">50</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,67)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="-6"></line><text x="-9" y="0"
-                                                                        style="text-anchor: end;">
-                                                                        <tspan x="-9" dy="3">55</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,42)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="-6"></line><text x="-9" y="0"
-                                                                        style="text-anchor: end;">
-                                                                        <tspan x="-9" dy="3">60</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,17)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="-6"></line><text x="-9" y="0"
-                                                                        style="text-anchor: end;">
-                                                                        <tspan x="-9" dy="3">65</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <path class="domain" d="M-6,1H0V183.5H-6"></path>
-                                                            </g>
-                                                            <g class="c3-axis c3-axis-y2" transform="translate(195.5,0)"
-                                                                style="visibility: hidden; opacity: 0;"><text
-                                                                    class="c3-axis-y2-label" transform="rotate(-90)"
-                                                                    x="0" dx="-0.5em" dy="-0.5em"
-                                                                    style="text-anchor: end;"></text>
-                                                                <g class="tick" transform="translate(0,184)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="6" y2="0"></line><text x="9" y="0"
-                                                                        style="text-anchor: start;">
-                                                                        <tspan x="9" dy="3">0</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,166)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="6" y2="0"></line><text x="9" y="0"
-                                                                        style="text-anchor: start;">
-                                                                        <tspan x="9" dy="3">0.1</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,147)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="6" y2="0"></line><text x="9" y="0"
-                                                                        style="text-anchor: start;">
-                                                                        <tspan x="9" dy="3">0.2</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,129)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="6" y2="0"></line><text x="9" y="0"
-                                                                        style="text-anchor: start;">
-                                                                        <tspan x="9" dy="3">0.3</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,111)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="6" y2="0"></line><text x="9" y="0"
-                                                                        style="text-anchor: start;">
-                                                                        <tspan x="9" dy="3">0.4</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,93)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="6" y2="0"></line><text x="9" y="0"
-                                                                        style="text-anchor: start;">
-                                                                        <tspan x="9" dy="3">0.5</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,74)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="6" y2="0"></line><text x="9" y="0"
-                                                                        style="text-anchor: start;">
-                                                                        <tspan x="9" dy="3">0.6</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,56)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="6" y2="0"></line><text x="9" y="0"
-                                                                        style="text-anchor: start;">
-                                                                        <tspan x="9" dy="3">0.7</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,38)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="6" y2="0"></line><text x="9" y="0"
-                                                                        style="text-anchor: start;">
-                                                                        <tspan x="9" dy="3">0.8</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,20)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="6" y2="0"></line><text x="9" y="0"
-                                                                        style="text-anchor: start;">
-                                                                        <tspan x="9" dy="3">0.9</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <g class="tick" transform="translate(0,1)"
-                                                                    style="opacity: 1;">
-                                                                    <line x2="6" y2="0"></line><text x="9" y="0"
-                                                                        style="text-anchor: start;">
-                                                                        <tspan x="9" dy="3">1</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <path class="domain" d="M6,1H0V183.5H6"></path>
-                                                            </g>
-                                                        </g>
-                                                        <g transform="translate(0.5,208.5)" style="visibility: hidden;">
-                                                            <g clip-path="url(https://wrraptheme.com/templates/iconic/dist/index9.html#c3-1726738082575-clip-subchart)"
-                                                                class="c3-chart">
-                                                                <g class="c3-chart-bars"></g>
-                                                                <g class="c3-chart-lines"></g>
-                                                            </g>
-                                                            <g clip-path="url(https://wrraptheme.com/templates/iconic/dist/index9.html#c3-1726738082575-clip)"
-                                                                class="c3-brush" style="pointer-events: all;">
-                                                                <rect class="background" x="0" width="195.5"
-                                                                    style="visibility: hidden; cursor: crosshair;">
-                                                                </rect>
-                                                                <rect class="extent" x="0" width="0"
-                                                                    style="cursor: move;"></rect>
-                                                                <g class="resize e" transform="translate(0,0)"
-                                                                    style="cursor: ew-resize; display: none;">
-                                                                    <rect x="-3" width="6" height="6"
-                                                                        style="visibility: hidden;"></rect>
-                                                                </g>
-                                                                <g class="resize w" transform="translate(0,0)"
-                                                                    style="cursor: ew-resize; display: none;">
-                                                                    <rect x="-3" width="6" height="6"
-                                                                        style="visibility: hidden;"></rect>
-                                                                </g>
-                                                            </g>
-                                                            <g class="c3-axis-x" transform="translate(0,0)"
-                                                                clip-path="url(https://wrraptheme.com/templates/iconic/dist/index9.html#c3-1726738082575-clip-xaxis)"
-                                                                style="visibility: hidden; opacity: 0;">
-                                                                <g class="tick" transform="translate(98, 0)"
-                                                                    style="opacity: 1;">
-                                                                    <line x1="0" x2="0" y2="6"></line><text x="0" y="9"
-                                                                        transform=""
-                                                                        style="text-anchor: middle; display: block;">
-                                                                        <tspan x="0" dy=".71em" dx="0">0</tspan>
-                                                                    </text>
-                                                                </g>
-                                                                <path class="domain" d="M0,6V0H195.5V6"></path>
-                                                            </g>
-                                                        </g>
-                                                        <g transform="translate(0,187.5)">
-                                                            <g class="c3-legend-item c3-legend-item-data1"
-                                                                style="visibility: visible; cursor: pointer; opacity: 1;">
-                                                                <text x="63.2421875" y="9"
-                                                                    style="pointer-events: none;">Sent</text>
-                                                                <rect class="c3-legend-item-event" x="49.2421875" y="-5"
-                                                                    width="58.09375" height="20.5"
-                                                                    style="fill-opacity: 0;"></rect>
-                                                                <line class="c3-legend-item-tile" x1="47.2421875" y1="4"
-                                                                    x2="57.2421875" y2="4" stroke-width="10"
-                                                                    style="stroke: rgb(89, 196, 188); pointer-events: none;">
-                                                                </line>
-                                                            </g>
-                                                            <g class="c3-legend-item c3-legend-item-data2"
-                                                                style="visibility: visible; cursor: pointer; opacity: 1;">
-                                                                <text x="121.3359375" y="9"
-                                                                    style="pointer-events: none;">Process</text>
-                                                                <rect class="c3-legend-item-event" x="107.3359375"
-                                                                    y="-5" width="38.921875" height="20.5"
-                                                                    style="fill-opacity: 0;"></rect>
-                                                                <line class="c3-legend-item-tile" x1="105.3359375"
-                                                                    y1="4" x2="115.3359375" y2="4" stroke-width="10"
-                                                                    style="stroke: rgb(99, 122, 174); pointer-events: none;">
-                                                                </line>
-                                                            </g>
-                                                        </g><text class="c3-title" x="97.75" y="0"></text>
-                                                    </svg>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                {% endif %}
-                                {% endfor %}
-                            </div>
-
-
-
-
-                            {% endfor %}
-
-
-
-                        </div>
-
-
-
-
-
-
-
-                    </div>
-                </div>
-
-
-
-            </div>
-
-
-
-
-
-
-
-
-
-
-
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <a href="/control/email_analysis/{{ domain }}/" class="vp-btn vp-btn-connect" style="text-decoration:none;">
+                <i class="fa fa-bar-chart"></i> Analysis
+            </a>
         </div>
-
     </div>
 
-
-
-    <div class="modal animated fadeIn show" id="connect" style="display: none; margin-top: 153px;">
-        <div class="modal-dialog modal-sm" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h6 class="title" id="defaultModalLabel">Connect Details</h6>
-                </div>
-                <form id="permission" method="post" action="">{% csrf_token %}
-                    <div class="modal-body">
-                        <div class="row clearfix">
-                            <div class="col-md-12 col-sm-12">
-                                <div class="form-group">
-                                    <h5>Outgoing(SMTP)</h5><br>
-                                    <p id="username1">Username: </p>
-                                    <p id="Password">Password: Your Password</p>
-                                    <p id="Port">Port: 587</p>
-                                    <hr>
-                                    <h5>Incomming (IMAP/POP3)</h5><br>
-                                    <p id="username2">Username: </p>
-                                    <p id="Password">Password: Your Password</p>
-                                    <p id="Port">Port: 143/993</p>
-                                   
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                   
-                        <button type="button" class="btn btn-danger" onclick="hideconnect();">CLOSE</button>
-                    </div>
-                </form>
+    <!-- Server Connection Info Banner -->
+    <div class="server-info-banner">
+        <div class="sib-chip mail-server-chip">
+            <div class="sib-label"><i class="fa fa-server" style="color:#6366f1; font-size:0.9rem;"></i> Mail Server</div>
+            <div class="sib-value" title="{{ server_hostname }}">{{ server_hostname }}</div>
+            <div class="sib-subtext">
+                <span style="color:#10b981; display:flex; align-items:center; gap:6px; font-weight:600;">
+                    <span class="active-dot"></span> Active Gateway
+                </span>
+            </div>
+        </div>
+        <div class="sib-chip smtp-chip">
+            <div class="sib-label"><i class="fa fa-paper-plane" style="color:#a78bfa; font-size:0.9rem;"></i> SMTP (Outgoing)</div>
+            <div class="sib-value" title="{{ server_hostname }}">{{ server_hostname }}</div>
+            <div class="sib-subtext"><span class="sib-port-badge">587</span> TLS &nbsp; <span class="sib-port-badge">465</span> SSL</div>
+        </div>
+        <div class="sib-chip imap-chip">
+            <div class="sib-label"><i class="fa fa-download" style="color:#38bdf8; font-size:0.9rem;"></i> IMAP (Incoming)</div>
+            <div class="sib-value" title="{{ server_hostname }}">{{ server_hostname }}</div>
+            <div class="sib-subtext"><span class="sib-port-badge">993</span> SSL &nbsp; <span class="sib-port-badge">143</span> TLS</div>
+        </div>
+        <div class="sib-chip webmail-chip">
+            <div class="sib-label"><i class="fa fa-globe"></i> Webmail Application</div>
+            <div style="margin-top:4px; width:100%;">
+                <a href="{{ roundcube_url }}" target="_blank" class="vp-btn vp-btn-webmail" style="width:100%; justify-content:center; padding:10px 14px; font-size:0.85rem; border-radius:10px;">
+                    Open Roundcube <i class="fa fa-external-link" style="font-size:0.75rem; margin-top:1px; margin-left:4px;"></i>
+                </a>
             </div>
         </div>
     </div>
 
+    <!-- Email Account List -->
+    {% if not allemail %}
+    <div class="empty-state">
+        <i class="fa fa-inbox"></i>
+        <h3>No email accounts yet</h3>
+        <p>Create your first email account to get started.</p>
+    </div>
+    {% endif %}
 
-
-    <div class="modal animated fadeIn show" id="change" style="display: none; margin-top: 300px;">
-        <div class="modal-dialog modal-sm" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h6 class="title" id="defaultModalLabel">Change Password</h6>
+    {% for i in emaildata %}
+    <div class="email-card">
+        <div class="email-card-header">
+            <div class="email-identity">
+                <div class="email-avatar">{{ i.email|slice:":1" }}</div>
+                <div>
+                    <div class="email-name">
+                        {{ i.email }}
+                        {% if i.suspended_in %}<span style="background:rgba(239,68,68,0.15);color:#f87171;padding:2px 8px;border-radius:6px;font-size:0.68rem;font-weight:700;margin-left:6px;" title="Incoming mail suspended"><i class="fa fa-arrow-down"></i> IN</span>{% endif %}
+                        {% if i.suspended_out %}<span style="background:rgba(245,158,11,0.15);color:#fbbf24;padding:2px 8px;border-radius:6px;font-size:0.68rem;font-weight:700;margin-left:6px;" title="Outgoing mail suspended"><i class="fa fa-arrow-up"></i> OUT</span>{% endif %}
+                        {% if i.custom_limit > 0 %}<span style="background:rgba(45,212,191,0.1);color:#2dd4bf;padding:2px 8px;border-radius:6px;font-size:0.68rem;font-weight:700;margin-left:6px;" title="Custom rate limit active"><i class="fa fa-tachometer"></i> {{ i.custom_limit }}/{{ i.custom_limit_type }}</span>{% endif %}
+                    </div>
+                    <span class="email-domain-badge">@{{ i.domain }}</span>
                 </div>
-                <form id="changepassword" method="post" action="">{% csrf_token %}
-                    <div class="modal-body">
-                        <div class="row clearfix">
-                            <div class="col-md-12 col-sm-12">
-                                <div class="form-group">
-                      
-                                  <p id="emailname"></p>
-                                    <input type="password" name="password" id="myInput6" required class="form-control"
-                                        placeholder="Your Password">
+            </div>
+            <div class="email-actions">
+                <a href="/control/roundcube_login/{{ i.email }}/" class="vp-btn vp-btn-webmail" title="Auto-login to Roundcube Webmail" target="_blank">
+                    <i class="fa fa-sign-in"></i> Webmail
+                </a>
+                <button class="vp-btn vp-btn-connect" onclick="showConnect('{{ i.email }}', '{{ i.domain }}')">
+                    <i class="fa fa-plug"></i> Connect
+                </button>
+                <button class="vp-btn vp-btn-pass" onclick="showChangePass('{{ i.email }}', '{{ i.domain }}')">
+                    <i class="fa fa-key"></i> Password
+                </button>
+                <button class="vp-btn vp-btn-limits" onclick="showSettings('{{ i.email }}', {{ i.suspended_in|yesno:'true,false' }}, {{ i.suspended_out|yesno:'true,false' }}, {{ i.custom_limit|default:0 }}, '{{ i.custom_limit_type|default:"hourly" }}')" title="Routing &amp; Limits">
+                    <i class="fa fa-shield"></i> Limits
+                </button>
+                <button class="vp-btn vp-btn-delete" onclick="deleteEmail('{{ i.email }}', this)" title="Delete email account">
+                    <i class="fa fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
 
-                                        <input type="text" name="domain" id="domainname" required class="form-control"
-                                        hidden>
-
-                                        <input type="text" name="emailname" id="emailkaname" required class="form-control"
-                                        hidden>
-                                   
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button onclick="chch(event);" class="btn btn-success">Change</button>
-                        <button type="button" class="btn btn-danger" onclick="hidepassword();">CLOSE</button>
-                    </div>
-                </form>
-               
+        <!-- Stats Row -->
+        <div class="email-stats">
+            <div class="stat-cell">
+                <div class="stat-val stat-sent">{{ i.sent }}</div>
+                <div class="stat-label"><i class="fa fa-paper-plane-o"></i> Sent</div>
+            </div>
+            <div class="stat-cell">
+                <div class="stat-val stat-failed">{{ i.failed }}</div>
+                <div class="stat-label"><i class="fa fa-times-circle-o"></i> Failed</div>
+            </div>
+            <div class="stat-cell">
+                <div class="stat-val stat-queue">{{ i.queue }}</div>
+                <div class="stat-label"><i class="fa fa-clock-o"></i> Queued</div>
+            </div>
+            <div class="stat-cell">
+                <div class="stat-val stat-inbox">{{ i.total_emails_count }}</div>
+                <div class="stat-label"><i class="fa fa-inbox"></i> Inbox</div>
             </div>
         </div>
     </div>
-    <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
-        <div class="modal-dialog modal-sm" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h6 class="title" id="defaultModalLabel">Status</h6>
+    {% endfor %}
+
+</div><!-- .email-page -->
+</div><!-- #main-content -->
+
+
+<!-- ══════════════════════════════════════════════════════ -->
+<!-- CONNECT DETAILS MODAL                                  -->
+<!-- ══════════════════════════════════════════════════════ -->
+<div class="vp-overlay" id="connectModal">
+    <div class="vp-modal" style="width:520px;">
+        <h3><i class="fa fa-plug"></i> Email Client Setup &mdash; <span id="connectEmailTitle" style="color:#a78bfa; font-size:0.95rem;"></span></h3>
+
+        <div class="conn-body-scroll">
+            <!-- SMTP -->
+            <div class="conn-section">
+                <div class="conn-section-title"><i class="fa fa-paper-plane-o"></i> Outgoing Mail (SMTP)</div>
+                <div class="conn-row">
+                    <span class="conn-row-key">Server</span>
+                    <span class="conn-row-val" id="smtpServer">{{ server_hostname }}<button class="copy-btn" onclick="copyText('{{ server_hostname }}')" title="Copy"><i class="fa fa-copy"></i></button></span>
                 </div>
-
-                <div class="modal-body">
-                    <div class="col-md-12 col-sm-12">
-                        <div id="statusemail" style="text-align: center;" class="row clearfix">
-
-
-
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button onclick="closeelol();"
-                            class="btn btn-danger">Close</button>
-                    </div>
+                <div class="conn-row">
+                    <span class="conn-row-key">Port</span>
+                    <span class="conn-row-val">587 <span class="conn-badge conn-badge-tls">STARTTLS</span></span>
                 </div>
+                <div class="conn-row">
+                    <span class="conn-row-key">Port (SSL)</span>
+                    <span class="conn-row-val">465 <span class="conn-badge conn-badge-ssl">SSL/TLS</span></span>
+                </div>
+                <div class="conn-row">
+                    <span class="conn-row-key">Username</span>
+                    <span class="conn-row-val" id="smtpUser">—<button class="copy-btn" onclick="copyId('smtpUserVal')" title="Copy"><i class="fa fa-copy"></i></button></span>
+                    <span id="smtpUserVal" style="display:none;"></span>
+                </div>
+                <div class="conn-row">
+                    <span class="conn-row-key">Password</span>
+                    <span class="conn-row-val">Your email password</span>
+                </div>
+                <div class="conn-row">
+                    <span class="conn-row-key">Authentication</span>
+                    <span class="conn-row-val">LOGIN / PLAIN <span class="conn-badge conn-badge-tls">Required</span></span>
+                </div>
+            </div>
 
+            <!-- IMAP -->
+            <div class="conn-section">
+                <div class="conn-section-title"><i class="fa fa-download"></i> Incoming Mail (IMAP — Recommended)</div>
+                <div class="conn-row">
+                    <span class="conn-row-key">Server</span>
+                    <span class="conn-row-val">{{ server_hostname }}<button class="copy-btn" onclick="copyText('{{ server_hostname }}')" title="Copy"><i class="fa fa-copy"></i></button></span>
+                </div>
+                <div class="conn-row">
+                    <span class="conn-row-key">Port (SSL)</span>
+                    <span class="conn-row-val">993 <span class="conn-badge conn-badge-ssl">SSL/TLS</span></span>
+                </div>
+                <div class="conn-row">
+                    <span class="conn-row-key">Port (STARTTLS)</span>
+                    <span class="conn-row-val">143 <span class="conn-badge conn-badge-tls">STARTTLS</span></span>
+                </div>
+                <div class="conn-row">
+                    <span class="conn-row-key">Username</span>
+                    <span class="conn-row-val" id="imapUser">—</span>
+                </div>
+                <div class="conn-row">
+                    <span class="conn-row-key">Password</span>
+                    <span class="conn-row-val">Your email password</span>
+                </div>
+            </div>
+
+            <!-- POP3 -->
+            <div class="conn-section">
+                <div class="conn-section-title"><i class="fa fa-inbox"></i> Incoming Mail (POP3)</div>
+                <div class="conn-row">
+                    <span class="conn-row-key">Server</span>
+                    <span class="conn-row-val">{{ server_hostname }}</span>
+                </div>
+                <div class="conn-row">
+                    <span class="conn-row-key">Port (SSL)</span>
+                    <span class="conn-row-val">995 <span class="conn-badge conn-badge-ssl">SSL/TLS</span></span>
+                </div>
+                <div class="conn-row">
+                    <span class="conn-row-key">Port (Plain)</span>
+                    <span class="conn-row-val">110 <span class="conn-badge conn-badge-plain">No Encryption</span></span>
+                </div>
             </div>
         </div>
+
+        <div class="vp-modal-footer">
+            <button class="vp-btn-modal-ghost" onclick="closeModal('connectModal')">Close</button>
+        </div>
     </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════ -->
+<!-- CHANGE PASSWORD MODAL                                  -->
+<!-- ══════════════════════════════════════════════════════ -->
+<div class="vp-overlay" id="changePassModal">
+    <div class="vp-modal" style="width:420px;">
+        <h3><i class="fa fa-key"></i> Change Password</h3>
+        <div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); border-radius:10px; padding:12px 16px; margin-bottom:20px;">
+            <div style="font-size:0.75rem; color:#64748b; margin-bottom:3px;">Changing password for</div>
+            <div id="changePassEmail" style="font-size:0.95rem; color:#a78bfa; font-weight:600; font-family:'Courier New',monospace;"></div>
+        </div>
+        <form id="changePassForm">{% csrf_token %}
+            <input type="hidden" id="cpDomain" name="domain">
+            <input type="hidden" id="cpEmailName" name="emailname">
+            <div class="vp-field-label">New Password</div>
+            <div style="display:flex; gap:8px; margin-bottom:16px;">
+                <input type="password" id="cpPassword" name="password" class="vp-input" placeholder="Enter new password" style="margin-bottom:0; flex:1;" required>
+                <button type="button" onclick="cpGenPass()" class="vp-btn-modal-ghost" style="padding:11px 14px; flex-shrink:0;" title="Generate">
+                    <i class="fa fa-magic"></i>
+                </button>
+                <button type="button" onclick="cpTogglePass()" class="vp-btn-modal-ghost" style="padding:11px 14px; flex-shrink:0;" title="Show">
+                    <i class="fa fa-eye" id="cpEyeIcon"></i>
+                </button>
+            </div>
+            <div id="cpStatus" style="min-height:22px; font-size:0.82rem; margin-bottom:14px;"></div>
+            <div class="vp-modal-footer">
+                <div id="cpSpinner" style="display:none; color:#a8b2d1; font-size:0.85rem; align-items:center; gap:6px;">
+                    <i class="fa fa-circle-o-notch fa-spin"></i> Updating...
+                </div>
+                <button type="button" class="vp-btn-modal-ghost" onclick="closeModal('changePassModal')">Cancel</button>
+                <button type="submit" class="vp-btn-modal-primary" onclick="submitChangePass(event)">
+                    <i class="fa fa-check"></i> Update Password
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<!-- SECURITY & LIMITS MODAL                                -->
+<!-- ══════════════════════════════════════════════════════ -->
+<div class="vp-overlay" id="limitsModal">
+    <div class="vp-modal" style="width:480px;">
+        <h3><i class="fa fa-shield"></i> Routing & Limits Settings</h3>
+        <div style="background: rgba(45,212,191,0.08); border: 1px solid rgba(45,212,191,0.2); border-radius:10px; padding:12px 16px; margin-bottom:20px;">
+            <div style="font-size:0.75rem; color:#64748b; margin-bottom:3px;">Managing Configuration for</div>
+            <div id="limitsEmailDisplay" style="font-size:0.95rem; color:#2dd4bf; font-weight:600; font-family:'Courier New',monospace;"></div>
+        </div>
+        
+        <!-- Toggle Toggles -->
+        <div class="conn-section">
+            <div class="conn-section-title"><i class="fa fa-exchange"></i> Account Suspensions</div>
+            <div class="conn-row" style="margin-bottom:12px;">
+                <div>
+                   <span class="conn-row-key" style="display:block;">Suspend Incoming</span>
+                   <span style="font-size:0.7rem; color:#64748b;">Reject all inbound mail</span>
+                </div>
+                <button id="btnSuspendIn" class="vp-btn vp-btn-delete" onclick="toggleSuspend('incoming', this)">Suspend</button>
+            </div>
+            <div class="conn-row" style="margin-bottom:12px;">
+                <div>
+                   <span class="conn-row-key" style="display:block;">Suspend Outgoing</span>
+                   <span style="font-size:0.7rem; color:#64748b;">Prevent outbound sending</span>
+                </div>
+                <button id="btnSuspendOut" class="vp-btn vp-btn-delete" onclick="toggleSuspend('outgoing', this)">Suspend</button>
+            </div>
+        </div>
+
+        <!-- Rate Limits -->
+        <div class="conn-section">
+            <div class="conn-section-title"><i class="fa fa-tachometer"></i> Outbound Rate Limit</div>
+            <form id="limitForm" onsubmit="submitLimit(event)">
+               <input type="hidden" id="limitsEmailName" name="email">
+               <div style="display:flex; gap:10px; align-items:center;">
+                   <input type="number" id="limitCount" name="limit" class="vp-input" placeholder="e.g. 50" style="margin:0; width:100px;" required>
+                   <span style="color:#64748b; font-size:0.85rem;">emails per</span>
+                   <select name="type" id="limitType" class="vp-input" style="margin:0; flex:1; width:auto; text-transform:none;">
+                       <option value="hourly">Hour</option>
+                       <option value="daily">Day</option>
+                   </select>
+                   <button type="submit" class="vp-btn-modal-primary" style="padding:11px 18px;">Apply</button>
+               </div>
+            </form>
+        </div>
+
+        <div class="vp-modal-footer" style="margin-top:15px;">
+            <button class="vp-btn-modal-ghost" onclick="closeModal('limitsModal')">Close Panel</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- Toast -->
+<div class="vp-toast" id="toast"></div>
+
+
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
 
 <script>
-function closeelol(){
-    document.getElementById('eeee').style.display='none';
-}
-</script>
+    /* ─── Modal Helpers ─── */
+    function openModal(id)  { document.getElementById(id).style.display = 'flex'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-        const inputField = document.getElementById("myInput6");
-
-        inputField.addEventListener("input", function (event) {
-            const value = inputField.value;
-            if (value.includes("'") || value.includes('"')) {
-                alert("Please don't use special characters like ' or \"");
-                // Remove the special characters
-                inputField.value = value.replace(/['"]/g, "");
-            }
+    /* Close on backdrop click */
+    document.querySelectorAll('.vp-overlay').forEach(function(el) {
+        el.addEventListener('click', function(e) {
+            if (e.target === el) closeModal(el.id);
         });
     });
-</script>
 
+    /* ─── Toast ─── */
+    function showToast(msg, isError) {
+        var t = document.getElementById('toast');
+        t.innerHTML = (isError ? '<i class="fa fa-times-circle" style="color:#ef4444;"></i> ' : '<i class="fa fa-check-circle" style="color:#22c55e;"></i> ') + msg;
+        t.style.display = 'block';
+        setTimeout(function() { t.style.display = 'none'; }, 3500);
+    }
 
-<script>
+    /* ─── Copy to clipboard ─── */
+    function copyText(text) {
+        navigator.clipboard.writeText(text).then(function() { showToast('Copied to clipboard!'); });
+    }
+    function copyId(id) {
+        copyText(document.getElementById(id).textContent);
+    }
 
-function chch(event) {
-                // Prevent default form submission behavior
-                event.preventDefault();
+    /* ─── Connect Modal ─── */
+    function showConnect(email, domain) {
+        document.getElementById('connectEmailTitle').textContent = email;
+        document.getElementById('smtpUser').innerHTML = email + ' <button class="copy-btn" onclick="copyText(\'' + email + '\')" title="Copy"><i class="fa fa-copy"></i></button>';
+        document.getElementById('imapUser').textContent = email;
+        document.getElementById('smtpUserVal').textContent = email;
+        openModal('connectModal');
+    }
 
-              
-                var formm = document.getElementById('changepassword');
-                var formData = new FormData(formm);
-                // Loop through checked checkboxes and get their values
-                $.ajax({
-                    url: "{% url 'changeemailpassword' %}",  // Set the correct URL pattern
-                    type: "POST",
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    headers: {
-                        'X-CSRFToken': '{{ csrf_token }}' // Pass the CSRF token
-                    },
-                    success: function (response) {
-                        if (response.status === 'success') {
-            
+    /* ─── Change Password Modal ─── */
+    function showChangePass(email, domain) {
+        document.getElementById('changePassEmail').textContent = email;
+        document.getElementById('cpDomain').value = domain;
+        document.getElementById('cpEmailName').value = email;
+        document.getElementById('cpPassword').value = '';
+        document.getElementById('cpStatus').innerHTML = '';
+        document.getElementById('cpPassword').type = 'password';
+        document.getElementById('cpEyeIcon').className = 'fa fa-eye';
+        openModal('changePassModal');
+    }
 
-  document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Password Changed  successfully!";
-                            document.getElementById('change').style.display='none';
-                            formm.reset();
-                        }
-                        else if (response.status === 'already') {
-                     
-                            document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Error Changing  Password!";
+    function cpGenPass() {
+        var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_';
+        var pwd = '';
+        for (var i = 0; i < 16; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
+        document.getElementById('cpPassword').value = pwd;
+        document.getElementById('cpPassword').type = 'text';
+        document.getElementById('cpEyeIcon').className = 'fa fa-eye-slash';
+        document.getElementById('cpStatus').innerHTML = '<span style="color:#22c55e;"><i class="fa fa-check-circle"></i>&nbsp;Secure password generated</span>';
+    }
 
+    function cpTogglePass() {
+        var p = document.getElementById('cpPassword');
+        var ico = document.getElementById('cpEyeIcon');
+        if (p.type === 'password') {
+            p.type = 'text'; ico.className = 'fa fa-eye-slash';
+        } else {
+            p.type = 'password'; ico.className = 'fa fa-eye';
+        }
+    }
 
-                        }
+    function submitChangePass(event) {
+        event.preventDefault();
+        var pwd = document.getElementById('cpPassword').value;
+        if (!pwd || pwd.length < 6) {
+            document.getElementById('cpStatus').innerHTML = '<span style="color:#ef4444;"><i class="fa fa-exclamation-circle"></i>&nbsp;Password must be at least 6 characters.</span>';
+            return;
+        }
+        var spinner = document.getElementById('cpSpinner');
+        spinner.style.display = 'flex';
 
-
-                    },
-
-
-                });
-           
-
-        
-
-                
+        var formData = new FormData(document.getElementById('changePassForm'));
+        fetch("{% url 'changeemailpassword' %}", {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            spinner.style.display = 'none';
+            if (data.status === 'success') {
+                closeModal('changePassModal');
+                showToast('Password updated successfully for ' + document.getElementById('cpEmailName').value);
+            } else {
+                document.getElementById('cpStatus').innerHTML = '<span style="color:#ef4444;"><i class="fa fa-times-circle"></i>&nbsp;Failed to update password. Please try again.</span>';
             }
-
-
-
-
-    function  hideconnect(){
-        document.getElementById('connect').style.display='none';
+        })
+        .catch(function() {
+            spinner.style.display = 'none';
+            document.getElementById('cpStatus').innerHTML = '<span style="color:#ef4444;"><i class="fa fa-times-circle"></i>&nbsp;Network error occurred.</span>';
+        });
     }
 
-    function  hidepassword(){
-        document.getElementById('change').style.display='none';
+    /* ─── Manage Settings Modal ─── */
+    function showSettings(email, suspendedIn, suspendedOut, customLimit, customLimitType) {
+        document.getElementById('limitsEmailDisplay').textContent = email;
+        document.getElementById('limitsEmailName').value = email;
+
+        // Restore incoming suspension state
+        var btnIn = document.getElementById('btnSuspendIn');
+        if (suspendedIn) {
+            btnIn.textContent = 'Unsuspend';
+            btnIn.className = 'vp-btn vp-btn-connect';
+        } else {
+            btnIn.textContent = 'Suspend';
+            btnIn.className = 'vp-btn vp-btn-delete';
+        }
+
+        // Restore outgoing suspension state
+        var btnOut = document.getElementById('btnSuspendOut');
+        if (suspendedOut) {
+            btnOut.textContent = 'Unsuspend';
+            btnOut.className = 'vp-btn vp-btn-connect';
+        } else {
+            btnOut.textContent = 'Suspend';
+            btnOut.className = 'vp-btn vp-btn-delete';
+        }
+
+        // Restore custom limit fields
+        document.getElementById('limitCount').value = customLimit > 0 ? customLimit : '';
+        document.getElementById('limitType').value = customLimitType || 'hourly';
+
+        openModal('limitsModal');
     }
 
-    function showpassword(data,domain){
-        document.getElementById('emailname').innerHTML=data;
-        document.getElementById('domainname').value=domain;
-        document.getElementById('emailkaname').value=data;
-
-
-document.getElementById('change').style.display='block';
-}
-
-    function showconnect(data){
-
+    function toggleSuspend(type, btn) {
+        var email = document.getElementById('limitsEmailName').value;
+        var action = btn.textContent === 'Suspend' ? 'suspend' : 'unsuspend';
+        var endpoint = type === 'incoming' ? '/api/email/suspend-incoming/' : '/api/email/suspend-outgoing/';
         
-        document.getElementById('username1').innerHTML='Username: '+data;
-        document.getElementById('username2').innerHTML='Username: '+data;
-        document.getElementById('connect').style.display='block';
+        var formData = new FormData();
+        formData.append('email', email);
+        formData.append('action', action);
+
+        fetch(endpoint, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        }).then(r=>r.json()).then(data => {
+            if(data.status === 'success') {
+                showToast(type.charAt(0).toUpperCase() + type.slice(1) + ' routing ' + action + 'ed successfully.');
+                btn.textContent = action === 'suspend' ? 'Unsuspend' : 'Suspend';
+                if(action === 'suspend') { btn.className = 'vp-btn vp-btn-connect'; }
+                else { btn.className = 'vp-btn vp-btn-delete'; }
+            } else {
+                showToast('Action failed: ' + (data.error || 'Unknown'), true);
+            }
+        });
+    }
+
+    function submitLimit(e) {
+        e.preventDefault();
+        var formData = new FormData(document.getElementById('limitForm'));
+        fetch('/api/email/set-limit/', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        }).then(r=>r.json()).then(data => {
+            if(data.status === 'success') {
+                showToast('Email limit deployed to policy daemon successfully.');
+                closeModal('limitsModal');
+            } else {
+                showToast('Limit application failed: ' + (data.error || 'Unknown'), true);
+            }
+        });
+    }
+
+    /* ─── Delete Email ─── */
+    function deleteEmail(email, btn) {
+        if (!confirm('Permanently delete ' + email + '?\nThis cannot be undone and will remove all associated mailbox data.')) return;
+        var origHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i>';
+        var fd = new FormData();
+        fetch('/control/deleteemai/' + encodeURIComponent(email) + '/', {
+            method: 'POST',
+            body: fd,
+            credentials: 'same-origin',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.status === 'success') {
+                showToast('\u2713 ' + email + ' deleted successfully.');
+                // Remove the card from the DOM
+                var card = btn.closest('.email-card');
+                if (card) {
+                    card.style.transition = 'opacity 0.3s';
+                    card.style.opacity = '0';
+                    setTimeout(function() { card.remove(); }, 320);
+                }
+            } else {
+                showToast('Delete failed: ' + (data.message || 'Unknown error'), true);
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+            }
+        })
+        .catch(function() {
+            showToast('Network error — please try again.', true);
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+        });
     }
 </script>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <!-- Javascript -->
-    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
-    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
-
-    <!-- page vendor js file -->
-    <script src="/static/assets/vendor/toastr/toastr.js"></script>
-    <script src="/static/assets/bundles/c3.bundle.js"></script>
-
-
-    <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
-    <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
-
-
-    <!-- page js file -->
-    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
-    <script src="/static/assets/bundles/chartjs.js"></script>
-    <script src="/static/assets/index2.js"></script>
-
 
 </body>
-
 </html>

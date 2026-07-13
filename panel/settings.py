@@ -20,16 +20,44 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-)ryl+4_-ki=ggc^9fw0zppc&&9cg(4muy2g0euh-)+#5cd)7f^'
+import os as _os
+
+# Load SECRET_KEY from environment; fall back to file; generate fresh key as last resort.
+def _load_secret_key():
+    _env_key = _os.environ.get('DJANGO_SECRET_KEY', '').strip()
+    if _env_key:
+        return _env_key
+    _key_file = _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), '.secret_key')
+    if _os.path.exists(_key_file):
+        with open(_key_file, 'r') as _f:
+            _stored = _f.read().strip()
+        if _stored:
+            return _stored
+    from django.core.management.utils import get_random_secret_key
+    _fresh = get_random_secret_key()
+    try:
+        with open(_key_file, 'w') as _f:
+            _f.write(_fresh)
+        _os.chmod(_key_file, 0o600)
+    except Exception:
+        pass
+    return _fresh
+
+SECRET_KEY = _load_secret_key()
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = _os.environ.get('DJANGO_DEBUG', 'true').strip().lower() in ('1', 'true', 'yes')
 
-ALLOWED_HOSTS = ['*']
+# Accept the server's own hostname/IP; '*' is replaced by the actual host at setup time.
+# Additional hostnames are appended by change_hostname() at install time.
+# Operators can restrict this via DJANGO_ALLOWED_HOSTS env var (comma-separated).
+_hosts_env = _os.environ.get('DJANGO_ALLOWED_HOSTS', '').strip()
+ALLOWED_HOSTS = [h.strip() for h in _hosts_env.split(',') if h.strip()] if _hosts_env else ['*']
 
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -39,8 +67,23 @@ INSTALLED_APPS = [
      'rest_framework',
     'control',
     'chatting',
+    'channels',
+    'django_celery_beat',
 ]
-X_FRAME_OPTIONS = 'ALLOWALL'
+# Allow iframes only from same origin (needed for file manager, terminal embeds)
+X_FRAME_OPTIONS = 'SAMEORIGIN'
+
+# ── Cookie & transport security ───────────────────────────────────────────────
+SESSION_COOKIE_HTTPONLY = True   # JS cannot read session cookie
+CSRF_COOKIE_HTTPONLY    = False  # Django needs JS to read CSRF cookie (for AJAX)
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE    = 'Lax'
+# Set SECURE cookies only when not in debug mode AND running over HTTPS
+_HTTPS_ENABLED = _os.environ.get('VOIDPANEL_HTTPS', '').strip().lower() in ('1', 'true', 'yes')
+if not DEBUG:
+    SESSION_COOKIE_SECURE = _HTTPS_ENABLED
+    CSRF_COOKIE_SECURE    = _HTTPS_ENABLED
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -49,7 +92,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    
+    'panel.middleware.LicenseMiddleware',
 ]
 
 ROOT_URLCONF = 'panel.urls'
@@ -65,14 +108,21 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'control.context_processors.reseller_context',   # reseller sidebar & guards
+                'control.context_processors.branding_context',   # white-label branding & license features
             ],
         },
     },
 ]
 
 WSGI_APPLICATION = 'panel.wsgi.application'
+ASGI_APPLICATION = 'panel.asgi.application'
 
-
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    },
+}
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
@@ -83,13 +133,13 @@ DATABASES = {
     }
 }
 
-FILE_UPLOAD_MAX_MEMORY_SIZE = 314572800  # 300MB in bytes
+FILE_UPLOAD_MAX_MEMORY_SIZE = 0  # 50MB in bytes
 
 # Maximum size of file upload handlers in memory before writing to disk
-DATA_UPLOAD_MAX_MEMORY_SIZE = 314572800  # 300MB in bytes
+DATA_UPLOAD_MAX_MEMORY_SIZE = None  # 50MB in bytes
 
 # Adjust the number of fields Django can handle for large form submissions if needed
-DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000 
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000 
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -125,28 +175,80 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = 'static/'
-
-
-
-# settings.py
-
-import os
-from pathlib import Path
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-# Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
-# STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
+
+
+
+STATIC_ROOT = _os.path.join(BASE_DIR, 'staticfiles')
 
 STATICFILES_DIRS = [
     BASE_DIR / "static",
-    "/var/www/panel/static/",
 ]
-CSRF_TRUSTED_ORIGINS = [
-    'https://changetoip:8082',
-]
+
+# ── CSRF Trusted Origins ─────────────────────────────────────────────────────
+# Dynamically builds a comprehensive list of trusted origins covering:
+#   - All access modes: IP:8080 (HTTP), IP:8082 (HTTPS), hostname:8080/8082
+#   - The /voidpanel alias path (same origins apply)
+# Operators can EXTEND via DJANGO_CSRF_ORIGINS env var (comma-separated).
+
+def _build_csrf_origins():
+    import socket
+    origins = set()
+
+    # ── From environment override ────────────────────────────────────────────
+    _env = _os.environ.get('DJANGO_CSRF_ORIGINS', '').strip()
+    if _env:
+        for o in _env.split(','):
+            o = o.strip()
+            if o:
+                origins.add(o)
+
+    # ── Auto-detect server IPs/hostnames ────────────────────────────────────
+    hosts = set()
+    try:
+        hosts.add(socket.gethostname())
+    except Exception:
+        pass
+    try:
+        hosts.add(socket.getfqdn())
+    except Exception:
+        pass
+    try:
+        hosts.add(socket.gethostbyname(socket.gethostname()))
+    except Exception:
+        pass
+
+    # Also add anything from DJANGO_ALLOWED_HOSTS env
+    _ah = _os.environ.get('DJANGO_ALLOWED_HOSTS', '').strip()
+    if _ah and _ah != '*':
+        for h in _ah.split(','):
+            h = h.strip()
+            if h and h != '*':
+                hosts.add(h)
+
+    # Build origin strings for every host × every port × protocol
+    for host in hosts:
+        if not host or host in ('*', 'localhost'):
+            continue
+        origins.update([
+            f'http://{host}',
+            f'https://{host}',
+            f'http://{host}:8080',
+            f'https://{host}:8082',
+            f'http://{host}:8001',
+            f'http://localhost:8080',
+            f'http://127.0.0.1:8080',
+        ])
+
+    return sorted(origins)
+
+CSRF_TRUSTED_ORIGINS = _build_csrf_origins()
+
+# Critical for HTTPS proxying (e.g. Nginx on port 8082 → 8080) to pass CSRF validation
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+# When accessing via X-Forwarded-Host, trust the proxy's reported host
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
 
 # Optional: Additional static file storage settings
 STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
@@ -162,3 +264,112 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 SESSION_COOKIE_AGE = 86400
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+# ── VoidPanel Portal <→ Control Panel API Key ────────────────────────────────
+# Must match the key on the website (website/voidpanel/voidpanel/settings.py)
+# In production: create /etc/voidpanel_api_key with the same value on both servers
+# In development: set VOIDPANEL_API_KEY env var or use the default below
+VOIDPANEL_API_KEY = _os.environ.get(
+    'VOIDPANEL_API_KEY',
+    '39a605a414acf7beef9d58d8d15f3a4f9045b4646b7d031ecfc99e8f072fa091'
+)
+
+# ─────────────────────────────────────────────────────────────
+# Celery — async task queue
+# Install: pip install celery redis
+# Start worker: celery -A panel worker --loglevel=info
+# ─────────────────────────────────────────────────────────────
+CELERY_BROKER_URL          = 'redis://localhost:6379/0'
+CELERY_RESULT_BACKEND      = 'redis://localhost:6379/0'
+CELERY_ACCEPT_CONTENT      = ['json']
+CELERY_TASK_SERIALIZER     = 'json'
+CELERY_RESULT_SERIALIZER   = 'json'
+CELERY_TIMEZONE            = TIME_ZONE
+CELERY_TASK_TRACK_STARTED  = True   # tasks show STARTED state in Flower
+CELERY_TASK_ACKS_LATE      = True   # don't ack until task finishes (crash-safe)
+
+# ── Celery Beat — nightly license refresh at midnight UTC ────────────────────
+from celery.schedules import crontab
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+CELERY_BEAT_SCHEDULE = {
+    'refresh-voidpanel-license-midnight': {
+        'task':     'control.tasks.refresh_license_task',
+        'schedule': crontab(hour=0, minute=0),   # every day at 00:00 UTC
+    },
+    'process-scheduled-marketing-campaigns-every-minute': {
+        'task':     'voidpanel.process_scheduled_campaigns',
+        'schedule': crontab(minute='*'),        # run every minute
+    },
+    'update-email-stats-every-5-minutes': {
+        'task':     'control.tasks.update_all_email_stats_task',
+        'schedule': crontab(minute='*/5'),
+    },
+    'process-automation-workflows-every-minute': {
+        'task':     'control.tasks.process_automation_workflows_task',
+        'schedule': crontab(minute='*'),        # run every minute
+    },
+}
+
+# ─────────────────────────────────────────────────────────────
+# Django logging — routes voidpanel.* to /var/log/voidpanel/
+# (panel/logger.py sets up the actual handlers at import time)
+# ─────────────────────────────────────────────────────────────
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'voidpanel': {
+            'format': '%(asctime)s [%(levelname)s] %(name)s — %(message)s',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'voidpanel',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+        },
+        # VoidPanel custom namespace — panel/logger.py adds rotating file handlers
+        'voidpanel': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}
+
+# ── Production CSRF & Host config injected by installer ──────────────────────
+_PANEL_IP = '207.180.209.216'
+_PANEL_HOST = 'vmi3408094.contaboserver.net'
+CSRF_TRUSTED_ORIGINS.extend([
+    f'http://{_PANEL_IP}',
+    f'http://{_PANEL_IP}:8080',
+    f'https://{_PANEL_IP}',
+    f'https://{_PANEL_IP}:8082',
+    f'http://{_PANEL_HOST}',
+    f'http://{_PANEL_HOST}:8080',
+    f'https://{_PANEL_HOST}',
+    f'https://{_PANEL_HOST}:8082',
+])
+ALLOWED_HOSTS = ['*', _PANEL_IP, _PANEL_HOST, 'localhost', '127.0.0.1']
+
+# Critical for HTTPS proxying (port 8082 -> 8080) to pass CSRF validation
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# SSO — URL of the voidpanel.com website (used to validate one-time SSO tokens)
+import os as _os
+VOIDPANEL_WEBSITE_URL = _os.environ.get('VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com')
+
+CSRF_TRUSTED_ORIGINS.extend(["http://panel.voidpanel.com", "http://panel.voidpanel.com:8080", "https://panel.voidpanel.com", "https://panel.voidpanel.com:8082"])
+
+CSRF_TRUSTED_ORIGINS.extend(["http://panel.voidpanel.com", "http://panel.voidpanel.com:8080", "https://panel.voidpanel.com", "https://panel.voidpanel.com:8082"])
+
+# Suite API Key (for external integrations from voidpanel.com website)
+SUITE_API_KEY = _os.environ.get('SUITE_API_KEY', 'vp-suite-api-k3y-v01dp4nel2024!')
+
+# This is useful for the panel owner's own installation.

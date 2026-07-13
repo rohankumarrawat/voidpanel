@@ -1,923 +1,1077 @@
+{% load static %}
 <!doctype html>
 <html lang="en">
-
 <head>
     <title>:: VoidPanel :: Database Wizard</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="VoidPanel DataBase Wizard ">
-    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
-    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
-
-    <!-- VENDOR CSS -->
+    <meta name="description" content="VoidPanel Database Wizard — Create and manage MySQL databases securely.">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
-
-    <!-- MAIN Project CSS file -->
-    <link rel="stylesheet" href="/static/assets/css/main.css">
-
-    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
     <style>
-        .myname {
-            border-radius: 30px;
-            box-shadow: inset;
-            border-width: 4px;
+        *, *::before, *::after { box-sizing: border-box; }
 
+        html[data-theme="light"] {
+            --page-bg: #f1f5f9;
+            --loader-bg: #f1f5f9;
+            --stat-card-bg: linear-gradient(135deg, rgba(241,245,249,0.9), rgba(226,232,240,0.98));
+            --stat-card-border: rgba(0,0,0,0.06);
+            --hero-title: #0f172a;
+            --hero-sub: #64748b;
+            --text-main: #0f172a;
+            --text-muted-c: #64748b;
+        }
+        html[data-theme="dark"] {
+            --page-bg: #060b17;
+            --loader-bg: #060b17;
+            --stat-card-bg: linear-gradient(135deg, rgba(22,32,54,0.85), rgba(12,18,36,0.98));
+            --stat-card-border: rgba(255,255,255,0.07);
+            --hero-title: #fff;
+            --hero-sub: #64748b;
+            --text-main: #f1f5f9;
+            --text-muted-c: #64748b;
+        }
+        body { font-family: 'Inter', sans-serif !important; background: var(--page-bg) !important; color: var(--text-main) !important; }
+        #main-content { background: transparent !important; }
+        .block-header h2, .breadcrumb-item { color: var(--text-main) !important; }
+        .breadcrumb-item a, .breadcrumb-item+.breadcrumb-item::before { color: #64748b !important; }
+        .page-loader-wrapper { background: var(--loader-bg) !important; }
 
+        /* ── Animated Background ── */
+        body::before {
+            content:''; position:fixed; inset:0; z-index:-2;
+            background:var(--page-bg);
+        }
+        body::after {
+            content:''; position:fixed; inset:0; z-index:-1;
+            background:
+                radial-gradient(ellipse at 10% 15%, rgba(99,102,241,0.18) 0%, transparent 50%),
+                radial-gradient(ellipse at 90% 80%, rgba(16,185,129,0.12) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(139,92,246,0.08) 0%, transparent 65%),
+                radial-gradient(ellipse at 80% 10%, rgba(245,158,11,0.06) 0%, transparent 40%);
+            animation: bgPulse 12s ease-in-out infinite alternate;
+        }
+        @keyframes bgPulse {
+            0%   { opacity:0.7; }
+            100% { opacity:1; }
         }
 
-        .text-container {
-
-            border: 1px solid #ccc;
-
-            word-wrap: break-word;
-            /* Force text to wrap */
-            white-space: normal;
-            /* Ensure normal wrapping */
-            overflow-wrap: break-word;
-            /* Ensure long words break */
+        /* ── Hero ── */
+        .db-hero {
+            display:flex; align-items:center; gap:18px;
+            padding:28px 0 20px;
         }
+        .db-hero-icon {
+            width:64px; height:64px; border-radius:18px;
+            background: linear-gradient(135deg,#6366f1,#4f46e5);
+            display:flex; align-items:center; justify-content:center;
+            font-size:26px; color:#fff;
+            box-shadow: 0 8px 32px rgba(99,102,241,0.5);
+            flex-shrink:0; position:relative; overflow:hidden;
+        }
+        .db-hero-icon::before {
+            content:''; position:absolute; inset:0;
+            background:linear-gradient(135deg, rgba(255,255,255,0.25) 0%, transparent 60%);
+        }
+        .db-hero h1 { font-size:1.65rem; font-weight:900; color:var(--hero-title); margin:0 0 4px; letter-spacing:-0.02em; }
+        .db-hero p  { font-size:0.85rem; color:var(--hero-sub); margin:0; }
+
+        /* ── Stats Cards Row ── */
+        .stats-row {
+            display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:16px;
+            margin-bottom:28px;
+        }
+        .stat-card {
+            background:var(--stat-card-bg);
+            border:1px solid var(--stat-card-border);
+            border-radius:16px; padding:20px 22px;
+            backdrop-filter:blur(20px);
+            position:relative; overflow:hidden;
+            transition:transform 0.2s, box-shadow 0.2s;
+        }
+        .stat-card:hover { transform:translateY(-2px); box-shadow:0 12px 40px rgba(0,0,0,0.4); }
+        .stat-card::before {
+            content:''; position:absolute; top:-30px; right:-30px;
+            width:100px; height:100px; border-radius:50%;
+            opacity:0.12;
+        }
+        .stat-card.blue::before { background:#6366f1; }
+        .stat-card.green::before { background:#10b981; }
+        .stat-card.purple::before { background:#a855f7; }
+        .stat-card.amber::before { background:#f59e0b; }
+        .stat-icon {
+            width:40px; height:40px; border-radius:12px;
+            display:flex; align-items:center; justify-content:center;
+            font-size:16px; margin-bottom:12px;
+        }
+        .stat-icon.blue  { background:rgba(99,102,241,0.2); color:#818cf8; }
+        .stat-icon.green { background:rgba(16,185,129,0.2); color:#34d399; }
+        .stat-icon.purple{ background:rgba(168,85,247,0.2); color:#c084fc; }
+        .stat-icon.amber { background:rgba(245,158,11,0.2); color:#fbbf24; }
+        .stat-value { font-size:1.8rem; font-weight:900; color:var(--hero-title); line-height:1; margin-bottom:4px; }
+        .stat-label { font-size:0.75rem; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; }
+        .stat-bar-bg { height:4px; background:rgba(255,255,255,0.06); border-radius:2px; margin-top:14px; overflow:hidden; }
+        .stat-bar-fill { height:100%; border-radius:2px; transition:width 0.8s ease; }
+        .stat-bar-fill.blue  { background:linear-gradient(90deg,#6366f1,#818cf8); }
+        .stat-bar-fill.green { background:linear-gradient(90deg,#10b981,#34d399); }
+
+        /* ── Tab Navigation ── */
+        .db-tabs {
+            display:flex; gap:4px;
+            background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.06);
+            border-radius:14px; padding:5px; margin-bottom:24px; width:fit-content;
+        }
+        .db-tab {
+            padding:10px 22px; border-radius:10px; cursor:pointer;
+            font-size:0.84rem; font-weight:600; color:#64748b;
+            transition:all 0.22s; border:none; background:transparent; outline:none;
+            display:flex; align-items:center; gap:8px;
+        }
+        .db-tab.active {
+            background:linear-gradient(135deg,rgba(99,102,241,0.3), rgba(79,70,229,0.2));
+            color:#a5b4fc; border:1px solid rgba(99,102,241,0.4);
+            box-shadow:0 2px 12px rgba(99,102,241,0.2);
+        }
+        .db-tab-panel { display:none; }
+        .db-tab-panel.active { display:block; animation:panelIn 0.2s ease; }
+        @keyframes panelIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+        /* ── Step Indicator ── */
+        .step-strip {
+            display:flex; align-items:center; gap:0; margin-bottom:24px;
+        }
+        .step-item { display:flex; align-items:center; gap:10px; font-size:0.8rem; font-weight:600; }
+        .step-circle {
+            width:32px; height:32px; border-radius:50%; flex-shrink:0;
+            display:flex; align-items:center; justify-content:center;
+            font-size:0.75rem; font-weight:800;
+            background:rgba(255,255,255,0.06); color:#475569; border:2px solid rgba(255,255,255,0.08);
+            transition:all 0.3s;
+        }
+        .step-circle.done {
+            background:rgba(16,185,129,0.2); color:#10b981; border-color:#10b981;
+            box-shadow:0 0 12px rgba(16,185,129,0.35);
+        }
+        .step-circle.active {
+            background:rgba(99,102,241,0.28); color:#818cf8; border-color:#6366f1;
+            box-shadow:0 0 16px rgba(99,102,241,0.45);
+        }
+        .step-name { color:#475569; transition:color 0.3s; }
+        .step-name.active { color:#f1f5f9; }
+        .step-line { flex:1; height:2px; background:rgba(255,255,255,0.05); margin:0 14px; min-width:30px;
+            position:relative; border-radius:1px; }
+
+        /* ── Glass Cards ── */
+        .vp-card {
+            background:linear-gradient(135deg, rgba(22,32,54,0.8), rgba(10,14,26,0.95));
+            border:1px solid rgba(255,255,255,0.07);
+            border-radius:18px; overflow:hidden;
+            backdrop-filter:blur(20px);
+            margin-bottom:24px;
+            transition:border-color 0.2s;
+        }
+        .vp-card:hover { border-color:rgba(99,102,241,0.2); }
+        .vp-card-header {
+            padding:18px 24px;
+            border-bottom:1px solid rgba(255,255,255,0.05);
+            display:flex; align-items:center; justify-content:space-between; gap:12px;
+            background:rgba(0,0,0,0.1);
+        }
+        .vp-card-header h5 {
+            margin:0; font-size:0.95rem; font-weight:700; color:#f1f5f9;
+            display:flex; align-items:center; gap:10px;
+        }
+        .vp-card-header h5 i { color:#6366f1; font-size:1rem; }
+        .vp-card-body { padding:24px; }
+
+        /* ── Form inputs ── */
+        .vp-label { font-size:0.78rem; color:#64748b; font-weight:600; display:block; margin-bottom:7px; letter-spacing:0.04em; text-transform:uppercase; }
+        .vp-input {
+            width:100%; padding:12px 16px; border-radius:11px;
+            background:rgba(0,0,0,0.3); border:1.5px solid rgba(255,255,255,0.09);
+            color:#fff; font-size:0.88rem; outline:none; font-family:'Inter',sans-serif;
+            transition:border 0.18s, box-shadow 0.18s; margin-bottom:0;
+        }
+        .vp-input:focus { border-color:#6366f1; box-shadow:0 0 0 4px rgba(99,102,241,0.15); background:rgba(0,0,0,0.35); }
+        .vp-input::placeholder { color:#334155; }
+
+        /* prefix-group */
+        .vp-prefix-group { display:flex; align-items:stretch; }
+        .vp-prefix {
+            padding:12px 15px; background:rgba(99,102,241,0.15);
+            border:1.5px solid rgba(99,102,241,0.3); border-right:none;
+            border-radius:11px 0 0 11px; font-size:0.82rem; font-weight:700;
+            color:#a78bfa; white-space:nowrap; display:flex; align-items:center; gap:6px;
+        }
+        .vp-prefix-group .vp-input { border-radius:0 11px 11px 0; flex:1; min-width:0; }
+        .vp-suffix-btn {
+            padding:12px 15px; background:rgba(255,255,255,0.06);
+            border:1.5px solid rgba(255,255,255,0.1); border-left:none;
+            border-radius:0 11px 11px 0; cursor:pointer; color:#64748b;
+            transition:background 0.15s, color 0.15s; display:flex; align-items:center;
+        }
+        .vp-suffix-btn:hover { background:rgba(255,255,255,0.12); color:#fff; }
+        .vp-prefix-group .vp-input.with-suffix { border-radius:0; border-right:none; }
+
+        /* ── Strength bar ── */
+        .strength-bar { height:5px; border-radius:3px; margin-top:10px; background:rgba(255,255,255,0.06); overflow:hidden; }
+        .strength-fill { height:100%; border-radius:3px; width:0; transition:all 0.35s ease; }
+        .strength-fill.weak   { width:30%; background:linear-gradient(90deg,#ef4444,#f87171); }
+        .strength-fill.medium { width:65%; background:linear-gradient(90deg,#f59e0b,#fbbf24); }
+        .strength-fill.strong { width:100%; background:linear-gradient(90deg,#10b981,#34d399); }
+        .strength-label { font-size:0.72rem; margin-top:6px; color:#64748b; font-weight:500; }
+
+        /* ── Buttons ── */
+        .vp-btn {
+            display:inline-flex; align-items:center; gap:8px;
+            padding:11px 22px; border-radius:11px; font-size:0.85rem; font-weight:600;
+            cursor:pointer; border:1.5px solid transparent; transition:all 0.22s;
+            font-family:'Inter',sans-serif; white-space:nowrap; outline:none;
+            text-decoration:none; justify-content:center;
+        }
+        .vp-btn-primary {
+            background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff;
+            box-shadow:0 4px 18px rgba(99,102,241,0.4);
+            border-color:rgba(99,102,241,0.5);
+        }
+        .vp-btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(99,102,241,0.55); }
+        .vp-btn-primary:disabled { opacity:0.45; cursor:not-allowed; transform:none; box-shadow:none; }
+        .vp-btn-success { background:rgba(16,185,129,0.14); border-color:rgba(16,185,129,0.35); color:#34d399; }
+        .vp-btn-success:hover { background:rgba(16,185,129,0.26); box-shadow:0 4px 16px rgba(16,185,129,0.25); }
+        .vp-btn-danger  { background:rgba(239,68,68,0.12);  border-color:rgba(239,68,68,0.3);  color:#f87171; }
+        .vp-btn-danger:hover { background:rgba(239,68,68,0.26); box-shadow:0 4px 14px rgba(239,68,68,0.2); }
+        .vp-btn-ghost   { background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.1); color:#94a3b8; }
+        .vp-btn-ghost:hover { background:rgba(255,255,255,0.12); color:#fff; }
+        .vp-btn-warning { background:rgba(245,158,11,0.13); border-color:rgba(245,158,11,0.3); color:#fbbf24; }
+        .vp-btn-warning:hover { background:rgba(245,158,11,0.24); }
+        .vp-btn.full { width:100%; }
+        .vp-btn.loading { opacity:0.55; pointer-events:none; }
+        .vp-btn-sm { padding:6px 14px; font-size:0.78rem; border-radius:8px; }
+
+        /* ── DB Table ── */
+        .vp-table { width:100%; border-collapse:collapse; }
+        .vp-table thead tr { background:rgba(0,0,0,0.18); }
+        .vp-table th { padding:11px 16px; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#475569; border-bottom:1px solid rgba(255,255,255,0.05); text-align:left; }
+        .vp-table td { padding:14px 16px; font-size:0.86rem; color:#cbd5e1; border-bottom:1px solid rgba(255,255,255,0.03); vertical-align:middle; }
+        .vp-table tbody tr:last-child td { border-bottom:none; }
+        .vp-table tbody tr:hover td { background:rgba(99,102,241,0.07); }
+        .db-badge { display:inline-flex; align-items:center; gap:7px; padding:4px 12px; font-size:0.78rem; font-weight:600; border-radius:20px; }
+        .db-badge.db-type { background:rgba(99,102,241,0.14); color:#818cf8; border:1px solid rgba(99,102,241,0.2); }
+        .db-badge.user-type { background:rgba(16,185,129,0.11); color:#34d399; border:1px solid rgba(16,185,129,0.2); }
+        .db-badge.conn-type { background:rgba(245,158,11,0.11); color:#fbbf24; border:1px solid rgba(245,158,11,0.2); }
+
+        /* ── Perm chips ── */
+        .perm-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px; }
+        .perm-chip {
+            padding:10px 8px; text-align:center; font-size:0.78rem; font-weight:700;
+            border:1.5px solid rgba(255,255,255,0.08); border-radius:10px;
+            background:rgba(0,0,0,0.2); color:#64748b; cursor:pointer;
+            transition:all 0.18s; user-select:none;
+        }
+        .perm-chip:hover { border-color:rgba(99,102,241,0.5); color:#818cf8; background:rgba(99,102,241,0.08); }
+        .perm-chip.active { background:rgba(99,102,241,0.22); border-color:#6366f1; color:#a5b4fc; box-shadow:0 0 8px rgba(99,102,241,0.2); }
+
+        /* ── Connect Bar ── */
+        .connect-bar {
+            display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap;
+            padding:24px;
+        }
+        .connect-bar .field { flex:1; min-width:190px; }
+        .vp-select {
+            width:100%; padding:12px 16px; border-radius:11px;
+            background:rgba(0,0,0,0.3); border:1.5px solid rgba(255,255,255,0.09);
+            color:#f1f5f9; font-size:0.87rem; outline:none; font-family:'Inter',sans-serif;
+            appearance:none; cursor:pointer;
+            background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2364748b' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+            background-repeat:no-repeat; background-position:right 16px center;
+            transition:border 0.18s;
+        }
+        .vp-select:focus { border-color:#6366f1; box-shadow:0 0 0 4px rgba(99,102,241,0.15); }
+        .vp-select option { background:#1e293b; color:#f1f5f9; }
+
+        /* ── Modal ── */
+        .vp-overlay {
+            position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(8px);
+            z-index:9000; display:none; align-items:center; justify-content:center;
+        }
+        .vp-overlay.open { display:flex; }
+        .vp-modal {
+            background:linear-gradient(145deg,rgba(22,33,58,0.99),rgba(8,12,24,0.99));
+            border:1px solid rgba(99,102,241,0.25); border-radius:20px;
+            padding:32px 34px; width:540px; max-width:96vw;
+            box-shadow:0 30px 70px rgba(0,0,0,0.75); animation:mIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        @keyframes mIn { from { opacity:0; transform:scale(0.9) translateY(20px); } to { opacity:1; transform:scale(1) translateY(0); } }
+        .vp-modal h4 { margin:0 0 22px; font-size:1.08rem; font-weight:800; color:#fff; display:flex; align-items:center; gap:10px; }
+        .vp-modal h4 i { color:#6366f1; }
+        .modal-footer { display:flex; gap:10px; justify-content:flex-end; margin-top:22px; }
+
+        /* ── Info mini cards inside modal ── */
+        .modal-info-card {
+            flex:1; min-width:150px;
+            border-radius:11px; padding:12px 16px;
+        }
+        .modal-info-card .mic-label { font-size:0.68rem; color:#475569; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px; }
+        .modal-info-card .mic-value { font-weight:800; font-size:0.92rem; }
+
+        /* ── Copy input ── */
+        .copy-group { display:flex; gap:0; }
+        .copy-input {
+            flex:1; padding:10px 14px; border-radius:10px 0 0 10px;
+            background:rgba(0,0,0,0.3); border:1.5px solid rgba(255,255,255,0.09); border-right:none;
+            color:#a5b4fc; font-size:0.82rem; font-family:monospace; outline:none;
+        }
+        .copy-btn {
+            padding:10px 14px; background:rgba(99,102,241,0.2);
+            border:1.5px solid rgba(99,102,241,0.35); border-left:none;
+            border-radius:0 10px 10px 0; cursor:pointer; color:#818cf8;
+            font-size:0.8rem; transition:background 0.15s; display:flex; align-items:center; gap:6px;
+        }
+        .copy-btn:hover { background:rgba(99,102,241,0.35); }
+
+        /* ── Connection Card (DB→User link) ── */
+        .conn-card {
+            background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.05);
+            border-radius:12px; padding:14px 18px;
+            display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+            transition:background 0.18s;
+        }
+        .conn-card:hover { background:rgba(99,102,241,0.06); border-color:rgba(99,102,241,0.15); }
+        .conn-arrow { color:#475569; font-size:0.9rem; flex-shrink:0; }
+        .conn-grid { display:grid; gap:8px; }
+
+        /* ── Misc ── */
+        .vp-empty { text-align:center; padding:40px 20px; color:#334155; }
+        .vp-empty i { font-size:2.2rem; display:block; margin-bottom:12px; opacity:0.4; }
+        .vp-empty p { font-size:0.82rem; margin:0; }
+        .form-row { display: block !important; margin-bottom:20px; }
+        .info-hint { margin-top:8px; font-size:0.73rem; color:#334155; display:flex; align-items:center; gap:6px; }
+
+        /* ── Toast ── */
+        #toast-stack { position:fixed; bottom:24px; right:24px; z-index:10000; display:flex; flex-direction:column; gap:8px; }
+        .vp-toast {
+            min-width:260px; padding:13px 18px; border-radius:12px; font-size:0.83rem; font-weight:500;
+            backdrop-filter:blur(24px); box-shadow:0 10px 40px rgba(0,0,0,0.55);
+            animation:tIn 0.3s cubic-bezier(0.34,1.56,0.64,1); display:flex; align-items:center; gap:10px;
+        }
+        @keyframes tIn { from { opacity:0; transform:translateX(50px) scale(0.9); } to { opacity:1; transform:translateX(0) scale(1); } }
+        .vp-toast.success { background:rgba(16,185,129,0.18); border:1px solid rgba(16,185,129,0.4); color:#34d399; }
+        .vp-toast.error   { background:rgba(239,68,68,0.18);  border:1px solid rgba(239,68,68,0.4);  color:#f87171; }
+        .vp-toast.info    { background:rgba(99,102,241,0.18); border:1px solid rgba(99,102,241,0.4); color:#818cf8; }
+
+        /* ── Count badge on tab ── */
+        .tab-count {
+            background:rgba(99,102,241,0.25); color:#818cf8;
+            border-radius:20px; padding:2px 8px; font-size:0.68rem; font-weight:800;
+        }
+
+        @media(max-width:768px){ .db-tabs { width:100%; } .db-tab { font-size:0.75rem; padding:8px 14px; } .stats-row { grid-template-columns:1fr 1fr; } }
+        @media(max-width:480px){ .stats-row { grid-template-columns:1fr; } }
     </style>
-
 </head>
 
-<body data-theme="light" class="font-nunito">
+<body>
+{% csrf_token %}
+<div id="toast-stack"></div>
 
-    <div id="wrapper" class="theme-cyan">
-
-        <!-- Page Loader -->
-        <div class="page-loader-wrapper">
-            <div class="loader">
-                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
-                </div>
-                <p>Please wait...</p>
+<div id="wrapper">
+        <div class="page-loader-wrapper" style="background: var(--void-bg, #080c14) !important;">
+        <div class="loader">
+            <div class="m-t-30" style="display: flex; justify-content: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="130" height="30" viewBox="0 0 180 40" role="img" aria-label="VoidPanel">
+                  <rect x="0" y="4" width="34" height="34" rx="8" ry="8" fill="rgba(255,255,255,0.12)"/>
+                  <rect x="7" y="13" width="20" height="4" rx="1.5" fill="#ffffff" opacity="0.9"/>
+                  <rect x="7" y="19.5" width="14" height="4" rx="1.5" fill="#ffffff" opacity="0.65"/>
+                  <rect x="7" y="26" width="10" height="4" rx="1.5" fill="#60a5fa" opacity="0.95"/>
+                  <text x="43" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#ffffff">Void</text>
+                  <text x="91" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#60a5fa">Panel</text>
+                </svg>
             </div>
+            <div class="loading-bar-container">
+                <div class="loading-bar"></div>
+            </div>
+            <p style="color: var(--text-secondary, #475569) !important;">Please wait...</p>
         </div>
+    </div>
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
 
+    <div id="main-content">
+        <div class="container-fluid">
 
-
-        {% include 'navbar.html' %}
-
-        <!-- main left menu -->
-        {% include 'left.html' %}
-        <!-- rightbar icon div -->
-        {% include 'right.html' %}
-
-
-        <!-- mani page content body part -->
-
-        <div id="main-content">
-
-            <div class="container-fluid">
-                <div class="block-header">
-                    <div class="row">
-                        <div class="col-lg-10 col-md-6 col-sm-12">
-                            <h2>Edit/Add Websites</h2>
-                            <ul class="breadcrumb">
-                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
-                                </li>
-                                <li class="breadcrumb-item">Dashboard</li>
-                                <li class="breadcrumb-item">Edit/Add Websites</li>
-
-                            </ul>
-                        </div>
-
-
-
-
-
-
-
-                    </div>
+            <!-- ── Hero ── -->
+            <div class="db-hero">
+                <div class="db-hero-icon"><i class="fa-solid fa-database"></i></div>
+                <div>
+                    <h1>Database Wizard</h1>
+                    <p>Create MySQL databases &amp; users, manage privileges — all in one place.</p>
                 </div>
+            </div>
 
-                <div class="row clearfix">
-                    <div class="col-lg-12">
-
-                        <div class="">
-                            <div class="header">
-                                <h2>Database Wizard</h2>
-
-
-                            </div>
-
-
-                        </div>
-                    </div>
+            <!-- ── Stats Row ── -->
+            <div class="stats-row">
+                <div class="stat-card blue">
+                    <div class="stat-icon blue"><i class="fa-solid fa-database"></i></div>
+                    <div class="stat-value" id="statDbCount">{{ database|length }}</div>
+                    <div class="stat-label">Total Databases</div>
+                    <div class="stat-bar-bg"><div class="stat-bar-fill blue" style="width:{{ database|length|default:0 }}%;" id="statDbBar"></div></div>
                 </div>
+                <div class="stat-card green">
+                    <div class="stat-icon green"><i class="fa-solid fa-users"></i></div>
+                    <div class="stat-value">{{ users|length }}</div>
+                    <div class="stat-label">DB Users</div>
+                    <div class="stat-bar-bg"><div class="stat-bar-fill green" style="width:{{ users|length|default:0 }}%;"></div></div>
+                </div>
+                <div class="stat-card purple">
+                    <div class="stat-icon purple"><i class="fa-solid fa-link"></i></div>
+                    <div class="stat-value">{{ mappings|length }}</div>
+                    <div class="stat-label">Active Connections</div>
+                </div>
+                <div class="stat-card amber">
+                    <div class="stat-icon amber"><i class="fa-solid fa-infinity"></i></div>
+                    <div class="stat-value">∞</div>
+                    <div class="stat-label">DB Quota (Admin)</div>
+                </div>
+            </div>
 
-                <div class="row clearfix" style="margin-top: 30px;">
+            <!-- ── Step indicator ── -->
+            <div class="step-strip">
+                <div class="step-item">
+                    <div class="step-circle active" id="step1-circle">1</div>
+                    <span class="step-name active" id="step1-name">Create DB &amp; User</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step-item">
+                    <div class="step-circle" id="step2-circle">2</div>
+                    <span class="step-name" id="step2-name">Grant Privileges</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step-item">
+                    <div class="step-circle" id="step3-circle">3</div>
+                    <span class="step-name" id="step3-name">Done</span>
+                </div>
+            </div>
+
+            <!-- ── Tab Navigation ── -->
+            <div class="db-tabs">
+                <button class="db-tab active" id="tab-btn-create" onclick="switchTab('create')"><i class="fa-solid fa-plus-circle"></i> Create</button>
+                <button class="db-tab" id="tab-btn-connect" onclick="switchTab('connect')"><i class="fa-solid fa-shield-halved"></i> Grant Privileges</button>
+                <button class="db-tab" id="tab-btn-list" onclick="switchTab('list')">
+                    <i class="fa-solid fa-list"></i> View All
+                    <span class="tab-count">{{ database|length }}</span>
+                </button>
+            </div>
+
+            <!-- ── TAB: Create ── -->
+            <div class="db-tab-panel active" id="tab-create">
+                <div class="row g-4">
+
+                    <!-- Add Database Card -->
                     <div class="col-lg-6 col-md-12">
-                        <div class="">
-                            <div class="header">
-                                <h4> Add DataBase </h4>
+                        <div class="vp-card">
+                            <div class="vp-card-header">
+                                <h5><i class="fa-solid fa-database"></i> Create New Database</h5>
                             </div>
-                            <div class="body table-responsive">
-                                <div class="modal-dialog modal-sm" role="document">
-                                    <div class="modal-content">
-                                        <div class="modal-header">
-                                            <h6 class="title" id="defaultModalLabel">Add Database</h6>
+                            <div class="vp-card-body">
+                                <form id="addDbForm" onsubmit="event.preventDefault(); addDatabase(event);">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="front" value="">
+                                    <div class="form-group">
+                                        <label class="vp-label">Database Name</label>
+                                        <div class="vp-prefix-group">
+                                            <span class="vp-prefix"><i class="fa-solid fa-database"></i></span>
+                                            <input class="vp-input" type="text" name="databasename" id="dbNameInput"
+                                                oninput="sanitize(this)" placeholder="my_database" required>
                                         </div>
-                                        <form id="adddbform" method="post" action="">{% csrf_token %}
-                                            <div class="modal-body">
-                                                <div class="row clearfix">
-
-
-                                                    <div class="col-md-12 col-sm-12">
-
-                                                        <div class="input-group mb-3">
-                                                           
-                                                            <input required type="text" id="textInput"
-                                                                oninput="removeSpacesAndSpecialChars(this);"
-                                                                name="databasename" class="form-control"
-                                                                placeholder="Database Name"
-                                                                aria-label="Recipient's username"
-                                                                aria-describedby="basic-addon2">
-                                                            <input required type="text" id="textInput" name="front"
-                                                                class="form-control" value="{{domain.dir}}_" hidden>
-
-                                                        </div>
-
-
-
-
-                                                    </div>
-
-                                                </div>
-                                            </div>
-                                            <div class="modal-footer" style="text-align: center;">
-                                                <button id="addemailbtn" onclick="adddb(event);" 
-                                                        style="display: block; margin: 0 auto;" 
-                                                        class="btn btn-primary">Add</button>
-
-
-                                                         <p id="pro" style="display: none;" class="processing">Processing<span
-                                                        class="dots"></span>
-                                                </p>
-                                            </div>
-                                            
-                                        </form>
+                                        <div class="info-hint">
+                                            <i class="fa-solid fa-circle-info"></i> Only letters, numbers, and underscores.
+                                        </div>
                                     </div>
-                                </div>
-
-                                </table>
+                                    <button type="button" class="vp-btn vp-btn-primary full" id="addDbBtn" onclick="addDatabase(event)">
+                                        <i class="fa-solid fa-database"></i> Create Database
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     </div>
-                    <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
-                        <div class="modal-dialog modal-sm" role="document">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h6 class="title" id="defaultModalLabel">Status</h6>
-                                </div>
-    
-                                <div class="modal-body">
-                                    <div class="col-md-12 col-sm-12">
-                                        <div id="statusemail" style="text-align: center;" class="row clearfix">
-    
-    
-    
-                                        </div>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button  onclick="closedata();"
-                                            class="btn btn-danger">Close</button>
-                                    </div>
-                                </div>
-    
-                            </div>
-                        </div>
-                    </div>
+
+                    <!-- Add User Card -->
                     <div class="col-lg-6 col-md-12">
-                        <div class="">
-                            <div class="header">
-                                <h4>Add Users</h4>
+                        <div class="vp-card">
+                            <div class="vp-card-header">
+                                <h5><i class="fa-solid fa-user-plus"></i> Create Database User</h5>
                             </div>
-                            <div class="body table-responsive social_media_table"
-                                style="max-height: 250px; overflow-y: auto;">
-
-                                <div class="modal-dialog modal-sm" role="document">
-                                    <div class="modal-content">
-                                        <div class="modal-header">
-                                            <h6 class="title" id="defaultModalLabel">Add DataBase User</h6>
+                            <div class="vp-card-body">
+                                <form id="addUserForm" onsubmit="event.preventDefault(); addDatabaseUser(event);">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="domain" value="">
+                                    <div class="form-group">
+                                        <label class="vp-label">Username</label>
+                                        <div class="vp-prefix-group">
+                                            <span class="vp-prefix"><i class="fa-solid fa-user"></i></span>
+                                            <input class="vp-input" type="text" name="databaseuser" id="dbUserInput"
+                                                oninput="sanitize(this)" placeholder="db_user" required>
                                         </div>
-                                        <form id="adddbuser" method="post" action="">{% csrf_token %}
-                                            <div class="modal-body">
-                                                <div class="row clearfix">
-
-
-                                                    <div class="col-md-12 col-sm-12">
-
-                                                        <div class="input-group mb-3">
-                                                           
-                                                            <input required type="text" id="textInput"
-                                                                oninput="removeSpacesAndSpecialChars(this);"
-                                                                name="databaseuser" class="form-control"
-                                                                placeholder="username" required
-                                                                aria-label="Recipient's username"
-                                                                aria-describedby="basic-addon2">
-
-                                                        </div>
-                                                        <div class="form-group">
-                                                            <input required type="password" name="password"
-                                                                placeholder="Password" id="password68" required
-                                                                class="form-control">
-
-                                                            <input type="password" name="domain" value="{{domain.dir}}"
-                                                                hidden class="form-control">
-
-                                                        </div>
-                                                        <div id="match" class="form-group">
-
-
-                                                        </div>
-                                                        <div class="form-group">
-                                                            <input required type="password" oninput="confirm1(this);"
-                                                                name="password1" placeholder="Confirm Password"
-                                                                id="password69" class="form-control">
-
-                                                        </div>
-                                                        <div class="row clearfix">
-                                                            <div class="col-md-8 col-sm-12">
-                                                                <div class="form-group">
-                                                                    <button type="button" class="btn btn-secondary"
-                                                                        onclick="gen1();">Generate Password</button>
-                                                                </div>
-                                                            </div>
-                                                            <div class="col-md-4 col-sm-12">
-                                                                <div class="form-group">
-                                                                    <button type="button" class="btn btn-primary"
-                                                                        onclick="genshow1();"><i class="fa  icon-eye">
-                                                                        </i></button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                    </div>
-
-                                                </div>
-                                            </div>
-                                            <div class="modal-footer" style="text-align: center;">
-                                                <button id="addemailbtn1" onclick="adddatabaseuser(event);" 
-                                                        style="display: block; margin: 0 auto;" 
-                                                        class="btn btn-primary" disabled>Add</button>
-                                                        <p id="pro" style="display: none;" class="processing">Processing<span
-                                                            class="dots"></span>
-                                                    </p>
-                                            </div>
-                                            
-                                           
-                                        </form>
                                     </div>
-                                </div>
-
-
-
-
+                                    <div class="form-group">
+                                        <label class="vp-label">Password</label>
+                                        <div class="vp-prefix-group">
+                                            <input class="vp-input with-suffix" type="password" name="password" id="pw1"
+                                                oninput="checkStrength()" placeholder="Enter password" required autocomplete="new-password">
+                                            <button type="button" class="vp-suffix-btn" onclick="togglePw('pw1',this)" title="Toggle visibility"><i class="fa fa-eye"></i></button>
+                                        </div>
+                                        <div class="strength-bar"><div class="strength-fill" id="strengthFill"></div></div>
+                                        <div class="strength-label" id="strengthLabel">Enter a password</div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="vp-label">Confirm Password</label>
+                                        <div class="vp-prefix-group">
+                                            <input class="vp-input with-suffix" type="password" name="password1" id="pw2"
+                                                oninput="checkMatch()" placeholder="Repeat password" required autocomplete="new-password">
+                                            <button type="button" class="vp-suffix-btn" onclick="togglePw('pw2',this)" title="Toggle visibility"><i class="fa fa-eye"></i></button>
+                                        </div>
+                                        <div id="matchHint" class="info-hint" style="display:none;"></div>
+                                    </div>
+                                    <div class="form-group">
+                                        <button type="button" class="vp-btn vp-btn-ghost full" onclick="generatePass()">
+                                            <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Strong Password
+                                        </button>
+                                    </div>
+                                    <button type="button" class="vp-btn vp-btn-success full" id="addUserBtn" onclick="addDatabaseUser(event)" disabled>
+                                        <i class="fa-solid fa-user-plus"></i> Create User
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     </div>
-
                 </div>
+            </div>
 
-                <div class="row clearfix " style="margin-top: 30px;">
-
-
-                    <div class="col-lg-1 col-md-6 col-sm-12">
-                        <img src="/static/icons/mydb.svg" style="height: 80px; width: 80px; border-radius: 5%;">
-
+            <!-- ── TAB: Grant Privileges ── -->
+            <div class="db-tab-panel" id="tab-connect">
+                <div class="vp-card">
+                    <div class="vp-card-header">
+                        <h5><i class="fa-solid fa-shield-halved"></i> Grant Database Privileges to User</h5>
+                        <span style="font-size:0.78rem; color:#64748b;">Select a database and user, then assign MySQL privileges</span>
                     </div>
-                    <div class="col-lg-3 col-md-6 col-sm-12">
-                        <div class="form-group">
-                            <select class="form-control show-tick" id="dbSelect">
-                                <option>Select Database Name</option>
-                                {% for i in database %}
-                                <option value="{{i}}">{{i}}</option>
-                                {% endfor %}
-
+                    <div class="connect-bar">
+                        <div class="field">
+                            <label class="vp-label">Database</label>
+                            <select class="vp-select" id="dbSelect">
+                                <option value="">— Select Database —</option>
+                                {% for i in database %}<option value="{{ i }}">{{ i }}</option>{% endfor %}
                             </select>
                         </div>
-
-
-                    </div>
-
-                    <div class="col-lg-3 col-md-6 col-sm-12">
-                        <div class="form-group">
-                            <select class="form-control show-tick" id="dbSelect1">
-                                <option>Select User Name</option>
+                        <div class="field">
+                            <label class="vp-label">DB User</label>
+                            <select class="vp-select" id="userSelect">
+                                <option value="">— Select User —</option>
                                 {% for i in users %}
-                                <option value="{{i}}">{{i}}</option>
+                                {% if i != 'newuser' and i != 'roundcube' and i != 'roundcubeuser' and i != 'root' and i != 'mysql.infoschema' and i != 'mysql.session' and i != 'mysql.sys' %}
+                                <option value="{{ i }}">{{ i }}</option>
+                                {% endif %}
                                 {% endfor %}
-
                             </select>
                         </div>
-
-
-                    </div>
-
-
-                    <div class="col-lg-3 col-md-6 col-sm-12">
-                        <div class="form-group">
-                            <button onclick="showp();" type="button" class="btn btn-primary"> Connect Database to
-                                User</button>
+                        <div>
+                            <button class="vp-btn vp-btn-primary" onclick="openPermModal()">
+                                <i class="fa-solid fa-shield-halved"></i> Assign Privileges
+                            </button>
                         </div>
-
-
                     </div>
-
-
                 </div>
 
-
-
-                <div class="row clearfix" style="margin-top: 30px;">
-                    <div class="col-lg-6 col-md-12">
-                        <div class="">
-                            <div class="header">
-                                <h4>DataBase List</h4>
-                            </div>
-                            <div class="body table-responsive">
-                                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
-                                    <table class="table  mb-0">
-                                        <thead>
-                                            <tr>
-                                                <th>Name</th>
-                                                <th>Domain</th>
-                                                <th>Action</th>
-
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for i in database %}
-                                            <tr>
-                                                <td>
-                                                    {{i}}
-                                                </td>
-
-                                                <td>
-                                                    {{domain}}
-                                                </td>
-
-                                                <td>
-
-                                                    <a href="/dbreomve/admin/{{i}}/"> <button
-                                                            class="btn btn-danger">Delete <i
-                                                                class="fa fa-trash"></i></button></a>
-                                                </td>
-
-                                            </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                </table>
-                            </div>
+                <!-- ── Existing connections quick view ── -->
+                {% if mappings %}
+                <div class="vp-card">
+                    <div class="vp-card-header">
+                        <h5><i class="fa-solid fa-diagram-project"></i> Existing DB→User Connections</h5>
+                        <span style="font-size:0.78rem; color:#64748b;">{{ mappings|length }} active privilege mapping(s)</span>
+                    </div>
+                    <div class="vp-card-body" style="padding:16px 24px;">
+                        <div class="conn-grid">
+                        {% for m in mappings %}
+                        <div class="conn-card">
+                            <span class="db-badge db-type"><i class="fa-solid fa-database" style="font-size:0.65rem;"></i>{{ m.database }}</span>
+                            <span class="conn-arrow"><i class="fa-solid fa-arrow-right-long"></i></span>
+                            <span class="db-badge user-type"><i class="fa-solid fa-user" style="font-size:0.65rem;"></i>{{ m.user }}</span>
+                            <button class="vp-btn vp-btn-danger vp-btn-sm" style="margin-left:auto;"
+                                onclick="revokePrivs('{{ m.database }}','{{ m.user }}',this)" title="Revoke privileges">
+                                <i class="fa-solid fa-ban"></i> Revoke
+                            </button>
+                        </div>
+                        {% endfor %}
                         </div>
                     </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- ── TAB: View All ── -->
+            <div class="db-tab-panel" id="tab-list">
+                <div class="row g-4">
+                    <!-- Databases Table -->
                     <div class="col-lg-6 col-md-12">
-                        <div class="">
-                            <div class="header">
-                                <h4>Database Users</h4>
+                        <div class="vp-card">
+                            <div class="vp-card-header">
+                                <h5><i class="fa-solid fa-server"></i> All Databases</h5>
+                                <span class="db-badge db-type">{{ database|length }} total</span>
                             </div>
-                            <div class="body table-responsive social_media_table"
-                                style="max-height: 300px; overflow-y: auto;">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>DB User</th>
-                                      
-                                            <th>Edit</th>
-                                            <th>Delete</th>
-
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-
-
-
-                                        {% for i in users %}
-
-                                        {% if i != 'newuser' and i != 'roundcube' and i != 'roundcubeuser'  %}
-                                        <tr>
-                                            <td>{{i}}</td>
-
-                     
-
-
-
-
-
-
-                                            <td>
-
-                                                <button onclick="changepassword('{{i}}');"
-                                                    class="btn btn-success">Change Password <i
-                                                        class="fa fa-edit"></i></button>
-                                            </td>
-                                            <td>
-
-                                                <a href="/dbuserremove/admin/{{i}}/"> <button
-                                                        class="btn btn-danger">Delete <i
-                                                            class="fa fa-trash"></i></button></a>
-                                            </td>
-
-                                  
-                                        </tr>
-                                        {% endif %}
-                                        {% endfor %}
+                            <div style="overflow-x:auto;">
+                                <table class="vp-table">
+                                    <thead><tr><th>Database Name</th><th>Owner</th><th style="text-align:right;">Action</th></tr></thead>
+                                    <tbody id="dbListBody">
+                                    {% for i in database %}
+                                    {% if i != 'information_schema' and i != 'performance_schema' and i != 'mysql' and i != 'sys' %}
+                                    <tr id="dbrow-{{ forloop.counter }}">
+                                        <td><span class="db-badge db-type"><i class="fa-solid fa-circle" style="font-size:5px;"></i>{{ i }}</span></td>
+                                        <td style="color:#475569; font-size:0.8rem;">
+                                            {% for m in mappings %}{% if m.database == i %}<span style="color:#34d399; font-size:0.78rem;"><i class="fa-solid fa-user" style="font-size:0.65rem; margin-right:4px;"></i>{{ m.user }}</span>&nbsp;{% endif %}{% endfor %}
+                                            {% if not mappings %}<span style="color:#334155;">—</span>{% endif %}
+                                        </td>
+                                        <td style="text-align:right;">
+                                            <button class="vp-btn vp-btn-danger vp-btn-sm"
+                                                onclick="deleteDB('admin','{{ i }}',this)">
+                                                <i class="fa-solid fa-trash"></i> Delete
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                    {% empty %}
+                                    <tr><td colspan="3"><div class="vp-empty"><i class="fa-solid fa-database"></i><p>No databases yet.</p></div></td></tr>
+                                    {% endfor %}
                                     </tbody>
                                 </table>
                             </div>
                         </div>
                     </div>
 
+                    <!-- Users Table -->
+                    <div class="col-lg-6 col-md-12">
+                        <div class="vp-card">
+                            <div class="vp-card-header">
+                                <h5><i class="fa-solid fa-users"></i> All DB Users</h5>
+                                <span class="db-badge user-type">{{ users|length }} total</span>
+                            </div>
+                            <div style="overflow-x:auto;">
+                                <table class="vp-table">
+                                    <thead><tr><th>Username</th><th>Connected Databases</th><th style="text-align:right;">Actions</th></tr></thead>
+                                    <tbody id="userListBody">
+                                    {% for i in users %}
+                                    {% if i != 'newuser' and i != 'roundcube' and i != 'roundcubeuser' and i != 'root' and i != 'mysql.infoschema' and i != 'mysql.session' and i != 'mysql.sys' %}
+                                    <tr id="userrow-{{ forloop.counter }}">
+                                        <td>
+                                            <span class="db-badge user-type"><i class="fa-solid fa-user" style="font-size:0.65rem;"></i>{{ i }}</span>
+                                        </td>
+                                        <td style="font-size:0.78rem;">
+                                            {% for m in mappings %}
+                                            {% if m.user == i %}
+                                            <span class="db-badge db-type" style="margin:2px; font-size:0.72rem; padding:2px 8px;">{{ m.database }}</span>
+                                            {% endif %}
+                                            {% endfor %}
+                                        </td>
+                                        <td style="text-align:right;">
+                                            <div style="display:flex; gap:6px; justify-content:flex-end;">
+                                                <button class="vp-btn vp-btn-warning vp-btn-sm" onclick="openChpModal('{{ i }}')" title="Change password">
+                                                    <i class="fa-solid fa-key"></i>
+                                                </button>
+                                                <button class="vp-btn vp-btn-danger vp-btn-sm"
+                                                    onclick="deleteUser('admin','{{ i }}',this)" title="Delete user">
+                                                    <i class="fa-solid fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                    {% empty %}
+                                    <tr><td colspan="3"><div class="vp-empty"><i class="fa-solid fa-user"></i><p>No users yet.</p></div></td></tr>
+                                    {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Full Connections Map -->
+                    {% if mappings %}
+                    <div class="col-12">
+                        <div class="vp-card">
+                            <div class="vp-card-header">
+                                <h5><i class="fa-solid fa-diagram-project"></i> Database ↔ User Connection Map</h5>
+                                <span style="font-size:0.78rem; color:#64748b;">All active privilege relationships</span>
+                            </div>
+                            <div class="vp-card-body" style="padding:16px 24px;">
+                                <div class="conn-grid" style="grid-template-columns:repeat(auto-fill,minmax(340px,1fr));">
+                                {% for m in mappings %}
+                                <div class="conn-card">
+                                    <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:0; flex-wrap:wrap;">
+                                        <span class="db-badge db-type" style="font-size:0.8rem;"><i class="fa-solid fa-database" style="font-size:0.65rem;"></i>{{ m.database }}</span>
+                                        <span class="conn-arrow"><i class="fa-solid fa-arrow-right-long"></i></span>
+                                        <span class="db-badge user-type" style="font-size:0.8rem;"><i class="fa-solid fa-user" style="font-size:0.65rem;"></i>{{ m.user }}</span>
+                                    </div>
+                                    <button class="vp-btn vp-btn-danger vp-btn-sm" title="Revoke all privileges"
+                                        onclick="revokePrivs('{{ m.database }}','{{ m.user }}',this)">
+                                        <i class="fa-solid fa-ban"></i>
+                                    </button>
+                                </div>
+                                {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
-
-
-
-
-
-
-
-
-
-
-
             </div>
 
-        </div>
-        <script>
-            async function adddb(event) {
-                // Prevent the default action (e.g., form submission)
-                if (event) {
-                    event.preventDefault();
-                }
+        </div><!-- /container-fluid -->
+    </div><!-- /main-content -->
+</div><!-- /wrapper -->
 
-                const form = document.getElementById('adddbform');
-                const formData = new FormData(form);
+<!-- ══ Grant Privileges Modal ══ -->
+<div class="vp-overlay" id="permOverlay">
+    <div class="vp-modal" style="width:560px;">
+        <h4><i class="fa-solid fa-shield-halved"></i> Grant Database Privileges</h4>
+        <form id="permForm">
+            {% csrf_token %}
+            <input type="hidden" id="permDbName" name="databasename">
+            <input type="hidden" id="permUserName" name="databaseusername">
+            <div style="display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
+                <div class="modal-info-card" style="background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.22);">
+                    <div class="mic-label">Database</div>
+                    <div class="mic-value" id="perm-db-label" style="color:#818cf8;"></div>
+                </div>
+                <div class="modal-info-card" style="background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.22);">
+                    <div class="mic-label">User</div>
+                    <div class="mic-value" id="perm-user-label" style="color:#34d399;"></div>
+                </div>
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-size:0.82rem; color:#94a3b8; font-weight:600;">
+                    <input type="checkbox" id="selectAllPerms" onchange="toggleAllPerms(this)" style="accent-color:#6366f1; width:15px; height:15px;"> Select All Privileges
+                </label>
+            </div>
+            <div class="perm-grid" id="permGrid">
+                <div class="perm-chip" data-perm="SELECT"     onclick="togglePerm(this)">SELECT</div>
+                <div class="perm-chip" data-perm="INSERT"     onclick="togglePerm(this)">INSERT</div>
+                <div class="perm-chip" data-perm="UPDATE"     onclick="togglePerm(this)">UPDATE</div>
+                <div class="perm-chip" data-perm="DELETE"     onclick="togglePerm(this)">DELETE</div>
+                <div class="perm-chip" data-perm="CREATE"     onclick="togglePerm(this)">CREATE</div>
+                <div class="perm-chip" data-perm="DROP"       onclick="togglePerm(this)">DROP</div>
+                <div class="perm-chip" data-perm="ALTER"      onclick="togglePerm(this)">ALTER</div>
+                <div class="perm-chip" data-perm="EXECUTE"    onclick="togglePerm(this)">EXECUTE</div>
+                <div class="perm-chip" data-perm="INDEX"      onclick="togglePerm(this)">INDEX</div>
+                <div class="perm-chip" data-perm="REFERENCES" onclick="togglePerm(this)">REFERENCES</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="vp-btn vp-btn-ghost" onclick="closeModal('permOverlay')">Cancel</button>
+                <button type="button" class="vp-btn vp-btn-primary" onclick="grantPerms()">
+                    <i class="fa-solid fa-check"></i> Grant Privileges
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 
+<!-- ══ Change Password Modal ══ -->
+<div class="vp-overlay" id="chpOverlay">
+    <div class="vp-modal">
+        <h4><i class="fa-solid fa-key"></i> Change DB User Password</h4>
+        <form id="chpForm">
+            {% csrf_token %}
+            <input type="hidden" id="chpUsername" name="databaseuser">
+            <div style="background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.25); border-radius:11px; padding:12px 16px; margin-bottom:20px;">
+                <div style="font-size:0.7rem; color:#64748b; margin-bottom:3px; text-transform:uppercase; letter-spacing:0.06em; font-weight:700;">Changing Password For</div>
+                <div id="chp-user-display" style="font-weight:800; color:#fbbf24; font-size:1rem;"></div>
+            </div>
+            <label class="vp-label">New Password</label>
+            <div class="vp-prefix-group" style="margin-bottom:8px;">
+                <input class="vp-input with-suffix" type="password" name="password" id="chpPw" placeholder="Enter new password" required>
+                <button type="button" class="vp-suffix-btn" onclick="togglePw('chpPw',this)"><i class="fa fa-eye"></i></button>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="vp-btn vp-btn-ghost" onclick="closeModal('chpOverlay')">Cancel</button>
+                <button type="button" class="vp-btn vp-btn-primary" onclick="changePass()">
+                    <i class="fa-solid fa-floppy-disk"></i> Update Password
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 
-
-                try {
-                
-                    // Fetch request to submit form data
-                    const response = await fetch('/adddatabase/', {
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-                        }
-                    });
-         
-
-                    // Parse the JSON response
-                    const result = await response.json();
-    
-
-
-                    // Handle response
-                    if (response.ok && result.status === 'success') {
-                
-                        document.getElementById('eeee').style.display = "block";
-                        document.getElementById('statusemail').innerHTML = "Database Created!";
-                        location.reload(true);
-
-                    } else {
-
-           
-                        document.getElementById('eeee').style.display = "block";
-                        document.getElementById('statusemail').innerHTML = result.message || "Error Creating Database!";
-                 
-
-                    }
-                } catch (error) {
-
-                    document.getElementById('eeee').style.display = "block";
-                    document.getElementById('statusemail').innerHTML = "Database Already Exists or Network Error!";
-                }
-            }
-        </script>
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
 
 <script>
-    async function adddatabaseuser(event) {
-        // Prevent the default action (e.g., form submission)
-        if (event) {
-            event.preventDefault();
-        }
-        document.getElementById('pro').style.display = "block";
-        const form = document.getElementById('adddbuser');
-        const formData = new FormData(form);
-        try {
-            // Fetch request to submit form data
-            const response = await fetch('/adddatabaseuser/', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value // CSRF token for Django
-                }
-            });
-            const result = await response.json();
-            // Handle response
-            if (response.ok && result.status === 'success') {
-                document.getElementById('pro').style.display = "none";
-           
-                document.getElementById('eeee').style.display = "block";
-                document.getElementById('statusemail').innerHTML = "User Added!"
-                location.reload(true);
+const CSRF = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
+/* ── Toast ── */
+function toast(msg, type='info') {
+    const s = document.getElementById('toast-stack');
+    const t = document.createElement('div');
+    t.className = `vp-toast ${type}`;
+    const ico = {success:'fa-circle-check', error:'fa-circle-xmark', info:'fa-circle-info'};
+    t.innerHTML = `<i class="fa-solid ${ico[type]||'fa-circle-info'}"></i> ${msg}`;
+    s.appendChild(t);
+    setTimeout(()=>{ t.style.transition='opacity .35s'; t.style.opacity='0'; setTimeout(()=>t.remove(),350); }, 4200);
+}
 
-            } else {
+/* ── Tabs ── */
+function switchTab(name) {
+    document.querySelectorAll('.db-tab').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.db-tab-panel').forEach(p=>p.classList.remove('active'));
+    const btn = document.getElementById(`tab-btn-${name}`);
+    if(btn) btn.classList.add('active');
+    const panel = document.getElementById(`tab-${name}`);
+    if(panel) panel.classList.add('active');
+}
 
-                document.getElementById('pro').style.display = "none";
-       
-                document.getElementById('eeee').style.display = "block";
-                document.getElementById('statusemail').innerHTML = "Error Adding  User!"
+/* ── Modal ── */
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.vp-overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); }));
 
-            }
-        } catch (error) {
+/* ── Input Sanitizer ── */
+function sanitize(el) { el.value = el.value.replace(/[^a-zA-Z0-9_\-]/g,''); }
 
-            document.getElementById('pro').style.display = "none";
-            document.getElementById('eeee').style.display = "block";
-            document.getElementById('statusemail').innerHTML = "User Already  Exist!"
-
-        }
-
-
-
-
-
+/* ── Password Helpers ── */
+function togglePw(id, btn) {
+    const el = document.getElementById(id);
+    el.type = el.type==='password' ? 'text' : 'password';
+    btn.innerHTML = el.type==='password' ? '<i class="fa fa-eye"></i>' : '<i class="fa fa-eye-slash"></i>';
+}
+function checkStrength() {
+    const v = document.getElementById('pw1').value;
+    const fill = document.getElementById('strengthFill');
+    const label = document.getElementById('strengthLabel');
+    if(!v) { fill.className='strength-fill'; fill.style.width='0'; label.textContent='Enter a password'; label.style.color='#475569'; return; }
+    if(v.length < 6) {
+        fill.className='strength-fill weak'; label.textContent='Weak — too short'; label.style.color='#ef4444';
+    } else if(v.length < 10 || !/[A-Z]/.test(v) || !/[0-9]/.test(v)) {
+        fill.className='strength-fill medium'; label.textContent='Medium — add uppercase & numbers'; label.style.color='#f59e0b';
+    } else {
+        fill.className='strength-fill strong'; label.textContent='Strong ✓'; label.style.color='#10b981';
     }
-    </script>
-        <script>
-
-function removeSpacesAndSpecialChars(input) {
-                // Regular expression to remove any non-alphanumeric characters (including spaces)
-                const regex = /[^a-zA-Z0-9_-]/g;
-
-                // Replace any spaces or special characters with an empty string
-                input.value = input.value.replace(regex, '');
-            }
-            function changepassword(data) {
-                document.getElementById('changepassword').style.display = "block";
-                document.getElementById('dbusername').value = data;
-            }
-            function changepassword1() {
-                document.getElementById('changepassword').style.display = "none";
-            }
-
-            async function chp(event) {
-                event.preventDefault();  // Prevent the default form submission behavior
-
-                // Get the form data
-                const form = document.getElementById('chpForm');
-                const formData = new FormData(form);
-
-                try {
-                    // Make the fetch request to change the password
-                    const response = await fetch('/changepasswordforuser/', {  // Replace with your actual API endpoint
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-                        }
-                    });
-                    const result = await response.json();
-                    // Handle the server response
-                    if (response.ok && result.status === 'success') {
-                     
-                        document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Password changed successfully!";
-                        document.getElementById('changepassword').style.display = "none";
-                    } else {
-                        
-                        document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Error changing password.";
-                        document.getElementById('changepassword').style.display = "none";
-                    }
-                } catch (error) {
-
-               
-                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "An error occurred.";
-                    document.getElementById('changepassword').style.display = "none";
-                }
-            }
-
-        </script>
-
-        <div class="modal animated fadeIn show" id="changepassword" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Change Password</h6>
-                    </div>
-                    <form id="chpForm" method="post" action="">{% csrf_token %}
-                        <div class="modal-body">
-                            <div class="row clearfix">
-
-
-                                <div class="col-md-12 col-sm-12">
-
-                                    <div class="input-group mb-3">
-                                        <input required type="password" id="textInput" name="password"
-                                            class="form-control" placeholder="**********"
-                                            aria-label="Recipient's username" aria-describedby="basic-addon2" required>
-                                        <input id="dbusername" type="text" name="databaseuser" value="" hidden
-                                            class="form-control" required>
-
-                                    </div>
-
-                                    <div id="match" class="form-group">
-
-
-                                    </div>
-
-
-                                </div>
-
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button id="addemailbtn" onclick="chp(event);" style="display: block;"
-                                class="btn btn-primary">Change Password</button>
-                            <button type="button" class="btn btn-secondary" onclick="changepassword1();">CLOSE</button>
-
-                            </p>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-
-
-        <div class="modal animated fadeIn show" id="addpri" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Add Permission to User</h6>
-                    </div>
-                    <form id="addpermissiontouser" method="post" action="">{% csrf_token %}
-                        <input id="databasename" type="text" name="databasename" value="" hidden class="form-control"
-                            required>
-                        <input id="databaseusername" type="text" name="databaseusername" value="" hidden
-                            class="form-control" required>
-                        <div class="modal-body">
-                            <div class="row clearfix">
-
-
-                                <div id="checkbox-container" class="col-md-12 col-sm-12">
-
-                                    <label class="control-inline fancy-checkbox">
-                                        <input type="checkbox" id="select-all">
-                                        <span>Select ALL</span>
-                                    </label>
-                                    <hr>
-                                    <br>
-
-                                    <label class="control-inline fancy-checkbox">
-                                        <input type="checkbox" name="select" value="SELECT" class="individual-checkbox">
-                                        <span>SELECT</span>
-                                    </label>
-
-                                    <label class="control-inline fancy-checkbox">
-                                        <input type="checkbox" name="insert" value="INSERT" class="individual-checkbox">
-                                        <span>INSERT</span>
-                                    </label>
-
-                                    <label class="control-inline fancy-checkbox">
-                                        <input type="checkbox" name="update" value="UPDATE" class="individual-checkbox">
-                                        <span>UPDATE</span>
-                                    </label>
-
-                                    <label class="control-inline fancy-checkbox">
-                                        <input type="checkbox" name="delete" value="DELETE" class="individual-checkbox">
-                                        <span>DELETE</span>
-                                    </label>
-
-                                    <label class="control-inline fancy-checkbox">
-                                        <input type="checkbox" name="execute" value="EXECUTE"
-                                            class="individual-checkbox">
-                                        <span>EXECUTE</span>
-                                    </label>
-
-                                    <label class="control-inline fancy-checkbox">
-                                        <input type="checkbox" name="create" value="CREATE" class="individual-checkbox">
-                                        <span>CREATE</span>
-                                    </label>
-
-                                    <label class="control-inline fancy-checkbox">
-                                        <input type="checkbox" name="drop" value="DROP" class="individual-checkbox">
-                                        <span>DROP</span>
-                                    </label>
-
-                                    <label class="control-inline fancy-checkbox">
-                                        <input type="checkbox" name="alter" value="ALTER" class="individual-checkbox">
-                                        <span>ALTER</span>
-                                    </label>
-
-
-
-
-                                    <div id="match" class="form-group">
-
-
-                                    </div>
-
-
-                                </div>
-
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button id="addemailbtn" onclick="addperm(event);" style="display: block;"
-                                class="btn btn-primary"> Add Permission</button>
-                            <button type="button" class="btn btn-secondary" onclick="rpri();">CLOSE</button>
-
-                            </p>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-        <div class="modal animated fadeIn show" id="pro2" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <p class="processing">Processing<span class="dots"></span></p>
-
-                    </div>
-
-                </div>
-            </div>
-        </div>
-      
-
-
-        <script>
-            document.getElementById('select-all').addEventListener('change', function () {
-                const checkboxes = document.querySelectorAll('.individual-checkbox');
-                checkboxes.forEach(checkbox => {
-                    checkbox.checked = this.checked; // Set each checkbox's checked state to match the "Select ALL" checkbox
-                });
-            });
-
-
-            async function addperm(event) {
-                event.preventDefault();  // Prevent the default form submission behavior
-                document.getElementById('pro2').style.display = "block";
-                // Get the form data
-                const form = document.getElementById('addpermissiontouser');
-                const formData = new FormData(form);
-
-                try {
-                    // Make the fetch request to change the password
-                    const response = await fetch('/addpermissiontouser/', {  // Replace with your actual API endpoint
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-                        }
-                    });
-                    const result = await response.json();
-                    // Handle the server response
-                    if (response.ok && result.status === 'success') {
-                        document.getElementById('pro2').style.display = "none";
-               
-                        document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Added successfully!";
-                        document.getElementById('addpri').style.display = "none";
-                    } else {
-                        document.getElementById('pro2').style.display = "none";
-                    
-                        document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Error Adding .";
-                        document.getElementById('addpri').style.display = "none";
-                    }
-                } catch (error) {
-
-                    document.getElementById('pro2').style.display = "none";
-                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "An error occurred.";
-                    document.getElementById('addpri').style.display = "none";
-                }
-            }
-
-           
-            function showp() {
-                const selectElement = document.getElementById('dbSelect');
-                const dbname = selectElement.value;
-                const u = document.getElementById('dbSelect1');
-                const uname = u.value;
-
-                if (dbname !== "Select Database Name" && uname !== "Select User Name") {
-                    document.getElementById('addpri').style.display = "block";
-                    document.getElementById('databasename').value = dbname;
-                    document.getElementById('databaseusername').value = uname;
-                  
-
-
-
-
-                    // Perform delete operation (you can add your fetch request here to delete the database)
-                } else {
-              
-                    document.getElementById('eeee').style.display = "block";
-                             document.getElementById('statusemail').innerHTML = "Please select a valid database";
-                }
-            }
-
-            function rpri() {
-
-
-
-                document.getElementById('addpri').style.display = "none";
-
-
-
-
-
-
-            }
-            function confirm1(input) {
-                const password = document.getElementById('password68').value;
-                const password1 = document.getElementById('password69').value;
-                const pri = document.getElementById('match');
-                if (password === password1) {
-                    pri.innerHTML = "Password Matched !";
-                    document.getElementById('addemailbtn1').disabled = false;
-                } else {
-                    pri.innerHTML = 'Passwords do not match!';
-                    document.getElementById('addemailbtn1').disabled = true;
-                }
-
-
-            }
-            function gen1() {
-                // Define characters to include in the password
-                const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+~";
-
-                let password = "";
-
-                // Loop to generate 8 characters randomly
-                for (let i = 0; i < 10; i++) {
-                    const randomIndex = Math.floor(Math.random() * chars.length);
-                    password += chars[randomIndex];
-                }
-
-                passw = document.getElementById('password68');
-                passw1 = document.getElementById('password69');
-                passw.value = password;
-                passw1.value = password;
-                passw.placeholder = password;
-                passw1.placeholder = password;
-                document.getElementById('addemailbtn1').disabled = false;
-            }
-
-            function genshow1(input) {
-                const password = document.getElementById('password68');
-                const password1 = document.getElementById('password69');
-                if (password.type === "password") {
-                    password.type = "text";
-                    password1.type = "text";
-                } else {
-                    password.type = "password";
-                    password1.type = "password";
-                }
-            }
-            function closedata() {
-                document.getElementById('eeee').style.display = 'none';
-            }
-        </script>
-
-
-
-
-
-
-        <!-- Javascript -->
-        <script src="/static/assets/bundles/libscripts.bundle.js"></script>
-        <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
-
-        <!-- page vendor js file -->
-        <script src="/static/assets/vendor/toastr/toastr.js"></script>
-        <script src="/static/assets/bundles/c3.bundle.js"></script>
-
-
-        <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
-        <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
-
-
-        <!-- page js file -->
-        <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
-        <script src="/static/assets/bundles/chartjs.js"></script>
-        <script src="/static/assets/index2.js"></script>
-
-
-
+    checkMatch();
+}
+function checkMatch() {
+    const p1 = document.getElementById('pw1').value;
+    const p2 = document.getElementById('pw2').value;
+    const hint = document.getElementById('matchHint');
+    const match = p1 && p2 && p1===p2;
+    document.getElementById('addUserBtn').disabled = !match;
+    if(p2) {
+        hint.style.display='flex';
+        hint.innerHTML = match
+            ? '<i class="fa-solid fa-circle-check" style="color:#10b981;"></i> <span style="color:#10b981;">Passwords match</span>'
+            : '<i class="fa-solid fa-circle-xmark" style="color:#ef4444;"></i> <span style="color:#ef4444;">Passwords do not match</span>';
+    } else {
+        hint.style.display='none';
+    }
+}
+function generatePass() {
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%&';
+    const pw = Array.from({length:18}, ()=>chars[Math.floor(Math.random()*chars.length)]).join('');
+    const f1 = document.getElementById('pw1');
+    const f2 = document.getElementById('pw2');
+    f1.value = pw; f2.value = pw;
+    f1.type = 'text'; f2.type = 'text';
+    // Update eye icons
+    document.querySelectorAll('button.vp-suffix-btn').forEach((b,i)=>{
+        if([0,1].includes(i)) b.innerHTML='<i class="fa fa-eye-slash"></i>';
+    });
+    checkStrength(); checkMatch();
+    toast('18-char password generated!', 'success');
+}
+
+/* ── Steps ── */
+function markStep(n) {
+    for(let i=1; i<n; i++) {
+        const c = document.getElementById(`step${i}-circle`);
+        c.className = 'step-circle done';
+        c.innerHTML = '<i class="fa-solid fa-check" style="font-size:0.7rem;"></i>';
+    }
+    const ac = document.getElementById(`step${n}-circle`);
+    const an = document.getElementById(`step${n}-name`);
+    if(ac) { ac.className = 'step-circle active'; }
+    if(an) { an.className = 'step-name active'; }
+}
+
+/* ── Add Database ── */
+async function addDatabase(e) {
+    e.preventDefault();
+    const btn = document.getElementById('addDbBtn');
+    const name = document.getElementById('dbNameInput').value.trim();
+    if(!name) { toast('Please enter a database name.','error'); return; }
+    btn.classList.add('loading'); btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating...';
+    const fd = new FormData(document.getElementById('addDbForm'));
+    try {
+        const r = await fetch('/adddatabase/', {method:'POST',body:fd,headers:{'X-CSRFToken':CSRF}});
+        const d = await r.json();
+        if(d.status==='success') {
+            toast('Database created successfully!','success');
+            markStep(2);
+            setTimeout(()=>location.reload(), 900);
+        } else if(d.status==='exceed') {
+            toast('Database quota limit reached.','error');
+        } else {
+            toast(d.message||'Failed to create database.','error');
+        }
+    } catch { toast('Network error. Please try again.','error'); }
+    btn.classList.remove('loading');
+    btn.innerHTML = '<i class="fa-solid fa-database"></i> Create Database';
+}
+
+/* ── Add User ── */
+async function addDatabaseUser(e) {
+    e.preventDefault();
+    const btn = document.getElementById('addUserBtn');
+    btn.classList.add('loading'); btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating...';
+    const fd = new FormData(document.getElementById('addUserForm'));
+    try {
+        const r = await fetch('/adddatabaseuser/', {method:'POST',body:fd,headers:{'X-CSRFToken':CSRF}});
+        const d = await r.json();
+        if(d.status==='success') {
+            toast('DB user created successfully!','success');
+            markStep(2);
+            setTimeout(()=>location.reload(), 900);
+        } else { toast(d.message||'Failed to create user.','error'); }
+    } catch { toast('Network error.','error'); }
+    btn.classList.remove('loading');
+    btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Create User';
+}
+
+/* ── Delete DB ── */
+async function deleteDB(domain, db, btn) {
+    if(!confirm(`Delete database "${db}"?\n\nAll data will be permanently lost.`)) return;
+    btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>';
+    try {
+        const fd = new FormData(); fd.append('csrfmiddlewaretoken',CSRF);
+        const r = await fetch(`/dbreomve/${domain}/${db}/`,{method:'POST',body:fd,headers:{'X-CSRFToken':CSRF}});
+        const d = await r.json();
+        if(d.status==='success') {
+            toast('Database deleted.','success');
+            const row = btn.closest('tr');
+            row.style.transition='opacity 0.4s, transform 0.4s';
+            row.style.opacity='0'; row.style.transform='translateX(30px)';
+            setTimeout(()=>row.remove(), 420);
+        } else { toast(d.message||'Delete failed.','error'); btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-trash"></i> Delete'; }
+    } catch { toast('Network error.','error'); btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-trash"></i> Delete'; }
+}
+
+/* ── Delete User ── */
+async function deleteUser(domain, usr, btn) {
+    if(!confirm(`Delete DB user "${usr}"? This cannot be undone.`)) return;
+    btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>';
+    try {
+        const fd = new FormData(); fd.append('csrfmiddlewaretoken',CSRF);
+        const r = await fetch(`/dbuserremove/${domain}/${usr}/`,{method:'POST',body:fd,headers:{'X-CSRFToken':CSRF}});
+        const d = await r.json();
+        if(d.status==='success') {
+            toast('User deleted.','success');
+            const row = btn.closest('tr');
+            row.style.transition='opacity 0.4s, transform 0.4s';
+            row.style.opacity='0'; row.style.transform='translateX(30px)';
+            setTimeout(()=>row.remove(), 420);
+        } else { toast(d.message||'Delete failed.','error'); btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-trash"></i>'; }
+    } catch { toast('Network error.','error'); btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-trash"></i>'; }
+}
+
+/* ── Revoke Privileges ── */
+async function revokePrivs(db, usr, btn) {
+    if(!confirm(`Revoke all privileges for "${usr}" on "${db}"?`)) return;
+    const origHtml = btn.innerHTML;
+    btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i>';
+    try {
+        const fd = new FormData(); fd.append('csrfmiddlewaretoken',CSRF);
+        fd.append('databasename', db); fd.append('databaseusername', usr);
+        const r = await fetch('/revokeprivilege/',{method:'POST',body:fd,headers:{'X-CSRFToken':CSRF}});
+        const d = await r.json();
+        if(d.status==='success') {
+            toast('Privileges revoked.','success');
+            const card = btn.closest('.conn-card');
+            if(card){ card.style.transition='opacity 0.4s'; card.style.opacity='0'; setTimeout(()=>card.remove(),420); }
+        } else { toast(d.message||'Error revoking.','error'); btn.disabled=false; btn.innerHTML=origHtml; }
+    } catch { toast('Network error.','error'); btn.disabled=false; btn.innerHTML=origHtml; }
+}
+
+/* ── Permission Modal ── */
+function openPermModal() {
+    const db  = document.getElementById('dbSelect').value;
+    const usr = document.getElementById('userSelect').value;
+    if(!db)  { toast('Please select a database.','error'); return; }
+    if(!usr) { toast('Please select a DB user.','error'); return; }
+    document.getElementById('permDbName').value   = db;
+    document.getElementById('permUserName').value  = usr;
+    document.getElementById('perm-db-label').textContent   = db;
+    document.getElementById('perm-user-label').textContent = usr;
+    document.querySelectorAll('.perm-chip').forEach(c=>c.classList.remove('active'));
+    document.getElementById('selectAllPerms').checked = false;
+    openModal('permOverlay');
+}
+function togglePerm(el) { el.classList.toggle('active'); syncAllCheck(); }
+function toggleAllPerms(cb) {
+    document.querySelectorAll('.perm-chip').forEach(c => cb.checked ? c.classList.add('active') : c.classList.remove('active'));
+}
+function syncAllCheck() {
+    const all    = document.querySelectorAll('.perm-chip').length;
+    const active = document.querySelectorAll('.perm-chip.active').length;
+    document.getElementById('selectAllPerms').checked = all===active;
+}
+async function grantPerms() {
+    const chips = [...document.querySelectorAll('.perm-chip.active')];
+    if(!chips.length) { toast('Select at least one privilege.','error'); return; }
+    const fd = new FormData(document.getElementById('permForm'));
+    chips.forEach(c => fd.append(c.dataset.perm.toLowerCase(), c.dataset.perm));
+    try {
+        const r = await fetch('/addpermissiontouser/',{method:'POST',body:fd,headers:{'X-CSRFToken':CSRF}});
+        const d = await r.json();
+        closeModal('permOverlay');
+        if(d.status==='success') {
+            toast('Privileges granted successfully!','success');
+            markStep(3);
+            setTimeout(()=>location.reload(),1200);
+        } else { toast(d.message||'Error granting privileges.','error'); }
+    } catch { toast('Network error.','error'); }
+}
+
+/* ── Change Password Modal ── */
+function openChpModal(usr) {
+    document.getElementById('chpUsername').value = usr;
+    document.getElementById('chp-user-display').textContent = usr;
+    document.getElementById('chpPw').value = '';
+    document.getElementById('chpPw').type = 'password';
+    openModal('chpOverlay');
+}
+async function changePass() {
+    const pw = document.getElementById('chpPw').value;
+    if(!pw || pw.length < 6) { toast('Password must be at least 6 characters.','error'); return; }
+    const fd = new FormData(document.getElementById('chpForm'));
+    try {
+        const r = await fetch('/changepasswordforuser/',{method:'POST',body:fd,headers:{'X-CSRFToken':CSRF}});
+        const d = await r.json();
+        closeModal('chpOverlay');
+        toast(d.status==='success' ? 'Password updated successfully!' : d.message||'Error changing password.',
+              d.status==='success' ? 'success' : 'error');
+    } catch { toast('Network error.','error'); }
+}
+
+/* ── Animate stat bar caps ── */
+window.addEventListener('load', ()=>{
+    const total = {{ database|length }};
+    const bar = document.getElementById('statDbBar');
+    if(bar && total > 0) {
+        const pct = Math.min(100, total * 4); // visual scale, not literal %
+        bar.style.width = pct + '%';
+    }
+});
+</script>
 </body>
-
 </html>

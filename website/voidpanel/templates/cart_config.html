@@ -1,0 +1,463 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Order {{ package.name }} | VoidPanel Hosting</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css">
+    <style>
+        .cart-page {
+            min-height: 100vh;
+            padding: 108px 20px 60px;
+            background:
+                radial-gradient(circle at top left, rgba(37,99,235,0.08), transparent 28%),
+                radial-gradient(circle at bottom right, rgba(99,102,241,0.04), transparent 26%),
+                #f8fafc;
+        }
+        .cart-grid {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: minmax(0,1fr) 380px;
+            gap: 28px;
+            align-items: start;
+        }
+        .glass-surface {
+            background: #ffffff;
+            border: 1px solid var(--border-subtle);
+            border-radius: 28px;
+            padding: 32px;
+            box-shadow: 0 10px 30px rgba(15,23,42,0.05);
+        }
+        .step-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 14px;
+            border-radius: 999px;
+            background: rgba(37,99,235,0.08);
+            color: #2563eb;
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 20px;
+        }
+        h1 { color: var(--text-primary); font-size: 1.9rem; margin: 0 0 8px; }
+        .sub { color: var(--text-secondary); line-height: 1.7; margin: 0 0 28px; }
+        .field-group { margin-bottom: 22px; }
+        label { display: block; color: var(--text-secondary); font-size: 0.88rem; margin-bottom: 8px; font-weight: 500; }
+        input[type=text], input[type=email] {
+            width: 100%; padding: 14px 16px; border-radius: 14px;
+            border: 1px solid var(--border-subtle);
+            background: #ffffff;
+            color: var(--text-primary); font-size: 1rem;
+            transition: border-color .2s;
+        }
+        input:focus { outline: none; border-color: rgba(37,99,235,0.45); }
+        .cycle-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+        .cycle-card {
+            position: relative; border-radius: 18px; padding: 18px 14px;
+            border: 2px solid var(--border-subtle);
+            background: #ffffff;
+            cursor: pointer; transition: border-color .2s, background .2s;
+            text-align: center;
+        }
+        .cycle-card input[type=radio] { position: absolute; opacity: 0; }
+        .cycle-card:has(input:checked) {
+            border-color: rgba(37,99,235,0.5);
+            background: rgba(37,99,235,0.08);
+        }
+        .cycle-name { color: var(--text-primary); font-weight: 700; font-size: 1rem; }
+        .cycle-price { color: #2563eb; font-size: 1.4rem; font-weight: 800; margin: 8px 0 4px; }
+        .cycle-note { color: var(--text-muted); font-size: 0.78rem; }
+        .cycle-badge {
+            display: inline-flex; padding: 3px 10px; border-radius: 999px;
+            background: rgba(217,119,6,0.08); color: #d97706;
+            font-size: 0.72rem; font-weight: 700; margin-top: 6px;
+        }
+        .submit-btn {
+            width: 100%; padding: 16px; border-radius: 16px; border: none; cursor: pointer;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: #ffffff; font-size: 1rem; font-weight: 700;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            transition: opacity .2s; margin-top: 24px;
+        }
+        .submit-btn:hover { opacity: 0.88; }
+        /* Summary sidebar */
+        .pkg-name { color: var(--text-primary); font-size: 1.3rem; font-weight: 800; margin-bottom: 6px; }
+        .pkg-desc { color: var(--text-secondary); font-size: 0.88rem; line-height: 1.6; margin-bottom: 20px; }
+        .spec-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-subtle); }
+        .spec-row:last-child { border-bottom: none; }
+        .spec-label { color: var(--text-muted); font-size: 0.86rem; }
+        .spec-val { color: var(--text-primary); font-weight: 600; }
+        .total-box { margin-top: 20px; padding: 18px; border-radius: 18px; background: rgba(37,99,235,0.08); border: 1px solid rgba(37,99,235,0.2); }
+        .total-label { color: var(--text-secondary); font-size: 0.84rem; }
+        .total-amount { color: #2563eb; font-size: 2rem; font-weight: 800; }
+        .featured-tag {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 14px; border-radius: 999px;
+            background: rgba(217,119,6,0.08); color: #d97706;
+            font-size: 0.78rem; font-weight: 700; margin-bottom: 16px;
+        }
+        .message-banner { margin-bottom: 18px; padding: 14px 16px; border-radius: 14px; background: rgba(220,38,38,0.06); border: 1px solid rgba(220,38,38,0.18); color: var(--text-primary); }
+        .domain-tabs {
+            display: flex; gap: 8px; background: var(--bg-card-2);
+            border-radius: 14px; padding: 6px; margin-bottom: 16px;
+        }
+        .d-tab {
+            flex: 1; text-align: center; padding: 10px; border-radius: 10px;
+            font-size: 0.88rem; font-weight: 600; color: var(--text-secondary);
+            cursor: pointer; transition: all 0.2s;
+        }
+        .d-tab.active { background: rgba(37,99,235,0.08); color: #2563eb; }
+        .d-tab:hover:not(.active) { background: rgba(15,23,42,0.04); color: var(--text-primary); }
+        @media (max-width: 860px) {
+            .cart-grid { grid-template-columns: 1fr; }
+            .cycle-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+{% include 'header.html' %}
+<main class="cart-page">
+    <div class="cart-grid">
+        <!-- Left: Order Form -->
+        <div>
+            <div class="glass-surface">
+                <span class="step-label"><i class="fas fa-shopping-cart"></i> Configure Your Order</span>
+                <h1>Order {{ package.name }}</h1>
+                <p class="sub">You're one step away from having your hosting account live. Fill in your domain and pick a billing cycle.</p>
+
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="message-banner">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+
+                {% if domain_error %}
+                <div style="margin-bottom:18px;padding:16px;border-radius:14px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);">
+                    <div style="font-weight:800;color:#fca5a5;margin-bottom:6px;font-size:0.9rem;"><i class="fas fa-circle-xmark"></i> Domain Not Available</div>
+                    <div style="font-size:0.84rem;color:var(--text-secondary);line-height:1.6;">{{ domain_error|safe }}</div>
+                </div>
+                {% endif %}
+
+                <form method="POST" action="">
+                    {% csrf_token %}
+
+                    <!-- Domain Selection -->
+                    <div class="field-group">
+                        <label><i class="fas fa-globe" style="color:#59c4bc;margin-right:6px;"></i> Choose a Domain</label>
+                        
+                        <div class="domain-tabs">
+                            <div class="d-tab active" data-target="tab-register" onclick="switchDomainTab('register')">Register New</div>
+                            <div class="d-tab" data-target="tab-transfer" onclick="switchDomainTab('transfer')">Transfer</div>
+                            <div class="d-tab" data-target="tab-existing" onclick="switchDomainTab('existing')">Existing</div>
+                        </div>
+
+                        <input type="hidden" name="domain_action" id="domain_action" value="register">
+                        <input type="hidden" name="domain_price" id="domain_price" value="0.00">
+                        <input type="hidden" name="domain_years" id="domain_years" value="1">
+                        
+                        <!-- Register Tab -->
+                        <div id="tab-register" class="d-tab-content">
+                            <div style="display:flex; gap: 10px; margin-bottom: 8px;">
+                                <input type="text" id="reg_domain_input" placeholder="e.g. newdomain.com" autocomplete="off" style="flex:1;">
+                                <button type="button" class="submit-btn" style="margin:0; width:auto; padding:0 24px; border-radius:14px; background:rgba(255,255,255,0.08); color:var(--text-1);" onclick="checkDomainAvailability('register')">Check</button>
+                            </div>
+                            <div id="reg_domain_result" style="font-size: 0.9rem; min-height: 24px;"></div>
+                        </div>
+                        
+                        <!-- Transfer Tab -->
+                        <div id="tab-transfer" class="d-tab-content" style="display: none;">
+                            <div style="display:flex; gap: 10px; margin-bottom: 8px;">
+                                <input type="text" id="transfer_domain_input" placeholder="e.g. existingdomain.com" autocomplete="off" style="flex:1;">
+                                <button type="button" class="submit-btn" style="margin:0; width:auto; padding:0 24px; border-radius:14px; background:rgba(255,255,255,0.08); color:var(--text-1);" onclick="checkDomainAvailability('transfer')">Check</button>
+                            </div>
+                            <div id="transfer_domain_result" style="font-size: 0.9rem; min-height: 24px;"></div>
+                        </div>
+
+                        <!-- Existing Tab -->
+                        <div id="tab-existing" class="d-tab-content" style="display: none;">
+                            <input type="text" id="existing_domain_input" placeholder="e.g. yourbusiness.com" autocomplete="off" onchange="setExistingDomain()" onkeyup="setExistingDomain()">
+                            <div style="margin-top:8px;color:var(--text-muted);font-size:0.8rem;"><i class="fas fa-info-circle"></i> Point your domain to our nameservers after checkout.</div>
+                        </div>
+                        
+                        <input type="hidden" name="domain" id="final_domain" required>
+                    </div>
+
+                    <!-- Billing Cycle -->
+                    <div class="field-group">
+                        <label><i class="fas fa-calendar-alt" style="color:#59c4bc;margin-right:6px;"></i> Billing Cycle</label>
+                        <div class="cycle-grid">
+                            {% with base=package.monthly_price %}
+                             <label class="cycle-card">
+                                <input type="radio" name="billing_cycle" value="monthly" checked onchange="updateComputed(); validateCoupon();">
+                                <div class="cycle-name">Monthly</div>
+                                <div class="cycle-price" id="m-price" data-price-inr="{{ base }}">₹{{ base }}</div>
+                                <div class="cycle-note">per month</div>
+                            </label>
+                            <label class="cycle-card">
+                                <input type="radio" name="billing_cycle" value="quarterly" onchange="updateComputed(); validateCoupon();">
+                                <div class="cycle-name">Quarterly</div>
+                                <div class="cycle-price" id="q-price" data-price-inr="{{ base }}">₹{{ base }}</div>
+                                <div class="cycle-note">billed every 3 mo</div>
+                                {% if discounts.quarterly %}<span class="cycle-badge">-{{ discounts.quarterly }}% off</span>{% endif %}
+                            </label>
+                            <label class="cycle-card">
+                                <input type="radio" name="billing_cycle" value="annually" onchange="updateComputed(); validateCoupon();">
+                                <div class="cycle-name">Annually</div>
+                                <div class="cycle-price" id="a-price" data-price-inr="{{ base }}">₹{{ base }}</div>
+                                <div class="cycle-note">billed yearly</div>
+                                {% if discounts.annually %}<span class="cycle-badge">-{{ discounts.annually }}% off</span>{% endif %}
+                            </label>
+                            {% endwith %}
+                        </div>
+                    </div>
+
+                    <!-- Promo Code -->
+                    <div class="field-group">
+                        <label for="coupon_code"><i class="fas fa-ticket-simple" style="color:#59c4bc;margin-right:6px;"></i> Promo / Coupon Code</label>
+                        <div style="display:flex;gap:10px;">
+                            <input type="text" name="coupon_code" id="coupon_code" placeholder="Optional" style="flex:1;" autocomplete="off" onblur="validateCoupon()">
+                            <button type="button" class="submit-btn" style="margin:0;width:auto;padding:0 24px;border-radius:12px;background:rgba(255,255,255,0.08);color:var(--text-1);" onclick="validateCoupon()">Apply</button>
+                        </div>
+                        <div id="coupon_msg" style="margin-top:8px;font-size:0.8rem;font-weight:600;display:none;"></div>
+                    </div>
+
+                    <button type="submit" class="submit-btn">
+                        <i class="fas fa-rocket"></i> Proceed to Payment
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Right: Package Summary -->
+        <div>
+            <div class="glass-surface">
+                {% if package.is_featured %}
+                    <div class="featured-tag"><i class="fas fa-star"></i> Most Popular</div>
+                {% endif %}
+                <div class="pkg-name">{{ package.name }}</div>
+                <div class="pkg-desc">{{ package.short_description }}</div>
+
+                <div class="spec-row"><span class="spec-label">Storage</span><span class="spec-val">{{ package.storage_gb }} GB NVMe SSD</span></div>
+                <div class="spec-row"><span class="spec-label">Bandwidth</span><span class="spec-val">{{ package.bandwidth_label }}</span></div>
+                {% if package.package_type == 'shared' or package.package_type == 'wordpress' %}
+                    <div class="spec-row">
+                        <span class="spec-label">Email Accounts</span>
+                        <span class="spec-val">
+                            {% if package.id == 1 or package.id == 4 %}10 Accounts{% elif package.id == 2 or package.id == 5 %}50 Accounts{% else %}100 Accounts{% endif %}
+                        </span>
+                    </div>
+                    <div class="spec-row">
+                        <span class="spec-label">Databases &amp; FTP</span>
+                        <span class="spec-val">
+                            {% if package.id == 1 or package.id == 4 %}5 MySQL &amp; FTP{% elif package.id == 2 or package.id == 5 %}20 MySQL &amp; FTP{% else %}50 MySQL &amp; FTP{% endif %}
+                        </span>
+                    </div>
+                {% elif package.package_type == 'reseller' %}
+                    <div class="spec-row">
+                        <span class="spec-label">Client Accounts</span>
+                        <span class="spec-val">Up to {{ package.max_accounts }} Accounts</span>
+                    </div>
+                    <div class="spec-row">
+                        <span class="spec-label">Email Pool</span>
+                        <span class="spec-val">
+                            {% if package.id == 7 %}100 Mailboxes Pool{% elif package.id == 8 %}300 Mailboxes Pool{% else %}1000 Mailboxes Pool{% endif %}
+                        </span>
+                    </div>
+                    <div class="spec-row">
+                        <span class="spec-label">Databases &amp; FTP</span>
+                        <span class="spec-val">
+                            {% if package.id == 7 %}50 Pool{% elif package.id == 8 %}200 Pool{% else %}500 Pool{% endif %}
+                        </span>
+                    </div>
+                {% endif %}
+                <div class="spec-row"><span class="spec-label">SSL Certificate</span><span class="spec-val">Free Let's Encrypt</span></div>
+                <div class="spec-row"><span class="spec-label">Control Panel</span><span class="spec-val">VoidPanel Included</span></div>
+
+                <div class="total-box">
+                    <div class="total-label">Starting from</div>
+                    <div class="total-amount" id="cartTotal" data-price-inr="{{ package.monthly_price }}" data-price-inr-suffix="/ mo">₹{{ package.monthly_price }}<span class="price-suffix"> / mo</span></div>
+                </div>
+            </div>
+
+            <div class="glass-surface" style="margin-top:16px;">
+                <div style="font-weight:700;color:var(--text-primary);margin-bottom:12px;">🔒 Secure Checkout</div>
+                <p style="color:var(--text-secondary);font-size:0.85rem;line-height:1.7;margin:0;">Your order is protected. No hidden fees. Cancel anytime. 7-day money back guarantee.</p>
+            </div>
+        </div>
+    </div>
+</main>
+{% include 'footer.html' %}
+<script>
+    const base = {{ package.monthly_price }};
+    const quarterlyDisc = {{ discounts.quarterly|default:0 }};
+    const annualDisc = {{ discounts.annually|default:0 }};
+    
+    function setAmount(id, val) {
+        const el = document.getElementById(id);
+        el.setAttribute('data-price-inr', val.toFixed(2));
+        if (window.CurrencyEngine && window.CurrencyEngine.getState().ready) {
+            el.textContent = window.CurrencyEngine.format(val);
+        } else {
+            el.textContent = '₹' + val.toFixed(2);
+        }
+    }
+    
+    let selectedDomainPrice = 0;
+
+    function switchDomainTab(tab) {
+        document.querySelectorAll('.d-tab').forEach(t => t.classList.remove('active'));
+        document.querySelector(`.d-tab[data-target="tab-${tab}"]`).classList.add('active');
+        document.querySelectorAll('.d-tab-content').forEach(c => c.style.display = 'none');
+        document.getElementById(`tab-${tab}`).style.display = 'block';
+        
+        document.getElementById('domain_action').value = tab;
+        
+        document.getElementById('domain_price').value = '0.00';
+        document.getElementById('final_domain').value = '';
+        selectedDomainPrice = 0;
+        
+        if(tab === 'existing') {
+            setExistingDomain();
+        }
+        updateComputed();
+    }
+
+    async function checkDomainAvailability(action) {
+        const inputId = action === 'register' ? 'reg_domain_input' : 'transfer_domain_input';
+        const resId = action === 'register' ? 'reg_domain_result' : 'transfer_domain_result';
+        const domain = document.getElementById(inputId).value.trim();
+        const resDiv = document.getElementById(resId);
+        
+        if(!domain) {
+            resDiv.innerHTML = '<span style="color:#f87171">Please enter a domain name.</span>';
+            return;
+        }
+        
+        resDiv.innerHTML = '<span style="color:var(--text-secondary)"><i class="fas fa-spinner fa-spin"></i> Checking...</span>';
+        
+        try {
+            const res = await fetch(`/api/domain/check/?domain=${encodeURIComponent(domain)}`);
+            const data = await res.json();
+            
+            if(data.error) {
+                resDiv.innerHTML = `<span style="color:#f87171"><i class="fas fa-times-circle"></i> ${data.error}</span>`;
+                return;
+            }
+            
+            if (action === 'register') {
+                if (data.available) {
+                    resDiv.innerHTML = `<span style="color:#4ade80"><i class="fas fa-check-circle"></i> Available! ₹${data.retail_price_inr.toFixed(2)}/yr</span>
+                    <button type="button" onclick="selectDomain('${domain}', ${data.retail_price_inr})" style="margin-left:10px; padding:4px 12px; background:rgba(74,222,128,0.2); color:#4ade80; border:none; border-radius:8px; cursor:pointer;">Select Domain</button>`;
+                } else {
+                    resDiv.innerHTML = `<span style="color:#f87171"><i class="fas fa-times-circle"></i> Unavailable</span>`;
+                }
+            } else if (action === 'transfer') {
+                resDiv.innerHTML = `<span style="color:#4ade80"><i class="fas fa-check-circle"></i> Transfer for ₹${data.retail_price_inr.toFixed(2)}/yr</span>
+                <button type="button" onclick="selectDomain('${domain}', ${data.retail_price_inr})" style="margin-left:10px; padding:4px 12px; background:rgba(74,222,128,0.2); color:#4ade80; border:none; border-radius:8px; cursor:pointer;">Select Domain</button>`;
+            }
+        } catch(e) {
+            resDiv.innerHTML = `<span style="color:#f87171"><i class="fas fa-exclamation-triangle"></i> Error checking domain.</span>`;
+        }
+    }
+
+    function selectDomain(domain, price) {
+        document.getElementById('final_domain').value = domain;
+        document.getElementById('domain_price').value = price;
+        selectedDomainPrice = parseFloat(price);
+        
+        const action = document.getElementById('domain_action').value;
+        const resId = action === 'register' ? 'reg_domain_result' : 'transfer_domain_result';
+        document.getElementById(resId).innerHTML = `<span style="color:#4ade80"><i class="fas fa-check-circle"></i> ${domain} selected (+₹${price.toFixed(2)})</span>`;
+        
+        updateComputed();
+    }
+
+    function setExistingDomain() {
+        const domain = document.getElementById('existing_domain_input').value.trim();
+        document.getElementById('final_domain').value = domain;
+        document.getElementById('domain_price').value = '0.00';
+        selectedDomainPrice = 0;
+        updateComputed();
+    }
+
+    function updateComputed() {
+        setAmount('m-price', base);
+        setAmount('q-price', base * (1 - quarterlyDisc / 100) * 3);
+        setAmount('a-price', base * (1 - annualDisc / 100) * 12);
+        
+        let activeDiscountRaw = base;
+        const cycle = document.querySelector('input[name="billing_cycle"]:checked').value;
+        if (cycle === 'quarterly') {
+            activeDiscountRaw = base * (1 - quarterlyDisc / 100) * 3;
+        } else if (cycle === 'annually') {
+            activeDiscountRaw = base * (1 - annualDisc / 100) * 12;
+        }
+        
+        let suffix = cycle === 'monthly' ? ' / mo' : (cycle === 'quarterly' ? ' / 3 mo' : ' / yr');
+        
+        activeDiscountRaw += selectedDomainPrice;
+        
+        if (selectedDomainPrice > 0) {
+            suffix += ' + Domain';
+        }
+        
+        const mt = document.getElementById('cartTotal');
+        mt.setAttribute('data-price-inr', activeDiscountRaw.toFixed(2));
+        if (window.CurrencyEngine && window.CurrencyEngine.getState().ready) {
+            mt.innerHTML = window.CurrencyEngine.format(activeDiscountRaw) + '<span class="price-suffix">' + suffix + '</span>';
+        } else {
+            mt.innerHTML = '₹' + activeDiscountRaw.toFixed(2) + '<span class="price-suffix">' + suffix + '</span>';
+        }
+    }
+
+    async function validateCoupon() {
+        const codeInput = document.getElementById('coupon_code');
+        const code = codeInput.value.trim();
+        const msg = document.getElementById('coupon_msg');
+        msg.style.display = 'block';
+
+        if(!code) {
+            msg.textContent = "";
+            msg.style.display = 'none';
+            return;
+        }
+
+        try {
+            const CSRF = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            const cycleInput = document.querySelector('input[name="billing_cycle"]:checked');
+            const billingCycle = cycleInput ? cycleInput.value : 'monthly';
+            const res = await fetch('/api/coupon/validate/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': CSRF,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({code: code, billing_cycle: billingCycle})
+            });
+            const data = await res.json();
+            if(data.error) {
+                msg.style.color = '#f87171';
+                msg.innerHTML = `<i class="fas fa-times-circle"></i> ${data.error}`;
+                codeInput.style.borderColor = 'rgba(239,68,68,0.5)';
+            } else {
+                msg.style.color = '#4ade80';
+                msg.innerHTML = `<i class="fas fa-check-circle"></i> Code Applied! You'll get ${data.discount_type === 'percentage' ? parseInt(data.discount_value)+'% off' : '₹'+parseFloat(data.discount_value).toFixed(2)+' off'} checkout.`;
+                codeInput.style.borderColor = 'rgba(74,222,128,0.5)';
+            }
+        } catch(e) {
+            console.error(e);
+        }
+    }
+    
+    updateComputed();
+    window.addEventListener('vp:currency:ready', updateComputed);
+</script>
+</body>
+</html>

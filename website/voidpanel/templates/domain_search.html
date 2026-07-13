@@ -1,0 +1,529 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Domain Registration | VoidPanel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Search and register your domain name instantly with VoidPanel. .com, .in, .net, .org and more TLDs available.">
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css">
+    <style>
+        :root {
+            --rose: #f43f5e;
+            --rose-dim: rgba(244,63,94,0.06);
+            --rose-glow: rgba(244,63,94,0.15);
+        }
+
+        /* ── HERO ── */
+        .domain-hero {
+            padding: 120px 24px 72px;
+            text-align: center;
+            background:
+                radial-gradient(ellipse 80% 55% at 50% -10%, rgba(244,63,94,0.08) 0%, transparent 65%),
+                radial-gradient(ellipse 50% 35% at 10% 90%, rgba(37,99,235,0.04) 0%, transparent 50%),
+                #f8fafc;
+            position: relative;
+            overflow: hidden;
+        }
+        .domain-hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image:
+                radial-gradient(circle at 20% 30%, rgba(244,63,94,0.02) 0%, transparent 40%),
+                radial-gradient(circle at 80% 70%, rgba(37,99,235,0.02) 0%, transparent 40%);
+            pointer-events: none;
+        }
+
+        .hero-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--rose-dim);
+            border: 1px solid rgba(244,63,94,0.2);
+            color: var(--rose);
+            padding: 6px 16px;
+            border-radius: 99px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 24px;
+        }
+        .hero-title {
+            font-size: clamp(2.2rem, 5vw, 3.5rem);
+            font-weight: 900;
+            color: var(--text-primary);
+            line-height: 1.08;
+            letter-spacing: -0.025em;
+            margin-bottom: 18px;
+        }
+        .hero-title span { color: var(--rose); }
+        .hero-sub {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            max-width: 560px;
+            margin: 0 auto 44px;
+            line-height: 1.7;
+        }
+
+        /* ── SEARCH BOX ── */
+        .search-wrap {
+            max-width: 660px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 2;
+        }
+        .search-box {
+            display: flex;
+            background: #ffffff;
+            border: 1.5px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 7px;
+            backdrop-filter: blur(20px);
+            transition: border-color 0.25s, box-shadow 0.25s;
+            box-shadow: 0 4px 20px rgba(15,23,42,0.05);
+        }
+        .search-box:focus-within {
+            border-color: rgba(244,63,94,0.4);
+            box-shadow: 0 0 0 4px rgba(244,63,94,0.08), 0 4px 20px rgba(15,23,42,0.05);
+        }
+        .search-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            padding: 14px 20px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            outline: none;
+            min-width: 0;
+            font-family: 'Inter', sans-serif;
+        }
+        .search-input::placeholder { color: var(--text-muted); font-weight: 500; }
+        .search-btn {
+            flex-shrink: 0;
+            background: var(--rose);
+            color: #fff;
+            border: none;
+            border-radius: 14px;
+            padding: 0 28px;
+            font-size: 0.97rem;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: background 0.2s, transform 0.15s;
+            height: 52px;
+        }
+        .search-btn:hover, .search-btn:focus { background: #e11d48; transform: translateY(-1px); }
+        .search-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        /* ── POPULAR TLDS ── */
+        .tld-pills {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 18px;
+        }
+        .tld-pill {
+            background: var(--bg-card-2);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            padding: 4px 14px;
+            border-radius: 99px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.18s;
+        }
+        .tld-pill:hover {
+            background: var(--rose-dim);
+            border-color: rgba(244,63,94,0.25);
+            color: var(--rose);
+        }
+
+        /* ── LOADER ── */
+        .loader-area { min-height: 60px; display:flex; align-items:center; justify-content:center; margin-top:30px; }
+        .spinner {
+            display: none;
+            width: 42px; height: 42px;
+            border: 3px solid rgba(244,63,94,0.15);
+            border-top-color: var(--rose);
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── RESULTS SECTION ── */
+        .results-section {
+            max-width: 760px;
+            margin: 20px auto 80px;
+            display: none;
+        }
+
+        /* Primary (searched) result */
+        .primary-result {
+            background: #ffffff;
+            border: 1.5px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 28px;
+            margin-bottom: 24px;
+            backdrop-filter: blur(20px);
+            animation: slideUp 0.35s ease forwards;
+            box-shadow: 0 10px 30px rgba(15,23,42,0.05);
+        }
+        .primary-result.avail { border-color: rgba(74,222,128,0.25); }
+        .primary-result.taken { border-color: rgba(248,113,113,0.2); }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(14px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .pr-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .pr-domain {
+            font-size: 1.7rem;
+            font-weight: 900;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+            word-break: break-all;
+        }
+        .pr-right { text-align: right; }
+        .pr-price {
+            font-size: 2rem;
+            font-weight: 900;
+            color: var(--text-primary);
+            line-height: 1;
+            letter-spacing: -0.02em;
+        }
+        .pr-period { font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px; }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 6px 14px;
+            border-radius: 99px;
+            font-size: 0.82rem;
+            font-weight: 800;
+        }
+        .status-badge.avail { background: rgba(74,222,128,0.1); color: #16a34a; border: 1px solid rgba(74,222,128,0.2); }
+        .status-badge.taken { background: rgba(248,113,113,0.1); color: #dc2626; border: 1px solid rgba(248,113,113,0.2); }
+
+        .order-btn {
+            width: 100%;
+            padding: 16px;
+            border-radius: 14px;
+            border: none;
+            font-size: 1.02rem;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.2s;
+            margin-top: 18px;
+            font-family: 'Inter', sans-serif;
+        }
+        .order-btn.avail { background: var(--rose); color: #fff; }
+        .order-btn.avail:hover { background: #e11d48; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(244,63,94,0.35); }
+
+        /* ── RECOMMENDED SECTION ── */
+        .rec-label {
+            font-size: 0.78rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+        .rec-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 12px;
+        }
+        .rec-card {
+            background: #ffffff;
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 18px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            animation: slideUp 0.4s ease both;
+            box-shadow: 0 2px 8px rgba(15,23,42,0.02);
+        }
+        .rec-card:hover {
+            border-color: rgba(244,63,94,0.3);
+            background: var(--rose-dim);
+            transform: translateY(-2px);
+        }
+        .rec-card.taken { opacity: 0.45; cursor: not-allowed; }
+        .rec-card.taken:hover { transform: none; border-color: var(--border-subtle); background: #ffffff; }
+        .rec-domain { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); }
+        .rec-price { font-size: 0.9rem; font-weight: 800; color: var(--rose); white-space: nowrap; }
+        .rec-status { font-size: 0.7rem; font-weight: 700; }
+        .rec-status.avail { color: #16a34a; }
+        .rec-status.taken { color: #dc2626; }
+        .rec-card-left { min-width: 0; }
+        .rec-card-left .tld { font-size: 0.72rem; color: var(--text-muted); font-weight: 700; margin-top: 2px; }
+    </style>
+</head>
+<body>
+{% include 'header.html' %}
+
+<main>
+    <section class="domain-hero">
+        <div class="hero-eyebrow">
+            <i class="fas fa-globe"></i> Domain Registration
+        </div>
+        <h1 class="hero-title">Find Your Perfect<br><span>Domain Name</span></h1>
+        <p class="hero-sub">Search from millions of available domains. Instant registration with competitive pricing across all popular extensions.</p>
+
+        <div class="search-wrap">
+            <form class="search-box" id="searchForm" onsubmit="event.preventDefault(); doSearch();">
+                <input type="text" class="search-input" id="domainInput"
+                    placeholder="Type your domain name (e.g. mybusiness)"
+                    autocomplete="off" spellcheck="false">
+                <button type="submit" class="search-btn" id="searchBtn">
+                    <i class="fas fa-magnifying-glass"></i> Search
+                </button>
+            </form>
+
+            <div class="tld-pills">
+                <span class="tld-pill" onclick="quickSearch('.com')">.com</span>
+                <span class="tld-pill" onclick="quickSearch('.in')">.in</span>
+                <span class="tld-pill" onclick="quickSearch('.net')">.net</span>
+                <span class="tld-pill" onclick="quickSearch('.org')">.org</span>
+                <span class="tld-pill" onclick="quickSearch('.co.in')">.co.in</span>
+                <span class="tld-pill" onclick="quickSearch('.io')">.io</span>
+            </div>
+        </div>
+
+        <div class="loader-area">
+            <div class="spinner" id="spinner"></div>
+        </div>
+
+        <div class="results-section" id="resultsSection">
+            <!-- Primary Result -->
+            <div class="primary-result" id="primaryResult">
+                <div class="pr-header">
+                    <div>
+                        <div class="pr-domain" id="prDomain">example.com</div>
+                        <div style="margin-top:8px;">
+                            <span class="status-badge avail" id="prStatus">
+                                <i class="fas fa-check-circle"></i> Available
+                            </span>
+                        </div>
+                    </div>
+                    <div class="pr-right" id="prPriceBlock">
+                        <div class="pr-price" id="prPrice">₹0</div>
+                        <div class="pr-period">per year</div>
+                    </div>
+                </div>
+                <button class="order-btn avail" id="orderBtn" onclick="orderDomain()">
+                    <i class="fas fa-cart-shopping"></i> Get This Domain
+                </button>
+            </div>
+
+            <!-- Recommended Other TLDs -->
+            <div id="recommendedArea" style="display:none;">
+                <div class="rec-label"><i class="fas fa-sparkles" style="color:var(--rose);margin-right:6px;"></i> Also Available — More Options</div>
+                <div class="rec-grid" id="recGrid"></div>
+            </div>
+        </div>
+
+    </section>
+</main>
+
+{% include 'footer.html' %}
+
+<script>
+    let selectedDomain = null;
+    let selectedPriceInr = 0;
+
+    function quickSearch(tld) {
+        const input = document.getElementById('domainInput');
+        const current = input.value.trim().split('.')[0];
+        input.value = current || '';
+        input.focus();
+        if (current) {
+            doSearch(tld);
+        }
+    }
+
+    async function doSearch(forceTld = null) {
+        const rawInput = document.getElementById('domainInput').value.trim();
+        if (!rawInput) return;
+
+        // Clean input: keep lowercase alphanumeric, dots, and dashes
+        const cleanedInput = rawInput.toLowerCase().replace(/[^a-z0-9.-]/g, '');
+        if (!cleanedInput) return;
+
+        // Extract base name
+        const baseName = cleanedInput.split('.')[0];
+        if (!baseName) return;
+
+        // Determine targeted TLD
+        let typedTld = null;
+        const parts = cleanedInput.split('.');
+        if (parts.length > 1) {
+            typedTld = '.' + parts.slice(1).join('.');
+        }
+        const targetTld = forceTld || typedTld || '.com';
+
+        // Update input field to show the actual searched domain name
+        const inputField = document.getElementById('domainInput');
+        inputField.value = baseName + targetTld;
+
+        const btn = document.getElementById('searchBtn');
+        const spinner = document.getElementById('spinner');
+        const resultsSection = document.getElementById('resultsSection');
+
+        btn.disabled = true;
+        spinner.style.display = 'block';
+        resultsSection.style.display = 'none';
+
+        try {
+            const res = await fetch(`/api/domain/check-bulk/?name=${encodeURIComponent(baseName + targetTld)}`);
+            const data = await res.json();
+
+            spinner.style.display = 'none';
+            btn.disabled = false;
+
+            if (data.error || !data.results || data.results.length === 0) {
+                alert(data.error || 'No results found. Please try again.');
+                return;
+            }
+
+            // Primary result = match targetTld, fallback to first in list
+            let primary = data.results.find(r => r.tld === targetTld) || data.results[0];
+            let others = data.results.filter(r => r.domain !== primary.domain);
+
+            renderPrimary(primary);
+            renderRecommended(others);
+
+            resultsSection.style.display = 'block';
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } catch(e) {
+            console.error(e);
+            spinner.style.display = 'none';
+            btn.disabled = false;
+            alert('Failed to connect. Please try again.');
+        }
+    }
+
+    function formatPrice(inrValue) {
+        if (window.CurrencyEngine && window.CurrencyEngine.getState && window.CurrencyEngine.getState().ready) {
+            return window.CurrencyEngine.format(inrValue);
+        }
+        return '₹' + parseInt(inrValue).toLocaleString('en-IN');
+    }
+
+    function renderPrimary(d) {
+        selectedDomain = d.domain;
+        selectedPriceInr = d.retail_price_inr;
+
+        document.getElementById('prDomain').textContent = d.domain;
+        document.getElementById('prPrice').textContent = formatPrice(d.retail_price_inr);
+        document.getElementById('prPrice').setAttribute('data-price-inr', d.retail_price_inr);
+
+        const statusEl = document.getElementById('prStatus');
+        const priceBlock = document.getElementById('prPriceBlock');
+        const orderBtn = document.getElementById('orderBtn');
+        const primaryResult = document.getElementById('primaryResult');
+
+        if (d.available) {
+            statusEl.className = 'status-badge avail';
+            statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Available';
+            priceBlock.style.display = 'block';
+            orderBtn.style.display = 'flex';
+            primaryResult.className = 'primary-result avail';
+        } else {
+            statusEl.className = 'status-badge taken';
+            statusEl.innerHTML = '<i class="fas fa-times-circle"></i> Already Taken';
+            priceBlock.style.display = 'none';
+            orderBtn.style.display = 'none';
+            primaryResult.className = 'primary-result taken';
+        }
+    }
+
+    function renderRecommended(results) {
+        const area = document.getElementById('recommendedArea');
+        const grid = document.getElementById('recGrid');
+
+        const available = results.filter(r => r.available);
+        if (available.length === 0) {
+            area.style.display = 'none';
+            return;
+        }
+
+        grid.innerHTML = '';
+        available.forEach((d, i) => {
+            const card = document.createElement('div');
+            card.className = 'rec-card' + (d.available ? '' : ' taken');
+            card.style.animationDelay = `${i * 60}ms`;
+
+            const price = formatPrice(d.retail_price_inr);
+            card.innerHTML = `
+                <div class="rec-card-left">
+                    <div class="rec-domain">${d.domain}</div>
+                    <div class="tld">${d.tld}</div>
+                </div>
+                <div style="text-align:right;">
+                    <div class="rec-price">${price}<span style="font-size:0.65rem;color:#475569;font-weight:600;">/yr</span></div>
+                    <div class="rec-status ${d.available ? 'avail' : 'taken'}">${d.available ? '✓ Available' : '✗ Taken'}</div>
+                </div>
+            `;
+            if (d.available) {
+                card.onclick = () => {
+                    selectedDomain = d.domain;
+                    selectedPriceInr = d.retail_price_inr;
+                    renderPrimary(d);
+                    document.getElementById('primaryResult').scrollIntoView({ behavior: 'smooth' });
+                };
+            }
+            grid.appendChild(card);
+        });
+
+        area.style.display = 'block';
+    }
+
+    function orderDomain() {
+        if (!selectedDomain) return;
+        const isLoggedIn = {{ request.user.is_authenticated|yesno:"true,false" }};
+        if (!isLoggedIn) {
+            window.location.href = `/login/?next=/domain-registration/order/?domain=${encodeURIComponent(selectedDomain)}&price=${selectedPriceInr}&years=1`;
+            return;
+        }
+        window.location.href = `/domain-registration/order/?domain=${encodeURIComponent(selectedDomain)}&price=${selectedPriceInr}&years=1`;
+    }
+
+    // Re-format prices if currency engine loads after our JS runs
+    window.addEventListener('vp:currency:ready', () => {
+        const prEl = document.getElementById('prPrice');
+        if (prEl && prEl.getAttribute('data-price-inr')) {
+            prEl.textContent = formatPrice(parseFloat(prEl.getAttribute('data-price-inr')));
+        }
+    });
+</script>
+</body>
+</html>

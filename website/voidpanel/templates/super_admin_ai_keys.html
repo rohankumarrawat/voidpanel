@@ -1,0 +1,714 @@
+{% extends 'super_admin_base.html' %}
+{% block title %}AI Provider Keys | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}AI Provider Keys{% endblock %}
+
+{% block admin_content %}
+
+<style>
+    .ai-keys-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+        gap: 20px;
+        margin-bottom: 24px;
+    }
+
+    .ai-provider-card {
+        background: var(--surface-2, #1a1f35);
+        border: 1px solid var(--border, rgba(255,255,255,0.08));
+        border-radius: 16px;
+        padding: 24px;
+        position: relative;
+        transition: border-color 0.2s;
+    }
+
+    .ai-provider-card.active-provider {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 1px #6366f1, 0 8px 32px rgba(99,102,241,0.15);
+    }
+
+    .ai-provider-header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 20px;
+    }
+
+    .ai-provider-logo {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        flex-shrink: 0;
+    }
+
+    .ai-provider-logo.gemini  { background: rgba(66,133,244,0.15); color: #4285f4; }
+    .ai-provider-logo.claude  { background: rgba(214,107,68,0.15);  color: #d66b44; }
+    .ai-provider-logo.openai  { background: rgba(16,163,127,0.15);  color: #10a37f; }
+    .ai-provider-logo.huggingface { background: rgba(255,214,0,0.15); color: #ffd600; }
+
+    .ai-provider-name { font-weight: 800; font-size: 1.05rem; color: var(--text-1, #f1f5f9); }
+    .ai-provider-sub  { font-size: 0.78rem; color: var(--text-3, #64748b); margin-top: 2px; }
+
+    .ai-active-badge {
+        position: absolute;
+        top: 16px; right: 16px;
+        background: linear-gradient(135deg, #6366f1, #a855f7);
+        color: white;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 100px;
+        letter-spacing: 0.5px;
+    }
+
+    .ai-key-field {
+        margin-bottom: 14px;
+    }
+
+    .ai-key-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-3, #64748b);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .ai-key-input-wrap {
+        position: relative;
+    }
+
+    .ai-key-input-wrap input {
+        width: 100%;
+        background: var(--surface-3, rgba(255,255,255,0.04));
+        border: 1px solid var(--border, rgba(255,255,255,0.08));
+        border-radius: 10px;
+        padding: 10px 44px 10px 14px;
+        color: var(--text-1, #f1f5f9);
+        font-size: 0.88rem;
+        font-family: 'Courier New', monospace;
+        outline: none;
+        transition: border-color 0.2s;
+        box-sizing: border-box;
+    }
+
+    .ai-key-input-wrap input:focus {
+        border-color: #6366f1;
+    }
+
+    .ai-key-toggle {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: transparent;
+        border: none;
+        color: #64748b;
+        cursor: pointer;
+        font-size: 0.9rem;
+        padding: 4px;
+        transition: color 0.2s;
+    }
+
+    .ai-key-toggle:hover { color: #94a3b8; }
+
+    .ai-key-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.75rem;
+        margin-top: 5px;
+        font-weight: 600;
+    }
+
+    .ai-key-status.set   { color: #10b981; }
+    .ai-key-status.unset { color: #ef4444; }
+
+    .ai-card-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 18px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border, rgba(255,255,255,0.06));
+    }
+
+    .ai-settings-card {
+        background: var(--surface-2, #1a1f35);
+        border: 1px solid var(--border, rgba(255,255,255,0.08));
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 24px;
+    }
+
+    .ai-settings-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+
+    @media (max-width: 640px) { .ai-settings-row { grid-template-columns: 1fr; } }
+
+    .ai-info-banner {
+        background: rgba(99,102,241,0.08);
+        border: 1px solid rgba(99,102,241,0.2);
+        border-radius: 12px;
+        padding: 16px 20px;
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        margin-bottom: 24px;
+    }
+
+    .ai-info-banner i { color: #818cf8; font-size: 1.1rem; margin-top: 2px; flex-shrink: 0; }
+    .ai-info-banner p { font-size: 0.85rem; color: var(--text-2, #94a3b8); margin: 0; line-height: 1.6; }
+    .ai-info-banner strong { color: var(--text-1, #f1f5f9); }
+</style>
+
+<div class="sa-page-header">
+    <div>
+        <div class="sa-page-title">
+            <i class="fas fa-robot" style="color:#a855f7;margin-right:10px;"></i>
+            Agentic AI Provider Keys
+        </div>
+        <div class="sa-page-sub">Configure API keys for AI providers powering the VoidPanel Agentic AI assistant</div>
+    </div>
+    <div class="sa-header-actions">
+        {% if ai_config.is_configured %}
+            <div class="sa-stat-chip green">
+                <i class="fas fa-check-circle"></i> {{ ai_config.get_active_provider_display }} Active
+            </div>
+        {% else %}
+            <div class="sa-stat-chip red">
+                <i class="fas fa-exclamation-triangle"></i> No Key Set
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="ai-info-banner">
+    <i class="fas fa-circle-info"></i>
+    <p>
+        <strong>How it works:</strong> Installed VoidPanel instances send AI chat requests to
+        <code style="background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px;">voidpanel.com/api/ai/chat/</code>.
+        This page controls which AI provider processes those requests.
+        Keys are stored securely in the database — never in source code.
+        Only the <strong>Active Provider</strong> key is used for live requests.
+    </p>
+</div>
+
+<!-- Global Settings -->
+<div class="ai-settings-card">
+    <div class="sa-card-title" style="margin-bottom:18px;">
+        <i class="fas fa-sliders"></i> Global AI Settings
+    </div>
+    <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="save">
+        <div class="ai-settings-row">
+            <div>
+                <label class="ai-key-label"><i class="fas fa-toggle-on"></i> Active AI Provider</label>
+                <select name="active_provider" class="sa-input" style="width:100%;">
+                    <option value="gemini"  {% if ai_config.active_provider == 'gemini'  %}selected{% endif %}>
+                        🟦 Google Gemini {% if ai_config.gemini_api_key %}✓{% endif %}
+                    </option>
+                    <option value="claude"  {% if ai_config.active_provider == 'claude'  %}selected{% endif %}>
+                        🟠 Anthropic Claude {% if ai_config.claude_api_key %}✓{% endif %}
+                    </option>
+                    <option value="openai"  {% if ai_config.active_provider == 'openai'  %}selected{% endif %}>
+                        🟢 OpenAI ChatGPT {% if ai_config.openai_api_key %}✓{% endif %}
+                    </option>
+                    <option value="huggingface" {% if ai_config.active_provider == 'huggingface' %}selected{% endif %}>
+                        🤗 Hugging Face {% if ai_config.huggingface_api_key %}✓{% endif %}
+                    </option>
+                </select>
+                <div style="font-size:0.75rem;color:var(--text-3);margin-top:5px;">
+                    This provider will handle all AI requests from installed panels.
+                </div>
+            </div>
+            <div>
+                <label class="ai-key-label"><i class="fas fa-coins"></i> Tokens Per Request</label>
+                <input type="number" name="tokens_per_request" value="{{ ai_config.tokens_per_request }}"
+                       min="1" max="100" class="sa-input" style="width:100%;">
+                <div style="font-size:0.75rem;color:var(--text-3);margin-top:5px;">
+                    AI tokens deducted from a user's balance per chat message.
+                </div>
+            </div>
+        </div>
+        <div style="margin-top:18px;">
+            <button type="submit" class="sa-btn violet">
+                <i class="fas fa-save"></i> Save Global Settings
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Provider Cards -->
+<div class="ai-keys-grid">
+
+    <!-- Gemini Card -->
+    <div class="ai-provider-card {% if ai_config.active_provider == 'gemini' %}active-provider{% endif %}">
+        {% if ai_config.active_provider == 'gemini' %}<div class="ai-active-badge">⚡ ACTIVE</div>{% endif %}
+        <div class="ai-provider-header">
+            <div class="ai-provider-logo gemini"><i class="fas fa-gem"></i></div>
+            <div>
+                <div class="ai-provider-name">Google Gemini</div>
+                <div class="ai-provider-sub">Recommended — Fast, capable, cost-effective</div>
+            </div>
+        </div>
+
+        <!-- Rate limit warning if key is set -->
+        {% if ai_config.gemini_api_key %}
+        <div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:9px;padding:10px 14px;margin-bottom:14px;font-size:.76rem;color:#fbbf24;line-height:1.6;">
+            <i class="fas fa-triangle-exclamation"></i>
+            <strong>Free-tier quota:</strong> gemini-1.5-flash allows 15 req/min &amp; 1M tokens/day free.
+            If you see <strong>429 errors</strong>, your quota is exceeded — either wait, or
+            <a href="https://aistudio.google.com" target="_blank" style="color:#fbbf24;">enable billing in AI Studio</a>.
+        </div>
+        {% endif %}
+
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="save">
+            <input type="hidden" name="active_provider" value="{{ ai_config.active_provider }}">
+            <input type="hidden" name="tokens_per_request" value="{{ ai_config.tokens_per_request }}">
+
+            <div class="ai-key-field">
+                <div class="ai-key-label"><i class="fas fa-key"></i> API Key</div>
+                <div class="ai-key-input-wrap">
+                    <input type="password" name="gemini_api_key" id="gemini_key_input"
+                           placeholder="{% if ai_config.gemini_api_key %}••••••••••••••••••••••{% else %}Paste your Gemini API key{% endif %}"
+                           autocomplete="new-password">
+                    <button type="button" class="ai-key-toggle" onclick="toggleKeyVisibility('gemini_key_input', this)">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+                <div class="ai-key-status {% if ai_config.gemini_api_key %}set{% else %}unset{% endif %}">
+                    {% if ai_config.gemini_api_key %}
+                        <i class="fas fa-check-circle"></i> Key is set ({{ ai_config.gemini_api_key|length }} chars)
+                    {% else %}
+                        <i class="fas fa-times-circle"></i> No key configured
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="ai-key-field">
+                <div class="ai-key-label"><i class="fas fa-microchip"></i> Model</div>
+                <select name="gemini_model" class="sa-input" style="width:100%;font-size:.84rem;" id="geminiModelSelect"
+                    onchange="handleGeminiModelChange(this.value)">
+                    <!-- Gemini 2.5 -->
+                    <optgroup label="── Gemini 2.5 (Latest)">
+                        <option value="gemini-2.5-pro"         {% if ai_config.gemini_model == 'gemini-2.5-pro'         %}selected{% endif %}>gemini-2.5-pro — Most intelligent, thinking model</option>
+                        <option value="gemini-2.5-flash"        {% if ai_config.gemini_model == 'gemini-2.5-flash'        %}selected{% endif %}>gemini-2.5-flash — Fast &amp; capable, best price/performance</option>
+                        <option value="gemini-2.5-flash-lite"   {% if ai_config.gemini_model == 'gemini-2.5-flash-lite'   %}selected{% endif %}>gemini-2.5-flash-lite — Ultra-fast, lowest cost</option>
+                    </optgroup>
+                    <!-- Gemini 2.0 -->
+                    <optgroup label="── Gemini 2.0">
+                        <option value="gemini-2.0-flash"        {% if ai_config.gemini_model == 'gemini-2.0-flash'        %}selected{% endif %}>gemini-2.0-flash — Agentic tasks, fast multimodal</option>
+                        <option value="gemini-2.0-flash-lite"   {% if ai_config.gemini_model == 'gemini-2.0-flash-lite'   %}selected{% endif %}>gemini-2.0-flash-lite — Free tier, highest quota ✅ Recommended</option>
+                    </optgroup>
+                    <!-- Gemini 1.5 -->
+                    <optgroup label="── Gemini 1.5">
+                        <option value="gemini-1.5-pro"          {% if ai_config.gemini_model == 'gemini-1.5-pro'          %}selected{% endif %}>gemini-1.5-pro — Long context (2M tokens)</option>
+                        <option value="gemini-1.5-flash"         {% if ai_config.gemini_model == 'gemini-1.5-flash'         %}selected{% endif %}>gemini-1.5-flash — Versatile, 1M context</option>
+                        <option value="gemini-1.5-flash-8b"      {% if ai_config.gemini_model == 'gemini-1.5-flash-8b'      %}selected{% endif %}>gemini-1.5-flash-8b — High volume, low cost</option>
+                    </optgroup>
+                    <!-- Gemini 1.0 -->
+                    <optgroup label="── Gemini 1.0">
+                        <option value="gemini-1.0-pro"           {% if ai_config.gemini_model == 'gemini-1.0-pro'           %}selected{% endif %}>gemini-1.0-pro — Legacy (deprecated soon)</option>
+                    </optgroup>
+                    <!-- Embeddings -->
+                    <optgroup label="── Embedding Models">
+                        <option value="text-embedding-004"       {% if ai_config.gemini_model == 'text-embedding-004'       %}selected{% endif %}>text-embedding-004 — Latest text embeddings</option>
+                        <option value="embedding-001"            {% if ai_config.gemini_model == 'embedding-001'            %}selected{% endif %}>embedding-001 — Legacy embeddings</option>
+                    </optgroup>
+                    <option value="custom">✏️ Custom model name…</option>
+                </select>
+                <input type="text" id="geminiModelCustom" name="gemini_model_custom"
+                       value="{{ ai_config.gemini_model }}"
+                       placeholder="e.g. gemini-2.5-pro-preview-05-06"
+                       style="display:none;margin-top:6px;width:100%;background:var(--surface-3,rgba(255,255,255,.04));border:1px solid var(--border,rgba(255,255,255,.08));border-radius:9px;padding:9px 12px;color:var(--text-1,#f1f5f9);font-size:.84rem;box-sizing:border-box;outline:none;">
+            </div>
+
+            <div id="geminiTestResult" style="display:none;padding:9px 13px;border-radius:9px;font-size:.78rem;margin-bottom:10px;"></div>
+
+            <div class="ai-card-actions">
+                <button type="submit" class="sa-btn sky sm">
+                    <i class="fas fa-save"></i> Save Key
+                </button>
+                {% if ai_config.gemini_api_key %}
+                <button type="button" class="sa-btn green sm" onclick="testGeminiKey()">
+                    <i class="fas fa-satellite-dish"></i> Test Key
+                </button>
+                <button type="button" class="sa-btn ghost sm"
+                        onclick="clearKey('clear_gemini')">
+                    <i class="fas fa-trash"></i> Clear
+                </button>
+                {% endif %}
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" class="sa-btn ghost sm">
+                    <i class="fas fa-external-link-alt"></i> Get Key
+                </a>
+            </div>
+        </form>
+    </div>
+
+
+    <!-- Claude Card -->
+    <div class="ai-provider-card {% if ai_config.active_provider == 'claude' %}active-provider{% endif %}">
+        {% if ai_config.active_provider == 'claude' %}<div class="ai-active-badge">⚡ ACTIVE</div>{% endif %}
+        <div class="ai-provider-header">
+            <div class="ai-provider-logo claude"><i class="fas fa-brain"></i></div>
+            <div>
+                <div class="ai-provider-name">Anthropic Claude</div>
+                <div class="ai-provider-sub">Best for reasoning and long-context tasks</div>
+            </div>
+        </div>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="save">
+            <input type="hidden" name="active_provider" value="{{ ai_config.active_provider }}">
+            <input type="hidden" name="tokens_per_request" value="{{ ai_config.tokens_per_request }}">
+
+            <div class="ai-key-field">
+                <div class="ai-key-label"><i class="fas fa-key"></i> API Key</div>
+                <div class="ai-key-input-wrap">
+                    <input type="password" name="claude_api_key" id="claude_key_input"
+                           placeholder="{% if ai_config.claude_api_key %}••••••••••••••••••••••{% else %}Paste your Claude API key{% endif %}"
+                           autocomplete="new-password">
+                    <button type="button" class="ai-key-toggle" onclick="toggleKeyVisibility('claude_key_input', this)">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+                <div class="ai-key-status {% if ai_config.claude_api_key %}set{% else %}unset{% endif %}">
+                    {% if ai_config.claude_api_key %}
+                        <i class="fas fa-check-circle"></i> Key is set ({{ ai_config.claude_api_key|length }} chars)
+                    {% else %}
+                        <i class="fas fa-times-circle"></i> No key configured
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="ai-key-field">
+                <div class="ai-key-label"><i class="fas fa-microchip"></i> Model</div>
+                <select name="claude_model" class="sa-input" style="width:100%;font-size:.84rem;"
+                    onchange="handleClaudeModelChange(this.value)">
+                    <!-- Claude 3.7 -->
+                    <optgroup label="── Claude 3.7 (Latest)">
+                        <option value="claude-3-7-sonnet-20250219"       {% if ai_config.claude_model == 'claude-3-7-sonnet-20250219'       %}selected{% endif %}>claude-3-7-sonnet — Hybrid reasoning, highest intelligence ✅ Best</option>
+                    </optgroup>
+                    <!-- Claude 3.5 -->
+                    <optgroup label="── Claude 3.5">
+                        <option value="claude-3-5-sonnet-20241022"       {% if ai_config.claude_model == 'claude-3-5-sonnet-20241022'       %}selected{% endif %}>claude-3-5-sonnet — Coding &amp; analysis powerhouse</option>
+                        <option value="claude-3-5-haiku-20241022"        {% if ai_config.claude_model == 'claude-3-5-haiku-20241022'        %}selected{% endif %}>claude-3-5-haiku — Fastest, lowest cost</option>
+                    </optgroup>
+                    <!-- Claude 3 -->
+                    <optgroup label="── Claude 3">
+                        <option value="claude-3-opus-20240229"           {% if ai_config.claude_model == 'claude-3-opus-20240229'           %}selected{% endif %}>claude-3-opus — Most powerful v3, complex tasks</option>
+                        <option value="claude-3-sonnet-20240229"         {% if ai_config.claude_model == 'claude-3-sonnet-20240229'         %}selected{% endif %}>claude-3-sonnet — Balanced intelligence &amp; speed</option>
+                        <option value="claude-3-haiku-20240307"          {% if ai_config.claude_model == 'claude-3-haiku-20240307'          %}selected{% endif %}>claude-3-haiku — Near-instant, compact</option>
+                    </optgroup>
+                    <!-- Claude 2 -->
+                    <optgroup label="── Claude 2 (Legacy)">
+                        <option value="claude-2.1"                       {% if ai_config.claude_model == 'claude-2.1'                       %}selected{% endif %}>claude-2.1 — 200K context, legacy</option>
+                        <option value="claude-2.0"                       {% if ai_config.claude_model == 'claude-2.0'                       %}selected{% endif %}>claude-2.0 — Legacy</option>
+                    </optgroup>
+                    <!-- Instant -->
+                    <optgroup label="── Claude Instant (Legacy)">
+                        <option value="claude-instant-1.2"               {% if ai_config.claude_model == 'claude-instant-1.2'               %}selected{% endif %}>claude-instant-1.2 — High-throughput legacy</option>
+                    </optgroup>
+                    <option value="custom">✏️ Custom model name…</option>
+                </select>
+                <input type="text" id="claudeModelCustom" name="claude_model_custom"
+                       value="{{ ai_config.claude_model }}"
+                       placeholder="e.g. claude-3-5-sonnet-20241022"
+                       style="display:none;margin-top:6px;width:100%;background:var(--surface-3,rgba(255,255,255,.04));border:1px solid var(--border,rgba(255,255,255,.08));border-radius:9px;padding:9px 12px;color:var(--text-1,#f1f5f9);font-size:.84rem;box-sizing:border-box;outline:none;">
+            </div>
+
+            <div class="ai-card-actions">
+                <button type="submit" class="sa-btn sky sm">
+                    <i class="fas fa-save"></i> Save Key
+                </button>
+                {% if ai_config.claude_api_key %}
+                <button type="button" class="sa-btn ghost sm"
+                        onclick="clearKey('clear_claude')">
+                    <i class="fas fa-trash"></i> Clear
+                </button>
+                {% endif %}
+                <a href="https://console.anthropic.com/" target="_blank" class="sa-btn ghost sm">
+                    <i class="fas fa-external-link-alt"></i> Get Key
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- OpenAI Card -->
+    <div class="ai-provider-card {% if ai_config.active_provider == 'openai' %}active-provider{% endif %}">
+        {% if ai_config.active_provider == 'openai' %}<div class="ai-active-badge">⚡ ACTIVE</div>{% endif %}
+        <div class="ai-provider-header">
+            <div class="ai-provider-logo openai"><i class="fas fa-circle-nodes"></i></div>
+            <div>
+                <div class="ai-provider-name">OpenAI ChatGPT</div>
+                <div class="ai-provider-sub">GPT-4o — Excellent general-purpose model</div>
+            </div>
+        </div>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="save">
+            <input type="hidden" name="active_provider" value="{{ ai_config.active_provider }}">
+            <input type="hidden" name="tokens_per_request" value="{{ ai_config.tokens_per_request }}">
+
+            <div class="ai-key-field">
+                <div class="ai-key-label"><i class="fas fa-key"></i> API Key</div>
+                <div class="ai-key-input-wrap">
+                    <input type="password" name="openai_api_key" id="openai_key_input"
+                           placeholder="{% if ai_config.openai_api_key %}••••••••••••••••••••••{% else %}Paste your OpenAI API key{% endif %}"
+                           autocomplete="new-password">
+                    <button type="button" class="ai-key-toggle" onclick="toggleKeyVisibility('openai_key_input', this)">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+                <div class="ai-key-status {% if ai_config.openai_api_key %}set{% else %}unset{% endif %}">
+                    {% if ai_config.openai_api_key %}
+                        <i class="fas fa-check-circle"></i> Key is set ({{ ai_config.openai_api_key|length }} chars)
+                    {% else %}
+                        <i class="fas fa-times-circle"></i> No key configured
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="ai-key-field">
+                <div class="ai-key-label"><i class="fas fa-microchip"></i> Model</div>
+                <select name="openai_model" class="sa-input" style="width:100%;font-size:.84rem;"
+                    onchange="handleOpenAIModelChange(this.value)">
+                    <!-- GPT-4o -->
+                    <optgroup label="── GPT-4o (Latest)">
+                        <option value="gpt-4o"                    {% if ai_config.openai_model == 'gpt-4o'                    %}selected{% endif %}>gpt-4o — Flagship multimodal, fast &amp; intelligent ✅ Recommended</option>
+                        <option value="gpt-4o-mini"               {% if ai_config.openai_model == 'gpt-4o-mini'               %}selected{% endif %}>gpt-4o-mini — Affordable, fast intelligence</option>
+                        <option value="gpt-4o-2024-11-20"         {% if ai_config.openai_model == 'gpt-4o-2024-11-20'         %}selected{% endif %}>gpt-4o-2024-11-20 — Nov 2024 snapshot</option>
+                        <option value="gpt-4o-2024-08-06"         {% if ai_config.openai_model == 'gpt-4o-2024-08-06'         %}selected{% endif %}>gpt-4o-2024-08-06 — Structured outputs</option>
+                    </optgroup>
+                    <!-- o-series Reasoning -->
+                    <optgroup label="── o-series Reasoning Models">
+                        <option value="o3"                        {% if ai_config.openai_model == 'o3'                        %}selected{% endif %}>o3 — Most powerful reasoning</option>
+                        <option value="o3-mini"                   {% if ai_config.openai_model == 'o3-mini'                   %}selected{% endif %}>o3-mini — Fast reasoning, lower cost</option>
+                        <option value="o1"                        {% if ai_config.openai_model == 'o1'                        %}selected{% endif %}>o1 — Advanced STEM reasoning</option>
+                        <option value="o1-mini"                   {% if ai_config.openai_model == 'o1-mini'                   %}selected{% endif %}>o1-mini — Faster reasoning</option>
+                        <option value="o1-preview"                {% if ai_config.openai_model == 'o1-preview'                %}selected{% endif %}>o1-preview — Research preview</option>
+                    </optgroup>
+                    <!-- GPT-4 Turbo -->
+                    <optgroup label="── GPT-4 Turbo">
+                        <option value="gpt-4-turbo"               {% if ai_config.openai_model == 'gpt-4-turbo'               %}selected{% endif %}>gpt-4-turbo — 128K context, vision</option>
+                        <option value="gpt-4-turbo-preview"       {% if ai_config.openai_model == 'gpt-4-turbo-preview'       %}selected{% endif %}>gpt-4-turbo-preview — Preview version</option>
+                    </optgroup>
+                    <!-- GPT-4 Classic -->
+                    <optgroup label="── GPT-4 Classic">
+                        <option value="gpt-4"                     {% if ai_config.openai_model == 'gpt-4'                     %}selected{% endif %}>gpt-4 — Original GPT-4, 8K context</option>
+                        <option value="gpt-4-32k"                 {% if ai_config.openai_model == 'gpt-4-32k'                 %}selected{% endif %}>gpt-4-32k — Extended context (legacy)</option>
+                    </optgroup>
+                    <!-- GPT-3.5 -->
+                    <optgroup label="── GPT-3.5">
+                        <option value="gpt-3.5-turbo"             {% if ai_config.openai_model == 'gpt-3.5-turbo'             %}selected{% endif %}>gpt-3.5-turbo — Fast, cheapest, legacy</option>
+                        <option value="gpt-3.5-turbo-16k"         {% if ai_config.openai_model == 'gpt-3.5-turbo-16k'         %}selected{% endif %}>gpt-3.5-turbo-16k — Extended context legacy</option>
+                    </optgroup>
+                    <option value="custom">✏️ Custom model name…</option>
+                </select>
+                <input type="text" id="openaiModelCustom" name="openai_model_custom"
+                       value="{{ ai_config.openai_model }}"
+                       placeholder="e.g. gpt-4o-2024-11-20"
+                       style="display:none;margin-top:6px;width:100%;background:var(--surface-3,rgba(255,255,255,.04));border:1px solid var(--border,rgba(255,255,255,.08));border-radius:9px;padding:9px 12px;color:var(--text-1,#f1f5f9);font-size:.84rem;box-sizing:border-box;outline:none;">
+            </div>
+
+            <div class="ai-card-actions">
+                <button type="submit" class="sa-btn sky sm">
+                    <i class="fas fa-save"></i> Save Key
+                </button>
+                {% if ai_config.openai_api_key %}
+                <button type="button" class="sa-btn ghost sm"
+                        onclick="clearKey('clear_openai')">
+                    <i class="fas fa-trash"></i> Clear
+                </button>
+                {% endif %}
+                <a href="https://platform.openai.com/api-keys" target="_blank" class="sa-btn ghost sm">
+                    <i class="fas fa-external-link-alt"></i> Get Key
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Hugging Face Card -->
+    <div class="ai-provider-card {% if ai_config.active_provider == 'huggingface' %}active-provider{% endif %}">
+        {% if ai_config.active_provider == 'huggingface' %}<div class="ai-active-badge">⚡ ACTIVE</div>{% endif %}
+        <div class="ai-provider-header">
+            <div class="ai-provider-logo huggingface"><i class="fas fa-smile"></i></div>
+            <div>
+                <div class="ai-provider-name">Hugging Face</div>
+                <div class="ai-provider-sub">Run Llama 3 or custom open models</div>
+            </div>
+        </div>
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="save">
+            <input type="hidden" name="active_provider" value="{{ ai_config.active_provider }}">
+            <input type="hidden" name="tokens_per_request" value="{{ ai_config.tokens_per_request }}">
+
+            <div class="ai-key-field">
+                <div class="ai-key-label"><i class="fas fa-key"></i> User Access Token</div>
+                <div class="ai-key-input-wrap">
+                    <input type="password" name="huggingface_api_key" id="huggingface_key_input"
+                           placeholder="{% if ai_config.huggingface_api_key %}••••••••••••••••••••••{% else %}Paste your Hugging Face API key{% endif %}"
+                           autocomplete="new-password">
+                    <button type="button" class="ai-key-toggle" onclick="toggleKeyVisibility('huggingface_key_input', this)">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+                <div class="ai-key-status {% if ai_config.huggingface_api_key %}set{% else %}unset{% endif %}">
+                    {% if ai_config.huggingface_api_key %}
+                        <i class="fas fa-check-circle"></i> Key is set ({{ ai_config.huggingface_api_key|length }} chars)
+                    {% else %}
+                        <i class="fas fa-times-circle"></i> No key configured
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="ai-key-field">
+                <div class="ai-key-label"><i class="fas fa-microchip"></i> Model Repo ID</div>
+                <input type="text" name="huggingface_model" value="{{ ai_config.huggingface_model }}"
+                       class="sa-input" style="width:100%;font-size:.84rem;box-sizing:border-box;"
+                       placeholder="e.g. meta-llama/Meta-Llama-3-8B-Instruct">
+            </div>
+
+            <div class="ai-card-actions">
+                <button type="submit" class="sa-btn sky sm">
+                    <i class="fas fa-save"></i> Save Key
+                </button>
+                {% if ai_config.huggingface_api_key %}
+                <button type="button" class="sa-btn ghost sm"
+                        onclick="clearKey('clear_huggingface')">
+                    <i class="fas fa-trash"></i> Clear
+                </button>
+                {% endif %}
+                <a href="https://huggingface.co/settings/tokens" target="_blank" class="sa-btn ghost sm">
+                    <i class="fas fa-external-link-alt"></i> Get Token
+                </a>
+            </div>
+        </form>
+    </div>
+
+</div>
+
+<!-- Hidden clear forms -->
+<form id="clearForm" method="POST" style="display:none;">
+    {% csrf_token %}
+    <input type="hidden" name="action" id="clearAction" value="">
+</form>
+
+<script>
+    function toggleKeyVisibility(inputId, btn) {
+        const input = document.getElementById(inputId);
+        const icon  = btn.querySelector('i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.className = 'fas fa-eye-slash';
+        } else {
+            input.type = 'password';
+            icon.className = 'fas fa-eye';
+        }
+    }
+
+    function clearKey(action) {
+        if (!confirm('Are you sure you want to clear this API key? This will disable the provider until a new key is added.')) return;
+        document.getElementById('clearAction').value = action;
+        document.getElementById('clearForm').submit();
+    }
+
+    // ── Model selector helpers: show custom input when "custom" chosen ──────
+    function handleGeminiModelChange(val) {
+        const custom = document.getElementById('geminiModelCustom');
+        if (val === 'custom') { custom.style.display = 'block'; custom.focus(); }
+        else { custom.style.display = 'none'; }
+    }
+    function handleClaudeModelChange(val) {
+        const custom = document.getElementById('claudeModelCustom');
+        if (val === 'custom') { custom.style.display = 'block'; custom.focus(); }
+        else { custom.style.display = 'none'; }
+    }
+    function handleOpenAIModelChange(val) {
+        const custom = document.getElementById('openaiModelCustom');
+        if (val === 'custom') { custom.style.display = 'block'; custom.focus(); }
+        else { custom.style.display = 'none'; }
+    }
+    // Initialise on page load in case DB has a value not in the list
+    (function() {
+        const knownGemini = ['gemini-2.5-pro','gemini-2.5-flash','gemini-2.5-flash-lite','gemini-2.0-flash','gemini-2.0-flash-lite','gemini-1.5-pro','gemini-1.5-flash','gemini-1.5-flash-8b','gemini-1.0-pro','text-embedding-004','embedding-001'];
+        const knownClaude = ['claude-3-7-sonnet-20250219','claude-3-5-sonnet-20241022','claude-3-5-haiku-20241022','claude-3-opus-20240229','claude-3-sonnet-20240229','claude-3-haiku-20240307','claude-2.1','claude-2.0','claude-instant-1.2'];
+        const knownOpenAI = ['gpt-4o','gpt-4o-mini','gpt-4o-2024-11-20','gpt-4o-2024-08-06','o3','o3-mini','o1','o1-mini','o1-preview','gpt-4-turbo','gpt-4-turbo-preview','gpt-4','gpt-4-32k','gpt-3.5-turbo','gpt-3.5-turbo-16k'];
+        const gSel = document.getElementById('geminiModelSelect');
+        if (gSel && !knownGemini.includes(gSel.value) && gSel.value !== 'custom') {
+            gSel.value = 'custom';
+            document.getElementById('geminiModelCustom').style.display = 'block';
+        }
+        const cSel = document.querySelector('select[name="claude_model"]');
+        if (cSel && !knownClaude.includes(cSel.value) && cSel.value !== 'custom') {
+            cSel.value = 'custom';
+            document.getElementById('claudeModelCustom').style.display = 'block';
+        }
+        const oSel = document.querySelector('select[name="openai_model"]');
+        if (oSel && !knownOpenAI.includes(oSel.value) && oSel.value !== 'custom') {
+            oSel.value = 'custom';
+            document.getElementById('openaiModelCustom').style.display = 'block';
+        }
+    })();
+
+    // Test Gemini Key by calling the portal AI gateway
+    async function testGeminiKey() {
+        const box = document.getElementById('geminiTestResult');
+        box.style.display = 'block';
+        box.style.background = 'rgba(99,102,241,0.08)';
+        box.style.border = '1px solid rgba(99,102,241,0.2)';
+        box.style.color = '#818cf8';
+        box.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing Gemini connection…';
+
+        try {
+            const resp = await fetch('/api/ai/chat/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: 'Reply with exactly: OK',
+                    history: [],
+                    system_prompt: 'You are a test bot.',
+                    server_context: {},
+                    tools: []
+                })
+            });
+            const data = await resp.json();
+            if (data.status === 'success') {
+                box.style.background = 'rgba(16,185,129,0.08)';
+                box.style.border = '1px solid rgba(16,185,129,0.25)';
+                box.style.color = '#10b981';
+                box.innerHTML = '<i class="fas fa-circle-check"></i> <strong>Gemini is working!</strong> Response: ' + (data.response || '').slice(0, 80);
+            } else {
+                const msg = data.message || 'Unknown error';
+                const is429 = msg.includes('429') || msg.includes('quota') || msg.includes('rate limit');
+                box.style.background = is429 ? 'rgba(251,191,36,0.08)' : 'rgba(248,113,113,0.08)';
+                box.style.border = is429 ? '1px solid rgba(251,191,36,0.25)' : '1px solid rgba(248,113,113,0.25)';
+                box.style.color = is429 ? '#fbbf24' : '#f87171';
+                box.innerHTML = (is429
+                    ? '<i class="fas fa-triangle-exclamation"></i> <strong>Rate limit (429)</strong> — quota exceeded. Switch to gemini-1.5-flash or enable billing.'
+                    : '<i class="fas fa-circle-xmark"></i> <strong>Error:</strong> ') + (is429 ? '' : msg.slice(0, 120));
+            }
+        } catch(err) {
+            box.style.background = 'rgba(248,113,113,0.08)';
+            box.style.border = '1px solid rgba(248,113,113,0.25)';
+            box.style.color = '#f87171';
+            box.innerHTML = '<i class="fas fa-circle-xmark"></i> Network error: ' + err.message;
+        }
+    }
+</script>
+
+{% endblock %}
+

@@ -1,0 +1,588 @@
+<!-- ╔════════════════════════════════════════════════════════╗ -->
+<!-- ║  LIVE CHAT WIDGET                                       ║ -->
+<!-- ╚════════════════════════════════════════════════════════╝ -->
+<div id="liveChatWidget" style="position:fixed;bottom:28px;right:28px;z-index:9999;font-family:'Plus Jakarta Sans',system-ui,sans-serif;">
+    <!-- FAB Button -->
+    <button id="liveChatBtn" onclick="toggleLiveChat()" aria-label="Open live chat" style="
+        width:58px;height:58px;border-radius:50%;
+        background:linear-gradient(135deg,#2563eb,#1d4ed8);
+        border:none;box-shadow:0 8px 28px rgba(37,99,235,0.35);
+        cursor:pointer;display:flex;align-items:center;justify-content:center;
+        color:#ffffff;font-size:1.35rem;transition:transform 0.2s,box-shadow 0.2s;
+        position:relative;">
+        <i class="fas fa-headset"></i>
+        <span id="lcUnreadBadge" style="display:none;position:absolute;top:-4px;right:-4px;
+            background:#ef4444;color:#fff;font-size:0.58rem;font-weight:800;
+            border-radius:50%;width:18px;height:18px;align-items:center;justify-content:center;
+            border:2px solid #fff;"></span>
+    </button>
+
+    <!-- Chat Window -->
+    <div id="liveChatWin" style="
+        display:none;position:absolute;bottom:72px;right:0;
+        width:370px;height:530px;
+        background:#ffffff;border:1px solid rgba(15,23,42,0.09);
+        border-radius:22px;box-shadow:0 24px 60px rgba(15,23,42,0.12);
+        flex-direction:column;overflow:hidden;">
+
+        <!-- Header -->
+        <div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);padding:16px 20px;color:#ffffff;display:flex;align-items:center;gap:12px;flex-shrink:0;">
+            <div style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">
+                <i class="fas fa-headset"></i>
+            </div>
+            <div style="flex:1;">
+                <div style="font-weight:800;font-size:0.92rem;letter-spacing:-0.01em;">VoidPanel Support</div>
+                <div style="font-size:0.7rem;opacity:0.8;" id="lcAgentStatus">⚡ Connecting to an agent…</div>
+            </div>
+            <button onclick="toggleLiveChat()" style="background:rgba(255,255,255,0.12);border:none;color:#fff;cursor:pointer;width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:0.85rem;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.12)'">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Guest Auth Form -->
+        <div id="liveChatForm" style="display:none;padding:24px 20px;background:#ffffff;flex:1;overflow-y:auto;">
+            <div style="text-align:center;margin-bottom:20px;">
+                <div style="width:52px;height:52px;border-radius:14px;background:#eff6ff;display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin:0 auto 12px;">👋</div>
+                <div style="font-weight:800;color:var(--text-primary);font-size:0.95rem;">Welcome!</div>
+                <div style="font-size:0.82rem;color:var(--text-muted);margin-top:4px;line-height:1.5;">Please share your details and an agent will join you shortly.</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                <input type="text" id="lcName" placeholder="Your Full Name" style="width:100%;background:#f8fafc;border:1.5px solid rgba(15,23,42,0.09);padding:12px 14px;border-radius:10px;color:var(--text-primary);font-family:inherit;font-size:0.88rem;outline:none;box-sizing:border-box;transition:border-color 0.2s;" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='rgba(15,23,42,0.09)'">
+                <input type="email" id="lcEmail" placeholder="Email Address" style="width:100%;background:#f8fafc;border:1.5px solid rgba(15,23,42,0.09);padding:12px 14px;border-radius:10px;color:var(--text-primary);font-family:inherit;font-size:0.88rem;outline:none;box-sizing:border-box;transition:border-color 0.2s;" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='rgba(15,23,42,0.09)'">
+                <input type="tel" id="lcPhone" placeholder="Phone / WhatsApp Number" style="width:100%;background:#f8fafc;border:1.5px solid rgba(15,23,42,0.09);padding:12px 14px;border-radius:10px;color:var(--text-primary);font-family:inherit;font-size:0.88rem;outline:none;box-sizing:border-box;transition:border-color 0.2s;" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='rgba(15,23,42,0.09)'">
+                <div style="font-size:0.72rem;color:#94a3b8;margin-top:-4px;padding-left:4px;">📱 10-digit numbers will auto-get +91 country code</div>
+                <button onclick="startLiveChat()" style="padding:13px;border:none;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-weight:800;border-radius:10px;cursor:pointer;font-size:0.88rem;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(37,99,235,0.25);transition:opacity 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+                    <i class="fas fa-paper-plane"></i> Start Chat
+                </button>
+            </div>
+            <div id="lcError" style="color:#ef4444;font-size:0.75rem;margin-top:10px;display:none;text-align:center;"></div>
+        </div>
+
+        <!-- "No Agent Available" Screen -->
+        <div id="liveChatBusy" style="display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;padding:28px 24px;text-align:center;background:#fff;">
+            <div style="width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#fef2f2,#fee2e2);display:flex;align-items:center;justify-content:center;font-size:1.8rem;margin-bottom:18px;">😔</div>
+            <div style="font-weight:800;font-size:1rem;color:#0f172a;margin-bottom:8px;">Sorry, we're a bit busy!</div>
+            <div style="font-size:0.83rem;color:#64748b;line-height:1.6;margin-bottom:20px;">No agent is available right now. We've been notified and will follow up with you as soon as possible.</div>
+            <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:14px 18px;width:100%;box-sizing:border-box;margin-bottom:20px;">
+                <div style="font-size:0.75rem;font-weight:700;color:#15803d;margin-bottom:4px;">✅ What happens next</div>
+                <div style="font-size:0.78rem;color:#166534;line-height:1.6;">• Our team has been notified via email<br>• If you shared a phone number, we'll send you a WhatsApp message<br>• We'll follow up shortly!</div>
+            </div>
+            <button onclick="lcResetToForm()" style="padding:10px 24px;border:1.5px solid rgba(37,99,235,0.25);background:#eff6ff;color:#2563eb;font-weight:700;border-radius:10px;cursor:pointer;font-size:0.84rem;font-family:inherit;transition:background 0.15s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">
+                Try Again Later
+            </button>
+        </div>
+
+        <!-- Countdown Timer Bar (visible 2-min wait indicator) -->
+        <div id="lcTimerBar" style="display:none;padding:7px 16px;background:#fffbeb;border-bottom:1px solid #fde68a;flex-shrink:0;">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span id="lcTimerDot" style="width:8px;height:8px;border-radius:50%;background:#f59e0b;flex-shrink:0;animation:lcPulse 1s ease-in-out infinite;"></span>
+                <span style="font-size:0.74rem;color:#92400e;flex:1;">Connecting you to an agent…</span>
+                <span id="lcTimerCount" style="font-size:0.78rem;font-weight:800;color:#b45309;font-family:monospace;">2:00</span>
+            </div>
+            <div style="margin-top:5px;background:#fde68a;border-radius:4px;height:3px;overflow:hidden;">
+                <div id="lcTimerFill" style="width:100%;height:100%;background:#f59e0b;border-radius:4px;transition:width 1s linear;"></div>
+            </div>
+        </div>
+        <style>@keyframes lcPulse{0%,100%{opacity:1}50%{opacity:0.35}}</style>
+
+        <!-- Chat History -->
+        <div id="liveChatHistory" style="display:none;flex:1;padding:14px 16px;background:#f8fafc;overflow-y:auto;flex-direction:column;gap:10px;"></div>
+
+        <!-- Emoji Picker -->
+        <div id="lcEmojiPicker" style="display:none;position:absolute;bottom:62px;left:0;right:0;background:#ffffff;border-top:1px solid rgba(15,23,42,0.06);padding:10px;flex-wrap:wrap;gap:5px;max-height:130px;overflow-y:auto;z-index:10;"></div>
+
+        <!-- Input Area -->
+        <div id="liveChatInputArea" style="display:none;padding:10px 12px;background:#ffffff;border-top:1px solid rgba(15,23,42,0.06);flex-direction:column;gap:8px;flex-shrink:0;">
+            <div style="display:flex;align-items:center;gap:6px;">
+                <button onclick="toggleEmojiPicker()" title="Emoji" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:1.15rem;padding:4px;border-radius:6px;transition:background 0.1s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'">😊</button>
+                <label title="Attach file" style="color:#64748b;cursor:pointer;font-size:0.95rem;padding:4px;border-radius:6px;transition:background 0.1s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'"><i class="fas fa-paperclip"></i><input type="file" id="lcFileInput" style="display:none;" onchange="sendAttachment()"></label>
+                <label title="Send image" style="color:#64748b;cursor:pointer;font-size:0.95rem;padding:4px;border-radius:6px;transition:background 0.1s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'"><i class="fas fa-image"></i><input type="file" id="lcImageInput" accept="image/*" style="display:none;" onchange="sendImage()"></label>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <input type="text" id="lcMsg" placeholder="Type a message…" autocomplete="off"
+                    onkeydown="if(event.key==='Enter')sendLiveChatMsg()"
+                    style="flex:1;background:#f8fafc;border:1.5px solid rgba(15,23,42,0.09);color:var(--text-primary);padding:10px 14px;border-radius:20px;outline:none;font-family:inherit;font-size:0.85rem;transition:border-color 0.2s;"
+                    onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='rgba(15,23,42,0.09)'">
+                <button onclick="sendLiveChatMsg()" style="width:38px;height:38px;flex-shrink:0;border-radius:50%;background:linear-gradient(135deg,#2563eb,#1d4ed8);border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.85rem;box-shadow:0 4px 10px rgba(37,99,235,0.25);transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const CSRF = '{{ csrf_token }}';
+    const isUserAuth = "{{ request.user.is_authenticated }}" === "True";
+    let lcSessionId = localStorage.getItem('voidpanel_lc_session') || null;
+    let lcLastId = 0;
+    let lcInterval = null;
+    let lcUnread = 0;
+    let lcOpen = false;
+    let lcNoAgentTimer = null;
+    let lcAgentHasJoined = false;
+    let lcNoAgentFired = false;
+
+    const EMOJIS = ['😊','😂','❤️','👍','🙏','🎉','😎','🔥','✅','❌','💡','⚡','🛠️','📋','📎','🖼️','🤝','😢','😡','🚀','💬','📧','🔑','🛡️','🌐','⭐','💻','📞','✉️','👋','😅','🙌','💪','🤔','👀','🎯','🏆','📂','🔒','⚙️'];
+
+    function buildEmojiPicker() {
+        const p = document.getElementById('lcEmojiPicker');
+        EMOJIS.forEach(em => {
+            const btn = document.createElement('button');
+            btn.textContent = em;
+            btn.style.cssText = 'background:none;border:none;font-size:1.25rem;cursor:pointer;padding:4px;border-radius:6px;transition:background 0.1s;';
+            btn.onmouseenter = () => btn.style.background = '#f1f5f9';
+            btn.onmouseleave = () => btn.style.background = 'none';
+            btn.onclick = () => {
+                const inp = document.getElementById('lcMsg');
+                inp.value += em;
+                inp.focus();
+                document.getElementById('lcEmojiPicker').style.display = 'none';
+            };
+            p.appendChild(btn);
+        });
+    }
+    buildEmojiPicker();
+
+    window.toggleEmojiPicker = function() {
+        const p = document.getElementById('lcEmojiPicker');
+        p.style.display = (p.style.display === 'none' || p.style.display === '') ? 'flex' : 'none';
+    };
+
+    // ── Start 2-minute no-agent timer with visible countdown ─────────────────
+    let lcTimerInterval = null;
+    const LC_TIMEOUT_SECS = 120;
+
+    function startNoAgentTimer(sessionId) {
+        lcNoAgentFired = false;
+        if (lcNoAgentTimer)  clearTimeout(lcNoAgentTimer);
+        if (lcTimerInterval) clearInterval(lcTimerInterval);
+
+        // Show the timer bar
+        const bar   = document.getElementById('lcTimerBar');
+        const count = document.getElementById('lcTimerCount');
+        const fill  = document.getElementById('lcTimerFill');
+        if (bar) bar.style.display = 'block';
+
+        let remaining = LC_TIMEOUT_SECS;
+
+        function tick() {
+            remaining--;
+            const m = Math.floor(remaining / 60);
+            const s = remaining % 60;
+            if (count) count.textContent = `${m}:${s < 10 ? '0' + s : s}`;
+            if (fill)  fill.style.width  = `${(remaining / LC_TIMEOUT_SECS) * 100}%`;
+            if (remaining <= 0) {
+                clearInterval(lcTimerInterval); lcTimerInterval = null;
+                if (bar) bar.style.display = 'none';
+            }
+        }
+        lcTimerInterval = setInterval(tick, 1000);
+
+        // Fire after 2 min
+        lcNoAgentTimer = setTimeout(function () {
+            if (!lcAgentHasJoined && !lcNoAgentFired) {
+                lcNoAgentFired = true;
+                fetch(`/livechat/${sessionId}/no-agent/`, {
+                    method: 'POST',
+                    headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+                    body: JSON.stringify({})
+                }).catch(() => {});
+                showBusyScreen();
+            }
+        }, LC_TIMEOUT_SECS * 1000);
+    }
+
+    function _stopTimerBar() {
+        if (lcTimerInterval) { clearInterval(lcTimerInterval); lcTimerInterval = null; }
+        const bar = document.getElementById('lcTimerBar');
+        if (bar) bar.style.display = 'none';
+    }
+
+    function showBusyScreen() {
+        clearInterval(lcInterval); lcInterval = null;
+        _stopTimerBar();
+        document.getElementById('liveChatHistory').style.display = 'none';
+        document.getElementById('liveChatInputArea').style.display = 'none';
+        document.getElementById('liveChatForm').style.display = 'none';
+        document.getElementById('liveChatBusy').style.display = 'flex';
+        document.getElementById('lcAgentStatus').textContent = '⏳ Sorry, we are busy';
+    }
+
+    window.lcResetToForm = function() {
+        // Close existing session if still open
+        if(lcSessionId) {
+            fetch(`/livechat/${lcSessionId}/close/`, {method:'POST', headers:{'X-CSRFToken': CSRF}}).catch(()=>{});
+        }
+        lcSessionId = null;
+        localStorage.removeItem('voidpanel_lc_session');
+        clearInterval(lcInterval); lcInterval = null;
+        if (lcNoAgentTimer)  { clearTimeout(lcNoAgentTimer);  lcNoAgentTimer  = null; }
+        _stopTimerBar();
+        lcLastId = 0; lcAgentHasJoined = false; lcNoAgentFired = false;
+
+        document.getElementById('liveChatBusy').style.display = 'none';
+        document.getElementById('liveChatHistory').style.display = 'none';
+        document.getElementById('liveChatHistory').innerHTML = '';
+        document.getElementById('liveChatInputArea').style.display = 'none';
+        document.getElementById('lcAgentStatus').textContent = '⚡ Connecting to an agent…';
+
+        if(isUserAuth) {
+            // Re-start session immediately for registered users
+            startLiveChat();
+        } else {
+            document.getElementById('liveChatForm').style.display = 'block';
+        }
+    };
+
+    window.toggleLiveChat = function() {
+        const win = document.getElementById('liveChatWin');
+        const btn = document.getElementById('liveChatBtn');
+        lcOpen = !lcOpen;
+        win.style.display = lcOpen ? 'flex' : 'none';
+        btn.style.transform = lcOpen ? 'scale(0.92)' : 'scale(1)';
+        if(lcOpen) {
+            lcUnread = 0;
+            const badge = document.getElementById('lcUnreadBadge');
+            badge.style.display = 'none';
+            if(!lcSessionId) {
+                if(isUserAuth) { startLiveChat(); }
+                else { document.getElementById('liveChatForm').style.display = 'block'; }
+            } else {
+                showChatInterface();
+            }
+        }
+    };
+
+    window.startLiveChat = function() {
+        const name  = (document.getElementById('lcName')  || {}).value || '';
+        const email = (document.getElementById('lcEmail') || {}).value || '';
+        const phone = (document.getElementById('lcPhone') || {}).value || '';
+        const err   = document.getElementById('lcError');
+
+        fetch('/livechat/start/', {
+            method: 'POST',
+            body: JSON.stringify({name: name.trim(), email: email.trim(), phone: phone.trim()}),
+            headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'}
+        }).then(r => r.json()).then(data => {
+            if(data.status === 'ok') {
+                lcSessionId = data.session_id;
+                localStorage.setItem('voidpanel_lc_session', lcSessionId);
+                lcAgentHasJoined = false;
+                lcNoAgentFired = false;
+                showChatInterface();
+                startNoAgentTimer(lcSessionId);
+            } else {
+                if(err) { err.textContent = data.error; err.style.display = 'block'; }
+            }
+        }).catch(() => {
+            if(err) { err.textContent = 'Could not connect. Please try again.'; err.style.display = 'block'; }
+        });
+    };
+
+    function showChatInterface() {
+        document.getElementById('liveChatForm').style.display = 'none';
+        document.getElementById('liveChatBusy').style.display = 'none';
+        document.getElementById('liveChatHistory').style.display = 'flex';
+        document.getElementById('liveChatInputArea').style.display = 'flex';
+        pollChat();
+        if(!lcInterval) lcInterval = setInterval(pollChat, 2500);
+    }
+
+    function renderMessage(m) {
+        const hist = document.getElementById('liveChatHistory');
+        const wrap = document.createElement('div');
+        wrap.dataset.msgId = m.id;
+        const isUser = (m.sender === 'user');
+        wrap.style.cssText = `display:flex;flex-direction:column;align-items:${isUser ? 'flex-end' : 'flex-start'};`;
+        const bubbleBg = isUser ? 'linear-gradient(135deg,#2563eb,#1d4ed8)' : '#ffffff';
+        const bubbleColor = isUser ? '#ffffff' : 'var(--text-primary)';
+        const br = isUser ? '14px 14px 2px 14px' : '14px 14px 14px 2px';
+        const label = isUser ? 'You' : '🛡️ Support';
+        let inner = '';
+        if(m.msg_type === 'image') {
+            inner = `<img src="${m.attachment_url}" alt="${m.attachment_name}" style="max-width:220px;border-radius:10px;border:1px solid rgba(15,23,42,0.08);">`;
+        } else if(m.msg_type === 'file') {
+            inner = `<div style="background:${isUser ? '#2563eb' : '#ffffff'};color:${bubbleColor};padding:10px 14px;border-radius:${br};font-size:0.83rem;border:1px solid rgba(15,23,42,0.08);box-shadow:0 1px 3px rgba(15,23,42,0.05);">📎 <a href="${m.attachment_url}" target="_blank" style="color:${isUser ? '#bfdbfe' : '#2563eb'};text-decoration:underline;">${m.attachment_name}</a></div>`;
+        } else {
+            inner = `<div style="background:${bubbleBg};color:${bubbleColor};padding:10px 14px;border-radius:${br};font-size:0.85rem;max-width:260px;word-break:break-word;line-height:1.5;${isUser ? 'box-shadow:0 4px 12px rgba(37,99,235,0.2);' : 'border:1px solid rgba(15,23,42,0.08);box-shadow:0 1px 3px rgba(15,23,42,0.05);'}">${m.content}</div>`;
+        }
+        wrap.innerHTML = `<div style="font-size:0.67rem;color:#94a3b8;margin-bottom:4px;padding:0 2px;">${label} · ${m.timestamp}</div>${inner}`;
+        hist.appendChild(wrap);
+        hist.scrollTop = hist.scrollHeight;
+    }
+
+    function pollChat() {
+        if(!lcSessionId) return;
+        fetch(`/livechat/${lcSessionId}/poll/?last_id=${lcLastId}`)
+        .then(r => r.json()).then(d => {
+            if(d.status === 'ok') {
+                d.messages.forEach(m => {
+                    if(m.id > lcLastId) {
+                        lcLastId = m.id;
+                        renderMessage(m);
+                        if(!lcOpen && m.sender === 'agent') {
+                            lcUnread++;
+                            const badge = document.getElementById('lcUnreadBadge');
+                            badge.textContent = lcUnread;
+                            badge.style.display = 'flex';
+                        }
+                    }
+                });
+                // If agent has joined, cancel no-agent timer + hide countdown
+                if (d.is_agent_assigned && !lcAgentHasJoined) {
+                    lcAgentHasJoined = true;
+                    if (lcNoAgentTimer) { clearTimeout(lcNoAgentTimer); lcNoAgentTimer = null; }
+                    _stopTimerBar();
+                }
+                if(d.assigned) { document.getElementById('lcAgentStatus').textContent = `🟢 ${d.assigned}`; }
+                if(d.session_status === 'closed') {
+                    lcSessionId = null;
+                    localStorage.removeItem('voidpanel_lc_session');
+                    clearInterval(lcInterval); lcInterval = null;
+                    if(lcNoAgentTimer) { clearTimeout(lcNoAgentTimer); lcNoAgentTimer = null; }
+                    const hist = document.getElementById('liveChatHistory');
+                    const cd = document.createElement('div');
+                    cd.style.cssText = 'text-align:center;color:#ef4444;font-size:0.75rem;padding:10px;background:#fef2f2;border-radius:10px;margin-top:6px;';
+                    cd.innerHTML = '🔒 Session closed. A transcript has been emailed to you.';
+                    hist.appendChild(cd);
+                    document.getElementById('liveChatInputArea').style.display = 'none';
+                    document.getElementById('lcAgentStatus').textContent = 'Session ended';
+                }
+            } else if(d.error === 'Session not found') {
+                localStorage.removeItem('voidpanel_lc_session');
+                lcSessionId = null;
+                clearInterval(lcInterval); lcInterval = null;
+            }
+        }).catch(() => {});
+    }
+
+    window.sendLiveChatMsg = function() {
+        const inp = document.getElementById('lcMsg');
+        const txt = inp.value.trim();
+        if(!txt || !lcSessionId) return;
+        inp.value = '';
+        document.getElementById('lcEmojiPicker').style.display = 'none';
+        fetch(`/livechat/${lcSessionId}/send/`, {
+            method: 'POST',
+            body: JSON.stringify({message: txt}),
+            headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'}
+        }).then(() => pollChat());
+    };
+
+    window.sendAttachment = function() {
+        const input = document.getElementById('lcFileInput');
+        if(!input.files[0] || !lcSessionId) return;
+        const form = new FormData();
+        form.append('attachment', input.files[0]);
+        fetch(`/livechat/${lcSessionId}/send/`, { method: 'POST', body: form, headers: {'X-CSRFToken': CSRF} })
+            .then(() => { input.value = ''; pollChat(); });
+    };
+
+    window.sendImage = function() {
+        const input = document.getElementById('lcImageInput');
+        if(!input.files[0] || !lcSessionId) return;
+        const form = new FormData();
+        form.append('attachment', input.files[0]);
+        fetch(`/livechat/${lcSessionId}/send/`, { method: 'POST', body: form, headers: {'X-CSRFToken': CSRF} })
+            .then(() => { input.value = ''; pollChat(); });
+    };
+})();
+</script>
+
+<!-- ╔════════════════════════════════════════════════════════╗ -->
+<!-- ║  MAIN FOOTER                                            ║ -->
+<!-- ╚════════════════════════════════════════════════════════╝ -->
+<footer style="background:#0f172a;color:#94a3b8;padding:80px 5% 0;">
+    <style>
+        .footer-grid {
+            max-width: 1240px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1.8fr 1fr 1fr 1fr;
+            gap: 48px;
+            padding-bottom: 64px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        @media(max-width: 1024px) { .footer-grid { grid-template-columns: 1fr 1fr; gap: 36px; } }
+        @media(max-width: 600px)  { .footer-grid { grid-template-columns: 1fr; gap: 28px; } }
+
+        .footer-brand-col p {
+            font-size: 0.88rem;
+            line-height: 1.75;
+            color: #64748b;
+            margin: 16px 0 24px;
+            max-width: 300px;
+        }
+        .footer-socials { display: flex; gap: 10px; }
+        .footer-social-btn {
+            width: 36px; height: 36px;
+            border-radius: 9px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.08);
+            display: flex; align-items: center; justify-content: center;
+            color: #64748b;
+            font-size: 0.85rem;
+            transition: all 0.18s;
+            text-decoration: none;
+        }
+        .footer-social-btn:hover { background: rgba(37,99,235,0.2); border-color: rgba(37,99,235,0.3); color: #60a5fa; transform: translateY(-2px); }
+
+        .footer-col-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: #f1f5f9;
+            margin-bottom: 18px;
+        }
+        .footer-links { display: flex; flex-direction: column; gap: 11px; }
+        .footer-links a {
+            font-size: 0.88rem;
+            color: #64748b;
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+        .footer-links a:hover { color: #e2e8f0; }
+
+        .footer-trust-strip {
+            max-width: 1240px;
+            margin: 0 auto;
+            padding: 28px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 32px;
+            flex-wrap: wrap;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .footer-trust-item {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #475569;
+        }
+        .footer-trust-item i { color: #2563eb; font-size: 0.75rem; }
+
+        .footer-bottom-bar {
+            max-width: 1240px;
+            margin: 0 auto;
+            padding: 22px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .footer-bottom-bar span { font-size: 0.8rem; color: #334155; }
+        .footer-bottom-bar a { color: #475569; text-decoration: none; transition: color 0.15s; }
+        .footer-bottom-bar a:hover { color: #94a3b8; }
+        .status-dot { display: inline-flex; align-items: center; gap: 6px; }
+        .status-dot::before { content:''; width:7px;height:7px;border-radius:50%;background:#10b981;display:inline-block;box-shadow:0 0 6px rgba(16,185,129,0.5); }
+    </style>
+
+    <!-- 4-column link grid -->
+    <div class="footer-grid">
+        <!-- Brand -->
+        <div class="footer-brand-col">
+            <a href="/" style="display:inline-flex;align-items:center;text-decoration:none;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="140" height="32" viewBox="0 0 180 40" role="img" aria-label="VoidPanel">
+                  <rect x="0" y="4" width="34" height="34" rx="8" ry="8" fill="rgba(255,255,255,0.12)"/>
+                  <rect x="7" y="13" width="20" height="4" rx="1.5" fill="#ffffff" opacity="0.9"/>
+                  <rect x="7" y="19.5" width="14" height="4" rx="1.5" fill="#ffffff" opacity="0.65"/>
+                  <rect x="7" y="26" width="10" height="4" rx="1.5" fill="#60a5fa" opacity="0.95"/>
+                  <text x="43" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#ffffff">Void</text>
+                  <text x="91" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#60a5fa">Panel</text>
+                </svg>
+            </a>
+            <p>The open-source web hosting control panel. Manage your server, websites, DNS, email, SSL, and backups from one powerful interface.</p>
+            <div class="footer-socials">
+                <a href="https://www.instagram.com/rohankumarrawat_/" target="_blank" rel="noopener" class="footer-social-btn" aria-label="Instagram">
+                    <i class="fab fa-instagram"></i>
+                </a>
+                <a href="https://in.linkedin.com/in/rohankumarrawat" target="_blank" rel="noopener" class="footer-social-btn" aria-label="LinkedIn">
+                    <i class="fab fa-linkedin-in"></i>
+                </a>
+                <a href="https://x.com/rohankumarrawat/" target="_blank" rel="noopener" class="footer-social-btn" aria-label="X / Twitter">
+                    <i class="fab fa-x-twitter"></i>
+                </a>
+                <a href="https://www.youtube.com/@voidpanel" target="_blank" rel="noopener" class="footer-social-btn" aria-label="YouTube">
+                    <i class="fab fa-youtube"></i>
+                </a>
+            </div>
+        </div>
+
+        <!-- Services -->
+        <div>
+            <div class="footer-col-title">Services</div>
+            <div class="footer-links">
+                <a href="/web-hosting/">Web Hosting</a>
+                <a href="/wordpress-hosting/">WordPress Hosting</a>
+                <a href="/reseller-hosting/">Reseller Hosting</a>
+                <a href="/domain-registration/">Domain Names</a>
+                <a href="/professional-email/">Professional Email</a>
+                <a href="/ssl-certificates/">SSL Certificates</a>
+            </div>
+        </div>
+
+        <!-- Resources -->
+        <div>
+            <div class="footer-col-title">Resources</div>
+            <div class="footer-links">
+                <a href="/get-voidpanel/">Get VoidPanel Free</a>
+                <a href="/docs/">Documentation</a>
+                <a href="/blogs/">Blog</a>
+                <a href="/aboutus/">About Us</a>
+                <a href="javascript:void(0)" onclick="toggleLiveChat()">Live Support</a>
+                <a href="/portal/">Client Portal</a>
+                <a href="/whmcs/">WHMCS Module</a>
+            </div>
+        </div>
+
+        <!-- Company -->
+        <div>
+            <div class="footer-col-title">Company</div>
+            <div class="footer-links">
+                <a href="/aboutus/">About VoidPanel</a>
+                <a href="/blogs/">Newsroom</a>
+                <a href="/notifications/">Notifications</a>
+                <a href="/register/">Create Account</a>
+                <a href="/login/">Login</a>
+                <a href="/terms-and-conditions/">Terms &amp; Conditions</a>
+                <a href="/privacy-policy/">Privacy Policy</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trust strip -->
+    <div class="footer-trust-strip">
+        <div class="footer-trust-item"><i class="fas fa-lock"></i> Free SSL on Every Site</div>
+        <div class="footer-trust-item"><i class="fas fa-code-branch"></i> 100% Open Source</div>
+        <div class="footer-trust-item"><i class="fas fa-shield-halved"></i> CSF Firewall Included</div>
+        <div class="footer-trust-item"><i class="fas fa-cloud"></i> Auto Cloud Backups</div>
+        <div class="footer-trust-item"><i class="fas fa-headset"></i> 24/7 Live Support</div>
+        <div class="footer-trust-item"><i class="fas fa-bolt"></i> NVMe SSD Storage</div>
+    </div>
+
+    <!-- Bottom bar -->
+    <div class="footer-bottom-bar">
+        <span>© 2025 VoidPanel. All rights reserved.</span>
+        <span class="status-dot">All systems operational</span>
+        <span>Built with <span style="color:#3b82f6;">♥</span> for the open-source community</span>
+    </div>
+</footer>
+
+<!-- Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-V3SS2PLJ3L"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-V3SS2PLJ3L');
+</script>
+
+<!-- Currency Engine -->
+<script src="/static/assets/js/currency.js"></script>

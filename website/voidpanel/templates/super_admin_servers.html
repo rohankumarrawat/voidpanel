@@ -1,0 +1,343 @@
+{% extends "super_admin_base.html" %}
+{% block title %}Servers | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}Server Nodes{% endblock %}
+
+{% block admin_content %}
+<style>
+    .server-test-box { margin-top: 12px; padding: 12px 16px; border-radius: 10px; font-size: 0.84rem; display: none; align-items: center; gap: 10px; }
+    .server-test-box.loading { background: rgba(89,196,188,0.07); border: 1px solid rgba(89,196,188,0.2); color: #59c4bc; display: flex; }
+    .server-test-box.success { background: rgba(74,222,128,0.07); border: 1px solid rgba(74,222,128,0.2); color: #4ade80; display: flex; }
+    .server-test-box.error   { background: rgba(248,113,113,0.07); border: 1px solid rgba(248,113,113,0.2); color: #f87171; display: flex; }
+    .server-test-spinner { width: 16px; height: 16px; border: 2px solid rgba(89,196,188,0.3); border-top-color: #59c4bc; border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .ping-badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 0.73rem; font-weight: 700; }
+    .ping-badge.ok   { background: rgba(74,222,128,0.12); color: #4ade80; }
+    .ping-badge.fail { background: rgba(248,113,113,0.12); color: #f87171; }
+    .ping-badge.spin { background: rgba(89,196,188,0.12); color: #59c4bc; }
+    /* Edit Modal */
+    .sa-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9000;align-items:center;justify-content:center;}
+    .sa-modal-overlay.open{display:flex;}
+    .sa-modal{background:#0f1c2e;border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:28px;width:min(620px,94vw);max-height:90vh;overflow-y:auto;}
+    .sa-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+    .sa-modal-title{font-size:1rem;font-weight:800;color:#f0f4ff;}
+    .sa-modal-close{background:none;border:none;color:#64748b;font-size:1.2rem;cursor:pointer;padding:4px 8px;border-radius:6px;}
+    .sa-modal-close:hover{color:#f87171;}
+</style>
+
+<div class="sa-page-header">
+    <div>
+        <div class="sa-page-title">Server Nodes</div>
+        <div class="sa-page-sub">Connect and manage VoidPanel backend API servers for provisioning</div>
+    </div>
+    <div class="sa-header-actions">
+        <button class="sa-btn green" id="toggleAddServerBtn" onclick="document.getElementById('addServerPanel').style.display='block';this.style.display='none';">
+            <i class="fas fa-plus"></i> Add Server
+        </button>
+    </div>
+</div>
+
+<!-- Add Server Panel -->
+<div id="addServerPanel" style="display:none;">
+    <div class="sa-card">
+        <div class="sa-card-head">
+            <div class="sa-card-title"><i class="fas fa-plug"></i> Connect New Server Node</div>
+            <button class="sa-btn ghost sm" onclick="document.getElementById('addServerPanel').style.display='none';document.getElementById('toggleAddServerBtn').style.display='inline-flex';">
+                <i class="fas fa-times"></i> Cancel
+            </button>
+        </div>
+        <form method="post" action="/super-admin/servers/" id="addServerForm" onsubmit="return handleServerSave(event)">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create_server">
+            <div class="sa-form-grid-2" style="grid-template-columns:repeat(4,1fr);">
+                <div class="sa-form-group"><label class="sa-label">Node Name</label><input type="text" name="name" id="srv_name" class="sa-input" placeholder="IN-Mumbai Node 1" required></div>
+                <div class="sa-form-group"><label class="sa-label">API Endpoint URL</label><input type="url" name="url" id="srv_url" class="sa-input" placeholder="http://178.18.250.134:8080" required></div>
+                <div class="sa-form-group"><label class="sa-label">API Key</label><input type="text" name="api_key" id="srv_key" class="sa-input" placeholder="Enter API key..." required></div>
+                <div class="sa-form-group"><label class="sa-label">Global Login URL</label><input type="url" name="login_url" id="srv_login_url" class="sa-input" placeholder="https://panel.domain.com"></div>
+            </div>
+            <div class="sa-form-group" style="margin-top:12px;">
+                <label class="sa-label">Nameservers (one per line)</label>
+                <textarea name="nameservers" id="srv_nameservers" class="sa-input" rows="2" style="resize:vertical;" placeholder="ns1.voidpanel.com&#10;ns2.voidpanel.com">ns1.voidpanel.com&#10;ns2.voidpanel.com</textarea>
+            </div>
+            <div id="testResult" class="server-test-box"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:12px;">
+                <label style="display:flex;align-items:center;gap:7px;font-size:0.8rem;color:var(--text-2);cursor:pointer;">
+                    <input type="checkbox" name="is_active" value="1" checked style="accent-color:var(--green);"> Activate immediately
+                </label>
+                <div style="display:flex;gap:10px;">
+                    <button type="button" class="sa-btn ghost" id="testBtn" onclick="testServerConnection(false)">
+                        <i class="fas fa-satellite-dish"></i> Test Connection
+                    </button>
+                    <button type="submit" class="sa-btn primary" id="saveBtn" disabled>
+                        <i class="fas fa-save"></i> Save Server
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Server Grid -->
+{% if servers %}
+<div class="sa-grid-2">
+    {% for server in servers %}
+    <div class="sa-card" id="srv-card-{{ server.id }}">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+            <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                    <div class="sa-kpi-icon {% if server.is_active %}green{% else %}red{% endif %}" style="width:36px;height:36px;border-radius:9px;">
+                        <i class="fas fa-server"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight:800;font-size:0.93rem;color:var(--text-1);">{{ server.name }}</div>
+                        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:2px;">
+                            <span class="sa-badge {% if server.is_active %}green{% else %}red{% endif %}">{% if server.is_active %}Active{% else %}Disabled{% endif %}</span>
+                            {% if server.server_version %}<span class="sa-badge sky">v{{ server.server_version }}</span>{% endif %}
+                            {% if server.last_ping_latency_ms %}<span class="sa-badge gray">{{ server.last_ping_latency_ms }}ms</span>{% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:3px;display:flex;align-items:center;gap:6px;">
+                    <i class="fas fa-link" style="width:12px;"></i>
+                    <code style="background:rgba(255,255,255,0.05);padding:2px 7px;border-radius:4px;color:var(--sky-2);">{{ server.url }}</code>
+                </div>
+                <div style="font-size:0.76rem;color:var(--text-3);">
+                    <i class="fas fa-server" style="width:12px;"></i> {{ server.active_services.count }} hosting service(s) &nbsp;·&nbsp;
+                    {{ server.reseller_packages.count }} reseller package(s) &nbsp;·&nbsp;
+                    Added {{ server.created_at|date:"M d, Y" }}
+                    {% if server.last_connected %}
+                    &nbsp;·&nbsp; Last pinged {{ server.last_connected|date:"M d, H:i" }}
+                    {% endif %}
+                </div>
+                <div id="ping-result-{{ server.id }}" style="margin-top:10px;display:none;font-size:0.8rem;"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+                <button class="sa-btn sky sm"
+                    onclick="openEditModal({{ server.id }},'{{ server.name|escapejs }}','{{ server.url|escapejs }}','{{ server.login_url|escapejs }}','{{ server.nameservers|escapejs }}','{{ server.is_active|yesno:'true,false' }}')">
+                    <i class="fas fa-pen"></i> Edit
+                </button>
+                <button class="sa-btn ghost sm" onclick="pingServer({{ server.id }}, '{{ server.url|escapejs }}', '{{ server.api_key|escapejs }}')" id="ping-btn-{{ server.id }}">
+                    <i class="fas fa-satellite-dish"></i> Ping
+                </button>
+                <form method="post" action="/super-admin/servers/" onsubmit="return confirm('Delete this server? Existing services will fall back to default provisioning.');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete_server">
+                    <input type="hidden" name="server_id" value="{{ server.id }}">
+                    <button type="submit" class="sa-btn red sm"><i class="fas fa-trash"></i> Remove</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="sa-card">
+    <div class="sa-empty">
+        <i class="fas fa-server"></i>
+        <div class="sa-empty-title">No server nodes connected yet</div>
+        <div class="sa-empty-sub">Add a server node to provision client accounts automatically.</div>
+        <button class="sa-btn green" style="margin-top:16px;" onclick="document.getElementById('addServerPanel').style.display='block';document.getElementById('toggleAddServerBtn').style.display='none';">
+            <i class="fas fa-plus"></i> Connect First Server
+        </button>
+    </div>
+</div>
+{% endif %}
+
+<!-- How it works -->
+<div class="sa-card">
+    <div class="sa-card-head">
+        <div class="sa-card-title"><i class="fas fa-circle-info"></i> How Multi-Server Works</div>
+    </div>
+    <div class="sa-grid-3">
+        <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:10px;padding:16px;">
+            <div style="font-size:1.1rem;margin-bottom:8px;">1️⃣</div>
+            <div style="font-size:0.85rem;font-weight:700;color:var(--text-1);margin-bottom:4px;">Add &amp; Verify Server Node</div>
+            <div style="font-size:0.76rem;color:var(--text-3);line-height:1.6;">Enter the API URL and key, then click <strong>Test Connection</strong>. The API is verified live before saving.</div>
+        </div>
+        <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:10px;padding:16px;">
+            <div style="font-size:1.1rem;margin-bottom:8px;">2️⃣</div>
+            <div style="font-size:0.85rem;font-weight:700;color:var(--text-1);margin-bottom:4px;">Assign to Packages</div>
+            <div style="font-size:0.76rem;color:var(--text-3);line-height:1.6;">Under Hosting &amp; Reseller Packages → select which server node each package uses for provisioning.</div>
+        </div>
+        <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:10px;padding:16px;">
+            <div style="font-size:1.1rem;margin-bottom:8px;">3️⃣</div>
+            <div style="font-size:0.85rem;font-weight:700;color:var(--text-1);margin-bottom:4px;">Auto-Provision on Payment</div>
+            <div style="font-size:0.76rem;color:var(--text-3);line-height:1.6;">When a client pays, the account is created via the assigned server's API instantly. Errors are reported to the client.</div>
+        </div>
+    </div>
+</div>
+
+<!-- ══ EDIT SERVER MODAL ══ -->
+<div class="sa-modal-overlay" id="editServerModal" onclick="if(event.target===this)this.classList.remove('open')">
+    <div class="sa-modal">
+        <div class="sa-modal-head">
+            <div class="sa-modal-title"><i class="fas fa-pen" style="color:var(--sky-2);margin-right:8px;"></i>Edit Server Node</div>
+            <button class="sa-modal-close" onclick="document.getElementById('editServerModal').classList.remove('open')">✕</button>
+        </div>
+        <form method="POST" action="/super-admin/servers/" id="editServerForm">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="edit_server">
+            <input type="hidden" name="server_id" id="edit_srv_id">
+            <div class="sa-form-grid-2">
+                <div class="sa-form-group">
+                    <label class="sa-label">Node Name *</label>
+                    <input name="name" id="edit_srv_name" class="sa-input" required placeholder="e.g. IN-Mumbai Node 1">
+                </div>
+                <div class="sa-form-group">
+                    <label class="sa-label">API Endpoint URL *</label>
+                    <input type="url" name="url" id="edit_srv_url" class="sa-input" required placeholder="http://ip:8080">
+                </div>
+                <div class="sa-form-group" style="grid-column:1/-1;">
+                    <label class="sa-label">
+                        API Key
+                        <span style="color:var(--text-3);font-size:.75rem;font-weight:400;"> — leave blank to keep existing key</span>
+                    </label>
+                    <input type="text" name="api_key" id="edit_srv_key" class="sa-input" placeholder="Leave blank to keep current key">
+                </div>
+                <div class="sa-form-group" style="grid-column:1/-1;">
+                    <label class="sa-label">Global Login URL</label>
+                    <input type="url" name="login_url" id="edit_srv_login_url" class="sa-input" placeholder="e.g. https://panel.yourdomain.com:8443">
+                </div>
+                <div class="sa-form-group" style="grid-column:1/-1;">
+                    <label class="sa-label">Nameservers (one per line)</label>
+                    <textarea name="nameservers" id="edit_srv_nameservers" class="sa-input" rows="2" style="resize:vertical;" placeholder="ns1.voidpanel.com&#10;ns2.voidpanel.com"></textarea>
+                </div>
+            </div>
+            <!-- Test result for edit modal -->
+            <div id="editTestResult" class="server-test-box" style="margin-bottom:10px;"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin:14px 0;">
+                <label style="display:flex;align-items:center;gap:7px;font-size:0.82rem;color:var(--text-2);cursor:pointer;">
+                    <input type="checkbox" name="is_active" id="edit_srv_active" value="1" style="accent-color:var(--green);"> Active
+                </label>
+                <button type="button" class="sa-btn ghost" onclick="testEditConnection()">
+                    <i class="fas fa-satellite-dish"></i> Test New Settings
+                </button>
+            </div>
+            <div class="sa-form-actions">
+                <button type="button" class="sa-btn ghost" onclick="document.getElementById('editServerModal').classList.remove('open')">Cancel</button>
+                <button type="submit" class="sa-btn primary"><i class="fas fa-save"></i> Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+const CSRF = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+
+function showTestResult(state, html) {
+    const box = document.getElementById('testResult');
+    box.className = 'server-test-box ' + state;
+    box.innerHTML = html;
+}
+
+function showEditTestResult(state, html) {
+    const box = document.getElementById('editTestResult');
+    box.className = 'server-test-box ' + state;
+    box.innerHTML = html;
+}
+
+function openEditModal(id, name, url, loginUrl, nameservers, isActive) {
+    document.getElementById('edit_srv_id').value   = id;
+    document.getElementById('edit_srv_name').value = name;
+    document.getElementById('edit_srv_url').value  = url;
+    document.getElementById('edit_srv_key').value  = '';
+    document.getElementById('edit_srv_login_url').value = loginUrl;
+    document.getElementById('edit_srv_nameservers').value = nameservers;
+    document.getElementById('edit_srv_active').checked = (isActive === 'true');
+    document.getElementById('editTestResult').className = 'server-test-box';
+    document.getElementById('editTestResult').innerHTML = '';
+    document.getElementById('editServerModal').classList.add('open');
+}
+
+async function testEditConnection() {
+    const url    = document.getElementById('edit_srv_url').value.trim();
+    const apiKey = document.getElementById('edit_srv_key').value.trim();
+    if (!url) { showEditTestResult('error', '<i class="fas fa-times-circle"></i> Please enter a URL.'); return; }
+    showEditTestResult('loading', '<div class="server-test-spinner"></div> Testing connection to <code>' + url + '</code>…');
+    try {
+        const resp = await fetch('/api/admin/server/test/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+            body: JSON.stringify({ url, api_key: apiKey || '__use_existing__' }),
+        });
+        const data = await resp.json();
+        if (data.ok) {
+            showEditTestResult('success', `<i class="fas fa-circle-check"></i> Connected! Version: <strong>${data.version}</strong> &nbsp;·&nbsp; Latency: <strong>${data.latency_ms}ms</strong>`);
+        } else {
+            showEditTestResult('error', `<i class="fas fa-circle-xmark"></i> <strong>Failed:</strong> ${data.error}`);
+        }
+    } catch (err) {
+        showEditTestResult('error', '<i class="fas fa-circle-xmark"></i> Network error: ' + err.message);
+    }
+}
+
+async function testServerConnection(autoSave) {
+    const url    = document.getElementById('srv_url')?.value?.trim();
+    const apiKey = document.getElementById('srv_key')?.value?.trim();
+    if (!url || !apiKey) {
+        showTestResult('error', '<i class="fas fa-times-circle"></i> Please enter a URL and API key first.');
+        return false;
+    }
+    document.getElementById('testBtn').disabled = true;
+    document.getElementById('saveBtn').disabled = true;
+    showTestResult('loading', '<div class="server-test-spinner"></div> Testing connection to <code>' + url + '</code>…');
+    try {
+        const resp = await fetch('/api/admin/server/test/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+            body: JSON.stringify({ url, api_key: apiKey }),
+        });
+        const data = await resp.json();
+        document.getElementById('testBtn').disabled = false;
+        if (data.ok) {
+            showTestResult('success', `<i class="fas fa-circle-check"></i> Connected! Version: <strong>${data.version}</strong> &nbsp;·&nbsp; Latency: <strong>${data.latency_ms}ms</strong>`);
+            document.getElementById('saveBtn').disabled = false;
+            if (autoSave) { document.getElementById('addServerForm').submit(); }
+        } else {
+            showTestResult('error', `<i class="fas fa-circle-xmark"></i> <strong>Connection failed:</strong> ${data.error}`);
+            document.getElementById('saveBtn').disabled = true;
+        }
+    } catch (err) {
+        document.getElementById('testBtn').disabled = false;
+        showTestResult('error', '<i class="fas fa-circle-xmark"></i> Network error: ' + err.message);
+    }
+    return false;
+}
+
+function handleServerSave(event) {
+    if (document.getElementById('saveBtn').disabled) {
+        event.preventDefault();
+        testServerConnection(true);
+        return false;
+    }
+    return true;
+}
+
+async function pingServer(serverId, url, apiKey) {
+    const btn = document.getElementById('ping-btn-' + serverId);
+    const resultDiv = document.getElementById('ping-result-' + serverId);
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Pinging…';
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = '<span class="ping-badge spin"><i class="fas fa-circle-notch fa-spin"></i> Connecting…</span>';
+    try {
+        const resp = await fetch('/api/admin/server/test/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+            body: JSON.stringify({ url, api_key: apiKey }),
+        });
+        const data = await resp.json();
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-satellite-dish"></i> Ping';
+        if (data.ok) {
+            resultDiv.innerHTML = `<span class="ping-badge ok"><i class="fas fa-circle-check"></i> OK — ${data.latency_ms}ms · v${data.version}</span>`;
+        } else {
+            resultDiv.innerHTML = `<span class="ping-badge fail"><i class="fas fa-circle-xmark"></i> ${data.error}</span>`;
+        }
+    } catch (err) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-satellite-dish"></i> Ping';
+        resultDiv.innerHTML = `<span class="ping-badge fail"><i class="fas fa-circle-xmark"></i> ${err.message}</span>`;
+    }
+}
+</script>
+{% endblock %}

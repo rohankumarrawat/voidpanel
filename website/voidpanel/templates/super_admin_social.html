@@ -1,0 +1,138 @@
+{% extends "super_admin_base.html" %}
+{% block title %}Social Media Plans | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}Social Media Plans{% endblock %}
+
+{% block admin_content %}
+<div class="sa-page-header">
+  <div>
+    <h1 class="sa-page-title"><i class="fa-solid fa-share-nodes" style="color:#f472b6;margin-right:10px;"></i>Social Media Plans</h1>
+    <p class="sa-page-sub">Create and manage purchasable social media management plans.</p>
+  </div>
+  <button class="sa-btn sa-btn-primary" onclick="document.getElementById('createModal').style.display='flex'">
+    <i class="fas fa-plus"></i> New Plan
+  </button>
+</div>
+
+{% if messages %}{% for msg in messages %}<div class="alert alert-{% if msg.tags == 'error' %}danger{% else %}success{% endif %} mb-3">{{ msg }}</div>{% endfor %}{% endif %}
+
+<!-- Stats Strip -->
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px;">
+  <div class="sa-stat-card"><div class="sa-stat-val">{{ social_plans.count }}</div><div class="sa-stat-lbl">Total Plans</div></div>
+  <div class="sa-stat-card"><div class="sa-stat-val">{{ total_subscribers }}</div><div class="sa-stat-lbl">Active Subscribers</div></div>
+  <div class="sa-stat-card"><div class="sa-stat-val">{{ social_plans|length }}</div><div class="sa-stat-lbl">Active Plans</div></div>
+  <div class="sa-stat-card"><div class="sa-stat-val" style="color:#f472b6;">{% for p in social_plans %}{% if p.is_featured %}1{% endif %}{% endfor %}</div><div class="sa-stat-lbl">Featured Plans</div></div>
+</div>
+
+<!-- Plans Table -->
+<div class="sa-card">
+  <div class="sa-card-head"><i class="fa-solid fa-list"></i> All Social Media Plans</div>
+  <div class="table-responsive">
+    <table class="sa-table">
+      <thead><tr>
+        <th>Plan</th><th>Price</th><th>Accounts</th><th>Posts/mo</th><th>Features</th><th>Subscribers</th><th>Status</th><th>Actions</th>
+      </tr></thead>
+      <tbody>
+        {% for plan in social_plans %}
+        <tr>
+          <td>
+            <div style="font-weight:700;color:#fff;">{{ plan.name }}</div>
+            <div style="font-size:.75rem;color:#64748b;">{{ plan.short_description|truncatechars:40 }}</div>
+            {% if plan.is_featured %}<span style="background:rgba(244,114,182,.15);color:#f472b6;font-size:.68rem;padding:2px 8px;border-radius:12px;">⭐ Featured</span>{% endif %}
+          </td>
+          <td>
+            <div style="color:#fff;font-weight:700;">₹{{ plan.monthly_price }}/mo</div>
+            <div style="font-size:.75rem;color:#64748b;">₹{{ plan.effective_yearly_price }}/yr</div>
+          </td>
+          <td style="color:#e2e8f0;">{% if plan.max_accounts == 0 %}∞{% else %}{{ plan.max_accounts }}{% endif %}</td>
+          <td style="color:#e2e8f0;">{% if plan.max_scheduled_posts_per_month == 0 %}∞{% else %}{{ plan.max_scheduled_posts_per_month }}{% endif %}</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;">
+              {% if plan.has_ai_captions %}<span style="font-size:.68rem;padding:2px 6px;border-radius:8px;background:rgba(167,139,250,.12);color:#a78bfa;">AI</span>{% endif %}
+              {% if plan.has_unified_inbox %}<span style="font-size:.68rem;padding:2px 6px;border-radius:8px;background:rgba(96,165,250,.12);color:#60a5fa;">Inbox</span>{% endif %}
+              {% if plan.has_csv_export %}<span style="font-size:.68rem;padding:2px 6px;border-radius:8px;background:rgba(52,211,153,.12);color:#34d399;">Export</span>{% endif %}
+              {% if plan.has_advanced_analytics %}<span style="font-size:.68rem;padding:2px 6px;border-radius:8px;background:rgba(251,191,36,.12);color:#fbbf24;">Adv Analytics</span>{% endif %}
+            </div>
+            <div style="font-size:.72rem;color:#475569;margin-top:3px;">{{ plan.media_storage_gb }}GB media</div>
+          </td>
+          <td style="color:#e2e8f0;font-weight:700;">{{ subscribers|get_item:plan.id|default:"0" }}</td>
+          <td>
+            {% if plan.is_active %}<span class="sa-badge sa-badge-green">Active</span>{% else %}<span class="sa-badge sa-badge-red">Inactive</span>{% endif %}
+          </td>
+          <td>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <form method="POST" style="display:inline;">{% csrf_token %}
+                <input type="hidden" name="action" value="toggle_plan">
+                <input type="hidden" name="plan_id" value="{{ plan.id }}">
+                <button type="submit" name="mode" value="{% if plan.is_active %}deactivate{% else %}activate{% endif %}" class="sa-btn sa-btn-sm {% if plan.is_active %}sa-btn-ghost{% else %}sa-btn-primary{% endif %}">
+                  {% if plan.is_active %}Deactivate{% else %}Activate{% endif %}
+                </button>
+              </form>
+              <form method="POST" style="display:inline;">{% csrf_token %}
+                <input type="hidden" name="action" value="toggle_plan">
+                <input type="hidden" name="plan_id" value="{{ plan.id }}">
+                <button type="submit" name="mode" value="feature" class="sa-btn sa-btn-sm sa-btn-purple">⭐</button>
+              </form>
+              <form method="POST" style="display:inline;" onsubmit="return confirm('Delete this plan?');">{% csrf_token %}
+                <input type="hidden" name="action" value="toggle_plan">
+                <input type="hidden" name="plan_id" value="{{ plan.id }}">
+                <button type="submit" name="mode" value="delete" class="sa-btn sa-btn-sm sa-btn-danger">Delete</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" style="text-align:center;padding:40px;color:#475569;">
+          <i class="fa-solid fa-share-nodes" style="font-size:2rem;margin-bottom:12px;display:block;opacity:.3;"></i>
+          No plans yet. Create your first plan to start selling.
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Create Plan Modal -->
+<div id="createModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center;overflow-y:auto;padding:20px;">
+  <div style="background:#0d1529;border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:32px;max-width:700px;width:100%;margin:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+      <h2 style="font-size:1.1rem;font-weight:800;color:#fff;margin:0;"><i class="fa-solid fa-plus" style="color:#f472b6;margin-right:8px;"></i>Create New Social Media Plan</h2>
+      <button onclick="document.getElementById('createModal').style.display='none'" style="background:transparent;border:none;color:#64748b;font-size:1.3rem;cursor:pointer;"><i class="fas fa-xmark"></i></button>
+    </div>
+    <form method="POST">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create_plan">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div style="grid-column:1/-1;"><label class="sa-label">Plan Name *</label><input type="text" name="name" class="sa-input" placeholder="e.g. Pro Social" required></div>
+        <div style="grid-column:1/-1;"><label class="sa-label">Short Description</label><input type="text" name="short_description" class="sa-input" placeholder="Perfect for growing businesses..."></div>
+        <div><label class="sa-label">Monthly Price (₹) *</label><input type="number" name="monthly_price" class="sa-input" placeholder="999" step="0.01" required></div>
+        <div><label class="sa-label">Yearly Price (₹) <span style="color:#64748b;font-size:.75rem;">(0 = auto 10×monthly)</span></label><input type="number" name="yearly_price" class="sa-input" placeholder="0" step="0.01"></div>
+        <div><label class="sa-label">Max Social Accounts <span style="color:#64748b;font-size:.75rem;">(0=unlimited)</span></label><input type="number" name="max_accounts" class="sa-input" value="3"></div>
+        <div><label class="sa-label">Max Posts/Month <span style="color:#64748b;font-size:.75rem;">(0=unlimited)</span></label><input type="number" name="max_scheduled_posts" class="sa-input" value="30"></div>
+        <div><label class="sa-label">AI Captions/Month <span style="color:#64748b;font-size:.75rem;">(0=unlimited)</span></label><input type="number" name="max_ai_captions" class="sa-input" value="0"></div>
+        <div><label class="sa-label">Team Members</label><input type="number" name="max_team_members" class="sa-input" value="1"></div>
+        <div><label class="sa-label">Media Storage (GB)</label><input type="number" name="media_storage_gb" class="sa-input" value="1"></div>
+        <div><label class="sa-label">Sort Order</label><input type="number" name="sort_order" class="sa-input" value="0"></div>
+        <div style="grid-column:1/-1;"><label class="sa-label">Allowed Platforms <span style="color:#64748b;font-size:.75rem;">(comma-separated codes: fb,ig,tw,li,pi,tt,yt,th,gb — empty=all)</span></label><input type="text" name="allowed_platforms" class="sa-input" placeholder="Leave empty for all 9 platforms"></div>
+      </div>
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,.07);">
+        <div style="font-size:.82rem;font-weight:700;color:#94a3b8;margin-bottom:12px;">Feature Flags</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+          {% for fname,flabel in "has_analytics:Analytics,has_advanced_analytics:Adv Analytics,has_unified_inbox:Unified Inbox,has_ai_captions:AI Captions,has_csv_export:CSV Export,has_calendar_view:Calendar,has_bulk_schedule:Bulk Schedule,has_link_shortener:Link Shortener,is_featured:Featured,is_active:Active"|split:"," %}
+          {% with parts=fname|split:":" %}
+          <label style="display:flex;align-items:center;gap:7px;font-size:.82rem;color:#94a3b8;cursor:pointer;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.06);">
+            <input type="checkbox" name="{{ parts.0 }}" {% if parts.0 == 'has_analytics' or parts.0 == 'has_calendar_view' or parts.0 == 'is_active' %}checked{% endif %} style="accent-color:#f472b6;">
+            {{ parts.1 }}
+          </label>
+          {% endwith %}
+          {% endfor %}
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:24px;">
+        <button type="submit" class="sa-btn sa-btn-primary" style="flex:1;">Create Plan</button>
+        <button type="button" onclick="document.getElementById('createModal').style.display='none'" class="sa-btn sa-btn-ghost">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

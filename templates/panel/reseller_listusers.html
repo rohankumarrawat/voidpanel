@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>:: VoidPanel :: Sub-Account List</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+    <style>
+        :root {
+            --neon:#00e5ff; --purple:#a855f7; --green:#22c55e; --amber:#f59e0b; --red:#ef4444;
+            --bg:#080c1a; --card:rgba(255,255,255,.04); --border:rgba(0,229,255,.12); --text2:rgba(180,200,230,.7);
+        }
+        body { font-family:'Inter',sans-serif; background:var(--bg) !important; }
+        .page-hdr { padding:28px 0 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+        .page-hdr h2 { font-size:1.5rem; font-weight:800; color:#fff; margin:0; }
+        .page-hdr .sub { font-size:.78rem; color:var(--text2); margin-top:4px; }
+        .btn-primary-glow { padding:10px 20px; border-radius:10px; font-size:.84rem; font-weight:600; border:none; background:linear-gradient(135deg,var(--neon),var(--purple)); color:#fff; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:8px; transition:opacity .2s; }
+        .btn-primary-glow:hover { opacity:.85; color:#fff; text-decoration:none; }
+        /* Search Bar */
+        .search-wrap { position:relative; width:260px; }
+        .search-wrap input { background:rgba(0,229,255,.06); border:1px solid rgba(0,229,255,.2); border-radius:10px; color:#e4eaf8; padding:9px 14px 9px 36px; font-size:.83rem; width:100%; font-family:'Inter',sans-serif; outline:none; transition:border-color .2s; }
+        .search-wrap input:focus { border-color:var(--neon); box-shadow:0 0 0 3px rgba(0,229,255,.08); }
+        .search-wrap i { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:rgba(0,229,255,.4); font-size:.82rem; }
+        /* Glass Table */
+        .glass { background:var(--card); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+        .glass-head { display:flex; align-items:center; justify-content:space-between; padding:20px 24px; flex-wrap:wrap; gap:12px; }
+        .glass-title { font-size:.95rem; font-weight:700; color:#fff; }
+        .glass-sub { font-size:.75rem; color:var(--text2); margin-top:2px; }
+        .vtable { width:100%; border-collapse:collapse; font-size:.84rem; }
+        .vtable th { padding:12px 18px; color:var(--text2); font-size:.72rem; font-weight:600; letter-spacing:.5px; text-transform:uppercase; border-bottom:1px solid rgba(255,255,255,.06); white-space:nowrap; }
+        .vtable td { padding:16px 18px; color:#e4eaf8; border-bottom:1px solid rgba(255,255,255,.04); vertical-align:middle; }
+        .vtable tr:last-child td { border-bottom:none; }
+        .vtable tr:hover td { background:rgba(0,229,255,.03); }
+        .badge-ok  { background:rgba(34,197,94,.12); color:#4ade80; border:1px solid rgba(34,197,94,.2); padding:3px 11px; border-radius:999px; font-size:.7rem; font-weight:600; }
+        .badge-sus { background:rgba(239,68,68,.12); color:#f87171; border:1px solid rgba(239,68,68,.2); padding:3px 11px; border-radius:999px; font-size:.7rem; font-weight:600; }
+        .btn-tiny { padding:5px 12px; border-radius:7px; font-size:.73rem; font-weight:600; border:none; cursor:pointer; transition:all .2s; text-decoration:none; display:inline-flex; align-items:center; gap:5px; }
+        .btn-tiny.cyan  { background:rgba(0,229,255,.1); color:var(--neon); border:1px solid rgba(0,229,255,.2); }
+        .btn-tiny.green { background:rgba(34,197,94,.1); color:#4ade80; border:1px solid rgba(34,197,94,.2); }
+        .btn-tiny.amber { background:rgba(245,158,11,.1); color:var(--amber); border:1px solid rgba(245,158,11,.2); }
+        .btn-tiny.red   { background:rgba(239,68,68,.1); color:#f87171; border:1px solid rgba(239,68,68,.2); }
+        .btn-tiny:hover { filter:brightness(1.3); }
+        /* Mini storage bar in table */
+        .mini-bar-track { width:80px; height:5px; background:rgba(255,255,255,.07); border-radius:999px; overflow:hidden; display:inline-block; }
+        .mini-bar-fill { height:100%; border-radius:999px; background:linear-gradient(90deg,var(--neon),var(--purple)); }
+        /* Pagination */
+        .pag-wrap { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-top:1px solid rgba(255,255,255,.05); font-size:.78rem; color:var(--text2); flex-wrap:wrap; gap:10px; }
+        .pag-btn { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); color:#e4eaf8; border-radius:7px; padding:5px 13px; font-size:.77rem; cursor:pointer; transition:all .2s; }
+        .pag-btn:hover { background:rgba(0,229,255,.1); border-color:var(--neon); }
+        /* Empty */
+        .empty-state { text-align:center; padding:70px 20px; color:var(--text2); }
+        .empty-state i { font-size:2.5rem; color:rgba(0,229,255,.2); margin-bottom:16px; display:block; }
+        .empty-state h4 { color:#e4eaf8; font-size:1rem; font-weight:600; margin-bottom:8px; }
+        /* Confirm modal */
+        .confirm-overlay { display:none; position:fixed; inset:0; background:rgba(8,12,26,.85); backdrop-filter:blur(8px); z-index:9999; align-items:center; justify-content:center; }
+        .confirm-overlay.show { display:flex; }
+        .confirm-box { background:rgba(12,18,38,.98); border:1px solid rgba(239,68,68,.3); border-radius:18px; padding:36px 40px; text-align:center; max-width:380px; animation:popIn .2s ease; }
+        @keyframes popIn { from{transform:scale(.9);opacity:0} to{transform:scale(1);opacity:1} }
+        .confirm-icon { font-size:2rem; color:#f87171; margin-bottom:12px; }
+        .confirm-msg  { color:#e4eaf8; font-size:.88rem; line-height:1.6; margin-bottom:24px; }
+        .confirm-btns { display:flex; gap:10px; justify-content:center; }
+        .confirm-cancel { padding:9px 20px; border-radius:9px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); color:#e4eaf8; font-size:.82rem; cursor:pointer; }
+        .confirm-delete { padding:9px 20px; border-radius:9px; background:rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.3); color:#f87171; font-size:.82rem; font-weight:700; cursor:pointer; }
+    </style>
+</head>
+<body class="font-nunito active-dark-mode">
+<div id="wrapper" class="theme-cyan">
+    <div class="page-loader-wrapper" style="display:none !important;"></div>
+    <script>document.addEventListener('DOMContentLoaded',function(){var l=document.querySelector('.page-loader-wrapper');if(l)l.style.display='none';});</script>
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
+
+    <div id="main-content">
+        <div class="container-fluid">
+
+            <div class="page-hdr">
+                <div>
+                    <h2>Sub-Account Management</h2>
+                    <div class="sub">
+                        {% if profile.company_name %}{{ profile.company_name }} &nbsp;·&nbsp; {% endif %}
+                        {{ sub_accounts|length }} account{{ sub_accounts|length|pluralize }}
+                    </div>
+                </div>
+                <a href="/reseller/adduser/" class="btn-primary-glow">
+                    <i class="fas fa-user-plus"></i> Add Sub-Account
+                </a>
+            </div>
+
+            <div class="glass">
+                <div class="glass-head">
+                    <div>
+                        <div class="glass-title"><i class="fas fa-users" style="color:var(--neon);margin-right:8px;"></i> All Sub-Accounts</div>
+                        <div class="glass-sub">Accounts under your reseller pool</div>
+                    </div>
+                    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                        <div class="search-wrap">
+                            <i class="fa fa-search"></i>
+                            <input type="text" id="searchBox" placeholder="Search domain, user…" oninput="filterTable(this.value)">
+                        </div>
+                        <a href="/reseller/" class="btn-tiny cyan"><i class="fa fa-chart-bar"></i> Dashboard</a>
+                    </div>
+                </div>
+
+                {% if sub_accounts %}
+                <div style="overflow-x:auto;">
+                    <table class="vtable" id="mainTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Domain</th>
+                                <th>System User</th>
+                                <th>Package</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for acct in sub_accounts %}
+                            <tr class="table-row" data-search="{{ acct.domain|lower }} {{ acct.username|lower }} {{ acct.email|lower }}">
+                                <td style="color:var(--text2);">{{ forloop.counter }}</td>
+                                <td>
+                                    <div style="font-weight:700;color:#e4eaf8;">{{ acct.domain }}</div>
+                                    <div style="font-size:.72rem;color:var(--text2);">{{ acct.email }}</div>
+                                </td>
+                                <td>
+                                    <span style="font-family:monospace;color:var(--neon);background:rgba(0,229,255,.07);padding:3px 9px;border-radius:6px;font-size:.82rem;">{{ acct.username }}</span>
+                                </td>
+                                <td>
+                                    <span style="color:var(--text2);font-size:.8rem;">{{ acct.hosting_package }}</span>
+                                </td>
+                                <td>
+                                    {% if acct.status %}
+                                    <span class="badge-ok">● Active</span>
+                                    {% else %}
+                                    <span class="badge-sus">● Suspended</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div style="display:flex;gap:7px;flex-wrap:wrap;">
+                                        {% if acct.status %}
+                                        <a href="/reseller/suspend/{{ acct.username }}/" class="btn-tiny amber">
+                                            <i class="fa fa-pause"></i> Suspend
+                                        </a>
+                                        {% else %}
+                                        <a href="/reseller/unsuspend/{{ acct.username }}/" class="btn-tiny green">
+                                            <i class="fa fa-play"></i> Activate
+                                        </a>
+                                        {% endif %}
+                                        <button class="btn-tiny red" onclick="confirmDelete('{{ acct.username }}','{{ acct.domain }}')">
+                                            <i class="fa fa-trash"></i> Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pag-wrap">
+                    <span id="rowCount">{{ sub_accounts|length }} sub-account{{ sub_accounts|length|pluralize }}</span>
+                    <span style="color:rgba(0,229,255,.5);font-size:.72rem;">Pool: {{ profile.storage_quota_gb }} GB total / {{ profile.max_accounts }} accounts max</span>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-users-slash"></i>
+                    <h4>No sub-accounts yet</h4>
+                    <p style="font-size:.8rem;margin-bottom:20px;">Start building your hosting pool by creating the first account.</p>
+                    <a href="/reseller/adduser/" class="btn-primary-glow" style="display:inline-flex;"><i class="fa fa-user-plus"></i> Create First Account</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm Delete Modal -->
+<div class="confirm-overlay" id="confirmOverlay">
+    <div class="confirm-box">
+        <div class="confirm-icon"><i class="fas fa-triangle-exclamation"></i></div>
+        <div class="confirm-msg" id="confirmMsg">Are you sure you want to delete this account?</div>
+        <div class="confirm-btns">
+            <button class="confirm-cancel" onclick="document.getElementById('confirmOverlay').classList.remove('show')">Cancel</button>
+            <button class="confirm-delete" id="confirmBtn" onclick="doDelete()"><i class="fas fa-trash"></i> Delete</button>
+        </div>
+    </div>
+</div>
+
+
+<script src="/static/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/static/assets/vendor/metismenu/metisMenu.min.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+<script>
+    $(window).on('load', function () { $('.page-loader-wrapper').fadeOut(300); });
+    setTimeout(function() { $('.page-loader-wrapper').fadeOut(300); }, 1500);
+</script>
+<script>
+function filterTable(q) {
+    q = q.toLowerCase();
+    let vis = 0;
+    document.querySelectorAll('.table-row').forEach(r => {
+        const show = r.dataset.search.includes(q);
+        r.style.display = show ? '' : 'none';
+        if (show) vis++;
+    });
+    document.getElementById('rowCount').textContent = vis + ' result' + (vis !== 1 ? 's' : '');
+}
+
+let _del = null;
+function confirmDelete(username, domain) {
+    _del = username;
+    document.getElementById('confirmMsg').innerHTML =
+        `Permanently delete <strong style="color:#f87171">${domain}</strong>?<br>
+         <span style="font-size:.76rem;color:rgba(239,68,68,.7);">All hosting data, email and databases will be erased. Cannot be undone.</span>`;
+    document.getElementById('confirmOverlay').classList.add('show');
+}
+async function doDelete() {
+    if (!_del) return;
+    const btn = document.getElementById('confirmBtn');
+    btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Deleting…';
+    try {
+        const r = await fetch(`/reseller/terminate/${_del}/`, { method:'POST', headers:{'X-CSRFToken':'{{ csrf_token }}'} });
+        const d = await r.json();
+        if (d.status === 'success') { window.location.reload(); }
+        else { alert(d.message || 'Delete failed'); btn.disabled=false; btn.innerHTML='<i class="fas fa-trash"></i> Delete'; }
+    } catch(e) { alert('Network error'); btn.disabled=false; btn.innerHTML='<i class="fas fa-trash"></i> Delete'; }
+}
+</script>
+    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+</body>
+</html>

@@ -1,0 +1,822 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ service.domain }} — VoidPanel Service</title>
+    <link rel="icon" href="/static/favicon.png" type="image/png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css">
+    <style>
+        :root {
+            --bg:       #060918;
+            --bg2:      #0d1226;
+            --card:     rgba(255,255,255,0.04);
+            --border:   rgba(255,255,255,0.08);
+            --accent:   #6366f1;
+            --accent2:  #22d3ee;
+            --green:    #10b981;
+            --yellow:   #f59e0b;
+            --red:      #ef4444;
+            --t1:       #f1f5f9;
+            --t2:       #94a3b8;
+            --t3:       #475569;
+            --radius:   16px;
+        }
+        * { box-sizing:border-box; margin:0; padding:0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--t1);
+            min-height: 100vh;
+        }
+
+        /* ── Topbar ──────────────────────────────────────────────── */
+        .topbar {
+            position: sticky; top: 0; z-index: 100;
+            background: rgba(6,9,24,0.85); backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 32px;
+            display: flex; align-items: center; justify-content: space-between;
+            height: 64px;
+        }
+        .topbar-brand { display:flex; align-items:center; gap:10px; text-decoration:none; }
+        .topbar-brand img { height:28px; }
+        .topbar-brand span { font-weight:800; font-size:1.1rem; color:var(--t1); }
+        .topbar-actions { display:flex; align-items:center; gap:12px; }
+        .btn-back {
+            display:flex; align-items:center; gap:6px;
+            background: var(--card); border:1px solid var(--border);
+            color:var(--t2); padding:7px 14px; border-radius:10px;
+            text-decoration:none; font-size:0.82rem; font-weight:600; transition:0.2s;
+        }
+        .btn-back:hover { background:rgba(255,255,255,0.08); color:var(--t1); }
+
+        /* ── Main Layout ─────────────────────────────────────────── */
+        .page { max-width: 1100px; margin: 0 auto; padding: 32px 24px 80px; }
+
+        /* ── Hero ────────────────────────────────────────────────── */
+        .hero {
+            background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(34,211,238,0.08));
+            border: 1px solid rgba(99,102,241,0.25);
+            border-radius: 24px; padding: 32px 36px;
+            margin-bottom: 28px;
+            display: flex; align-items: flex-start; justify-content: space-between;
+            gap: 20px; flex-wrap: wrap;
+        }
+        .hero-left h1 { font-size: 1.8rem; font-weight: 900; color:var(--t1); letter-spacing:-0.03em; }
+        .hero-left p  { color:var(--t2); font-size:0.9rem; margin-top:6px; }
+        .status-badge {
+            display: inline-flex; align-items:center; gap:6px;
+            padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;
+            margin-top: 10px;
+        }
+        .status-badge.active     { background: rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.3); color:#34d399; }
+        .status-badge.pending    { background: rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.3); color:#fbbf24; }
+        .status-badge.suspended  { background: rgba(239,68,68,0.12);  border:1px solid rgba(239,68,68,0.3);  color:#f87171; }
+        .status-dot { width:7px; height:7px; border-radius:50%; background: currentColor; }
+
+        .hero-meta { display:flex; flex-wrap:wrap; gap:20px; margin-top:14px; }
+        .hero-meta-item label { font-size:0.7rem; text-transform:uppercase; color:var(--t3); font-weight:700; letter-spacing:0.06em; display:block; }
+        .hero-meta-item span  { font-size:0.95rem; font-weight:600; color:var(--t1); }
+
+        .hero-right { text-align:right; }
+        .price-display { font-size:2.2rem; font-weight:900; color:var(--t1); }
+        .price-display span { font-size:0.9rem; color:var(--t2); font-weight:400; }
+
+        /* ── Panel Login Card ────────────────────────────────────── */
+        .panel-card {
+            background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(34,211,238,0.05));
+            border: 1px solid rgba(99,102,241,0.3);
+            border-radius: var(--radius); padding: 28px 32px;
+            margin-bottom: 28px;
+            display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+        }
+        .panel-card-info h2 { font-size:1.1rem; font-weight:800; color:var(--t1); display:flex; align-items:center; gap:8px; }
+        .panel-card-info p  { color:var(--t2); font-size:0.85rem; margin-top:4px; }
+        .cred-row { display:flex; align-items:center; gap:12px; margin-top:14px; flex-wrap:wrap; }
+        .cred-item {
+            background: rgba(0,0,0,0.3); border:1px solid var(--border);
+            border-radius: 10px; padding: 8px 14px;
+            font-size: 0.82rem;
+        }
+        .cred-item label { color:var(--t3); font-weight:700; font-size:0.7rem; display:block; text-transform:uppercase; }
+        .cred-item span  { color:var(--accent2); font-family:monospace; font-size:0.9rem; }
+        .cred-copy { cursor:pointer; color:var(--t3); margin-left:6px; }
+        .cred-copy:hover { color:var(--t1); }
+
+        .panel-card-actions { display:flex; gap:10px; flex-wrap:wrap; }
+        .btn-panel {
+            display:inline-flex; align-items:center; gap:8px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            color:#fff; border:none; padding:12px 22px; border-radius:12px;
+            font-weight:700; font-size:0.9rem; cursor:pointer; text-decoration:none;
+            transition: all 0.2s; white-space:nowrap;
+        }
+        .btn-panel:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(99,102,241,0.4); }
+        .btn-panel-sec {
+            display:inline-flex; align-items:center; gap:8px;
+            background: var(--card); border:1px solid var(--border);
+            color:var(--t1); padding:12px 20px; border-radius:12px;
+            font-weight:600; font-size:0.88rem; cursor:pointer; text-decoration:none;
+            transition: 0.2s;
+        }
+        .btn-panel-sec:hover { background:rgba(255,255,255,0.08); }
+
+        /* ── Shortcuts Grid ──────────────────────────────────────── */
+        .section-title {
+            font-size:0.75rem; font-weight:700; text-transform:uppercase;
+            color:var(--t3); letter-spacing:0.1em; margin-bottom:14px;
+        }
+        .shortcuts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+            gap: 12px; margin-bottom: 28px;
+        }
+        .shortcut-card {
+            background: var(--card); border:1px solid var(--border);
+            border-radius: 14px; padding: 20px 16px;
+            text-decoration:none; display:flex; flex-direction:column;
+            align-items:flex-start; gap:10px;
+            transition: all 0.2s; cursor:pointer; position:relative; overflow:hidden;
+        }
+        .shortcut-card::before {
+            content:''; position:absolute; inset:0;
+            background: var(--sc-color, var(--accent));
+            opacity:0; transition:0.2s;
+        }
+        .shortcut-card:hover { border-color:var(--sc-color, var(--accent)); transform:translateY(-3px); }
+        .shortcut-card:hover::before { opacity:0.06; }
+        .shortcut-icon {
+            width:40px; height:40px; border-radius:10px;
+            background: var(--sc-color, var(--accent));
+            display:flex; align-items:center; justify-content:center;
+            opacity:0.85;
+        }
+        .shortcut-icon i { font-size:1rem; color:#fff; }
+        .shortcut-label { font-size:0.85rem; font-weight:600; color:var(--t1); position:relative; }
+        .shortcut-desc  { font-size:0.72rem; color:var(--t3); position:relative; }
+        .shortcut-arrow { position:absolute; right:14px; top:50%; transform:translateY(-50%); color:var(--t3); font-size:0.8rem; transition:0.2s; }
+        .shortcut-card:hover .shortcut-arrow { color:var(--sc-color); transform:translateY(-50%) translateX(3px); }
+
+        /* ── Info Grid ───────────────────────────────────────────── */
+        .info-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 12px; margin-bottom: 28px;
+        }
+        .info-card {
+            background: var(--card); border:1px solid var(--border);
+            border-radius: var(--radius); padding: 20px;
+        }
+        .info-card label { font-size:0.7rem; text-transform:uppercase; color:var(--t3); font-weight:700; letter-spacing:0.06em; display:block; margin-bottom:6px; }
+        .info-card .val  { font-size:1.2rem; font-weight:700; color:var(--t1); }
+        .info-card .sub  { font-size:0.78rem; color:var(--t2); margin-top:3px; }
+
+        .bar-wrap { background:rgba(255,255,255,0.06); border-radius:6px; height:6px; margin-top:10px; overflow:hidden; }
+        .bar-fill { height:100%; border-radius:6px; background:linear-gradient(90deg, var(--accent), var(--accent2)); }
+
+        /* ── Suspended Banner ────────────────────────────────────── */
+        .suspended-banner {
+            background: rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3);
+            border-radius: var(--radius); padding:20px 24px; margin-bottom:28px;
+            display:flex; align-items:center; gap:14px;
+        }
+        .suspended-banner i { font-size:1.5rem; color:#f87171; }
+        .suspended-banner h3 { font-size:1rem; font-weight:700; color:#f87171; }
+        .suspended-banner p  { font-size:0.85rem; color:var(--t2); margin-top:2px; }
+
+        /* ── Tooltip ─────────────────────────────────────────────── */
+        .toast {
+            position:fixed; bottom:28px; right:28px; z-index:9999;
+            background:#1e2640; border:1px solid var(--border);
+            border-radius:12px; padding:12px 18px;
+            color:var(--t1); font-size:0.85rem; font-weight:600;
+            display:flex; align-items:center; gap:8px;
+            opacity:0; transform:translateY(12px);
+            transition:all 0.3s; pointer-events:none;
+        }
+        .toast.show { opacity:1; transform:translateY(0); }
+    </style>
+</head>
+<body>
+
+{% include 'header.html' %}
+<div class="portal-wrap">
+{% include 'portal_sidebar.html' %}
+<div style="width:100%; overflow-x:hidden; height:100vh; overflow-y:auto; padding-top: 64px;">
+<div class="page">
+
+    <!-- ── Suspended Banner ── -->
+    {% if service.status == 'suspended' %}
+    <div class="suspended-banner">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <div>
+            <h3>Service Suspended — Action Required</h3>
+            <p>This service has been suspended due to an overdue invoice. Please <a href="/portal/" style="color:#a5b4fc;">pay your invoice</a> to reactivate.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ── Hero ── -->
+    <div class="hero">
+        <div class="hero-left">
+            <h1>{{ service.domain }}</h1>
+            <p>{{ service.service_name }} &nbsp;·&nbsp; {{ service.product_type }}</p>
+            <div class="status-badge {{ service.status }}">
+                <span class="status-dot"></span>
+                {{ service.get_status_display }}
+            </div>
+            <div class="hero-meta">
+                <div class="hero-meta-item">
+                    <label>Server</label>
+                    <span>{{ service.server_hostname|default:"Not assigned" }}</span>
+                </div>
+                <div class="hero-meta-item">
+                    <label>Billing</label>
+                    <span>{{ service.get_billing_cycle_display }}</span>
+                </div>
+                <div class="hero-meta-item">
+                    <label>Next Due</label>
+                    <span>{{ service.next_due_date|date:"M d, Y" }}</span>
+                </div>
+                <div class="hero-meta-item">
+                    <label>Storage</label>
+                    <span>{{ service.storage_gb }} GB</span>
+                </div>
+            </div>
+        </div>
+        <div class="hero-right">
+            <div class="price-display">
+                ₹{{ service.monthly_price }}<span>/mo</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── VoidPanel Auto-Login Card ── -->
+    {% if service.is_hosting_service %}
+
+    {% if service.is_reseller %}
+    <!-- ══════════════════════════════════════════════════════════════════════ -->
+    <!--  RESELLER SECTION — Premium Redesign                                 -->
+    <!-- ══════════════════════════════════════════════════════════════════════ -->
+    <style>
+        /* ── Reseller-specific styles ─────────────────────────────────────── */
+        @keyframes resellerGlow { 0%,100%{opacity:.4} 50%{opacity:.8} }
+        @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+
+        .rs-hero {
+            position:relative; overflow:hidden;
+            background: linear-gradient(145deg, rgba(168,85,247,.1) 0%, rgba(124,58,237,.06) 40%, rgba(34,211,238,.04) 100%);
+            border: 1px solid rgba(168,85,247,.25);
+            border-radius: 20px; padding: 0; margin-bottom: 24px;
+        }
+        .rs-hero::before {
+            content:''; position:absolute; top:-40%; right:-10%; width:280px; height:280px;
+            background:radial-gradient(circle, rgba(168,85,247,.15) 0%, transparent 70%);
+            animation: resellerGlow 4s ease-in-out infinite; pointer-events:none;
+        }
+        .rs-hero-inner { position:relative; z-index:1; padding:28px 32px; }
+        .rs-hero-top {
+            display:flex; align-items:center; justify-content:space-between;
+            gap:16px; flex-wrap:wrap; margin-bottom:22px;
+        }
+        .rs-hero-title { display:flex; align-items:center; gap:12px; }
+        .rs-hero-icon {
+            width:44px; height:44px; border-radius:12px;
+            background: linear-gradient(135deg,#a855f7,#7c3aed);
+            display:flex; align-items:center; justify-content:center;
+            box-shadow: 0 4px 20px rgba(168,85,247,.3);
+        }
+        .rs-hero-icon i { color:#fff; font-size:1.1rem; }
+        .rs-hero-title h2 { font-size:1.15rem; font-weight:800; color:var(--t1); letter-spacing:-0.02em; }
+        .rs-hero-title p  { font-size:0.8rem; color:var(--t2); margin-top:2px; }
+        .rs-hero-actions { display:flex; gap:10px; flex-wrap:wrap; }
+        .rs-btn-primary {
+            display:inline-flex; align-items:center; gap:8px;
+            background: linear-gradient(135deg,#a855f7,#7c3aed);
+            color:#fff; border:none; padding:11px 22px; border-radius:12px;
+            font-weight:700; font-size:0.88rem; cursor:pointer; text-decoration:none;
+            transition: all 0.25s; white-space:nowrap;
+            box-shadow: 0 4px 16px rgba(168,85,247,.25);
+        }
+        .rs-btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(168,85,247,.4); }
+        .rs-btn-ghost {
+            display:inline-flex; align-items:center; gap:7px;
+            background: rgba(168,85,247,.08); border:1px solid rgba(168,85,247,.2);
+            color:#c4b5fd; padding:10px 18px; border-radius:12px;
+            font-weight:600; font-size:0.84rem; cursor:pointer; text-decoration:none;
+            transition: 0.2s; white-space:nowrap;
+        }
+        .rs-btn-ghost:hover { background:rgba(168,85,247,.15); border-color:rgba(168,85,247,.35); color:#e9d5ff; }
+
+        /* Credentials grid */
+        .rs-creds {
+            display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap:10px;
+        }
+        .rs-cred {
+            background: rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.06);
+            border-radius:12px; padding:12px 14px;
+            display:flex; flex-direction:column; gap:4px;
+            transition: border-color 0.2s;
+        }
+        .rs-cred:hover { border-color:rgba(168,85,247,.3); }
+        .rs-cred-label {
+            font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em;
+            color:var(--t3); font-weight:700; display:flex; align-items:center; gap:6px;
+        }
+        .rs-cred-val {
+            font-family:'JetBrains Mono','Fira Code',monospace; font-size:0.88rem;
+            color:#c4b5fd; font-weight:600; display:flex; align-items:center; gap:6px;
+        }
+        .rs-cred-val .cp {
+            color:var(--t3); cursor:pointer; font-size:0.75rem; transition:0.15s;
+        }
+        .rs-cred-val .cp:hover { color:#a855f7; }
+
+        /* Warning strip */
+        .rs-warning {
+            margin-top:14px; padding:10px 16px;
+            background: rgba(245,158,11,.06); border:1px solid rgba(245,158,11,.15);
+            border-radius:10px; font-size:0.78rem; color:#fcd34d;
+            display:flex; align-items:center; gap:8px;
+        }
+
+        /* ── Management tiles ─────────────────────────────────────────────── */
+        .rs-section-header {
+            display:flex; align-items:center; gap:8px;
+            margin-bottom:16px; margin-top:6px;
+        }
+        .rs-section-header span {
+            font-size:0.72rem; font-weight:700; text-transform:uppercase;
+            color:var(--t3); letter-spacing:0.1em;
+        }
+        .rs-section-header::after {
+            content:''; flex:1; height:1px;
+            background: linear-gradient(90deg, rgba(168,85,247,.2), transparent);
+        }
+        .rs-mgmt-grid {
+            display:grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
+            gap:12px; margin-bottom:28px;
+        }
+        .rs-tile {
+            position:relative; overflow:hidden;
+            background: var(--card); border:1px solid var(--border);
+            border-radius:16px; padding:22px 18px;
+            text-decoration:none; display:flex; flex-direction:column;
+            gap:12px; transition: all 0.25s ease; cursor:pointer;
+        }
+        .rs-tile::before {
+            content:''; position:absolute; inset:0;
+            background: linear-gradient(135deg, var(--tile-color, #a855f7), transparent);
+            opacity:0; transition:0.3s;
+        }
+        .rs-tile:hover {
+            border-color: var(--tile-color, #a855f7);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 30px rgba(0,0,0,.3), 0 0 0 1px var(--tile-color, rgba(168,85,247,.3));
+        }
+        .rs-tile:hover::before { opacity:0.06; }
+        .rs-tile-icon {
+            width:42px; height:42px; border-radius:12px;
+            background: var(--tile-color, #a855f7);
+            display:flex; align-items:center; justify-content:center;
+            position:relative; z-index:1;
+            box-shadow: 0 2px 12px color-mix(in srgb, var(--tile-color, #a855f7) 30%, transparent);
+        }
+        .rs-tile-icon i { font-size:1rem; color:#fff; }
+        .rs-tile-body { position:relative; z-index:1; }
+        .rs-tile-label { font-size:0.88rem; font-weight:700; color:var(--t1); }
+        .rs-tile-desc  { font-size:0.72rem; color:var(--t3); margin-top:2px; line-height:1.4; }
+        .rs-tile-arrow {
+            position:absolute; top:16px; right:16px; z-index:1;
+            color:var(--t3); font-size:0.7rem; opacity:0;
+            transform:translate(-4px, 2px); transition: all 0.25s;
+        }
+        .rs-tile:hover .rs-tile-arrow { opacity:1; transform:translate(0,0); color:var(--tile-color, #a855f7); }
+
+        /* ── Quick stats row ──────────────────────────────────────────────── */
+        .rs-stats {
+            display:grid; grid-template-columns: repeat(3, 1fr);
+            gap:10px; margin-bottom:24px;
+        }
+        .rs-stat {
+            background: var(--card); border:1px solid var(--border);
+            border-radius:14px; padding:16px 18px; text-align:center;
+        }
+        .rs-stat-val { font-size:1.5rem; font-weight:900; color:var(--t1); }
+        .rs-stat-label { font-size:0.7rem; color:var(--t3); text-transform:uppercase; font-weight:700; letter-spacing:0.06em; margin-top:2px; }
+
+        @media(max-width:640px) {
+            .rs-hero-top { flex-direction:column; align-items:flex-start; }
+            .rs-creds { grid-template-columns:1fr; }
+            .rs-stats { grid-template-columns:1fr; }
+            .rs-mgmt-grid { grid-template-columns:repeat(2, 1fr); }
+        }
+    </style>
+
+    <!-- ── Reseller Hero Card ── -->
+    <div class="rs-hero">
+        <div class="rs-hero-inner">
+            <div class="rs-hero-top">
+                <div class="rs-hero-title">
+                    <div class="rs-hero-icon"><i class="fa-solid fa-store"></i></div>
+                    <div>
+                        <h2>Reseller Control Center</h2>
+                        <p>Manage your hosting business from one place</p>
+                    </div>
+                </div>
+                <div class="rs-hero-actions">
+                    {% if service.panel_url %}
+                    <a href="/portal/service/{{ service.id }}/login/" target="_blank" class="rs-btn-primary">
+                        <i class="fa-solid fa-arrow-right-to-bracket"></i> Open Dashboard
+                    </a>
+                    {% endif %}
+                    {% if service.panel_username %}
+                    <button class="rs-btn-ghost" onclick="copyText('{{ service.panel_username }}', 'Username')">
+                        <i class="fa-solid fa-copy"></i> Username
+                    </button>
+                    {% endif %}
+                    {% if service.panel_password %}
+                    <button class="rs-btn-ghost" onclick="copyText('{{ service.panel_password }}', 'Password')">
+                        <i class="fa-solid fa-key"></i> Password
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Credentials -->
+            <div class="rs-creds">
+                <div class="rs-cred">
+                    <div class="rs-cred-label"><i class="fa-solid fa-user"></i> Panel Username</div>
+                    <div class="rs-cred-val">
+                        {{ service.panel_username|default:"Provisioning..." }}
+                        {% if service.panel_username %}<i class="fa-solid fa-copy cp" onclick="copyText('{{ service.panel_username }}', 'Username')"></i>{% endif %}
+                    </div>
+                </div>
+                {% if service.panel_password %}
+                <div class="rs-cred">
+                    <div class="rs-cred-label">
+                        <i class="fa-solid fa-lock"></i> Password
+                        <i class="fa-solid fa-eye" style="cursor:pointer;font-size:.65rem;" onclick="togglePass('{{ service.panel_password }}')"></i>
+                    </div>
+                    <div class="rs-cred-val">
+                        <span id="cred-pass">••••••••</span>
+                        <i class="fa-solid fa-copy cp" onclick="copyText('{{ service.panel_password }}', 'Password')"></i>
+                    </div>
+                </div>
+                {% endif %}
+                <div class="rs-cred">
+                    <div class="rs-cred-label"><i class="fa-solid fa-server"></i> FTP Host</div>
+                    <div class="rs-cred-val">
+                        {{ service.domain }}
+                        <i class="fa-solid fa-copy cp" onclick="copyText('{{ service.domain }}', 'FTP Host')"></i>
+                    </div>
+                </div>
+                <div class="rs-cred">
+                    <div class="rs-cred-label"><i class="fa-solid fa-plug"></i> FTP Port</div>
+                    <div class="rs-cred-val">21</div>
+                </div>
+                <div class="rs-cred">
+                    <div class="rs-cred-label"><i class="fa-solid fa-hard-drive"></i> Storage Pool</div>
+                    <div class="rs-cred-val">{{ service.storage_gb }} GB</div>
+                </div>
+                <div class="rs-cred">
+                    <div class="rs-cred-label"><i class="fa-solid fa-globe"></i> Panel URL</div>
+                    <div class="rs-cred-val" style="font-size:.78rem;">{{ service.panel_base_url|default:"Configuring..." }}</div>
+                </div>
+            </div>
+
+            {% if service.panel_password %}
+            <div class="rs-warning">
+                <i class="fa-solid fa-shield-halved"></i>
+                Save your password securely — it won't be shown again after you leave this page.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ── Quick Stats ── -->
+    <div class="rs-stats">
+        <div class="rs-stat">
+            <div class="rs-stat-val">{{ service.storage_gb }}</div>
+            <div class="rs-stat-label">GB Storage Pool</div>
+        </div>
+        <div class="rs-stat">
+            <div class="rs-stat-val" style="color:#a855f7;">∞</div>
+            <div class="rs-stat-label">Bandwidth</div>
+        </div>
+        <div class="rs-stat">
+            <div class="rs-stat-val" style="color:#22d3ee;">{{ service.next_due_date|date:"d M" }}</div>
+            <div class="rs-stat-label">Next Renewal</div>
+        </div>
+    </div>
+
+    <!-- ── Reseller Management Tiles ── -->
+    <div class="rs-section-header"><i class="fa-solid fa-grid-2" style="color:var(--t3);font-size:.7rem;"></i><span>Reseller Management</span></div>
+    <div class="rs-mgmt-grid">
+        {% if service.panel_url %}
+        <a href="/portal/service/{{ service.id }}/login/?next=/control/reseller/accounts/" target="_blank" class="rs-tile" style="--tile-color:#a855f7;">
+            <i class="fa-solid fa-arrow-up-right-from-square rs-tile-arrow"></i>
+            <div class="rs-tile-icon"><i class="fa-solid fa-users"></i></div>
+            <div class="rs-tile-body">
+                <div class="rs-tile-label">Client Accounts</div>
+                <div class="rs-tile-desc">Create, suspend & manage hosting accounts</div>
+            </div>
+        </a>
+        <a href="/portal/service/{{ service.id }}/login/?next=/control/reseller/" target="_blank" class="rs-tile" style="--tile-color:#7c3aed;">
+            <i class="fa-solid fa-arrow-up-right-from-square rs-tile-arrow"></i>
+            <div class="rs-tile-icon"><i class="fa-solid fa-box"></i></div>
+            <div class="rs-tile-body">
+                <div class="rs-tile-label">My Packages</div>
+                <div class="rs-tile-desc">Define hosting plans for clients</div>
+            </div>
+        </a>
+        <a href="/portal/service/{{ service.id }}/login/?next=/control/reseller/" target="_blank" class="rs-tile" style="--tile-color:#06b6d4;">
+            <i class="fa-solid fa-arrow-up-right-from-square rs-tile-arrow"></i>
+            <div class="rs-tile-icon"><i class="fa-solid fa-chart-pie"></i></div>
+            <div class="rs-tile-body">
+                <div class="rs-tile-label">Storage Quota</div>
+                <div class="rs-tile-desc">{{ service.storage_gb }} GB pool usage & allocation</div>
+            </div>
+        </a>
+        {% endif %}
+        <div class="rs-tile" style="--tile-color:#f59e0b;" onclick="showFtpHelp()">
+            <i class="fa-solid fa-arrow-up-right-from-square rs-tile-arrow"></i>
+            <div class="rs-tile-icon"><i class="fa-solid fa-folder-open"></i></div>
+            <div class="rs-tile-body">
+                <div class="rs-tile-label">FTP Access</div>
+                <div class="rs-tile-desc">Connect via FileZilla or WinSCP</div>
+            </div>
+        </div>
+        <a href="/portal/ticket/new/" class="rs-tile" style="--tile-color:#ef4444;">
+            <i class="fa-solid fa-arrow-up-right-from-square rs-tile-arrow"></i>
+            <div class="rs-tile-icon"><i class="fa-solid fa-headset"></i></div>
+            <div class="rs-tile-body">
+                <div class="rs-tile-label">Support</div>
+                <div class="rs-tile-desc">Open a support ticket</div>
+            </div>
+        </a>
+        {% if service.panel_url %}
+        <a href="/portal/service/{{ service.id }}/login/?next=/control/" target="_blank" class="rs-tile" style="--tile-color:#10b981;">
+            <i class="fa-solid fa-arrow-up-right-from-square rs-tile-arrow"></i>
+            <div class="rs-tile-icon"><i class="fa-solid fa-gauge-high"></i></div>
+            <div class="rs-tile-body">
+                <div class="rs-tile-label">Full Panel</div>
+                <div class="rs-tile-desc">Access the complete control panel</div>
+            </div>
+        </a>
+        {% endif %}
+    </div>
+
+    {% elif service.product_type == 'WordPress Hosting' %}
+    <!-- ── WORDPRESS HOSTING: WordPress Manager card (no VoidPanel access) ── -->
+    {% with wp=service.wp_installation %}
+    <div class="panel-card" style="background:linear-gradient(135deg,rgba(33,117,155,.12),rgba(59,155,209,.05));border-color:rgba(33,117,155,.35);">
+        <div class="panel-card-info" style="width:100%;">
+            <h2><i class="fab fa-wordpress" style="color:#3b9bd1;"></i> WordPress Hosting</h2>
+            <p>Manage your WordPress site directly from the portal — no control panel access needed.</p>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap;">
+                {% if wp and wp.status == 'active' %}
+                <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);color:#34d399;padding:5px 14px;border-radius:20px;font-size:.78rem;font-weight:700;">
+                    <span style="width:7px;height:7px;border-radius:50%;background:#34d399;display:inline-block;"></span> WordPress Active
+                </span>
+                <span style="font-size:.82rem;color:var(--t2);">
+                    <i class="fa-solid fa-globe" style="margin-right:4px;"></i>
+                    <a href="http://{{ service.domain }}" target="_blank" style="color:var(--accent2);">{{ service.domain }}</a>
+                </span>
+                {% if wp.wp_admin_url %}
+                <span style="font-size:.82rem;color:var(--t2);">
+                    <i class="fab fa-wordpress" style="margin-right:4px;"></i>
+                    <a href="{{ wp.wp_admin_url }}" target="_blank" style="color:#3b9bd1;">WP Admin</a>
+                </span>
+                {% endif %}
+                {% elif wp and wp.status == 'installing' %}
+                <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);color:#fbbf24;padding:5px 14px;border-radius:20px;font-size:.78rem;font-weight:700;">
+                    <i class="fa-solid fa-spinner fa-spin"></i> Installing…
+                </span>
+                {% else %}
+                <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#a5b4fc;padding:5px 14px;border-radius:20px;font-size:.78rem;font-weight:700;">
+                    <i class="fab fa-wordpress"></i> Not Installed
+                </span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="panel-card-actions" style="width:100%;margin-top:18px;">
+            <a href="/portal/service/{{ service.id }}/wordpress/" class="btn-panel" style="background:linear-gradient(135deg,#21759b,#3b9bd1);">
+                <i class="fab fa-wordpress"></i>
+                {% if wp and wp.status == 'active' %}Manage WordPress{% else %}Install WordPress{% endif %}
+            </a>
+            {% if wp and wp.wp_admin_url and wp.status == 'active' %}
+            <a href="{{ wp.wp_admin_url }}" target="_blank" class="btn-panel-sec">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Open WP Admin
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- WordPress quick shortcuts -->
+    <p class="section-title">WordPress Management</p>
+    <div class="shortcuts-grid">
+        <a href="/portal/service/{{ service.id }}/wordpress/" class="shortcut-card" style="--sc-color:#21759b;">
+            <div class="shortcut-icon"><i class="fab fa-wordpress"></i></div>
+            <div><div class="shortcut-label">{% if wp and wp.status == 'active' %}Manage WP{% else %}Install WP{% endif %}</div><div class="shortcut-desc">{% if wp and wp.status == 'active' %}WordPress is running{% else %}Click to install{% endif %}</div></div>
+            <i class="fa-solid fa-arrow-right shortcut-arrow"></i>
+        </a>
+        {% if wp and wp.status == 'active' %}
+        <a href="/portal/service/{{ service.id }}/wordpress/#reset-password" class="shortcut-card" style="--sc-color:#10b981;">
+            <div class="shortcut-icon"><i class="fa-solid fa-key"></i></div>
+            <div><div class="shortcut-label">Change Password</div><div class="shortcut-desc">Reset WP admin password</div></div>
+            <i class="fa-solid fa-arrow-right shortcut-arrow"></i>
+        </a>
+        <a href="/portal/service/{{ service.id }}/wordpress/#ssl" class="shortcut-card" style="--sc-color:#0ea5e9;">
+            <div class="shortcut-icon"><i class="fa-solid fa-shield-halved"></i></div>
+            <div><div class="shortcut-label">Free SSL</div><div class="shortcut-desc">Issue Let's Encrypt SSL</div></div>
+            <i class="fa-solid fa-arrow-right shortcut-arrow"></i>
+        </a>
+        {% if wp.wp_admin_url %}
+        <a href="{{ wp.wp_admin_url }}" target="_blank" class="shortcut-card" style="--sc-color:#3b9bd1;">
+            <div class="shortcut-icon"><i class="fa-brands fa-wordpress"></i></div>
+            <div><div class="shortcut-label">WP Admin</div><div class="shortcut-desc">Open WordPress dashboard</div></div>
+            <i class="fa-solid fa-arrow-up-right-from-square shortcut-arrow"></i>
+        </a>
+        {% endif %}
+        {% endif %}
+        <a href="/portal/ticket/new/" class="shortcut-card" style="--sc-color:#ef4444;">
+            <div class="shortcut-icon"><i class="fa-solid fa-headset"></i></div>
+            <div><div class="shortcut-label">Support</div><div class="shortcut-desc">Open a support ticket</div></div>
+            <i class="fa-solid fa-arrow-right shortcut-arrow"></i>
+        </a>
+    </div>
+    {% endwith %}
+
+    {% else %}
+    <!-- ── STANDARD HOSTING: VoidPanel auto-login card ── -->
+    <div class="panel-card">
+        <div class="panel-card-info">
+            <h2><i class="fa-solid fa-rocket" style="color:var(--accent2);"></i> VoidPanel Control Panel</h2>
+            <p>Click to instantly access your hosting control panel — no password needed.</p>
+            {% if service.panel_username %}
+            <div class="cred-row">
+                <div class="cred-item">
+                    <label>Username</label>
+                    <span id="cred-user">{{ service.panel_username }}</span>
+                    <i class="fa-solid fa-copy cred-copy" onclick="copyText('{{ service.panel_username }}', 'Username')"></i>
+                </div>
+                <div class="cred-item">
+                    <label>Panel URL</label>
+                    <span>{{ service.panel_base_url|default:"Configuring..." }}</span>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        <div class="panel-card-actions">
+            {% if service.panel_base_url %}
+            <a href="/portal/service/{{ service.id }}/login/" target="_blank" class="btn-panel">
+                <i class="fa-solid fa-arrow-right-to-bracket"></i> Open Control Panel
+            </a>
+            {% endif %}
+            <button class="btn-panel-sec" onclick="copyText('{{ service.panel_username }}', 'Username')">
+                <i class="fa-solid fa-copy"></i> Copy Username
+            </button>
+        </div>
+    </div>
+
+    <!-- ── Quick Shortcuts ── -->
+    <p class="section-title">Quick Access Shortcuts</p>
+    <div class="shortcuts-grid">
+        {% for sc in shortcuts %}
+        <a href="{{ sc.url }}" target="_blank" class="shortcut-card" style="--sc-color: {{ sc.color }};">
+            <div class="shortcut-icon">
+                <i class="fa-solid {{ sc.icon }}"></i>
+            </div>
+            <div>
+                <div class="shortcut-label">{{ sc.label }}</div>
+            </div>
+            <i class="fa-solid fa-arrow-up-right-from-square shortcut-arrow"></i>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+
+    {% endif %}
+
+    <!-- ── Service Info Cards ── -->
+    <p class="section-title">Service Details</p>
+    <div class="info-grid">
+        <div class="info-card">
+            <label>Next Renewal</label>
+            <div class="val">{{ service.next_due_date|date:"M d, Y" }}</div>
+            <div class="sub">{{ service.get_billing_cycle_display }} billing</div>
+        </div>
+        <div class="info-card">
+            <label>Service Status</label>
+            <div class="val" style="color: {% if service.status == 'active' %}#34d399{% elif service.status == 'pending' %}#fbbf24{% else %}#f87171{% endif %};">
+                {{ service.get_status_display }}
+            </div>
+            <div class="sub">{{ service.product_type }}</div>
+        </div>
+        <div class="info-card">
+            <label>Monthly Cost</label>
+            <div class="val">₹{{ service.monthly_price }}</div>
+            <div class="sub">Per billing cycle</div>
+        </div>
+        <div class="info-card">
+            <label>Active Since</label>
+            <div class="val">{{ service.created_at|date:"M d, Y" }}</div>
+            <div class="sub">{{ service.created_at|timesince }} ago</div>
+        </div>
+    </div>
+
+    <!-- ── Support CTA ── -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+        <div>
+            <h3 style="font-size:1rem;font-weight:700;color:var(--t1);">Need Help?</h3>
+            <p style="font-size:0.85rem;color:var(--t2);margin-top:4px;">Our support team is available 24/7 for any issues with your hosting.</p>
+        </div>
+        <a href="/portal/ticket/new/" class="btn-panel-sec">
+            <i class="fa-solid fa-headset"></i> Open Support Ticket
+        </a>
+    </div>
+
+    <!-- ── Danger Zone ── -->
+    <div style="background:var(--card);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius);padding:24px 28px;margin-top:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+        <div>
+            <h3 style="font-size:1rem;font-weight:700;color:#ef4444;">Danger Zone</h3>
+            <p style="font-size:0.85rem;color:var(--t2);margin-top:4px;">Terminating this hosting service will delete all files, databases, and configuration settings permanently.</p>
+        </div>
+        <button onclick="deleteHostingService()" class="btn-panel" style="background:#ef4444;color:#fff;border:none;cursor:pointer;border-radius:8px;padding:10px 20px;font-weight:700;">
+            <i class="fa-solid fa-trash-can"></i> Terminate Service
+        </button>
+    </div>
+
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="toast"><i class="fa-solid fa-check"></i> <span id="toast-msg">Copied!</span></div>
+
+<script>
+let passVisible = false;
+
+function deleteHostingService() {
+    if (!confirm("Are you absolutely sure you want to terminate and delete this service? This action is permanent and cannot be undone!")) {
+        return;
+    }
+    const token = '{{ csrf_token }}';
+    fetch('/portal/delete-service/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': token
+        },
+        body: 'service_type=hosting&service_id={{ service.id }}'
+    })
+    .then(resp => resp.json())
+    .then(data => {
+        if (data.ok) {
+            alert(data.message);
+            window.location.href = '/portal/';
+        } else {
+            alert("Error: " + data.message);
+        }
+    })
+    .catch(err => {
+        alert("Request failed. Please try again.");
+    });
+}
+
+function copyText(text, label) {
+    navigator.clipboard.writeText(text).then(() => showToast(label + ' copied!'));
+}
+
+function togglePass(plainPass) {
+    passVisible = !passVisible;
+    document.getElementById('cred-pass').textContent = passVisible ? plainPass : '••••••••';
+}
+
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    document.getElementById('toast-msg').textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// Prevent accidental navigation to suspended service shortcuts
+document.querySelectorAll('.shortcut-card').forEach(card => {
+    card.addEventListener('click', e => {
+        {% if service.status == 'suspended' %}
+        e.preventDefault();
+        showToast('⚠ Service suspended — please pay your invoice first.');
+        {% endif %}
+    });
+});
+</script>
+
+</div><!-- /page scroll wrapper -->
+</div><!-- /portal-wrap -->
+</body>
+</html>

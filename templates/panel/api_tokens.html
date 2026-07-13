@@ -1,0 +1,369 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <title>API Tokens — VoidPanel</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=3">
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+    <style>
+        :root {
+            --bg:       #07091a;
+            --card:     rgba(13,17,38,0.9);
+            --border-s: rgba(255,255,255,0.07);
+            --accent:   #6366f1;
+            --cyan:     #22d3ee;
+            --red:      #ef4444;
+            --text-1:   #f1f5f9;
+            --text-2:   #94a3b8;
+            --radius:   16px;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif !important; background: var(--bg); }
+        /* Let main.css/bootstrap handle main-content layout */
+
+        .ak-root { padding: 30px 28px 60px; max-width: 1050px; }
+
+        .ak-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+        .ak-header h1 { font-size: 1.4rem; font-weight: 800; color: var(--text-1); margin: 0; }
+        .ak-header p { font-size: 0.85rem; color: var(--text-2); margin: 4px 0 0; }
+
+        .btn-create {
+            background: linear-gradient(135deg, var(--accent), var(--cyan));
+            border: none; color: #fff; padding: 11px 22px; border-radius: 12px;
+            font-weight: 700; font-size: 0.85rem; display: flex; align-items: center; gap: 8px;
+            cursor: pointer; transition: all 0.2s; white-space: nowrap;
+        }
+        .btn-create:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(99,102,241,0.4); }
+
+        /* Token Table */
+        .tok-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+        .tok-table th { font-size: 0.75rem; text-transform: uppercase; color: var(--text-2); padding: 0 16px 8px; border: none; font-weight: 700; }
+        .tok-table td { background: var(--card); border-top: 1px solid var(--border-s); border-bottom: 1px solid var(--border-s); padding: 14px 16px; vertical-align: middle; }
+        .tok-table tr td:first-child { border-left: 1px solid var(--border-s); border-radius: 12px 0 0 12px; }
+        .tok-table tr td:last-child  { border-right: 1px solid var(--border-s); border-radius: 0 12px 12px 0; }
+        .tok-label { font-size: 0.95rem; font-weight: 700; color: var(--text-1); margin-bottom: 4px; }
+        .tok-key { font-family: monospace; font-size: 0.82rem; color: #a5b4fc; background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 6px; }
+        .tok-meta { font-size: 0.73rem; color: var(--text-2); margin-top: 5px; }
+        .scope-badge { display: inline-block; padding: 2px 8px; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); color: #c7d2fe; border-radius: 6px; font-size: 0.7rem; font-weight: 600; margin: 2px; }
+        .btn-act { background: transparent; border: 1px solid var(--border-s); color: var(--text-2); padding: 6px 12px; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+        .btn-act:hover { background: rgba(255,255,255,0.05); color: #fff; }
+        .btn-act.red:hover { background: rgba(239,68,68,0.1); color: var(--red); border-color: rgba(239,68,68,0.3); }
+
+        /* ── Custom Modal Overlay ──────────────────────────────────── */
+        .vp-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.72); backdrop-filter: blur(6px);
+            z-index: 9000; align-items: center; justify-content: center;
+        }
+        .vp-overlay.open { display: flex; }
+        .vp-dialog {
+            background: #0d1126; border: 1px solid rgba(255,255,255,0.09);
+            border-radius: 20px; width: 700px; max-width: 96vw; max-height: 90vh;
+            display: flex; flex-direction: column;
+            box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+            animation: dlgIn 0.22s cubic-bezier(0.16,1,0.3,1);
+        }
+        @keyframes dlgIn { from { opacity:0; transform: translateY(24px) scale(0.97); } to { opacity:1; transform: none; } }
+        .vp-dialog-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 22px 28px 16px; border-bottom: 1px solid var(--border-s);
+        }
+        .vp-dialog-head h2 { color: var(--text-1); font-size: 1.1rem; font-weight: 800; margin: 0; }
+        .vp-close { background: none; border: none; color: var(--text-2); font-size: 1.4rem; cursor: pointer; line-height: 1; }
+        .vp-close:hover { color: #fff; }
+        .vp-dialog-body { padding: 24px 28px; overflow-y: auto; flex: 1; }
+        .vp-dialog-foot { padding: 16px 28px; border-top: 1px solid var(--border-s); display: flex; justify-content: flex-end; gap: 10px; }
+
+        .vp-input { width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px 14px; border-radius: 10px; font-family: 'Inter',sans-serif; font-size: 0.9rem; outline: none; }
+        .vp-input:focus { border-color: rgba(99,102,241,0.5); box-shadow: 0 0 0 3px rgba(99,102,241,0.12); }
+        .vp-input::placeholder { color: var(--text-2); }
+        .vp-label { color: var(--text-1); font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 8px; }
+
+        .scopes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: 10px; margin-top: 12px; }
+        .scope-item { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-s); cursor: pointer; transition: 0.15s; }
+        .scope-item:hover { background: rgba(255,255,255,0.06); border-color: rgba(99,102,241,0.3); }
+        .scope-item input { accent-color: var(--accent); width: 15px; height: 15px; flex-shrink:0; }
+        .scope-item span { font-size: 0.78rem; color: var(--text-1); }
+
+        .btn-cancel { background: rgba(255,255,255,0.06); border: 1px solid var(--border-s); color: var(--text-1); padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 0.85rem; }
+        .btn-cancel:hover { background: rgba(255,255,255,0.1); }
+
+    </style>
+
+</head>
+
+<body class="font-nunito active-dark-mode">
+<div id="wrapper" class="theme-cyan">
+
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
+
+    <div id="main-content">
+    <div class="container-fluid">
+    <div class="ak-root">
+
+        <div class="ak-header">
+            <div>
+                <h1>API Tokens (v2)</h1>
+                <p>Manage permission-scoped API keys for remote automation.</p>
+            </div>
+            <button class="btn-create" onclick="openModal()">
+                <i class="fa-solid fa-plus"></i> Generate Token
+            </button>
+        </div>
+
+        {% if tokens %}
+        <table class="tok-table">
+            <thead>
+                <tr>
+                    <th>Token Details</th>
+                    <th>Permissions (Scopes)</th>
+                    <th>Last Used</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in tokens %}
+                <tr>
+                    <td>
+                        <div class="tok-label">{{ t.label }}</div>
+                        <div class="tok-key">{{ t.key|truncatechars:28 }}… <i class="fa-solid fa-copy" style="cursor:pointer;margin-left:4px;" onclick="copyFull('{{ t.key }}')"></i></div>
+                        <div class="tok-meta">Created: {{ t.created_at|date:"M d, Y" }} by {{ t.created_by }}</div>
+                    </td>
+                    <td style="max-width: 300px;">
+                        {% for s in t.scopes %}
+                            <span class="scope-badge">{{ s }}</span>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        {% if t.last_used_at %}
+                            <span style="color:var(--text-1);font-size:0.85rem;">{{ t.last_used_at|timesince }} ago</span>
+                        {% else %}
+                            <span style="color:var(--text-2);font-size:0.85rem;">Never</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn-act" onclick="copyFull('{{ t.key }}')"><i class="fa-solid fa-copy"></i> Copy</button>
+                            <button class="btn-act red" onclick="revoke({{ t.id }})"><i class="fa-solid fa-trash"></i> Revoke</button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="text-align:center; padding: 60px 0; background: var(--card); border-radius: var(--radius); border: 1px solid var(--border-s);">
+            <i class="fa-solid fa-key" style="font-size: 3rem; color: rgba(255,255,255,0.08); display:block; margin-bottom: 16px;"></i>
+            <h3 style="color: var(--text-1); font-size: 1.1rem; font-weight: 700;">No API Tokens Found</h3>
+            <p style="color: var(--text-2); font-size: 0.85rem;">Generate a permission-scoped token to start using the API.</p>
+            <button class="btn-create" style="display:inline-flex;margin-top:12px;" onclick="openModal()">
+                <i class="fa-solid fa-plus"></i> Generate Your First Token
+            </button>
+        </div>
+        {% endif %}
+
+    </div>
+    </div>
+    </div>
+</div>
+
+
+
+<!-- ── Custom Modal Overlay ─────────────────────────── -->
+<div class="vp-overlay" id="createOverlay" onclick="overlayClick(event)">
+  <div class="vp-dialog" id="createDialog">
+    <div class="vp-dialog-head">
+        <h2><i class="fa-solid fa-key" style="color:var(--cyan);margin-right:10px;"></i>Generate API Token</h2>
+        <button class="vp-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="vp-dialog-body">
+        <div style="margin-bottom:20px;">
+            <label class="vp-label">Token Label</label>
+            <input type="text" id="tLabel" class="vp-input" placeholder="e.g. WHMCS Integration, Backup Bot">
+        </div>
+
+        <div style="margin-bottom:20px;">
+            <label class="vp-label">Token Type</label>
+            <select id="tOwnerType" class="vp-input" style="cursor:pointer;">
+                <option value="superadmin">Super Admin (full access)</option>
+                <option value="reseller">Reseller (scoped to sub-accounts only)</option>
+            </select>
+        </div>
+
+        <label class="vp-label">Select Permissions <span style="color:var(--text-2);font-weight:400;font-size:0.75rem;">({{ all_scopes|length }} available)</span></label>
+        <div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" onclick="selectAll(true)"  style="background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);color:#a5b4fc;padding:5px 14px;border-radius:8px;cursor:pointer;font-size:0.8rem;font-weight:600;">Select All</button>
+            <button type="button" onclick="selectAll(false)" style="background:rgba(255,255,255,0.05);border:1px solid var(--border-s);color:var(--text-2);padding:5px 14px;border-radius:8px;cursor:pointer;font-size:0.8rem;font-weight:600;">Clear</button>
+            <button type="button" onclick="selectGroup('accounts')" style="background:rgba(34,211,238,0.1);border:1px solid rgba(34,211,238,0.25);color:#67e8f9;padding:5px 14px;border-radius:8px;cursor:pointer;font-size:0.8rem;font-weight:600;">Accounts</button>
+            <button type="button" onclick="selectGroup('dns')"      style="background:rgba(34,211,238,0.1);border:1px solid rgba(34,211,238,0.25);color:#67e8f9;padding:5px 14px;border-radius:8px;cursor:pointer;font-size:0.8rem;font-weight:600;">DNS</button>
+            <button type="button" onclick="selectGroup('email')"    style="background:rgba(34,211,238,0.1);border:1px solid rgba(34,211,238,0.25);color:#67e8f9;padding:5px 14px;border-radius:8px;cursor:pointer;font-size:0.8rem;font-weight:600;">Email</button>
+        </div>
+        <div class="scopes-grid">
+            {% for scope in all_scopes %}
+            <label class="scope-item">
+                <input type="checkbox" class="scope-cb" value="{{ scope }}" checked>
+                <span>{{ scope }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="vp-dialog-foot">
+        <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn-create" onclick="createToken()" id="generateBtn">
+            <i class="fa-solid fa-key"></i> Generate Token
+        </button>
+    </div>
+  </div>
+</div>
+
+
+
+<script>
+// ── Modal ──────────────────────────────────────────────
+function openModal() {
+    document.getElementById('createOverlay').classList.add('open');
+    setTimeout(() => document.getElementById('tLabel').focus(), 100);
+}
+function closeModal() {
+    document.getElementById('createOverlay').classList.remove('open');
+}
+function overlayClick(e) {
+    if(e.target === document.getElementById('createOverlay')) closeModal();
+}
+document.addEventListener('keydown', e => { if(e.key === 'Escape') closeModal(); });
+
+// ── Scopes ────────────────────────────────────────────
+function selectAll(check) {
+    document.querySelectorAll('.scope-cb').forEach(cb => cb.checked = check);
+}
+
+// ── Copy ──────────────────────────────────────────────
+function copyFull(key) {
+    const btn = event.target.closest('button') || event.target;
+    const doFeedback = () => {
+        if(btn.tagName === 'BUTTON') {
+            const orig = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+            setTimeout(() => btn.innerHTML = orig, 1800);
+        } else {
+            alert('Copied!');
+        }
+    };
+    // Try modern clipboard API first (requires HTTPS)
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(key).then(doFeedback).catch(() => _copyFallback(key, doFeedback));
+    } else {
+        _copyFallback(key, doFeedback);
+    }
+}
+
+function _copyFallback(text, callback) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try {
+        document.execCommand('copy');
+        if (callback) callback();
+    } catch(e) {
+        alert('Press Ctrl+C / Cmd+C to copy: ' + text);
+    }
+    document.body.removeChild(ta);
+}
+
+// ── Group quick-select ──────────────────────────────
+function selectGroup(prefix) {
+    document.querySelectorAll('.scope-cb').forEach(cb => {
+        if(cb.value.startsWith(prefix)) cb.checked = true;
+    });
+}
+
+// ── Create Token ──────────────────────────────────────
+async function createToken() {
+    const label = document.getElementById('tLabel').value.trim();
+    if(!label) { document.getElementById('tLabel').focus(); return alert('Please enter a label for this token.'); }
+
+    const ownerType = document.getElementById('tOwnerType').value;
+    const scopes = Array.from(document.querySelectorAll('.scope-cb:checked')).map(cb => cb.value);
+    if(!scopes.length) return alert('Please select at least one permission scope.');
+
+    const btn = document.getElementById('generateBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating…';
+
+    try {
+        const csrfToken = (document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith('csrftoken=')) || '').split('=')[1] || '';
+        const res = await fetch('/api-tokens/create/', {
+            method: 'POST',
+            body: JSON.stringify({label, owner_type: ownerType, scopes}),
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
+        });
+        const d = await res.json();
+        if(d.status === 'success') {
+            document.querySelector('.vp-dialog-head h2').innerHTML = '<i class="fa-solid fa-circle-check" style="color:#10b981;margin-right:10px;"></i>Token Created Successfully';
+            document.querySelector('.vp-dialog-body').innerHTML = `
+                <div style="background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); padding:15px; border-radius:10px; margin-bottom:20px;">
+                    <p style="color:#34d399; margin:0 0 10px 0; font-weight:600;"><i class="fa-solid fa-triangle-exclamation"></i> Copy your token now. You won't be able to see it again!</p>
+                    <div style="display:flex; gap:10px;">
+                        <input type="text" class="vp-input" id="newTokenValue" value="${d.token.key}" readonly style="font-family:monospace; color:#a5b4fc;">
+                        <button class="btn-create" onclick="copyNewToken()" style="white-space:nowrap;"><i class="fa-solid fa-copy"></i> Copy</button>
+                    </div>
+                </div>
+            `;
+            document.querySelector('.vp-dialog-foot').innerHTML = '<button class="btn-cancel" onclick="location.reload()">Close & Reload</button>';
+        } else {
+            alert('Error: ' + (d.message || 'Unknown error'));
+        }
+    } catch(e) {
+        alert('Network error: ' + e);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-key"></i> Generate Token';
+    }
+}
+
+async function revoke(id) {
+    if(!confirm('Delete this API token immediately? Any apps using it will stop working.')) return;
+    try {
+        const csrfToken = (document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith('csrftoken=')) || '').split('=')[1] || '';
+        const res = await fetch(`/api-tokens/revoke/${id}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        });
+        const d = await res.json();
+        if(d.status === 'success') location.reload();
+        else alert('Error deleting token: ' + (d.message || 'Unknown error'));
+    } catch(e) { alert('Network error: ' + e); }
+}
+
+function copyNewToken() {
+    const input = document.getElementById('newTokenValue');
+    const text = input.value;
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => alert('Token copied to clipboard!'));
+    } else {
+        input.select();
+        document.execCommand('copy');
+        alert('Token copied to clipboard!');
+    }
+}
+</script>
+
+    <script src="/static/assets/bundles/libscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+    <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+
+</body>
+</html>

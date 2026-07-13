@@ -1,0 +1,1433 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <title>SEO Portal — {{ domain }}</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Professional SEO analysis — keywords, backlinks, audit, rank tracker.">
+  <link rel="icon" href="/static/fav.png" type="image/x-icon">
+  <link rel="stylesheet" href="/static/static/css/plugins/fontawesome-all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#06080f;--bg2:#0b0e18;--bg3:#0f1220;
+      --surface:rgba(255,255,255,0.025);--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.04);
+      --txt:#f1f5f9;--txt2:#94a3b8;--txt3:#475569;
+      --accent:#6366f1;--accent2:#8b5cf6;
+      --green:#10b981;--amber:#f59e0b;--red:#ef4444;--blue:#3b82f6;--cyan:#06b6d4;--pink:#ec4899;
+    }
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;overflow-x:hidden}
+
+    /* ── APP SHELL ── */
+    .app{display:flex;height:100vh;overflow:hidden}
+
+    /* ── SIDEBAR ── */
+    .sidebar{
+      width:220px;flex-shrink:0;background:var(--bg2);
+      border-right:1px solid var(--border);
+      display:flex;flex-direction:column;overflow-y:auto;
+    }
+    .sb-logo{
+      display:flex;align-items:center;gap:10px;
+      padding:20px 16px 16px;border-bottom:1px solid var(--border2);
+    }
+    .sb-logo-icon{
+      width:36px;height:36px;border-radius:10px;flex-shrink:0;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      display:flex;align-items:center;justify-content:center;
+      font-size:16px;color:#fff;box-shadow:0 4px 12px rgba(99,102,241,0.35);
+    }
+    .sb-logo-name{font-size:14px;font-weight:800;color:var(--txt);line-height:1.2}
+    .sb-logo-sub{font-size:10px;color:var(--txt3)}
+
+    .sb-section{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--txt3);padding:14px 16px 4px}
+    .sb-item{
+      display:flex;align-items:center;gap:9px;padding:9px 14px;
+      border-radius:0;border:none;background:transparent;
+      color:var(--txt2);font-size:12.5px;font-weight:500;cursor:pointer;
+      width:100%;text-align:left;border-left:2.5px solid transparent;
+      transition:all .15s;font-family:'Inter',sans-serif;
+    }
+    .sb-item:hover{color:var(--txt);background:var(--surface)}
+    .sb-item.active{color:#fff;background:rgba(99,102,241,0.12);border-left-color:var(--accent);font-weight:600}
+    .sb-item .si{width:16px;text-align:center;font-size:12px;flex-shrink:0}
+    .sb-badge{margin-left:auto;font-size:9px;font-weight:800;padding:1px 6px;border-radius:20px;background:rgba(99,102,241,0.18);color:#a5b4fc}
+
+    .sb-bottom{padding:14px 16px;border-top:1px solid var(--border2);margin-top:auto}
+    .sb-user{display:flex;align-items:center;gap:9px}
+    .sb-av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--pink));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;flex-shrink:0}
+    .sb-uname{font-size:12px;font-weight:700;color:var(--txt)}
+    .sb-urole{font-size:10px;color:var(--txt3)}
+    .sb-close{margin-left:auto;background:none;border:none;color:var(--txt3);cursor:pointer;font-size:13px;transition:color .15s}
+    .sb-close:hover{color:var(--txt)}
+
+    /* ── MAIN ── */
+    .main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+
+    /* ── TOPBAR ── */
+    .topbar{
+      height:58px;flex-shrink:0;
+      background:rgba(11,14,24,0.96);backdrop-filter:blur(14px);
+      border-bottom:1px solid var(--border);
+      display:flex;align-items:center;gap:12px;padding:0 24px;
+    }
+    .search-wrap{
+      flex:1;max-width:440px;display:flex;align-items:center;
+      background:rgba(255,255,255,0.04);border:1px solid var(--border);
+      border-radius:10px;overflow:hidden;
+    }
+    .search-wrap i{padding:0 12px;color:var(--txt3);font-size:13px}
+    .search-wrap input{
+      flex:1;background:transparent;border:none;outline:none;
+      color:var(--txt);font-size:13px;font-family:'Inter',sans-serif;
+      padding:10px 0;font-weight:500;
+    }
+    .search-wrap input::placeholder{color:var(--txt3)}
+    .btn-analyze{
+      display:inline-flex;align-items:center;gap:7px;
+      padding:9px 18px;border-radius:9px;border:none;cursor:pointer;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      color:#fff;font-size:12.5px;font-weight:700;font-family:'Inter',sans-serif;
+      transition:all .2s;box-shadow:0 4px 14px rgba(99,102,241,0.3);
+    }
+    .btn-analyze:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(99,102,241,0.5)}
+    .btn-ghost{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:8px 13px;border-radius:8px;border:1px solid var(--border);
+      background:transparent;color:var(--txt2);font-size:12px;font-weight:600;
+      cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;
+    }
+    .btn-ghost:hover{border-color:rgba(255,255,255,0.15);color:var(--txt);background:var(--surface)}
+    .cc-badge{font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--surface);border:1px solid var(--border);color:var(--txt3);white-space:nowrap}
+
+    /* ── CONTENT ── */
+    .content{flex:1;overflow-y:auto;padding:22px 24px}
+    .panel{display:none}
+    .panel.active{display:block}
+
+    /* ── KPI GRID ── */
+    .kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:13px;margin-bottom:20px}
+    @media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+    .kpi{
+      background:var(--bg3);border:1px solid var(--border);border-radius:13px;
+      padding:16px 18px;position:relative;overflow:hidden;transition:transform .2s,border-color .2s;
+    }
+    .kpi:hover{transform:translateY(-2px);border-color:rgba(255,255,255,0.1)}
+    .kpi-label{font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px}
+    .kpi-val{font-size:24px;font-weight:900;color:var(--txt);line-height:1;margin-bottom:3px}
+    .kpi-sub{font-size:10.5px;color:var(--txt3)}
+    .kpi-glow{position:absolute;top:-18px;right:-18px;width:60px;height:60px;border-radius:50%;opacity:.1;filter:blur(18px)}
+
+    /* ── CARD ── */
+    .card{background:var(--bg3);border:1px solid var(--border);border-radius:13px;padding:18px}
+    .card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border2)}
+    .card-title{font-size:13px;font-weight:700;color:var(--txt);display:flex;align-items:center;gap:7px}
+
+    /* ── GRIDS ── */
+    .g2{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:15px}
+    .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;margin-bottom:15px}
+    .g37{display:grid;grid-template-columns:3fr 7fr;gap:15px;margin-bottom:15px}
+    .g46{display:grid;grid-template-columns:4fr 6fr;gap:15px;margin-bottom:15px}
+    @media(max-width:960px){.g2,.g3,.g37,.g46{grid-template-columns:1fr}}
+
+    /* ── TABLE ── */
+    .tw{overflow-x:auto}
+    .t{width:100%;border-collapse:collapse;font-size:12.5px}
+    .t th{padding:9px 13px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--txt3);background:rgba(255,255,255,0.02);border-bottom:1px solid var(--border2);white-space:nowrap;cursor:pointer;user-select:none}
+    .t th:hover{color:var(--txt2)}
+    .t td{padding:11px 13px;border-bottom:1px solid var(--border2);color:var(--txt2);vertical-align:middle}
+    .t tr:hover td{background:rgba(255,255,255,0.01)}
+    .t tr:last-child td{border-bottom:none}
+
+    /* ── BADGES ── */
+    .badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700}
+    .b-easy{background:rgba(16,185,129,.14);color:#6ee7b7}
+    .b-med{background:rgba(245,158,11,.14);color:#fcd34d}
+    .b-hard{background:rgba(239,68,68,.14);color:#fca5a5}
+    .b-info{background:rgba(59,130,246,.14);color:#93c5fd}
+    .b-comm{background:rgba(168,85,247,.14);color:#d8b4fe}
+    .b-nav{background:rgba(6,182,212,.14);color:#67e8f9}
+    .b-pass{background:rgba(16,185,129,.12);color:#34d399}
+    .b-warn{background:rgba(245,158,11,.12);color:#fbbf24}
+    .b-fail{background:rgba(239,68,68,.12);color:#f87171}
+    .b-dof{background:rgba(16,185,129,.12);color:#34d399}
+    .b-nof{background:rgba(100,116,139,.15);color:#94a3b8}
+    .b-tox{background:rgba(239,68,68,.15);color:#f87171}
+
+    /* ── KD BAR ── */
+    .kd{display:flex;align-items:center;gap:7px}
+    .kd-tr{flex:1;height:4px;background:rgba(255,255,255,0.06);border-radius:2px;min-width:50px}
+    .kd-fi{height:100%;border-radius:2px}
+
+    /* ── SCORE RING ── */
+    .ring-wrap{display:flex;flex-direction:column;align-items:center;padding:8px 0}
+    .ring-svg{transform:rotate(-90deg)}
+    .ring-track{fill:none;stroke:rgba(255,255,255,0.06);stroke-width:10}
+    .ring-fill{fill:none;stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset 1.6s cubic-bezier(.4,0,.2,1)}
+
+    /* ── AUDIT ITEMS ── */
+    .audit-item{padding:12px 14px;border-radius:9px;border:1px solid var(--border2);background:var(--surface);margin-bottom:7px;cursor:pointer;transition:background .15s}
+    .audit-item:hover{background:rgba(255,255,255,0.03)}
+    .audit-row{display:flex;align-items:center;gap:10px}
+    .a-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+    .a-dot.passed{background:var(--green)}.a-dot.warning{background:var(--amber)}.a-dot.failed{background:var(--red)}
+    .a-name{font-size:12.5px;font-weight:600;color:var(--txt);flex:1}
+    .a-cat{font-size:9.5px;color:var(--txt3);font-weight:700;background:rgba(255,255,255,0.04);padding:1px 6px;border-radius:20px}
+    .a-detail{font-size:11.5px;color:var(--txt3);margin-top:7px;padding-left:17px;display:none;line-height:1.55}
+    .a-fix{font-size:11px;color:#818cf8;margin-top:5px;padding-left:17px;display:none;line-height:1.5}
+    .audit-item.open .a-detail,.audit-item.open .a-fix{display:block}
+
+    /* ── ISSUE COUNTS ── */
+    .ic-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-bottom:14px}
+    .ic{text-align:center;padding:14px 8px;border-radius:10px;border:1px solid transparent}
+    .ic.f{background:rgba(239,68,68,.06);border-color:rgba(239,68,68,.15)}.ic.f .icn,.ic.f .icl{color:#f87171}
+    .ic.w{background:rgba(245,158,11,.06);border-color:rgba(245,158,11,.15)}.ic.w .icn,.ic.w .icl{color:#fbbf24}
+    .ic.p{background:rgba(16,185,129,.06);border-color:rgba(16,185,129,.15)}.ic.p .icn,.ic.p .icl{color:#34d399}
+    .icn{font-size:26px;font-weight:900}.icl{font-size:10.5px;font-weight:700;margin-top:2px}
+
+    /* ── SPARKLINE ── */
+    .spark polyline{fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+    /* ── POSITION DELTA ── */
+    .delta{display:inline-flex;align-items:center;gap:2px;font-size:11px;font-weight:700}
+    .delta.u{color:var(--green)}.delta.d{color:var(--red)}.delta.n{color:var(--txt3)}
+
+    /* ── TOOLBAR ── */
+    .toolbar{display:flex;align-items:center;gap:9px;margin-bottom:12px;flex-wrap:wrap}
+    .tsearch{padding:7px 11px;border-radius:8px;background:var(--surface);border:1px solid var(--border);color:var(--txt);font-size:12px;font-family:'Inter',sans-serif;outline:none;min-width:175px}
+    .tsearch:focus{border-color:rgba(99,102,241,.5)}
+    .tsearch::placeholder{color:var(--txt3)}
+    .fp{padding:5px 11px;border-radius:20px;font-size:10.5px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--txt3);cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif}
+    .fp.active,.fp:hover{border-color:var(--accent);background:rgba(99,102,241,.1);color:#a5b4fc}
+
+    /* ── COUNTRY BAR ── */
+    .cb-row{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+    .cb-name{font-size:11.5px;color:var(--txt2);font-weight:500;min-width:108px}
+    .cb-track{flex:1;height:5px;background:rgba(255,255,255,0.06);border-radius:3px}
+    .cb-fill{height:100%;border-radius:3px}
+    .cb-pct{font-size:10.5px;color:var(--txt3);font-weight:700;min-width:32px;text-align:right}
+
+    /* ── TOP PAGES ── */
+    .tp-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border2)}
+    .tp-row:last-child{border-bottom:none}
+    .tp-url{font-size:11.5px;color:#60a5fa;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .tp-v{font-size:12.5px;font-weight:700;color:var(--txt);min-width:55px;text-align:right}
+
+    /* ── PIPELINE / SERP ── */
+    .serp-box{background:#fff;border-radius:11px;padding:18px 22px;font-family:Arial,sans-serif;max-width:580px}
+    .serp-url{font-size:12.5px;color:#1a0dab;margin-bottom:2px}
+    .serp-title{font-size:18px;color:#1a0dab;font-weight:400;cursor:pointer;line-height:1.3;margin-bottom:3px;text-decoration:none;display:block}
+    .serp-title:hover{text-decoration:underline}
+    .serp-desc{font-size:13px;color:#4d5156;line-height:1.58}
+    .cc-ok{color:var(--green)}.cc-warn{color:var(--amber)}.cc-err{color:var(--red)}
+
+    /* ── LOADER ── */
+    .loader{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:320px;gap:14px}
+    .lr{width:52px;height:52px;border-radius:50%;border:4px solid rgba(99,102,241,.15);border-top-color:var(--accent);animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ── EMPTY ── */
+    .empty{text-align:center;padding:56px 20px}
+    .empty i{font-size:42px;color:rgba(255,255,255,0.05);margin-bottom:14px;display:block}
+    .empty h4{font-size:15px;font-weight:700;color:var(--txt3);margin-bottom:7px}
+    .empty p{font-size:12px;color:var(--txt3);max-width:300px;margin:0 auto;line-height:1.6}
+
+    /* ── COMP TABLE ── */
+    .comp-bar{width:100px}
+    .comp-tr{height:5px;background:rgba(255,255,255,0.06);border-radius:2px}
+    .comp-fi{height:5px;border-radius:2px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+
+    ::-webkit-scrollbar{width:4px;height:4px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:10px}
+    ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.15)}
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ═══ SIDEBAR ══════════════════════════════════════════════ -->
+  <aside class="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-icon"><i class="fa-solid fa-magnifying-glass-chart"></i></div>
+      <div>
+        <div class="sb-logo-name">SEO Portal</div>
+        <div class="sb-logo-sub">Powered by Common Crawl</div>
+      </div>
+    </div>
+
+    <div class="sb-section">Analytics</div>
+    <button class="sb-item active" onclick="sw('overview',this)"><i class="si fa-solid fa-chart-pie"></i> Overview</button>
+    <button class="sb-item" onclick="sw('keywords',this)"><i class="si fa-solid fa-tags"></i> Keywords</button>
+    <button class="sb-item" onclick="sw('backlinks',this)"><i class="si fa-solid fa-link"></i> Backlinks</button>
+    <button class="sb-item" onclick="sw('rank',this)"><i class="si fa-solid fa-chart-line"></i> Rank Tracker</button>
+    <button class="sb-item" onclick="sw('traffic',this)"><i class="si fa-solid fa-signal"></i> Traffic Analytics</button>
+
+    <div class="sb-section">Keywords</div>
+    <button class="sb-item" onclick="sw('kwideas',this)"><i class="si fa-solid fa-wand-magic-sparkles"></i> Keyword Ideas</button>
+    <button class="sb-item" onclick="sw('topic',this)"><i class="si fa-solid fa-lightbulb"></i> Topic Research</button>
+
+    <div class="sb-section">Diagnostics</div>
+    <button class="sb-item" onclick="sw('audit',this)"><i class="si fa-solid fa-gauge-high"></i> Site Auditor</button>
+    <button class="sb-item" onclick="sw('onpage',this)"><i class="si fa-solid fa-file-circle-check"></i> On-Page SEO</button>
+    <button class="sb-item" onclick="sw('crawl',this)"><i class="si fa-solid fa-spider"></i> Crawl Explorer</button>
+    <button class="sb-item" onclick="sw('serp',this)"><i class="si fa-solid fa-eye"></i> SERP Preview</button>
+
+    <div class="sb-section">Competitive</div>
+    <button class="sb-item" onclick="sw('competitor',this)"><i class="si fa-solid fa-users-viewfinder"></i> Competitors</button>
+    <button class="sb-item" onclick="sw('gap',this)"><i class="si fa-solid fa-crosshairs"></i> Content Gap</button>
+    <button class="sb-item" onclick="sw('intersect',this)"><i class="si fa-solid fa-arrows-to-circle"></i> Link Intersect</button>
+    <button class="sb-item" onclick="sw('ppc',this)"><i class="si fa-solid fa-rectangle-ad"></i> PPC Research</button>
+    <button class="sb-item" onclick="sw('battle',this)" style="position:relative"><i class="si fa-solid fa-swords"></i> Competitor Battle<span class="sb-badge" style="background:rgba(239,68,68,.2);color:#f87171">NEW</span></button>
+
+    <div class="sb-bottom">
+      <div class="sb-user">
+        {% if suite_mode %}
+        <div class="sb-av" style="background:linear-gradient(135deg,#10b981,#06b6d4)">{{ suite_user.name|first|upper|default:"S" }}</div>
+        <div>
+          <div class="sb-uname">{{ suite_user.name|default:suite_user.email }}</div>
+          <div class="sb-urole"><i class="fa-solid fa-bolt" style="color:#6ee7b7;font-size:9px"></i> {{ suite_user.plan|capfirst }} Plan</div>
+        </div>
+        <a href="/control/suite/logout/" class="sb-close" title="Sign out" style="text-decoration:none;color:var(--txt3)"><i class="fa-solid fa-right-from-bracket"></i></a>
+        {% else %}
+        <div class="sb-av">{{ user.username|first|upper }}</div>
+        <div>
+          <div class="sb-uname">{{ user.username }}</div>
+          <div class="sb-urole">{{ domain }}</div>
+        </div>
+        <button class="sb-close" onclick="window.close()" title="Close portal"><i class="fa-solid fa-xmark"></i></button>
+        {% endif %}
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══ MAIN ═════════════════════════════════════════════════ -->
+  <main class="main">
+    <div class="topbar">
+      <div class="search-wrap">
+        <i class="fa-solid fa-globe"></i>
+        <input type="text" id="domainInput" placeholder="Enter domain (e.g. github.com)" value="{{ domain }}" autocomplete="off" onkeydown="if(event.key==='Enter')runAnalysis()">
+      </div>
+      <button class="btn-analyze" onclick="runAnalysis()">
+        <i class="fa-solid fa-bolt" id="aIcon"></i> Analyze
+      </button>
+      <button class="btn-ghost" onclick="exportCSV()"><i class="fa-solid fa-file-csv"></i> Export</button>
+      <span class="cc-badge" id="ccBadge">CC-MAIN-2026-16</span>
+      <span class="cc-badge" style="color:#10b981;border-color:rgba(16,185,129,.3)" title="Green = Live real-time data"><i class="fa-solid fa-circle" style="font-size:7px"></i> LIVE = Real</span>
+      <span class="cc-badge" style="color:#f59e0b;border-color:rgba(245,158,11,.3)" title="Yellow = Deterministic estimate (no paid API)"><i class="fa-solid fa-circle" style="font-size:7px"></i> EST = Estimate</span>
+    </div>
+
+    <div class="content">
+
+      <!-- EMPTY STATE -->
+      <div id="stEmpty">
+        <div class="empty">
+          <i class="fa-solid fa-magnifying-glass-chart"></i>
+          <h4>No Domain Analyzed Yet</h4>
+          <p>Enter any domain above and click Analyze to get full SEO insights powered by Common Crawl.</p>
+        </div>
+      </div>
+
+      <!-- LOADER -->
+      <div id="stLoader" style="display:none">
+        <div class="loader">
+          <div class="lr"></div>
+          <div style="text-align:center">
+            <div style="font-size:14px;font-weight:700;color:var(--txt);margin-bottom:4px">Querying Common Crawl index…</div>
+            <div style="font-size:12px;color:var(--txt3)">Analyzing backlinks, keywords, crawl data and audit signals</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RESULTS -->
+      <div id="stResults" style="display:none">
+
+        <!-- KPI ROW -->
+        <div class="kpi-grid">
+          <div class="kpi"><div class="kpi-glow" style="background:#6366f1"></div><div class="kpi-label">Authority Score</div><div class="kpi-val" id="kAuth">—</div><div class="kpi-sub">0–100 strength</div></div>
+          <div class="kpi"><div class="kpi-glow" style="background:#10b981"></div><div class="kpi-label">Monthly Traffic</div><div class="kpi-val" id="kTr">—</div><div class="kpi-sub">Organic visits/mo</div></div>
+          <div class="kpi"><div class="kpi-glow" style="background:#3b82f6"></div><div class="kpi-label">Keywords</div><div class="kpi-val" id="kKw">—</div><div class="kpi-sub">Ranked organically</div></div>
+          <div class="kpi"><div class="kpi-glow" style="background:#f59e0b"></div><div class="kpi-label">Backlinks</div><div class="kpi-val" id="kBl">—</div><div class="kpi-sub">Total inbound links</div></div>
+          <div class="kpi"><div class="kpi-glow" style="background:#ec4899"></div><div class="kpi-label">Ref. Domains</div><div class="kpi-val" id="kRd">—</div><div class="kpi-sub">Unique linking sites</div></div>
+          <div class="kpi"><div class="kpi-glow" style="background:#8b5cf6"></div><div class="kpi-label">Traffic Value</div><div class="kpi-val" id="kTv">—</div><div class="kpi-sub">Equiv. paid traffic $</div></div>
+        </div>
+
+        <!-- ══ OVERVIEW ══════════════════════════════════════════ -->
+        <div class="panel active" id="panel-overview">
+          <div class="g37">
+            <div class="card">
+              <div class="card-hd"><div class="card-title"><i class="fa-solid fa-earth-americas" style="color:var(--blue)"></i> Traffic by Country</div></div>
+              <div id="cBars"></div>
+            </div>
+            <div class="card">
+              <div class="card-hd"><div class="card-title"><i class="fa-solid fa-chart-line" style="color:var(--green)"></i> 12-Month Traffic Trend</div></div>
+              <canvas id="trafficChart" height="115"></canvas>
+            </div>
+          </div>
+          <div class="g2">
+            <div class="card">
+              <div class="card-hd"><div class="card-title"><i class="fa-solid fa-list-ul" style="color:var(--amber)"></i> Top Pages by Traffic</div></div>
+              <div id="topPages"></div>
+            </div>
+            <div class="card">
+              <div class="card-hd"><div class="card-title"><i class="fa-solid fa-circle-half-stroke" style="color:var(--accent2)"></i> Keyword Position Split</div></div>
+              <div style="display:flex;align-items:center;gap:18px">
+                <canvas id="posDonut" width="130" height="130" style="flex-shrink:0"></canvas>
+                <div id="posLegend" style="flex:1"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ KEYWORDS ══════════════════════════════════════════ -->
+        <div class="panel" id="panel-keywords">
+          <div class="card">
+            <div class="card-hd">
+              <div class="card-title"><i class="fa-solid fa-tags" style="color:var(--green)"></i> Organic Keyword Explorer</div>
+              <button class="btn-ghost" onclick="expCSV('kwTbl','keywords')"><i class="fa-solid fa-download"></i> CSV</button>
+            </div>
+            <div class="toolbar">
+              <input class="tsearch" id="kwS" placeholder="Search keywords…" oninput="renderKw()">
+              <button class="fp active" onclick="setIF(this,'All')">All</button>
+              <button class="fp" onclick="setIF(this,'Informational')">Informational</button>
+              <button class="fp" onclick="setIF(this,'Commercial')">Commercial</button>
+              <button class="fp" onclick="setIF(this,'Navigational')">Navigational</button>
+            </div>
+            <div class="tw"><table class="t" id="kwTbl">
+              <thead><tr>
+                <th onclick="srt('kwTbl',0)">Keyword ↕</th>
+                <th onclick="srt('kwTbl',1)">Volume ↕</th>
+                <th onclick="srt('kwTbl',2)">KD%</th>
+                <th>CPC</th>
+                <th onclick="srt('kwTbl',4)">Position ↕</th>
+                <th>Traffic%</th><th>Intent</th><th>SERP Feature</th>
+              </tr></thead>
+              <tbody id="kwBody"></tbody>
+            </table></div>
+          </div>
+        </div>
+
+        <!-- ══ BACKLINKS ══════════════════════════════════════════ -->
+        <div class="panel" id="panel-backlinks">
+          <div class="g3" style="margin-bottom:15px">
+            <div class="card" style="text-align:center"><div class="kpi-label" style="margin-bottom:7px">New (30d)</div><div style="font-size:26px;font-weight:900;color:var(--green)" id="blN">—</div><div style="font-size:10.5px;color:var(--txt3)">Gained links</div></div>
+            <div class="card" style="text-align:center"><div class="kpi-label" style="margin-bottom:7px">Lost (30d)</div><div style="font-size:26px;font-weight:900;color:var(--red)" id="blL">—</div><div style="font-size:10.5px;color:var(--txt3)">Removed links</div></div>
+            <div class="card" style="text-align:center"><div class="kpi-label" style="margin-bottom:7px">Toxic Links</div><div style="font-size:26px;font-weight:900;color:var(--amber)" id="blT">—</div><div style="font-size:10.5px;color:var(--txt3)">Low-quality domains</div></div>
+          </div>
+          <div class="g46">
+            <div class="card">
+              <div class="card-hd"><div class="card-title"><i class="fa-solid fa-circle-half-stroke" style="color:var(--accent)"></i> Link Type Split</div></div>
+              <canvas id="blDonut" width="150" height="150"></canvas>
+              <div id="blLeg" style="margin-top:12px"></div>
+            </div>
+            <div class="card">
+              <div class="card-hd">
+                <div class="card-title"><i class="fa-solid fa-link" style="color:var(--cyan)"></i> Backlink Reference Table</div>
+                <button class="btn-ghost" onclick="expCSV('blTbl','backlinks')"><i class="fa-solid fa-download"></i> CSV</button>
+              </div>
+              <div class="toolbar"><input class="tsearch" id="blS" placeholder="Search domains…" oninput="renderBl()"></div>
+              <div class="tw"><table class="t" id="blTbl">
+                <thead><tr><th>Domain</th><th>Anchor</th><th>Target</th><th>DA</th><th>Type</th><th>First Seen</th></tr></thead>
+                <tbody id="blBody"></tbody>
+              </table></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ RANK TRACKER ══════════════════════════════════════ -->
+        <div class="panel" id="panel-rank">
+          <div class="card">
+            <div class="card-hd"><div class="card-title"><i class="fa-solid fa-chart-line" style="color:var(--accent)"></i> Keyword Position History (6 months)</div></div>
+            <div class="tw"><table class="t" id="rtTbl">
+              <thead><tr><th>Keyword</th><th>Volume</th><th>KD</th><th>Position</th><th>Change</th><th>Est. Traffic</th><th>Trend (6mo)</th><th>Intent</th><th>SERP Feature</th></tr></thead>
+              <tbody id="rtBody"></tbody>
+            </table></div>
+          </div>
+        </div>
+
+        <!-- ══ SITE AUDITOR ══════════════════════════════════════ -->
+        <div class="panel" id="panel-audit">
+          <div class="g46">
+            <div class="card" style="text-align:center">
+              <div class="card-hd" style="justify-content:center"><div class="card-title"><i class="fa-solid fa-gauge-high" style="color:var(--accent)"></i> SEO Health Score</div></div>
+              <div class="ring-wrap">
+                <svg width="124" height="124" class="ring-svg">
+                  <circle class="ring-track" cx="62" cy="62" r="50"></circle>
+                  <circle class="ring-fill" id="ringFill" cx="62" cy="62" r="50" stroke="#6366f1" stroke-dasharray="314.16" stroke-dashoffset="314.16"></circle>
+                </svg>
+                <div style="margin-top:-78px;font-size:30px;font-weight:900;color:var(--txt);z-index:1" id="ringNum">0</div>
+                <div style="margin-top:55px;font-size:11px;color:var(--txt3);font-weight:600">out of 100</div>
+              </div>
+              <div class="ic-grid" id="icGrid"></div>
+              <div style="font-size:10.5px;color:var(--txt3);line-height:1.6">Scores derived from header audits and Common Crawl signals.</div>
+            </div>
+            <div class="card">
+              <div class="card-hd">
+                <div class="card-title"><i class="fa-solid fa-list-check" style="color:var(--green)"></i> Audit Checks</div>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:13px" id="aFBar">
+                <button class="fp active" onclick="setAF(this,'All')">All</button>
+                <button class="fp" onclick="setAF(this,'Failed')">Errors</button>
+                <button class="fp" onclick="setAF(this,'Warning')">Warnings</button>
+                <button class="fp" onclick="setAF(this,'Passed')">Passed</button>
+                <button class="fp" onclick="setAF(this,'Performance')">Performance</button>
+                <button class="fp" onclick="setAF(this,'On-Page')">On-Page</button>
+              </div>
+              <div id="auditList" style="max-height:480px;overflow-y:auto;padding-right:3px"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ CRAWL EXPLORER ════════════════════════════════════ -->
+        <div class="panel" id="panel-crawl">
+          <div class="g3" style="margin-bottom:15px">
+            <div class="card"><div class="card-hd"><div class="card-title"><i class="fa-solid fa-circle-nodes" style="color:var(--green)"></i> Status Codes</div></div><canvas id="statusChart" height="155"></canvas></div>
+            <div class="card"><div class="card-hd"><div class="card-title"><i class="fa-solid fa-file-code" style="color:var(--amber)"></i> MIME Types</div></div><canvas id="mimeChart" height="155"></canvas></div>
+            <div class="card"><div class="card-hd"><div class="card-title"><i class="fa-solid fa-sitemap" style="color:var(--accent2)"></i> URL Depth</div></div><canvas id="depthChart" height="155"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-hd">
+              <div class="card-title"><i class="fa-solid fa-spider" style="color:var(--red)"></i> Common Crawl Index Logs</div>
+              <span id="crawlCnt" style="font-size:11px;color:var(--txt3)"></span>
+            </div>
+            <div class="toolbar"><input class="tsearch" id="ccS" placeholder="Filter URLs…" oninput="renderCC()"></div>
+            <div class="tw"><table class="t" id="ccTbl">
+              <thead><tr><th>Crawled URL</th><th>Timestamp</th><th>Status</th><th>MIME</th><th>Size</th></tr></thead>
+              <tbody id="ccBody"></tbody>
+            </table></div>
+          </div>
+        </div>
+
+        <!-- ══ SERP PREVIEW ══════════════════════════════════════ -->
+        <div class="panel" id="panel-serp">
+          <div class="g2">
+            <div class="card">
+              <div class="card-hd"><div class="card-title"><i class="fa-solid fa-pen-to-square" style="color:var(--accent)"></i> Edit Snippet</div></div>
+              <div style="display:flex;flex-direction:column;gap:13px">
+                <div>
+                  <label style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px">Page URL</label>
+                  <input type="text" id="sUrl" class="tsearch" style="width:100%;min-width:auto" placeholder="https://yourdomain.com/page" oninput="upSerp()">
+                </div>
+                <div>
+                  <label style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px">SEO Title <span id="tCC" class="cc-ok">0/60</span></label>
+                  <input type="text" id="sTitle" class="tsearch" style="width:100%;min-width:auto" placeholder="Your Page Title" oninput="upSerp()">
+                </div>
+                <div>
+                  <label style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:5px">Meta Description <span id="dCC" class="cc-ok">0/160</span></label>
+                  <textarea id="sDesc" class="tsearch" rows="3" style="width:100%;min-width:auto;resize:vertical" placeholder="Your meta description…" oninput="upSerp()"></textarea>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-hd"><div class="card-title"><i class="fa-brands fa-google" style="color:#ea4335"></i> Google SERP Preview</div></div>
+              <div class="serp-box">
+                <div class="serp-url" id="spUrl">yourdomain.com</div>
+                <a class="serp-title" id="spTitle">Your Page Title</a>
+                <div class="serp-desc" id="spDesc">Your meta description will appear here. Make it compelling and within 160 characters.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ COMPETITORS ════════════════════════════════════════ -->
+        <div class="panel" id="panel-competitor">
+          <div class="card">
+            <div class="card-hd"><div class="card-title"><i class="fa-solid fa-users-viewfinder" style="color:var(--pink)"></i> Competitor Comparison</div></div>
+            <div class="tw"><table class="t" id="compTbl">
+              <thead><tr><th>Domain</th><th>Authority</th><th>Traffic</th><th>Keywords</th><th>Backlinks</th><th>Traffic Value</th></tr></thead>
+              <tbody id="compBody"></tbody>
+            </table></div>
+          </div>
+          <div class="card" style="margin-top:15px">
+            <div class="card-hd"><div class="card-title"><i class="fa-solid fa-chart-bar" style="color:var(--accent)"></i> Authority Score Comparison</div></div>
+            <canvas id="compChart" height="95"></canvas>
+          </div>
+        </div>
+
+        <!-- ══ CONTENT GAP ════════════════════════════════════════ -->
+        <div class="panel" id="panel-gap">
+          <div class="card">
+            <div class="card-hd"><div class="card-title"><i class="fa-solid fa-crosshairs" style="color:var(--amber)"></i> Content Gap — Keywords You're Missing</div></div>
+            <p style="font-size:12px;color:var(--txt3);margin-bottom:13px">These are keywords competitors rank for that you currently don't. Target them to close traffic gaps.</p>
+            <div class="toolbar">
+              <input class="tsearch" id="gpS" placeholder="Search gap keywords…" oninput="renderGap()">
+              <button class="fp active" onclick="setGF(this,'All')">All Intents</button>
+              <button class="fp" onclick="setGF(this,'Informational')">Informational</button>
+              <button class="fp" onclick="setGF(this,'Commercial')">Commercial</button>
+              <button class="btn-ghost" onclick="expCSV('gpTbl','content-gap')" style="margin-left:auto"><i class="fa-solid fa-download"></i> CSV</button>
+            </div>
+            <div class="tw"><table class="t" id="gpTbl">
+              <thead><tr><th>Keyword</th><th>Volume</th><th>KD%</th><th>CPC</th><th>Intent</th><th>Competitor</th><th>Their Position</th></tr></thead>
+              <tbody id="gpBody"></tbody>
+            </table></div>
+          </div>
+        </div>
+
+        <!-- ══ TRAFFIC ANALYTICS ═════════════════════════════════ -->
+        <div class="panel" id="panel-traffic">
+          <div class="g3" style="margin-bottom:15px">
+            <div class="card" style="text-align:center"><div class="kpi-label" style="margin-bottom:6px">Bounce Rate</div><div id="taBounce" style="font-size:28px;font-weight:900;color:var(--amber)">—</div><div class="kpi-sub">% single-page sessions</div></div>
+            <div class="card" style="text-align:center"><div class="kpi-label" style="margin-bottom:6px">Pages / Session</div><div id="taPPS" style="font-size:28px;font-weight:900;color:var(--green)">—</div><div class="kpi-sub">Avg pages viewed</div></div>
+            <div class="card" style="text-align:center"><div class="kpi-label" style="margin-bottom:6px">Avg Duration</div><div id="taDur" style="font-size:28px;font-weight:900;color:var(--accent)">—</div><div class="kpi-sub">Minutes:Seconds</div></div>
+          </div>
+          <div class="g3">
+            <div class="card">
+              <div class="card-hd"><div class="card-title"><i class="fa-solid fa-mobile-screen" style="color:var(--accent)"></i> Device Split <span style="font-size:9px;font-weight:700;background:rgba(245,158,11,.12);color:#fbbf24;padding:1px 6px;border-radius:10px;margin-left:5px">EST</span></div></div>
+              <canvas id="deviceChart" height="150"></canvas>
+            </div>
+            <div class="card">
+              <div class="card-hd"><div class="card-title"><i class="fa-solid fa-filter" style="color:var(--green)"></i> Traffic Sources <span style="font-size:9px;font-weight:700;background:rgba(245,158,11,.12);color:#fbbf24;padding:1px 6px;border-radius:10px;margin-left:5px">EST</span></div></div>
+              <canvas id="srcChart" height="150"></canvas>
+            </div>
+            <div class="card">
+              <div class="card-hd"><div class="card-title"><i class="fa-solid fa-arrows-rotate" style="color:var(--pink)"></i> New vs Returning <span style="font-size:9px;font-weight:700;background:rgba(245,158,11,.12);color:#fbbf24;padding:1px 6px;border-radius:10px;margin-left:5px">EST</span></div></div>
+              <canvas id="nvrChart" height="150"></canvas>
+            </div>
+          </div>
+          <div class="card" style="margin-top:15px">
+            <div class="card-hd"><div class="card-title"><i class="fa-solid fa-calendar-days" style="color:var(--blue)"></i> Monthly Visit Trend (6 months) <span style="font-size:9px;font-weight:700;background:rgba(245,158,11,.12);color:#fbbf24;padding:1px 6px;border-radius:10px;margin-left:5px">EST</span></div></div>
+            <canvas id="taMonthChart" height="90"></canvas>
+          </div>
+        </div>
+
+        <!-- ══ KEYWORD IDEAS (MAGIC TOOL) ════════════════════════ -->
+        <div class="panel" id="panel-kwideas">
+          <div class="card">
+            <div class="card-hd">
+              <div class="card-title"><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--accent2)"></i> Keyword Ideas — Magic Tool <span style="font-size:9px;font-weight:700;background:rgba(245,158,11,.12);color:#fbbf24;padding:1px 6px;border-radius:10px;margin-left:5px">EST</span></div>
+              <button class="btn-ghost" onclick="expCSV('kwiTbl','keyword-ideas')"><i class="fa-solid fa-download"></i> CSV</button>
+            </div>
+            <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:13px" id="kwiTabBar">
+              <button class="fp active" onclick="setKWITab(this,'questions')"><i class="fa-solid fa-circle-question" style="font-size:9px"></i> Questions</button>
+              <button class="fp" onclick="setKWITab(this,'related')"><i class="fa-solid fa-circle-nodes" style="font-size:9px"></i> Related</button>
+              <button class="fp" onclick="setKWITab(this,'by_word')"><i class="fa-solid fa-font" style="font-size:9px"></i> By Word</button>
+              <button class="fp" onclick="setKWITab(this,'long_tail')"><i class="fa-solid fa-list" style="font-size:9px"></i> Long-tail</button>
+            </div>
+            <div class="tw"><table class="t" id="kwiTbl">
+              <thead><tr><th>Keyword</th><th>Volume</th><th>KD%</th><th>CPC</th><th>Intent</th></tr></thead>
+              <tbody id="kwiBody"></tbody>
+            </table></div>
+          </div>
+        </div>
+
+        <!-- ══ TOPIC RESEARCH ════════════════════════════════════ -->
+        <div class="panel" id="panel-topic">
+          <div class="card">
+            <div class="card-hd"><div class="card-title"><i class="fa-solid fa-lightbulb" style="color:var(--amber)"></i> Topic Research — Content Clusters <span style="font-size:9px;font-weight:700;background:rgba(245,158,11,.12);color:#fbbf24;padding:1px 6px;border-radius:10px;margin-left:5px">EST</span></div></div>
+            <p style="font-size:12px;color:var(--txt3);margin-bottom:14px">Discover high-value content topics and subtopics to build content clusters that dominate search rankings.</p>
+            <div id="topicClusters"></div>
+          </div>
+        </div>
+
+        <!-- ══ ON-PAGE SEO CHECKER ════════════════════════════════ -->
+        <div class="panel" id="panel-onpage">
+          <div class="card">
+            <div class="card-hd">
+              <div class="card-title"><i class="fa-solid fa-file-circle-check" style="color:var(--green)"></i> On-Page SEO Checker — Per URL Analysis <span style="font-size:9px;font-weight:700;background:rgba(245,158,11,.12);color:#fbbf24;padding:1px 6px;border-radius:10px;margin-left:5px">EST</span></div>
+            </div>
+            <p style="font-size:12px;color:var(--txt3);margin-bottom:14px">Optimization scores and actionable recommendations for your top pages. Click any row to see issues.</p>
+            <div id="onpageList"></div>
+          </div>
+          <div class="card" style="margin-top:15px">
+            <div class="card-hd"><div class="card-title"><i class="fa-solid fa-link" style="color:var(--cyan)"></i> Anchor Text Distribution <span style="font-size:9px;font-weight:700;background:rgba(245,158,11,.12);color:#fbbf24;padding:1px 6px;border-radius:10px;margin-left:5px">EST</span></div></div>
+            <div class="tw"><table class="t" id="anchorTbl">
+              <thead><tr><th>Anchor Text</th><th>Count</th><th>% of Total</th><th>Type</th></tr></thead>
+              <tbody id="anchorBody"></tbody>
+            </table></div>
+          </div>
+        </div>
+
+        <!-- ══ LINK INTERSECT ════════════════════════════════════ -->
+        <div class="panel" id="panel-intersect">
+          <div class="card">
+            <div class="card-hd"><div class="card-title"><i class="fa-solid fa-arrows-to-circle" style="color:var(--pink)"></i> Link Intersect — Competitor Backlink Opportunities <span style="font-size:9px;font-weight:700;background:rgba(245,158,11,.12);color:#fbbf24;padding:1px 6px;border-radius:10px;margin-left:5px">EST</span></div></div>
+            <p style="font-size:12px;color:var(--txt3);margin-bottom:14px">These domains link to your competitors but NOT to you. Reach out to close the gap.</p>
+            <div class="tw"><table class="t" id="intTbl">
+              <thead><tr><th>Prospect Domain</th><th>Domain Authority</th><th>Links to Competitors</th><th>Est. Traffic</th><th>Opportunity</th></tr></thead>
+              <tbody id="intBody"></tbody>
+            </table></div>
+          </div>
+        </div>
+
+        <!-- ══ PPC RESEARCH ═══════════════════════════════════════ -->
+        <div class="panel" id="panel-ppc">
+          <div class="g3" style="margin-bottom:15px">
+            <div class="card" style="text-align:center"><div class="kpi-label" style="margin-bottom:6px">Est. Monthly Ad Spend</div><div id="ppcSpend" style="font-size:24px;font-weight:900;color:var(--amber)">—</div><div class="kpi-sub">Estimated from CPC × volume</div></div>
+            <div class="card" style="text-align:center"><div class="kpi-label" style="margin-bottom:6px">Paid Traffic Share</div><div id="ppcPTS" style="font-size:24px;font-weight:900;color:var(--accent)">—</div><div class="kpi-sub">% of total traffic via PPC</div></div>
+            <div class="card" style="text-align:center"><div class="kpi-label" style="margin-bottom:6px">Paid Keywords</div><div id="ppcKWC" style="font-size:24px;font-weight:900;color:var(--green)">—</div><div class="kpi-sub">Tracked paid keywords</div></div>
+          </div>
+          <div class="g2">
+            <div class="card">
+              <div class="card-hd"><div class="card-title"><i class="fa-solid fa-rectangle-ad" style="color:var(--accent)"></i> Your Estimated Ad Copies <span style="font-size:9px;font-weight:700;background:rgba(245,158,11,.12);color:#fbbf24;padding:1px 6px;border-radius:10px;margin-left:5px">EST</span></div></div>
+              <div id="ownAds"></div>
+            </div>
+            <div class="card">
+              <div class="card-hd"><div class="card-title"><i class="fa-solid fa-users-viewfinder" style="color:var(--pink)"></i> Competitor Ad Intelligence <span style="font-size:9px;font-weight:700;background:rgba(245,158,11,.12);color:#fbbf24;padding:1px 6px;border-radius:10px;margin-left:5px">EST</span></div></div>
+              <div id="compAds"></div>
+            </div>
+          </div>
+          <div class="card" style="margin-top:15px">
+            <div class="card-hd">
+              <div class="card-title"><i class="fa-solid fa-key" style="color:var(--amber)"></i> Paid Keywords <span style="font-size:9px;font-weight:700;background:rgba(245,158,11,.12);color:#fbbf24;padding:1px 6px;border-radius:10px;margin-left:5px">EST</span></div>
+              <button class="btn-ghost" onclick="expCSV('ppcTbl','ppc-keywords')"><i class="fa-solid fa-download"></i> CSV</button>
+            </div>
+            <div class="tw"><table class="t" id="ppcTbl">
+              <thead><tr><th>Keyword</th><th>Volume</th><th>CPC</th><th>Competition</th><th>Ad Position</th><th>Est. Monthly Cost</th></tr></thead>
+              <tbody id="ppcBody"></tbody>
+            </table></div>
+          </div>
+        </div>
+
+
+        <!-- ══ COMPETITOR BATTLE ════════════════════════════════ -->
+        <div class="panel" id="panel-battle">
+
+          <!-- Input form -->
+          <div class="card" id="battleForm">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+              <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#ef4444,#f97316);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;box-shadow:0 6px 20px rgba(239,68,68,.3)"><i class="fa-solid fa-swords"></i></div>
+              <div>
+                <div style="font-size:15px;font-weight:800;color:var(--txt)">Competitor Battle Analyzer</div>
+                <div style="font-size:11.5px;color:var(--txt3);margin-top:1px">Enter your page URL and competitor's URL — get a head-to-head SEO comparison with ranked outranking tips</div>
+              </div>
+            </div>
+            <div class="g2" style="margin-bottom:14px;gap:12px">
+              <div>
+                <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--green);display:block;margin-bottom:6px"><i class="fa-solid fa-circle-check" style="font-size:8px"></i> YOUR Page URL</label>
+                <input id="battleYourURL" type="url" placeholder="https://yoursite.com/page" style="width:100%;padding:11px 14px;border-radius:10px;background:rgba(16,185,129,.06);border:1.5px solid rgba(16,185,129,.25);color:var(--txt);font-size:13px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='rgba(16,185,129,.6)'" onblur="this.style.borderColor='rgba(16,185,129,.25)'" onkeydown="if(event.key==='Enter')runBattle()">
+              </div>
+              <div>
+                <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#f87171;display:block;margin-bottom:6px"><i class="fa-solid fa-circle-xmark" style="font-size:8px"></i> COMPETITOR Page URL</label>
+                <input id="battleCompURL" type="url" placeholder="https://competitor.com/page" style="width:100%;padding:11px 14px;border-radius:10px;background:rgba(239,68,68,.06);border:1.5px solid rgba(239,68,68,.25);color:var(--txt);font-size:13px;font-family:'Inter',sans-serif;outline:none;transition:border-color .15s" onfocus="this.style.borderColor='rgba(239,68,68,.6)'" onblur="this.style.borderColor='rgba(239,68,68,.25)'" onkeydown="if(event.key==='Enter')runBattle()">
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center">
+              <button onclick="runBattle()" id="battleBtn" style="display:flex;align-items:center;gap:8px;padding:11px 22px;border-radius:10px;background:linear-gradient(135deg,#ef4444,#f97316);border:none;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:opacity .15s;box-shadow:0 4px 16px rgba(239,68,68,.3)">
+                <i class="fa-solid fa-swords" id="battleIcon"></i> Run Battle Analysis
+              </button>
+              <div id="battleSpinner" style="display:none;display:none">
+                <div class="lr" style="width:22px;height:22px;border-width:3px"></div>
+              </div>
+              <span style="font-size:11px;color:var(--txt3)"><i class="fa-solid fa-circle" style="font-size:6px;color:#10b981"></i> LIVE checks + <i class="fa-solid fa-circle" style="font-size:6px;color:#f59e0b"></i> EST metrics</span>
+            </div>
+          </div>
+
+          <!-- Error state -->
+          <div id="battleError" style="display:none" class="card">
+            <div style="color:#f87171;font-weight:600;font-size:13px"><i class="fa-solid fa-triangle-exclamation"></i> <span id="battleErrMsg"></span></div>
+          </div>
+
+          <!-- Results -->
+          <div id="battleResults" style="display:none">
+
+            <!-- Scoreboard -->
+            <div class="card" id="battleScoreboard" style="background:linear-gradient(135deg,rgba(15,18,32,1),rgba(20,24,40,1));border:1px solid rgba(255,255,255,.08);overflow:hidden;position:relative;margin-top:0">
+              <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 20% 50%,rgba(16,185,129,.07),transparent 60%),radial-gradient(ellipse at 80% 50%,rgba(239,68,68,.07),transparent 60%);pointer-events:none"></div>
+              <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:20px;align-items:center;position:relative;z-index:1">
+                <!-- YOUR side -->
+                <div style="text-align:center">
+                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--green);margin-bottom:10px"><i class="fa-solid fa-circle-check" style="font-size:8px"></i> YOU</div>
+                  <div id="bYourDomain" style="font-size:14px;font-weight:700;color:var(--txt);margin-bottom:12px;word-break:break-all"></div>
+                  <div id="bYourScore" style="font-size:56px;font-weight:900;color:var(--green);line-height:1;text-shadow:0 0 30px rgba(16,185,129,.4)">—</div>
+                  <div style="font-size:10px;color:var(--txt3);margin-top:4px">SEO Score / 100</div>
+                  <div id="bYourWins" style="font-size:11px;font-weight:700;color:var(--green);margin-top:8px"></div>
+                </div>
+                <!-- VS center -->
+                <div style="text-align:center">
+                  <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,rgba(239,68,68,.15),rgba(249,115,22,.15));border:2px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:var(--txt3);margin:0 auto 8px">VS</div>
+                  <div id="bVerdict" style="font-size:10px;color:var(--txt3);text-align:center;max-width:90px;line-height:1.4"></div>
+                </div>
+                <!-- COMP side -->
+                <div style="text-align:center">
+                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#f87171;margin-bottom:10px"><i class="fa-solid fa-circle-xmark" style="font-size:8px"></i> COMPETITOR</div>
+                  <div id="bCompDomain" style="font-size:14px;font-weight:700;color:var(--txt);margin-bottom:12px;word-break:break-all"></div>
+                  <div id="bCompScore" style="font-size:56px;font-weight:900;color:#f87171;line-height:1;text-shadow:0 0 30px rgba(239,68,68,.4)">—</div>
+                  <div style="font-size:10px;color:var(--txt3);margin-top:4px">SEO Score / 100</div>
+                  <div id="bCompWins" style="font-size:11px;font-weight:700;color:#f87171;margin-top:8px"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Head-to-head comparison table -->
+            <div class="card" style="margin-top:15px">
+              <div class="card-hd">
+                <div class="card-title"><i class="fa-solid fa-table-columns" style="color:var(--accent)"></i> Head-to-Head Comparison — 20 SEO Signals</div>
+                <button class="btn-ghost" onclick="expCSV('battleTbl','battle-comparison')"><i class="fa-solid fa-download"></i> CSV</button>
+              </div>
+              <div class="tw"><table class="t" id="battleTbl">
+                <thead><tr><th>Signal</th><th style="color:#34d399">YOUR Site</th><th style="color:#f87171">COMPETITOR</th><th>Winner</th></tr></thead>
+                <tbody id="battleCmpBody"></tbody>
+              </table></div>
+            </div>
+
+            <!-- Outranking Tips -->
+            <div class="card" style="margin-top:15px">
+              <div class="card-hd">
+                <div class="card-title"><i class="fa-solid fa-rocket" style="color:var(--amber)"></i> Outranking Action Plan — <span id="battleTipCount">0</span> Ranked Tips</div>
+                <div style="display:flex;gap:6px" id="battleTipFilter">
+                  <button class="fp active" onclick="filterBattleTips(this,'All')">All</button>
+                  <button class="fp" onclick="filterBattleTips(this,'High')"><span style="color:#f87171">●</span> High Priority</button>
+                  <button class="fp" onclick="filterBattleTips(this,'Medium')"><span style="color:#fbbf24">●</span> Medium</button>
+                  <button class="fp" onclick="filterBattleTips(this,'Low')"><span style="color:#94a3b8">●</span> Low</button>
+                </div>
+              </div>
+              <div id="battleTipsContainer"></div>
+            </div>
+
+          </div><!-- /battleResults -->
+        </div><!-- /panel-battle -->
+
+      </div><!-- /stResults -->
+
+    </div><!-- /content -->
+
+  </main>
+</div><!-- /app -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════════
+let D = null;
+let IF = 'All', AF = 'All', GF = 'All';
+let tCh = null, pdCh = null, blDCh = null, stCh = null, mCh = null, dpCh = null, compCh = null;
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const PC = ['#10b981','#6366f1','#f59e0b','#94a3b8'];
+
+// ═══════════════════════════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════════════════════════
+function fmt(n){
+  if(!n&&n!==0)return'—';n=parseInt(n);
+  if(n>=1e6)return(n/1e6).toFixed(1)+'M';
+  if(n>=1e3)return(n/1e3).toFixed(1)+'K';
+  return n.toString();
+}
+function fmtUSD(n){
+  if(!n)return'$0';n=parseInt(n);
+  if(n>=1e6)return'$'+(n/1e6).toFixed(1)+'M';
+  if(n>=1e3)return'$'+(n/1e3).toFixed(0)+'K';
+  return'$'+n;
+}
+function kdC(d){return d>=70?'#ef4444':d>=40?'#f59e0b':'#10b981'}
+function kdB(d){return d>=70?'b-hard':d>=40?'b-med':'b-easy'}
+function ib(i){const m={Informational:'b-info fa-circle-info',Commercial:'b-comm fa-cart-shopping',Navigational:'b-nav fa-compass'};const p=m[i]||'b-info fa-circle-info';const[c,ic]=p.split(' ');return`<span class="badge ${c}"><i class="fa-solid ${ic}"></i> ${i}</span>`}
+function gc(n){let h=0;for(let c of n)h=c.charCodeAt(0)+h*31;const cs=['#6366f1','#8b5cf6','#ec4899','#10b981','#f59e0b','#3b82f6','#06b6d4'];return cs[Math.abs(h)%cs.length]}
+function getCk(n){let v=null;if(document.cookie)document.cookie.split(';').forEach(c=>{c=c.trim();if(c.startsWith(n+'='))v=decodeURIComponent(c.slice(n.length+1))});return v}
+function dc(i){if(i){try{i.destroy()}catch(e){}}return null}
+
+// ═══════════════════════════════════════════════════════════════
+//  PANEL SWITCH
+// ═══════════════════════════════════════════════════════════════
+function sw(name,btn){
+  document.querySelectorAll('.sb-item').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  const p=document.getElementById('panel-'+name);
+  if(p)p.classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ANALYSIS
+// ═══════════════════════════════════════════════════════════════
+function runAnalysis(){
+  const domain=document.getElementById('domainInput').value.trim();
+  if(!domain){alert('Enter a domain first.');return}
+  document.getElementById('stEmpty').style.display='none';
+  document.getElementById('stLoader').style.display='flex';
+  document.getElementById('stResults').style.display='none';
+  document.getElementById('aIcon').className='fa-solid fa-circle-notch fa-spin';
+
+  fetch('/control/seo/{{ domain }}/analyze/',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','X-CSRFToken':getCk('csrftoken')||''},
+    body:JSON.stringify({domain})
+  }).then(r=>r.json()).then(res=>{
+    document.getElementById('stLoader').style.display='none';
+    document.getElementById('aIcon').className='fa-solid fa-bolt';
+    if(res.status==='success'){
+      D=res.data;
+      renderAll(D);
+      document.getElementById('stResults').style.display='block';
+    }else{alert(res.error||'Analysis failed.')}
+  }).catch(e=>{
+    document.getElementById('stLoader').style.display='none';
+    document.getElementById('aIcon').className='fa-solid fa-bolt';
+    alert('Network error: '+e.message);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  RENDER ALL
+// ═══════════════════════════════════════════════════════════════
+function renderAll(d){
+  renderKPIs(d);renderOverview(d);renderKeywords(d);renderBacklinks(d);
+  renderRank(d);renderAudit(d);renderCrawl(d);renderComp(d);renderGap(d);
+  renderTrafficAnalytics(d);renderKWIdeas(d);renderTopicResearch(d);
+  renderOnPage(d);renderIntersect(d);renderPPC(d);
+  document.getElementById('sUrl').value='https://'+d.domain;
+  document.getElementById('sTitle').value=d.brand+' — Official Website';
+  document.getElementById('sDesc').value='Explore '+d.brand+' — the leading platform. Get started today.';
+  upSerp();
+  document.getElementById('ccBadge').textContent=d.metrics.index_version||'CC-MAIN-2026-16';
+}
+
+// ── KPIs ──
+function renderKPIs(d){
+  document.getElementById('kAuth').textContent=d.metrics.authority_score;
+  document.getElementById('kTr').textContent=fmt(d.metrics.organic_traffic);
+  document.getElementById('kKw').textContent=fmt(d.metrics.organic_keywords);
+  document.getElementById('kBl').textContent=fmt(d.metrics.backlinks);
+  document.getElementById('kRd').textContent=fmt(d.metrics.referring_domains);
+  document.getElementById('kTv').textContent=fmtUSD(d.metrics.traffic_value);
+}
+
+// ── OVERVIEW ──
+function renderOverview(d){
+  // Country bars
+  const cb=document.getElementById('cBars');cb.innerHTML='';
+  d.country_dist.forEach(c=>{
+    cb.innerHTML+=`<div class="cb-row"><div class="cb-name">${c.name}</div><div class="cb-track"><div class="cb-fill" style="width:${c.pct}%;background:${c.color}"></div></div><div class="cb-pct">${c.pct}%</div></div>`;
+  });
+  // Traffic chart
+  tCh=dc(tCh);
+  const ctx=document.getElementById('trafficChart').getContext('2d');
+  const g=ctx.createLinearGradient(0,0,0,180);g.addColorStop(0,'rgba(99,102,241,.22)');g.addColorStop(1,'rgba(99,102,241,0)');
+  tCh=new Chart(ctx,{type:'line',data:{labels:MONTHS,datasets:[{data:d.traffic_trend,borderColor:'#6366f1',borderWidth:2.5,backgroundColor:g,fill:true,tension:.45,pointRadius:3,pointBackgroundColor:'#6366f1',pointBorderColor:'#06080f',pointBorderWidth:2}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#475569',font:{size:10}}},y:{grid:{color:'rgba(255,255,255,.03)'},ticks:{color:'#475569',font:{size:10},callback:v=>fmt(v)}}}}});
+  // Top pages
+  const tp=document.getElementById('topPages');tp.innerHTML='';
+  d.top_pages.forEach(pg=>{
+    const u=pg.url.replace('https://','').replace('http://','');
+    tp.innerHTML+=`<div class="tp-row"><div class="tp-url" title="${pg.url}">${u}</div><div class="tp-v">${fmt(pg.traffic)}</div></div>`;
+  });
+  // Pos donut
+  pdCh=dc(pdCh);
+  const pd=d.metrics.pos_dist;
+  const pdCtx=document.getElementById('posDonut').getContext('2d');
+  pdCh=new Chart(pdCtx,{type:'doughnut',data:{labels:Object.keys(pd),datasets:[{data:Object.values(pd),backgroundColor:PC,borderWidth:0}]},options:{responsive:false,cutout:'68%',plugins:{legend:{display:false}}}});
+  const pl=document.getElementById('posLegend');pl.innerHTML='';
+  Object.entries(pd).forEach(([k,v],i)=>{
+    pl.innerHTML+=`<div style="display:flex;align-items:center;gap:7px;margin-bottom:7px"><div style="width:9px;height:9px;border-radius:50%;background:${PC[i]};flex-shrink:0"></div><div style="font-size:11.5px;color:var(--txt2)">Pos ${k}</div><div style="margin-left:auto;font-size:11.5px;font-weight:700;color:var(--txt)">${fmt(v)}</div></div>`;
+  });
+}
+
+// ── KEYWORDS ──
+function renderKeywords(d){renderKwRows(d.keywords)}
+function renderKwRows(kws){
+  const body=document.getElementById('kwBody');body.innerHTML='';
+  const s=(document.getElementById('kwS').value||'').toLowerCase();
+  kws.filter(k=>{
+    if(IF!=='All'&&k.intent!==IF)return false;
+    if(s&&!k.keyword.toLowerCase().includes(s))return false;
+    return true;
+  }).forEach(k=>{
+    const sf=k.serp_feature?`<span class="badge b-info" style="font-size:9px">${k.serp_feature}</span>`:'<span style="color:var(--txt3);font-size:11px">—</span>';
+    body.innerHTML+=`<tr>
+      <td style="font-weight:600;color:var(--txt)">${k.keyword}</td>
+      <td>${fmt(k.volume)}</td>
+      <td><div class="kd"><div class="kd-tr"><div class="kd-fi" style="width:${k.difficulty}%;background:${kdC(k.difficulty)}"></div></div><span class="badge ${kdB(k.difficulty)}">${k.difficulty}</span></div></td>
+      <td style="color:#a5b4fc">$${k.cpc.toFixed(2)}</td>
+      <td style="font-weight:700;color:#60a5fa">#${k.position}</td>
+      <td>${k.traffic_share}%</td>
+      <td>${ib(k.intent)}</td>
+      <td>${sf}</td>
+    </tr>`;
+  });
+  if(!body.innerHTML)body.innerHTML=`<tr><td colspan="8" style="text-align:center;color:var(--txt3);padding:24px">No keywords match current filter.</td></tr>`;
+}
+function setIF(btn,v){document.querySelectorAll('#panel-keywords .fp').forEach(b=>b.classList.remove('active'));btn.classList.add('active');IF=v;if(D)renderKwRows(D.keywords)}
+
+// ── BACKLINKS ──
+function renderBacklinks(d){
+  document.getElementById('blN').textContent=d.metrics.new_backlinks_30d;
+  document.getElementById('blL').textContent=d.metrics.lost_backlinks_30d;
+  document.getElementById('blT').textContent=d.metrics.toxic_count;
+  blDCh=dc(blDCh);
+  blDCh=new Chart(document.getElementById('blDonut').getContext('2d'),{type:'doughnut',data:{labels:['Dofollow','Nofollow'],datasets:[{data:[d.metrics.dofollow_count,d.metrics.nofollow_count],backgroundColor:['#10b981','#374151'],borderWidth:0}]},options:{responsive:false,cutout:'68%',plugins:{legend:{display:false}}}});
+  document.getElementById('blLeg').innerHTML=`<div style="display:flex;justify-content:space-around;font-size:12px"><div style="text-align:center"><div style="color:#10b981;font-weight:900;font-size:20px">${d.metrics.dofollow_count}</div><div style="color:var(--txt3)">Dofollow</div></div><div style="text-align:center"><div style="color:#6b7280;font-weight:900;font-size:20px">${d.metrics.nofollow_count}</div><div style="color:var(--txt3)">Nofollow</div></div></div>`;
+  renderBl();
+}
+function renderBl(){
+  if(!D)return;const body=document.getElementById('blBody');body.innerHTML='';
+  const s=(document.getElementById('blS').value||'').toLowerCase();
+  D.backlinks.filter(b=>!s||b.source_domain.toLowerCase().includes(s)||b.anchor_text.toLowerCase().includes(s)).forEach(bl=>{
+    const tx=bl.is_toxic?`<span class="badge b-tox" style="margin-left:4px"><i class="fa-solid fa-skull-crossbones"></i> Toxic</span>`:'';
+    body.innerHTML+=`<tr>
+      <td><span style="font-weight:600;color:var(--txt)">${bl.source_domain}</span>${tx}</td>
+      <td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#6b7280">"${bl.anchor_text}"</td>
+      <td style="font-size:11px;color:var(--txt3)">${bl.target_url||'/'}</td>
+      <td><span class="badge ${bl.authority>=50?'b-pass':'b-warn'}">${bl.authority} DA</span></td>
+      <td><span class="badge ${bl.type==='Dofollow'?'b-dof':'b-nof'}">${bl.type}</span></td>
+      <td style="font-size:11px;color:var(--txt3)">${bl.first_seen}</td>
+    </tr>`;
+  });
+}
+
+// ── RANK TRACKER ──
+function renderRank(d){
+  const body=document.getElementById('rtBody');body.innerHTML='';
+  d.rank_tracking.forEach(rt=>{
+    const delta=rt.delta;
+    const dh=delta>0?`<span class="delta u"><i class="fa-solid fa-arrow-up"></i> +${delta}</span>`:delta<0?`<span class="delta d"><i class="fa-solid fa-arrow-down"></i> ${delta}</span>`:`<span class="delta n">—</span>`;
+    const sf=rt.serp_feature?`<span class="badge b-info" style="font-size:9px">${rt.serp_feature}</span>`:'—';
+    const pts=rt.history;const maxP=Math.max(...pts),minP=Math.min(...pts),range=maxP-minP||1;
+    const W=110,H=32;
+    const sp=pts.map((p,i)=>`${(i/(pts.length-1))*W},${H-((p-minP)/range)*H}`).join(' ');
+    body.innerHTML+=`<tr>
+      <td style="font-weight:600;color:var(--txt)">${rt.keyword}</td>
+      <td>${fmt(rt.search_volume)}</td>
+      <td><span class="badge ${kdB(rt.difficulty)}">${rt.difficulty}%</span></td>
+      <td style="font-size:15px;font-weight:900;color:#a5b4fc">#${rt.current_position}</td>
+      <td>${dh}</td>
+      <td style="color:var(--green);font-weight:600">${fmt(rt.est_traffic)}</td>
+      <td><svg width="${W}" height="${H}" class="spark"><polyline points="${sp}" style="stroke:#6366f1"/></svg></td>
+      <td>${ib(rt.intent)}</td>
+      <td>${sf}</td>
+    </tr>`;
+  });
+}
+
+// ── AUDIT ──
+function renderAudit(d){
+  const a=d.audit;
+  const circ=2*Math.PI*50;const off=circ-(a.health_score/100)*circ;
+  const color=a.health_score>=80?'#10b981':a.health_score>=60?'#f59e0b':'#ef4444';
+  const ring=document.getElementById('ringFill');
+  ring.style.stroke=color;
+  setTimeout(()=>{ring.style.strokeDashoffset=off;document.getElementById('ringNum').textContent=a.health_score},100);
+  document.getElementById('icGrid').innerHTML=`
+    <div class="ic f"><div class="icn">${a.fail_count}</div><div class="icl">Errors</div></div>
+    <div class="ic w"><div class="icn">${a.warn_count}</div><div class="icl">Warnings</div></div>
+    <div class="ic p"><div class="icn">${a.pass_count}</div><div class="icl">Passed</div></div>`;
+  renderAuditList(a.checks);
+}
+function renderAuditList(checks){
+  const el=document.getElementById('auditList');el.innerHTML='';
+  checks.filter(c=>{
+    if(AF==='All')return true;
+    if(AF==='Failed')return c.status==='Failed';
+    if(AF==='Warning')return c.status==='Warning';
+    if(AF==='Passed')return c.status==='Passed';
+    return c.category===AF;
+  }).forEach(c=>{
+    const sl=c.status.toLowerCase();
+    const fix=c.fix?`<div class="a-fix"><i class="fa-solid fa-screwdriver-wrench" style="font-size:9px"></i> <strong>Fix:</strong> ${c.fix}</div>`:'';
+    el.innerHTML+=`<div class="audit-item" onclick="this.classList.toggle('open')">
+      <div class="audit-row">
+        <div class="a-dot ${sl}"></div>
+        <div class="a-name">${c.name}</div>
+        <span class="badge b-${sl}" style="margin-right:5px">${c.status}</span>
+        <span class="a-cat">${c.category}</span>
+        <i class="fa-solid fa-chevron-down" style="font-size:8px;color:var(--txt3);margin-left:5px"></i>
+      </div>
+      <div class="a-detail">${c.detail}</div>${fix}
+    </div>`;
+  });
+  if(!el.innerHTML)el.innerHTML=`<div style="text-align:center;color:var(--txt3);padding:24px;font-size:13px">No items match current filter.</div>`;
+}
+function setAF(btn,v){document.querySelectorAll('#aFBar .fp').forEach(b=>b.classList.remove('active'));btn.classList.add('active');AF=v;if(D)renderAuditList(D.audit.checks)}
+
+// ── CRAWL ──
+function renderCrawl(d){
+  document.getElementById('crawlCnt').textContent=fmt(d.metrics.crawled_urls_count)+' pages indexed';
+  const co={responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#475569',font:{size:9}},grid:{color:'rgba(255,255,255,.03)'}},y:{ticks:{color:'#475569',font:{size:9}},grid:{color:'rgba(255,255,255,.03)'}}}};
+  stCh=dc(stCh);stCh=new Chart(document.getElementById('statusChart').getContext('2d'),{type:'bar',data:{labels:Object.keys(d.crawldist.status),datasets:[{data:Object.values(d.crawldist.status),backgroundColor:['#10b981','#6366f1','#8b5cf6','#ef4444','#f59e0b'],borderRadius:5,borderSkipped:false}]},options:co});
+  mCh=dc(mCh);mCh=new Chart(document.getElementById('mimeChart').getContext('2d'),{type:'bar',data:{labels:Object.keys(d.crawldist.mime),datasets:[{data:Object.values(d.crawldist.mime),backgroundColor:'#6366f1',borderRadius:5,borderSkipped:false}]},options:co});
+  dpCh=dc(dpCh);dpCh=new Chart(document.getElementById('depthChart').getContext('2d'),{type:'bar',data:{labels:Object.keys(d.crawldist.url_depth).map(k=>'Depth '+k),datasets:[{data:Object.values(d.crawldist.url_depth),backgroundColor:'#8b5cf6',borderRadius:5,borderSkipped:false}]},options:co});
+  renderCC();
+}
+function renderCC(){
+  if(!D)return;const body=document.getElementById('ccBody');body.innerHTML='';
+  const s=(document.getElementById('ccS').value||'').toLowerCase();
+  const rows=s?D.crawled_samples.filter(r=>r.url.toLowerCase().includes(s)):D.crawled_samples;
+  if(!rows.length){body.innerHTML=`<tr><td colspan="5" style="text-align:center;color:var(--txt3);padding:20px">No crawl records found for this domain in Common Crawl.</td></tr>`;return}
+  rows.forEach(r=>{
+    const sc=parseInt(r.status);const sc2=sc===200?'#10b981':sc>=300&&sc<400?'#f59e0b':'#ef4444';
+    const u=r.url.length>62?r.url.substring(0,62)+'…':r.url;
+    body.innerHTML+=`<tr>
+      <td style="font-family:monospace;font-size:11px"><a href="${r.url}" target="_blank" style="color:#60a5fa" title="${r.url}">${u}</a></td>
+      <td style="font-size:11px;color:var(--txt3);white-space:nowrap">${r.timestamp}</td>
+      <td><span style="font-size:11px;font-weight:700;color:${sc2}">${r.status}</span></td>
+      <td style="font-size:11px;color:#6b7280">${r.mime}</td>
+      <td style="font-size:11px;color:#6b7280">${r.length?parseInt(r.length).toLocaleString()+' B':'—'}</td>
+    </tr>`;
+  });
+}
+
+// ── SERP PREVIEW ──
+function upSerp(){
+  const url=document.getElementById('sUrl').value||'https://yourdomain.com';
+  const title=document.getElementById('sTitle').value||'Your Page Title';
+  const desc=document.getElementById('sDesc').value||'Your meta description…';
+  document.getElementById('spUrl').textContent=url.replace('https://','').replace('http://','').split('/').join(' › ');
+  document.getElementById('spTitle').textContent=title.substring(0,60)+(title.length>60?'…':'');
+  document.getElementById('spDesc').textContent=desc.substring(0,160)+(desc.length>160?'…':'');
+  const tc=document.getElementById('tCC');tc.textContent=`${title.length}/60`;tc.className=title.length<=60?'cc-ok':'cc-err';
+  const dc2=document.getElementById('dCC');dc2.textContent=`${desc.length}/160`;dc2.className=desc.length<=160?(desc.length>=140?'cc-ok':'cc-warn'):'cc-err';
+}
+
+// ── COMPETITORS ──
+function renderComp(d){
+  const body=document.getElementById('compBody');body.innerHTML='';
+  const rows=[{domain:d.domain,authority:d.metrics.authority_score,traffic:d.metrics.organic_traffic,keywords:d.metrics.organic_keywords,backlinks:d.metrics.backlinks,traffic_value:d.metrics.traffic_value,isYou:true},...d.competitors];
+  const maxA=Math.max(...rows.map(r=>r.authority));
+  rows.forEach(r=>{
+    body.innerHTML+=`<tr>
+      <td><span style="font-weight:700;color:${r.isYou?'#a5b4fc':'var(--txt)'}">${r.domain}</span>${r.isYou?` <span class="badge b-info" style="font-size:9px">You</span>`:''}</td>
+      <td><div style="display:flex;align-items:center;gap:8px"><div class="comp-bar"><div class="comp-tr"><div class="comp-fi" style="width:${(r.authority/maxA)*100}%${r.isYou?'':';background:#374151'}"></div></div></div> ${r.authority}</div></td>
+      <td>${fmt(r.traffic)}</td><td>${fmt(r.keywords)}</td><td>${fmt(r.backlinks)}</td><td>${fmtUSD(r.traffic_value)}</td>
+    </tr>`;
+  });
+  compCh=dc(compCh);
+  compCh=new Chart(document.getElementById('compChart').getContext('2d'),{type:'bar',data:{labels:rows.map(r=>r.domain),datasets:[{data:rows.map(r=>r.authority),backgroundColor:rows.map((r,i)=>i===0?'#6366f1':['#10b981','#f59e0b','#ec4899'][i-1]||'#374151'),borderRadius:7,borderSkipped:false}]},options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{max:100,ticks:{color:'#475569',font:{size:10}},grid:{color:'rgba(255,255,255,.03)'}},y:{ticks:{color:'#94a3b8',font:{size:11}},grid:{display:false}}}}});
+}
+
+// ── CONTENT GAP ──
+function renderGap(){
+  if(!D)return;const body=document.getElementById('gpBody');body.innerHTML='';
+  const s=(document.getElementById('gpS').value||'').toLowerCase();
+  D.content_gap.filter(g=>{
+    if(GF!=='All'&&g.intent!==GF)return false;
+    if(s&&!g.keyword.toLowerCase().includes(s))return false;
+    return true;
+  }).forEach(g=>{
+    body.innerHTML+=`<tr>
+      <td style="font-weight:600;color:var(--txt)">${g.keyword}</td>
+      <td>${fmt(g.volume)}</td>
+      <td><div class="kd"><div class="kd-tr"><div class="kd-fi" style="width:${g.difficulty}%;background:${kdC(g.difficulty)}"></div></div><span class="badge ${kdB(g.difficulty)}">${g.difficulty}</span></div></td>
+      <td style="color:#a5b4fc">$${g.cpc.toFixed(2)}</td>
+      <td>${ib(g.intent)}</td>
+      <td style="color:#60a5fa;font-size:12px">${g.competitor}</td>
+      <td style="font-weight:700;color:var(--amber)">#${g.competitor_position}</td>
+    </tr>`;
+  });
+  if(!body.innerHTML)body.innerHTML=`<tr><td colspan="7" style="text-align:center;color:var(--txt3);padding:24px">No gap keywords match current filter.</td></tr>`;
+}
+function setGF(btn,v){document.querySelectorAll('#panel-gap .fp').forEach(b=>b.classList.remove('active'));btn.classList.add('active');GF=v;renderGap()}
+
+// ── SORT ──
+function srt(tid,col){
+  const tbl=document.getElementById(tid);const tbody=tbl.querySelector('tbody');
+  const rows=Array.from(tbody.querySelectorAll('tr'));
+  const asc=tbl.dataset.sortDir!=='asc';tbl.dataset.sortDir=asc?'asc':'desc';
+  const pv=v=>{v=(v||'').replace(/[$,#%KM]/gi,'').trim();if(v.endsWith('M'))return parseFloat(v)*1e6;if(v.endsWith('K'))return parseFloat(v)*1e3;return parseFloat(v)||v};
+  rows.sort((a,b)=>{const av=pv(a.cells[col]?.textContent.trim());const bv=pv(b.cells[col]?.textContent.trim());if(typeof av==='number'&&typeof bv==='number')return asc?av-bv:bv-av;return asc?String(av).localeCompare(String(bv)):String(bv).localeCompare(String(av))});
+  rows.forEach(r=>tbody.appendChild(r));
+}
+
+// ── CSV EXPORT ──
+function expCSV(tid,name){
+  const tbl=document.getElementById(tid);if(!tbl)return;
+  const rows=Array.from(tbl.querySelectorAll('tr'));
+  const csv=rows.map(r=>Array.from(r.querySelectorAll('th,td')).map(c=>'"'+c.textContent.trim().replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=name+'-export.csv';a.click();URL.revokeObjectURL(a.href);
+}
+function exportCSV(){const p=document.querySelector('.panel.active');if(!p)return;const t=p.querySelector('table');if(t)expCSV(t.id,'seo-export')}
+
+// ── INIT ──
+// ── TRAFFIC ANALYTICS ──
+let devCh=null,srcCh=null,nvrCh=null,taMoCh=null;
+function renderTrafficAnalytics(d){
+  const ta=d.traffic_analytics;if(!ta)return;
+  document.getElementById('taBounce').textContent=ta.bounce_rate+'%';
+  document.getElementById('taPPS').textContent=ta.pages_per_session;
+  document.getElementById('taDur').textContent=ta.avg_duration;
+  const dopts={responsive:true,plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',font:{size:10},boxWidth:10}}}};
+  devCh=dc(devCh);devCh=new Chart(document.getElementById('deviceChart').getContext('2d'),{type:'doughnut',data:{labels:Object.keys(ta.device_split),datasets:[{data:Object.values(ta.device_split),backgroundColor:['#6366f1','#10b981','#f59e0b'],borderWidth:0}]},options:{...dopts,cutout:'60%'}});
+  srcCh=dc(srcCh);srcCh=new Chart(document.getElementById('srcChart').getContext('2d'),{type:'doughnut',data:{labels:Object.keys(ta.traffic_sources),datasets:[{data:Object.values(ta.traffic_sources),backgroundColor:['#10b981','#3b82f6','#8b5cf6','#ec4899','#f59e0b'],borderWidth:0}]},options:{...dopts,cutout:'60%'}});
+  nvrCh=dc(nvrCh);nvrCh=new Chart(document.getElementById('nvrChart').getContext('2d'),{type:'doughnut',data:{labels:Object.keys(ta.new_vs_returning),datasets:[{data:Object.values(ta.new_vs_returning),backgroundColor:['#6366f1','#94a3b8'],borderWidth:0}]},options:{...dopts,cutout:'60%'}});
+  taMoCh=dc(taMoCh);const g2=document.getElementById('taMonthChart').getContext('2d');const gr=g2.createLinearGradient(0,0,0,120);gr.addColorStop(0,'rgba(16,185,129,.2)');gr.addColorStop(1,'rgba(16,185,129,0)');
+  taMoCh=new Chart(g2,{type:'line',data:{labels:ta.monthly.map(m=>m.month),datasets:[{data:ta.monthly.map(m=>m.visits),borderColor:'#10b981',borderWidth:2.5,backgroundColor:gr,fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#10b981'}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#475569',font:{size:9}},grid:{color:'rgba(255,255,255,.03)'}},y:{ticks:{color:'#475569',font:{size:9},callback:v=>fmt(v)},grid:{color:'rgba(255,255,255,.03)'}}}}});
+}
+
+// ── KEYWORD IDEAS ──
+let KWI_TAB='questions';
+function renderKWIdeas(d){
+  if(!d.keyword_ideas)return;
+  renderKWIRows(d.keyword_ideas);
+}
+function renderKWIRows(ideas){
+  if(!D||!D.keyword_ideas)return;
+  const body=document.getElementById('kwiBody');body.innerHTML='';
+  const rows=D.keyword_ideas[KWI_TAB]||[];
+  rows.forEach(k=>{
+    body.innerHTML+=`<tr><td style="font-weight:600;color:var(--txt)">${k.keyword}</td><td>${fmt(k.volume)}</td><td><div class="kd"><div class="kd-tr"><div class="kd-fi" style="width:${k.difficulty}%;background:${kdC(k.difficulty)}"></div></div><span class="badge ${kdB(k.difficulty)}">${k.difficulty}</span></div></td><td style="color:#a5b4fc">$${k.cpc.toFixed(2)}</td><td>${ib(k.intent)}</td></tr>`;
+  });
+  if(!body.innerHTML)body.innerHTML=`<tr><td colspan="5" style="text-align:center;color:var(--txt3);padding:20px">No data.</td></tr>`;
+}
+function setKWITab(btn,v){document.querySelectorAll('#kwiTabBar .fp').forEach(b=>b.classList.remove('active'));btn.classList.add('active');KWI_TAB=v;if(D)renderKWIRows(D.keyword_ideas);}
+
+// ── TOPIC RESEARCH ──
+function renderTopicResearch(d){
+  if(!d.topic_research)return;
+  const el=document.getElementById('topicClusters');el.innerHTML='';
+  d.topic_research.forEach(t=>{
+    const trend=t.trending?`<span style="font-size:9px;font-weight:700;background:rgba(239,68,68,.12);color:#f87171;padding:1px 6px;border-radius:10px"><i class="fa-solid fa-fire"></i> Trending</span>`:'';
+    el.innerHTML+=`<div style="padding:14px 16px;border:1px solid var(--border2);border-radius:10px;margin-bottom:9px;background:var(--surface)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="font-size:13px;font-weight:700;color:var(--txt);flex:1">${t.topic}</div>${trend}
+        <span style="font-size:11px;color:var(--txt3)">${fmt(t.volume)}/mo</span>
+        <span class="badge ${kdB(t.difficulty)}">${t.difficulty}% KD</span>
+      </div>
+      <div style="font-size:11px;color:var(--txt3);margin-bottom:7px"><strong style="color:#a5b4fc">Headlines:</strong> ${t.headlines.join(' · ')}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${t.subtopics.map(s=>`<span style="font-size:10.5px;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.15);color:#a5b4fc;padding:2px 9px;border-radius:20px">${s}</span>`).join('')}</div>
+    </div>`;
+  });
+}
+
+// ── ON-PAGE SEO ──
+function renderOnPage(d){
+  if(!d.on_page)return;
+  const el=document.getElementById('onpageList');el.innerHTML='';
+  d.on_page.forEach(p=>{
+    const sc=p.score;const col=sc>=80?'#10b981':sc>=60?'#f59e0b':'#ef4444';
+    el.innerHTML+=`<div style="padding:13px 15px;border:1px solid var(--border2);border-radius:10px;margin-bottom:8px;background:var(--surface);cursor:pointer" onclick="this.querySelector('.op-issues').style.display=this.querySelector('.op-issues').style.display==='none'?'block':'none'">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:42px;height:42px;border-radius:10px;background:rgba(255,255,255,0.04);border:2px solid ${col};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:${col};flex-shrink:0">${sc}</div>
+        <div style="flex:1"><div style="font-size:12.5px;font-weight:700;color:#60a5fa">${p.slug}</div><div style="font-size:10.5px;color:var(--txt3);margin-top:1px">Target: <em>${p.target_keyword}</em> · ${fmt(p.traffic)} visits/mo</div></div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">${p.issues.slice(0,2).map(i=>`<span class="badge ${i.type==='error'?'b-fail':i.type==='warning'?'b-warn':i.type==='success'?'b-pass':'b-info'}" style="font-size:9px">${i.type}</span>`).join('')}</div>
+        <i class="fa-solid fa-chevron-down" style="font-size:8px;color:var(--txt3)"></i>
+      </div>
+      <div class="op-issues" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border2)">${p.issues.map(i=>`<div style="font-size:11.5px;color:${i.type==='error'?'#f87171':i.type==='warning'?'#fbbf24':i.type==='success'?'#34d399':'#93c5fd'};display:flex;align-items:flex-start;gap:6px;margin-bottom:5px"><i class="fa-solid ${i.type==='error'?'fa-circle-xmark':i.type==='warning'?'fa-triangle-exclamation':i.type==='success'?'fa-circle-check':'fa-circle-info'}" style="margin-top:2px;flex-shrink:0"></i>${i.msg}</div>`).join('')}</div>
+    </div>`;
+  });
+  // Anchor text
+  if(d.anchors){
+    const ab=document.getElementById('anchorBody');ab.innerHTML='';
+    d.anchors.forEach(a=>{
+      const tc=a.type==='Branded'?'b-info':a.type==='Generic'?'b-warn':'b-pass';
+      ab.innerHTML+=`<tr><td style="font-weight:600;color:var(--txt)">${a.anchor}</td><td>${a.count}</td><td><div style="display:flex;align-items:center;gap:7px"><div style="flex:1;height:4px;background:rgba(255,255,255,.06);border-radius:2px"><div style="width:${Math.min(100,a.pct*2)}%;height:100%;border-radius:2px;background:#6366f1"></div></div>${a.pct}%</div></td><td><span class="badge ${tc}">${a.type}</span></td></tr>`;
+    });
+  }
+}
+
+// ── LINK INTERSECT ──
+function renderIntersect(d){
+  if(!d.link_intersect)return;
+  const body=document.getElementById('intBody');body.innerHTML='';
+  d.link_intersect.forEach(li=>{
+    const oc=li.opportunity==='High'?'#34d399':li.opportunity==='Medium'?'#fbbf24':'#94a3b8';
+    const ocs=li.opportunity==='High'?'b-pass':li.opportunity==='Medium'?'b-warn':'b-nof';
+    body.innerHTML+=`<tr>
+      <td><a href="https://${li.domain}" target="_blank" style="color:#60a5fa;font-weight:600">${li.domain}</a></td>
+      <td><span class="badge ${li.da>=70?'b-pass':li.da>=50?'b-warn':'b-fail'}">${li.da} DA</span></td>
+      <td style="font-size:11.5px;color:var(--txt2)">${li.competitors_linking.join(', ')}</td>
+      <td>${fmt(li.est_traffic)}</td>
+      <td><span class="badge ${ocs}">${li.opportunity}</span></td>
+    </tr>`;
+  });
+}
+
+// ── PPC RESEARCH ──
+function renderPPC(d){
+  if(!d.ppc)return;
+  const p=d.ppc;
+  document.getElementById('ppcSpend').textContent=fmtUSD(p.total_est_spend);
+  document.getElementById('ppcPTS').textContent=p.paid_traffic_share+'%';
+  document.getElementById('ppcKWC').textContent=p.paid_keywords.length;
+  // Own ads
+  const oa=document.getElementById('ownAds');oa.innerHTML='';
+  p.own_ads.forEach(ad=>{
+    oa.innerHTML+=`<div style="background:rgba(255,255,255,.03);border:1px solid var(--border2);border-radius:10px;padding:13px 15px;margin-bottom:9px">
+      <div style="font-size:11px;color:var(--txt3);margin-bottom:3px">Ad · ${ad.display_url}</div>
+      <div style="font-size:13.5px;color:#60a5fa;font-weight:700;margin-bottom:4px">${ad.headline}</div>
+      <div style="font-size:12px;color:var(--txt2);line-height:1.5">${ad.description}</div>
+    </div>`;
+  });
+  // Comp ads
+  const ca=document.getElementById('compAds');ca.innerHTML='';
+  p.competitor_ads.forEach(ad=>{
+    ca.innerHTML+=`<div style="background:rgba(255,255,255,.03);border:1px solid var(--border2);border-radius:10px;padding:13px 15px;margin-bottom:9px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="font-size:10px;color:var(--txt3)">${ad.domain}</span>
+        <span class="badge b-info" style="font-size:9px">${ad.keywords} keywords</span>
+        <span style="font-size:10px;color:var(--amber);margin-left:auto">${fmtUSD(ad.est_spend)}/mo est.</span>
+      </div>
+      <div style="font-size:13px;color:#60a5fa;font-weight:700;margin-bottom:3px">${ad.headline}</div>
+      <div style="font-size:11.5px;color:var(--txt2);line-height:1.5">${ad.description}</div>
+    </div>`;
+  });
+  // PPC keywords table
+  const pb=document.getElementById('ppcBody');pb.innerHTML='';
+  p.paid_keywords.forEach(k=>{
+    const comp=k.competition>=0.7?'<span class="badge b-hard">High</span>':k.competition>=0.4?'<span class="badge b-med">Medium</span>':'<span class="badge b-easy">Low</span>';
+    pb.innerHTML+=`<tr><td style="font-weight:600;color:var(--txt)">${k.keyword}</td><td>${fmt(k.volume)}</td><td style="color:#a5b4fc">$${k.cpc.toFixed(2)}</td><td>${comp}</td><td style="font-weight:700;color:#60a5fa">#${k.position}</td><td style="color:var(--amber);font-weight:600">${fmtUSD(k.monthly_cost)}</td></tr>`;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  COMPETITOR BATTLE
+// ═══════════════════════════════════════════════════════════════
+let BATTLE_DATA = null;
+let BATTLE_FILTER = 'All';
+
+async function runBattle() {
+  const yourURL = document.getElementById('battleYourURL').value.trim();
+  const compURL = document.getElementById('battleCompURL').value.trim();
+
+  document.getElementById('battleError').style.display = 'none';
+  document.getElementById('battleResults').style.display = 'none';
+
+  if (!yourURL || !compURL) {
+    document.getElementById('battleErrMsg').textContent = 'Please enter both your URL and competitor URL.';
+    document.getElementById('battleError').style.display = 'block';
+    return;
+  }
+
+  // Loading state
+  const btn = document.getElementById('battleBtn');
+  const spinner = document.getElementById('battleSpinner');
+  btn.disabled = true;
+  btn.style.opacity = '0.7';
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analyzing both sites…';
+  spinner.style.display = 'flex';
+
+  try {
+    const currentDomain = document.getElementById('domainInput').value.trim() || '{{domain}}';
+    const resp = await fetch(`/control/seo/${currentDomain}/battle/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+      body: JSON.stringify({ your_url: yourURL, competitor_url: compURL })
+    });
+    const json = await resp.json();
+
+    if (json.status !== 'success') throw new Error(json.error || 'Analysis failed');
+
+    BATTLE_DATA = json.data;
+    BATTLE_FILTER = 'All';
+    renderBattle(BATTLE_DATA);
+    document.getElementById('battleResults').style.display = 'block';
+    document.getElementById('battleResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  } catch (e) {
+    document.getElementById('battleErrMsg').textContent = e.message || 'Failed to analyze. Check your URLs and try again.';
+    document.getElementById('battleError').style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.innerHTML = '<i class="fa-solid fa-swords"></i> Run Battle Analysis';
+    spinner.style.display = 'none';
+  }
+}
+
+function renderBattle(d) {
+  // Scoreboard
+  document.getElementById('bYourDomain').textContent = d.your_domain;
+  document.getElementById('bCompDomain').textContent = d.comp_domain;
+
+  // Animate scores
+  animateCounter('bYourScore', d.your_score, 800);
+  animateCounter('bCompScore', d.comp_score, 800);
+
+  document.getElementById('bYourWins').textContent = `✓ Winning ${d.you_wins} of 20 signals`;
+  document.getElementById('bCompWins').textContent = `✗ Winning ${d.comp_wins} of 20 signals`;
+
+  const ys = d.your_score, cs = d.comp_score;
+  document.getElementById('bVerdict').textContent = d.verdict;
+
+  // Color scoreboard border based on result
+  const sb = document.getElementById('battleScoreboard');
+  if (ys > cs) {
+    sb.style.borderColor = 'rgba(16,185,129,.3)';
+  } else if (ys < cs) {
+    sb.style.borderColor = 'rgba(239,68,68,.3)';
+  }
+
+  // Comparison table
+  const body = document.getElementById('battleCmpBody');
+  body.innerHTML = '';
+  d.comparison.forEach(row => {
+    const yw = row.you_win;
+    const cw = row.comp_win;
+    const winner = (yw && !cw) ? '<span style="color:#34d399;font-weight:700"><i class="fa-solid fa-trophy" style="font-size:10px"></i> You</span>'
+                 : (!yw && cw)  ? '<span style="color:#f87171;font-weight:700"><i class="fa-solid fa-trophy" style="font-size:10px"></i> Competitor</span>'
+                 : '<span style="color:var(--txt3)">Tie</span>';
+    body.innerHTML += `<tr>
+      <td style="font-weight:600;color:var(--txt2)">${row.label}</td>
+      <td style="color:${yw?'#34d399':'var(--txt2)'};font-weight:${yw?'700':'400'}">${row.your}</td>
+      <td style="color:${cw?'#f87171':'var(--txt2)'};font-weight:${cw?'700':'400'}">${row.comp}</td>
+      <td>${winner}</td>
+    </tr>`;
+  });
+
+  // Tips
+  document.getElementById('battleTipCount').textContent = d.tip_count;
+  renderBattleTips(d.tips);
+}
+
+function renderBattleTips(tips) {
+  const container = document.getElementById('battleTipsContainer');
+  const filtered = BATTLE_FILTER === 'All' ? tips : tips.filter(t => t.priority === BATTLE_FILTER);
+
+  const pColors = { High: { bg: 'rgba(239,68,68,.08)', border: 'rgba(239,68,68,.2)', dot: '#f87171', icon: 'fa-fire', label: 'HIGH PRIORITY' },
+                    Medium: { bg: 'rgba(245,158,11,.07)', border: 'rgba(245,158,11,.2)', dot: '#fbbf24', icon: 'fa-bolt', label: 'MEDIUM' },
+                    Low: { bg: 'rgba(148,163,184,.05)', border: 'rgba(148,163,184,.12)', dot: '#94a3b8', icon: 'fa-arrow-up', label: 'LOW' } };
+
+  container.innerHTML = '';
+  if (!filtered.length) {
+    container.innerHTML = '<div style="text-align:center;color:var(--txt3);padding:24px;font-size:12px">No tips in this category.</div>';
+    return;
+  }
+
+  filtered.forEach((tip, i) => {
+    const p = pColors[tip.priority] || pColors.Low;
+    const hasStatus = tip.your_status || tip.comp_status;
+    container.innerHTML += `
+    <div style="padding:16px 18px;border:1px solid ${p.border};border-radius:12px;margin-bottom:10px;background:${p.bg};transition:transform .15s" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform='none'">
+      <div style="display:flex;align-items:flex-start;gap:12px">
+        <div style="width:32px;height:32px;border-radius:8px;background:${p.border};display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">
+          <i class="fa-solid ${p.icon}" style="color:${p.dot};font-size:12px"></i>
+        </div>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap">
+            <span style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:${p.dot};background:${p.border};padding:2px 8px;border-radius:20px">${p.label}</span>
+            <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--txt3);background:rgba(255,255,255,.04);padding:2px 7px;border-radius:20px;border:1px solid var(--border2)">${tip.category}</span>
+            <span style="font-size:9px;color:var(--txt3);margin-left:auto">Tip #${i+1}</span>
+          </div>
+          <div style="font-size:13.5px;font-weight:700;color:var(--txt);margin-bottom:6px;line-height:1.4">${tip.title}</div>
+          <div style="font-size:12px;color:var(--txt2);line-height:1.65;margin-bottom:${hasStatus?'10px':'0'}">${tip.description}</div>
+          ${hasStatus ? `<div style="display:flex;gap:10px;flex-wrap:wrap">
+            ${tip.your_status ? `<div style="font-size:11px;font-weight:600;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.15);color:#34d399;padding:3px 10px;border-radius:6px"><i class="fa-solid fa-circle-check" style="font-size:9px"></i> You: ${tip.your_status}</div>` : ''}
+            ${tip.comp_status ? `<div style="font-size:11px;font-weight:600;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.15);color:#f87171;padding:3px 10px;border-radius:6px"><i class="fa-solid fa-circle-xmark" style="font-size:9px"></i> Competitor: ${tip.comp_status}</div>` : ''}
+          </div>` : ''}
+        </div>
+      </div>
+    </div>`;
+  });
+}
+
+function filterBattleTips(btn, priority) {
+  document.querySelectorAll('#battleTipFilter .fp').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  BATTLE_FILTER = priority;
+  if (BATTLE_DATA) renderBattleTips(BATTLE_DATA.tips);
+}
+
+function animateCounter(id, target, duration) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const start = parseInt(el.textContent) || 0;
+  const diff = target - start;
+  const steps = 30;
+  const step = diff / steps;
+  let current = start, i = 0;
+  const timer = setInterval(() => {
+    i++;
+    current += step;
+    el.textContent = Math.round(i >= steps ? target : current);
+    if (i >= steps) clearInterval(timer);
+  }, duration / steps);
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+
+  upSerp();
+  if(document.getElementById('domainInput').value.trim()){runAnalysis()}
+});
+</script>
+</body>
+</html>

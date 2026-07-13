@@ -1,713 +1,309 @@
 <!doctype html>
 <html lang="en">
-
 <head>
-    <title>:: VoidPanel :: Python</title>
+    <title>Python Apps — {{ domain }} | VoidPanel</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="description" content="VoidPanel Python ">
-    <meta name="author" content="Voidpanel, design by: Voidpanel.com">
-    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
-
-    <!-- VENDOR CSS -->
-    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    
+    
+    
     <link rel="stylesheet" href="/static/assets/vendor/font-awesome/css/font-awesome.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
-    <link rel="stylesheet" href="/static/assets/vendor/charts-c3/plugin.css" />
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="/static/static/css/plugins/fontawesome-all.min.css">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
 
-    <!-- MAIN Project CSS file -->
-    <link rel="stylesheet" href="/static/assets/css/main.css">
-
-    <link rel="stylesheet" href="/static/assets/vendor/jvectormap/jquery-jvectormap-2.0.3.min.css" />
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- ★ Theme init ★ -->
+    <script>(function(){localStorage.setItem('vp-theme','dark');var t='dark';document.documentElement.setAttribute('data-theme',t);})();</script>
     <style>
-   
+        *, *::before, *::after { box-sizing: border-box; }
+        body { background: #070b14; color: #e2e8f0; font-family: 'Inter', sans-serif; min-height: 100vh; }
 
-        h1 {
-            text-align: center;
-            margin-bottom: 20px;
+        .page-container { padding: 30px 28px; max-width: 1100px; margin: 0 auto; }
+
+        /* Header */
+        .page-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 32px; flex-wrap: wrap; gap: 16px;
+        }
+        .page-header-left { display: flex; align-items: center; gap: 16px; }
+        .py-icon {
+            width: 52px; height: 52px; border-radius: 14px;
+            background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(99,102,241,0.2));
+            border: 1px solid rgba(99,102,241,0.3);
+            display: flex; align-items: center; justify-content: center; font-size: 1.5rem;
+        }
+        .page-header h1 {
+            font-size: 1.5rem; font-weight: 700; margin: 0 0 4px;
+            background: linear-gradient(135deg, #60a5fa, #6366f1);
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .breadcrumb-trail { font-size: 0.8rem; color: #64748b; }
+        .breadcrumb-trail a { color: #6366f1; text-decoration: none; }
+
+        /* Btn */
+        .dash-btn-primary {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 10px 20px; border-radius: 12px; font-size: 0.88rem;
+            font-weight: 600; background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: #fff; border: none; cursor: pointer; box-shadow: 0 4px 14px rgba(99,102,241,0.35);
+            transition: all 0.2s; text-decoration: none;
+        }
+        .dash-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(99,102,241,0.5); color: #fff; }
+
+        /* App Cards */
+        .apps-list { display: flex; flex-direction: column; gap: 16px; }
+
+        .app-card {
+            background: linear-gradient(135deg, rgba(22,33,58,0.95), rgba(10,14,26,0.95));
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 18px; padding: 20px 24px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+            transition: border-color 0.2s;
+        }
+        .app-card:hover { border-color: rgba(99,102,241,0.3); }
+
+        .app-card-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+        .app-info { display: flex; align-items: center; gap: 14px; }
+        .app-logo {
+            width: 44px; height: 44px; border-radius: 12px;
+            background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(99,102,241,0.15));
+            border: 1px solid rgba(99,102,241,0.2);
+            display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0;
+        }
+        .app-name { font-size: 1rem; font-weight: 700; color: #f8fafc; }
+        .app-domain {
+            font-size: 0.75rem; color: #64748b; background: rgba(255,255,255,0.04);
+            padding: 3px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; margin-top: 3px;
         }
 
-        #command {
-            width: calc(100% - 100px); /* Full width minus button space */
-            padding: 10px;
-            border: none;
-            border-radius: 5px;
-            background-color: #333; /* Dark input field */
-            color: #ffffff;
-            font-size: 16px;
+        .app-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        
+        .act-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 14px; border-radius: 10px; font-size: 0.8rem; font-weight: 600;
+            border: none; cursor: pointer; transition: all 0.2s; text-decoration: none;
         }
+        .act-btn-start  { background: rgba(34,197,94,0.12); color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+        .act-btn-start:hover { background: rgba(34,197,94,0.2); }
+        .act-btn-stop   { background: rgba(239,68,68,0.1); color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
+        .act-btn-stop:hover { background: rgba(239,68,68,0.2); }
+        .act-btn-restart { background: rgba(251,191,36,0.1); color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+        .act-btn-restart:hover { background: rgba(251,191,36,0.2); }
+        .act-btn-delete { background: rgba(239,68,68,0.08); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
+        .act-btn-delete:hover { background: rgba(239,68,68,0.18); }
 
-        button {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            background-color: #007bff; /* Bootstrap primary color */
-            color: #ffffff;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background-color 0.3s;
+        /* Pip install section */
+        .pip-section {
+            margin-top: 16px; padding-top: 16px;
+            border-top: 1px dashed rgba(255,255,255,0.07);
+            display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
         }
+        .pip-label { font-size: 0.75rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+        .pip-input-group { display: flex; flex: 1; max-width: 420px; border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); transition: border 0.2s; }
+        .pip-input-group:focus-within { border-color: #6366f1; }
+        .pip-prefix { background: rgba(0,0,0,0.4); padding: 8px 14px; color: #94a3b8; font-size: 0.85rem; white-space: nowrap; font-family: monospace; }
+        .pip-input { flex: 1; background: rgba(0,0,0,0.2); border: none; outline: none; padding: 8px 14px; color: #fff; font-size: 0.88rem; font-family: monospace; }
+        .pip-btn {
+            padding: 8px 16px; background: rgba(99,102,241,0.15); color: #818cf8;
+            border: none; border-left: 1px solid rgba(255,255,255,0.06); cursor: pointer; font-size: 0.8rem; font-weight: 600;
+            transition: background 0.2s;
+        }
+        .pip-btn:hover { background: rgba(99,102,241,0.3); }
 
-        button:hover {
-            background-color: #0056b3; /* Darker on hover */
-        }
+        /* Empty state */
+        .empty-state { text-align: center; padding: 60px 20px; }
+        .empty-state i { font-size: 3rem; color: #1e293b; margin-bottom: 16px; display: block; }
+        .empty-state h3 { color: #f1f5f9; font-size: 1.1rem; margin-bottom: 8px; }
+        .empty-state p { color: #64748b; font-size: 0.9rem; margin: 0 0 24px; }
 
-        #output {
-            background-color: #000; /* Black output area */
-            padding: 10px;
-            color: #ffffff;
-            border-radius: 5px;
-            margin-top: 20px;
-            white-space: pre-wrap; /* Preserve whitespace and line breaks */
-            overflow: auto; /* Allow scrolling for long outputs */
-            height: 300px; /* Fixed height */
+        /* Toast */
+        .vp-toast {
+            position: fixed; bottom: 30px; right: 30px; z-index: 99999;
+            background: rgba(22,33,58,0.97); border: 1px solid rgba(99,102,241,0.3);
+            border-radius: 12px; padding: 14px 20px; font-size: 0.88rem; color: #e2e8f0;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: none; min-width: 260px;
+            animation: toastIn 0.25s ease;
         }
-
-        #commandForm {
-            display: flex; /* Flexbox layout */
-            justify-content: space-between; /* Space between input and button */
-        }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
     </style>
-    <style>
-        /* Basic styling for the p tag */
-        p.processing {
-            font-size: 18px;
-            font-weight: bold;
-
-        }
-
-        /* Animation for the dots */
-        .dots::after {
-            content: '';
-            display: inline-block;
-            width: 1em;
-            text-align: left;
-            animation: dots 1.5s steps(4, end) infinite;
-        }
-
-        /* Keyframes for the dots animation */
-        @keyframes dots {
-
-            0%,
-            100% {
-                content: '';
-            }
-
-            25% {
-                content: '.';
-            }
-
-            50% {
-                content: '..';
-            }
-
-            75% {
-                content: '...';
-            }
-        }
-    </style>
-    <style>
-        .myname {
-            border-radius: 30px;
-            box-shadow: inset;
-            border-width: 4px;
-
-
-        }
-
-        .text-container {
-
-            border: 1px solid #ccc;
-
-            word-wrap: break-word;
-            /* Force text to wrap */
-            white-space: normal;
-            /* Ensure normal wrapping */
-            overflow-wrap: break-word;
-            /* Ensure long words break */
-        }
-    </style>
-
 </head>
 
-<body data-theme="light" class="font-nunito">
-
-    <div id="wrapper" class="theme-cyan">
-
-        <!-- Page Loader -->
-        <div class="page-loader-wrapper">
-            <div class="loader">
-                <div class="m-t-30"><img src="/static/icons/fav.png" width="48" height="48" alt="VoidPanel">
-                </div>
-                <p>Please wait...</p>
-            </div>
-        </div>
-
-
-
-        {% include 'control/navbar.html' %}
-
-        <!-- main left menu -->
-        {% include 'control/left.html' %}
-        <!-- rightbar icon div -->
-        {% include 'control/right.html' %}
-
-
-        <!-- mani page content body part -->
-
-        <div id="main-content">
-
-            <div class="container-fluid">
-                <div class="block-header">
-                    <div class="row">
-                        <div class="col-lg-10 col-md-6 col-sm-12">
-                            <h2>Python</h2>
-                            <ul class="breadcrumb">
-                                <li class="breadcrumb-item"><a href="/"><i class="fa fa-dashboard"></i></a>
-                                </li>
-                                <li class="breadcrumb-item">Dashboard</li>
-                                <li class="breadcrumb-item">Create Python App</li>
-
-                            </ul>
-                        </div>
-
-<form method="post" action="">{% csrf_token %}
-
-</form>
-
-
-
-
-
-                    </div>
-                </div>
-
-                <div class="row clearfix">
-                    <div class="col-lg-10 col-md-12 col-sm-12">
-                        <div class="">
-                            <div class="header">
-                                <h2 style="display: inline-block;"> Python App</h2>
-
-                                <img src="/static/icons/python.png"
-                                    style="height: 80px; width: 80px; border-radius: 5%;">
-
-
-                            </div>
-
-
-                        </div>
-                    </div>
-                    <div class="col-lg-2 col-md-12 col-sm-12">
-
-
-                        <a href="/control/createpython/{{domain}}"> <button class="btn btn-success">Create Python </button></a>
-
-
-                    </div>
-
-                </div>
-
-                <div class="row clearfix " style="margin-top: 30px;">
-
-
-
-
-
-                </div>
-
-
-
-                {% for i in python %}
-
-                <div class="row clearfix" id="domainContainer" style="margin-top: 20px;">
-                    <div class="col-lg-9 col-md-9 col-sm-12">
-
-                        <div class="row clearfix">
-
-                            <div class="col-lg-4 col-md-6 col-sm-12">
-
-                                <h5 class="p-3" style="margin-bottom: 36px;"><strong>{{i.domain}}</strong> ({{i.name}})
-                                </h5>
-
-
-                            </div>
-
-
-                            <div class="col-lg-8 col-md-6 col-sm-12">
-                                <div class="row clearfix">
-                                    <div  onclick="stop(event,'{{i.domain}}','{{i.name}}')" class="col-lg-3 col-md-6 col-sm-12">
-                                        <img src="/static/icons/shutdown.png" width="30">
-                                        <h5 style="margin-top: 5px;">Stop</h5>
-                                    </div>
-                                    <div onclick="restart(event,'{{i.domain}}','{{i.name}}')"  class="col-lg-3 col-md-6 col-sm-12">
-                                        <img src="/static/icons/refresh.png" width="30">
-                                        <h5 style="margin-top: 5px;">Refresh</h5>
-                                    </div>
-
-
-                                    <div onclick="start(event,'{{i.domain}}','{{i.name}}')"  class="col-lg-3 col-md-6 col-sm-12">
-                                        <img src="/static/icons/power.png" width="30">
-                                        <h5 style="margin-top: 5px;">Start</h5>
-                                        
-                                    </div>
-
-                                    <div  class="col-lg-3 col-md-2 col-sm-12">
-                                        <a onclick="deletepython(event,'{{i.domain}}','{{i.name}}')" class="btn btn-danger"> Delete Project</a>
-                                    </div>
-
-                                </div>
-
-
-
-
-
-                                </a>
-
-
-                            </div>
-
-
-
-
-
-                        </div>
-
-
-
-                    </div>
-
-
-                    <div class="col-lg-3 col-md-3 col-sm-12">
-                        <div style="margin-left: 30px;">
-                            <button type="button" class="btn btn-secondary m-2"
-                                onclick="showcommand('{{i.domain}}','{{i.name}}','{{i.main}}');">Install Modules/Packages</button>
-                        </div>
-                    </div>
-
-
-                </div>
-
-                {% endfor %}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            </div>
-
-        </div>
-        <div class="modal animated fadeIn show" id="pro2" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <p class="processing">Processing<span class="dots"></span></p>
-    
-                    </div>
-    
+<body>
+{% include 'control/navbar.html' %}
+{% include 'control/left.html' %}
+{% include 'control/right.html' %}
+
+<div id="main-content">
+<div class="page-container">
+
+    <div class="page-header">
+        <div class="page-header-left">
+            <div class="py-icon">🐍</div>
+            <div>
+                <h1>Python Applications</h1>
+                <div class="breadcrumb-trail">
+                    <a href="/control/">Dashboard</a> / {{ domain }} / Python Apps
                 </div>
             </div>
         </div>
-        <div class="modal animated fadeIn show" id="eeee" style="display: none; margin-top: 300px;">
-            <div class="modal-dialog modal-sm" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Status</h6>
+        <a href="/control/createpython/{{ domain }}" class="dash-btn-primary">
+            <i class="fa fa-plus"></i> New Application
+        </a>
+    </div>
+
+    {% if python %}
+    <div class="apps-list">
+        {% for i in python %}
+        <div class="app-card" id="app-card-{{ i.name }}">
+            <div class="app-card-top">
+                <div class="app-info">
+                    <div class="app-logo">🐍</div>
+                    <div>
+                        <div class="app-name">{{ i.name }}</div>
+                        <div class="app-domain"><i class="fa fa-globe"></i> {{ i.domain }}</div>
                     </div>
-    
-                    <div class="modal-body">
-                        <div class="col-md-12 col-sm-12">
-                            <div id="statusemail" style="text-align: center;" class="row clearfix">
-    
-    
-    
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button  onclick="closeelol();"
-                                class="btn btn-danger">Close</button>
-                        </div>
-                    </div>
-    
+                </div>
+                <div class="app-actions">
+                    <button class="act-btn act-btn-start" onclick="appAction('start', '{{ i.domain }}', '{{ i.name }}', this)">
+                        <i class="fa fa-play"></i> Start
+                    </button>
+                    <button class="act-btn act-btn-restart" onclick="appAction('restart', '{{ i.domain }}', '{{ i.name }}', this)">
+                        <i class="fa fa-refresh"></i> Restart
+                    </button>
+                    <button class="act-btn act-btn-stop" onclick="appAction('stop', '{{ i.domain }}', '{{ i.name }}', this)">
+                        <i class="fa fa-stop"></i> Stop
+                    </button>
+                    <button class="act-btn act-btn-delete" onclick="confirmDelete('{{ i.domain }}', '{{ i.name }}')">
+                        <i class="fa fa-trash"></i> Delete
+                    </button>
                 </div>
             </div>
-        </div>
 
-
-        <div class="modal animated fadeIn show" id="commanddd" style="display: none; margin-top: 100px;">
-            <div class="modal-dialog modal-lg" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h6 class="title" id="defaultModalLabel">Run command (Directly to the Environment)</h6>
-                    </div>
-    
-                    <div class="modal-body">
-                        <div class="col-md-12 col-sm-12">
-                            <div class="row">
-                                <div id="if" class="col-lg-12 col-md-12 col-sm-12">
-        
-                                            <form id="commandForm">
-                                                <input type="text" id="detaildomain" hidden required>
-                                                <input type="text" id="detailname" hidden required>
-                                                <input type="text" id="detaildir" hidden required>
-                                                <input type="text" id="command" placeholder="Enter command" required>
-                                                <button type="submit">Execute</button>
-                                            </form>
-                                            <pre id="output"></pre>
-                                </div>
-                            </div>
-                        </div>
-                       
-                        <div class="modal-footer">
-                            <button  onclick="closeelollol();"
-                                class="btn btn-danger">Close</button>
-                        </div>
-                    </div>
-    
+            <!-- pip install section -->
+            <div class="pip-section">
+                <span class="pip-label"><i class="fa fa-cube"></i> Install Package</span>
+                <div class="pip-input-group">
+                    <span class="pip-prefix">pip install</span>
+                    <input type="text" class="pip-input" id="pkg-{{ i.name }}" placeholder="requests, flask, django..." onkeydown="if(event.key==='Enter') installPkg('{{ i.domain }}', '{{ i.name }}', '{{ i.main }}')">
                 </div>
+                <button class="pip-btn" onclick="installPkg('{{ i.domain }}', '{{ i.name }}', '{{ i.main }}')">
+                    <i class="fa fa-download"></i> Install
+                </button>
             </div>
         </div>
+        {% endfor %}
+    </div>
 
+    {% else %}
+    <div class="empty-state">
+        <i class="fa fa-code"></i>
+        <h3>No Python Applications Yet</h3>
+        <p>Deploy your first Python WSGI application to get started.</p>
+        <a href="/control/createpython/{{ domain }}" class="dash-btn-primary">
+            <i class="fa fa-plus"></i> Create Application
+        </a>
+    </div>
+    {% endif %}
 
+</div>
+</div>
 
+<div class="vp-toast" id="toast"></div>
 
+<form id="csrf-form">{% csrf_token %}</form>
 
-    
-    <script>
-    function closeelol(){
-        document.getElementById('eeee').style.display='none';
-        
-       
-    }
-    function closeelollol(){
-        document.getElementById('commanddd').style.display='none';}
-
-        function showcommand(domain,name,dir){
-            document.getElementById('detaildomain').value=domain;
-            document.getElementById('detailname').value=name;
-            document.getElementById('detaildir').value=dir;
-            document.getElementById('commanddd').style.display='block';}
-    </script>
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
 
 <script>
-    $(document).ready(function() {
-        // Handle the form submission
-        $('#commandForm').on('submit', function(e) {
-            e.preventDefault(); // Prevent default form submission
+function showToast(msg, isError) {
+    const t = document.getElementById('toast');
+    t.innerHTML = (isError
+        ? '<i class="fa fa-times-circle" style="color:#ef4444;margin-right:8px;"></i>'
+        : '<i class="fa fa-check-circle" style="color:#22c55e;margin-right:8px;"></i>') + msg;
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 3500);
+}
 
-            // Show loading message in the output area
-            $('#output').text('Running......\n');
+function getCsrf() {
+    return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
 
-            // Get form input values
-            const command = $('#command').val();
-            const domain = $('#detaildomain').val();
-            const name = $('#detailname').val();
-            const dir = $('#detaildir').val();
+const urlMap = {
+    start:   '{% url "start_now_python" %}',
+    stop:    '{% url "stop_now_python" %}',
+    restart: '{% url "restart_now_python" %}',
+    delete:  '{% url "delete_python" %}'
+};
 
-            // Send AJAX POST request
-            $.ajax({
-                type: 'POST',
-                url: '{% url "terminalnamename" %}', // Django URL for the terminal endpoint
-                data: {
-                    'command': command,
-                    'domain': domain,
-                    'name': name,
-                    'dir': dir,
-                    'csrfmiddlewaretoken': '{{ csrf_token }}' // CSRF token for Django
-                },
-                success: function(data) {
-                    // Handle success response
-                    if (data.error) {
-                        // Display error message if present
-                        $('#output').text('Error:\n' + data.output);
-                    } else {
-                        // Display output if command executes successfully
-                        $('#output').text('Output:\n' + data.output);
-                    }
-                    // Clear input field after execution
-                    $('#command').val('');
-                    // Scroll to the bottom of the output area
-                    $('#output').scrollTop($('#output')[0].scrollHeight);
-                },
-                error: function() {
-                    // Handle AJAX errors
-                    $('#output').text('An error occurred.');
-                }
-            });
+async function appAction(action, domain, name, btn) {
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa fa-circle-o-notch fa-spin"></i>';
+
+    try {
+        const res = await fetch(urlMap[action], {
+            method: 'POST',
+            body: JSON.stringify({ domain, name }),
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() }
         });
-    });
-</script>
-
-       <script>
-          async function start(event,domain,name) {
-            // Prevent the default action (e.g., form submission)
-            if (event) {
-                event.preventDefault();
+        const data = await res.json();
+        if (res.ok && data.status === 'success') {
+            showToast(`App <b>${name}</b> ${action}ed successfully.`);
+            if (action === 'delete') {
+                const card = document.getElementById('app-card-' + name);
+                if (card) card.remove();
             }
-            document.getElementById('pro2').style.display='block';
-
-            var data = {
-                'domain': domain, 
-                'name': name, 
-            };
-           
-
-            try {
-                // Fetch request to submit form data
-                const response = await fetch("{% url 'start_now_python' %}", {
-                    method: 'POST',
-                    body: JSON.stringify(data),
-                    headers: {
-                        'Content-Type': 'application/json',  // Ensure content is JSON
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-                    }
-                });
-
-                // Parse the JSON response
-                const result = await response.json();
-
-                // Handle response based on the result
-                if (response.ok && result.status === 'success') {
-                    document.getElementById('pro2').style.display='none';
-
-                    document.getElementById('eeee').style.display = "block";
-                    document.getElementById('statusemail').innerHTML =' started successfully.';
-                    location.reload(true);
-
-                } 
-                
-                else {
-                    document.getElementById('pro2').style.display='none';
-              
-                    document.getElementById('eeee').style.display = "block";
-                    document.getElementById('statusemail').innerHTML = 'Failed to start service ';
-                    location.reload(true);
-
-                }
-            } catch (error) {
-                // Catch any errors from the fetch call itself (e.g., network errors)
-                document.getElementById('pro2').style.display='none';
-   
-                document.getElementById('eeee').style.display = "block";
-                document.getElementById('statusemail').innerHTML = 'An error occurred while trying to start service ';
-
-            }
+        } else {
+            showToast(data.message || `Failed to ${action} app.`, true);
         }
-    </script>
-       <script>
-        async function stop(event,domain,name) {
-          // Prevent the default action (e.g., form submission)
-          if (event) {
-              event.preventDefault();
-          }
-          document.getElementById('pro2').style.display='block';
+    } catch (e) {
+        showToast('Network error.', true);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = orig;
+    }
+}
 
-          var data = {
-              'domain': domain, 
-              'name': name, 
-          };
-         
+function confirmDelete(domain, name) {
+    if (!confirm(`Permanently delete the Python app "${name}"? This will remove all files.`)) return;
+    // Find the delete button and call appAction
+    appAction('delete', domain, name, event.target);
+}
 
-          try {
-              // Fetch request to submit form data
-              const response = await fetch("{% url 'stop_now_python' %}", {
-                  method: 'POST',
-                  body: JSON.stringify(data),
-                  headers: {
-                      'Content-Type': 'application/json',  // Ensure content is JSON
-                      'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-                  }
-              });
+async function installPkg(domain, name, dir) {
+    const input = document.getElementById('pkg-' + name);
+    const pkg = input.value.trim();
+    if (!pkg) { showToast('Enter a package name first.', true); return; }
 
-              // Parse the JSON response
-              const result = await response.json();
+    input.disabled = true;
+    showToast(`Installing <b>${pkg}</b> in <b>${name}</b>...`);
 
-              // Handle response based on the result
-              if (response.ok && result.status === 'success') {
-                  document.getElementById('pro2').style.display='none';
-
-                  document.getElementById('eeee').style.display = "block";
-                  document.getElementById('statusemail').innerHTML =' Stopeed successfully.';
-                  location.reload(true);
-
-              } 
-              
-              else {
-                  document.getElementById('pro2').style.display='none';
-            
-                  document.getElementById('eeee').style.display = "block";
-                  document.getElementById('statusemail').innerHTML = 'Failed to Stop service ';
-                  location.reload(true);
-
-              }
-          } catch (error) {
-              // Catch any errors from the fetch call itself (e.g., network errors)
-              document.getElementById('pro2').style.display='none';
- 
-              document.getElementById('eeee').style.display = "block";
-              document.getElementById('statusemail').innerHTML = 'An error occurred while trying to Stop service ';
-
-          }
-      }
-  </script>
-   <script>
-    async function deletepython(event,domain,name) {
-      // Prevent the default action (e.g., form submission)
-      if (event) {
-          event.preventDefault();
-      }
-      document.getElementById('pro2').style.display='block';
-
-      var data = {
-          'domain': domain, 
-          'name': name, 
-      };
-     
-
-      try {
-          // Fetch request to submit form data
-          const response = await fetch("{% url 'delete_python' %}", {
-              method: 'POST',
-              body: JSON.stringify(data),
-              headers: {
-                  'Content-Type': 'application/json',  // Ensure content is JSON
-                  'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-              }
-          });
-
-          // Parse the JSON response
-          const result = await response.json();
-
-          // Handle response based on the result
-          if (response.ok && result.status === 'success') {
-              document.getElementById('pro2').style.display='none';
-
-              document.getElementById('eeee').style.display = "block";
-              document.getElementById('statusemail').innerHTML =' Deleted successfully.';
-              location.reload(true);
-
-          } 
-          
-          else {
-              document.getElementById('pro2').style.display='none';
-        
-              document.getElementById('eeee').style.display = "block";
-              document.getElementById('statusemail').innerHTML = 'Failed to Delete  ';
-              location.reload(true);
-
-          }
-      } catch (error) {
-          // Catch any errors from the fetch call itself (e.g., network errors)
-          document.getElementById('pro2').style.display='none';
-
-          document.getElementById('eeee').style.display = "block";
-          document.getElementById('statusemail').innerHTML = 'An error occurred while trying to restart service ';
-
-      }
-  }
+    // We piggyback on the panel terminalname AJAX runner if available
+    // For now, we signal the user it's running (the actual install happens via venv pip)
+    try {
+        const res = await fetch('{% url "terminalnamename" %}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCsrf() },
+            body: new URLSearchParams({ command: `pip install ${pkg}`, domain, name, dir })
+        });
+        const data = await res.json();
+        if (data.output && !data.output.includes('Error')) {
+            showToast(`<b>${pkg}</b> installed successfully.`);
+        } else {
+            showToast(data.output || 'Install may have failed, check logs.', true);
+        }
+    } catch (e) {
+        showToast('Package install request sent. Check app logs for result.');
+    } finally {
+        input.disabled = false;
+        input.value = '';
+    }
+}
 </script>
-   
-       
-      <script>
-        async function restart(event,domain,name) {
-          // Prevent the default action (e.g., form submission)
-          if (event) {
-              event.preventDefault();
-          }
-          document.getElementById('pro2').style.display='block';
-
-          var data = {
-              'domain': domain, 
-              'name': name, 
-          };
-         
-
-          try {
-              // Fetch request to submit form data
-              const response = await fetch("{% url 'restart_now_python' %}", {
-                  method: 'POST',
-                  body: JSON.stringify(data),
-                  headers: {
-                      'Content-Type': 'application/json',  // Ensure content is JSON
-                      'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value  // CSRF token for Django
-                  }
-              });
-
-              // Parse the JSON response
-              const result = await response.json();
-
-              // Handle response based on the result
-              if (response.ok && result.status === 'success') {
-                  document.getElementById('pro2').style.display='none';
-
-                  document.getElementById('eeee').style.display = "block";
-                  document.getElementById('statusemail').innerHTML =' restarted successfully.';
-                  location.reload(true);
-
-              } 
-              
-              else {
-                  document.getElementById('pro2').style.display='none';
-            
-                  document.getElementById('eeee').style.display = "block";
-                  document.getElementById('statusemail').innerHTML = 'Failed to restart service ';
-                  location.reload(true);
-
-              }
-          } catch (error) {
-              // Catch any errors from the fetch call itself (e.g., network errors)
-              document.getElementById('pro2').style.display='none';
- 
-              document.getElementById('eeee').style.display = "block";
-              document.getElementById('statusemail').innerHTML = 'An error occurred while trying to restart service ';
-
-          }
-      }
-  </script>
-       
-
-
-
-
-
-
-
-
-
-
-
-
-
-        <!-- Javascript -->
-        <script src="/static/assets/bundles/libscripts.bundle.js"></script>
-        <script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
-
-        <!-- page vendor js file -->
-        <script src="/static/assets/vendor/toastr/toastr.js"></script>
-        <script src="/static/assets/bundles/c3.bundle.js"></script>
-
-
-        <script src="/static/assets/bundles/jvectormap.bundle.js"></script> <!-- JVectorMap Plugin Js -->
-        <script src="/static/assets/bundles/knob.bundle.js"></script> <!-- Jquery Knob-->
-
-
-        <!-- page js file -->
-        <script src="/static/assets/bundles/mainscripts.bundle.js"></script>
-        <script src="/static/assets/bundles/chartjs.js"></script>
-        <script src="/static/assets/index2.js"></script>
-
-
 </body>
-
 </html>

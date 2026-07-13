@@ -1,286 +1,482 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <title>VoidPanel :: Login </title>
-    <meta name="description" content="VoidPanel - WebHosting Control Panel">
-    <meta name="keywords"
-        content="voidpanel, void, controlpanel, cpanel, hosting Control Panel, web hosting control panel, server, control panel, free panel">
-    <meta name="author" content="VoidPanel">
-    <link rel="icon" href="/static/icons/fav.png" type="image/x-icon">
-    <!-- Mobile Specific Meta -->
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>VoidPanel — Secure Access</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    <link rel="stylesheet" href="/static/login/assets/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/static/login/assets/css/fontawesome.css">
-    <link rel="stylesheet" href="/static/login/assets/css/animate.css">
-    <link rel="stylesheet" href="/static/login/assets/css/global.css">
-    <link rel="stylesheet" href="/static/login/assets/css/swiper.min.css">
-    <link rel="stylesheet" href="/static/login/assets/css/magnific-popup.css">
-    <link rel="stylesheet" href="/static/login/assets/css/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.1/css/all.min.css"
-        integrity="sha512-5Hs3dF2AEPkpNAR7UiOHba+lRSJNeM2ECkwxUIxC1Q/FLycGTbNapWXB4tP889k5T5Ju8fs4b1P5z/iB4nMfSQ=="
-        crossorigin="anonymous" referrerpolicy="no-referrer" />
+        :root {
+            --cyan:        #00e5ff;
+            --cyan-dim:    rgba(0,229,255,0.12);
+            --cyan-glow:   rgba(0,229,255,0.25);
+            --purple:      #a855f7;
+            --bg:          #060a14;
+            --bg-panel:    rgba(10,15,32,0.92);
+            --border:      rgba(0,229,255,0.14);
+            --border-soft: rgba(255,255,255,0.06);
+            --text:        #e4eaf8;
+            --text-dim:    rgba(180,200,230,0.65);
+            --text-muted:  rgba(180,200,230,0.35);
+            --radius:      16px;
+            --ease:        cubic-bezier(0.4,0,0.2,1);
+        }
+
+        html, body {
+            height: 100%;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+        }
+
+        /* ── Canvas BG ── */
+        #bg-canvas {
+            position: fixed; inset: 0; z-index: 0;
+            pointer-events: none;
+        }
+
+        /* ── Layout ── */
+        .page {
+            display: flex;
+            height: 100vh;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ── Left Panel (info) ── */
+        .left-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 48px 60px;
+            border-right: 1px solid var(--border);
+            background: linear-gradient(160deg, rgba(0,229,255,0.04) 0%, transparent 60%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .left-panel::before {
+            content: '';
+            position: absolute;
+            top: -120px; left: -120px;
+            width: 440px; height: 440px;
+            background: radial-gradient(circle, rgba(0,229,255,0.1) 0%, transparent 65%);
+            pointer-events: none;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .brand-icon {
+            width: 42px; height: 42px;
+            background: linear-gradient(135deg, var(--cyan), #0ea5e9);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem;
+            box-shadow: 0 0 24px var(--cyan-glow);
+        }
+        .brand-name {
+            font-size: 1.25rem; font-weight: 700; letter-spacing: -0.3px;
+        }
+        .brand-name .c { color: var(--cyan); }
+
+        .left-hero { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+        .left-hero h1 {
+            font-size: 2.6rem; font-weight: 800; line-height: 1.18;
+            letter-spacing: -1px; margin-bottom: 20px;
+        }
+        .left-hero h1 span { color: var(--cyan); }
+        .left-hero p {
+            font-size: 1rem; color: var(--text-dim); line-height: 1.7;
+            max-width: 380px; margin-bottom: 36px;
+        }
+
+        .feature-list { display: flex; flex-direction: column; gap: 14px; }
+        .feature-item {
+            display: flex; align-items: center; gap: 14px;
+            background: rgba(0,229,255,0.04);
+            border: 1px solid rgba(0,229,255,0.1);
+            border-radius: 10px;
+            padding: 12px 16px;
+        }
+        .feature-icon {
+            width: 34px; height: 34px; flex-shrink: 0;
+            background: var(--cyan-dim);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--cyan); font-size: 0.85rem;
+        }
+        .feature-text { font-size: 0.85rem; color: var(--text-dim); }
+        .feature-text strong { display: block; color: var(--text); font-size: 0.9rem; margin-bottom: 1px; }
+
+        .left-footer {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: flex; align-items: center; gap: 6px;
+        }
+        .status-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: #22c55e;
+            animation: pulse-green 2s ease-in-out infinite;
+        }
+        @keyframes pulse-green {
+            0%,100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
+            50% { box-shadow: 0 0 0 5px rgba(34,197,94,0); }
+        }
+
+        /* ── Right Panel (form) ── */
+        .right-panel {
+            width: 460px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 48px;
+            background: var(--bg-panel);
+            backdrop-filter: blur(24px);
+        }
+
+        .auth-box {
+            width: 100%;
+            animation: slideIn 0.5s var(--ease) both;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(24px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+
+        .auth-header { margin-bottom: 36px; }
+        .auth-header h2 { font-size: 1.75rem; font-weight: 800; margin-bottom: 6px; }
+        .auth-header p { font-size: 0.88rem; color: var(--text-dim); }
+
+        /* Form */
+        .form-field { margin-bottom: 20px; }
+        .form-label {
+            display: block;
+            font-size: 0.76rem;
+            font-weight: 600;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 8px;
+        }
+
+        .input-wrap {
+            position: relative;
+            display: flex; align-items: center;
+        }
+        .input-icon {
+            position: absolute; left: 14px;
+            color: var(--text-muted); font-size: 0.9rem;
+            pointer-events: none;
+            transition: color 0.2s;
+        }
+        .form-input {
+            width: 100%;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border-soft);
+            border-radius: 12px;
+            padding: 13px 16px 13px 40px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            color: var(--text);
+            outline: none;
+            transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+            -webkit-appearance: none;
+        }
+        .form-input::placeholder { color: var(--text-muted); }
+        .form-input:focus {
+            border-color: var(--cyan);
+            background: rgba(0,229,255,0.06);
+            box-shadow: 0 0 0 3px rgba(0,229,255,0.12);
+        }
+        .form-input:focus + .input-icon { color: var(--cyan); }
+        .input-wrap .form-input:focus ~ .toggle-pwd { color: var(--text-dim); }
+
+        .toggle-pwd {
+            position: absolute; right: 14px;
+            background: none; border: none;
+            color: var(--text-muted); cursor: pointer;
+            font-size: 0.9rem; transition: color 0.2s; padding: 4px;
+        }
+        .toggle-pwd:hover { color: var(--cyan); }
+
+        /* Alert */
+        .alert-error {
+            background: rgba(248,81,73,0.08);
+            border: 1px solid rgba(248,81,73,0.25);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 0.84rem;
+            color: #fca5a5;
+            margin-bottom: 20px;
+            display: flex; align-items: center; gap: 10px;
+        }
+
+        /* Submit */
+        .btn-login {
+            width: 100%; margin-top: 8px;
+            padding: 14px 24px;
+            background: linear-gradient(135deg, var(--cyan) 0%, #0ea5e9 100%);
+            color: #06090f;
+            font-family: 'Inter', sans-serif;
+            font-weight: 700; font-size: 0.95rem;
+            border: none; border-radius: 12px;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: all 0.22s var(--ease);
+            box-shadow: 0 4px 24px rgba(0,229,255,0.28);
+            letter-spacing: 0.2px;
+        }
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(0,229,255,0.42);
+        }
+        .btn-login:active { transform: translateY(0); }
+
+        /* Security badges */
+        .security-strip {
+            margin-top: 28px; padding-top: 22px;
+            border-top: 1px solid var(--border-soft);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .sec-badge {
+            display: flex; align-items: center; gap: 5px;
+            font-size: 0.72rem; color: var(--text-muted); font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.6px;
+        }
+        .sec-badge i { color: var(--cyan); font-size: 0.75rem; }
+
+        /* Code decoration */
+        .code-line {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin-top: 18px;
+            text-align: center;
+            letter-spacing: 0.5px;
+        }
+        .code-line span { color: var(--cyan); }
+
+        /* ── Mobile ── */
+        @media (max-width: 768px) {
+            .left-panel { display: none; }
+            .right-panel { width: 100%; padding: 32px 24px; }
+            .brand-mobile { display: block !important; }
+        }
+    </style>
 </head>
+<body>
 
-<body class="home-2">
-    <div id="preloader"></div>
-    <div class="up">
-        <a href="#" class="scrollup text-center"><i class="fas fa-chevron-up"></i></a>
-    </div>
-    <div class="cursor"></div>
+<canvas id="bg-canvas"></canvas>
 
-    <!-- Start of header section
-	============================================= -->
+<div class="page">
+    <!-- Left Info Panel -->
+    <div class="left-panel">
+        <div class="brand" style="margin-bottom: 24px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="150" height="34" viewBox="0 0 180 40" aria-label="VoidPanel" style="display:block;">
+              <rect x="0" y="4" width="34" height="34" rx="8" ry="8" fill="rgba(255,255,255,0.12)"/>
+              <rect x="7" y="13" width="20" height="4" rx="1.5" fill="#ffffff" opacity="0.9"/>
+              <rect x="7" y="19.5" width="14" height="4" rx="1.5" fill="#ffffff" opacity="0.65"/>
+              <rect x="7" y="26" width="10" height="4" rx="1.5" fill="#60a5fa" opacity="0.95"/>
+              <text x="43" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#ffffff">Void</text>
+              <text x="91" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#60a5fa">Panel</text>
+            </svg>
+        </div>
 
-
-
-    <section id="bi-consult-cta" class="bi-consult-cta-section position-relative" style="margin-top: 150px;">
-        <div class="container">
-            <div class="bi-consult-cta-content">
-                <div class="row align-items-end">
-                    <div class="col-lg-6">
-                        <div class="bi-consult  -cta-text-area">
-                            <div class="bi-section-title-2 headline pera-content">
-                                <div class="bi-subtitle text-uppercase wow fadeInRight" data-wow-delay="200ms"
-                                    data-wow-duration="1000ms"
-                                    style="visibility: hidden; animation-duration: 1000ms; animation-delay: 200ms; animation-name: none;">
-                                    Welcome to void panel
-                                </div>
-                                <h2 class="tx-split-text split-in-right" style="perspective: 400px;">
-                                    <div class="split-line"
-                                        style="display: block; text-align: start; position: relative;"><span>
-                                            <div style="position:relative;display:inline-block;">
-                                                <div
-                                                    style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                    B</div>
-                                                <div
-                                                    style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                    e</div>
-                                                <div
-                                                    style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                    s</div>
-                                                <div
-                                                    style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                    t</div>
-                                            </div>
-                                            <div style="position:relative;display:inline-block;">
-                                                <div
-                                                    style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                    C</div>
-                                                <div
-                                                    style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                    o</div>
-                                                <div
-                                                    style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                    n</div>
-                                                <div
-                                                    style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                    s</div>
-                                                <div
-                                                    style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                    u</div>
-                                                <div
-                                                    style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                    l</div>
-                                                <div
-                                                    style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                    t</div>
-                                                <div
-                                                    style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                    a</div>
-                                                <div
-                                                    style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                    n</div>
-                                                <div
-                                                    style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                    t</div>
-                                            </div>
-                                        </span> </div>
-                                    <div class="split-line"
-                                        style="display: block; text-align: start; position: relative;">
-                                        <div style="position:relative;display:inline-block;">
-                                            <div
-                                                style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                D</div>
-                                            <div
-                                                style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                i</div>
-                                            <div
-                                                style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                g</div>
-                                            <div
-                                                style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                i</div>
-                                            <div
-                                                style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                t</div>
-                                            <div
-                                                style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                a</div>
-                                            <div
-                                                style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                l</div>
-                                        </div>
-                                        <div style="position:relative;display:inline-block;">
-                                            <div
-                                                style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                A</div>
-                                            <div
-                                                style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                g</div>
-                                            <div
-                                                style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                e</div>
-                                            <div
-                                                style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                n</div>
-                                            <div
-                                                style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                c</div>
-                                            <div
-                                                style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                y</div>
-                                            <div
-                                                style="position: relative; display: inline-block; translate: none; rotate: none; scale: none; transform: translate(50px, 0px); opacity: 0;">
-                                                .</div>
-                                        </div>
-                                    </div>
-                                </h2>
-                            </div>
-                            <div class="bi-consult-cta-form-btn ul-li wow fadeInUp d-none d-md-block " data-wow-delay="400ms"
-                                data-wow-duration="1500ms"
-                                style="visibility: hidden; animation-duration: 1500ms; animation-delay: 400ms; animation-name: none;">
-                                <ul class="nav nav-tabs" id="bi_consult_tab" role="tablist">
-                                    <li class="nav-item" role="presentation">
-                                        <div class="nav-link active" id="consult_tab_1" data-bs-toggle="tab"
-                                            data-bs-target="#consult_1_1" role="tab" aria-selected="true">
-                                            <div class="bi-consult-btn-area position-relative">
-                                                <div class="bi-consult-btn text-uppercase text-center">
-                                                    <i class="fa-solid fa-envelope"></i>
-                                                    <span>E-mail</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </li>
-                                    <li class="nav-item" role="presentation">
-                                        <div class="nav-link active" id="consult_tab_2" data-bs-toggle="tab"
-                                            data-bs-target="#consult_1_2" role="tab" aria-selected="false"
-                                            tabindex="-1">
-                                            <div class="bi-consult-btn-area position-relative">
-                                                <div class="bi-consult-btn text-uppercase text-center">
-                                                    <i class="fa-solid fa-lock"></i>
-                                                    <span>SSl</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </li>
-                                    <li class="nav-item" role="presentation">
-                                        <div class="nav-link active" id="consult_tab_3" data-bs-toggle="tab"
-                                            data-bs-target="#consult_1_3" role="tab" aria-selected="false"
-                                            tabindex="-1">
-                                            <div class="bi-consult-btn-area position-relative">
-                                                <div class="bi-consult-btn text-uppercase text-center">
-                                                    <i class="fa-solid fa-database"></i>
-                                                    <span>Database</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-6">
-                        <div class="bi-consult-form-tab-area">
-                            <div class="tab-content" id="bi_consult_tab8">
-                                <div class="tab-pane animated fadeInUp show active" id="consult_1_1" role="tabpanel"
-                                    aria-labelledby="consult_tab_1">
-                                    <div class="bi-consult-form-wrap d-flex">
-                                        <div class="bi-consult-form-tilte text-uppercase"
-                                            style="height: 60% !important;">
-                                            Connect with VoidPanel
-                                        </div>
-                                        <div class="bi-consult-form-area">
-
-                                            <form action="#" method="post">{% csrf_token %}
-                                                <div class="bi-consult-form-input"
-                                                    data-background="assets/img/bg/cta-form-bg.jpg"
-                                                    style="background-image: url(&quot;assets/img/bg/cta-form-bg.jpg&quot;);">
-                                                    <label><i class="fal fa-envelope"></i>Username*</label>
-                                                    <input type="text" name="username" placeholder="Type Email">
-                                                    <label><i class="fa-solid fa-key"></i>Password*</label>
-                                                    <input type="password" name="password" placeholder="Type password">
-
-
-                                                    {% if messages %}
-
-                                                    <ul class="messages">
-
-                                                        {% for message in messages %}
-
-
-                                                        <label><i class="fal fa-trash"></i>{{message}}</label>
-
-                                                        {% endfor %}
-
-                                                    </ul>
-
-                                                    {% endif %}
-
-
-
-
-                                                </div>
-                                                <button type="submit"
-                                                    style="margin-left:45px !important;width: 80% !important;  border-radius: 20px !important;">Login</button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+        <div class="left-hero">
+            <h1>Server Control,<br><span>Redefined.</span></h1>
+            <p>Enterprise-grade hosting automation. Manage domains, emails, databases, DNS, and more from a single unified dashboard.</p>
+            <div class="feature-list">
+                <div class="feature-item">
+                    <div class="feature-icon"><i class="fas fa-shield-halved"></i></div>
+                    <div class="feature-text"><strong>Hardened Security</strong>Brute-force protection, firewall & CSF integration</div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon"><i class="fas fa-bolt"></i></div>
+                    <div class="feature-text"><strong>Instant Provisioning</strong>Automated Nginx, PHP, MySQL & DNS setup</div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon"><i class="fas fa-clone"></i></div>
+                    <div class="feature-text"><strong>Site Cloner</strong>One-click copy of any website including React/SPA apps</div>
                 </div>
             </div>
         </div>
-    </section>
 
+        <div class="left-footer">
+            <div class="status-dot"></div>
+            All systems operational &nbsp;·&nbsp; VoidPanel v2.0
+        </div>
+    </div>
 
+    <!-- Right Form Panel -->
+    <div class="right-panel">
+        <div class="auth-box">
+            <!-- Mobile Brand Logo -->
+            <div class="brand-mobile" style="display: none; margin-bottom: 28px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="140" height="32" viewBox="0 0 180 40" aria-label="VoidPanel" style="display:block;">
+                  <rect x="0" y="4" width="34" height="34" rx="8" ry="8" fill="rgba(255,255,255,0.12)"/>
+                  <rect x="7" y="13" width="20" height="4" rx="1.5" fill="#ffffff" opacity="0.9"/>
+                  <rect x="7" y="19.5" width="14" height="4" rx="1.5" fill="#ffffff" opacity="0.65"/>
+                  <rect x="7" y="26" width="10" height="4" rx="1.5" fill="#60a5fa" opacity="0.95"/>
+                  <text x="43" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#ffffff">Void</text>
+                  <text x="91" y="28" font-family="'Plus Jakarta Sans','Inter',system-ui,sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#60a5fa">Panel</text>
+                </svg>
+            </div>
+            <div class="auth-header">
+                <h2>Welcome back</h2>
+                <p>Sign in to your control panel</p>
+            </div>
 
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert-error">
+                        <i class="fas fa-circle-exclamation"></i> {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
 
+            <form method="POST" action="">
+                {% csrf_token %}
 
-    <!-- End Footer section
-	============================================= -->
+                <div class="form-field">
+                    <label class="form-label" for="username">Username</label>
+                    <div class="input-wrap">
+                        <input
+                            type="text"
+                            id="username"
+                            name="username"
+                            class="form-input"
+                            placeholder="Enter your username"
+                            required
+                            autocomplete="username"
+                            autofocus
+                        >
+                        <i class="fas fa-user input-icon"></i>
+                    </div>
+                </div>
 
-    <!-- For Js Library -->
-    <script src="/static/login/assets/js/jquery-3.6.0.min.js"></script>
-    <script src="/static/login/assets/js/bootstrap.bundle.min.js"></script>
-    <script src="/static/login/assets/js/swiper-bundle.min.js"></script>
-    <script src="/static/login/assets/js/appear.js"></script>
-    <script src="/static/login/assets/js/counter.js"></script>
-    <script src="/static/login/assets/js/gsap.min.js"></script>
-    <script src="/static/login/assets/js/knob.js"></script>
-    <script src="/static/login/assets/js/jquery.magnific-popup.min.js"></script>
-    <script src="/static/login/assets/js/jquery.counterup.min.js"></script>
-    <script src="/static/login/assets/js/waypoints.min.js"></script>
-    <script src="/static/login/assets/js/parallax.min.js"></script>
-    <script src="/static/login/assets/js/ScrollTrigger.min.js"></script>
-    <script src="/static/login/assets/js/ScrollToPlugin.min.js"></script>
-    <script src="/static/login/assets/js/ScrollSmoother.min.js"></script>
-    <script src="/static/login/assets/js/SplitText.min.js"></script>
-    <script src="/static/login/assets/js/jquery.filterizr.js"></script>
-    <script src="/static/login/assets/js/imagesloaded.pkgd.min.js"></script>
-    <script src="/static/login/assets/js/hover-revel.js"></script>
-    <script src="/static/login/assets/js/split-type.min.js"></script>
-    <script src="/static/login/assets/js/parallax-scroll.js"></script>
-    <script src="/static/login/assets/js/jquery.marquee.min.js"></script>
-    <script src="/static/login/assets/js/wow.min.js"></script>
-    <script src="/static/login/assets/js/jquery.meanmenu.min.js"></script>
-    <script src="/static/login/assets/js/tilt.jquery.min.js"></script>
-    <script src="/static/login/assets/js/matter.min.js"></script>
-    <script src="/static/login/assets/js/script.js"></script>
+                <div class="form-field">
+                    <label class="form-label" for="password">Password</label>
+                    <div class="input-wrap">
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            class="form-input"
+                            placeholder="••••••••••••"
+                            required
+                            autocomplete="current-password"
+                            style="padding-right: 44px;"
+                        >
+                        <i class="fas fa-lock input-icon"></i>
+                        <button type="button" class="toggle-pwd" onclick="togglePwd()" title="Show/hide password">
+                            <i class="fas fa-eye" id="eye-icon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-login" id="login-btn">
+                    <i class="fas fa-arrow-right-to-bracket"></i>
+                    Sign In to Panel
+                </button>
+            </form>
+
+            <div class="security-strip">
+                <span class="sec-badge"><i class="fas fa-lock"></i> TLS Secured</span>
+                <span class="sec-badge"><i class="fas fa-shield-halved"></i> Encrypted</span>
+                <span class="sec-badge"><i class="fas fa-server"></i> Live</span>
+            </div>
+
+            <div class="code-line">
+                <span>$</span> voidpanel --status <span>online</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Password toggle
+    function togglePwd() {
+        const input = document.getElementById('password');
+        const icon = document.getElementById('eye-icon');
+        input.type = input.type === 'password' ? 'text' : 'password';
+        icon.className = input.type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+    }
+
+    // Loading state on submit
+    document.querySelector('form').addEventListener('submit', function() {
+        const btn = document.getElementById('login-btn');
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Authenticating...';
+        btn.disabled = true;
+        btn.style.opacity = '0.8';
+    });
+
+    // Animated particle canvas
+    const canvas = document.getElementById('bg-canvas');
+    const ctx = canvas.getContext('2d');
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    const particles = Array.from({length: 55}, () => ({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        r: Math.random() * 1.2 + 0.3,
+        dx: (Math.random() - 0.5) * 0.35,
+        dy: (Math.random() - 0.5) * 0.35,
+        alpha: Math.random() * 0.4 + 0.1
+    }));
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(0,229,255,${p.alpha})`;
+            ctx.fill();
+
+            p.x += p.dx;
+            p.y += p.dy;
+
+            if (p.x < 0 || p.x > canvas.width)  p.dx *= -1;
+            if (p.y < 0 || p.y > canvas.height) p.dy *= -1;
+        });
+
+        // Draw faint connection lines between nearby particles
+        for (let i = 0; i < particles.length; i++) {
+            for (let j = i + 1; j < particles.length; j++) {
+                const dx = particles[i].x - particles[j].x;
+                const dy = particles[i].y - particles[j].y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < 100) {
+                    ctx.beginPath();
+                    ctx.moveTo(particles[i].x, particles[i].y);
+                    ctx.lineTo(particles[j].x, particles[j].y);
+                    ctx.strokeStyle = `rgba(0,229,255,${0.06 * (1 - dist/100)})`;
+                    ctx.lineWidth = 0.6;
+                    ctx.stroke();
+                }
+            }
+        }
+
+        requestAnimationFrame(draw);
+    }
+    draw();
+</script>
 </body>
-
 </html>

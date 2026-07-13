@@ -1,0 +1,518 @@
+{% extends 'super_admin_base.html' %}
+{% block title %}Base Email Templates | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}Base Email Templates{% endblock %}
+{% block admin_content %}
+
+<style>
+.bet-header { display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:28px; }
+.bet-title { font-size:1.45rem;font-weight:900;color:var(--text-1);letter-spacing:-0.03em; }
+.bet-sub { font-size:0.82rem;color:var(--text-3);margin-top:4px; }
+.bet-tab-bar { display:flex;gap:8px;margin-bottom:24px;background:var(--bg-2);border-radius:14px;padding:6px; }
+.bet-tab { flex:1;padding:11px 20px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:0.85rem;font-family:inherit;transition:all 0.2s;color:var(--text-3);background:transparent; }
+.bet-tab.active { background:var(--bg-1);color:var(--text-1);box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+.bet-tab.email.active { color:#3b82f6; }
+.bet-tab.whatsapp.active { color:#25d366; }
+.bet-stats { display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px; }
+.bet-stat { background:var(--bg-1);border:1px solid var(--border);border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:14px; }
+.bet-stat-icon { width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0; }
+.bet-stat-val { font-size:1.5rem;font-weight:900;color:var(--text-1);line-height:1; }
+.bet-stat-lbl { font-size:0.75rem;color:var(--text-3);font-weight:600;margin-top:3px; }
+.bet-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:18px; }
+.bet-card { background:var(--bg-1);border:1px solid var(--border);border-radius:16px;overflow:hidden;transition:box-shadow 0.2s,transform 0.2s; }
+.bet-card:hover { box-shadow:0 8px 28px rgba(0,0,0,0.1);transform:translateY(-2px); }
+.bet-card-header { padding:16px 18px 14px;display:flex;align-items:flex-start;gap:12px;border-bottom:1px solid var(--border); }
+.bet-card-icon { width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0; }
+.bet-card-name { font-weight:800;font-size:0.92rem;color:var(--text-1);line-height:1.3;word-break:break-word; }
+.bet-card-subj { font-size:0.75rem;color:var(--text-3);margin-top:3px;font-style:italic; }
+.bet-card-actions { margin-left:auto;display:flex;gap:6px;flex-shrink:0; }
+.bet-card-body { padding:14px 18px; }
+.bet-card-preview { font-size:0.78rem;color:var(--text-3);line-height:1.5;max-height:56px;overflow:hidden;position:relative; }
+.bet-card-preview::after { content:'';position:absolute;bottom:0;left:0;right:0;height:20px;background:linear-gradient(transparent,var(--bg-1)); }
+.bet-card-footer { padding:12px 18px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
+.cat-pill { display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:0.68rem;font-weight:700; }
+.cat-purchase { background:rgba(59,130,246,0.1);color:#3b82f6; }
+.cat-invoice  { background:rgba(245,158,11,0.1);color:#f59e0b; }
+.cat-suspend  { background:rgba(239,68,68,0.1);color:#ef4444; }
+.cat-welcome  { background:rgba(16,185,129,0.1);color:#10b981; }
+.cat-live_chat{ background:rgba(139,92,246,0.1);color:#8b5cf6; }
+.cat-password { background:rgba(236,72,153,0.1);color:#ec4899; }
+.cat-general  { background:rgba(100,116,139,0.1);color:#64748b; }
+.cat-otp      { background:rgba(14,165,233,0.1);color:#0ea5e9; }
+.bet-toggle-dot { width:36px;height:20px;border-radius:10px;position:relative;transition:background 0.2s;flex-shrink:0;display:inline-block; }
+.bet-toggle-dot::after { content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2); }
+.bet-toggle-dot.on { background:#22c55e; }
+.bet-toggle-dot.on::after { transform:translateX(16px); }
+.bet-toggle-dot.off { background:var(--border); }
+.btn-icon { width:30px;height:30px;border:1px solid var(--border);border-radius:8px;background:var(--bg-2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.78rem;color:var(--text-2);transition:all 0.15s; }
+.btn-icon:hover { border-color:var(--text-2);color:var(--text-1); }
+.btn-icon.edit:hover { border-color:#3b82f6;color:#3b82f6;background:rgba(59,130,246,0.08); }
+.btn-icon.preview:hover { border-color:#8b5cf6;color:#8b5cf6;background:rgba(139,92,246,0.08); }
+.btn-icon.delete:hover { border-color:#ef4444;color:#ef4444;background:rgba(239,68,68,0.08); }
+.bet-new-card { background:var(--bg-1);border:2px dashed var(--border);border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px 20px;cursor:pointer;transition:all 0.2s;min-height:180px; }
+.bet-new-card:hover { border-color:#3b82f6;background:rgba(59,130,246,0.03); }
+.bet-modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);z-index:9000;display:none;align-items:center;justify-content:center; }
+.bet-modal-overlay.open { display:flex; }
+.bet-modal { background:var(--bg-1);border-radius:20px;width:90%;max-width:860px;max-height:92vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 32px 80px rgba(0,0,0,0.3); }
+.bet-modal-header { padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0; }
+.bet-modal-title { font-weight:900;font-size:1rem;color:var(--text-1); }
+.bet-modal-body { flex:1;overflow-y:auto;padding:24px; }
+.bet-modal-footer { padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;flex-shrink:0; }
+.bet-form-row { display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px; }
+.bet-form-row.full { grid-template-columns:1fr; }
+.bet-label { font-size:0.78rem;font-weight:700;color:var(--text-2);margin-bottom:6px;display:block; }
+.bet-input { width:100%;background:var(--bg-2);border:1.5px solid var(--border);color:var(--text-1);padding:10px 14px;border-radius:10px;font-size:0.88rem;font-family:inherit;outline:none;transition:border-color 0.2s;box-sizing:border-box; }
+.bet-input:focus { border-color:#3b82f6; }
+.bet-textarea { width:100%;background:var(--bg-2);border:1.5px solid var(--border);color:var(--text-1);padding:12px 14px;border-radius:10px;font-size:0.8rem;font-family:monospace;outline:none;resize:vertical;min-height:260px;transition:border-color 0.2s;box-sizing:border-box; }
+.bet-textarea:focus { border-color:#3b82f6; }
+.bet-wa-textarea { min-height:140px;font-family:inherit;font-size:0.88rem; }
+.bet-select { width:100%;background:var(--bg-2);border:1.5px solid var(--border);color:var(--text-1);padding:10px 14px;border-radius:10px;font-size:0.88rem;font-family:inherit;outline:none;appearance:none;cursor:pointer;box-sizing:border-box; }
+.bet-preview-tabs { display:flex;gap:6px;margin-bottom:10px; }
+.bet-preview-tab { padding:6px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;color:var(--text-2);background:var(--bg-2);font-family:inherit;transition:all 0.15s; }
+.bet-preview-tab.active { background:#3b82f6;border-color:#3b82f6;color:#fff; }
+.bet-html-preview { width:100%;height:260px;border:1.5px solid var(--border);border-radius:10px; }
+.wa-phone-preview { background:#0b1c33;border-radius:16px;padding:18px 14px; }
+.wa-bubble { background:#1f4d3a;color:#e2f0e8;border-radius:14px 14px 4px 14px;padding:12px 15px;font-size:0.83rem;line-height:1.6;white-space:pre-wrap;word-break:break-word; }
+.wa-bubble-time { font-size:0.65rem;color:#6dbf88;margin-top:6px;text-align:right; }
+.bet-empty { text-align:center;padding:48px 20px;color:var(--text-3); }
+.bet-empty-icon { font-size:2.5rem;margin-bottom:14px;opacity:0.4; }
+.bet-empty-title { font-weight:800;font-size:0.95rem;color:var(--text-2);margin-bottom:6px; }
+@media(max-width:768px){.bet-stats{grid-template-columns:1fr 1fr}.bet-form-row{grid-template-columns:1fr}.bet-modal{width:96%}}
+@media(max-width:480px){.bet-stats{grid-template-columns:1fr}.bet-grid{grid-template-columns:1fr}}
+</style>
+
+<!-- PAGE HEADER -->
+<div class="bet-header">
+    <div>
+        <div class="bet-title">
+            <i class="fas fa-layer-group" style="color:#3b82f6;font-size:1.1rem;margin-right:8px;"></i>Base Email Templates
+        </div>
+        <div class="bet-sub">Design and manage email and WhatsApp message templates used across the entire platform.</div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="sa-btn" id="mainCreateBtn" onclick="openModal('email-create-modal')">
+            <i class="fas fa-plus" style="margin-right:6px;"></i>New Template
+        </button>
+    </div>
+</div>
+
+<!-- STATS -->
+<div class="bet-stats">
+    <div class="bet-stat">
+        <div class="bet-stat-icon" style="background:rgba(59,130,246,0.1);"><i class="fas fa-envelope-open-text" style="color:#3b82f6;"></i></div>
+        <div><div class="bet-stat-val">{{ email_templates.count }}</div><div class="bet-stat-lbl">Email Templates</div></div>
+    </div>
+    <div class="bet-stat">
+        <div class="bet-stat-icon" style="background:rgba(37,211,102,0.1);"><i class="fa-brands fa-whatsapp" style="color:#25d366;"></i></div>
+        <div><div class="bet-stat-val">{{ wa_templates.count }}</div><div class="bet-stat-lbl">WA Templates</div></div>
+    </div>
+    <div class="bet-stat">
+        <div class="bet-stat-icon" style="background:rgba(16,185,129,0.1);"><i class="fas fa-check-circle" style="color:#10b981;"></i></div>
+        <div><div class="bet-stat-val" id="activeEmailCount">—</div><div class="bet-stat-lbl">Active Email</div></div>
+    </div>
+    <div class="bet-stat">
+        <div class="bet-stat-icon" style="background:rgba(139,92,246,0.1);"><i class="fas fa-code" style="color:#8b5cf6;"></i></div>
+        <div><div class="bet-stat-val">HTML</div><div class="bet-stat-lbl">Template Format</div></div>
+    </div>
+</div>
+
+<!-- TAB BAR -->
+<div class="bet-tab-bar">
+    <button class="bet-tab email {% if active_tab == 'email' %}active{% endif %}" id="tabEmail" onclick="switchBetTab('email')">
+        <i class="fas fa-envelope-open-text" style="margin-right:7px;"></i>Email Templates
+        <span style="margin-left:8px;background:rgba(59,130,246,0.15);color:#3b82f6;padding:2px 8px;border-radius:10px;font-size:0.72rem;">{{ email_templates.count }}</span>
+    </button>
+    <button class="bet-tab whatsapp {% if active_tab == 'whatsapp' %}active{% endif %}" id="tabWA" onclick="switchBetTab('whatsapp')">
+        <i class="fa-brands fa-whatsapp" style="margin-right:7px;"></i>WhatsApp Templates
+        <span style="margin-left:8px;background:rgba(37,211,102,0.15);color:#25d366;padding:2px 8px;border-radius:10px;font-size:0.72rem;">{{ wa_templates.count }}</span>
+    </button>
+</div>
+
+<!-- EMAIL TAB -->
+<div id="panel-email" style="display:{% if active_tab == 'email' %}block{% else %}none{% endif %}">
+    <div class="bet-grid">
+        <div class="bet-new-card" onclick="openModal('email-create-modal')">
+            <div style="width:52px;height:52px;border-radius:14px;background:rgba(59,130,246,0.1);display:flex;align-items:center;justify-content:center;font-size:1.4rem;"><i class="fas fa-plus" style="color:#3b82f6;"></i></div>
+            <div style="font-weight:800;color:var(--text-1);font-size:0.88rem;">New Email Template</div>
+            <div style="font-size:0.75rem;color:var(--text-3);text-align:center;">Create a branded HTML email template for any trigger.</div>
+        </div>
+        {% for t in email_templates %}
+        <div class="bet-card">
+            <div class="bet-card-header">
+                <div class="bet-card-icon" style="background:{% if t.is_active %}rgba(59,130,246,0.1){% else %}rgba(100,116,139,0.1){% endif %};">
+                    <i class="fas fa-envelope-open-text" style="color:{% if t.is_active %}#3b82f6{% else %}#64748b{% endif %};"></i>
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div class="bet-card-name">{{ t.name }}</div>
+                    {% if t.subject %}<div class="bet-card-subj">{{ t.subject }}</div>{% endif %}
+                </div>
+                <div class="bet-card-actions">
+                    <button class="btn-icon preview" title="Preview" onclick="previewEmailTemplate({{ t.id }})"><i class="fas fa-eye"></i></button>
+                    <button class="btn-icon edit" title="Edit" onclick="openEmailEdit({{ t.id }}, '{{ t.name|escapejs }}', '{{ t.subject|escapejs }}', '{{ t.category }}', '{{ t.is_active }}')"><i class="fas fa-pen"></i></button>
+                    <form method="POST" style="display:inline;" onsubmit="return confirm('Delete this template?')">
+                        {% csrf_token %}<input type="hidden" name="action" value="delete_email"><input type="hidden" name="template_id" value="{{ t.id }}">
+                        <button type="submit" class="btn-icon delete" title="Delete"><i class="fas fa-trash"></i></button>
+                    </form>
+                </div>
+            </div>
+            <div class="bet-card-body">
+                <div class="bet-card-preview">{{ t.content_html|striptags|truncatechars:120 }}</div>
+            </div>
+            <div class="bet-card-footer">
+                <span class="cat-pill cat-{{ t.category }}"><i class="fas fa-tag"></i> {{ t.get_category_display }}</span>
+                <div style="margin-left:auto;">
+                    <form method="POST" style="display:inline;">
+                        {% csrf_token %}<input type="hidden" name="action" value="toggle_email"><input type="hidden" name="template_id" value="{{ t.id }}">
+                        <button type="submit" style="border:none;background:none;cursor:pointer;padding:0;display:flex;align-items:center;gap:6px;">
+                            <span class="bet-toggle-dot {% if t.is_active %}on{% else %}off{% endif %}"></span>
+                            <span style="font-size:0.72rem;color:var(--text-3);font-weight:600;">{% if t.is_active %}Active{% else %}Off{% endif %}</span>
+                        </button>
+                    </form>
+                </div>
+                <span style="font-size:0.68rem;color:var(--text-3);">{{ t.updated_at|date:"M d" }}</span>
+            </div>
+            <textarea id="email-html-{{ t.id }}" style="display:none;">{{ t.content_html }}</textarea>
+        </div>
+        {% empty %}
+        <div></div>
+        {% endfor %}
+    </div>
+    {% if not email_templates %}
+    <div class="bet-empty">
+        <div class="bet-empty-icon">📧</div>
+        <div class="bet-empty-title">No email templates yet</div>
+        <div style="font-size:0.8rem;margin-bottom:18px;">Create your first branded HTML email template.</div>
+        <button class="sa-btn" onclick="openModal('email-create-modal')"><i class="fas fa-plus"></i> Create First Template</button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- WHATSAPP TAB -->
+<div id="panel-whatsapp" style="display:{% if active_tab == 'whatsapp' %}block{% else %}none{% endif %}">
+    <div class="bet-grid">
+        <div class="bet-new-card" onclick="openModal('wa-create-modal')" style="border-color:rgba(37,211,102,0.3);">
+            <div style="width:52px;height:52px;border-radius:14px;background:rgba(37,211,102,0.1);display:flex;align-items:center;justify-content:center;font-size:1.4rem;"><i class="fa-brands fa-whatsapp" style="color:#25d366;font-size:1.3rem;"></i></div>
+            <div style="font-weight:800;color:var(--text-1);font-size:0.88rem;">New WhatsApp Template</div>
+            <div style="font-size:0.75rem;color:var(--text-3);text-align:center;">Create a reusable message template for alerts and campaigns.</div>
+        </div>
+        {% for t in wa_templates %}
+        <div class="bet-card">
+            <div class="bet-card-header">
+                <div class="bet-card-icon" style="background:{% if t.is_active %}rgba(37,211,102,0.1){% else %}rgba(100,116,139,0.1){% endif %};">
+                    <i class="fa-brands fa-whatsapp" style="color:{% if t.is_active %}#25d366{% else %}#64748b{% endif %};font-size:1rem;"></i>
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div class="bet-card-name">{{ t.name }}</div>
+                    <div style="font-size:0.72rem;color:var(--text-3);margin-top:2px;">{{ t.body|truncatechars:50 }}</div>
+                </div>
+                <div class="bet-card-actions">
+                    <button class="btn-icon preview" title="Preview" onclick="previewWATemplate('{{ t.name|escapejs }}', document.getElementById('wa-body-{{ t.id }}').textContent)"><i class="fas fa-eye"></i></button>
+                    <button class="btn-icon edit" title="Edit" onclick="openWAEdit({{ t.id }}, '{{ t.name|escapejs }}', '{{ t.category }}', '{{ t.is_active }}')"><i class="fas fa-pen"></i></button>
+                    <form method="POST" style="display:inline;" onsubmit="return confirm('Delete this template?')">
+                        {% csrf_token %}<input type="hidden" name="action" value="delete_wa"><input type="hidden" name="wa_id" value="{{ t.id }}">
+                        <button type="submit" class="btn-icon delete" title="Delete"><i class="fas fa-trash"></i></button>
+                    </form>
+                </div>
+            </div>
+            <div class="bet-card-body">
+                <div class="wa-phone-preview">
+                    <div style="font-size:0.6rem;color:#6dbf88;margin-bottom:8px;font-weight:600;">VoidPanel Support</div>
+                    <div class="wa-bubble" style="font-size:0.75rem;">{{ t.body|linebreaksbr|truncatechars:160 }}</div>
+                    <div class="wa-bubble-time">{{ t.updated_at|date:"H:i" }} ✓✓</div>
+                </div>
+                <pre id="wa-body-{{ t.id }}" style="display:none;">{{ t.body }}</pre>
+            </div>
+            <div class="bet-card-footer">
+                <span class="cat-pill cat-{{ t.category }}"><i class="fas fa-tag"></i> {{ t.get_category_display }}</span>
+                <div style="margin-left:auto;">
+                    <form method="POST" style="display:inline;">
+                        {% csrf_token %}<input type="hidden" name="action" value="toggle_wa"><input type="hidden" name="wa_id" value="{{ t.id }}">
+                        <button type="submit" style="border:none;background:none;cursor:pointer;padding:0;display:flex;align-items:center;gap:6px;">
+                            <span class="bet-toggle-dot {% if t.is_active %}on{% else %}off{% endif %}"></span>
+                            <span style="font-size:0.72rem;color:var(--text-3);font-weight:600;">{% if t.is_active %}Active{% else %}Off{% endif %}</span>
+                        </button>
+                    </form>
+                </div>
+                <span style="font-size:0.68rem;color:var(--text-3);">{{ t.updated_at|date:"M d" }}</span>
+            </div>
+        </div>
+        {% empty %}
+        <div></div>
+        {% endfor %}
+    </div>
+    {% if not wa_templates %}
+    <div class="bet-empty">
+        <div class="bet-empty-icon">💬</div>
+        <div class="bet-empty-title">No WhatsApp templates yet</div>
+        <div style="font-size:0.8rem;margin-bottom:18px;">Create your first reusable WhatsApp message template.</div>
+        <button class="sa-btn" style="background:linear-gradient(135deg,#25d366,#128c7e);border-color:#25d366;" onclick="openModal('wa-create-modal')"><i class="fa-brands fa-whatsapp"></i> Create First Template</button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ═══ MODALS ════════════════════════════════════════════════════════════════ -->
+
+<!-- EMAIL CREATE -->
+<div class="bet-modal-overlay" id="email-create-modal">
+    <div class="bet-modal">
+        <div class="bet-modal-header">
+            <div style="width:36px;height:36px;border-radius:10px;background:rgba(59,130,246,0.1);display:flex;align-items:center;justify-content:center;"><i class="fas fa-plus" style="color:#3b82f6;"></i></div>
+            <div class="bet-modal-title">New Email Template</div>
+            <button onclick="closeModal('email-create-modal')" style="margin-left:auto;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:1.1rem;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST">
+            {% csrf_token %}<input type="hidden" name="action" value="create_email">
+            <div class="bet-modal-body">
+                <div class="bet-form-row">
+                    <div><label class="bet-label">Template Name *</label><input type="text" name="name" class="bet-input" placeholder="e.g. Purchase Confirmation" required></div>
+                    <div><label class="bet-label">Category</label><select name="category" class="bet-select">{% for val, label in email_categories %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select></div>
+                </div>
+                <div class="bet-form-row full" style="margin-bottom:16px;">
+                    <label class="bet-label">Email Subject</label><input type="text" name="subject" class="bet-input" placeholder="e.g. Your order is confirmed! 🎉">
+                </div>
+                <div>
+                    <label class="bet-label">HTML Content *</label>
+                    <div class="bet-preview-tabs">
+                        <button type="button" class="bet-preview-tab active" onclick="switchEditorPane(this,'create-editor-pane','create-preview-pane','create-html-input','create-preview-frame')">✏️ Editor</button>
+                        <button type="button" class="bet-preview-tab" onclick="switchEditorPane(this,'create-preview-pane','create-editor-pane','create-html-input','create-preview-frame')">👁️ Preview</button>
+                    </div>
+                    <div id="create-editor-pane"><textarea name="content_html" id="create-html-input" class="bet-textarea" placeholder="Paste your HTML here…" required></textarea></div>
+                    <div id="create-preview-pane" style="display:none;"><iframe id="create-preview-frame" class="bet-html-preview" style="width:100%;"></iframe></div>
+                </div>
+                <div style="margin-top:14px;background:var(--bg-2);border-radius:10px;padding:12px 16px;font-size:0.75rem;color:var(--text-3);">
+                    <b>Placeholders:</b> <code>{{name}}</code>, <code>{{email}}</code>, <code>{{service}}</code>, <code>{{amount}}</code>, <code>{{invoice_id}}</code>, <code>{{date}}</code>
+                </div>
+            </div>
+            <div class="bet-modal-footer">
+                <button type="button" class="sa-btn ghost" onclick="closeModal('email-create-modal')">Cancel</button>
+                <button type="submit" class="sa-btn"><i class="fas fa-save" style="margin-right:6px;"></i>Create Template</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- EMAIL EDIT -->
+<div class="bet-modal-overlay" id="email-edit-modal">
+    <div class="bet-modal">
+        <div class="bet-modal-header">
+            <div style="width:36px;height:36px;border-radius:10px;background:rgba(59,130,246,0.1);display:flex;align-items:center;justify-content:center;"><i class="fas fa-pen" style="color:#3b82f6;"></i></div>
+            <div class="bet-modal-title">Edit Email Template</div>
+            <button onclick="closeModal('email-edit-modal')" style="margin-left:auto;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:1.1rem;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST">
+            {% csrf_token %}<input type="hidden" name="action" value="edit_email"><input type="hidden" name="template_id" id="edit-tid">
+            <div class="bet-modal-body">
+                <div class="bet-form-row">
+                    <div><label class="bet-label">Template Name *</label><input type="text" name="name" id="edit-name" class="bet-input" required></div>
+                    <div><label class="bet-label">Category</label><select name="category" id="edit-category" class="bet-select">{% for val, label in email_categories %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr auto;gap:16px;align-items:end;margin-bottom:16px;">
+                    <div><label class="bet-label">Email Subject</label><input type="text" name="subject" id="edit-subject" class="bet-input"></div>
+                    <div><label class="bet-label">Status</label><label style="display:flex;align-items:center;gap:8px;padding:10px 0;"><input type="checkbox" name="is_active" id="edit-active" style="width:16px;height:16px;accent-color:#22c55e;"><span style="font-size:0.82rem;color:var(--text-2);">Active</span></label></div>
+                </div>
+                <div>
+                    <label class="bet-label">HTML Content *</label>
+                    <div class="bet-preview-tabs">
+                        <button type="button" class="bet-preview-tab active" onclick="switchEditorPane(this,'edit-editor-pane','edit-preview-pane','edit-html-input','edit-preview-frame')">✏️ Editor</button>
+                        <button type="button" class="bet-preview-tab" onclick="switchEditorPane(this,'edit-preview-pane','edit-editor-pane','edit-html-input','edit-preview-frame')">👁️ Preview</button>
+                    </div>
+                    <div id="edit-editor-pane"><textarea name="content_html" id="edit-html-input" class="bet-textarea" required></textarea></div>
+                    <div id="edit-preview-pane" style="display:none;"><iframe id="edit-preview-frame" class="bet-html-preview" style="width:100%;"></iframe></div>
+                </div>
+            </div>
+            <div class="bet-modal-footer">
+                <button type="button" class="sa-btn ghost" onclick="closeModal('email-edit-modal')">Cancel</button>
+                <button type="submit" class="sa-btn"><i class="fas fa-save" style="margin-right:6px;"></i>Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- EMAIL PREVIEW -->
+<div class="bet-modal-overlay" id="email-preview-modal">
+    <div class="bet-modal" style="max-width:720px;">
+        <div class="bet-modal-header">
+            <div style="width:36px;height:36px;border-radius:10px;background:rgba(139,92,246,0.1);display:flex;align-items:center;justify-content:center;"><i class="fas fa-eye" style="color:#8b5cf6;"></i></div>
+            <div class="bet-modal-title" id="preview-title">Email Preview</div>
+            <button onclick="closeModal('email-preview-modal')" style="margin-left:auto;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:1.1rem;"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="bet-modal-body" style="padding:0;"><iframe id="full-preview-frame" style="width:100%;height:520px;border:none;"></iframe></div>
+        <div class="bet-modal-footer"><button class="sa-btn ghost" onclick="closeModal('email-preview-modal')">Close</button></div>
+    </div>
+</div>
+
+<!-- WA CREATE -->
+<div class="bet-modal-overlay" id="wa-create-modal">
+    <div class="bet-modal" style="max-width:720px;">
+        <div class="bet-modal-header">
+            <div style="width:36px;height:36px;border-radius:10px;background:rgba(37,211,102,0.1);display:flex;align-items:center;justify-content:center;"><i class="fa-brands fa-whatsapp" style="color:#25d366;font-size:1rem;"></i></div>
+            <div class="bet-modal-title">New WhatsApp Template</div>
+            <button onclick="closeModal('wa-create-modal')" style="margin-left:auto;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:1.1rem;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST">
+            {% csrf_token %}<input type="hidden" name="action" value="create_wa">
+            <div class="bet-modal-body">
+                <div class="bet-form-row">
+                    <div><label class="bet-label">Template Name *</label><input type="text" name="wa_name" class="bet-input" placeholder="e.g. Purchase Alert" required></div>
+                    <div><label class="bet-label">Category</label><select name="wa_category" class="bet-select">{% for val, label in wa_categories %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 260px;gap:16px;">
+                    <div>
+                        <label class="bet-label">Message Body *</label>
+                        <textarea name="wa_body" id="wac-body" class="bet-textarea bet-wa-textarea" placeholder="Hi {{name}} 👋&#10;Your order for {{service}} is confirmed!&#10;&#10;Amount: ₹{{amount}}&#10;&#10;Thank you! 🚀" oninput="liveWA('wac-body','wac-preview')" required></textarea>
+                        <div style="margin-top:8px;background:var(--bg-2);border-radius:10px;padding:10px 14px;font-size:0.72rem;color:var(--text-3);"><b>Placeholders:</b> <code>{{name}}</code> <code>{{service}}</code> <code>{{amount}}</code> <code>{{invoice_id}}</code></div>
+                    </div>
+                    <div>
+                        <label class="bet-label">Live Preview</label>
+                        <div class="wa-phone-preview">
+                            <div style="font-size:0.6rem;color:#6dbf88;margin-bottom:8px;font-weight:600;">VoidPanel Support</div>
+                            <div class="wa-bubble" id="wac-preview" style="white-space:pre-wrap;font-size:0.75rem;">Preview will appear here…</div>
+                            <div class="wa-bubble-time">Now ✓✓</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bet-modal-footer">
+                <button type="button" class="sa-btn ghost" onclick="closeModal('wa-create-modal')">Cancel</button>
+                <button type="submit" class="sa-btn" style="background:linear-gradient(135deg,#25d366,#128c7e);border-color:#25d366;"><i class="fa-brands fa-whatsapp" style="margin-right:6px;"></i>Create Template</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- WA EDIT -->
+<div class="bet-modal-overlay" id="wa-edit-modal">
+    <div class="bet-modal" style="max-width:720px;">
+        <div class="bet-modal-header">
+            <div style="width:36px;height:36px;border-radius:10px;background:rgba(37,211,102,0.1);display:flex;align-items:center;justify-content:center;"><i class="fas fa-pen" style="color:#25d366;"></i></div>
+            <div class="bet-modal-title">Edit WhatsApp Template</div>
+            <button onclick="closeModal('wa-edit-modal')" style="margin-left:auto;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:1.1rem;"><i class="fas fa-times"></i></button>
+        </div>
+        <form method="POST">
+            {% csrf_token %}<input type="hidden" name="action" value="edit_wa"><input type="hidden" name="wa_id" id="wae-id">
+            <div class="bet-modal-body">
+                <div class="bet-form-row" style="grid-template-columns:1fr 1fr auto;align-items:end;">
+                    <div><label class="bet-label">Template Name *</label><input type="text" name="wa_name" id="wae-name" class="bet-input" required></div>
+                    <div><label class="bet-label">Category</label><select name="wa_category" id="wae-category" class="bet-select">{% for val, label in wa_categories %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select></div>
+                    <div><label class="bet-label">Status</label><label style="display:flex;align-items:center;gap:8px;padding:10px 0;"><input type="checkbox" name="is_active" id="wae-active" style="width:16px;height:16px;accent-color:#22c55e;"><span style="font-size:0.82rem;color:var(--text-2);">Active</span></label></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 260px;gap:16px;">
+                    <div><label class="bet-label">Message Body *</label><textarea name="wa_body" id="wae-body" class="bet-textarea bet-wa-textarea" oninput="liveWA('wae-body','wae-preview')" required></textarea></div>
+                    <div>
+                        <label class="bet-label">Live Preview</label>
+                        <div class="wa-phone-preview">
+                            <div style="font-size:0.6rem;color:#6dbf88;margin-bottom:8px;font-weight:600;">VoidPanel Support</div>
+                            <div class="wa-bubble" id="wae-preview" style="white-space:pre-wrap;font-size:0.75rem;"></div>
+                            <div class="wa-bubble-time">Now ✓✓</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bet-modal-footer">
+                <button type="button" class="sa-btn ghost" onclick="closeModal('wa-edit-modal')">Cancel</button>
+                <button type="submit" class="sa-btn" style="background:linear-gradient(135deg,#25d366,#128c7e);border-color:#25d366;"><i class="fas fa-save" style="margin-right:6px;"></i>Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- WA PREVIEW -->
+<div class="bet-modal-overlay" id="wa-preview-modal">
+    <div class="bet-modal" style="max-width:380px;">
+        <div class="bet-modal-header">
+            <div style="width:36px;height:36px;border-radius:10px;background:rgba(37,211,102,0.1);display:flex;align-items:center;justify-content:center;"><i class="fa-brands fa-whatsapp" style="color:#25d366;font-size:1rem;"></i></div>
+            <div class="bet-modal-title" id="wa-preview-title">WA Preview</div>
+            <button onclick="closeModal('wa-preview-modal')" style="margin-left:auto;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:1.1rem;"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="bet-modal-body" style="display:flex;justify-content:center;">
+            <div class="wa-phone-preview" style="width:100%;">
+                <div style="font-size:0.6rem;color:#6dbf88;margin-bottom:8px;font-weight:600;">VoidPanel Support</div>
+                <div class="wa-bubble" id="wa-full-preview" style="white-space:pre-wrap;"></div>
+                <div class="wa-bubble-time">Now ✓✓</div>
+            </div>
+        </div>
+        <div class="bet-modal-footer"><button class="sa-btn ghost" onclick="closeModal('wa-preview-modal')">Close</button></div>
+    </div>
+</div>
+
+<script>
+function openModal(id) { document.getElementById(id).classList.add('open'); document.body.style.overflow='hidden'; }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow=''; }
+document.querySelectorAll('.bet-modal-overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) closeModal(o.id); }));
+document.addEventListener('keydown', e => { if(e.key==='Escape') document.querySelectorAll('.bet-modal-overlay.open').forEach(o => closeModal(o.id)); });
+
+function switchBetTab(tab) {
+    const isEmail = tab==='email';
+    document.getElementById('panel-email').style.display = isEmail?'block':'none';
+    document.getElementById('panel-whatsapp').style.display = isEmail?'none':'block';
+    document.getElementById('tabEmail').classList.toggle('active', isEmail);
+    document.getElementById('tabWA').classList.toggle('active', !isEmail);
+    const btn = document.getElementById('mainCreateBtn');
+    btn.innerHTML = isEmail ? '<i class="fas fa-plus" style="margin-right:6px;"></i>New Template' : '<i class="fa-brands fa-whatsapp" style="margin-right:6px;color:#25d366;"></i>New WA Template';
+    btn.onclick = () => openModal(isEmail ? 'email-create-modal' : 'wa-create-modal');
+}
+
+function switchEditorPane(btn, showId, hideId, textareaId, iframeId) {
+    btn.closest('.bet-preview-tabs').querySelectorAll('.bet-preview-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(hideId).style.display='none';
+    document.getElementById(showId).style.display='';
+    if(showId.includes('preview')) {
+        const html = document.getElementById(textareaId).value;
+        const iframe = document.getElementById(iframeId);
+        const d = iframe.contentDocument || iframe.contentWindow.document;
+        d.open(); d.write(html); d.close();
+    }
+}
+
+function openEmailEdit(id, name, subject, category, isActive) {
+    document.getElementById('edit-tid').value = id;
+    document.getElementById('edit-name').value = name;
+    document.getElementById('edit-subject').value = subject;
+    document.getElementById('edit-category').value = category;
+    document.getElementById('edit-active').checked = (isActive==='True');
+    const ta = document.getElementById('email-html-' + id);
+    document.getElementById('edit-html-input').value = ta ? ta.value : '';
+    // reset to editor view
+    document.getElementById('edit-editor-pane').style.display='';
+    document.getElementById('edit-preview-pane').style.display='none';
+    document.querySelectorAll('#email-edit-modal .bet-preview-tab').forEach((t,i)=>t.classList.toggle('active',i===0));
+    openModal('email-edit-modal');
+}
+
+function previewEmailTemplate(id) {
+    const ta = document.getElementById('email-html-' + id);
+    if(!ta) return;
+    const iframe = document.getElementById('full-preview-frame');
+    const d = iframe.contentDocument || iframe.contentWindow.document;
+    d.open(); d.write(ta.value); d.close();
+    openModal('email-preview-modal');
+}
+
+function liveWA(textareaId, previewId) {
+    document.getElementById(previewId).textContent = document.getElementById(textareaId).value || 'Preview…';
+}
+
+function openWAEdit(id, name, category, isActive) {
+    document.getElementById('wae-id').value = id;
+    document.getElementById('wae-name').value = name;
+    document.getElementById('wae-category').value = category;
+    document.getElementById('wae-active').checked = (isActive==='True');
+    const pre = document.getElementById('wa-body-' + id);
+    const body = pre ? pre.textContent.trim() : '';
+    document.getElementById('wae-body').value = body;
+    document.getElementById('wae-preview').textContent = body;
+    openModal('wa-edit-modal');
+}
+
+function previewWATemplate(name, body) {
+    document.getElementById('wa-preview-title').textContent = name;
+    document.getElementById('wa-full-preview').textContent = body;
+    openModal('wa-preview-modal');
+}
+
+{% if active_tab == 'whatsapp' %}
+document.addEventListener('DOMContentLoaded', () => switchBetTab('whatsapp'));
+{% endif %}
+</script>
+
+{% endblock %}
