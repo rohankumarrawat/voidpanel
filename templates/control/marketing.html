@@ -1307,7 +1307,7 @@ select.f-inp option { background: var(--surface); }
           </thead>
           <tbody>
             {% for c in leads %}
-            <tr>
+            <tr data-lead-id="{{ c.id }}" data-lead-name="{{ c.name|escapejs }}" data-lead-email="{{ c.email|escapejs }}" data-lead-phone="{{ c.phone|default:""|escapejs }}" data-lead-score="{{ c.score|default:50 }}" data-lead-source="{{ c.source|default:""|escapejs }}" data-lead-notes="{{ c.notes|default:""|escapejs }}">
               <td><input type="checkbox" style="cursor:pointer"></td>
               <td>
                 <div style="display:flex;align-items:center;gap:8px">
@@ -1335,9 +1335,9 @@ select.f-inp option { background: var(--surface); }
               <td><span style="font-size:12px;color:var(--txt-2)">{{ c.created_at|date:"M d, Y" }}</span></td>
               <td>
                 <div style="display:flex;gap:4px">
-                  <button class="btn-icon" title="Edit"><i class="fa-solid fa-pen"></i></button>
-                  <button class="btn-icon" title="Email"><i class="fa-solid fa-envelope"></i></button>
-                  <button class="btn-icon" title="Delete" style="color:var(--red)" onclick="confirmDelete('contact')"><i class="fa-solid fa-trash"></i></button>
+                  <button class="btn-icon" title="Edit" onclick="editContact(this)"><i class="fa-solid fa-pen"></i></button>
+                  <button class="btn-icon" title="Email" onclick="quickEmailContact(this)"><i class="fa-solid fa-envelope"></i></button>
+                  <button class="btn-icon" title="Delete" style="color:var(--red)" onclick="deleteContact(this)"><i class="fa-solid fa-trash"></i></button>
                 </div>
               </td>
             </tr>
@@ -2531,11 +2531,12 @@ select.f-inp option { background: var(--surface); }
   </div>
 </div>
 
-<!-- Add Contact Modal -->
+<!-- Add / Edit Contact Modal -->
 <div class="modal-overlay" id="modal-add-contact">
   <div class="modal">
+    <input type="hidden" id="editContactId" value="">
     <button class="modal-close" onclick="closeModal('modal-add-contact')"><i class="fa-solid fa-xmark"></i></button>
-    <div class="modal-title">Add New Contact</div>
+    <div class="modal-title" id="contactModalTitle">Add New Contact</div>
     <div class="form-row form-row-2">
       <div><label class="f-label">Full Name</label><input class="f-inp" type="text" id="addContactName" placeholder="Rajesh Kumar" required></div>
       <div><label class="f-label">Email</label><input class="f-inp" type="email" id="addContactEmail" placeholder="email@example.com"></div>
@@ -2558,7 +2559,7 @@ select.f-inp option { background: var(--surface); }
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-add-contact')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveContact()"><i class="fa-solid fa-user-plus"></i> Add Contact</button>
+      <button class="btn btn-primary" id="contactModalSaveBtn" onclick="saveContact()"><i class="fa-solid fa-user-plus"></i> Add Contact</button>
     </div>
   </div>
 </div>
@@ -5382,59 +5383,42 @@ function getCookie(name) {
   return cookieValue;
 }
 
+
 function saveContact() {
-  const name = document.getElementById('addContactName').value.trim();
-  const email = document.getElementById('addContactEmail').value.trim();
-  const phone = document.getElementById('addContactPhone').value.trim();
+  const name   = document.getElementById('addContactName').value.trim();
+  const email  = document.getElementById('addContactEmail').value.trim();
+  const phone  = document.getElementById('addContactPhone').value.trim();
   const source = document.getElementById('addContactSource').value;
-  const score = document.getElementById('addContactScore').value || 50;
-  const notes = document.getElementById('addContactNotes').value.trim();
+  const score  = document.getElementById('addContactScore').value || 50;
+  const notes  = document.getElementById('addContactNotes').value.trim();
+  const editId = document.getElementById('editContactId').value;
 
-  if (!name) {
-    showToast('error', 'Full Name is required');
-    return;
-  }
+  if (!name) { showToast('error', 'Full Name is required'); return; }
 
-  // Disable modal actions during save
-  const btn = document.querySelector('#modal-add-contact .btn-primary');
+  const isEdit = !!editId;
+  const btn = document.getElementById('contactModalSaveBtn');
   const originalHtml = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
 
+  const payload = { name, email, phone, source, score: parseInt(score), notes };
+  if (isEdit) payload.id = parseInt(editId);
+
   fetch('/control/marketing/{{ domain }}/leads/', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRFToken': getCookie('csrftoken') || ''
-    },
-    body: JSON.stringify({
-      name: name,
-      email: email,
-      phone: phone,
-      source: source,
-      score: parseInt(score),
-      notes: notes
-    })
+    method: isEdit ? 'PUT' : 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') || '' },
+    body: JSON.stringify(payload)
   })
-  .then(response => {
-    if (!response.ok) throw new Error('HTTP error ' + response.status);
-    return response.json();
-  })
+  .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
   .then(data => {
-    if (data.status === 'saved') {
-      showToast('success', 'Contact saved successfully!');
+    const ok = isEdit ? data.status === 'updated' : data.status === 'saved';
+    if (ok) {
+      showToast('success', isEdit ? 'Contact updated!' : 'Contact saved!');
+      _resetContactModal();
       closeModal('modal-add-contact');
-      // Reset form fields
-      document.getElementById('addContactName').value = '';
-      document.getElementById('addContactEmail').value = '';
-      document.getElementById('addContactPhone').value = '';
-      document.getElementById('addContactScore').value = '50';
-      document.getElementById('addContactNotes').value = '';
-      
-      // Reload page to reflect Django variables
-      setTimeout(() => location.reload(), 800);
+      setTimeout(() => location.reload(), 600);
     } else {
-      showToast('error', 'Error: ' + (data.message || 'Could not save contact'));
+      showToast('error', data.error || data.message || 'Could not save contact.');
       btn.disabled = false;
       btn.innerHTML = originalHtml;
     }
@@ -5446,6 +5430,20 @@ function saveContact() {
     btn.innerHTML = originalHtml;
   });
 }
+
+function _resetContactModal() {
+  document.getElementById('editContactId').value = '';
+  document.getElementById('contactModalTitle').textContent = 'Add New Contact';
+  document.getElementById('addContactName').value  = '';
+  document.getElementById('addContactEmail').value = '';
+  document.getElementById('addContactPhone').value = '';
+  document.getElementById('addContactScore').value = '50';
+  document.getElementById('addContactNotes').value = '';
+  document.getElementById('addContactSource').value = 'manual';
+  const saveBtn = document.getElementById('contactModalSaveBtn');
+  if (saveBtn) saveBtn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Add Contact';
+}
+
 
 function triggerCsvImport() {
   const fileInput = document.getElementById('csvFileInput');
@@ -5562,7 +5560,69 @@ function filterContacts(btn, type) {
   document.querySelectorAll('.pill-tab').forEach(t=>t.classList.remove('active'));
   btn.classList.add('active');
 }
+// ── Contact action buttons ────────────────────────────────────────────────
+
+function deleteContact(btn) {
+  const row = btn.closest('tr');
+  const leadId = row ? row.dataset.leadId : null;
+  const name = row ? (row.dataset.leadName || 'this contact') : 'this contact';
+  if (!leadId) { showToast('error', 'Could not determine contact ID.'); return; }
+  if (!confirm(`Delete "${name}"? This action cannot be undone.`)) return;
+
+  btn.disabled = true;
+  fetch('/control/marketing/{{ domain }}/leads/', {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCookie('csrftoken') || ''
+    },
+    body: JSON.stringify({ id: parseInt(leadId) })
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.status === 'deleted') {
+      showToast('success', 'Contact deleted.');
+      if (row) row.remove();
+    } else {
+      showToast('error', d.error || 'Failed to delete contact.');
+      btn.disabled = false;
+    }
+  })
+  .catch(() => {
+    showToast('error', 'Network error — could not delete contact.');
+    btn.disabled = false;
+  });
+}
+
+function editContact(btn) {
+  const row = btn.closest('tr');
+  if (!row) return;
+  const leadId = row.dataset.leadId;
+  document.getElementById('editContactId').value = leadId;
+  document.getElementById('contactModalTitle').textContent = 'Edit Contact';
+  document.getElementById('addContactName').value   = row.dataset.leadName   || '';
+  document.getElementById('addContactEmail').value  = row.dataset.leadEmail  || '';
+  document.getElementById('addContactPhone').value  = row.dataset.leadPhone  || '';
+  document.getElementById('addContactScore').value  = row.dataset.leadScore  || 50;
+  document.getElementById('addContactNotes').value  = row.dataset.leadNotes  || '';
+  const srcSel = document.getElementById('addContactSource');
+  const srcVal = row.dataset.leadSource || 'manual';
+  Array.from(srcSel.options).forEach(o => { o.selected = o.value === srcVal; });
+  const saveBtn = document.getElementById('contactModalSaveBtn');
+  saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Changes';
+  openModal('modal-add-contact');
+}
+
+function quickEmailContact(btn) {
+  const row = btn.closest('tr');
+  const email = row ? row.dataset.leadEmail : '';
+  const name  = row ? row.dataset.leadName  : '';
+  if (!email) { showToast('error', 'No email address for this contact.'); return; }
+  window.location.href = `mailto:${encodeURIComponent(name)} <${email}>`;
+}
+
 function confirmDelete(type) {
+  // Legacy stub — kept for any non-contact uses
   if (confirm(`Delete this ${type}? This action cannot be undone.`)) {
     showToast('info', `${type.charAt(0).toUpperCase()+type.slice(1)} deleted.`);
   }

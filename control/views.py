@@ -4226,8 +4226,9 @@ def social_api_config_get(request, domain):
 #  MARKETING HUB
 # ══════════════════════════════════════════════════════════════
 
-@login_required(login_url='/')
-def marketing_home(request, domain):
+def _get_marketing_portal_context(request, domain):
+    """Helper (not a view) — builds the full template context for the marketing portal.
+    Safe to call from suite views where the request.user may be a synthetic suite user."""
     from .models import MarketingCampaign, MarketingLead, CampaignRecipient
     try:
         import paths
@@ -4235,14 +4236,22 @@ def marketing_home(request, domain):
             adminpassword = f.read().strip()
     except Exception:
         adminpassword = ''
-    current = request.user.username
+    # For suite-only users request.user may be AnonymousUser — guard against that.
+    user_obj = getattr(request, 'user', None)
+    current = user_obj.username if (user_obj and getattr(user_obj, 'is_authenticated', False)) else ''
     d = {}
-    d.update(get_user_dashboard_context(current, adminpassword))
+    # Only pull hosting-specific context when the user actually has a hosting account.
+    # Suite-only users (suite_<id>) have no hosting record, so we skip this safely.
+    hosting_ctx = get_user_dashboard_context(current, adminpassword)
+    if hosting_ctx:
+        d.update(hosting_ctx)
 
     from .models import CampaignRecipient, MarketingWorkflow, MarketingWorkflowEnrollment, WaMessage
-    # Base querysets (unsliced) for counting
-    campaigns_qs = MarketingCampaign.objects.filter(user=request.user, domain=domain)
-    leads_qs     = MarketingLead.objects.filter(user=request.user, domain=domain)
+    # Base querysets — filter by domain only (domain is already tenant-scoped).
+    # Using domain-only avoids user-ID mismatches that can happen when the suite
+    # middleware resolves a different Django user instance on different URL paths.
+    campaigns_qs = MarketingCampaign.objects.filter(domain=domain)
+    leads_qs     = MarketingLead.objects.filter(domain=domain)
     recipients_qs = CampaignRecipient.objects.filter(campaign__in=campaigns_qs)
 
     total_recipients = recipients_qs.count()
@@ -4351,11 +4360,11 @@ def marketing_home(request, domain):
 
     # SMS gateway configs for this domain
     from .models import SMSGatewayConfig, CustomSMTPConfig
-    d['sms_gateways'] = list(SMSGatewayConfig.objects.filter(user=request.user, domain=domain, is_active=True))
+    d['sms_gateways'] = list(SMSGatewayConfig.objects.filter(domain=domain, is_active=True))
     d['sms_providers'] = SMSGatewayConfig.PROVIDER_CHOICES
 
     # Custom SMTP configs for this domain
-    d['custom_smtp_configs'] = list(CustomSMTPConfig.objects.filter(user=request.user, domain=domain, is_active=True))
+    d['custom_smtp_configs'] = list(CustomSMTPConfig.objects.filter(domain=domain, is_active=True))
 
     # Annotate campaigns with recipient stats
     campaigns_list = campaigns_qs.order_by('-created_at')[:20]
@@ -4375,6 +4384,12 @@ def marketing_home(request, domain):
     d['whatsapp_config'] = SocialAccount.objects.filter(domain=domain, username=request.user.username, platform='wa').first()
     d['whatsapp_web_config'] = SocialAccount.objects.filter(domain=domain, username=request.user.username, platform='waw').first()
 
+    return d
+
+
+@login_required(login_url='/')
+def marketing_home(request, domain):
+    d = _get_marketing_portal_context(request, domain)
     return render(request, 'control/marketing.html', d)
 
 
@@ -5747,7 +5762,9 @@ def marketing_leads(request, domain):
                     score=int(item.get('score', 50)),
                     notes=item.get('notes', '').strip(),
                 )
-                enroll_lead_in_workflows(lead)
+                # NOTE: enroll_lead_in_workflows intentionally NOT called here.
+                # Automatic workflow triggering on manual add causes unexpected emails.
+                # Workflows should be triggered explicitly or via a scheduled process.
                 count += 1
             return JsonResponse({'status': 'saved', 'count': count})
         else:
@@ -5766,9 +5783,44 @@ def marketing_leads(request, domain):
                 score=int(data.get('score', 50)),
                 notes=data.get('notes',''),
             )
-            enroll_lead_in_workflows(lead)
-            return JsonResponse({'status': 'saved'})
-    leads = list(MarketingLead.objects.filter(user=request.user, domain=domain).order_by('-score').values())
+            # NOTE: enroll_lead_in_workflows intentionally NOT called here.
+            # Automatic workflow triggering on manual add causes unexpected emails.
+            return JsonResponse({'status': 'saved', 'lead_id': lead.id})
+
+    if request.method == 'DELETE':
+        # Delete a single lead by id (must belong to this domain)
+        import json as _json
+        data = _json.loads(request.body) if request.body else {}
+        lead_id = data.get('id')
+        if not lead_id:
+            return JsonResponse({'error': 'id required'}, status=400)
+        deleted, _ = MarketingLead.objects.filter(id=lead_id, domain=domain).delete()
+        if deleted:
+            return JsonResponse({'status': 'deleted'})
+        return JsonResponse({'error': 'Contact not found'}, status=404)
+
+    if request.method == 'PUT':
+        # Update a single lead by id
+        import json as _json
+        data = _json.loads(request.body)
+        lead_id = data.get('id')
+        if not lead_id:
+            return JsonResponse({'error': 'id required'}, status=400)
+        try:
+            lead = MarketingLead.objects.get(id=lead_id, domain=domain)
+        except MarketingLead.DoesNotExist:
+            return JsonResponse({'error': 'Contact not found'}, status=404)
+        lead.name   = data.get('name', lead.name)
+        lead.email  = data.get('email', lead.email)
+        lead.phone  = data.get('phone', lead.phone)
+        lead.source = data.get('source', lead.source)
+        lead.score  = int(data.get('score', lead.score))
+        lead.notes  = data.get('notes', lead.notes)
+        lead.save()
+        return JsonResponse({'status': 'updated'})
+
+    # GET: filter by domain only — domain is already tenant-scoped
+    leads = list(MarketingLead.objects.filter(domain=domain).order_by('-score').values())
     return JsonResponse({'leads': leads})
 
 
@@ -7787,24 +7839,40 @@ def suite_sso_validate(request, token):
 
 # ── 3. Standalone Suite Login / Logout ──────────────────────────────────
 
-def suite_login(request):
-    """Login for standalone suite-only customers."""
+def suite_login(request, suite=None):
+    """Login for standalone suite-only customers.
+    
+    When `suite` is provided (e.g. via /control/suite/marketing/login/) the
+    page becomes a branded login for that specific suite — pre-selecting the
+    correct tab and colour-scheme.  The generic /control/suite/login/ URL
+    keeps `suite=None` and shows the unified multi-suite view.
+    """
     # Seed default plans on first visit (idempotent)
     SuitePlan.seed_defaults()
+
+    # Validate the pre-selected suite slug
+    if suite and suite not in SUITE_META:
+        suite = None
 
     error = None
     if request.method == 'POST':
         email    = request.POST.get('email', '').strip().lower()
         password = request.POST.get('password', '')
+        # If a specific suite was requested (branded login) enforce it
+        requested_suite = request.POST.get('suite_filter') or suite
         try:
-            sub = SuiteSubscription.objects.get(email=email)
+            if requested_suite:
+                sub = SuiteSubscription.objects.get(email=email, suite=requested_suite)
+            else:
+                sub = SuiteSubscription.objects.get(email=email)
             if sub.check_password(password) and sub.is_valid():
                 request.session['suite_user'] = {
-                    'email':  sub.email,
-                    'suite':  sub.suite,
-                    'plan':   sub.plan.slug,
-                    'source': 'direct',
-                    'name':   f'{sub.first_name} {sub.last_name}'.strip() or sub.email,
+                    'email':          sub.email,
+                    'suite':          sub.suite,
+                    'plan':           sub.plan.slug,
+                    'source':         'direct',
+                    'hosting_domain': sub.hosting_domain or sub.email.split('@')[0],
+                    'name':           f'{sub.first_name} {sub.last_name}'.strip() or sub.email,
                 }
                 sub.last_login = tz.now()
                 sub.save(update_fields=['last_login'])
@@ -7812,7 +7880,27 @@ def suite_login(request):
             else:
                 error = 'Invalid credentials or account inactive.'
         except SuiteSubscription.DoesNotExist:
-            error = 'No account found with that email.'
+            if requested_suite:
+                error = f'No {SUITE_META[requested_suite]["name"]} account found with that email.'
+            else:
+                error = 'No account found with that email.'
+        except SuiteSubscription.MultipleObjectsReturned:
+            # User has subscriptions to multiple suites — fall back to any match
+            sub = SuiteSubscription.objects.filter(email=email, is_active=True).order_by('-created_at').first()
+            if sub and sub.check_password(password) and sub.is_valid():
+                request.session['suite_user'] = {
+                    'email':          sub.email,
+                    'suite':          sub.suite,
+                    'plan':           sub.plan.slug,
+                    'source':         'direct',
+                    'hosting_domain': sub.hosting_domain or sub.email.split('@')[0],
+                    'name':           f'{sub.first_name} {sub.last_name}'.strip() or sub.email,
+                }
+                sub.last_login = tz.now()
+                sub.save(update_fields=['last_login'])
+                return redirect(f'/control/suite/{sub.suite}/')
+            else:
+                error = 'Invalid credentials or account inactive.'
 
     # Build plan cards for the landing section
     plans_by_suite = {}
@@ -7823,6 +7911,8 @@ def suite_login(request):
         'error': error,
         'plans_by_suite': plans_by_suite,
         'suite_meta': SUITE_META,
+        'active_suite': suite,  # None = generic multi-suite page; else 'social'/'seo'/'marketing'
+        'active_suite_info': SUITE_META.get(suite) if suite else None,
     })
 
 
@@ -7836,11 +7926,96 @@ def suite_logout(request):
 def _suite_portal_ctx(request, suite):
     """Build shared context for any suite portal."""
     su = _suite_session(request)
+
+    # ── Django panel admin bypass ─────────────────────────────────────────
+    # Authenticated staff/superusers can access any suite portal regardless
+    # of their suite session (they manage all tenants).
+    django_user = getattr(request, 'user', None)
+    is_panel_admin = (
+        django_user is not None
+        and getattr(django_user, 'is_authenticated', False)
+        and (getattr(django_user, 'is_staff', False) or getattr(django_user, 'is_superuser', False))
+    )
+
     if not su:
-        return None, redirect('/control/suite/login/')
+        if is_panel_admin:
+            # Build a synthetic session tied to THIS panel user's domain.
+            # Priority:
+            #   1. SuiteSubscription matched to the logged-in user's email
+            #   2. panel control.models.user domain (the account the user owns)
+            #   3. Any active SuiteSubscription (last resort)
+            from .models import SuiteSubscription, SuitePlan
+            from . import models as ctrl_models
+
+            user_email = (
+                getattr(django_user, 'email', None)
+                or getattr(django_user, 'username', '')
+            )
+
+            # 1. Subscription matching the logged-in user's email
+            sub = (
+                SuiteSubscription.objects.filter(email=user_email, suite=suite, is_active=True).first()
+                or SuiteSubscription.objects.filter(email=user_email, is_active=True).first()
+            )
+
+            # 2. Look up panel user domain — prefer matching the request Host header
+            panel_domain = ''
+            try:
+                request_host = request.get_host().split(':')[0]  # strip port
+                # Try exact match of request hostname against user.domain
+                _panel_match = ctrl_models.user.objects.filter(
+                    email=user_email, domain=request_host
+                ).first()
+                if _panel_match:
+                    panel_domain = _panel_match.domain
+                else:
+                    # Fallback: any domain for this user
+                    _panel_any = ctrl_models.user.objects.filter(email=user_email).first()
+                    if _panel_any:
+                        panel_domain = _panel_any.domain or ''
+            except Exception:
+                pass
+
+            # 3. Fallback — any active subscription
+            if not sub:
+                sub = SuiteSubscription.objects.filter(suite=suite, is_active=True).first() \
+                      or SuiteSubscription.objects.filter(is_active=True).first()
+
+            if sub:
+                resolved_domain = (
+                    panel_domain                                # user's actual panel domain
+                    or sub.hosting_domain                      # subscription's stored domain
+                    or sub.email.split('@')[0]                 # email-prefix fallback
+                )
+                su = {
+                    'email':          user_email or sub.email,
+                    'suite':          suite,
+                    'plan':           sub.plan.slug if sub.plan else 'starter',
+                    'source':         'admin_bypass',
+                    'hosting_domain': resolved_domain,
+                    'name':           f'{sub.first_name} {sub.last_name}'.strip() or sub.email,
+                }
+            else:
+                su = {
+                    'email':          user_email,
+                    'suite':          suite,
+                    'plan':           'starter',
+                    'source':         'admin_bypass',
+                    'hosting_domain': panel_domain,
+                    'name':           django_user.get_full_name() or django_user.username,
+                }
+        else:
+            return None, redirect('/control/suite/login/')
+
     if su.get('suite') != suite:
-        # SSO users — redirect to their correct suite
-        return None, redirect(f'/control/suite/{su["suite"]}/')
+        if is_panel_admin:
+            # Admin accessing a different suite — allow it, override suite key
+            su = dict(su)
+            su['suite'] = suite
+        else:
+            # Regular suite user — redirect to their correct suite
+            return None, redirect(f'/control/suite/{su["suite"]}/')
+
     limits = _suite_plan_limits(suite, su.get('plan', 'starter'))
     ctx = {
         'suite_user': su,
@@ -7880,10 +8055,111 @@ def suite_marketing_portal(request):
     if redir_resp:
         return redir_resp
     su = ctx['suite_user']
-    domain_key = su.get('hosting_domain') or su['email'].split('@')[0]
+
+    # ── Domain resolution ─────────────────────────────────────────────────
+    # Priority:
+    #  1. panel control.models.user.domain for the logged-in Django user
+    #  2. SuiteSubscription.hosting_domain from DB
+    #  3. Self-healing via MarketingLead discovery
+    from .models import SuiteSubscription, MarketingLead
+    from . import models as ctrl_models
+
+    # 1. Panel user's own domain — prefer domain matching the current request host
+    panel_domain_key = ''
+    django_user_obj = getattr(request, 'user', None)
+    if django_user_obj and getattr(django_user_obj, 'is_authenticated', False):
+        _user_email = getattr(django_user_obj, 'email', '') or getattr(django_user_obj, 'username', '')
+        try:
+            _request_host = request.get_host().split(':')[0]  # strip port
+            # Prefer the panel account whose domain matches the current Host header
+            _panel_acct = ctrl_models.user.objects.filter(
+                email=_user_email, domain=_request_host
+            ).first()
+            if _panel_acct:
+                panel_domain_key = _panel_acct.domain
+            else:
+                # No exact match — use any account for this user
+                _panel_acct = ctrl_models.user.objects.filter(email=_user_email).first()
+                if _panel_acct:
+                    panel_domain_key = _panel_acct.domain or ''
+        except Exception:
+            pass
+
+    # 2. SuiteSubscription DB value — use filter().first() to handle any suite type
+    try:
+        _db_sub = SuiteSubscription.objects.filter(email=su['email']).order_by('-id').first()
+        raw_hosting_domain = (_db_sub.hosting_domain or '') if _db_sub else ''
+    except Exception:
+        raw_hosting_domain = ''
+
+    # Resolve: panel domain (from request host) first, then subscription domain
+    if panel_domain_key:
+        domain_key = panel_domain_key
+    elif raw_hosting_domain:
+        domain_key = raw_hosting_domain
+    else:
+        # Neither the panel user domain nor subscription domain is set.
+        # Try: request Host header, then self-healing via leads, then email prefix.
+        email_prefix = su['email'].split('@')[0]
+
+        # Strategy 0: use request hostname as the domain (most direct signal)
+        try:
+            _req_host = request.get_host().split(':')[0]
+            # Only treat the request host as a valid domain if it's not the panel server itself
+            # (i.e., it contains a dot and isn't the fast. subdomain server)
+            if '.' in _req_host and not _req_host.startswith('fast.'):
+                domain_key = _req_host
+                raw_hosting_domain = _req_host  # use below for self-heal persist
+        except Exception:
+            _req_host = ''
+
+        real_domain = None
+
+        if not raw_hosting_domain:
+            # Strategy 1: look up by Django user (if authenticated via panel login)
+            if getattr(request, 'user', None) and getattr(request.user, 'is_authenticated', False):
+                real_domain = (
+                    MarketingLead.objects.filter(user=request.user)
+                    .exclude(domain=email_prefix)
+                    .values_list('domain', flat=True)
+                    .first()
+                )
+
+            # Strategy 2: any lead with a domain that contains a dot (real FQDN)
+            if not real_domain:
+                real_domain = (
+                    MarketingLead.objects.filter(domain__contains='.')
+                    .values_list('domain', flat=True)
+                    .first()
+                )
+
+            if real_domain:
+                # Persist so future requests skip the discovery step.
+                SuiteSubscription.objects.filter(email=su['email']).update(hosting_domain=real_domain)
+                # Also update session so sub-requests are consistent.
+                suite_session = request.session.get('suite_user', {})
+                suite_session['hosting_domain'] = real_domain
+                request.session['suite_user'] = suite_session
+                request.session.modified = True
+                domain_key = real_domain
+            else:
+                domain_key = raw_hosting_domain or email_prefix
+    # ── End domain resolution ─────────────────────────────────────────────
+
     ctx['domain'] = domain_key
     ctx['suite_mode'] = True
+
+    # Build and merge the marketing portal database context (leads, stats, campaigns, etc.)
+    try:
+        marketing_ctx = _get_marketing_portal_context(request, domain_key)
+        if isinstance(marketing_ctx, dict):
+            ctx.update(marketing_ctx)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).exception('suite_marketing_portal: _get_marketing_portal_context failed for domain %s: %s', domain_key, e)
+
     return render(request, 'control/marketing.html', ctx)
+
 
 
 # ── 5. Admin — Suite Plans ───────────────────────────────────────────────

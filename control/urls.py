@@ -206,6 +206,10 @@ urlpatterns = [
     path('suite/sso/<uuid:token>/',                views.suite_sso_validate,      name='suite_sso_validate'),
     # Standalone suite login / logout (suite-only customers)
     path('suite/login/',                           views.suite_login,             name='suite_login'),
+    # Per-suite branded login pages (direct links, e.g. from purchase confirmation emails)
+    path('suite/social/login/',                    lambda req: views.suite_login(req, suite='social'),   name='suite_login_social'),
+    path('suite/seo/login/',                       lambda req: views.suite_login(req, suite='seo'),      name='suite_login_seo'),
+    path('suite/marketing/login/',                 lambda req: views.suite_login(req, suite='marketing'), name='suite_login_marketing'),
     path('suite/logout/',                          views.suite_logout,            name='suite_logout'),
     # Suite portals — accessible via SSO or direct login
     path('suite/social/',                          views.suite_social_portal,     name='suite_social_portal'),

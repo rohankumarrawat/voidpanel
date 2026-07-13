@@ -1643,7 +1643,7 @@ class SuiteSubscription(models.Model):
     """
     suite        = models.CharField(max_length=20, choices=SUITE_CHOICES)
     plan         = models.ForeignKey(SuitePlan, on_delete=models.PROTECT, related_name='subscriptions')
-    email        = models.EmailField(unique=True)
+    email        = models.EmailField(db_index=True)
     password     = models.CharField(max_length=128, help_text='hashed')
     first_name   = models.CharField(max_length=100, blank=True)
     last_name    = models.CharField(max_length=100, blank=True)
@@ -1658,6 +1658,7 @@ class SuiteSubscription(models.Model):
     class Meta:
         verbose_name = 'Suite Subscription'
         ordering     = ['-created_at']
+        unique_together = [('email', 'suite')]
 
     def __str__(self):
         return f"{self.email} [{self.get_suite_display()} / {self.plan.name}]"
