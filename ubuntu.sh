@@ -1422,6 +1422,7 @@ phpmyadminsetup() {
     cat > /etc/nginx/sites-available/phpmyadmin <<NGINXCONF
 server {
     listen 8090;
+    client_max_body_size 256M;
     server_name ${PUBLIC_IP};
     root /usr/share/phpmyadmin;
     index index.php;
@@ -1429,11 +1430,14 @@ server {
     location ~ \.php\$ {
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:/var/run/php/php${PHP_VERSION}-fpm.sock;
+        fastcgi_read_timeout 600;
+        fastcgi_send_timeout 600;
     }
     location ~ /\.(ht|svn|git) { deny all; }
 }
 server {
     listen 8092 ssl http2;
+    client_max_body_size 256M;
     server_name ${PUBLIC_IP} ${HOSTNAME_FQDN};
     ssl_certificate     /etc/nginx/dummy.crt;
     ssl_certificate_key /etc/nginx/dummy.key;
@@ -1444,12 +1448,32 @@ server {
     location ~ \.php\$ {
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:/var/run/php/php${PHP_VERSION}-fpm.sock;
+        fastcgi_read_timeout 600;
+        fastcgi_send_timeout 600;
     }
     location ~ /\.(ht|svn|git) { deny all; }
 }
 NGINXCONF
 
     ln -sf /etc/nginx/sites-available/phpmyadmin /etc/nginx/sites-enabled/
+
+    # ── Tune PHP-FPM ini for large DB imports via phpMyAdmin ─────────────────
+    status_msg "Tuning PHP-FPM limits for phpMyAdmin imports"
+    PHP_FPM_INI="/etc/php/${PHP_VERSION}/fpm/php.ini"
+    if [[ -f "$PHP_FPM_INI" ]]; then
+        sed -i 's/^upload_max_filesize = .*/upload_max_filesize = 256M/'  "$PHP_FPM_INI"
+        sed -i 's/^post_max_size = .*/post_max_size = 256M/'              "$PHP_FPM_INI"
+        sed -i 's/^max_execution_time = .*/max_execution_time = 600/'     "$PHP_FPM_INI"
+        sed -i 's/^max_input_time = .*/max_input_time = 600/'             "$PHP_FPM_INI"
+        # Only bump memory_limit if current value is below 512M
+        CURRENT_MEM=$(grep '^memory_limit' "$PHP_FPM_INI" | grep -oP '\d+' | head -1)
+        if [[ -z "$CURRENT_MEM" || "$CURRENT_MEM" -lt 512 ]]; then
+            sed -i 's/^memory_limit = .*/memory_limit = 512M/' "$PHP_FPM_INI"
+        fi
+        ok "PHP-FPM ini tuned: upload=256M post=256M exec=600s"
+    else
+        warn_msg "PHP-FPM ini not found at $PHP_FPM_INI — skipping ini tuning"
+    fi
 
     # ── Deploy VoidPanel SSO gateway for phpMyAdmin ───────────────────────────
     status_msg "Deploying phpMyAdmin SSO gateway"
