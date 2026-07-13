@@ -1,5 +1,3 @@
-
-
 #!/bin/bash
 set -euo pipefail
 
@@ -153,8 +151,12 @@ panelsetup() {
     if [[ -f "$PROJECT_DIR/requirements.txt" ]]; then
         pip install --quiet -r "$PROJECT_DIR/requirements.txt"
     else
-        pip install --quiet django uwsgi psutil pexpect requests mysql-connector-python huggingface_hub djangorestframework django-cors-headers celery redis channels channels_redis daphne
+        pip install --quiet django uwsgi psutil pexpect requests mysql-connector-python huggingface_hub djangorestframework django-cors-headers celery redis channels channels_redis daphne geoip2
     fi
+
+    status_msg "Downloading GeoIP Database for Traffic Analytics"
+    mkdir -p "$PROJECT_DIR/geoip"
+    curl -L -s -o "$PROJECT_DIR/geoip/GeoLite2-Country.mmdb" https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb
 
     status_msg "Deploying VoidPanel Source Code"
     if [[ -f "$INSTALL_START_DIR/Archive.zip" ]]; then
@@ -483,9 +485,14 @@ EOF
         mv /etc/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf.disabled
     fi
 
+    # ── Permissions & Media Setup ─────────────────────────────────────────────
+    status_msg "Creating Media Directories"
+    mkdir -p "$PROJECT_DIR/media/wa_campaigns" "$PROJECT_DIR/media/wa_broadcasts"
+
     status_msg "Applying Permission Hardening"
     chown -R nginx:nginx "$PROJECT_DIR"
     chmod -R 750 "$PROJECT_DIR"
+    chmod -R 775 "$PROJECT_DIR/media"
     chmod 711 /home
 
     if command -v setsebool &>/dev/null; then
@@ -496,9 +503,76 @@ EOF
         chcon -R -t httpd_sys_rw_content_t "$PROJECT_DIR" 2>/dev/null || true
     fi
 
+    # ── WhatsApp Web Microservice (Baileys — Self-Hosted, Zero Third-Party) ─────
+    status_msg "Setting up WhatsApp Web microservice (Baileys)"
+    WA_DIR="$PROJECT_DIR/wa_service"
+
+    NODE_BIN=""
+    for candidate in /usr/local/bin/node /usr/bin/node; do
+        if [[ -x "$candidate" ]]; then
+            NODE_VER=$("$candidate" -e "console.log(parseInt(process.versions.node.split('.')[0]))" 2>/dev/null)
+            if [[ "$NODE_VER" -ge 18 ]]; then
+                NODE_BIN="$candidate"
+                break
+            fi
+        fi
+    done
+
+    if [[ -z "$NODE_BIN" ]]; then
+        status_msg "Installing Node.js 20 LTS"
+        dnf module reset nodejs -y 2>/dev/null || true
+        dnf module enable nodejs:20 -y 2>/dev/null || true
+        dnf install -y nodejs
+        NODE_BIN="/usr/bin/node"
+    fi
+
+    # Install npm dependencies
+    if [[ -d "$WA_DIR" ]]; then
+        cd "$WA_DIR"
+        npm install --omit=dev --prefer-offline >/dev/null 2>&1
+        cd "$PROJECT_DIR"
+
+        # Write systemd service with correct node path
+        cat > /etc/systemd/system/voidpanel-wa.service <<EOF
+[Unit]
+Description=VoidPanel WhatsApp Web Microservice (Baileys)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$WA_DIR
+ExecStart=$NODE_BIN $WA_DIR/server.js
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=voidpanel-wa
+Environment=NODE_ENV=production
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=HOST=127.0.0.1
+Environment=PORT=3001
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+        systemctl daemon-reload
+        systemctl enable voidpanel-wa
+        systemctl start  voidpanel-wa
+        sleep 2
+        if systemctl is-active --quiet voidpanel-wa; then
+            success_msg "WhatsApp Web microservice is running"
+        else
+            echo "[WARN] voidpanel-wa service failed to start"
+        fi
+    else
+        echo "[WARN] wa_service directory not found at $WA_DIR — skipping WhatsApp setup"
+    fi
+
     systemctl daemon-reload
-    systemctl enable uwsgi voidpanel-daphne voidpanel-backup voidpanel-celery voidpanel-celery-beat
-    systemctl start uwsgi voidpanel-daphne voidpanel-backup voidpanel-celery voidpanel-celery-beat
+    systemctl enable uwsgi voidpanel-daphne voidpanel-backup voidpanel-celery voidpanel-celery-beat voidpanel-wa
+    systemctl start uwsgi voidpanel-daphne voidpanel-backup voidpanel-celery voidpanel-celery-beat voidpanel-wa
     success_msg "Panel Core Setup Complete"
 }
 
@@ -733,6 +807,7 @@ phpmyadminsetup() {
     cat << EOF > /etc/nginx/conf.d/phpmyadmin.conf
 server {
     listen 8090;
+    client_max_body_size 256M;
     server_name $PUBLIC_IP;
     root /usr/share/phpmyadmin;
     index index.php;
@@ -742,15 +817,20 @@ server {
         fastcgi_pass unix:$PHP_FPM_SOCK;
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        fastcgi_read_timeout 600;
+        fastcgi_send_timeout 600;
         include fastcgi_params;
     }
+    location ~ /\.(ht|svn|git) { deny all; }
 }
 
 server {
     listen 8092 ssl http2;
+    client_max_body_size 256M;
     server_name $PUBLIC_IP $HOSTNAME;
     ssl_certificate /etc/nginx/dummy.crt;
     ssl_certificate_key /etc/nginx/dummy.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
     root /usr/share/phpmyadmin;
     index index.php;
 
@@ -759,8 +839,11 @@ server {
         fastcgi_pass unix:$PHP_FPM_SOCK;
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        fastcgi_read_timeout 600;
+        fastcgi_send_timeout 600;
         include fastcgi_params;
     }
+    location ~ /\.(ht|svn|git) { deny all; }
 }
 EOF
 
@@ -768,13 +851,61 @@ EOF
         chcon -R -t httpd_sys_rw_content_t /usr/share/phpmyadmin 2>/dev/null || true
     fi
 
+    # ── Tune PHP-FPM ini for large DB imports via phpMyAdmin ──────────────────
+    status_msg "Tuning PHP-FPM limits for phpMyAdmin imports"
+    # AlmaLinux/RHEL PHP-FPM ini is typically in /etc/php.ini or /etc/php.d/
+    for PHP_FPM_INI in /etc/php.ini /etc/php/php.ini /etc/php81/php.ini /etc/php80/php.ini; do
+        if [[ -f "$PHP_FPM_INI" ]]; then
+            sed -i 's/^upload_max_filesize = .*/upload_max_filesize = 256M/'  "$PHP_FPM_INI"
+            sed -i 's/^post_max_size = .*/post_max_size = 256M/'              "$PHP_FPM_INI"
+            sed -i 's/^max_execution_time = .*/max_execution_time = 600/'     "$PHP_FPM_INI"
+            sed -i 's/^max_input_time = .*/max_input_time = 600/'             "$PHP_FPM_INI"
+            CURRENT_MEM=$(grep '^memory_limit' "$PHP_FPM_INI" | grep -oP '\d+' | head -1)
+            if [[ -z "$CURRENT_MEM" || "$CURRENT_MEM" -lt 512 ]]; then
+                sed -i 's/^memory_limit = .*/memory_limit = 512M/' "$PHP_FPM_INI"
+            fi
+            ok "PHP ini tuned at $PHP_FPM_INI: upload=256M post=256M exec=600s"
+            break
+        fi
+    done
+    # Also write a php-fpm drop-in for www pool if /etc/php-fpm.d/www.conf exists
+    if [[ -f /etc/php-fpm.d/www.conf ]]; then
+        PHP_FPM_POOL=/etc/php-fpm.d/www.conf
+        grep -q '^php_admin_value\[upload_max_filesize\]' "$PHP_FPM_POOL" || \
+            echo 'php_admin_value[upload_max_filesize] = 256M'  >> "$PHP_FPM_POOL"
+        grep -q '^php_admin_value\[post_max_size\]' "$PHP_FPM_POOL" || \
+            echo 'php_admin_value[post_max_size] = 256M'        >> "$PHP_FPM_POOL"
+        grep -q '^php_admin_value\[max_execution_time\]' "$PHP_FPM_POOL" || \
+            echo 'php_admin_value[max_execution_time] = 600'    >> "$PHP_FPM_POOL"
+        grep -q '^php_admin_value\[memory_limit\]' "$PHP_FPM_POOL" || \
+            echo 'php_admin_value[memory_limit] = 512M'         >> "$PHP_FPM_POOL"
+        ok "PHP-FPM www pool tuned"
+    fi
+
     # ── Deploy VoidPanel SSO gateway for phpMyAdmin ───────────────────────────
     status_msg "Deploying phpMyAdmin SSO gateway"
     cat > /usr/share/phpmyadmin/vp_sso.php << 'PMASSOEOF'
 <?php
+/**
+ * VoidPanel phpMyAdmin Single Sign-On gateway
+ * Called via cross-origin form POST from the VoidPanel dashboard.
+ * Sets the PMA signon session then redirects to phpMyAdmin index.
+ */
 session_name('phpMyAdmin');
+$port = (int)$_SERVER['SERVER_PORT'];
+$secure = ($port === 8092);  // HTTPS port
+ini_set('session.cookie_samesite', 'None');
+if ($secure) { ini_set('session.cookie_secure', '1'); }
+ini_set('session.cookie_httponly', '0');
 session_start();
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); die('Method not allowed.'); }
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(200);
+    echo '<!DOCTYPE html><html><head><title>VoidPanel Database Access</title>';
+    echo '<meta http-equiv="refresh" content="0;url=index.php">';
+    echo '</head><body><p>Redirecting to phpMyAdmin...</p>';
+    echo '<script>window.location.href="index.php";</script></body></html>';
+    exit;
+}
 $user     = isset($_POST['temp_user'])     ? trim($_POST['temp_user'])     : '';
 $password = isset($_POST['temp_password']) ? trim($_POST['temp_password']) : '';
 if (empty($user) || empty($password)) { http_response_code(400); die('Missing credentials.'); }
@@ -783,6 +914,7 @@ $_SESSION['PMA_single_signon_user']     = $user;
 $_SESSION['PMA_single_signon_password'] = $password;
 $_SESSION['PMA_single_signon_host']     = 'localhost';
 $_SESSION['PMA_single_signon_port']     = '3306';
+session_write_close();
 header('Location: index.php');
 exit;
 PMASSOEOF
@@ -815,6 +947,7 @@ emailsetup() {
     # Mail user (owns all mailboxes)
     groupadd -g 5000 vmail 2>/dev/null || true
     useradd -s /sbin/nologin -u 5000 -g 5000 -d /home/vmail vmail 2>/dev/null || true
+    usermod -aG nginx vmail 2>/dev/null || true
     mkdir -p /home/vmail/mail
     chown -R vmail:vmail /home/vmail
 
@@ -846,10 +979,22 @@ virtual_mailbox_domains = /etc/postfix/virtual_domains
 virtual_mailbox_maps = hash:/etc/postfix/vmailbox
 virtual_alias_maps = hash:/etc/postfix/virtual_alias
 virtual_transport = lmtp:unix:private/dovecot-lmtp
+inet_protocols = ipv4
+
+# Milter configuration
+milter_protocol = 6
+milter_default_action = accept
+smtpd_milters = inet:127.0.0.1:8891
+non_smtpd_milters = inet:127.0.0.1:8891
 
 # Standard SMTP Restrictions
-smtpd_recipient_restrictions = permit_sasl_authenticated,permit_mynetworks,reject_unauth_destination
+smtpd_recipient_restrictions = check_recipient_access hash:/etc/postfix/vp_suspended_incoming, check_policy_service unix:private/voidpanel-mail-policy, permit_sasl_authenticated, permit_mynetworks, reject_unauth_destination
+smtpd_sender_restrictions = check_sender_access hash:/etc/postfix/vp_suspended_outgoing, permit_sasl_authenticated, permit_mynetworks, reject_unauth_destination
 EOF
+
+    # Initialize empty suspension maps
+    touch /etc/postfix/vp_suspended_incoming /etc/postfix/vp_suspended_outgoing
+    postmap /etc/postfix/vp_suspended_incoming /etc/postfix/vp_suspended_outgoing
 
     # ── Postfix master.cf — ports 25, 587 (submission), 465 (smtps) ─────────────
     cat > /etc/postfix/master.cf <<'EOF'
@@ -857,20 +1002,22 @@ EOF
 # service type  private unpriv  chroot  wakeup  maxproc command + args
 # ==========================================================================
 smtp       inet  n       -       n       -       -       smtpd
-submission inet  n       -       n       -       -       smtpd
+0.0.0.0:587    inet  n       -       n       -       -       smtpd
   -o syslog_name=postfix/submission
   -o smtpd_tls_security_level=encrypt
   -o smtpd_sasl_auth_enable=yes
   -o smtpd_sasl_type=dovecot
   -o smtpd_sasl_path=private/auth
+  -o smtpd_relay_restrictions=permit_sasl_authenticated,reject
   -o smtpd_recipient_restrictions=check_policy_service,unix:private/voidpanel-mail-policy,permit_sasl_authenticated,reject
   -o milter_macro_daemon_name=ORIGINATING
-smtps      inet  n       -       n       -       -       smtpd
+0.0.0.0:465    inet  n       -       n       -       -       smtpd
   -o syslog_name=postfix/smtps
   -o smtpd_tls_wrappermode=yes
   -o smtpd_sasl_auth_enable=yes
   -o smtpd_sasl_type=dovecot
   -o smtpd_sasl_path=private/auth
+  -o smtpd_relay_restrictions=permit_sasl_authenticated,reject
   -o smtpd_recipient_restrictions=check_policy_service,unix:private/voidpanel-mail-policy,permit_sasl_authenticated,reject
   -o milter_macro_daemon_name=ORIGINATING
 pickup     unix  n       -       n       60      1       pickup
@@ -985,6 +1132,33 @@ EOF
     chown vmail:vmail /etc/dovecot/users
     chmod 660 /etc/dovecot/users
 
+    # ── OpenDKIM configuration ─────────────────────────────────────────────────
+    status_msg "Configuring OpenDKIM"
+    mkdir -p /etc/opendkim/keys
+    cat > /etc/opendkim.conf <<'EOF'
+Syslog                  yes
+RequiredHeaders         yes
+UMask                   007
+Mode                    sv
+Socket                  inet:8891@127.0.0.1
+PidFile                 /run/opendkim/opendkim.pid
+OversignHeaders         From
+TrustAnchorFile         /usr/share/dns/root.key
+
+KeyTable                /etc/opendkim/KeyTable
+SigningTable            refile:/etc/opendkim/SigningTable
+TrustedHosts            /etc/opendkim/TrustedHosts
+EOF
+
+    # Create empty OpenDKIM tables if they don't exist
+    touch /etc/opendkim/KeyTable /etc/opendkim/SigningTable /etc/opendkim/TrustedHosts
+    echo "127.0.0.1" > /etc/opendkim/TrustedHosts
+    echo "localhost" >> /etc/opendkim/TrustedHosts
+
+    # Set proper ownership and permissions
+    chown -R opendkim:opendkim /etc/opendkim
+    chmod -R 700 /etc/opendkim
+
     # Create voidemail wrapper script for API v2
     cat > /usr/bin/voidemail <<'EOF'
 #!/bin/bash
@@ -1005,9 +1179,174 @@ fi
 EOF
     chmod +x /usr/bin/voidemail
 
+    # ── VoidPanel Mail Rate Limit Policy Daemon ───────────────────────────────
+    status_msg "Configuring Mail Rate Limit Policy Daemon"
+    
+    cat > /usr/local/bin/voidpanel-mail-policy <<'DAEMONEOF'
+#!/usr/bin/env python3
+import os, time, sqlite3, socket, threading
+
+POLICY_SOCKET = '/var/spool/postfix/private/voidpanel-mail-policy'
+DB_PATH       = '/var/lib/voidpanel-mail-policy/rate.db'
+CONFIG_PATH   = '/etc/voidpanel-mail-policy.conf'
+WHITELIST_PATH = '/etc/voidpanel-mail-policy-whitelist.conf'
+DEFAULT_LIMIT = 100
+
+def get_global_limit():
+    try:
+        with open(CONFIG_PATH) as f:
+            for line in f:
+                if line.startswith('hourly_limit='):
+                    return int(line.strip().split('=', 1)[1])
+    except Exception:
+        pass
+    return DEFAULT_LIMIT
+
+def get_whitelisted_domains():
+    try:
+        if os.path.exists(WHITELIST_PATH):
+            with open(WHITELIST_PATH) as f:
+                content = f.read()
+            return {d.strip().lower() for d in content.replace('\n', ',').split(',') if d.strip()}
+    except Exception:
+        pass
+    return set()
+
+def get_user_limit(sasl_username):
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=1)
+        c = conn.cursor()
+        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='user_limits'")
+        if c.fetchone():
+            c.execute('SELECT limit_val FROM user_limits WHERE username=?', (sasl_username.lower(),))
+            row = c.fetchone()
+            if row and row[0] > 0:
+                conn.close()
+                return row[0]
+        conn.close()
+    except Exception:
+        pass
+    return None
+
+def check_and_record(sasl_username, limit):
+    now          = int(time.time())
+    window_start = now - 3600
+    conn = sqlite3.connect(DB_PATH, timeout=5)
+    try:
+        c = conn.cursor()
+        c.execute('CREATE TABLE IF NOT EXISTS sends (username TEXT NOT NULL, ts INTEGER NOT NULL)')
+        c.execute('CREATE INDEX IF NOT EXISTS idx_user_ts ON sends(username, ts)')
+        c.execute('DELETE FROM sends WHERE ts < ?', (window_start,))
+        c.execute('SELECT COUNT(*) FROM sends WHERE username=? AND ts>=?', (sasl_username, window_start))
+        count = c.fetchone()[0]
+        if count >= limit:
+            conn.commit()
+            return False
+        c.execute('INSERT INTO sends (username, ts) VALUES (?, ?)', (sasl_username, now))
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+def init_db():
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute('CREATE TABLE IF NOT EXISTS sends (username TEXT NOT NULL, ts INTEGER NOT NULL)')
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_user_ts ON sends(username, ts)')
+    conn.execute('CREATE TABLE IF NOT EXISTS user_limits (username TEXT PRIMARY KEY, limit_val INTEGER, timespan INTEGER)')
+    conn.commit()
+    conn.close()
+    os.chmod(os.path.dirname(DB_PATH), 0o755)
+    if os.path.exists(DB_PATH):
+        os.chmod(DB_PATH, 0o666)
+
+def handle_client(conn):
+    data = {}
+    buf = ''
+    try:
+        while True:
+            chunk = conn.recv(4096).decode('utf-8', errors='ignore')
+            if not chunk:
+                break
+            buf += chunk
+            if '\n\n' in buf:
+                break
+        for line in buf.strip().split('\n'):
+            line = line.strip()
+            if '=' in line:
+                k, v = line.split('=', 1)
+                data[k.strip()] = v.strip()
+        sasl_username = data.get('sasl_username', '').strip()
+        if not sasl_username:
+            conn.sendall(b'action=DUNNO\n\n')
+            return
+        domain = sasl_username.split('@')[-1].lower() if '@' in sasl_username else ''
+        whitelisted = get_whitelisted_domains()
+        if domain and domain in whitelisted:
+            conn.sendall(b'action=DUNNO\n\n')
+            return
+        user_limit = get_user_limit(sasl_username)
+        limit = user_limit if user_limit is not None else get_global_limit()
+        if check_and_record(sasl_username, limit):
+            conn.sendall(b'action=DUNNO\n\n')
+        else:
+            msg = 'action=REJECT Rate limit exceeded: maximum {} emails per hour allowed\n\n'.format(limit)
+            conn.sendall(msg.encode())
+    except Exception:
+        try:
+            conn.sendall(b'action=DUNNO\n\n')
+        except Exception:
+            pass
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+def main():
+    init_db()
+    if os.path.exists(POLICY_SOCKET):
+        os.unlink(POLICY_SOCKET)
+    server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    server.bind(POLICY_SOCKET)
+    os.chmod(POLICY_SOCKET, 0o666)
+    server.listen(50)
+    while True:
+        try:
+            conn, _ = server.accept()
+            t = threading.Thread(target=handle_client, args=(conn,), daemon=True)
+            t.start()
+        except Exception:
+            pass
+
+if __name__ == '__main__':
+    main()
+DAEMONEOF
+
+    chmod +x /usr/local/bin/voidpanel-mail-policy
+
+    # Write systemd service file
+    cat > /etc/systemd/system/voidpanel-mail-policy.service <<'SVCEOF'
+[Unit]
+Description=VoidPanel Mail Rate Limit Policy Daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/voidpanel-mail-policy
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+
+    systemctl daemon-reload
+    systemctl enable --now voidpanel-mail-policy
+
     status_msg "Configuring Mail Services Enablement"
-    systemctl enable --now postfix dovecot
-    systemctl restart postfix dovecot
+    systemctl enable --now opendkim voidpanel-mail-policy postfix dovecot
+    systemctl restart opendkim voidpanel-mail-policy postfix dovecot
     success_msg "Mail Stack Online — ports 25, 465, 587 (SMTP) | 143, 993 (IMAP) | 110, 995 (POP3)"
 }
 
@@ -1024,8 +1363,8 @@ dockersetup() {
 # --- 10. Service Orchestration ---
 final_restart() {
     status_msg "Synchronizing System Services"
-    systemctl restart nginx uwsgi php-fpm mariadb named vsftpd postfix dovecot docker 2>/dev/null || true
-    systemctl enable nginx uwsgi php-fpm mariadb named vsftpd postfix dovecot docker 2>/dev/null || true
+    systemctl restart nginx uwsgi php-fpm mariadb named vsftpd postfix dovecot docker voidpanel-wa 2>/dev/null || true
+    systemctl enable nginx uwsgi php-fpm mariadb named vsftpd postfix dovecot docker voidpanel-wa 2>/dev/null || true
     success_msg "All Services Synchronized"
 }
 

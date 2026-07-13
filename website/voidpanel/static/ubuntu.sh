@@ -15,7 +15,7 @@ exec > >(tee -i "$LOG_FILE") 2>&1
 print_header() {
     clear
     echo -e "${CYAN}=========================================================================="
-    echo "          VoidPanel Enterprise Installation Pipeline v2.5.23"
+    echo "          VoidPanel Enterprise Installation Pipeline v2.5.24"
     echo "=========================================================================="
     echo -e " Time: $(date)"
     echo -e " Logs: $LOG_FILE"
@@ -598,26 +598,120 @@ NGINXCONF
           /var/log/voidpanel/celery.log \
           /var/log/voidpanel/celery-beat.log
 
-    # ── Permissions ───────────────────────────────────────────────────────────
+    # ── Permissions & Media Setup ─────────────────────────────────────────────
+    status_msg "Creating Media Directories"
+    mkdir -p "$PROJECT_DIR/media/wa_campaigns" "$PROJECT_DIR/media/wa_broadcasts"
+    
     status_msg "Applying permission hardening"
     chown -R www-data:www-data "$PROJECT_DIR"
     chmod -R 750 "$PROJECT_DIR"
+    chmod -R 775 "$PROJECT_DIR/media"
     chmod 711 /home
 
     # ── Version tracking file — must be writable by www-data (Django update process) ──
     # Without this, the update flow can't record the new version after applying an update.
     VFILE="/etc/version.txt"
-    echo "2.5.23" > "$VFILE"
+    echo "2.5.24" > "$VFILE"
     chown www-data:www-data "$VFILE"
     chmod 664 "$VFILE"
     # Also write to panel dir as a reliable fallback
-    echo "2.5.23" > "$PROJECT_DIR/version.txt"
+    echo "2.5.24" > "$PROJECT_DIR/version.txt"
     chown www-data:www-data "$PROJECT_DIR/version.txt"
 
 
     systemctl daemon-reload
     systemctl enable voidpanel voidpanel-daphne voidpanel-backup voidpanel-celery voidpanel-celery-beat
     systemctl start  voidpanel voidpanel-daphne voidpanel-backup voidpanel-celery voidpanel-celery-beat
+
+    # ── WhatsApp Web Microservice (Baileys — Self-Hosted, Zero Third-Party) ─────
+    status_msg "Setting up WhatsApp Web microservice (Baileys)"
+
+    WA_DIR="$PROJECT_DIR/wa_service"
+
+    # Install Node.js 20 LTS if not present or version < 18
+    NODE_BIN=""
+    for candidate in /usr/local/bin/node /usr/bin/node; do
+        if [[ -x "$candidate" ]]; then
+            NODE_VER=$("$candidate" -e "console.log(parseInt(process.versions.node.split('.')[0]))" 2>/dev/null)
+            if [[ "$NODE_VER" -ge 18 ]]; then
+                NODE_BIN="$candidate"
+                break
+            fi
+        fi
+    done
+
+    if [[ -z "$NODE_BIN" ]]; then
+        echo "Node.js >= 18 not found — installing Node.js 20 LTS..."
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - >/dev/null 2>&1
+        apt-get install -y -qq nodejs
+        # NodeSource on Ubuntu installs to /usr/bin/node; check both locations
+        for candidate in /usr/bin/node /usr/local/bin/node; do
+            if [[ -x "$candidate" ]]; then
+                NODE_BIN="$candidate"
+                break
+            fi
+        done
+        if [[ -z "$NODE_BIN" ]]; then
+            echo "[WARN] Node.js install failed — skipping WhatsApp setup"
+        fi
+    fi
+
+    # Install npm dependencies and configure service
+    if [[ -d "$WA_DIR" && -n "$NODE_BIN" ]]; then
+        cd "$WA_DIR"
+        # Use plain npm install (no --prefer-offline on fresh servers — npm cache is empty)
+        npm install --omit=dev >/dev/null 2>&1
+        cd "$PROJECT_DIR"
+
+        # Create the auth_sessions directory up-front with correct ownership
+        mkdir -p "$WA_DIR/auth_sessions"
+        chown -R root:root "$WA_DIR/auth_sessions"
+        chmod 700 "$WA_DIR/auth_sessions"
+
+        # Write systemd service with correct node path
+        cat > /etc/systemd/system/voidpanel-wa.service <<EOF
+[Unit]
+Description=VoidPanel WhatsApp Web Microservice (Baileys)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$WA_DIR
+ExecStart=$NODE_BIN $WA_DIR/server.js
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=voidpanel-wa
+Environment=NODE_ENV=production
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=HOST=127.0.0.1
+Environment=PORT=3001
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+        systemctl daemon-reload
+        systemctl enable voidpanel-wa
+        systemctl start  voidpanel-wa
+        sleep 3
+        if systemctl is-active --quiet voidpanel-wa; then
+            # Quick health check — the service must respond on :3001
+            if curl -sf http://127.0.0.1:3001/health >/dev/null 2>&1; then
+                success_msg "WhatsApp Web microservice is running"
+            else
+                echo "[WARN] voidpanel-wa started but health check failed — run: journalctl -u voidpanel-wa -n 20"
+            fi
+        else
+            echo "[WARN] voidpanel-wa service failed to start — run: journalctl -u voidpanel-wa -n 20"
+        fi
+    elif [[ ! -d "$WA_DIR" ]]; then
+        echo "[WARN] wa_service directory not found at $WA_DIR — skipping WhatsApp setup"
+    fi
+    # ─────────────────────────────────────────────────────────────────────────────
+
 
     success_msg "Panel Core Setup Complete"
 }
@@ -694,7 +788,6 @@ smtpd_tls_auth_only = yes
 smtpd_tls_security_level = may
 smtpd_tls_protocols = !SSLv2, !SSLv3
 smtp_tls_security_level = may
-compatibility_level = 3.6
 
 smtpd_sasl_type = dovecot
 smtpd_sasl_path = private/auth
@@ -721,13 +814,11 @@ EOF
     postmap /etc/postfix/vp_suspended_incoming /etc/postfix/vp_suspended_outgoing
 
     # ── Postfix master.cf — enable ports 587 (submission) and 465 (smtps) ─────
-    cat > /etc/postfix/master.cf << 'EOF'
+    cat > /etc/postfix/master.cf <<'EOF'
 # ==========================================================================
 # service type  private unpriv  chroot  wakeup  maxproc command + args
 # ==========================================================================
-smtp           inet  n       -       n       -       -       smtpd
-
-# Port 587 — Submission (STARTTLS + SASL auth required)
+smtp       inet  n       -       n       -       -       smtpd
 0.0.0.0:587    inet  n       -       n       -       -       smtpd
   -o syslog_name=postfix/submission
   -o smtpd_tls_security_level=encrypt
@@ -737,8 +828,6 @@ smtp           inet  n       -       n       -       -       smtpd
   -o smtpd_relay_restrictions=permit_sasl_authenticated,reject
   -o smtpd_recipient_restrictions=check_policy_service,unix:private/voidpanel-mail-policy,permit_sasl_authenticated,reject
   -o milter_macro_daemon_name=ORIGINATING
-
-# Port 465 — SMTPS (SSL wrapper + SASL auth required)
 0.0.0.0:465    inet  n       -       n       -       -       smtpd
   -o syslog_name=postfix/smtps
   -o smtpd_tls_wrappermode=yes
@@ -748,7 +837,6 @@ smtp           inet  n       -       n       -       -       smtpd
   -o smtpd_relay_restrictions=permit_sasl_authenticated,reject
   -o smtpd_recipient_restrictions=check_policy_service,unix:private/voidpanel-mail-policy,permit_sasl_authenticated,reject
   -o milter_macro_daemon_name=ORIGINATING
-
 pickup     unix  n       -       n       60      1       pickup
 cleanup    unix  n       -       n       -       0       cleanup
 qmgr       unix  n       -       n       300     1       qmgr
@@ -1334,6 +1422,7 @@ phpmyadminsetup() {
     cat > /etc/nginx/sites-available/phpmyadmin <<NGINXCONF
 server {
     listen 8090;
+    client_max_body_size 256M;
     server_name ${PUBLIC_IP};
     root /usr/share/phpmyadmin;
     index index.php;
@@ -1341,11 +1430,14 @@ server {
     location ~ \.php\$ {
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:/var/run/php/php${PHP_VERSION}-fpm.sock;
+        fastcgi_read_timeout 600;
+        fastcgi_send_timeout 600;
     }
     location ~ /\.(ht|svn|git) { deny all; }
 }
 server {
     listen 8092 ssl http2;
+    client_max_body_size 256M;
     server_name ${PUBLIC_IP} ${HOSTNAME_FQDN};
     ssl_certificate     /etc/nginx/dummy.crt;
     ssl_certificate_key /etc/nginx/dummy.key;
@@ -1356,12 +1448,32 @@ server {
     location ~ \.php\$ {
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:/var/run/php/php${PHP_VERSION}-fpm.sock;
+        fastcgi_read_timeout 600;
+        fastcgi_send_timeout 600;
     }
     location ~ /\.(ht|svn|git) { deny all; }
 }
 NGINXCONF
 
     ln -sf /etc/nginx/sites-available/phpmyadmin /etc/nginx/sites-enabled/
+
+    # ── Tune PHP-FPM ini for large DB imports via phpMyAdmin ─────────────────
+    status_msg "Tuning PHP-FPM limits for phpMyAdmin imports"
+    PHP_FPM_INI="/etc/php/${PHP_VERSION}/fpm/php.ini"
+    if [[ -f "$PHP_FPM_INI" ]]; then
+        sed -i 's/^upload_max_filesize = .*/upload_max_filesize = 256M/'  "$PHP_FPM_INI"
+        sed -i 's/^post_max_size = .*/post_max_size = 256M/'              "$PHP_FPM_INI"
+        sed -i 's/^max_execution_time = .*/max_execution_time = 600/'     "$PHP_FPM_INI"
+        sed -i 's/^max_input_time = .*/max_input_time = 600/'             "$PHP_FPM_INI"
+        # Only bump memory_limit if current value is below 512M
+        CURRENT_MEM=$(grep '^memory_limit' "$PHP_FPM_INI" | grep -oP '\d+' | head -1)
+        if [[ -z "$CURRENT_MEM" || "$CURRENT_MEM" -lt 512 ]]; then
+            sed -i 's/^memory_limit = .*/memory_limit = 512M/' "$PHP_FPM_INI"
+        fi
+        ok "PHP-FPM ini tuned: upload=256M post=256M exec=600s"
+    else
+        warn_msg "PHP-FPM ini not found at $PHP_FPM_INI — skipping ini tuning"
+    fi
 
     # ── Deploy VoidPanel SSO gateway for phpMyAdmin ───────────────────────────
     status_msg "Deploying phpMyAdmin SSO gateway"
@@ -1636,10 +1748,11 @@ final_restart() {
     systemctl restart voidpanel
     systemctl restart voidpanel-daphne
     systemctl restart voidpanel-celery
+    systemctl restart voidpanel-wa 2>/dev/null || true
 
     # Enable all on boot — use 'named' not 'bind9' (bind9 is an alias on Ubuntu 22.04+)
-    systemctl enable nginx php${PHP_VERSION}-fpm mysql named postfix dovecot voidpanel voidpanel-daphne voidpanel-celery redis-server docker 2>/dev/null || \
-    systemctl enable nginx php${PHP_VERSION}-fpm mysql bind9 postfix dovecot voidpanel voidpanel-daphne voidpanel-celery redis-server docker 2>/dev/null || true
+    systemctl enable nginx php${PHP_VERSION}-fpm mysql named postfix dovecot voidpanel voidpanel-daphne voidpanel-celery voidpanel-wa redis-server docker 2>/dev/null || \
+    systemctl enable nginx php${PHP_VERSION}-fpm mysql bind9 postfix dovecot voidpanel voidpanel-daphne voidpanel-celery voidpanel-wa redis-server docker 2>/dev/null || true
 
     success_msg "All services online and boot-enabled"
 }
@@ -1724,7 +1837,7 @@ EOF
 #  MAIN
 # =============================================================================
 install_main_system() {
-    status_msg "VoidPanel v2.5.23 — Enterprise Installation Starting (Ubuntu 22.04)"
+    status_msg "VoidPanel v2.5.24 — Enterprise Installation Starting (Ubuntu 22.04)"
     panelsetup
     bindsetup
     quotasetup

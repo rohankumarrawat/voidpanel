@@ -15,7 +15,7 @@ exec > >(tee -i "$LOG_FILE") 2>&1
 print_header() {
     clear
     echo -e "${CYAN}=========================================================================="
-    echo "          VoidPanel Enterprise Installation Pipeline v2.5.23"
+    echo "          VoidPanel Enterprise Installation Pipeline v2.5.24"
     echo "=========================================================================="
     echo -e " Time: $(date)"
     echo -e " Logs: $LOG_FILE"
@@ -203,8 +203,12 @@ panelsetup() {
         pip install --quiet \
             django celery redis uwsgi psutil pexpect requests \
             mysql-connector-python djangorestframework django-cors-headers \
-            channels channels_redis daphne
+            channels channels_redis daphne geoip2
     fi
+
+    status_msg "Downloading GeoIP Database for Traffic Analytics"
+    mkdir -p "$PROJECT_DIR/geoip"
+    curl -L -s -o "$PROJECT_DIR/geoip/GeoLite2-Country.mmdb" https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb
 
     # ── Fix Django settings ──────────────────────────────────────────────────
     status_msg "Configuring Django settings"
@@ -594,26 +598,120 @@ NGINXCONF
           /var/log/voidpanel/celery.log \
           /var/log/voidpanel/celery-beat.log
 
-    # ── Permissions ───────────────────────────────────────────────────────────
+    # ── Permissions & Media Setup ─────────────────────────────────────────────
+    status_msg "Creating Media Directories"
+    mkdir -p "$PROJECT_DIR/media/wa_campaigns" "$PROJECT_DIR/media/wa_broadcasts"
+    
     status_msg "Applying permission hardening"
     chown -R www-data:www-data "$PROJECT_DIR"
     chmod -R 750 "$PROJECT_DIR"
+    chmod -R 775 "$PROJECT_DIR/media"
     chmod 711 /home
 
     # ── Version tracking file — must be writable by www-data (Django update process) ──
     # Without this, the update flow can't record the new version after applying an update.
     VFILE="/etc/version.txt"
-    echo "2.5.23" > "$VFILE"
+    echo "2.5.24" > "$VFILE"
     chown www-data:www-data "$VFILE"
     chmod 664 "$VFILE"
     # Also write to panel dir as a reliable fallback
-    echo "2.5.23" > "$PROJECT_DIR/version.txt"
+    echo "2.5.24" > "$PROJECT_DIR/version.txt"
     chown www-data:www-data "$PROJECT_DIR/version.txt"
 
 
     systemctl daemon-reload
     systemctl enable voidpanel voidpanel-daphne voidpanel-backup voidpanel-celery voidpanel-celery-beat
     systemctl start  voidpanel voidpanel-daphne voidpanel-backup voidpanel-celery voidpanel-celery-beat
+
+    # ── WhatsApp Web Microservice (Baileys — Self-Hosted, Zero Third-Party) ─────
+    status_msg "Setting up WhatsApp Web microservice (Baileys)"
+
+    WA_DIR="$PROJECT_DIR/wa_service"
+
+    # Install Node.js 20 LTS if not present or version < 18
+    NODE_BIN=""
+    for candidate in /usr/local/bin/node /usr/bin/node; do
+        if [[ -x "$candidate" ]]; then
+            NODE_VER=$("$candidate" -e "console.log(parseInt(process.versions.node.split('.')[0]))" 2>/dev/null)
+            if [[ "$NODE_VER" -ge 18 ]]; then
+                NODE_BIN="$candidate"
+                break
+            fi
+        fi
+    done
+
+    if [[ -z "$NODE_BIN" ]]; then
+        echo "Node.js >= 18 not found — installing Node.js 20 LTS..."
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - >/dev/null 2>&1
+        apt-get install -y -qq nodejs
+        # NodeSource on Ubuntu installs to /usr/bin/node; check both locations
+        for candidate in /usr/bin/node /usr/local/bin/node; do
+            if [[ -x "$candidate" ]]; then
+                NODE_BIN="$candidate"
+                break
+            fi
+        done
+        if [[ -z "$NODE_BIN" ]]; then
+            echo "[WARN] Node.js install failed — skipping WhatsApp setup"
+        fi
+    fi
+
+    # Install npm dependencies and configure service
+    if [[ -d "$WA_DIR" && -n "$NODE_BIN" ]]; then
+        cd "$WA_DIR"
+        # Use plain npm install (no --prefer-offline on fresh servers — npm cache is empty)
+        npm install --omit=dev >/dev/null 2>&1
+        cd "$PROJECT_DIR"
+
+        # Create the auth_sessions directory up-front with correct ownership
+        mkdir -p "$WA_DIR/auth_sessions"
+        chown -R root:root "$WA_DIR/auth_sessions"
+        chmod 700 "$WA_DIR/auth_sessions"
+
+        # Write systemd service with correct node path
+        cat > /etc/systemd/system/voidpanel-wa.service <<EOF
+[Unit]
+Description=VoidPanel WhatsApp Web Microservice (Baileys)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$WA_DIR
+ExecStart=$NODE_BIN $WA_DIR/server.js
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=voidpanel-wa
+Environment=NODE_ENV=production
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=HOST=127.0.0.1
+Environment=PORT=3001
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+        systemctl daemon-reload
+        systemctl enable voidpanel-wa
+        systemctl start  voidpanel-wa
+        sleep 3
+        if systemctl is-active --quiet voidpanel-wa; then
+            # Quick health check — the service must respond on :3001
+            if curl -sf http://127.0.0.1:3001/health >/dev/null 2>&1; then
+                success_msg "WhatsApp Web microservice is running"
+            else
+                echo "[WARN] voidpanel-wa started but health check failed — run: journalctl -u voidpanel-wa -n 20"
+            fi
+        else
+            echo "[WARN] voidpanel-wa service failed to start — run: journalctl -u voidpanel-wa -n 20"
+        fi
+    elif [[ ! -d "$WA_DIR" ]]; then
+        echo "[WARN] wa_service directory not found at $WA_DIR — skipping WhatsApp setup"
+    fi
+    # ─────────────────────────────────────────────────────────────────────────────
+
 
     success_msg "Panel Core Setup Complete"
 }
@@ -667,6 +765,7 @@ emailsetup() {
 
     groupadd -g 5000 vmail 2>/dev/null || true
     useradd -s /usr/sbin/nologin -u 5000 -g 5000 -d /home/vmail vmail 2>/dev/null || true
+    usermod -aG www-data vmail 2>/dev/null || true
     mkdir -p /home/vmail/mail
     chown -R vmail:vmail /home/vmail
 
@@ -698,9 +797,21 @@ virtual_mailbox_domains = /etc/postfix/virtual_domains
 virtual_mailbox_maps    = hash:/etc/postfix/vmailbox
 virtual_alias_maps      = hash:/etc/postfix/virtual_alias
 virtual_transport       = lmtp:unix:private/dovecot-lmtp
+inet_protocols          = ipv4
 
-smtpd_recipient_restrictions = permit_sasl_authenticated,permit_mynetworks,reject_unauth_destination
+# Milter configuration
+milter_protocol = 6
+milter_default_action = accept
+smtpd_milters = inet:127.0.0.1:8891
+non_smtpd_milters = inet:127.0.0.1:8891
+
+smtpd_recipient_restrictions = check_recipient_access hash:/etc/postfix/vp_suspended_incoming, check_policy_service unix:private/voidpanel-mail-policy, permit_sasl_authenticated, permit_mynetworks, reject_unauth_destination
+smtpd_sender_restrictions = check_sender_access hash:/etc/postfix/vp_suspended_outgoing, permit_sasl_authenticated, permit_mynetworks, reject_unauth_destination
 EOF
+
+    # Initialize empty suspension maps
+    touch /etc/postfix/vp_suspended_incoming /etc/postfix/vp_suspended_outgoing
+    postmap /etc/postfix/vp_suspended_incoming /etc/postfix/vp_suspended_outgoing
 
     # ── Postfix master.cf — enable ports 587 (submission) and 465 (smtps) ─────
     cat > /etc/postfix/master.cf <<'EOF'
@@ -708,20 +819,22 @@ EOF
 # service type  private unpriv  chroot  wakeup  maxproc command + args
 # ==========================================================================
 smtp       inet  n       -       n       -       -       smtpd
-submission inet  n       -       n       -       -       smtpd
+0.0.0.0:587    inet  n       -       n       -       -       smtpd
   -o syslog_name=postfix/submission
   -o smtpd_tls_security_level=encrypt
   -o smtpd_sasl_auth_enable=yes
   -o smtpd_sasl_type=dovecot
   -o smtpd_sasl_path=private/auth
+  -o smtpd_relay_restrictions=permit_sasl_authenticated,reject
   -o smtpd_recipient_restrictions=check_policy_service,unix:private/voidpanel-mail-policy,permit_sasl_authenticated,reject
   -o milter_macro_daemon_name=ORIGINATING
-smtps      inet  n       -       n       -       -       smtpd
+0.0.0.0:465    inet  n       -       n       -       -       smtpd
   -o syslog_name=postfix/smtps
   -o smtpd_tls_wrappermode=yes
   -o smtpd_sasl_auth_enable=yes
   -o smtpd_sasl_type=dovecot
   -o smtpd_sasl_path=private/auth
+  -o smtpd_relay_restrictions=permit_sasl_authenticated,reject
   -o smtpd_recipient_restrictions=check_policy_service,unix:private/voidpanel-mail-policy,permit_sasl_authenticated,reject
   -o milter_macro_daemon_name=ORIGINATING
 pickup     unix  n       -       n       60      1       pickup
@@ -752,6 +865,38 @@ EOF
 
     touch /etc/postfix/virtual_domains /etc/postfix/vmailbox /etc/postfix/virtual_alias
     postmap /etc/postfix/virtual_alias /etc/postfix/vmailbox 2>/dev/null || true
+
+    # ── OpenDKIM configuration ─────────────────────────────────────────────────
+    status_msg "Configuring OpenDKIM"
+    mkdir -p /etc/opendkim/keys
+    cat > /etc/opendkim.conf <<'EOF'
+Syslog                  yes
+RequiredHeaders         yes
+UMask                   007
+Mode                    sv
+Socket                  inet:8891@127.0.0.1
+PidFile                 /run/opendkim/opendkim.pid
+OversignHeaders         From
+TrustAnchorFile         /usr/share/dns/root.key
+
+KeyTable                /etc/opendkim/KeyTable
+SigningTable            refile:/etc/opendkim/SigningTable
+TrustedHosts            /etc/opendkim/TrustedHosts
+EOF
+
+    # Configure default socket in /etc/default/opendkim for Debian/Ubuntu
+    if [ -f /etc/default/opendkim ]; then
+        echo 'SOCKET="inet:8891@127.0.0.1"' > /etc/default/opendkim
+    fi
+
+    # Create empty OpenDKIM tables if they don't exist
+    touch /etc/opendkim/KeyTable /etc/opendkim/SigningTable /etc/opendkim/TrustedHosts
+    echo "127.0.0.1" > /etc/opendkim/TrustedHosts
+    echo "localhost" >> /etc/opendkim/TrustedHosts
+
+    # Set proper ownership and permissions
+    chown -R opendkim:opendkim /etc/opendkim
+    chmod -R 700 /etc/opendkim
 
     # ── Dovecot core config ────────────────────────────────────────────────────
     cat > /etc/dovecot/dovecot.conf <<EOF
@@ -855,8 +1000,173 @@ fi
 EOF
     chmod +x /usr/bin/voidemail
 
-    systemctl enable --now postfix dovecot
-    systemctl restart postfix dovecot
+    # ── VoidPanel Mail Rate Limit Policy Daemon ───────────────────────────────
+    status_msg "Configuring Mail Rate Limit Policy Daemon"
+    
+    cat > /usr/local/bin/voidpanel-mail-policy <<'DAEMONEOF'
+#!/usr/bin/env python3
+import os, time, sqlite3, socket, threading
+
+POLICY_SOCKET = '/var/spool/postfix/private/voidpanel-mail-policy'
+DB_PATH       = '/var/lib/voidpanel-mail-policy/rate.db'
+CONFIG_PATH   = '/etc/voidpanel-mail-policy.conf'
+WHITELIST_PATH = '/etc/voidpanel-mail-policy-whitelist.conf'
+DEFAULT_LIMIT = 100
+
+def get_global_limit():
+    try:
+        with open(CONFIG_PATH) as f:
+            for line in f:
+                if line.startswith('hourly_limit='):
+                    return int(line.strip().split('=', 1)[1])
+    except Exception:
+        pass
+    return DEFAULT_LIMIT
+
+def get_whitelisted_domains():
+    try:
+        if os.path.exists(WHITELIST_PATH):
+            with open(WHITELIST_PATH) as f:
+                content = f.read()
+            return {d.strip().lower() for d in content.replace('\n', ',').split(',') if d.strip()}
+    except Exception:
+        pass
+    return set()
+
+def get_user_limit(sasl_username):
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=1)
+        c = conn.cursor()
+        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='user_limits'")
+        if c.fetchone():
+            c.execute('SELECT limit_val FROM user_limits WHERE username=?', (sasl_username.lower(),))
+            row = c.fetchone()
+            if row and row[0] > 0:
+                conn.close()
+                return row[0]
+        conn.close()
+    except Exception:
+        pass
+    return None
+
+def check_and_record(sasl_username, limit):
+    now          = int(time.time())
+    window_start = now - 3600
+    conn = sqlite3.connect(DB_PATH, timeout=5)
+    try:
+        c = conn.cursor()
+        c.execute('CREATE TABLE IF NOT EXISTS sends (username TEXT NOT NULL, ts INTEGER NOT NULL)')
+        c.execute('CREATE INDEX IF NOT EXISTS idx_user_ts ON sends(username, ts)')
+        c.execute('DELETE FROM sends WHERE ts < ?', (window_start,))
+        c.execute('SELECT COUNT(*) FROM sends WHERE username=? AND ts>=?', (sasl_username, window_start))
+        count = c.fetchone()[0]
+        if count >= limit:
+            conn.commit()
+            return False
+        c.execute('INSERT INTO sends (username, ts) VALUES (?, ?)', (sasl_username, now))
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+def init_db():
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute('CREATE TABLE IF NOT EXISTS sends (username TEXT NOT NULL, ts INTEGER NOT NULL)')
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_user_ts ON sends(username, ts)')
+    conn.execute('CREATE TABLE IF NOT EXISTS user_limits (username TEXT PRIMARY KEY, limit_val INTEGER, timespan INTEGER)')
+    conn.commit()
+    conn.close()
+    os.chmod(os.path.dirname(DB_PATH), 0o755)
+    if os.path.exists(DB_PATH):
+        os.chmod(DB_PATH, 0o666)
+
+def handle_client(conn):
+    data = {}
+    buf = ''
+    try:
+        while True:
+            chunk = conn.recv(4096).decode('utf-8', errors='ignore')
+            if not chunk:
+                break
+            buf += chunk
+            if '\n\n' in buf:
+                break
+        for line in buf.strip().split('\n'):
+            line = line.strip()
+            if '=' in line:
+                k, v = line.split('=', 1)
+                data[k.strip()] = v.strip()
+        sasl_username = data.get('sasl_username', '').strip()
+        if not sasl_username:
+            conn.sendall(b'action=DUNNO\n\n')
+            return
+        domain = sasl_username.split('@')[-1].lower() if '@' in sasl_username else ''
+        whitelisted = get_whitelisted_domains()
+        if domain and domain in whitelisted:
+            conn.sendall(b'action=DUNNO\n\n')
+            return
+        user_limit = get_user_limit(sasl_username)
+        limit = user_limit if user_limit is not None else get_global_limit()
+        if check_and_record(sasl_username, limit):
+            conn.sendall(b'action=DUNNO\n\n')
+        else:
+            msg = 'action=REJECT Rate limit exceeded: maximum {} emails per hour allowed\n\n'.format(limit)
+            conn.sendall(msg.encode())
+    except Exception:
+        try:
+            conn.sendall(b'action=DUNNO\n\n')
+        except Exception:
+            pass
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+def main():
+    init_db()
+    if os.path.exists(POLICY_SOCKET):
+        os.unlink(POLICY_SOCKET)
+    server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    server.bind(POLICY_SOCKET)
+    os.chmod(POLICY_SOCKET, 0o666)
+    server.listen(50)
+    while True:
+        try:
+            conn, _ = server.accept()
+            t = threading.Thread(target=handle_client, args=(conn,), daemon=True)
+            t.start()
+        except Exception:
+            pass
+
+if __name__ == '__main__':
+    main()
+DAEMONEOF
+
+    chmod +x /usr/local/bin/voidpanel-mail-policy
+
+    # Write systemd service file
+    cat > /etc/systemd/system/voidpanel-mail-policy.service <<'SVCEOF'
+[Unit]
+Description=VoidPanel Mail Rate Limit Policy Daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/voidpanel-mail-policy
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+
+    systemctl daemon-reload
+    systemctl enable --now voidpanel-mail-policy
+
+    systemctl enable --now opendkim voidpanel-mail-policy postfix dovecot
+    systemctl restart opendkim voidpanel-mail-policy postfix dovecot
     success_msg "Mail Stack Online — ports 25, 465, 587 (SMTP) | 143, 993 (IMAP) | 110, 995 (POP3)"
 }
 
@@ -1112,6 +1422,7 @@ phpmyadminsetup() {
     cat > /etc/nginx/sites-available/phpmyadmin <<NGINXCONF
 server {
     listen 8090;
+    client_max_body_size 256M;
     server_name ${PUBLIC_IP};
     root /usr/share/phpmyadmin;
     index index.php;
@@ -1119,11 +1430,14 @@ server {
     location ~ \.php\$ {
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:/var/run/php/php${PHP_VERSION}-fpm.sock;
+        fastcgi_read_timeout 600;
+        fastcgi_send_timeout 600;
     }
     location ~ /\.(ht|svn|git) { deny all; }
 }
 server {
     listen 8092 ssl http2;
+    client_max_body_size 256M;
     server_name ${PUBLIC_IP} ${HOSTNAME_FQDN};
     ssl_certificate     /etc/nginx/dummy.crt;
     ssl_certificate_key /etc/nginx/dummy.key;
@@ -1134,12 +1448,32 @@ server {
     location ~ \.php\$ {
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:/var/run/php/php${PHP_VERSION}-fpm.sock;
+        fastcgi_read_timeout 600;
+        fastcgi_send_timeout 600;
     }
     location ~ /\.(ht|svn|git) { deny all; }
 }
 NGINXCONF
 
     ln -sf /etc/nginx/sites-available/phpmyadmin /etc/nginx/sites-enabled/
+
+    # ── Tune PHP-FPM ini for large DB imports via phpMyAdmin ─────────────────
+    status_msg "Tuning PHP-FPM limits for phpMyAdmin imports"
+    PHP_FPM_INI="/etc/php/${PHP_VERSION}/fpm/php.ini"
+    if [[ -f "$PHP_FPM_INI" ]]; then
+        sed -i 's/^upload_max_filesize = .*/upload_max_filesize = 256M/'  "$PHP_FPM_INI"
+        sed -i 's/^post_max_size = .*/post_max_size = 256M/'              "$PHP_FPM_INI"
+        sed -i 's/^max_execution_time = .*/max_execution_time = 600/'     "$PHP_FPM_INI"
+        sed -i 's/^max_input_time = .*/max_input_time = 600/'             "$PHP_FPM_INI"
+        # Only bump memory_limit if current value is below 512M
+        CURRENT_MEM=$(grep '^memory_limit' "$PHP_FPM_INI" | grep -oP '\d+' | head -1)
+        if [[ -z "$CURRENT_MEM" || "$CURRENT_MEM" -lt 512 ]]; then
+            sed -i 's/^memory_limit = .*/memory_limit = 512M/' "$PHP_FPM_INI"
+        fi
+        ok "PHP-FPM ini tuned: upload=256M post=256M exec=600s"
+    else
+        warn_msg "PHP-FPM ini not found at $PHP_FPM_INI — skipping ini tuning"
+    fi
 
     # ── Deploy VoidPanel SSO gateway for phpMyAdmin ───────────────────────────
     status_msg "Deploying phpMyAdmin SSO gateway"
@@ -1414,10 +1748,11 @@ final_restart() {
     systemctl restart voidpanel
     systemctl restart voidpanel-daphne
     systemctl restart voidpanel-celery
+    systemctl restart voidpanel-wa 2>/dev/null || true
 
     # Enable all on boot — use 'named' not 'bind9' (bind9 is an alias on Ubuntu 22.04+)
-    systemctl enable nginx php${PHP_VERSION}-fpm mysql named postfix dovecot voidpanel voidpanel-daphne voidpanel-celery redis-server docker 2>/dev/null || \
-    systemctl enable nginx php${PHP_VERSION}-fpm mysql bind9 postfix dovecot voidpanel voidpanel-daphne voidpanel-celery redis-server docker 2>/dev/null || true
+    systemctl enable nginx php${PHP_VERSION}-fpm mysql named postfix dovecot voidpanel voidpanel-daphne voidpanel-celery voidpanel-wa redis-server docker 2>/dev/null || \
+    systemctl enable nginx php${PHP_VERSION}-fpm mysql bind9 postfix dovecot voidpanel voidpanel-daphne voidpanel-celery voidpanel-wa redis-server docker 2>/dev/null || true
 
     success_msg "All services online and boot-enabled"
 }
@@ -1502,7 +1837,7 @@ EOF
 #  MAIN
 # =============================================================================
 install_main_system() {
-    status_msg "VoidPanel v2.5.23 — Enterprise Installation Starting (Ubuntu 22.04)"
+    status_msg "VoidPanel v2.5.24 — Enterprise Installation Starting (Ubuntu 22.04)"
     panelsetup
     bindsetup
     quotasetup

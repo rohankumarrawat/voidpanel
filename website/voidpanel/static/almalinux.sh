@@ -485,9 +485,14 @@ EOF
         mv /etc/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf.disabled
     fi
 
+    # ── Permissions & Media Setup ─────────────────────────────────────────────
+    status_msg "Creating Media Directories"
+    mkdir -p "$PROJECT_DIR/media/wa_campaigns" "$PROJECT_DIR/media/wa_broadcasts"
+
     status_msg "Applying Permission Hardening"
     chown -R nginx:nginx "$PROJECT_DIR"
     chmod -R 750 "$PROJECT_DIR"
+    chmod -R 775 "$PROJECT_DIR/media"
     chmod 711 /home
 
     if command -v setsebool &>/dev/null; then
@@ -498,9 +503,76 @@ EOF
         chcon -R -t httpd_sys_rw_content_t "$PROJECT_DIR" 2>/dev/null || true
     fi
 
+    # ── WhatsApp Web Microservice (Baileys — Self-Hosted, Zero Third-Party) ─────
+    status_msg "Setting up WhatsApp Web microservice (Baileys)"
+    WA_DIR="$PROJECT_DIR/wa_service"
+
+    NODE_BIN=""
+    for candidate in /usr/local/bin/node /usr/bin/node; do
+        if [[ -x "$candidate" ]]; then
+            NODE_VER=$("$candidate" -e "console.log(parseInt(process.versions.node.split('.')[0]))" 2>/dev/null)
+            if [[ "$NODE_VER" -ge 18 ]]; then
+                NODE_BIN="$candidate"
+                break
+            fi
+        fi
+    done
+
+    if [[ -z "$NODE_BIN" ]]; then
+        status_msg "Installing Node.js 20 LTS"
+        dnf module reset nodejs -y 2>/dev/null || true
+        dnf module enable nodejs:20 -y 2>/dev/null || true
+        dnf install -y nodejs
+        NODE_BIN="/usr/bin/node"
+    fi
+
+    # Install npm dependencies
+    if [[ -d "$WA_DIR" ]]; then
+        cd "$WA_DIR"
+        npm install --omit=dev --prefer-offline >/dev/null 2>&1
+        cd "$PROJECT_DIR"
+
+        # Write systemd service with correct node path
+        cat > /etc/systemd/system/voidpanel-wa.service <<EOF
+[Unit]
+Description=VoidPanel WhatsApp Web Microservice (Baileys)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$WA_DIR
+ExecStart=$NODE_BIN $WA_DIR/server.js
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=voidpanel-wa
+Environment=NODE_ENV=production
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=HOST=127.0.0.1
+Environment=PORT=3001
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+        systemctl daemon-reload
+        systemctl enable voidpanel-wa
+        systemctl start  voidpanel-wa
+        sleep 2
+        if systemctl is-active --quiet voidpanel-wa; then
+            success_msg "WhatsApp Web microservice is running"
+        else
+            echo "[WARN] voidpanel-wa service failed to start"
+        fi
+    else
+        echo "[WARN] wa_service directory not found at $WA_DIR — skipping WhatsApp setup"
+    fi
+
     systemctl daemon-reload
-    systemctl enable uwsgi voidpanel-daphne voidpanel-backup voidpanel-celery voidpanel-celery-beat
-    systemctl start uwsgi voidpanel-daphne voidpanel-backup voidpanel-celery voidpanel-celery-beat
+    systemctl enable uwsgi voidpanel-daphne voidpanel-backup voidpanel-celery voidpanel-celery-beat voidpanel-wa
+    systemctl start uwsgi voidpanel-daphne voidpanel-backup voidpanel-celery voidpanel-celery-beat voidpanel-wa
     success_msg "Panel Core Setup Complete"
 }
 
@@ -735,6 +807,7 @@ phpmyadminsetup() {
     cat << EOF > /etc/nginx/conf.d/phpmyadmin.conf
 server {
     listen 8090;
+    client_max_body_size 256M;
     server_name $PUBLIC_IP;
     root /usr/share/phpmyadmin;
     index index.php;
@@ -744,15 +817,20 @@ server {
         fastcgi_pass unix:$PHP_FPM_SOCK;
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        fastcgi_read_timeout 600;
+        fastcgi_send_timeout 600;
         include fastcgi_params;
     }
+    location ~ /\.(ht|svn|git) { deny all; }
 }
 
 server {
     listen 8092 ssl http2;
+    client_max_body_size 256M;
     server_name $PUBLIC_IP $HOSTNAME;
     ssl_certificate /etc/nginx/dummy.crt;
     ssl_certificate_key /etc/nginx/dummy.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
     root /usr/share/phpmyadmin;
     index index.php;
 
@@ -761,8 +839,11 @@ server {
         fastcgi_pass unix:$PHP_FPM_SOCK;
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        fastcgi_read_timeout 600;
+        fastcgi_send_timeout 600;
         include fastcgi_params;
     }
+    location ~ /\.(ht|svn|git) { deny all; }
 }
 EOF
 
@@ -770,13 +851,61 @@ EOF
         chcon -R -t httpd_sys_rw_content_t /usr/share/phpmyadmin 2>/dev/null || true
     fi
 
+    # ── Tune PHP-FPM ini for large DB imports via phpMyAdmin ──────────────────
+    status_msg "Tuning PHP-FPM limits for phpMyAdmin imports"
+    # AlmaLinux/RHEL PHP-FPM ini is typically in /etc/php.ini or /etc/php.d/
+    for PHP_FPM_INI in /etc/php.ini /etc/php/php.ini /etc/php81/php.ini /etc/php80/php.ini; do
+        if [[ -f "$PHP_FPM_INI" ]]; then
+            sed -i 's/^upload_max_filesize = .*/upload_max_filesize = 256M/'  "$PHP_FPM_INI"
+            sed -i 's/^post_max_size = .*/post_max_size = 256M/'              "$PHP_FPM_INI"
+            sed -i 's/^max_execution_time = .*/max_execution_time = 600/'     "$PHP_FPM_INI"
+            sed -i 's/^max_input_time = .*/max_input_time = 600/'             "$PHP_FPM_INI"
+            CURRENT_MEM=$(grep '^memory_limit' "$PHP_FPM_INI" | grep -oP '\d+' | head -1)
+            if [[ -z "$CURRENT_MEM" || "$CURRENT_MEM" -lt 512 ]]; then
+                sed -i 's/^memory_limit = .*/memory_limit = 512M/' "$PHP_FPM_INI"
+            fi
+            ok "PHP ini tuned at $PHP_FPM_INI: upload=256M post=256M exec=600s"
+            break
+        fi
+    done
+    # Also write a php-fpm drop-in for www pool if /etc/php-fpm.d/www.conf exists
+    if [[ -f /etc/php-fpm.d/www.conf ]]; then
+        PHP_FPM_POOL=/etc/php-fpm.d/www.conf
+        grep -q '^php_admin_value\[upload_max_filesize\]' "$PHP_FPM_POOL" || \
+            echo 'php_admin_value[upload_max_filesize] = 256M'  >> "$PHP_FPM_POOL"
+        grep -q '^php_admin_value\[post_max_size\]' "$PHP_FPM_POOL" || \
+            echo 'php_admin_value[post_max_size] = 256M'        >> "$PHP_FPM_POOL"
+        grep -q '^php_admin_value\[max_execution_time\]' "$PHP_FPM_POOL" || \
+            echo 'php_admin_value[max_execution_time] = 600'    >> "$PHP_FPM_POOL"
+        grep -q '^php_admin_value\[memory_limit\]' "$PHP_FPM_POOL" || \
+            echo 'php_admin_value[memory_limit] = 512M'         >> "$PHP_FPM_POOL"
+        ok "PHP-FPM www pool tuned"
+    fi
+
     # ── Deploy VoidPanel SSO gateway for phpMyAdmin ───────────────────────────
     status_msg "Deploying phpMyAdmin SSO gateway"
     cat > /usr/share/phpmyadmin/vp_sso.php << 'PMASSOEOF'
 <?php
+/**
+ * VoidPanel phpMyAdmin Single Sign-On gateway
+ * Called via cross-origin form POST from the VoidPanel dashboard.
+ * Sets the PMA signon session then redirects to phpMyAdmin index.
+ */
 session_name('phpMyAdmin');
+$port = (int)$_SERVER['SERVER_PORT'];
+$secure = ($port === 8092);  // HTTPS port
+ini_set('session.cookie_samesite', 'None');
+if ($secure) { ini_set('session.cookie_secure', '1'); }
+ini_set('session.cookie_httponly', '0');
 session_start();
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); die('Method not allowed.'); }
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(200);
+    echo '<!DOCTYPE html><html><head><title>VoidPanel Database Access</title>';
+    echo '<meta http-equiv="refresh" content="0;url=index.php">';
+    echo '</head><body><p>Redirecting to phpMyAdmin...</p>';
+    echo '<script>window.location.href="index.php";</script></body></html>';
+    exit;
+}
 $user     = isset($_POST['temp_user'])     ? trim($_POST['temp_user'])     : '';
 $password = isset($_POST['temp_password']) ? trim($_POST['temp_password']) : '';
 if (empty($user) || empty($password)) { http_response_code(400); die('Missing credentials.'); }
@@ -785,6 +914,7 @@ $_SESSION['PMA_single_signon_user']     = $user;
 $_SESSION['PMA_single_signon_password'] = $password;
 $_SESSION['PMA_single_signon_host']     = 'localhost';
 $_SESSION['PMA_single_signon_port']     = '3306';
+session_write_close();
 header('Location: index.php');
 exit;
 PMASSOEOF
@@ -1233,8 +1363,8 @@ dockersetup() {
 # --- 10. Service Orchestration ---
 final_restart() {
     status_msg "Synchronizing System Services"
-    systemctl restart nginx uwsgi php-fpm mariadb named vsftpd postfix dovecot docker 2>/dev/null || true
-    systemctl enable nginx uwsgi php-fpm mariadb named vsftpd postfix dovecot docker 2>/dev/null || true
+    systemctl restart nginx uwsgi php-fpm mariadb named vsftpd postfix dovecot docker voidpanel-wa 2>/dev/null || true
+    systemctl enable nginx uwsgi php-fpm mariadb named vsftpd postfix dovecot docker voidpanel-wa 2>/dev/null || true
     success_msg "All Services Synchronized"
 }
 
