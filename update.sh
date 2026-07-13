@@ -108,4 +108,61 @@ VPSSOPHP
     done
 fi
 
+info "Patching phpMyAdmin nginx config (upload limits + timeout)"
+# Detect which nginx config file phpMyAdmin uses (Ubuntu vs AlmaLinux)
+PMA_NGINX_CONF=""
+for f in /etc/nginx/sites-available/phpmyadmin /etc/nginx/conf.d/phpmyadmin.conf; do
+    [[ -f "$f" ]] && PMA_NGINX_CONF="$f" && break
+done
+
+if [[ -n "$PMA_NGINX_CONF" ]]; then
+    # Add client_max_body_size 256M if not already present
+    if ! grep -q "client_max_body_size 256M" "$PMA_NGINX_CONF"; then
+        # Insert after each 'listen 809' line
+        sed -i '/listen 809/a\    client_max_body_size 256M;' "$PMA_NGINX_CONF"
+        ok "Added client_max_body_size 256M to $PMA_NGINX_CONF"
+    fi
+    # Add fastcgi read/send timeouts inside PHP location blocks if missing
+    if ! grep -q "fastcgi_read_timeout 600" "$PMA_NGINX_CONF"; then
+        sed -i '/fastcgi_pass unix/a\        fastcgi_read_timeout 600;\n        fastcgi_send_timeout 600;' "$PMA_NGINX_CONF"
+        ok "Added fastcgi timeouts (600s) to $PMA_NGINX_CONF"
+    fi
+    # Reload nginx to apply changes
+    nginx -t 2>/dev/null && systemctl reload nginx 2>/dev/null || true
+else
+    warn "phpMyAdmin nginx config not found — skipping nginx patch"
+fi
+
+info "Tuning PHP-FPM limits for phpMyAdmin imports"
+# Ubuntu: /etc/php/X.Y/fpm/php.ini
+for PHP_FPM_INI in /etc/php/*/fpm/php.ini; do
+    [[ -f "$PHP_FPM_INI" ]] || continue
+    sed -i 's/^upload_max_filesize = .*/upload_max_filesize = 256M/'  "$PHP_FPM_INI"
+    sed -i 's/^post_max_size = .*/post_max_size = 256M/'              "$PHP_FPM_INI"
+    sed -i 's/^max_execution_time = .*/max_execution_time = 600/'     "$PHP_FPM_INI"
+    sed -i 's/^max_input_time = .*/max_input_time = 600/'             "$PHP_FPM_INI"
+    CURRENT_MEM=$(grep '^memory_limit' "$PHP_FPM_INI" | grep -oP '\d+' | head -1)
+    if [[ -z "$CURRENT_MEM" || "$CURRENT_MEM" -lt 512 ]]; then
+        sed -i 's/^memory_limit = .*/memory_limit = 512M/' "$PHP_FPM_INI"
+    fi
+    ok "PHP-FPM ini tuned at $PHP_FPM_INI"
+done
+# AlmaLinux/RHEL: /etc/php.ini or /etc/php-fpm.d/www.conf
+for PHP_FPM_INI in /etc/php.ini /etc/php/php.ini; do
+    [[ -f "$PHP_FPM_INI" ]] || continue
+    sed -i 's/^upload_max_filesize = .*/upload_max_filesize = 256M/'  "$PHP_FPM_INI"
+    sed -i 's/^post_max_size = .*/post_max_size = 256M/'              "$PHP_FPM_INI"
+    sed -i 's/^max_execution_time = .*/max_execution_time = 600/'     "$PHP_FPM_INI"
+    sed -i 's/^max_input_time = .*/max_input_time = 600/'             "$PHP_FPM_INI"
+    CURRENT_MEM=$(grep '^memory_limit' "$PHP_FPM_INI" | grep -oP '\d+' | head -1)
+    if [[ -z "$CURRENT_MEM" || "$CURRENT_MEM" -lt 512 ]]; then
+        sed -i 's/^memory_limit = .*/memory_limit = 512M/' "$PHP_FPM_INI"
+    fi
+    ok "PHP ini tuned at $PHP_FPM_INI"
+done
+# Reload PHP-FPM
+for svc in php-fpm php8.1-fpm php8.2-fpm php8.3-fpm php8.0-fpm php7.4-fpm; do
+    systemctl is-active --quiet "$svc" 2>/dev/null && systemctl reload "$svc" 2>/dev/null && break
+done
+
 ok "VoidPanel updated to $LATEST successfully!"

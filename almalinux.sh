@@ -807,6 +807,7 @@ phpmyadminsetup() {
     cat << EOF > /etc/nginx/conf.d/phpmyadmin.conf
 server {
     listen 8090;
+    client_max_body_size 256M;
     server_name $PUBLIC_IP;
     root /usr/share/phpmyadmin;
     index index.php;
@@ -816,15 +817,20 @@ server {
         fastcgi_pass unix:$PHP_FPM_SOCK;
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        fastcgi_read_timeout 600;
+        fastcgi_send_timeout 600;
         include fastcgi_params;
     }
+    location ~ /\.(ht|svn|git) { deny all; }
 }
 
 server {
     listen 8092 ssl http2;
+    client_max_body_size 256M;
     server_name $PUBLIC_IP $HOSTNAME;
     ssl_certificate /etc/nginx/dummy.crt;
     ssl_certificate_key /etc/nginx/dummy.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
     root /usr/share/phpmyadmin;
     index index.php;
 
@@ -833,8 +839,11 @@ server {
         fastcgi_pass unix:$PHP_FPM_SOCK;
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        fastcgi_read_timeout 600;
+        fastcgi_send_timeout 600;
         include fastcgi_params;
     }
+    location ~ /\.(ht|svn|git) { deny all; }
 }
 EOF
 
@@ -842,13 +851,61 @@ EOF
         chcon -R -t httpd_sys_rw_content_t /usr/share/phpmyadmin 2>/dev/null || true
     fi
 
+    # ── Tune PHP-FPM ini for large DB imports via phpMyAdmin ──────────────────
+    status_msg "Tuning PHP-FPM limits for phpMyAdmin imports"
+    # AlmaLinux/RHEL PHP-FPM ini is typically in /etc/php.ini or /etc/php.d/
+    for PHP_FPM_INI in /etc/php.ini /etc/php/php.ini /etc/php81/php.ini /etc/php80/php.ini; do
+        if [[ -f "$PHP_FPM_INI" ]]; then
+            sed -i 's/^upload_max_filesize = .*/upload_max_filesize = 256M/'  "$PHP_FPM_INI"
+            sed -i 's/^post_max_size = .*/post_max_size = 256M/'              "$PHP_FPM_INI"
+            sed -i 's/^max_execution_time = .*/max_execution_time = 600/'     "$PHP_FPM_INI"
+            sed -i 's/^max_input_time = .*/max_input_time = 600/'             "$PHP_FPM_INI"
+            CURRENT_MEM=$(grep '^memory_limit' "$PHP_FPM_INI" | grep -oP '\d+' | head -1)
+            if [[ -z "$CURRENT_MEM" || "$CURRENT_MEM" -lt 512 ]]; then
+                sed -i 's/^memory_limit = .*/memory_limit = 512M/' "$PHP_FPM_INI"
+            fi
+            ok "PHP ini tuned at $PHP_FPM_INI: upload=256M post=256M exec=600s"
+            break
+        fi
+    done
+    # Also write a php-fpm drop-in for www pool if /etc/php-fpm.d/www.conf exists
+    if [[ -f /etc/php-fpm.d/www.conf ]]; then
+        PHP_FPM_POOL=/etc/php-fpm.d/www.conf
+        grep -q '^php_admin_value\[upload_max_filesize\]' "$PHP_FPM_POOL" || \
+            echo 'php_admin_value[upload_max_filesize] = 256M'  >> "$PHP_FPM_POOL"
+        grep -q '^php_admin_value\[post_max_size\]' "$PHP_FPM_POOL" || \
+            echo 'php_admin_value[post_max_size] = 256M'        >> "$PHP_FPM_POOL"
+        grep -q '^php_admin_value\[max_execution_time\]' "$PHP_FPM_POOL" || \
+            echo 'php_admin_value[max_execution_time] = 600'    >> "$PHP_FPM_POOL"
+        grep -q '^php_admin_value\[memory_limit\]' "$PHP_FPM_POOL" || \
+            echo 'php_admin_value[memory_limit] = 512M'         >> "$PHP_FPM_POOL"
+        ok "PHP-FPM www pool tuned"
+    fi
+
     # ── Deploy VoidPanel SSO gateway for phpMyAdmin ───────────────────────────
     status_msg "Deploying phpMyAdmin SSO gateway"
     cat > /usr/share/phpmyadmin/vp_sso.php << 'PMASSOEOF'
 <?php
+/**
+ * VoidPanel phpMyAdmin Single Sign-On gateway
+ * Called via cross-origin form POST from the VoidPanel dashboard.
+ * Sets the PMA signon session then redirects to phpMyAdmin index.
+ */
 session_name('phpMyAdmin');
+$port = (int)$_SERVER['SERVER_PORT'];
+$secure = ($port === 8092);  // HTTPS port
+ini_set('session.cookie_samesite', 'None');
+if ($secure) { ini_set('session.cookie_secure', '1'); }
+ini_set('session.cookie_httponly', '0');
 session_start();
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); die('Method not allowed.'); }
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(200);
+    echo '<!DOCTYPE html><html><head><title>VoidPanel Database Access</title>';
+    echo '<meta http-equiv="refresh" content="0;url=index.php">';
+    echo '</head><body><p>Redirecting to phpMyAdmin...</p>';
+    echo '<script>window.location.href="index.php";</script></body></html>';
+    exit;
+}
 $user     = isset($_POST['temp_user'])     ? trim($_POST['temp_user'])     : '';
 $password = isset($_POST['temp_password']) ? trim($_POST['temp_password']) : '';
 if (empty($user) || empty($password)) { http_response_code(400); die('Missing credentials.'); }
@@ -857,6 +914,7 @@ $_SESSION['PMA_single_signon_user']     = $user;
 $_SESSION['PMA_single_signon_password'] = $password;
 $_SESSION['PMA_single_signon_host']     = 'localhost';
 $_SESSION['PMA_single_signon_port']     = '3306';
+session_write_close();
 header('Location: index.php');
 exit;
 PMASSOEOF
