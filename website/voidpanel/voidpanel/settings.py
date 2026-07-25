@@ -13,22 +13,44 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from pathlib import Path
 import os
 
-
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
+# ── Security ──────────────────────────────────────────────────────────────────
+# CRITICAL: Set DJANGO_SECRET_KEY env var on server. No fallback — app won't start without it.
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-only-insecure-key-change-in-production')
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-i-_$ypk#udmec&$b=!xfweh$usx2axl6%jx*2wz5p=l_-0(h84'
+DEBUG = False
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+ALLOWED_HOSTS = [
+    'voidonyx.in', 'www.voidonyx.in',
+    'voidonyx.com', 'www.voidonyx.com',
+    'voidpanel.site', 'www.voidpanel.site',
+    '207.180.209.216',
+    'localhost', '127.0.0.1',
+]
 
-ALLOWED_HOSTS = ['*']
+# ── Security Headers & Cookies ────────────────────────────────────────────────
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = False  # Nginx handles SSL termination
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+SESSION_COOKIE_AGE = 86400  # 24 hours
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+SECURE_HSTS_SECONDS = 31536000  # 1 year
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+CSRF_TRUSTED_ORIGINS = [
+    'https://voidonyx.in', 'https://www.voidonyx.in',
+    'https://voidonyx.com', 'https://www.voidonyx.com',
+    'https://voidpanel.site', 'https://www.voidpanel.site',
+]
 
 
 # Application definition
@@ -42,6 +64,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'data',
     'voidpanel',
+    'voidonyx',
     'rest_framework',
     'chatting',
 ]
@@ -49,6 +72,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'voidpanel.site_middleware.SiteMiddleware',   # Domain-based routing
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -61,15 +85,22 @@ ROOT_URLCONF = 'voidpanel.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': ['templates'],
-        'APP_DIRS': True,
+        'DIRS': [
+            BASE_DIR / 'templates',   # Default templates dir (VoidPanel + fallback)
+        ],
+        'APP_DIRS': False,
         'OPTIONS': {
+            'loaders': [
+                'voidonyx.template_loader.SiteTemplateLoader',  # Domain-aware loader (handles voidonyx/ routing)
+                'django.template.loaders.app_directories.Loader',
+            ],
             'context_processors': [
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'voidpanel.context_processors.try_voidpanel_settings',
+                'voidpanel.context_processors.site_context',
             ],
         },
     },
@@ -152,10 +183,30 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL  = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@voidpanel.com')
 
 # VoidPanel provisioning bridge
-# VOIDPANEL_API_URL  = URL of the control panel server (where VoidPanel is installed)
-# VOIDPANEL_API_KEY  = Must match /etc/voidpanel_api_key on the control panel server
-#                      OR set VOIDPANEL_API_KEY env var on BOTH machines to the same value
-# For production: set these as environment variables or configure in Super Admin → Servers
 VOIDPANEL_API_URL = os.environ.get('VOIDPANEL_API_URL', 'http://178.18.250.134:8080')
 VOIDPANEL_API_KEY = os.environ.get('VOIDPANEL_API_KEY', '39a605a414acf7beef9d58d8d15f3a4f9045b4646b7d031ecfc99e8f072fa091')
 
+# ── SaaS Provisioning Keys (move to env vars in production) ───────────────────
+HRMS_SAAS_API_URL = os.environ.get('HRMS_SAAS_API_URL', 'https://hrms.voidpanel.com')
+HRMS_SAAS_TOKEN = os.environ.get('HRMS_SAAS_TOKEN', 'voidpanel-saas-dmNum-XGj3-4tjptb6WVnIbq1WR09kGCqiIiKjNILD4')
+GYM_SAAS_API_URL = os.environ.get('GYM_SAAS_API_URL', 'https://gym.voidonyx.in')
+AI_VOICE_API_URL = os.environ.get('AI_VOICE_API_URL', 'https://calling.voidonyx.in')
+HOTEL_SAAS_API_URL = os.environ.get('HOTEL_SAAS_API_URL', 'https://hotel.voidonyx.in')
+KHATABOOK_API_URL = os.environ.get('KHATABOOK_API_URL', 'https://khatabook.voidonyx.in')
+KHATABOOK_PROVISION_KEY = os.environ.get('KHATABOOK_PROVISION_KEY', 'voidonyx-khatabook-provision-2026')
+
+# ── Login Security (django-axes) ─────────────────────────────────────────────
+# pip install django-axes (add 'axes' to INSTALLED_APPS, AxesMiddleware to MIDDLEWARE)
+AXES_FAILURE_LIMIT = 5              # Lock after 5 failed attempts
+AXES_COOLOFF_TIME = 1               # Lock for 1 hour
+AXES_LOCKOUT_PARAMETERS = ['ip_address', 'username']
+AXES_RESET_ON_SUCCESS = True        # Reset counter on successful login
+
+# ── File Upload Limits ────────────────────────────────────────────────────────
+MAX_UPLOAD_SIZE = 5 * 1024 * 1024   # 5 MB
+ALLOWED_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'}
+
+# ── Password Encryption (for SaaS order owner_password fields) ────────────────
+# Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# Set FERNET_KEY env var on production server. Without it, passwords are base64-only (not secure).
+FERNET_KEY = os.environ.get('FERNET_KEY', '')

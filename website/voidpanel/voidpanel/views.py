@@ -62,6 +62,8 @@ from data.models import (
     SuitePlan,
     SuiteService,
     SuiteOrder,
+    ErpCrmOrder,
+    ErpCrmService,
     VoidPanelServer,
     PortalActivity,
     StaffProfile,
@@ -88,6 +90,27 @@ import hmac
 import json as _rjson
 import logging
 _logger = logging.getLogger(__name__)
+
+
+def _voidonyx_purchase_blocked(request):
+    """Allows purchases on VoidOnyx and VoidPanel."""
+    return None
+
+
+def _get_next_invoice_number(user, prefix='VP'):
+    import re
+    from data.models import Invoice
+    pattern = f"{prefix}-{user.id:04d}-"
+    user_invs = Invoice.objects.filter(user=user, invoice_number__startswith=pattern)
+    max_num = 0
+    for inv in user_invs:
+        match = re.search(r'-(\d+)$', inv.invoice_number)
+        if match:
+            num = int(match.group(1))
+            if num > max_num:
+                max_num = num
+    next_num = max_num + 1
+    return f"{prefix}-{user.id:04d}-{next_num:03d}"
 
 
 # ─── Welcome Email ───────────────────────────────────────────────────────────────
@@ -593,6 +616,18 @@ def update(request):
         return Response({'version': '1.0', 'notes': '', 'script_url': '', 'released': ''})
 
 
+from django.http import HttpResponse
+
+@api_view(['GET'])
+def version_txt_view(request):
+    try:
+        latest = updates.objects.filter(is_active=True).order_by('-version').first()
+        version = latest.version if latest else '1.0'
+    except Exception:
+        version = '1.0'
+    return HttpResponse(version, content_type='text/plain')
+
+
 def parse_version(v_str):
     import re
     if not v_str:
@@ -722,6 +757,8 @@ def serve_release_package(request, version):
 
 @api_view(['GET'])
 def admindocs(request):
+    if not request.user.is_authenticated or not request.user.is_superuser:
+        return Response({'error': 'Unauthorized'}, status=403)
     docs = admindocumentation.objects.all().order_by('date')
     serializer = AdminDocSerializer(docs, many=True)
     return Response(serializer.data)
@@ -820,7 +857,21 @@ def _bandwidth_choices(pricing):
 # ─── Page Views ─────────────────────────────────────────────────────────────────
 
 def index(request):
-    return render(request, "index.html")
+    from data.models import CustomerProfile, HostingService, VoidPanelServer
+    context = {}
+    try:
+        context['stats_businesses'] = CustomerProfile.objects.count()
+    except Exception:
+        context['stats_businesses'] = 5000
+    try:
+        context['stats_websites'] = HostingService.objects.count()
+    except Exception:
+        context['stats_websites'] = 10000
+    try:
+        context['stats_servers'] = VoidPanelServer.objects.count()
+    except Exception:
+        context['stats_servers'] = 500
+    return render(request, "index.html", context)
 
 
 def get_active_hosting_packages(package_type):
@@ -870,6 +921,11 @@ def get_all_hosting_packages(package_type=None):
 
 
 def pricing(request):
+    # ── VoidPanel.com: show license pricing only (no hosting) ──────────────
+    if not getattr(request, 'is_voidonyx', False):
+        return render(request, 'voidpanel_pricing.html', {})
+
+    # ── VoidOnyx.com: show full hosting pricing ────────────────────────────
     pricing_settings = ensure_default_hosting_catalog()
     packages = get_active_hosting_packages('shared')
 
@@ -965,6 +1021,8 @@ def wordpress_hosting(request):
     })
 
 def order_summary(request):
+    blocked = _voidonyx_purchase_blocked(request)
+    if blocked: return blocked
     pricing_settings = ensure_default_hosting_catalog()
     builder_config = {
         'discounts': {
@@ -1129,6 +1187,8 @@ def reseller_configure(request):
 
 @login_required(login_url='/login/')
 def reseller_order_checkout(request):
+    blocked = _voidonyx_purchase_blocked(request)
+    if blocked: return blocked
     """
     Reseller plan order checkout — Step 2.
     Reads domain/company/cycle from session (set by reseller_configure).
@@ -1195,10 +1255,9 @@ def reseller_order_checkout(request):
             storage_gb=storage_gb,
             bandwidth_gb=0,
         )
-        inv_count = Invoice.objects.filter(user=request.user).count()
         invoice = Invoice.objects.create(
             user=request.user,
-            invoice_number=f'VP-{request.user.id:04d}-{inv_count + 1:03d}',
+            invoice_number=_get_next_invoice_number(request.user, prefix='VP'),
             description=f'{pkg_name} — {storage_gb} GB / {accounts} accounts ({cycle}) — {domain}',
             status='unpaid',
             total=total,
@@ -1287,10 +1346,12 @@ def aboutus(request):
     return render(request, "aboutus.html")
 
 
+@login_required(login_url='/login/')
 def addemail(request):
     return render(request, "addemail.html")
 
 
+@login_required(login_url='/login/')
 def ssl(request):
     return render(request, "addssl.html")
 
@@ -1299,6 +1360,7 @@ def voidpanelinfo(request):
     return render(request, "blogs/voidpanelinfo.html")
 
 
+@login_required(login_url='/login/')
 def overview(request):
     return render(request, "overview.html")
 
@@ -1383,6 +1445,15 @@ def super_admin_blog_write(request):
             status=status,
         )
         if featured_image:
+            import os as _os
+            ext = _os.path.splitext(featured_image.name)[1].lower()
+            from django.conf import settings as _s
+            if ext not in getattr(_s, 'ALLOWED_IMAGE_EXTENSIONS', {'.jpg','.jpeg','.png','.gif','.webp'}):
+                messages.error(request, 'Invalid image format. Allowed: JPG, PNG, GIF, WebP.')
+                return render(request, 'super_admin_blog_write.html', {'categories': categories, 'active_page': 'blogs'})
+            if featured_image.size > getattr(_s, 'MAX_UPLOAD_SIZE', 5*1024*1024):
+                messages.error(request, 'Image too large. Maximum 5 MB.')
+                return render(request, 'super_admin_blog_write.html', {'categories': categories, 'active_page': 'blogs'})
             post.featured_image = featured_image
             
         if status == 'published':
@@ -1462,6 +1533,15 @@ def portal_blog_write(request):
             status=status,
         )
         if featured_image:
+            import os as _os
+            ext = _os.path.splitext(featured_image.name)[1].lower()
+            from django.conf import settings as _s
+            if ext not in getattr(_s, 'ALLOWED_IMAGE_EXTENSIONS', {'.jpg','.jpeg','.png','.gif','.webp'}):
+                messages.error(request, 'Invalid image format. Allowed: JPG, PNG, GIF, WebP.')
+                return render(request, 'portal_blog_write.html', {'categories': categories})
+            if featured_image.size > getattr(_s, 'MAX_UPLOAD_SIZE', 5*1024*1024):
+                messages.error(request, 'Image too large. Maximum 5 MB.')
+                return render(request, 'portal_blog_write.html', {'categories': categories})
             post.featured_image = featured_image
             
         post.save()
@@ -1473,21 +1553,40 @@ def portal_blog_write(request):
     })
 
 
+@login_required(login_url='/login/')
 def db(request):
     return render(request, "db.html")
 
 
+@login_required(login_url='/login/')
 def chpass(request):
     return render(request, "chpass.html")
 
 
+@login_required(login_url='/login/')
 def addweb(request):
     return render(request, "addweb.html")
 
 
+@login_required(login_url='/login/')
 def notifications(request):
     context = {'data': Message.objects.all().order_by('-date')}
+    # Pass sidebar context so portal_sidebar.html works correctly
+    if request.user.is_authenticated:
+        try:
+            profile = request.user.customer_profile
+        except Exception:
+            profile = None
+        invoices = request.user.invoices.all() if hasattr(request.user, 'invoices') else []
+        unpaid_count = 0
+        try:
+            unpaid_count = request.user.invoices.filter(status__in=['unpaid', 'overdue']).count()
+        except Exception:
+            pass
+        context['profile'] = profile
+        context['stats'] = {'unpaid_invoices': unpaid_count}
     return render(request, "notifications.html", context)
+
 
 
 def docs(request):
@@ -1818,6 +1917,8 @@ def portal(request):
         'email_services': email_services,
         'ssl_services': request.user.ssl_services.all().order_by('-created_at'),
         'suite_services': request.user.suite_services.select_related('plan', 'server').order_by('-created_at'),
+        'erp_services': request.user.erp_services.all().order_by('-created_at'),
+        'domain_orders': DomainOrder.objects.filter(user=request.user).order_by('-created_at'),
         'invoices': invoices[:5],
         'tickets': tickets[:5],
         'activities': activities,
@@ -1844,6 +1945,113 @@ def portal(request):
         'credits_per_rupee': getattr(HostingPricingSettings.objects.first(), 'credits_per_rupee', 100) or 100,
     }
     return render(request, "portal.html", context)
+
+
+@login_required(login_url='/login/')
+def portal_invoices_page(request):
+    """Dedicated Invoices page with filtering."""
+    ensure_portal_seed_data(request.user)
+    invoices = request.user.invoices.all().order_by('-created_at')
+    status_filter = request.GET.get('status', '')
+    if status_filter in ('paid', 'unpaid', 'overdue', 'cancelled'):
+        invoices = invoices.filter(status=status_filter)
+    context = {
+        'invoices': invoices,
+        'status_filter': status_filter,
+        'stats': {
+            'total': request.user.invoices.count(),
+            'unpaid': request.user.invoices.filter(status__in=['unpaid', 'overdue']).count(),
+            'paid': request.user.invoices.filter(status='paid').count(),
+            'unpaid_total': request.user.invoices.filter(status__in=['unpaid', 'overdue']).aggregate(total=Sum('total'))['total'] or Decimal('0.00'),
+        },
+    }
+    return render(request, 'portal_invoices.html', context)
+
+
+@login_required(login_url='/login/')
+def portal_domains_page(request):
+    """Dedicated My Domains page."""
+    ensure_portal_seed_data(request.user)
+    domains = DomainOrder.objects.filter(user=request.user).order_by('-created_at')
+    context = {
+        'domains': domains,
+        'stats': {
+            'total': domains.count(),
+            'active': domains.filter(status='active').count(),
+            'pending': domains.filter(status='pending_payment').count(),
+        },
+    }
+    return render(request, 'portal_domains.html', context)
+
+
+@login_required(login_url='/login/')
+def portal_tickets_page(request):
+    """Dedicated Support Tickets page."""
+    ensure_portal_seed_data(request.user)
+    tickets = request.user.support_tickets.all().order_by('-created_at')
+    status_filter = request.GET.get('status', '')
+    if status_filter in ('open', 'in_progress', 'closed'):
+        tickets = tickets.filter(status=status_filter)
+    context = {
+        'tickets': tickets,
+        'status_filter': status_filter,
+        'stats': {
+            'total': tickets.count(),
+            'open': request.user.support_tickets.exclude(status='closed').count(),
+            'closed': request.user.support_tickets.filter(status='closed').count(),
+        },
+    }
+    return render(request, 'portal_tickets.html', context)
+
+
+@login_required(login_url='/login/')
+def portal_services_page(request):
+    """Dedicated My Services page — shows ALL purchased services in one place (not domains)."""
+    ensure_portal_seed_data(request.user)
+    services = request.user.hosting_services.all().order_by('-created_at')
+    email_services = request.user.email_services.all().order_by('-created_at')
+    ssl_services = request.user.ssl_services.all().order_by('-created_at')
+    erp_services = request.user.erp_services.all().order_by('-created_at')
+    gym_services = request.user.gym_services.all().order_by('-created_at')
+    suite_services = request.user.suite_services.select_related('plan', 'server').order_by('-created_at')
+    licenses = request.user.panel_licenses.all()
+
+    # KhataBook services
+    from data.models import KhataBookService
+    khatabook_services = KhataBookService.objects.filter(user=request.user).exclude(status__in=('cancelled', 'terminated')).order_by('-created_at')
+
+    total_services = (
+        services.count() + email_services.count() + ssl_services.count() +
+        erp_services.count() + gym_services.count() + suite_services.count() +
+        licenses.count() + khatabook_services.count()
+    )
+    active_count = (
+        services.filter(status='active').count() +
+        email_services.filter(status='active').count() +
+        ssl_services.filter(status='active').count() +
+        erp_services.filter(status='active').count() +
+        gym_services.filter(status='active').count() +
+        suite_services.filter(status='active').count() +
+        licenses.filter(status='active').count() +
+        khatabook_services.filter(status='active').count()
+    )
+
+    context = {
+        'services': services,
+        'email_services': email_services,
+        'ssl_services': ssl_services,
+        'erp_services': erp_services,
+        'gym_services': gym_services,
+        'suite_services': suite_services,
+        'licenses': licenses,
+        'khatabook_services': khatabook_services,
+        'stats': {
+            'total': total_services,
+            'active': active_count,
+            'pending': total_services - active_count,
+        },
+    }
+    return render(request, 'portal_services.html', context)
 
 @login_required(login_url='/login/')
 def portal_manage_wordpress(request, service_id):
@@ -2384,6 +2592,10 @@ def super_admin_portal(request):
         if handled:
             return handled
     context = _build_super_admin_context('dashboard')
+    # Add domain API error logs for super admin visibility
+    context['api_errors'] = PortalActivity.objects.filter(
+        category='api_error'
+    ).order_by('-created_at')[:20]
     return render(request, 'super_admin_dashboard.html', context)
 
 
@@ -2394,6 +2606,20 @@ def _super_admin_guard(request):
     return None
 
 
+def superuser_required(view_func):
+    """Decorator: require superuser. Safer than _super_admin_guard() since it
+    can't be accidentally skipped."""
+    from functools import wraps
+    @wraps(view_func)
+    @login_required(login_url='/login/')
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_superuser:
+            messages.error(request, "Super admin access is required")
+            return redirect('/portal/')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
 def _super_admin_redirect(request, fallback):
     target = request.POST.get('next') or request.META.get('HTTP_REFERER') or fallback
     return redirect(target)
@@ -2401,6 +2627,11 @@ def _super_admin_redirect(request, fallback):
 
 def _handle_super_admin_post(request):
     action = request.POST.get('action')
+
+    if action == 'clear_api_errors':
+        deleted_count = PortalActivity.objects.filter(category='api_error').delete()[0]
+        messages.success(request, f'Cleared {deleted_count} API error log(s).')
+        return redirect('/super-admin/')
 
     if action == 'create_role':
         role_name = request.POST.get('role_name', '').strip()
@@ -3050,6 +3281,7 @@ def super_admin_chips(request):
         elif action == 'adjust_balance':
             from django.contrib.auth.models import User
             from data.models import CustomerProfile, ChipTransaction, FundTransaction
+            from django.db import connection
             user_id = request.POST.get('user_id')
             change_type = request.POST.get('change_type')  # 'chips' or 'funds'
             operation = request.POST.get('operation')      # 'add' or 'deduct'
@@ -3061,48 +3293,72 @@ def super_admin_chips(request):
                 
             try:
                 target_user = User.objects.get(id=user_id)
-                profile, _ = CustomerProfile.objects.get_or_create(user=target_user)
+                # Ensure profile exists (get_or_create may crash on Decimal read,
+                # so we use raw SQL to check and create if needed)
+                with connection.cursor() as cur:
+                    cur.execute(
+                        "SELECT CAST(balance_chips AS TEXT), CAST(balance_funds AS TEXT) "
+                        "FROM data_customerprofile WHERE user_id = %s", [target_user.id]
+                    )
+                    row = cur.fetchone()
+                if row is None:
+                    CustomerProfile.objects.create(user=target_user, balance_chips=0, balance_funds=Decimal('0.00'))
+                    cur_chips, cur_funds = 0, Decimal('0.00')
+                else:
+                    try:
+                        cur_chips = int(row[0]) if row[0] else 0
+                    except Exception:
+                        cur_chips = 0
+                    try:
+                        cur_funds = Decimal(row[1]) if row[1] else Decimal('0.00')
+                    except Exception:
+                        cur_funds = Decimal('0.00')
+
                 if change_type == 'chips':
                     chips_amt = int(amount)
                     if operation == 'add':
-                        profile.balance_chips += chips_amt
+                        new_chips = cur_chips + chips_amt
                         ChipTransaction.objects.create(
-                            user=target_user,
-                            amount=chips_amt,
+                            user=target_user, amount=chips_amt,
                             transaction_type='grant',
                             description='Admin adjustment: added chips'
                         )
                         messages.success(request, f'Successfully added {chips_amt} chips to {target_user.username}.')
                     else:
-                        profile.balance_chips = max(0, profile.balance_chips - chips_amt)
+                        new_chips = max(0, cur_chips - chips_amt)
                         ChipTransaction.objects.create(
-                            user=target_user,
-                            amount=-chips_amt,
+                            user=target_user, amount=-chips_amt,
                             transaction_type='purchase',
                             description='Admin adjustment: deducted chips'
                         )
                         messages.success(request, f'Successfully deducted {chips_amt} chips from {target_user.username}.')
-                    profile.save(update_fields=['balance_chips'])
+                    with connection.cursor() as cur:
+                        cur.execute(
+                            "UPDATE data_customerprofile SET balance_chips = %s WHERE user_id = %s",
+                            [new_chips, target_user.id]
+                        )
                 else:
                     if operation == 'add':
-                        profile.balance_funds += amount
+                        new_funds = cur_funds + amount
                         FundTransaction.objects.create(
-                            user=target_user,
-                            amount=amount,
+                            user=target_user, amount=amount,
                             transaction_type='deposit',
                             description='Admin adjustment: added funds'
                         )
                         messages.success(request, f'Successfully added ₹{amount} funds to {target_user.username}.')
                     else:
-                        profile.balance_funds = max(Decimal('0.00'), profile.balance_funds - amount)
+                        new_funds = max(Decimal('0.00'), cur_funds - amount)
                         FundTransaction.objects.create(
-                            user=target_user,
-                            amount=-amount,
+                            user=target_user, amount=-amount,
                             transaction_type='purchase',
                             description='Admin adjustment: deducted funds'
                         )
                         messages.success(request, f'Successfully deducted ₹{amount} funds from {target_user.username}.')
-                    profile.save(update_fields=['balance_funds'])
+                    with connection.cursor() as cur:
+                        cur.execute(
+                            "UPDATE data_customerprofile SET balance_funds = %s WHERE user_id = %s",
+                            [str(new_funds), target_user.id]
+                        )
             except User.DoesNotExist:
                 messages.error(request, 'Selected user does not exist.')
             except Exception as exc:
@@ -3110,10 +3366,38 @@ def super_admin_chips(request):
             return redirect('/super-admin/chips/')
 
     from django.contrib.auth.models import User
-    users = User.objects.filter(is_superuser=False).select_related('customer_profile').order_by('username')
+    from django.db import connection
+
+    users_qs = User.objects.filter(is_superuser=False).order_by('username')
+
+    # Use raw SQL to fetch profile balances — Django 5.2's SQLite backend registers
+    # type converters at the connection level, so even .values() triggers the Decimal
+    # converter which throws InvalidOperation on float/NULL values.
+    profile_raw = {}
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT user_id, CAST(balance_chips AS TEXT), CAST(balance_funds AS TEXT) "
+            "FROM data_customerprofile"
+        )
+        for user_id, chips_str, funds_str in cursor.fetchall():
+            try:
+                chips_val = int(chips_str) if chips_str else 0
+            except Exception:
+                chips_val = 0
+            try:
+                funds_val = '{:.2f}'.format(float(funds_str)) if funds_str else '0.00'
+            except Exception:
+                funds_val = '0.00'
+            profile_raw[user_id] = (chips_val, funds_val)
+
+    safe_users = []
+    for u in users_qs:
+        chips_val, funds_val = profile_raw.get(u.id, (0, '0.00'))
+        safe_users.append((u, chips_val, funds_val))
+
     ctx = _build_super_admin_context('chips')
     ctx['pricing_settings'] = HostingPricingSettings.objects.first() or HostingPricingSettings()
-    ctx['users'] = users
+    ctx['user_data'] = safe_users  # list of (user, chips, funds_str)
     return render(request, 'super_admin_chips.html', ctx)
 
 
@@ -3337,8 +3621,19 @@ def super_admin_signals(request):
 def loginn(request):
     if request.user.is_authenticated:
         return redirect("/portal/")
+
+    # ── Brute-force protection ────────────────────────────────────────────
+    from django.core.cache import cache
+    xff = request.META.get('HTTP_X_FORWARDED_FOR', '')
+    client_ip = xff.split(',')[0].strip() if xff else request.META.get('REMOTE_ADDR', '0.0.0.0')
+    cache_key = f'login_fail:{client_ip}'
+    fail_count = cache.get(cache_key, 0)
+    if fail_count >= 5:
+        messages.error(request, "Too many failed attempts. Please wait 15 minutes before trying again.")
+        return render(request, "login.html")
+
     if request.method == 'POST':
-        identity = request.POST.get('Email', '').strip()
+        identity = (request.POST.get('email') or request.POST.get('Email', '')).strip()
         password = request.POST.get('password')
         user = authenticate(request, username=identity, password=password)
         if user is None and identity:
@@ -3346,6 +3641,7 @@ def loginn(request):
             if matched_user:
                 user = authenticate(request, username=matched_user.username, password=password)
         if user is not None:
+            cache.delete(cache_key)  # Reset on success
             login(request, user)
             PortalActivity.objects.create(
                 user=user,
@@ -3365,9 +3661,160 @@ def loginn(request):
                 return redirect('/super-admin/')
             return redirect('/portal/')
         else:
-            messages.error(request, "Invalid username/email or password")
+            cache.set(cache_key, fail_count + 1, 900)  # Lock for 15 min
+            remaining = 4 - fail_count
+            if remaining > 0:
+                messages.error(request, f"Invalid username/email or password. {remaining} attempts remaining.")
+            else:
+                messages.error(request, "Too many failed attempts. Please wait 15 minutes.")
             return redirect('/login/')
     return render(request, "login.html")
+
+
+def forgot_password(request):
+    """Show forgot-password form; on POST, send a password-reset email."""
+    if request.user.is_authenticated:
+        return redirect('/portal/')
+
+    if request.method == 'POST':
+        email = (request.POST.get('email') or '').strip().lower()
+        # Always show success to avoid user enumeration
+        success_msg = "If an account with that email exists, we've sent a password reset link. Please check your inbox and spam folder."
+
+        if email:
+            user = User.objects.filter(email__iexact=email).first()
+            if user:
+                try:
+                    _send_password_reset_email(user, request)
+                except Exception as exc:
+                    _logger.error('Failed to send password reset email to %s: %s', email, exc)
+
+        return render(request, 'forgot_password.html', {'sent': True, 'success_msg': success_msg, 'email': email})
+
+    return render(request, 'forgot_password.html', {'sent': False})
+
+
+def reset_password(request, uidb64, token):
+    """Validate reset token, show new-password form, save the new password."""
+    from django.contrib.auth.tokens import default_token_generator
+    from django.utils.http import urlsafe_base64_decode
+
+    try:
+        uid = urlsafe_base64_decode(uidb64).decode()
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+
+    if user is None or not default_token_generator.check_token(user, token):
+        return render(request, 'reset_password.html', {'valid': False})
+
+    if request.method == 'POST':
+        password1 = request.POST.get('password', '')
+        password2 = request.POST.get('password_confirm', '')
+
+        if len(password1) < 8:
+            return render(request, 'reset_password.html', {
+                'valid': True, 'uidb64': uidb64, 'token': token,
+                'error': 'Password must be at least 8 characters long.',
+            })
+
+        if password1 != password2:
+            return render(request, 'reset_password.html', {
+                'valid': True, 'uidb64': uidb64, 'token': token,
+                'error': 'Passwords do not match.',
+            })
+
+        user.set_password(password1)
+        user.save()
+        messages.success(request, 'Your password has been reset successfully. You can now log in.')
+        return redirect('/login/')
+
+    return render(request, 'reset_password.html', {
+        'valid': True, 'uidb64': uidb64, 'token': token,
+    })
+
+
+def _send_password_reset_email(user, request):
+    """Send a branded password-reset email with a one-time token link."""
+    from django.contrib.auth.tokens import default_token_generator
+    from django.utils.http import urlsafe_base64_encode
+    from django.utils.encoding import force_bytes
+    from django.core.mail import EmailMessage
+    from django.core.mail.backends.smtp import EmailBackend
+    from django.template.loader import render_to_string
+    from django.conf import settings
+    from data.models import OutboundEmailProfile
+
+    token = default_token_generator.make_token(user)
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    protocol = 'https' if request.is_secure() else 'https'  # always https in prod
+    domain = request.get_host()
+    reset_url = f"{protocol}://{domain}/reset-password/{uid}/{token}/"
+
+    customer_name = user.get_full_name() or user.username
+
+    context = {
+        'customer_name': customer_name,
+        'reset_url': reset_url,
+        'domain': domain,
+    }
+
+    subject = f'Reset Your Password — {domain.split(":")[0].replace("www.", "").title()}'
+    html_msg = render_to_string('emails/password_reset.html', context)
+    text_msg = (
+        f'Hi {customer_name},\n\n'
+        f'We received a request to reset your password.\n\n'
+        f'Click the link below to set a new password:\n{reset_url}\n\n'
+        f'This link expires in 24 hours.\n\n'
+        f'If you did not request this, please ignore this email.\n\n'
+        f'— {domain.split(":")[0]} Team'
+    )
+
+    # Try OutboundEmailProfile first
+    try:
+        smtp_profile = (
+            OutboundEmailProfile.objects
+            .filter(is_active=True, send_on_password_reset=True)
+            .order_by('-is_default')
+            .first()
+        )
+        if not smtp_profile:
+            smtp_profile = (
+                OutboundEmailProfile.objects
+                .filter(is_active=True, is_default=True)
+                .first()
+            )
+    except Exception:
+        smtp_profile = None
+
+    if smtp_profile:
+        email = EmailMessage(
+            subject=subject,
+            body=html_msg,
+            from_email=f'{smtp_profile.from_name or "VoidOnyx"} <{smtp_profile.from_email}>',
+            to=[user.email],
+            reply_to=[smtp_profile.reply_to_email] if smtp_profile.reply_to_email else [],
+        )
+        email.content_subtype = 'html'
+        backend = EmailBackend(
+            host=smtp_profile.smtp_host,
+            port=smtp_profile.smtp_port,
+            username=smtp_profile.smtp_username,
+            password=smtp_profile.smtp_password,
+            use_tls=smtp_profile.use_tls,
+        )
+        backend.send_messages([email])
+        _logger.info('Password reset email sent via profile "%s" to %s', smtp_profile.from_email, user.email)
+    else:
+        email = EmailMessage(
+            subject=subject,
+            body=html_msg,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[user.email],
+        )
+        email.content_subtype = 'html'
+        email.send()
+        _logger.info('Password reset email sent via Django default to %s', user.email)
 
 
 def send_registration_otp_email(customer_email, otp_code):
@@ -3449,33 +3896,46 @@ def register(request):
     if request.method == 'POST':
         import re as _re
         import random
-        email            = request.POST.get('Email', '').strip().lower()
-        full_name        = request.POST.get('full_name', '').strip()
+        # ── Field names must match the VoidOnyx register.html template ────────
+        email            = request.POST.get('email', '').strip().lower()
+        first_name       = request.POST.get('first_name', '').strip()
+        last_name        = request.POST.get('last_name', '').strip()
+        full_name        = (first_name + ' ' + last_name).strip()
         phone_raw        = request.POST.get('phone', '').strip()
-        password         = request.POST.get('password', '')
-        confirm_password = request.POST.get('confirm_password', '')
+        password         = request.POST.get('password1', '')
+        confirm_password = request.POST.get('password2', '')
 
         def _ctx():
-            return {'full_name': full_name, 'Email': email, 'phone': phone_raw}
+            return {
+                'full_name': full_name,
+                'first_name': first_name,
+                'last_name': last_name,
+                'email': email,
+                'phone': phone_raw,
+            }
 
-        if not full_name or not email:
-            messages.error(request, "Please complete your name and email")
+        # Basic presence check
+        if not first_name or not email:
+            messages.error(request, "Please complete your name and email.")
             return render(request, 'register.html', _ctx())
 
-        # Phone validation — required, digits only, 7–15 chars
-        phone_digits = _re.sub(r'[^\d]', '', phone_raw)
-        if not phone_digits:
-            messages.error(request, "Phone number is required.")
+        # Simple email format validation
+        if not _re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
+            messages.error(request, "Please enter a valid email address.")
             return render(request, 'register.html', _ctx())
-        if not (7 <= len(phone_digits) <= 15):
-            messages.error(request, "Enter a valid phone number (7–15 digits).")
-            return render(request, 'register.html', _ctx())
+
+        # Phone validation — digits only, 7–15 chars (optional on VoidOnyx)
+        if phone_raw:
+            phone_digits = _re.sub(r'[^\d]', '', phone_raw)
+            if not (7 <= len(phone_digits) <= 15):
+                messages.error(request, "Enter a valid phone number (7–15 digits).")
+                return render(request, 'register.html', _ctx())
 
         if password != confirm_password:
-            messages.error(request, "Passwords do not match")
+            messages.error(request, "Passwords do not match.")
             return render(request, 'register.html', _ctx())
         if User.objects.filter(email=email).exists():
-            messages.error(request, "Email already exists")
+            messages.error(request, "An account with this email already exists.")
             return render(request, 'register.html', _ctx())
         try:
             validate_password(password)
@@ -3486,11 +3946,11 @@ def register(request):
 
         # Generate OTP code and store signup info in session
         otp_code = str(random.randint(100000, 999999))
-        request.session['reg_email'] = email
+        request.session['reg_email']     = email
         request.session['reg_full_name'] = full_name
-        request.session['reg_phone'] = phone_raw
-        request.session['reg_password'] = password
-        request.session['reg_otp'] = otp_code
+        request.session['reg_phone']     = phone_raw
+        request.session['reg_password']  = password
+        request.session['reg_otp']       = otp_code
 
         send_registration_otp_email(email, otp_code)
 
@@ -3593,6 +4053,8 @@ def logout_view(request):
 
 @login_required(login_url='/login/')
 def cart_config(request, slug):
+    blocked = _voidonyx_purchase_blocked(request)
+    if blocked: return blocked
     """Step-1/2: Choose domain + billing cycle for a hosting package."""
     package = get_static_hosting_package(slug)
     if not package:
@@ -3651,9 +4113,22 @@ def cart_config(request, slug):
         due_delta = {'monthly': 30, 'quarterly': 90, 'annually': 365}.get(billing_cycle, 30)
         next_due = today + timedelta(days=due_delta)
 
-        # ── Domain availability check for "register" action ─────────────────────
+        # ── Check if domain already exists in our system ──────────────────────
         domain_error = None
-        if domain_action == 'register' and '.' in domain:
+        existing_service = HostingService.objects.filter(
+            domain__iexact=domain
+        ).exclude(
+            status__in=('cancelled', 'terminated')
+        ).first()
+        if existing_service:
+            domain_error = (
+                f"The domain <strong>{domain}</strong> is already associated with an "
+                f"existing hosting service in our system. Please use a different domain "
+                f"name, or contact support if you believe this is an error."
+            )
+
+        # ── External domain availability check for "register" action ─────────
+        if not domain_error and domain_action == 'register' and '.' in domain:
             try:
                 from voidpanel.domain_client import ConnectResellerClient
                 client = ConnectResellerClient()
@@ -3689,8 +4164,6 @@ def cart_config(request, slug):
                 storage_gb=package.storage_gb,
                 bandwidth_gb=500,
             )
-            inv_count = Invoice.objects.filter(user=request.user).count()
-            
             invoice_desc = f'{package.name} Hosting — {domain}'
             if domain_action == 'register':
                 invoice_desc = f'{package.name} Hosting + Domain Registration — {domain}'
@@ -3699,7 +4172,7 @@ def cart_config(request, slug):
 
             invoice = Invoice.objects.create(
                 user=request.user,
-                invoice_number=f'VP-{request.user.id:04d}-{inv_count + 1:03d}',
+                invoice_number=_get_next_invoice_number(request.user, prefix='VP'),
                 description=invoice_desc,
                 status='unpaid',
                 total=total,
@@ -3783,6 +4256,17 @@ def invoice_pay(request, inv_id):
                 suite_order.status = 'paid'
                 suite_order.save(update_fields=['status'])
                 _activate_suite_service(suite_order)
+
+            # Activate linked ERP/CRM order
+            try:
+                erp_order = invoice.erp_order
+            except Exception:
+                erp_order = None
+            if erp_order:
+                try:
+                    _activate_erp_crm_service(erp_order)
+                except Exception as erp_err:
+                    _logger.error('ERP activation failed for order %s: %s', erp_order.pk, erp_err)
 
             PortalActivity.objects.create(
                 user=invoice.user,
@@ -3981,10 +4465,9 @@ def super_admin_billing(request):
             due = request.POST.get('due_date')
             user = User.objects.filter(id=uid).first()
             if user and desc and due:
-                cnt = Invoice.objects.filter(user=user).count()
                 Invoice.objects.create(
                     user=user,
-                    invoice_number=f'VP-{user.id:04d}-{cnt + 1:03d}',
+                    invoice_number=_get_next_invoice_number(user, prefix='VP'),
                     description=desc,
                     status='unpaid',
                     total=Decimal(total),
@@ -4086,6 +4569,16 @@ def api_license_register(request):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'error': 'POST required'}, status=405)
 
+    # ── Rate limiting ─────────────────────────────────────────────────────
+    from django.core.cache import cache
+    xff = request.META.get('HTTP_X_FORWARDED_FOR', '')
+    client_ip = xff.split(',')[0].strip() if xff else request.META.get('REMOTE_ADDR', '0.0.0.0')
+    rl_key = f'api_license_reg:{client_ip}'
+    hits = cache.get(rl_key, 0)
+    if hits >= 10:
+        return JsonResponse({'status': 'error', 'error': 'Rate limit exceeded. Try again later.'}, status=429)
+    cache.set(rl_key, hits + 1, 60)  # 10 requests per minute
+
     import json as _json
     try:
         body = _json.loads(request.body)
@@ -4120,7 +4613,8 @@ def api_license_register(request):
                 # Use email as the username for new API-registered users
                 auth_user = User.objects.create_user(username=email, email=email, password=password)
             except Exception as e:
-                return JsonResponse({'status': 'error', 'error': f'Registration failed: {str(e)}'}, status=500)
+                import logging; logging.getLogger(__name__).error("License registration failed: %s", e)
+                return JsonResponse({'status': 'error', 'error': 'Registration failed. Please try again.'}, status=500)
         else:
             # Login mode
             try:
@@ -4196,6 +4690,15 @@ def api_license_validate(request):
     """
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'error': 'POST required'}, status=405)
+
+    # Rate limiting: 30 requests/minute per IP
+    from django.core.cache import cache as _rl_cache
+    ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '')).split(',')[0].strip()
+    rl_key = f'rl:license_validate:{ip}'
+    hits = _rl_cache.get(rl_key, 0)
+    if hits >= 30:
+        return JsonResponse({'status': 'error', 'error': 'Rate limit exceeded'}, status=429)
+    _rl_cache.set(rl_key, hits + 1, 60)
 
     import json as _json
     try:
@@ -4598,27 +5101,29 @@ def super_admin_livechat_assign(request, session_id):
 
 def domain_registration(request):
     """Public domain search and registration page"""
-    from voidpanel.domain_client import ConnectResellerClient
-    client = ConnectResellerClient()
-    return render(request, "domain_search.html", {'domain_api_enabled': True})
+    from data.models import TLDPrice
+    tld_prices = list(TLDPrice.objects.filter(is_active=True).values('tld', 'retail_price', 'wholesale_price'))
+    return render(request, "domain_search.html", {
+        'domain_api_enabled': True,
+        'tld_prices': tld_prices,
+    })
 
 def api_domain_check(request):
-    """AJAX endpoint for testing domain availability (single domain)"""
+    """AJAX endpoint for testing domain availability (single domain) — uses fast DNS check"""
     domain = request.GET.get('domain', '').strip().lower()
     if not domain or '.' not in domain:
         return JsonResponse({"error": "Invalid domain name"})
     from voidpanel.domain_client import ConnectResellerClient
     client = ConnectResellerClient()
-    result = client.check_domain(domain)
+    result = client.check_domain_fast(domain)
     return JsonResponse(result)
 
 def api_domain_check_bulk(request):
-    """AJAX endpoint for checking domain across multiple TLDs"""
+    """AJAX endpoint for checking domain across multiple TLDs — uses fast DNS/RDAP"""
     name = request.GET.get('name', '').strip().lower()
     if not name:
         return JsonResponse({"error": "Invalid name"})
     
-    # Extract base name and typed TLD
     parts = name.split('.')
     base = parts[0].strip()
     if not base:
@@ -4626,45 +5131,275 @@ def api_domain_check_bulk(request):
         
     user_tld = '.' + '.'.join(parts[1:]) if len(parts) > 1 else None
 
-    # Default TLD list to check
-    DEFAULT_TLDS = ['.com', '.in', '.net', '.org', '.co.in', '.io']
+    # Get active TLDs from DB, with user-typed TLD prioritized
+    from data.models import TLDPrice
+    db_tlds = list(TLDPrice.objects.filter(is_active=True).values_list('tld', flat=True))
+    DEFAULT_TLDS = db_tlds if db_tlds else ['.com', '.in', '.net', '.org', '.co.in', '.io']
+
     if user_tld and user_tld.startswith('.'):
-        # Prioritize the user's typed TLD as the first item, and append default TLDs (excluding duplicate)
         tlds = [user_tld] + [t for t in DEFAULT_TLDS if t != user_tld]
     else:
         tlds = DEFAULT_TLDS
 
     from voidpanel.domain_client import ConnectResellerClient
     client = ConnectResellerClient()
-    results = client.check_bulk(base, tlds=tlds)
+    results = client.check_bulk_fast(base, tlds=tlds)
     if isinstance(results, dict) and 'error' in results:
         return JsonResponse({"error": results['error']})
     return JsonResponse({"results": results})
 
 @login_required(login_url='/login/')
+def portal_domain_manage(request, order_id):
+    """Domain control panel — manage nameservers, contact info, domain lock.
+    All changes are synced to ConnectReseller API. Failures are logged for super admin."""
+    order = get_object_or_404(DomainOrder, id=order_id, user=request.user)
+    from voidpanel.domain_client import ConnectResellerClient
+    client = ConnectResellerClient()
+
+    # ConnectReseller default nameservers
+    CR_DEFAULT_NS = ['dns1.registrar-servers.com', 'dns2.registrar-servers.com']
+
+    success_msg = None
+    error_msg = None
+
+    def _log_api_failure(action_name, domain, error_detail):
+        """Log API failure as PortalActivity for super admin visibility."""
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        for admin in User.objects.filter(is_superuser=True)[:3]:
+            PortalActivity.objects.create(
+                user=admin,
+                category='api_error',
+                title=f'⚠️ ConnectReseller API Failed: {action_name}',
+                description=f'Domain: {domain} | User: {request.user.username} | Error: {str(error_detail)[:200]}',
+            )
+
+    if request.method == 'POST':
+        action = request.POST.get('action', '')
+
+        if action == 'update_ns':
+            ns1 = request.POST.get('ns1', '').strip()
+            ns2 = request.POST.get('ns2', '').strip()
+            ns3 = request.POST.get('ns3', '').strip()
+            ns4 = request.POST.get('ns4', '').strip()
+            if not ns1 or not ns2:
+                error_msg = "NS1 and NS2 are required."
+            else:
+                result = client.update_nameservers(order.domain_name, ns1, ns2, ns3, ns4)
+                order.api_response = order.api_response or {}
+                order.api_response['nameservers'] = [ns for ns in [ns1, ns2, ns3, ns4] if ns]
+                order.provision_log += f"\n[{timezone.now():%Y-%m-%d %H:%M}] NS updated: {ns1}, {ns2}"
+                if result.get('success'):
+                    success_msg = f"Nameservers updated to {ns1}, {ns2}"
+                else:
+                    err = result.get('error', 'Unknown error')
+                    success_msg = f"Nameservers saved locally. API sync failed: {err}"
+                    _log_api_failure('Update Nameservers', order.domain_name, err)
+                order.save(update_fields=['api_response', 'provision_log'])
+
+        elif action == 'update_contact':
+            contact = {
+                'first_name': request.POST.get('first_name', '').strip(),
+                'last_name': request.POST.get('last_name', '').strip(),
+                'email': request.POST.get('email', '').strip(),
+                'phone': request.POST.get('phone', '').strip(),
+                'company': request.POST.get('company', '').strip(),
+                'address': request.POST.get('address', '').strip(),
+                'city': request.POST.get('city', '').strip(),
+                'state': request.POST.get('state', '').strip(),
+                'postal_code': request.POST.get('postal_code', '').strip(),
+                'country': request.POST.get('country', 'IN').strip(),
+            }
+            if not contact['first_name'] or not contact['email']:
+                error_msg = "First name and email are required."
+            else:
+                result = client.update_contact_info(order.domain_name, contact)
+                order.api_response = order.api_response or {}
+                order.api_response['contact'] = contact
+                order.provision_log += f"\n[{timezone.now():%Y-%m-%d %H:%M}] Contact info updated"
+                if result.get('success'):
+                    success_msg = "Contact information updated successfully"
+                else:
+                    err = result.get('error', 'Unknown error')
+                    success_msg = f"Contact saved locally. API sync failed: {err}"
+                    _log_api_failure('Update Contact', order.domain_name, err)
+                order.save(update_fields=['api_response', 'provision_log'])
+
+        elif action == 'toggle_lock':
+            new_lock = request.POST.get('lock_status') == 'true'
+            result = client.set_domain_lock(order.domain_name, lock=new_lock)
+            order.api_response = order.api_response or {}
+            order.api_response['lock'] = new_lock
+            order.provision_log += f"\n[{timezone.now():%Y-%m-%d %H:%M}] Domain lock {'enabled' if new_lock else 'disabled'}"
+            if result.get('success'):
+                success_msg = f"Domain lock {'enabled' if new_lock else 'disabled'}"
+            else:
+                err = result.get('error', 'Unknown error')
+                success_msg = f"Lock status saved locally. API sync failed: {err}"
+                _log_api_failure('Toggle Lock', order.domain_name, err)
+            order.save(update_fields=['api_response', 'provision_log'])
+
+        elif action == 'add_dns':
+            dns_type = request.POST.get('dns_type', 'A').strip().upper()
+            dns_host = request.POST.get('dns_host', '@').strip()
+            dns_value = request.POST.get('dns_value', '').strip()
+            dns_ttl = request.POST.get('dns_ttl', '3600').strip()
+            if not dns_value:
+                error_msg = "DNS record value is required."
+            else:
+                order.api_response = order.api_response or {}
+                dns_records = order.api_response.get('dns_records', [])
+                new_record = {'id': len(dns_records) + 1, 'type': dns_type, 'host': dns_host, 'value': dns_value, 'ttl': dns_ttl}
+                dns_records.append(new_record)
+                order.api_response['dns_records'] = dns_records
+                order.provision_log += f"\n[{timezone.now():%Y-%m-%d %H:%M}] DNS {dns_type} record added: {dns_host} -> {dns_value}"
+                order.save(update_fields=['api_response', 'provision_log'])
+                # Push to API
+                try:
+                    import requests as req_lib
+                    api_url = "https://api.connectreseller.com/ConnectReseller/ESHOP/adddnsrecord"
+                    resp = req_lib.get(api_url, params={"APIKey": client.api_key, "websiteName": order.domain_name, "type": dns_type, "hostname": dns_host, "value": dns_value, "ttl": dns_ttl}, timeout=10)
+                    if resp.status_code != 200 or resp.json().get('responseMsg', {}).get('statusCode') != 200:
+                        _log_api_failure('Add DNS Record', order.domain_name, resp.text[:200])
+                except Exception as e:
+                    _log_api_failure('Add DNS Record', order.domain_name, str(e))
+                success_msg = f"DNS {dns_type} record added for {dns_host}"
+
+        elif action == 'delete_dns':
+            dns_id = int(request.POST.get('dns_id', 0))
+            order.api_response = order.api_response or {}
+            dns_records = order.api_response.get('dns_records', [])
+            order.api_response['dns_records'] = [r for r in dns_records if r.get('id') != dns_id]
+            order.provision_log += f"\n[{timezone.now():%Y-%m-%d %H:%M}] DNS record #{dns_id} deleted"
+            order.save(update_fields=['api_response', 'provision_log'])
+            try:
+                import requests as req_lib
+                api_url = "https://api.connectreseller.com/ConnectReseller/ESHOP/deletednsrecord"
+                resp = req_lib.get(api_url, params={"APIKey": client.api_key, "websiteName": order.domain_name, "recordId": dns_id}, timeout=10)
+                if resp.status_code != 200:
+                    _log_api_failure('Delete DNS Record', order.domain_name, resp.text[:200])
+            except Exception as e:
+                _log_api_failure('Delete DNS Record', order.domain_name, str(e))
+            success_msg = "DNS record deleted"
+
+        elif action == 'add_child_ns':
+            child_host = request.POST.get('child_ns_host', '').strip().lower()
+            child_ip = request.POST.get('child_ns_ip', '').strip()
+            if not child_host or not child_ip:
+                error_msg = "Hostname and IP address are required."
+            else:
+                full_hostname = f"{child_host}.{order.domain_name}"
+                order.api_response = order.api_response or {}
+                child_ns = order.api_response.get('child_nameservers', [])
+                child_ns.append({'hostname': full_hostname, 'ip': child_ip})
+                order.api_response['child_nameservers'] = child_ns
+                order.provision_log += f"\n[{timezone.now():%Y-%m-%d %H:%M}] Child NS created: {full_hostname} -> {child_ip}"
+                order.save(update_fields=['api_response', 'provision_log'])
+                try:
+                    import requests as req_lib
+                    api_url = "https://api.connectreseller.com/ConnectReseller/ESHOP/addchildnameserver"
+                    resp = req_lib.get(api_url, params={"APIKey": client.api_key, "websiteName": order.domain_name, "hostname": full_hostname, "ip": child_ip}, timeout=10)
+                    if resp.status_code != 200:
+                        _log_api_failure('Add Child NS', order.domain_name, resp.text[:200])
+                except Exception as e:
+                    _log_api_failure('Add Child NS', order.domain_name, str(e))
+                success_msg = f"Child nameserver {full_hostname} created"
+
+        elif action == 'delete_child_ns':
+            del_hostname = request.POST.get('child_ns_hostname', '')
+            order.api_response = order.api_response or {}
+            child_ns = order.api_response.get('child_nameservers', [])
+            order.api_response['child_nameservers'] = [c for c in child_ns if c.get('hostname') != del_hostname]
+            order.provision_log += f"\n[{timezone.now():%Y-%m-%d %H:%M}] Child NS deleted: {del_hostname}"
+            order.save(update_fields=['api_response', 'provision_log'])
+            try:
+                import requests as req_lib
+                api_url = "https://api.connectreseller.com/ConnectReseller/ESHOP/deletechildnameserver"
+                resp = req_lib.get(api_url, params={"APIKey": client.api_key, "websiteName": order.domain_name, "hostname": del_hostname}, timeout=10)
+                if resp.status_code != 200:
+                    _log_api_failure('Delete Child NS', order.domain_name, resp.text[:200])
+            except Exception as e:
+                _log_api_failure('Delete Child NS', order.domain_name, str(e))
+            success_msg = f"Child nameserver {del_hostname} deleted"
+
+    # Get current data
+    api_data = order.api_response or {}
+    nameservers = api_data.get('nameservers', CR_DEFAULT_NS.copy())
+    domain_lock = api_data.get('lock', True)
+    contact = api_data.get('contact', {})
+    dns_records = api_data.get('dns_records', [])
+    child_nameservers = api_data.get('child_nameservers', [])
+
+    # DNS tab only available when using ConnectReseller nameservers
+    current_ns_lower = [ns.lower() for ns in nameservers if ns]
+    uses_cr_ns = all(ns in [n.lower() for n in CR_DEFAULT_NS] for ns in current_ns_lower[:2]) if len(current_ns_lower) >= 2 else False
+
+    # Pre-fill contact from user profile if empty
+    if not contact:
+        try:
+            profile = request.user.customer_profile
+            contact = {
+                'first_name': request.user.first_name or request.user.username,
+                'last_name': request.user.last_name or '',
+                'email': request.user.email,
+                'phone': profile.phone or '',
+                'company': profile.company_name or '',
+                'address': profile.address or '',
+                'city': profile.city or '',
+                'state': profile.state or '',
+                'postal_code': profile.postal_code or '',
+                'country': profile.country or 'India',
+            }
+        except Exception:
+            contact = {'first_name': request.user.username, 'email': request.user.email}
+
+    # Pad nameservers to 4
+    while len(nameservers) < 4:
+        nameservers.append('')
+
+    context = {
+        'order': order,
+        'nameservers': nameservers,
+        'domain_lock': domain_lock,
+        'contact': contact,
+        'dns_records': dns_records,
+        'child_nameservers': child_nameservers,
+        'uses_cr_ns': uses_cr_ns,
+        'cr_default_ns': CR_DEFAULT_NS,
+        'success_msg': success_msg,
+        'error_msg': error_msg,
+    }
+    return render(request, 'portal_domain_manage.html', context)
+
+@login_required(login_url='/login/')
 def domain_order_checkout(request):
-    """Creates a DomainOrder and invoice, then redirects to portal invoice page."""
-    domain_name = request.GET.get('domain', '').strip().lower()
-    price_inr = request.GET.get('price', '0')
-    years = int(request.GET.get('years', 1))
+    blocked = _voidonyx_purchase_blocked(request)
+    if blocked: return blocked
+    """Step 1 (GET): Show WHOIS registration form.
+    Step 2 (POST): Validate WHOIS, create DomainOrder + Invoice, redirect to payment.
+    Price is pulled from TLDPrice DB cache — NOT from URL param — to prevent manipulation."""
+    domain_name = request.GET.get('domain', request.POST.get('domain', '')).strip().lower()
+    years = int(request.GET.get('years', request.POST.get('years', 1)))
     
     if not domain_name or '.' not in domain_name:
         messages.error(request, 'Invalid domain name.')
         return redirect('/domain-registration/')
 
-    try:
-        final_price = Decimal(price_inr).quantize(Decimal('0.01'))
-    except:
-        final_price = Decimal('999.00')
+    # Get authoritative price from DB cache
+    from voidpanel.domain_client import ConnectResellerClient
+    client = ConnectResellerClient()
+    tld = client._get_tld(domain_name)
+    pricing = client.get_cached_price(tld)
+    
+    wholesale_price = Decimal(str(pricing['wholesale_price_inr']))
+    final_price = Decimal(str(pricing['retail_price_inr'])) * years
 
-    # ── Domain availability check before creating order ─────────────────────
-    action = request.GET.get('action', 'register')
+    # Domain availability check
+    action = request.GET.get('action', request.POST.get('action', 'register'))
     if action == 'register':
         try:
-            from voidpanel.domain_client import ConnectResellerClient
-            client = ConnectResellerClient()
-            avail = client.check_domain(domain_name)
-            if avail.get('available') is False or avail.get('status') in ('registered', 'taken', 'unavailable'):
+            avail = client.check_domain_fast(domain_name)
+            if avail.get('available') is False:
                 messages.error(
                     request,
                     f"❌ The domain '{domain_name}' is already registered. "
@@ -4672,17 +5407,77 @@ def domain_order_checkout(request):
                 )
                 return redirect('/domain-registration/')
         except Exception:
-            pass  # Don't block on API failure
+            pass
+
+    # Pre-fill WHOIS from user profile
+    whois = {}
+    try:
+        profile = request.user.customer_profile
+        whois = {
+            'first_name': request.user.first_name or request.user.username,
+            'last_name': request.user.last_name or '',
+            'email': request.user.email,
+            'phone': profile.phone or '',
+            'company': profile.company_name or '',
+            'address': profile.address or '',
+            'city': profile.city or '',
+            'state': profile.state or '',
+            'postal_code': profile.postal_code or '',
+            'country': profile.country or 'India',
+        }
+    except Exception:
+        whois = {
+            'first_name': request.user.first_name or request.user.username,
+            'last_name': request.user.last_name or '',
+            'email': request.user.email,
+        }
+
+    if request.method == 'GET':
+        # Show WHOIS registration form
+        context = {
+            'domain_name': domain_name,
+            'years': years,
+            'final_price': final_price,
+            'retail_price': pricing['retail_price_inr'],
+            'whois': whois,
+            'action': action,
+        }
+        return render(request, 'domain_checkout_whois.html', context)
+
+    # POST — validate WHOIS and create order
+    whois_data = {
+        'first_name': request.POST.get('first_name', '').strip(),
+        'last_name': request.POST.get('last_name', '').strip(),
+        'email': request.POST.get('whois_email', '').strip(),
+        'phone': request.POST.get('phone', '').strip(),
+        'company': request.POST.get('company', '').strip(),
+        'address': request.POST.get('address', '').strip(),
+        'city': request.POST.get('city', '').strip(),
+        'state': request.POST.get('state', '').strip(),
+        'postal_code': request.POST.get('postal_code', '').strip(),
+        'country': request.POST.get('country', 'India').strip(),
+    }
+
+    if not whois_data['first_name'] or not whois_data['email']:
+        messages.error(request, 'First name and email are required for domain registration.')
+        context = {
+            'domain_name': domain_name,
+            'years': years,
+            'final_price': final_price,
+            'retail_price': pricing['retail_price_inr'],
+            'whois': whois_data,
+            'action': action,
+        }
+        return render(request, 'domain_checkout_whois.html', context)
 
     ensure_portal_seed_data(request.user)
     
     today = timezone.localdate()
     with transaction.atomic():
-        inv_count = Invoice.objects.filter(user=request.user).count()
         invoice = Invoice.objects.create(
             user=request.user,
-            invoice_number=f'VP-DOM-{request.user.id:04d}-{inv_count + 1:03d}',
-            description=f'Domain Registration: {domain_name} ({years} Year)',
+            invoice_number=_get_next_invoice_number(request.user, prefix='VP-DOM'),
+            description=f'Domain Registration: {domain_name} ({years} Year{"s" if years > 1 else ""})',
             status='unpaid',
             total=final_price,
             currency='INR',
@@ -4692,10 +5487,11 @@ def domain_order_checkout(request):
             user=request.user,
             domain_name=domain_name,
             years=years,
-            wholesale_price=Decimal(0),
+            wholesale_price=wholesale_price,
             final_price=final_price,
             status='pending_payment',
             invoice=invoice,
+            api_response={'contact': whois_data},
         )
         PortalActivity.objects.create(
             user=request.user,
@@ -4745,7 +5541,60 @@ def api_coupon_validate(request):
         "discount_value": float(coupon.discount_value)
     })
 
-# ── Super Admin Configs ──
+@login_required(login_url='/login/')
+def api_invoice_apply_coupon(request, invoice_id):
+    """Apply a coupon code to an unpaid invoice — reduces total and returns new amount."""
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+
+    import json
+    try:
+        body = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    code = body.get('code', '').strip().upper()
+    if not code:
+        return JsonResponse({"error": "Please enter a coupon code"})
+
+    invoice = Invoice.objects.filter(id=invoice_id, user=request.user).first()
+    if not invoice:
+        return JsonResponse({"error": "Invoice not found"}, status=404)
+    if invoice.status == 'paid':
+        return JsonResponse({"error": "Invoice is already paid"})
+
+    # Check if coupon already applied
+    if f'[COUPON:' in invoice.description:
+        return JsonResponse({"error": "A coupon has already been applied to this invoice"})
+
+    coupon = Coupon.objects.filter(code=code).first()
+    if not coupon or not coupon.is_valid():
+        return JsonResponse({"error": "Invalid or expired coupon code"})
+
+    original_total = invoice.total
+    if coupon.discount_type == 'percentage':
+        discount_amount = (original_total * coupon.discount_value / Decimal('100')).quantize(Decimal('0.01'))
+    else:
+        discount_amount = min(coupon.discount_value, original_total)
+
+    new_total = max(Decimal('0.00'), original_total - discount_amount)
+
+    invoice.total = new_total
+    invoice.description += f' [COUPON:{coupon.code} -{discount_amount}]'
+    invoice.save(update_fields=['total', 'description'])
+
+    # Increment coupon usage
+    coupon.used_count = (coupon.used_count or 0) + 1
+    coupon.save(update_fields=['used_count'])
+
+    return JsonResponse({
+        "status": "ok",
+        "original_total": float(original_total),
+        "discount_amount": float(discount_amount),
+        "new_total": float(new_total),
+        "coupon_code": coupon.code,
+        "discount_label": f"{coupon.discount_value}%" if coupon.discount_type == 'percentage' else f"₹{coupon.discount_value}",
+    })
 
 @login_required(login_url="/login/")
 def super_admin_domain_api(request):
@@ -4757,17 +5606,121 @@ def super_admin_domain_api(request):
         config = ConnectResellerConfig.objects.create(margin_percentage=20)
 
     if request.method == "POST":
-        config.api_key = request.POST.get("api_key", "").strip()
-        config.reseller_id = request.POST.get("reseller_id", "").strip()
-        config.margin_percentage = int(request.POST.get("margin_percentage", 20))
-        config.is_active = request.POST.get("is_active") == "on"
-        config.save()
-        messages.success(request, "Domain API Configuration saved successfully.")
-        return redirect("/super-admin/domain-api/")
+        form_action = request.POST.get("form_action", "save_config")
+
+        if form_action == "save_config":
+            config.api_key = request.POST.get("api_key", "").strip()
+            config.reseller_id = request.POST.get("reseller_id", "").strip()
+            config.margin_percentage = int(request.POST.get("margin_percentage", 20))
+            config.is_active = request.POST.get("is_active") == "on"
+            config.auto_provision_after_payment = request.POST.get("auto_provision") == "on"
+            config.save()
+            messages.success(request, "Domain API Configuration saved successfully.")
         
+        return redirect("/super-admin/domain-api/")
+    
+    from data.models import TLDPrice
     ctx = _build_super_admin_context('domain-api')
     ctx['config'] = config
+    ctx['tld_prices'] = TLDPrice.objects.all().order_by('retail_price')
+    ctx['domain_orders'] = DomainOrder.objects.select_related('user', 'invoice').order_by('-created_at')[:50]
     return render(request, "super_admin_domain_api.html", ctx)
+
+
+@login_required(login_url="/login/")
+def super_admin_domain_sync_prices(request):
+    """Trigger a manual price sync from the admin panel."""
+    denied = _super_admin_guard(request)
+    if denied: return denied
+
+    if request.method == "POST":
+        from django.core.management import call_command
+        from io import StringIO
+        out = StringIO()
+        try:
+            call_command('sync_domain_prices', stdout=out, stderr=out)
+            messages.success(request, f"Price sync completed. {out.getvalue().strip()}")
+        except Exception as e:
+            messages.error(request, f"Price sync failed: {e}")
+
+    return redirect("/super-admin/domain-api/")
+
+
+@login_required(login_url="/login/")
+def super_admin_domain_activate(request, order_id):
+    """Admin action: Activate domain order in DB only (no API call)."""
+    denied = _super_admin_guard(request)
+    if denied: return denied
+
+    if request.method == "POST":
+        order = DomainOrder.objects.filter(id=order_id).first()
+        if not order:
+            messages.error(request, "Domain order not found.")
+            return redirect("/super-admin/domain-api/")
+
+        order.provision_status = 'db_activated'
+        order.status = 'active'
+        order.provision_log += f"\n[{timezone.now():%Y-%m-%d %H:%M}] Activated in DB by admin."
+        order.provisioned_at = timezone.now()
+        order.save(update_fields=['provision_status', 'status', 'provision_log', 'provisioned_at'])
+
+        PortalActivity.objects.create(
+            user=order.user,
+            category='service',
+            title=f'Domain activated: {order.domain_name}',
+            description='Domain marked as active by administrator.',
+        )
+        messages.success(request, f"Domain {order.domain_name} activated in DB.")
+
+    return redirect("/super-admin/domain-api/")
+
+
+@login_required(login_url="/login/")
+def super_admin_domain_provision(request, order_id):
+    """Admin action: Provision domain via ConnectReseller API (actually buy it)."""
+    denied = _super_admin_guard(request)
+    if denied: return denied
+
+    if request.method == "POST":
+        order = DomainOrder.objects.filter(id=order_id).first()
+        if not order:
+            messages.error(request, "Domain order not found.")
+            return redirect("/super-admin/domain-api/")
+
+        from voidpanel.domain_client import ConnectResellerClient
+        client = ConnectResellerClient()
+
+        if not client.enabled:
+            messages.error(request, "ConnectReseller API is not configured or disabled.")
+            order.provision_log += f"\n[{timezone.now():%Y-%m-%d %H:%M}] Provision failed: API not configured."
+            order.save(update_fields=['provision_log'])
+            return redirect("/super-admin/domain-api/")
+
+        result = client.register_domain(order.domain_name, years=order.years, domain_order=order)
+
+        if result.get('success'):
+            order.provision_status = 'api_provisioned'
+            order.status = 'active'
+            order.api_response = result
+            order.provisioned_at = timezone.now()
+            order.provision_log += f"\n[{timezone.now():%Y-%m-%d %H:%M}] Provisioned via ConnectReseller API. Response: {result}"
+            order.save(update_fields=['provision_status', 'status', 'api_response', 'provisioned_at', 'provision_log'])
+
+            PortalActivity.objects.create(
+                user=order.user,
+                category='service',
+                title=f'Domain provisioned: {order.domain_name}',
+                description='Domain registered via ConnectReseller API.',
+            )
+            messages.success(request, f"✅ Domain {order.domain_name} provisioned via API successfully!")
+        else:
+            error_msg = result.get('error', 'Unknown error')
+            order.provision_status = 'failed'
+            order.provision_log += f"\n[{timezone.now():%Y-%m-%d %H:%M}] API provision failed: {error_msg}"
+            order.save(update_fields=['provision_status', 'provision_log'])
+            messages.error(request, f"❌ Domain provision failed: {error_msg}")
+
+    return redirect("/super-admin/domain-api/")
 
 
 @login_required(login_url="/login/")
@@ -5345,11 +6298,33 @@ def api_razorpay_verify(request):
             order.provision_response = {'error': str(prov_err)}
             order.save(update_fields=['status', 'provision_response'])
 
-    # 5. Domain order payment
+    # 5. Domain order payment + auto-provision
     domain_order = getattr(invoice, 'domain_order', None)
     if domain_order:
-        domain_order.status = 'processing'
+        domain_order.status = 'paid'
         domain_order.save(update_fields=['status'])
+
+        # Check auto-provision setting
+        try:
+            from data.models import ConnectResellerConfig
+            cr_config = ConnectResellerConfig.objects.filter(is_active=True).first()
+            if cr_config and cr_config.auto_provision_after_payment:
+                from voidpanel.domain_client import ConnectResellerClient
+                client = ConnectResellerClient()
+                result = client.register_domain(domain_order.domain_name, years=domain_order.years, domain_order=domain_order)
+                if result.get('success'):
+                    domain_order.provision_status = 'api_provisioned'
+                    domain_order.status = 'active'
+                    domain_order.api_response = result
+                    domain_order.provisioned_at = timezone.now()
+                    domain_order.provision_log += f"\n[{timezone.now():%Y-%m-%d %H:%M}] Auto-provisioned via API after payment."
+                else:
+                    domain_order.provision_status = 'failed'
+                    domain_order.provision_log += f"\n[{timezone.now():%Y-%m-%d %H:%M}] Auto-provision failed: {result.get('error', 'Unknown')}"
+                domain_order.save()
+        except Exception as e:
+            domain_order.provision_log += f"\n[{timezone.now():%Y-%m-%d %H:%M}] Auto-provision error: {e}"
+            domain_order.save(update_fields=['provision_log'])
 
     # 6. Professional Email order provisioning
     try:
@@ -5399,6 +6374,17 @@ def api_razorpay_verify(request):
             _activate_suite_service(suite_order_obj)
         except Exception as suite_err:
             _logger.error('Suite activation failed for order %s: %s', suite_order_obj.pk, suite_err)
+
+    # 9. ERP/CRM order activation
+    try:
+        erp_order_obj = invoice.erp_order
+    except Exception:
+        erp_order_obj = None
+    if erp_order_obj and not ErpCrmService.objects.filter(user=erp_order_obj.user, subdomain=erp_order_obj.subdomain).exists():
+        try:
+            _activate_erp_crm_service(erp_order_obj)
+        except Exception as erp_err:
+            _logger.error('ERP/CRM activation failed for order %s: %s', erp_order_obj.pk, erp_err)
 
     PortalActivity.objects.create(
         user=request.user,
@@ -5493,11 +6479,30 @@ def api_wallet_pay(request):
                 order.provision_response = {'error': str(prov_err)}
                 order.save(update_fields=['status', 'provision_response'])
                 
-        # Domain order
+        # Domain order + auto-provision
         domain_order = getattr(invoice, 'domain_order', None)
         if domain_order:
-            domain_order.status = 'processing'
+            domain_order.status = 'paid'
             domain_order.save(update_fields=['status'])
+            try:
+                cr_config = ConnectResellerConfig.objects.filter(is_active=True).first()
+                if cr_config and cr_config.auto_provision_after_payment:
+                    from voidpanel.domain_client import ConnectResellerClient
+                    client = ConnectResellerClient()
+                    result = client.register_domain(domain_order.domain_name, years=domain_order.years, domain_order=domain_order)
+                    if result.get('success'):
+                        domain_order.provision_status = 'api_provisioned'
+                        domain_order.status = 'active'
+                        domain_order.api_response = result
+                        domain_order.provisioned_at = timezone.now()
+                        domain_order.provision_log += f"\n[{timezone.now():%Y-%m-%d %H:%M}] Auto-provisioned (webhook)."
+                    else:
+                        domain_order.provision_status = 'failed'
+                        domain_order.provision_log += f"\n[{timezone.now():%Y-%m-%d %H:%M}] Auto-provision failed: {result.get('error')}"
+                    domain_order.save()
+            except Exception as e:
+                domain_order.provision_log += f"\n[{timezone.now():%Y-%m-%d %H:%M}] Auto-provision error: {e}"
+                domain_order.save(update_fields=['provision_log'])
             
         # Professional Email
         try:
@@ -5548,6 +6553,17 @@ def api_wallet_pay(request):
             except Exception as suite_err:
                 _logger.error('Suite activation failed for order %s: %s', suite_order_obj.pk, suite_err)
 
+        # ERP/CRM Order
+        try:
+            erp_order_obj = invoice.erp_order
+        except Exception:
+            erp_order_obj = None
+        if erp_order_obj and not ErpCrmService.objects.filter(user=erp_order_obj.user, subdomain=erp_order_obj.subdomain).exists():
+            try:
+                _activate_erp_crm_service(erp_order_obj)
+            except Exception as erp_err:
+                _logger.error('ERP/CRM activation failed for order %s: %s', erp_order_obj.pk, erp_err)
+
         PortalActivity.objects.create(
             user=request.user,
             category='billing',
@@ -5577,10 +6593,9 @@ def wallet_deposit(request):
         messages.error(request, "Minimum deposit amount is ₹10.")
         return redirect('/portal/')
         
-    cnt = Invoice.objects.filter(user=request.user).count()
     invoice = Invoice.objects.create(
         user=request.user,
-        invoice_number=f'DEP-{request.user.id:04d}-{cnt + 1:03d}',
+        invoice_number=_get_next_invoice_number(request.user, prefix='DEP'),
         description=f'Deposit Funds to Wallet — {amount} INR',
         status='unpaid',
         total=amount,
@@ -5614,10 +6629,9 @@ def wallet_buy_chips(request):
     credits_per_rupee = getattr(pricing_settings, 'credits_per_rupee', 100) or 100
     chips_qty = int(amount * credits_per_rupee)
 
-    cnt = Invoice.objects.filter(user=request.user).count()
     invoice = Invoice.objects.create(
         user=request.user,
-        invoice_number=f'CHP-{request.user.id:04d}-{cnt + 1:03d}',
+        invoice_number=_get_next_invoice_number(request.user, prefix='CHP'),
         description=f'Purchase AI Chips — {chips_qty} Chips ({amount} INR)',
         status='unpaid',
         total=amount,
@@ -5696,6 +6710,7 @@ def api_razorpay_webhook(request):
 
     return JsonResponse({'ok': True, 'event': event})
 
+@login_required(login_url='/login/')
 def super_admin_notifications(request):
     denied = _super_admin_guard(request)
     if denied:
@@ -5885,6 +6900,10 @@ def portal_service_detail(request, service_id):
     URL: /portal/service/<service_id>/
     """
     service = get_object_or_404(HostingService, id=service_id, user=request.user)
+
+    # WordPress Hosting services should use the dedicated WordPress portal
+    if service.product_type == 'WordPress Hosting':
+        return redirect(f'/portal/service/{service_id}/wordpress/')
 
     # Determine shortcuts deep-links based on panel_base_url
     panel_base = service.panel_base_url
@@ -6325,6 +7344,8 @@ def email_configure(request, plan_id):
 
 @login_required(login_url='/login/')
 def email_checkout(request):
+    blocked = _voidonyx_purchase_blocked(request)
+    if blocked: return blocked
     """
     Step 2: Creates an Invoice and EmailOrder, then redirects to the payment page.
     Session key 'email_order' must be set by email_configure.
@@ -6355,10 +7376,9 @@ def email_checkout(request):
         cycle_label = 'Monthly'
 
     with transaction.atomic():
-        inv_count = Invoice.objects.filter(user=request.user).count()
         invoice = Invoice.objects.create(
             user           = request.user,
-            invoice_number = f'VP-{request.user.id:04d}-{inv_count + 1:03d}',
+            invoice_number = _get_next_invoice_number(request.user, prefix='VP'),
             status         = 'unpaid',
             total          = price,
             due_date       = (timezone.now() + timedelta(days=3)).date(),
@@ -6877,6 +7897,8 @@ def ssl_configure(request, plan_id):
 
 @login_required(login_url='/login/')
 def ssl_checkout(request):
+    blocked = _voidonyx_purchase_blocked(request)
+    if blocked: return blocked
     """
     Session key 'ssl_order' must be set by ssl_configure.
     Creates an unpaid Invoice and SSLOrder record, then redirects to payment page.
@@ -8212,15 +9234,42 @@ def portal_delete_service(request):
         if not service:
             return JsonResponse({'ok': False, 'message': 'Email service not found'}, status=404)
         
+        # Clean up mailboxes and domain on the remote mail server
+        if service.server:
+            import requests as _rq
+            api_base = service.server.url.rstrip('/')
+            headers  = {'X-API-Token': service.server.api_key}
+
+            # 1) Delete each mailbox from the mail server
+            for mb in service.mailboxes.all():
+                try:
+                    _rq.post(
+                        f'{api_base}/api/v2/email/delete/',
+                        json={'domain': service.domain, 'email': mb.email_address},
+                        headers=headers, timeout=10,
+                    )
+                except Exception as exc:
+                    _logger.warning('Failed to delete mailbox %s on server: %s', mb.email_address, exc)
+
+            # 2) Delete the domain config from the mail server
+            try:
+                _rq.post(
+                    f'{api_base}/api/v2/email/delete-domain/',
+                    json={'domain': service.domain},
+                    headers=headers, timeout=10,
+                )
+            except Exception as exc:
+                _logger.warning('Failed to delete email domain %s on server: %s', service.domain, exc)
+
         # Log activity
         PortalActivity.objects.create(
             user=request.user,
             category='account',
-            title=f'Email service deleted: {service.domain}',
-            description=f'Email plan {service.plan_name} for {service.domain} was deleted.',
+            title=f'Email service terminated: {service.domain}',
+            description=f'Email plan {service.plan_name} for {service.domain} was terminated. All mailboxes deleted from server.',
         )
         service.delete()
-        return JsonResponse({'ok': True, 'message': 'Email service deleted successfully.'})
+        return JsonResponse({'ok': True, 'message': 'Email service terminated and all mailboxes deleted from the server.'})
 
     # 3. SSL Service
     elif service_type == 'ssl':
@@ -8228,15 +9277,41 @@ def portal_delete_service(request):
         if not service:
             return JsonResponse({'ok': False, 'message': 'SSL service not found'}, status=404)
         
+        # Revoke / delete the certificate on the remote server
+        if service.server:
+            import requests as _rq
+            api_base = service.server.url.rstrip('/')
+            headers  = {'X-API-Token': service.server.api_key}
+
+            # Try to revoke the SSL certificate via server API
+            try:
+                _rq.post(
+                    f'{api_base}/api/v2/ssl/revoke/',
+                    json={'domain': service.domain},
+                    headers=headers, timeout=15,
+                )
+            except Exception as exc:
+                _logger.warning('Failed to revoke SSL for %s on server: %s', service.domain, exc)
+
+            # Also try delete endpoint as fallback
+            try:
+                _rq.post(
+                    f'{api_base}/api/v2/ssl/delete/',
+                    json={'domain': service.domain},
+                    headers=headers, timeout=15,
+                )
+            except Exception as exc:
+                _logger.warning('Failed to delete SSL for %s on server: %s', service.domain, exc)
+
         # Log activity
         PortalActivity.objects.create(
             user=request.user,
             category='account',
-            title=f'SSL Certificate deleted: {service.domain}',
-            description=f'SSL service {service.plan_name} for {service.domain} was deleted.',
+            title=f'SSL Certificate terminated: {service.domain}',
+            description=f'SSL service {service.plan_name} for {service.domain} was terminated and certificate revoked from server.',
         )
         service.delete()
-        return JsonResponse({'ok': True, 'message': 'SSL service deleted successfully.'})
+        return JsonResponse({'ok': True, 'message': 'SSL service terminated and certificate revoked from server.'})
 
     # 4. License Service
     elif service_type == 'license':
@@ -8253,6 +9328,108 @@ def portal_delete_service(request):
         )
         service.delete()
         return JsonResponse({'ok': True, 'message': 'Panel license deleted successfully.'})
+
+    # 5. HRMS / ERP Service
+    elif service_type in ('erp', 'hrms', 'erp_crm'):
+        from data.models import ErpCrmService
+        service = ErpCrmService.objects.filter(id=service_id, user=request.user).first()
+        if not service and request.user.is_superuser:
+            service = ErpCrmService.objects.filter(id=service_id).first()
+
+        if not service:
+            return JsonResponse({'ok': False, 'message': 'HRMS service not found'}, status=404)
+        
+        company_name = service.company_name
+        subdomain = service.subdomain
+
+        # Call remote SaaS platform API to terminate/delete tenant from hrms.voidpanel.com
+        try:
+            import requests as _rq
+            headers = {
+                "Authorization": f"Bearer {SAAS_TOKEN}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "subdomain": subdomain,
+                "company_name": company_name
+            }
+            resp_del = _rq.delete(f"{SAAS_API_URL}/api/v1/delete/", json=payload, headers=headers, timeout=10)
+            _logger.info("Remote SAAS API tenant deletion response for %s: %s - %s", subdomain, resp_del.status_code, resp_del.text)
+        except Exception as exc:
+            _logger.warning("Remote SAAS API tenant deletion call failed for %s: %s", subdomain, exc)
+
+        # Log activity
+        PortalActivity.objects.create(
+            user=request.user,
+            category='account',
+            title=f'HRMS Service Deleted: {company_name}',
+            description=f'HRMS portal for {company_name} ({subdomain}.hrms.voidpanel.com) was deleted.',
+        )
+        service.delete()
+        return JsonResponse({'ok': True, 'message': f"HRMS Service '{company_name}' deleted successfully."})
+
+    # 6. Gym Portal SaaS Service
+    elif service_type in ('gym', 'gym_portal'):
+        from data.models import GymPortalService
+        service = GymPortalService.objects.filter(id=service_id, user=request.user).first()
+        if not service and request.user.is_superuser:
+            service = GymPortalService.objects.filter(id=service_id).first()
+
+        if not service:
+            return JsonResponse({'ok': False, 'message': 'Gym service not found'}, status=404)
+
+        gym_name = service.gym_name
+        owner_username = service.owner_username
+        remote_gym_id = service.remote_gym_id
+
+        # Call remote Gym SaaS platform API to delete tenant from gym.voidonyx.in
+        if remote_gym_id:
+            try:
+                import requests as _rq
+                res_del = _rq.post(f"https://gym.voidonyx.in/api/saas/gym/delete/{remote_gym_id}/", timeout=10)
+                _logger.info("Remote Gym SAAS API deletion response for gym_id %s: %s - %s", remote_gym_id, res_del.status_code, res_del.text)
+            except Exception as exc:
+                _logger.warning("Remote Gym SAAS API tenant deletion call failed for gym %s: %s", gym_name, exc)
+
+        # Log activity
+        PortalActivity.objects.create(
+            user=request.user,
+            category='account',
+            title=f'Gym Service Deleted: {gym_name}',
+            description=f'Gym Portal service for {gym_name} (owner: {owner_username}) was deleted.',
+        )
+        service.delete()
+        return JsonResponse({'ok': True, 'message': f"Gym Service '{gym_name}' deleted successfully."})
+    # 7. Digital Suite Service (Social / SEO / Marketing)
+    elif service_type == 'suite':
+        from data.models import SuiteService
+        service = SuiteService.objects.filter(id=service_id, user=request.user).first()
+        if not service and request.user.is_superuser:
+            service = SuiteService.objects.filter(id=service_id).first()
+
+        if not service:
+            return JsonResponse({'ok': False, 'message': 'Suite service not found'}, status=404)
+
+        service_name = service.service_name
+        suite_type = service.suite or 'Digital'
+        user_email = service.user.email
+
+        # Delete the suite subscription from the control panel server
+        if service.server:
+            try:
+                _call_suite_delete_account(service)
+            except Exception as exc:
+                _logger.warning('Failed to delete suite account %s on server: %s', user_email, exc)
+
+        # Log activity
+        PortalActivity.objects.create(
+            user=request.user,
+            category='account',
+            title=f'Suite Terminated: {service_name}',
+            description=f'{suite_type.title()} suite service "{service_name}" was terminated and deleted from server.',
+        )
+        service.delete()
+        return JsonResponse({'ok': True, 'message': f"Suite '{service_name}' terminated successfully."})
 
     else:
         return JsonResponse({'ok': False, 'message': 'Unknown service type'}, status=400)
@@ -8301,6 +9478,41 @@ def _call_suite_toggle_status(service, is_active):
         return False
 
 
+def _call_suite_delete_account(service):
+    """Call control panel server API to delete suite subscription entirely."""
+    server = service.server
+    if not server:
+        return False
+    import urllib.request
+    import json
+
+    base_url = server.login_url or f"http://{server.ip_address}:8080"
+    url = f"{base_url.rstrip('/')}/control/api/suite/delete-account/"
+    headers = {
+        'Content-Type': 'application/json',
+        'X-Suite-API-Key': 'vp-suite-api-k3y-v01dp4nel2024!',
+    }
+    payload = {
+        'email': service.user.email,
+    }
+
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode('utf-8'),
+        headers=headers,
+        method='POST'
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as response:
+            res = json.loads(response.read().decode('utf-8'))
+            _logger.info('Suite account deleted on server for %s: %s', service.user.email, res)
+            return res.get('ok', False)
+    except Exception as exc:
+        _logger.error('_call_suite_delete_account error for %s: %s', service.user.email, exc)
+        return False
+
+
+@login_required(login_url='/login/')
 def super_admin_services(request):
     denied = _super_admin_guard(request)
     if denied:
@@ -8340,6 +9552,12 @@ def super_admin_services(request):
                     if obj:
                         deleted_name = f"Suite: {obj.service_name}"
                         obj.delete()
+                elif stype == 'erp_crm':
+                    from data.models import ErpCrmService
+                    obj = ErpCrmService.objects.filter(id=sid).first()
+                    if obj:
+                        deleted_name = f"ERP/CRM: {obj.company_name} ({obj.subdomain})"
+                        obj.delete()
                 
                 if deleted_name:
                     messages.success(request, f"Successfully erased '{deleted_name}' from the database only.")
@@ -8376,8 +9594,145 @@ def super_admin_services(request):
                 messages.error(request, "Suite service not found.")
             return redirect('/super-admin/services/')
 
+        if action == 'assign_erp_service':
+            user_id       = request.POST.get('user_id', '').strip()
+            company_name  = request.POST.get('company_name', '').strip()
+            subdomain     = request.POST.get('subdomain', '').strip().lower()
+            admin_name    = request.POST.get('admin_name', '').strip()
+            admin_email   = request.POST.get('admin_email', '').strip()
+            admin_pass    = request.POST.get('admin_password', '').strip()
+            package_name  = request.POST.get('package_name', '').strip()
+            custom_domain = request.POST.get('custom_domain', '').strip().lower()
+            monthly_price = request.POST.get('monthly_price', '0').strip()
+            billing_cycle = request.POST.get('billing_cycle', 'monthly').strip()
+            next_due_date = request.POST.get('next_due_date', '').strip()
+            from django.contrib.auth.models import User
+            from data.models import ErpCrmService
+            import datetime, requests as _rq2
+            user_obj = User.objects.filter(id=user_id).first()
+            if not user_obj:
+                messages.error(request, 'Selected client/user not found.')
+                return redirect('/super-admin/services/')
+            if not company_name or not subdomain or not admin_email:
+                messages.error(request, 'Company name, subdomain, and admin email are required.')
+                return redirect('/super-admin/services/')
+            try:
+                ndd = datetime.datetime.strptime(next_due_date, '%Y-%m-%d').date() if next_due_date else (datetime.date.today() + datetime.timedelta(days=30))
+            except Exception:
+                ndd = datetime.date.today() + datetime.timedelta(days=30)
+            headers_erp = {'Authorization': f'Bearer {SAAS_TOKEN}', 'Content-Type': 'application/json'}
+            payload_erp = {
+                'company_name':   company_name,
+                'subdomain':      subdomain,
+                'package_name':   package_name or 'Starter',
+                'admin_name':     admin_name or user_obj.get_full_name() or user_obj.username,
+                'admin_email':    admin_email,
+                'admin_password': admin_pass or 'ChangeMe@123',
+            }
+            if custom_domain:
+                payload_erp['custom_domain'] = custom_domain
+            dashboard_url = f'https://{subdomain}.voidpanel.com/'
+            try:
+                resp_erp = _rq2.post(f'{SAAS_API_URL}/api/v1/provision/', json=payload_erp, headers=headers_erp, timeout=15)
+                if resp_erp.status_code in (200, 201):
+                    rdata = resp_erp.json()
+                    if rdata.get('success') or rdata.get('dashboard_url'):
+                        dashboard_url = rdata.get('dashboard_url', dashboard_url)
+                else:
+                    err_d = ''
+                    try:
+                        err_d = resp_erp.json().get('error', '')
+                    except Exception:
+                        pass
+                    messages.error(request, f'SAAS API error ({resp_erp.status_code}): {err_d or resp_erp.text[:200]}')
+                    return redirect('/super-admin/services/')
+            except Exception as e:
+                messages.error(request, f'Failed to reach SAAS API: {e}')
+                return redirect('/super-admin/services/')
+            try:
+                ErpCrmService.objects.create(
+                    user=user_obj, company_name=company_name, subdomain=subdomain,
+                    package_name=package_name or 'Starter', status='active',
+                    monthly_price=Decimal(monthly_price), billing_cycle=billing_cycle,
+                    dashboard_url=dashboard_url, admin_email=admin_email,
+                    custom_domain=custom_domain, next_due_date=ndd,
+                )
+                messages.success(request, f'ERP/HRMS workspace "{company_name}" provisioned for {user_obj.username}!')
+            except Exception as e:
+                messages.error(request, f'SAAS API OK but DB record creation failed: {e}')
+            return redirect('/super-admin/services/')
+
+        if action == 'set_erp_custom_domain':
+            sid        = request.POST.get('service_id', '').strip()
+            new_domain = request.POST.get('custom_domain', '').strip().lower()
+            from data.models import ErpCrmService
+            import requests as _rq3
+            svc = ErpCrmService.objects.filter(id=sid).first()
+            if not svc:
+                messages.error(request, 'ERP service not found.')
+                return redirect('/super-admin/services/')
+            try:
+                resp_cd = _rq3.post(
+                    f'{SAAS_API_URL}/api/v1/set-custom-domain/',
+                    json={'subdomain': svc.subdomain, 'custom_domain': new_domain},
+                    headers={'Authorization': f'Bearer {SAAS_TOKEN}', 'Content-Type': 'application/json'}, timeout=10
+                )
+                if resp_cd.status_code == 200 and resp_cd.json().get('success'):
+                    svc.custom_domain = new_domain
+                    svc.save(update_fields=['custom_domain'])
+                    label = f'set to "{new_domain}"' if new_domain else 'cleared'
+                    messages.success(request, f'Custom domain {label} for {svc.company_name}.')
+                else:
+                    err_d = ''
+                    try:
+                        err_d = resp_cd.json().get('error', '')
+                    except Exception:
+                        pass
+                    messages.error(request, f'SAAS API error: {err_d or resp_cd.text[:200]}')
+            except Exception as e:
+                messages.error(request, f'Failed to reach SAAS API: {e}')
+            return redirect('/super-admin/services/')
+
+        if action == 'suspend_erp':
+            sid = request.POST.get('service_id', '').strip()
+            from data.models import ErpCrmService
+            import requests as _rq4
+            svc = ErpCrmService.objects.filter(id=sid).first()
+            if svc:
+                try:
+                    _rq4.post(f'{SAAS_API_URL}/api/v1/suspend/', json={'subdomain': svc.subdomain},
+                              headers={'Authorization': f'Bearer {SAAS_TOKEN}', 'Content-Type': 'application/json'}, timeout=10)
+                except Exception:
+                    pass
+                svc.status = 'suspended'
+                svc.save(update_fields=['status'])
+                messages.success(request, f'ERP workspace "{svc.company_name}" suspended.')
+            else:
+                messages.error(request, 'ERP service not found.')
+            return redirect('/super-admin/services/')
+
+        if action == 'unsuspend_erp':
+            sid = request.POST.get('service_id', '').strip()
+            from data.models import ErpCrmService
+            import requests as _rq5
+            svc = ErpCrmService.objects.filter(id=sid).first()
+            if svc:
+                try:
+                    _rq5.post(f'{SAAS_API_URL}/api/v1/activate/', json={'subdomain': svc.subdomain},
+                              headers={'Authorization': f'Bearer {SAAS_TOKEN}', 'Content-Type': 'application/json'}, timeout=10)
+                except Exception:
+                    pass
+                svc.status = 'active'
+                svc.save(update_fields=['status'])
+                messages.success(request, f'ERP workspace "{svc.company_name}" reactivated.')
+            else:
+                messages.error(request, 'ERP service not found.')
+            return redirect('/super-admin/services/')
+
         if action == 'assign_hosting_service':
+
             user_id = request.POST.get('user_id')
+
             domain = request.POST.get('domain', '').strip().lower()
             service_name = request.POST.get('service_name', '').strip()
             server_id = request.POST.get('server_id')
@@ -8730,7 +10085,7 @@ def super_admin_services(request):
             return redirect('/super-admin/services/')
 
     # GET request
-    from data.models import HostingService, EmailService, SSLService, PanelLicenseRecord, SuiteService
+    from data.models import HostingService, EmailService, SSLService, PanelLicenseRecord, SuiteService, ErpCrmService
     from django.contrib.auth.models import User
     
     hosting_svcs = HostingService.objects.select_related('user', 'server').order_by('-created_at')
@@ -8738,6 +10093,7 @@ def super_admin_services(request):
     ssl_svcs = SSLService.objects.select_related('user', 'server').order_by('-created_at')
     license_svcs = PanelLicenseRecord.objects.select_related('user').order_by('-issued_at')
     suite_svcs = SuiteService.objects.select_related('user', 'server').order_by('-created_at')
+    erp_svcs = ErpCrmService.objects.select_related('user').order_by('-created_at')
     portal_users = User.objects.filter(is_staff=False, is_superuser=False).order_by('username')
 
     from data.models import GlobalEmailTemplate, GlobalWhatsAppTemplate
@@ -8751,6 +10107,7 @@ def super_admin_services(request):
         'ssl_services':     ssl_svcs,
         'license_services': license_svcs,
         'suite_services':   suite_svcs,
+        'erp_services':     erp_svcs,
         'portal_users':     portal_users,
         'email_templates':  email_tpls,
         'wa_templates':     wa_tpls,
@@ -8775,6 +10132,7 @@ def _call_wa_api(endpoint, method='GET', payload=None):
         return {'ok': False, 'error': str(exc)}
 
 
+@login_required(login_url='/login/')
 def super_admin_whatsapp(request):
     denied = _super_admin_guard(request)
     if denied:
@@ -9029,10 +10387,21 @@ def suite_order_configure(request, suite, plan_id):
         if billing_cycle not in ('monthly', 'annually'):
             billing_cycle = 'monthly'
 
-        existing = SuiteService.objects.filter(user=request.user, suite=suite, status__in=['active', 'pending']).first()
+        # Check if user already has an active/pending subscription for this suite type
+        existing = SuiteService.objects.filter(
+            user=request.user,
+            suite=suite,
+            status__in=('active', 'pending'),
+        ).first()
         if existing:
-            messages.warning(request, f'You already have an active {plan.get_suite_display()} subscription.')
-            return redirect('/portal/')
+            suite_display = plan.get_suite_display()
+            messages.error(
+                request,
+                f'You already have an active {suite_display} subscription '
+                f'("{existing.service_name}"). You cannot purchase another {suite_display} plan. '
+                f'Please use a different account or cancel the existing subscription first.'
+            )
+            return render(request, 'suite_configure.html', {'plan': plan, 'suite': suite})
 
         coupon_code = request.POST.get('coupon_code', '').strip().upper()
 
@@ -9049,6 +10418,8 @@ def suite_order_configure(request, suite, plan_id):
 
 @login_required(login_url='/login/')
 def suite_checkout(request):
+    blocked = _voidonyx_purchase_blocked(request)
+    if blocked: return blocked
     """Step 2: Creates Invoice + SuiteOrder, attempts wallet auto-pay, else shows Razorpay."""
     session_data = request.session.get('suite_order')
     if not session_data:
@@ -9092,10 +10463,9 @@ def suite_checkout(request):
     suite_display = plan.get_suite_display()
 
     with transaction.atomic():
-        inv_count = Invoice.objects.filter(user=request.user).count()
         invoice = Invoice.objects.create(
             user=request.user,
-            invoice_number=f'VP-{request.user.id:04d}-{inv_count + 1:03d}',
+            invoice_number=_get_next_invoice_number(request.user, prefix='VP'),
             status='unpaid', total=price,
             due_date=(timezone.now() + timedelta(days=3)).date(),
             description=f"{plan.name} {suite_display} — {cycle_label}{desc_suffix}",
@@ -9330,6 +10700,7 @@ def portal_suite_sso(request, service_id):
 #  DIGITAL SUITES — SUPER-ADMIN PLAN MANAGEMENT
 # ══════════════════════════════════════════════════════════════════════════════
 
+@login_required(login_url='/login/')
 def super_admin_suite_plans(request):
     """/super-admin/suite-plans/ — full CRUD for SuitePlan."""
     denied = _super_admin_guard(request)
@@ -9565,3 +10936,1069 @@ def super_admin_base_email(request):
         'active_tab':       request.GET.get('tab', 'email'),
     })
     return render(request, 'super_admin_base_email.html', ctx)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  ERP/CRM (HRMS SAAS) INTEGRATION
+# ══════════════════════════════════════════════════════════════════════════════
+
+import requests as _requests
+
+from django.conf import settings as _djsettings
+SAAS_API_URL = _djsettings.HRMS_SAAS_API_URL
+SAAS_TOKEN = _djsettings.HRMS_SAAS_TOKEN
+
+# Password encryption for SaaS order records
+from data.crypto import encrypt_password as _encrypt_pw, decrypt_password as _decrypt_pw
+
+def api_erp_check_subdomain(request):
+    """Proxy the SAAS API subdomain availability check for super admin form."""
+    from django.http import JsonResponse
+    subdomain = request.GET.get('subdomain', '').strip().lower()
+    if not subdomain:
+        return JsonResponse({'available': False, 'error': 'Subdomain is required.'})
+    try:
+        import requests as _rq
+        headers = {'Authorization': f'Bearer {SAAS_TOKEN}'}
+        resp = _rq.get(f'{SAAS_API_URL}/api/v1/check-subdomain/?subdomain={subdomain}', headers=headers, timeout=5)
+        if resp.status_code == 200:
+            return JsonResponse(resp.json())
+        return JsonResponse({'available': False, 'error': 'SAAS API unavailable.'})
+    except Exception as e:
+        return JsonResponse({'available': False, 'error': str(e)})
+
+
+def get_saas_packages():
+
+    try:
+        headers = {"Authorization": f"Bearer {SAAS_TOKEN}"}
+        resp = _requests.get(f"{SAAS_API_URL}/api/v1/packages/", headers=headers, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("success") and "packages" in data:
+                return data["packages"]
+    except Exception as e:
+        _logger.error("Failed to fetch packages from SaaS API: %s", e)
+    
+    # Fallback list of packages
+    return [
+        {
+            "id": 1,
+            "name": "Starter",
+            "description": "For small startups, basic HR features",
+            "price": 0.00,
+            "max_employees": 5,
+            "max_interns": 3,
+            "features": {
+                "smtp": False,
+                "leaves": True,
+                "attendance": True,
+                "payroll": False,
+                "internships": True,
+                "shifts": False,
+                "advance_salary": False
+            }
+        },
+        {
+            "id": 2,
+            "name": "Growth",
+            "description": "For growing teams with full HR automation",
+            "price": 999.00,
+            "max_employees": 50,
+            "max_interns": 20,
+            "features": {
+                "smtp": True,
+                "leaves": True,
+                "attendance": True,
+                "payroll": True,
+                "internships": True,
+                "shifts": True,
+                "advance_salary": True
+            }
+        },
+        {
+            "id": 3,
+            "name": "Enterprise",
+            "description": "For large organizations with priority support",
+            "price": 2999.00,
+            "max_employees": 500,
+            "max_interns": 100,
+            "features": {
+                "smtp": True,
+                "leaves": True,
+                "attendance": True,
+                "payroll": True,
+                "internships": True,
+                "shifts": True,
+                "advance_salary": True
+            }
+        }
+    ]
+
+def erp_crm_pricing_page(request):
+    packages = get_saas_packages()
+    return render(request, 'erp_crm_pricing.html', {
+        'packages': packages,
+        'title': 'ERP / CRM (HRMS SaaS) — VoidPanel',
+        'tagline': 'Streamline employee management, leaves, attendance and payroll seamlessly.'
+    })
+
+@login_required(login_url='/login/')
+def erp_crm_configure(request, package_id):
+    packages = get_saas_packages()
+    selected_pkg = None
+    for pkg in packages:
+        if pkg['id'] == int(package_id):
+            selected_pkg = pkg
+            break
+            
+    if not selected_pkg:
+        messages.error(request, 'Selected plan not found.')
+        return redirect('/erp-crm/')
+
+    if request.method == 'POST':
+        company_name = request.POST.get('company_name', '').strip()
+        domain_choice = 'default'
+        custom_domain = ''
+        admin_name = request.POST.get('admin_name', '').strip()
+        admin_email = request.POST.get('admin_email', '').strip()
+        admin_password = request.POST.get('admin_password', '').strip()
+        billing_cycle = request.POST.get('billing_cycle', 'monthly')
+
+        # Simple validation
+        if not company_name or not admin_name or not admin_email or not admin_password:
+            messages.error(request, 'All fields are required.')
+            return render(request, 'erp_crm_configure.html', {'pkg': selected_pkg, 'post_data': request.POST})
+
+        # Ensure administrator email uniqueness across active services
+        if ErpCrmService.objects.filter(admin_email=admin_email).exclude(status__in=('cancelled', 'terminated')).exists():
+            messages.error(request, 'An active HRMS workspace is already registered under this email address. Please use a different email.')
+            return render(request, 'erp_crm_configure.html', {'pkg': selected_pkg, 'post_data': request.POST})
+
+        # Dynamically auto-generate unique subdomain from company name
+        from django.utils.text import slugify
+        import re
+        
+        subdomain = slugify(company_name)
+        subdomain = re.sub(r'[^a-z0-9-]', '', subdomain)
+        if not subdomain:
+            subdomain = "tenant-" + secrets.token_hex(4)
+            
+        base_subdomain = subdomain
+        counter = 1
+        while ErpCrmService.objects.filter(subdomain=subdomain).exists():
+            subdomain = f"{base_subdomain}-{counter}"
+            counter += 1
+
+        # Store in session
+        request.session['erp_order'] = {
+            'package_id': selected_pkg['id'],
+            'package_name': selected_pkg['name'],
+            'company_name': company_name,
+            'subdomain': subdomain,
+            'custom_domain': custom_domain,
+            'admin_name': admin_name,
+            'admin_email': admin_email,
+            'admin_password': admin_password,
+            'billing_cycle': billing_cycle,
+            'price': float(selected_pkg['price']) if billing_cycle == 'monthly' else float(selected_pkg['price']) * 12
+        }
+        return redirect('/erp-crm/checkout/')
+
+    # Prepopulate values
+    prepopulate = {
+        'admin_name': request.user.get_full_name() or request.user.username,
+        'admin_email': request.user.email,
+        'admin_password': secrets.token_urlsafe(10)[:12]
+    }
+    return render(request, 'erp_crm_configure.html', {'pkg': selected_pkg, 'prepopulate': prepopulate})
+
+@login_required(login_url='/login/')
+def erp_crm_checkout(request):
+    blocked = _voidonyx_purchase_blocked(request)
+    if blocked: return blocked
+    session_data = request.session.get('erp_order')
+    if not session_data:
+        messages.error(request, 'Session expired. Please configure your package details again.')
+        return redirect('/erp-crm/')
+
+    price = Decimal(str(session_data['price']))
+    billing_cycle = session_data['billing_cycle']
+    cycle_label = 'Annual' if billing_cycle == 'annually' else 'Monthly'
+
+    with transaction.atomic():
+        invoice = Invoice.objects.create(
+            user=request.user,
+            invoice_number=_get_next_invoice_number(request.user, prefix='VP'),
+            status='unpaid',
+            total=price,
+            due_date=(timezone.now() + timedelta(days=3)).date(),
+            description=f"ERP/CRM {session_data['package_name']} Plan — {session_data['company_name']} ({cycle_label})",
+        )
+        erp_order = ErpCrmOrder.objects.create(
+            user=request.user,
+            invoice=invoice,
+            package_id=session_data['package_id'],
+            package_name=session_data['package_name'],
+            company_name=session_data['company_name'],
+            subdomain=session_data['subdomain'],
+            admin_name=session_data['admin_name'],
+            admin_email=session_data['admin_email'],
+            admin_password=session_data['admin_password'],
+            billing_cycle=billing_cycle,
+            price=price,
+            custom_domain=session_data.get('custom_domain', '') or '',
+            status='pending_payment'
+        )
+        PortalActivity.objects.create(
+            user=request.user,
+            category='billing',
+            title=f'ERP/CRM Order Created: {session_data["company_name"]}',
+            description=f"Invoice #{invoice.invoice_number} — ₹{price} ({cycle_label})",
+        )
+
+    # Clear session
+    request.session.pop('erp_order', None)
+
+    # Wallet auto-pay
+    try:
+        profile = request.user.customer_profile
+        if profile.balance_funds >= price:
+            with transaction.atomic():
+                profile.balance_funds -= price
+                profile.save(update_fields=['balance_funds'])
+                invoice.status = 'paid'
+                invoice.save(update_fields=['status'])
+                erp_order.status = 'paid'
+                erp_order.save(update_fields=['status'])
+                _activate_erp_crm_service(erp_order)
+            messages.success(request, f'✅ ERP/CRM Package {erp_order.package_name} activated successfully! Wallet debited ₹{price}.')
+            return redirect('/portal/')
+    except Exception as e:
+        _logger.error("Auto-wallet pay failed for ERP order: %s", e)
+
+    return redirect(f'/portal/invoice/{invoice.id}/pay/')
+
+def _send_erp_crm_welcome_email(service, password):
+    from django.core.mail import EmailMessage
+    from django.template.loader import render_to_string
+    from django.conf import settings
+    from django.core.mail.backends.smtp import EmailBackend
+    from data.models import OutboundEmailProfile
+
+    customer_name = service.user.get_full_name() or service.user.username
+    customer_email = service.user.email
+    if not customer_email:
+        return
+
+    context = {
+        'customer_name': customer_name,
+        'company_name': service.company_name,
+        'package_name': service.package_name,
+        'dashboard_url': service.dashboard_url,
+        'admin_email': service.admin_email,
+        'admin_password': password,
+    }
+
+    subject = f'🎉 Your ERP/CRM (HRMS SaaS) is Ready: {service.company_name} — VoidPanel'
+    html_msg = render_to_string('emails/welcome_erp_crm.html', context)
+
+    # Try OutboundEmailProfile first
+    try:
+        smtp_profile = (
+            OutboundEmailProfile.objects
+            .filter(is_active=True, send_on_service_activated=True)
+            .order_by('-is_default')
+            .first()
+        )
+    except Exception:
+        smtp_profile = None
+
+    try:
+        if smtp_profile:
+            email = EmailMessage(
+                subject=subject,
+                body=html_msg,
+                from_email=f'{smtp_profile.from_name or "VoidPanel"} <{smtp_profile.from_email}>',
+                to=[customer_email],
+            )
+            email.content_subtype = 'html'
+            backend = EmailBackend(
+                host=smtp_profile.smtp_host,
+                port=smtp_profile.smtp_port,
+                username=smtp_profile.smtp_username,
+                password=smtp_profile.smtp_password,
+                use_tls=smtp_profile.use_tls,
+                use_ssl=smtp_profile.use_ssl,
+                fail_silently=False,
+            )
+            backend.open()
+            backend.send_messages([email])
+            backend.close()
+        else:
+            email = EmailMessage(
+                subject=subject,
+                body=html_msg,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[customer_email],
+            )
+            email.content_subtype = 'html'
+            email.send(fail_silently=False)
+        _logger.info('ERP/CRM welcome email sent to %s', customer_email)
+    except Exception as exc:
+        _logger.error('Failed to send ERP welcome email to %s: %s', customer_email, exc)
+
+def _activate_erp_crm_service(erp_order):
+    """Call SaaS API to provision tenant. Create local ErpCrmService."""
+    headers = {
+        "Authorization": f"Bearer {SAAS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "company_name": erp_order.company_name,
+        "subdomain": erp_order.subdomain,
+        "package_name": erp_order.package_name,
+        "admin_name": erp_order.admin_name,
+        "admin_email": erp_order.admin_email,
+        "admin_password": erp_order.admin_password
+    }
+    # Include custom_domain if set on the order
+    if getattr(erp_order, 'custom_domain', None):
+        payload['custom_domain'] = erp_order.custom_domain
+
+    login_url = "https://hrms.voidpanel.com/login/"
+    try:
+        import urllib3
+        urllib3.disable_warnings()
+        resp = _requests.post(f"{SAAS_API_URL}/api/v1/provision/", json=payload, headers=headers, timeout=12, verify=False)
+        _logger.info("HRMS SaaS tenant provisioning response for %s: %s - %s", erp_order.subdomain, resp.status_code, resp.text)
+        if resp.status_code in (200, 201):
+            data = resp.json()
+            if data.get('success'):
+                # Prefer custom domain login URL if returned, else universal login portal
+                login_url = data.get('login_url', login_url)
+    except Exception as e:
+        _logger.error("Failed to provision ERP tenant on SaaS platform: %s", e)
+
+    # Create the local subscription service record
+    due_date = (timezone.now() + timedelta(days=365 if erp_order.billing_cycle == 'annually' else 30)).date()
+    service = ErpCrmService.objects.create(
+        user=erp_order.user,
+        company_name=erp_order.company_name,
+        subdomain=erp_order.subdomain,
+        package_name=erp_order.package_name,
+        status='active',
+        monthly_price=erp_order.price if erp_order.billing_cycle == 'monthly' else erp_order.price / 12,
+        billing_cycle=erp_order.billing_cycle,
+        dashboard_url=login_url,
+        admin_email=erp_order.admin_email,
+        custom_domain=getattr(erp_order, 'custom_domain', '') or '',
+        next_due_date=due_date
+    )
+
+    erp_order.status = 'paid'
+    erp_order.save(update_fields=['status'])
+
+    PortalActivity.objects.create(
+        user=erp_order.user,
+        category='service',
+        title=f'ERP/CRM Service Activated: {service.company_name}',
+        description=f"Tenant: {service.subdomain} | Package: {service.package_name}",
+    )
+
+    # Send Welcome Email with generated details
+    threading.Thread(target=_send_erp_crm_welcome_email, args=(service, erp_order.admin_password), daemon=True).start()
+    return service
+
+
+def visiting_card(request):
+    """Render executive visiting card for VoidOnyx."""
+    return render(request, 'visiting_card.html', {})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# GYM PORTAL SAAS PLATFORM (gym.voidonyx.in)
+# ══════════════════════════════════════════════════════════════════════════════
+
+GYM_SAAS_API_URL = _djsettings.GYM_SAAS_API_URL
+
+def get_gym_saas_packages():
+    """Fetch SaaS subscription packages directly from gym.voidonyx.in REST API."""
+    try:
+        resp = _requests.get(f"{GYM_SAAS_API_URL}/api/saas/packages/", timeout=6)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("status") == "success" and "packages" in data:
+                return data["packages"]
+    except Exception as e:
+        _logger.error("Failed to fetch Gym SaaS packages: %s", e)
+    
+    return [
+        {
+            "id": 1,
+            "name": "Starter Plan",
+            "price": 999.0,
+            "billing_cycle": "monthly",
+            "max_clients": 50,
+            "max_trainers": 2,
+            "allow_custom_branding": False,
+            "description": "Ideal for small gyms and fitness studios starting out in India."
+        },
+        {
+            "id": 2,
+            "name": "Pro Growth Plan",
+            "price": 2499.0,
+            "billing_cycle": "monthly",
+            "max_clients": 250,
+            "max_trainers": 10,
+            "allow_custom_branding": True,
+            "description": "Best for growing gym centers requiring member portal & staff management."
+        },
+        {
+            "id": 3,
+            "name": "Enterprise Unlimited",
+            "price": 4999.0,
+            "billing_cycle": "monthly",
+            "max_clients": -1,
+            "max_trainers": -1,
+            "allow_custom_branding": True,
+            "description": "Unlimited clients, staff management, white-label custom logo branding."
+        }
+    ]
+
+def gym_portal_pricing_page(request):
+    """Public landing & pricing page for Gym Portal SaaS on gym.voidonyx.in."""
+    packages = get_gym_saas_packages()
+    context = {
+        'packages': packages,
+        'title': 'Gym Portal SaaS — Gym & Fitness Center Management Software',
+        'tagline': 'All-in-one cloud portal for gym memberships, trainers, billing, attendance & PDF invoices.'
+    }
+    return render(request, 'gym_portal_pricing.html', context)
+
+def gym_portal_configure(request, package_id):
+    """Configuration step for purchasing a Gym Portal SaaS plan."""
+    packages = get_gym_saas_packages()
+    selected_pkg = None
+    for pkg in packages:
+        if pkg['id'] == int(package_id):
+            selected_pkg = pkg
+            break
+            
+    if not selected_pkg:
+        messages.error(request, 'Selected Gym plan not found.')
+        return redirect('/gym-portal/')
+
+    if request.method == 'POST':
+        gym_name = request.POST.get('gym_name', '').strip()
+        owner_username = request.POST.get('owner_username', '').strip()
+        owner_email = request.POST.get('owner_email', '').strip()
+        owner_password = request.POST.get('owner_password', '').strip()
+        billing_cycle = request.POST.get('billing_cycle', 'monthly')
+
+        if not gym_name or not owner_username or not owner_email or not owner_password:
+            messages.error(request, 'All fields are required.')
+            return render(request, 'gym_portal_configure.html', {'pkg': selected_pkg, 'post_data': request.POST})
+
+        from data.models import GymPortalService
+        if GymPortalService.objects.filter(owner_email=owner_email).exclude(status__in=('cancelled', 'terminated')).exists():
+            messages.error(request, 'An active Gym Portal workspace is already registered under this email address. Please use a different email.')
+            return render(request, 'gym_portal_configure.html', {'pkg': selected_pkg, 'post_data': request.POST})
+
+        request.session['gym_order'] = {
+            'package_id': selected_pkg['id'],
+            'package_name': selected_pkg['name'],
+            'gym_name': gym_name,
+            'owner_username': owner_username,
+            'owner_email': owner_email,
+            'owner_password': _encrypt_pw(owner_password),
+            'billing_cycle': billing_cycle,
+            'price': float(selected_pkg['price']) if billing_cycle == 'monthly' else float(selected_pkg['price']) * 12
+        }
+        return redirect('/gym-portal/checkout/')
+
+    prepopulate = {
+        'owner_username': request.user.username if request.user.is_authenticated else '',
+        'owner_email': request.user.email if request.user.is_authenticated else '',
+        'owner_password': secrets.token_urlsafe(10)[:12]
+    }
+    return render(request, 'gym_portal_configure.html', {'pkg': selected_pkg, 'prepopulate': prepopulate})
+
+@login_required(login_url='/login/')
+def gym_portal_checkout(request):
+    blocked = _voidonyx_purchase_blocked(request)
+    if blocked: return blocked
+    """Checkout & invoice creation for Gym Portal orders."""
+    session_data = request.session.get('gym_order')
+    if not session_data:
+        messages.error(request, 'Session expired. Please configure your Gym package details again.')
+        return redirect('/gym-portal/')
+
+    price = Decimal(str(session_data['price']))
+    billing_cycle = session_data['billing_cycle']
+    cycle_label = 'Annual' if billing_cycle == 'annually' else 'Monthly'
+
+    from data.models import GymPortalOrder
+    with transaction.atomic():
+        invoice = Invoice.objects.create(
+            user=request.user,
+            invoice_number=_get_next_invoice_number(request.user, prefix='GYM'),
+            status='unpaid',
+            total=price,
+            due_date=(timezone.now() + timedelta(days=3)).date(),
+            description=f"Gym Portal {session_data['package_name']} Plan — {session_data['gym_name']} ({cycle_label})",
+        )
+        gym_order = GymPortalOrder.objects.create(
+            user=request.user,
+            invoice=invoice,
+            package_id=session_data['package_id'],
+            package_name=session_data['package_name'],
+            gym_name=session_data['gym_name'],
+            owner_username=session_data['owner_username'],
+            owner_email=session_data['owner_email'],
+            owner_password=_encrypt_pw(session_data['owner_password']),
+            billing_cycle=billing_cycle,
+            price=price,
+            status='pending_payment'
+        )
+        PortalActivity.objects.create(
+            user=request.user,
+            category='billing',
+            title=f'Gym Portal Order Created: {session_data["gym_name"]}',
+            description=f"Invoice #{invoice.invoice_number} — ₹{price} ({cycle_label})",
+        )
+
+    request.session.pop('gym_order', None)
+
+    # Wallet auto-pay
+    try:
+        profile = request.user.customer_profile
+        if profile.balance_funds >= price:
+            with transaction.atomic():
+                profile.balance_funds -= price
+                profile.save(update_fields=['balance_funds'])
+                invoice.status = 'paid'
+                invoice.save(update_fields=['status'])
+                gym_order.status = 'paid'
+                gym_order.save(update_fields=['status'])
+                _activate_gym_portal_service(gym_order)
+            messages.success(request, f'✅ Gym Portal Package {gym_order.package_name} activated successfully! Wallet debited ₹{price}.')
+            return redirect('/portal/services/')
+    except Exception as e:
+        _logger.error("Auto-wallet pay failed for Gym Portal order: %s", e)
+
+    return redirect(f'/portal/invoice/{invoice.id}/pay/')
+
+def _activate_gym_portal_service(gym_order):
+    """Call Gym SaaS API to provision gym tenant. Create local GymPortalService."""
+    from data.models import GymPortalService
+    payload = {
+        "gym_name": gym_order.gym_name,
+        "owner_username": gym_order.owner_username,
+        "owner_email": gym_order.owner_email,
+        "owner_password": _decrypt_pw(gym_order.owner_password),
+        "package_id": gym_order.package_id,
+        "phone": "+91 9876543210",
+        "tagline": "Fitness & Gym Management",
+        "address": "India"
+    }
+
+    login_url = "https://gym.voidonyx.in/login/"
+    remote_gym_id = None
+    max_clients = 50
+    max_trainers = 5
+
+    try:
+        import urllib3
+        urllib3.disable_warnings()
+        resp = _requests.post(f"{GYM_SAAS_API_URL}/api/saas/gym/create/", json=payload, timeout=12, verify=False)
+        _logger.info("Gym SaaS tenant provisioning response for %s: %s - %s", gym_order.owner_username, resp.status_code, resp.text)
+        if resp.status_code in (200, 201):
+            data = resp.json()
+            if data.get('status') == 'success' and 'gym' in data:
+                gym_info = data['gym']
+                remote_gym_id = gym_info.get('id')
+                max_clients = gym_info.get('max_clients', 50)
+                max_trainers = gym_info.get('max_trainers', 5)
+    except Exception as e:
+        _logger.error("Failed to provision Gym tenant on SaaS platform: %s", e)
+
+    due_date = (timezone.now() + timedelta(days=365 if gym_order.billing_cycle == 'annually' else 30)).date()
+    service = GymPortalService.objects.create(
+        user=gym_order.user,
+        gym_name=gym_order.gym_name,
+        owner_username=gym_order.owner_username,
+        package_name=gym_order.package_name,
+        package_id=gym_order.package_id,
+        status='active',
+        monthly_price=gym_order.price if gym_order.billing_cycle == 'monthly' else gym_order.price / 12,
+        billing_cycle=gym_order.billing_cycle,
+        dashboard_url=login_url,
+        owner_email=gym_order.owner_email,
+        max_clients=max_clients,
+        max_trainers=max_trainers,
+        remote_gym_id=remote_gym_id,
+        next_due_date=due_date
+    )
+
+    gym_order.status = 'paid'
+    gym_order.save(update_fields=['status'])
+
+    PortalActivity.objects.create(
+        user=gym_order.user,
+        category='service',
+        title=f'Gym Service Activated: {service.gym_name}',
+        description=f"Owner: {service.owner_username} | Package: {service.package_name}",
+    )
+    return service
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AI VOICE CALLING SAAS PLATFORM (calling.voidonyx.in)
+# ══════════════════════════════════════════════════════════════════════════════
+
+AI_VOICE_API_URL = _djsettings.AI_VOICE_API_URL
+
+def get_ai_voice_packages():
+    """Fetch SaaS subscription packages from calling.voidonyx.in REST API."""
+    try:
+        import urllib3
+        urllib3.disable_warnings()
+        resp = _requests.get(f"{AI_VOICE_API_URL}/api/saas/packages/", timeout=6, verify=False)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("status") == "success" and "packages" in data:
+                return data["packages"]
+    except Exception as e:
+        _logger.error("Failed to fetch AI Voice SaaS packages: %s", e)
+
+    return [
+        {"id": 1, "name": "Starter", "price": 1999.0, "billing_cycle": "monthly",
+         "max_agents": 2, "max_calls_day": 50, "allow_custom_branding": False,
+         "description": "For small businesses starting with AI-powered outbound & inbound calling."},
+        {"id": 2, "name": "Business Pro", "price": 4999.0, "billing_cycle": "monthly",
+         "max_agents": 10, "max_calls_day": 500, "allow_custom_branding": True,
+         "description": "For growing teams with multi-agent calling, analytics & CRM integration."},
+        {"id": 3, "name": "Enterprise", "price": 9999.0, "billing_cycle": "monthly",
+         "max_agents": -1, "max_calls_day": -1, "allow_custom_branding": True,
+         "description": "Unlimited agents, unlimited calls, dedicated support & custom AI voice models."}
+    ]
+
+def ai_voice_pricing_page(request):
+    packages = get_ai_voice_packages()
+    return render(request, 'ai_voice_pricing.html', {
+        'packages': packages,
+        'title': 'AI Voice Calling SaaS — Enterprise AI Phone System',
+        'tagline': 'AI-powered inbound & outbound calling platform with CRM integration & analytics.'
+    })
+
+def ai_voice_configure(request, package_id):
+    packages = get_ai_voice_packages()
+    selected_pkg = next((p for p in packages if p['id'] == int(package_id)), None)
+    if not selected_pkg:
+        messages.error(request, 'Selected AI Voice plan not found.')
+        return redirect('/ai-voice/')
+
+    if request.method == 'POST':
+        business_name = request.POST.get('business_name', '').strip()
+        owner_username = request.POST.get('owner_username', '').strip()
+        owner_email = request.POST.get('owner_email', '').strip()
+        owner_password = request.POST.get('owner_password', '').strip()
+        billing_cycle = request.POST.get('billing_cycle', 'monthly')
+        if not all([business_name, owner_username, owner_email, owner_password]):
+            messages.error(request, 'All fields are required.')
+            return render(request, 'ai_voice_configure.html', {'pkg': selected_pkg, 'post_data': request.POST})
+        from data.models import AIVoiceService
+        if AIVoiceService.objects.filter(owner_email=owner_email).exclude(status__in=('cancelled', 'terminated')).exists():
+            messages.error(request, 'An active AI Voice workspace already exists for this email address. Please use a different email.')
+            return render(request, 'ai_voice_configure.html', {'pkg': selected_pkg, 'post_data': request.POST})
+        request.session['ai_voice_order'] = {
+            'package_id': selected_pkg['id'], 'package_name': selected_pkg['name'],
+            'business_name': business_name, 'owner_username': owner_username,
+            'owner_email': owner_email, 'owner_password': _encrypt_pw(owner_password),
+            'billing_cycle': billing_cycle,
+            'price': float(selected_pkg['price']) if billing_cycle == 'monthly' else float(selected_pkg['price']) * 12
+        }
+        return redirect('/ai-voice/checkout/')
+    prepopulate = {
+        'owner_username': request.user.username if request.user.is_authenticated else '',
+        'owner_email': request.user.email if request.user.is_authenticated else '',
+        'owner_password': secrets.token_urlsafe(10)[:12]
+    }
+    return render(request, 'ai_voice_configure.html', {'pkg': selected_pkg, 'prepopulate': prepopulate})
+
+@login_required(login_url='/login/')
+def ai_voice_checkout(request):
+    blocked = _voidonyx_purchase_blocked(request)
+    if blocked: return blocked
+    session_data = request.session.get('ai_voice_order')
+    if not session_data:
+        messages.error(request, 'Session expired. Please configure your AI Voice package again.')
+        return redirect('/ai-voice/')
+    price = Decimal(str(session_data['price']))
+    billing_cycle = session_data['billing_cycle']
+    cycle_label = 'Annual' if billing_cycle == 'annually' else 'Monthly'
+    from data.models import AIVoiceOrder
+    with transaction.atomic():
+        invoice = Invoice.objects.create(
+            user=request.user, invoice_number=_get_next_invoice_number(request.user, prefix='AV'),
+            status='unpaid', total=price,
+            due_date=(timezone.now() + timedelta(days=3)).date(),
+            description=f"AI Voice {session_data['package_name']} — {session_data['business_name']} ({cycle_label})")
+        order = AIVoiceOrder.objects.create(
+            user=request.user, invoice=invoice, package_id=session_data['package_id'],
+            package_name=session_data['package_name'], business_name=session_data['business_name'],
+            owner_username=session_data['owner_username'], owner_email=session_data['owner_email'],
+            owner_password=_encrypt_pw(session_data['owner_password']), billing_cycle=billing_cycle,
+            price=price, status='pending_payment')
+        PortalActivity.objects.create(user=request.user, category='billing',
+            title=f'AI Voice Order: {session_data["business_name"]}',
+            description=f"Invoice #{invoice.invoice_number} — ₹{price} ({cycle_label})")
+    request.session.pop('ai_voice_order', None)
+    try:
+        profile = request.user.customer_profile
+        if profile.balance_funds >= price:
+            with transaction.atomic():
+                profile.balance_funds -= price
+                profile.save(update_fields=['balance_funds'])
+                invoice.status = 'paid'; invoice.save(update_fields=['status'])
+                order.status = 'paid'; order.save(update_fields=['status'])
+                _activate_ai_voice_service(order)
+            messages.success(request, f'✅ AI Voice {order.package_name} activated! Wallet debited ₹{price}.')
+            return redirect('/portal/services/')
+    except Exception as e:
+        _logger.error("Auto-wallet pay failed for AI Voice order: %s", e)
+    return redirect(f'/portal/invoice/{invoice.id}/pay/')
+
+def _activate_ai_voice_service(order):
+    from data.models import AIVoiceService
+    login_url = f"{AI_VOICE_API_URL}/login/"
+    remote_id = None; max_agents = 5; max_calls_day = 100
+    try:
+        import urllib3; urllib3.disable_warnings()
+        resp = _requests.post(f"{AI_VOICE_API_URL}/api/saas/tenant/create/",
+            json={"business_name": order.business_name, "owner_username": order.owner_username,
+                  "owner_email": order.owner_email, "owner_password": _decrypt_pw(order.owner_password),
+                  "package_id": order.package_id}, timeout=12, verify=False)
+        if resp.status_code in (200, 201):
+            data = resp.json()
+            if data.get('status') == 'success':
+                info = data.get('tenant', data.get('service', {}))
+                remote_id = info.get('id'); max_agents = info.get('max_agents', 5)
+                max_calls_day = info.get('max_calls_day', 100)
+    except Exception as e:
+        _logger.error("Failed to provision AI Voice tenant: %s", e)
+    due = (timezone.now() + timedelta(days=365 if order.billing_cycle == 'annually' else 30)).date()
+    svc = AIVoiceService.objects.create(
+        user=order.user, business_name=order.business_name, owner_username=order.owner_username,
+        package_name=order.package_name, package_id=order.package_id, status='active',
+        monthly_price=order.price if order.billing_cycle == 'monthly' else order.price / 12,
+        billing_cycle=order.billing_cycle, dashboard_url=login_url, owner_email=order.owner_email,
+        max_agents=max_agents, max_calls_day=max_calls_day, remote_id=remote_id, next_due_date=due)
+    order.status = 'paid'; order.save(update_fields=['status'])
+    PortalActivity.objects.create(user=order.user, category='service',
+        title=f'AI Voice Activated: {svc.business_name}',
+        description=f"Owner: {svc.owner_username} | Package: {svc.package_name}")
+    return svc
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HOTEL MANAGEMENT SAAS PLATFORM (hotel.voidonyx.in)
+# ══════════════════════════════════════════════════════════════════════════════
+
+HOTEL_SAAS_API_URL = _djsettings.HOTEL_SAAS_API_URL
+
+def get_hotel_saas_packages():
+    try:
+        import urllib3; urllib3.disable_warnings()
+        resp = _requests.get(f"{HOTEL_SAAS_API_URL}/api/saas/packages/", timeout=6, verify=False)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("status") == "success" and "packages" in data:
+                return data["packages"]
+    except Exception as e:
+        _logger.error("Failed to fetch Hotel SaaS packages: %s", e)
+    return [
+        {"id": 1, "name": "Starter", "price": 1499.0, "billing_cycle": "monthly",
+         "max_rooms": 20, "max_staff": 3, "allow_custom_branding": False,
+         "description": "For small hotels & guest houses — room booking, billing & guest management."},
+        {"id": 2, "name": "Business Pro", "price": 3999.0, "billing_cycle": "monthly",
+         "max_rooms": 100, "max_staff": 15, "allow_custom_branding": True,
+         "description": "Multi-property hotel management with staff portal, housekeeping & reports."},
+        {"id": 3, "name": "Enterprise", "price": 7999.0, "billing_cycle": "monthly",
+         "max_rooms": -1, "max_staff": -1, "allow_custom_branding": True,
+         "description": "Unlimited rooms, POS integration, revenue management & white-label branding."}
+    ]
+
+def hotel_portal_pricing_page(request):
+    packages = get_hotel_saas_packages()
+    return render(request, 'hotel_portal_pricing.html', {
+        'packages': packages,
+        'title': 'Hotel Management SaaS — Cloud Property Management',
+        'tagline': 'Complete hotel management for bookings, guests, billing, housekeeping & analytics.'
+    })
+
+def hotel_portal_configure(request, package_id):
+    packages = get_hotel_saas_packages()
+    selected_pkg = next((p for p in packages if p['id'] == int(package_id)), None)
+    if not selected_pkg:
+        messages.error(request, 'Selected Hotel plan not found.')
+        return redirect('/hotel-portal/')
+    if request.method == 'POST':
+        hotel_name = request.POST.get('hotel_name', '').strip()
+        owner_username = request.POST.get('owner_username', '').strip()
+        owner_email = request.POST.get('owner_email', '').strip()
+        owner_password = request.POST.get('owner_password', '').strip()
+        billing_cycle = request.POST.get('billing_cycle', 'monthly')
+        if not all([hotel_name, owner_username, owner_email, owner_password]):
+            messages.error(request, 'All fields are required.')
+            return render(request, 'hotel_portal_configure.html', {'pkg': selected_pkg, 'post_data': request.POST})
+        from data.models import HotelPortalService
+        if HotelPortalService.objects.filter(owner_email=owner_email).exclude(status__in=('cancelled', 'terminated')).exists():
+            messages.error(request, 'An active Hotel workspace already exists for this email address. Please use a different email.')
+            return render(request, 'hotel_portal_configure.html', {'pkg': selected_pkg, 'post_data': request.POST})
+        request.session['hotel_order'] = {
+            'package_id': selected_pkg['id'], 'package_name': selected_pkg['name'],
+            'hotel_name': hotel_name, 'owner_username': owner_username,
+            'owner_email': owner_email, 'owner_password': _encrypt_pw(owner_password),
+            'billing_cycle': billing_cycle,
+            'price': float(selected_pkg['price']) if billing_cycle == 'monthly' else float(selected_pkg['price']) * 12
+        }
+        return redirect('/hotel-portal/checkout/')
+    prepopulate = {
+        'owner_username': request.user.username if request.user.is_authenticated else '',
+        'owner_email': request.user.email if request.user.is_authenticated else '',
+        'owner_password': secrets.token_urlsafe(10)[:12]
+    }
+    return render(request, 'hotel_portal_configure.html', {'pkg': selected_pkg, 'prepopulate': prepopulate})
+
+@login_required(login_url='/login/')
+def hotel_portal_checkout(request):
+    blocked = _voidonyx_purchase_blocked(request)
+    if blocked: return blocked
+    session_data = request.session.get('hotel_order')
+    if not session_data:
+        messages.error(request, 'Session expired. Please configure your Hotel package again.')
+        return redirect('/hotel-portal/')
+    price = Decimal(str(session_data['price']))
+    billing_cycle = session_data['billing_cycle']
+    cycle_label = 'Annual' if billing_cycle == 'annually' else 'Monthly'
+    from data.models import HotelPortalOrder
+    with transaction.atomic():
+        invoice = Invoice.objects.create(
+            user=request.user, invoice_number=_get_next_invoice_number(request.user, prefix='HTL'),
+            status='unpaid', total=price,
+            due_date=(timezone.now() + timedelta(days=3)).date(),
+            description=f"Hotel {session_data['package_name']} — {session_data['hotel_name']} ({cycle_label})")
+        order = HotelPortalOrder.objects.create(
+            user=request.user, invoice=invoice, package_id=session_data['package_id'],
+            package_name=session_data['package_name'], hotel_name=session_data['hotel_name'],
+            owner_username=session_data['owner_username'], owner_email=session_data['owner_email'],
+            owner_password=_encrypt_pw(session_data['owner_password']), billing_cycle=billing_cycle,
+            price=price, status='pending_payment')
+        PortalActivity.objects.create(user=request.user, category='billing',
+            title=f'Hotel Order: {session_data["hotel_name"]}',
+            description=f"Invoice #{invoice.invoice_number} — ₹{price} ({cycle_label})")
+    request.session.pop('hotel_order', None)
+    try:
+        profile = request.user.customer_profile
+        if profile.balance_funds >= price:
+            with transaction.atomic():
+                profile.balance_funds -= price
+                profile.save(update_fields=['balance_funds'])
+                invoice.status = 'paid'; invoice.save(update_fields=['status'])
+                order.status = 'paid'; order.save(update_fields=['status'])
+                _activate_hotel_service(order)
+            messages.success(request, f'✅ Hotel Portal {order.package_name} activated! Wallet debited ₹{price}.')
+            return redirect('/portal/services/')
+    except Exception as e:
+        _logger.error("Auto-wallet pay failed for Hotel order: %s", e)
+    return redirect(f'/portal/invoice/{invoice.id}/pay/')
+
+def _activate_hotel_service(order):
+    from data.models import HotelPortalService
+    login_url = f"{HOTEL_SAAS_API_URL}/login/"
+    remote_id = None; max_rooms = 50; max_staff = 10
+    try:
+        import urllib3; urllib3.disable_warnings()
+        resp = _requests.post(f"{HOTEL_SAAS_API_URL}/api/saas/tenant/create/",
+            json={"hotel_name": order.hotel_name, "owner_username": order.owner_username,
+                  "owner_email": order.owner_email, "owner_password": _decrypt_pw(order.owner_password),
+                  "package_id": order.package_id}, timeout=12, verify=False)
+        if resp.status_code in (200, 201):
+            data = resp.json()
+            if data.get('status') == 'success':
+                info = data.get('tenant', data.get('hotel', {}))
+                remote_id = info.get('id'); max_rooms = info.get('max_rooms', 50)
+                max_staff = info.get('max_staff', 10)
+    except Exception as e:
+        _logger.error("Failed to provision Hotel tenant: %s", e)
+    due = (timezone.now() + timedelta(days=365 if order.billing_cycle == 'annually' else 30)).date()
+    svc = HotelPortalService.objects.create(
+        user=order.user, hotel_name=order.hotel_name, owner_username=order.owner_username,
+        package_name=order.package_name, package_id=order.package_id, status='active',
+        monthly_price=order.price if order.billing_cycle == 'monthly' else order.price / 12,
+        billing_cycle=order.billing_cycle, dashboard_url=login_url, owner_email=order.owner_email,
+        max_rooms=max_rooms, max_staff=max_staff, remote_id=remote_id, next_due_date=due)
+    order.status = 'paid'; order.save(update_fields=['status'])
+    PortalActivity.objects.create(user=order.user, category='service',
+        title=f'Hotel Activated: {svc.hotel_name}',
+        description=f"Owner: {svc.owner_username} | Package: {svc.package_name}")
+    return svc
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# KHATABOOK / LEDGERFLOW SAAS PLATFORM (khatabook.voidonyx.in)
+# ══════════════════════════════════════════════════════════════════════════════
+
+KHATABOOK_API_URL = _djsettings.KHATABOOK_API_URL
+
+def get_khatabook_packages():
+    try:
+        import urllib3; urllib3.disable_warnings()
+        resp = _requests.get(f"{KHATABOOK_API_URL}/api/v1/saas/packages/", timeout=6, verify=False)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("status") == "success" and "packages" in data:
+                return data["packages"]
+    except Exception as e:
+        _logger.error("Failed to fetch KhataBook SaaS packages: %s", e)
+    return [
+        {"id": 1, "name": "Starter Plan", "price": 499.0, "billing_cycle": "monthly",
+         "max_customers": 500, "max_staff": 2, "allow_custom_branding": False,
+         "description": "Digital ledger for small shops — track payments, invoices & daily transactions."},
+        {"id": 2, "name": "Business Pro", "price": 999.0, "billing_cycle": "monthly",
+         "max_customers": 5000, "max_staff": 10, "allow_custom_branding": False,
+         "description": "GST invoicing, multi-staff access, payment reminders & PDF reports."},
+        {"id": 3, "name": "Enterprise Unlimited", "price": 2499.0, "billing_cycle": "monthly",
+         "max_customers": 100000, "max_staff": 100, "allow_custom_branding": True,
+         "description": "Unlimited ledgers, white-label branding, API access & priority support."}
+    ]
+
+def khatabook_pricing_page(request):
+    packages = get_khatabook_packages()
+    return render(request, 'khatabook_pricing.html', {
+        'packages': packages,
+        'title': 'KhataBook / LedgerFlow — Digital Ledger & Accounting SaaS',
+        'tagline': 'Smart digital ledger for Indian businesses — payments, invoices, credit & GST reports.'
+    })
+
+def khatabook_configure(request, package_id):
+    packages = get_khatabook_packages()
+    selected_pkg = next((p for p in packages if str(p['id']) == str(package_id)), None)
+    if not selected_pkg:
+        messages.error(request, 'Selected KhataBook plan not found.')
+        return redirect('/khatabook/')
+    if request.method == 'POST':
+        business_name = request.POST.get('business_name', '').strip()
+        owner_username = request.POST.get('owner_username', '').strip()
+        owner_email = request.POST.get('owner_email', '').strip()
+        owner_password = request.POST.get('owner_password', '').strip()
+        billing_cycle = request.POST.get('billing_cycle', 'monthly')
+        post_prepopulate = {
+            'owner_username': owner_username,
+            'owner_email': owner_email,
+            'owner_password': owner_password,
+            'business_name': business_name,
+        }
+        if not all([business_name, owner_username, owner_email, owner_password]):
+            messages.error(request, 'All fields are required.')
+            return render(request, 'khatabook_configure.html', {'pkg': selected_pkg, 'post_data': request.POST, 'prepopulate': post_prepopulate})
+        from data.models import KhataBookService
+        if KhataBookService.objects.filter(owner_email=owner_email).exclude(status__in=('cancelled', 'terminated')).exists():
+            messages.error(request, 'An active KhataBook workspace already exists for this email address. Please use a different email.')
+            return render(request, 'khatabook_configure.html', {'pkg': selected_pkg, 'post_data': request.POST, 'prepopulate': post_prepopulate})
+        request.session['khatabook_order'] = {
+            'package_id': selected_pkg['id'], 'package_name': selected_pkg['name'],
+            'business_name': business_name, 'owner_username': owner_username,
+            'owner_email': owner_email, 'owner_password': _encrypt_pw(owner_password),
+            'billing_cycle': billing_cycle,
+            'price': float(selected_pkg['price']) if billing_cycle == 'monthly' else float(selected_pkg['price']) * 12
+        }
+        return redirect('/khatabook/checkout/')
+    prepopulate = {
+        'owner_username': request.user.username if request.user.is_authenticated else '',
+        'owner_email': request.user.email if request.user.is_authenticated else '',
+        'owner_password': secrets.token_urlsafe(10)[:12]
+    }
+    return render(request, 'khatabook_configure.html', {'pkg': selected_pkg, 'prepopulate': prepopulate})
+
+@login_required(login_url='/login/')
+def khatabook_checkout(request):
+    blocked = _voidonyx_purchase_blocked(request)
+    if blocked: return blocked
+    session_data = request.session.get('khatabook_order')
+    if not session_data:
+        messages.error(request, 'Session expired. Please configure your KhataBook package again.')
+        return redirect('/khatabook/')
+    price = Decimal(str(session_data['price']))
+    billing_cycle = session_data['billing_cycle']
+    cycle_label = 'Annual' if billing_cycle == 'annually' else 'Monthly'
+    from data.models import KhataBookOrder
+    with transaction.atomic():
+        invoice = Invoice.objects.create(
+            user=request.user, invoice_number=_get_next_invoice_number(request.user, prefix='KB'),
+            status='unpaid', total=price,
+            due_date=(timezone.now() + timedelta(days=3)).date(),
+            description=f"KhataBook {session_data['package_name']} — {session_data['business_name']} ({cycle_label})")
+        order = KhataBookOrder.objects.create(
+            user=request.user, invoice=invoice, package_id=session_data['package_id'],
+            package_name=session_data['package_name'], business_name=session_data['business_name'],
+            owner_username=session_data['owner_username'], owner_email=session_data['owner_email'],
+            owner_password=_encrypt_pw(session_data['owner_password']), billing_cycle=billing_cycle,
+            price=price, status='pending_payment')
+        PortalActivity.objects.create(user=request.user, category='billing',
+            title=f'KhataBook Order: {session_data["business_name"]}',
+            description=f"Invoice #{invoice.invoice_number} — ₹{price} ({cycle_label})")
+    request.session.pop('khatabook_order', None)
+    try:
+        profile = request.user.customer_profile
+        if profile.balance_funds >= price:
+            with transaction.atomic():
+                profile.balance_funds -= price
+                profile.save(update_fields=['balance_funds'])
+                invoice.status = 'paid'; invoice.save(update_fields=['status'])
+                order.status = 'paid'; order.save(update_fields=['status'])
+                _activate_khatabook_service(order)
+            messages.success(request, f'✅ KhataBook {order.package_name} activated! Wallet debited ₹{price}.')
+            return redirect('/portal/services/')
+    except Exception as e:
+        _logger.error("Auto-wallet pay failed for KhataBook order: %s", e)
+    return redirect(f'/portal/invoice/{invoice.id}/pay/')
+
+def _activate_khatabook_service(order):
+    from data.models import KhataBookService
+    login_url = f"{KHATABOOK_API_URL}/login/"
+    remote_id = None; max_customers = 100; max_staff = 5
+    try:
+        import urllib3; urllib3.disable_warnings()
+        resp = _requests.post(f"{KHATABOOK_API_URL}/api/v1/saas/tenant/create/",
+            json={"business_name": order.business_name, "owner_username": order.owner_username,
+                  "owner_email": order.owner_email, "owner_password": _decrypt_pw(order.owner_password),
+                  "package_id": order.package_id},
+            headers={"X-Provision-Key": _djsettings.KHATABOOK_PROVISION_KEY},
+            timeout=12, verify=False)
+        if resp.status_code in (200, 201):
+            data = resp.json()
+            if data.get('status') == 'success':
+                info = data.get('tenant', data.get('business', {}))
+                remote_id = info.get('id'); max_customers = info.get('max_customers', 100)
+                max_staff = info.get('max_staff', 5)
+    except Exception as e:
+        _logger.error("Failed to provision KhataBook tenant: %s", e)
+    due = (timezone.now() + timedelta(days=365 if order.billing_cycle == 'annually' else 30)).date()
+    svc = KhataBookService.objects.create(
+        user=order.user, business_name=order.business_name, owner_username=order.owner_username,
+        package_name=order.package_name, package_id=order.package_id, status='active',
+        monthly_price=order.price if order.billing_cycle == 'monthly' else order.price / 12,
+        billing_cycle=order.billing_cycle, dashboard_url=login_url, owner_email=order.owner_email,
+        max_customers=max_customers, max_staff=max_staff, remote_id=remote_id, next_due_date=due)
+    order.status = 'paid'; order.save(update_fields=['status'])
+    PortalActivity.objects.create(user=order.user, category='service',
+        title=f'KhataBook Activated: {svc.business_name}',
+        description=f"Owner: {svc.owner_username} | Package: {svc.package_name}")
+    return svc
+
+
+
+

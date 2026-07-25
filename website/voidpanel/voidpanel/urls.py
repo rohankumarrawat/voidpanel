@@ -6,7 +6,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path('void-internal-admin/', admin.site.urls),  # Renamed from /admin/ to avoid bot scanning
     path('', views.index),
     path('docs/', views.docs),
     path('web-hosting/', views.pricing),
@@ -22,6 +22,12 @@ urlpatterns = [
     path('api/domain/check/', views.api_domain_check),
     path('api/domain/check-bulk/', views.api_domain_check_bulk),
     path('api/coupon/validate/', views.api_coupon_validate),
+    path('api/invoice/<int:invoice_id>/apply-coupon/', views.api_invoice_apply_coupon),
+    path('portal/invoices/', views.portal_invoices_page, name='portal_invoices'),
+    path('portal/domains/', views.portal_domains_page, name='portal_domains'),
+    path('portal/tickets/', views.portal_tickets_page, name='portal_tickets'),
+    path('portal/services/', views.portal_services_page, name='portal_services'),
+    path('portal/domain/<int:order_id>/manage/', views.portal_domain_manage, name='portal_domain_manage'),
     path('blogs/', views.blog_list_public),
     path('blog/<slug:slug>/', views.blog_detail_public),
     path('aboutus/', views.aboutus),
@@ -35,6 +41,7 @@ urlpatterns = [
     path('notifications/', views.notifications),
     path('latest_messages/', views.latest_messages),
     path('version_name/', views.update),
+    path('version.txt', views.version_txt_view),
     path('version_migration_path/', views.version_migration_path),
     path('updatepanel.sh', views.serve_update_script),
     path('install.sh', views.serve_install_script),
@@ -49,6 +56,8 @@ urlpatterns = [
     path('register/', views.register),
     path('register/verify/', views.register_verify, name='register_verify'),
     path('register/resend/', views.register_resend_otp, name='register_resend_otp'),
+    path('forgot-password/', views.forgot_password, name='forgot_password'),
+    path('reset-password/<uidb64>/<token>/', views.reset_password, name='reset_password'),
 
     # ── Client Portal ──────────────────────────────────────────────────────────
     path('portal/', views.portal),
@@ -92,6 +101,9 @@ urlpatterns = [
     path('super-admin/hosting/', views.super_admin_hosting),
     path('super-admin/reseller/', views.super_admin_reseller),
     path('super-admin/domain-api/', views.super_admin_domain_api),
+    path('super-admin/domain-api/sync-prices/', views.super_admin_domain_sync_prices),
+    path('super-admin/domain-api/order/<int:order_id>/activate/', views.super_admin_domain_activate),
+    path('super-admin/domain-api/order/<int:order_id>/provision/', views.super_admin_domain_provision),
     path('super-admin/coupons/', views.super_admin_coupons),
     path('super-admin/signals/', views.super_admin_signals),
     path('super-admin/clients/', views.super_admin_clients),
@@ -138,6 +150,7 @@ urlpatterns = [
     path('super-admin/update-manager/', views.super_admin_update_manager, name='super_admin_update_manager'),
     path('super-admin/push-update/',    views.super_admin_push_update,    name='super_admin_push_update'),
     path('api/admin/server/test/', views.api_admin_server_test, name='api_admin_server_test'),
+    path('api/erp/check-subdomain/', views.api_erp_check_subdomain, name='api_erp_check_subdomain'),
 
     # ── License API (called by installed panels) ───────────────────────────────
     path('api/license/register/', views.api_license_register),
@@ -168,6 +181,7 @@ urlpatterns = [
     path('portal/delete-service/', views.portal_delete_service, name='portal_delete_service'),
     path('terms-and-conditions/', views.terms_and_conditions, name='terms_and_conditions'),
     path('privacy-policy/', views.privacy_policy, name='privacy_policy'),
+    path('visiting-card/', views.visiting_card, name='visiting_card'),
 
     # ── Blog / Legacy ──────────────────────────────────────────────────────────
     path('addemail/', views.addemail),
@@ -189,6 +203,30 @@ urlpatterns = [
     # ── Digital Suites — Super-Admin ──────────────────────────────────────────
     path('super-admin/suite-plans/', views.super_admin_suite_plans, name='super_admin_suite_plans'),
 
+    # ── ERP / CRM — Public Landing, Buy Flow & Checkout ──────────────────────
+    path('erp-crm/',                               views.erp_crm_pricing_page, name='erp_crm_pricing'),
+    path('erp-crm/configure/<int:package_id>/',    views.erp_crm_configure,    name='erp_crm_configure'),
+    path('erp-crm/checkout/',                      views.erp_crm_checkout,     name='erp_crm_checkout'),
+
+    # ── Gym Portal SaaS — Public Landing, Buy Flow & Checkout ─────────────────
+    path('gym-portal/',                            views.gym_portal_pricing_page, name='gym_portal_pricing'),
+    path('gym-portal/configure/<int:package_id>/', views.gym_portal_configure,    name='gym_portal_configure'),
+    path('gym-portal/checkout/',                   views.gym_portal_checkout,     name='gym_portal_checkout'),
+
+    # ── AI Voice Calling SaaS — Public Landing, Buy Flow & Checkout ───────────
+    path('ai-voice/',                              views.ai_voice_pricing_page,  name='ai_voice_pricing'),
+    path('ai-voice/configure/<int:package_id>/',   views.ai_voice_configure,     name='ai_voice_configure'),
+    path('ai-voice/checkout/',                     views.ai_voice_checkout,      name='ai_voice_checkout'),
+
+    # ── Hotel Management SaaS — Public Landing, Buy Flow & Checkout ───────────
+    path('hotel-portal/',                              views.hotel_portal_pricing_page, name='hotel_portal_pricing'),
+    path('hotel-portal/configure/<int:package_id>/',   views.hotel_portal_configure,    name='hotel_portal_configure'),
+    path('hotel-portal/checkout/',                     views.hotel_portal_checkout,     name='hotel_portal_checkout'),
+
+    # ── KhataBook / LedgerFlow SaaS — Public Landing, Buy Flow & Checkout ────
+    path('khatabook/',                              views.khatabook_pricing_page, name='khatabook_pricing'),
+    path('khatabook/configure/<str:package_id>/',   views.khatabook_configure,    name='khatabook_configure'),
+    path('khatabook/checkout/',                     views.khatabook_checkout,     name='khatabook_checkout'),
 ]
 
 if settings.DEBUG:
