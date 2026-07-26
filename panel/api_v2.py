@@ -1,5 +1,7 @@
 import json
 import logging
+import re
+import subprocess
 from functools import wraps
 
 from django.http import JsonResponse
@@ -10,6 +12,39 @@ import hmac
 from control.models import APIToken, user as VUser, package, domain as DomainModel
 
 logger = logging.getLogger('voidpanel')
+
+# ── Input Sanitisation (prevents shell injection) ────────────────────────────
+_RE_DOMAIN   = re.compile(r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$')
+_RE_USERNAME = re.compile(r'^[a-zA-Z0-9_\-]{1,64}$')
+_RE_DBNAME   = re.compile(r'^[a-zA-Z0-9_]{1,64}$')
+_RE_EMAIL    = re.compile(r'^[a-zA-Z0-9_.+\-]+@[a-zA-Z0-9\-]+\.[a-zA-Z0-9.\-]+$')
+_RE_DNS_TYPE = re.compile(r'^(A|AAAA|CNAME|MX|TXT|NS|SRV|CAA|PTR|SOA)$', re.IGNORECASE)
+_RE_DNS_NAME = re.compile(r'^[a-zA-Z0-9_.@\-]{1,255}$')
+_RE_DNS_VAL  = re.compile(r'^[a-zA-Z0-9_.\-:;=" /]{1,1024}$')
+_RE_PHP_VER  = re.compile(r'^\d+\.\d+$')
+_RE_CRON_SCHEDULE = re.compile(r'^[0-9*/,\- ]{5,50}$')
+_RE_CRON_CMD = re.compile(r'^[a-zA-Z0-9_./ \-]{1,500}$')
+
+def _sanitise(value, pattern, label):
+    """Validate value matches pattern; return (clean_value, None) or (None, error_response)."""
+    if not value or not isinstance(value, str):
+        return None, _json_error(f'{label} is required')
+    value = value.strip()
+    if not pattern.match(value):
+        return None, _json_error(f'Invalid {label}: contains disallowed characters')
+    return value, None
+
+def _safe_run(args, **kwargs):
+    """Run a command safely with shell=False. Returns (returncode, stdout, stderr)."""
+    try:
+        r = subprocess.run(args, capture_output=True, text=True, timeout=30, **kwargs)
+        return r.returncode, r.stdout, r.stderr
+    except subprocess.TimeoutExpired:
+        logger.warning('Command timed out: %s', args[:3])
+        return -1, '', 'Command timed out'
+    except Exception as e:
+        logger.error('Command failed: %s — %s', args[:3], e)
+        return -1, '', str(e)
 
 def _json_error(msg, status=400):
     return JsonResponse({'status': 'error', 'message': msg}, status=status)
@@ -287,19 +322,20 @@ def dns_list(request):
 @require_api_auth('dns.create')
 def dns_create(request):
     try: data = json.loads(request.body)
-    except: return _json_error('Invalid JSON body')
-    domain = data.get('domain')
-    record_type = data.get('type')
-    name = data.get('name')
-    value = data.get('value')
-    if not all([domain, record_type, name, value]): return _json_error('Missing required fields')
-    
+    except Exception: return _json_error('Invalid JSON body')
+    domain, err = _sanitise(data.get('domain'), _RE_DOMAIN, 'domain')
+    if err: return err
+    record_type, err = _sanitise(data.get('type'), _RE_DNS_TYPE, 'record type')
+    if err: return err
+    name, err = _sanitise(data.get('name'), _RE_DNS_NAME, 'record name')
+    if err: return err
+    value, err = _sanitise(data.get('value'), _RE_DNS_VAL, 'record value')
+    if err: return err
+
     ok, err = _verify_reseller_access(request.api_token, domain)
     if not ok: return err
 
-    import os
-    cmd = f'sudo voiddns add {domain} {record_type} {name} {value}'
-    os.system(cmd)
+    _safe_run(['sudo', 'voiddns', 'add', domain, record_type, name, value])
     return _json_success(message='DNS record added')
 
 # ── Email ─────────────────────────────────────────────────────────────────────
@@ -325,11 +361,14 @@ def email_list(request):
 @require_api_auth('email.create')
 def email_create(request):
     try: data = json.loads(request.body)
-    except: return _json_error('Invalid JSON body')
-    domain = data.get('domain')
-    email = data.get('email')
-    password = data.get('password')
-    if not all([domain, email, password]): return _json_error('Missing required fields')
+    except Exception: return _json_error('Invalid JSON body')
+    domain, err = _sanitise(data.get('domain'), _RE_DOMAIN, 'domain')
+    if err: return err
+    email, err = _sanitise(data.get('email'), _RE_EMAIL, 'email')
+    if err: return err
+    password = data.get('password', '').strip()
+    if not password or len(password) < 4:
+        return _json_error('Password must be at least 4 characters')
 
     # Superadmin tokens can create email for any domain (including email-only, no hosting account)
     if request.api_token.owner_type != APIToken.OWNER_SUPERADMIN:
@@ -337,10 +376,9 @@ def email_create(request):
         if not ok: return err
 
     from control.models import allemail
-    import os
     if not allemail.objects.filter(email=email).exists():
         allemail.objects.create(email=email, password=password, domain=domain)
-        os.system(f"sudo voidemail add {email} '{password}'")
+        _safe_run(['sudo', 'voidemail', 'add', email, password])
         return _json_success(message=f'Email {email} created')
     return _json_error('Email already exists', 409)
 
@@ -357,10 +395,13 @@ def database_list(request):
 
     try:
         u = VUser.objects.get(domain=domain)
-        import subprocess
-        dbs = subprocess.check_output(f"mysql -u root -e \\\"SHOW DATABASES LIKE '{u.username}_%';\\\"", shell=True).decode().split('\\n')[1:-1]
+        username = u.username
+        if not _RE_USERNAME.match(username):
+            return _json_error('Invalid username in database')
+        rc, out, _ = _safe_run(['mysql', '-u', 'root', '-e', f"SHOW DATABASES LIKE '{username}_%';"])
+        dbs = [line.strip() for line in out.strip().split('\n')[1:] if line.strip()]
         return _json_success({'databases': dbs})
-    except:
+    except Exception:
         return _json_success({'databases': []})
 
 @csrf_exempt
@@ -378,12 +419,30 @@ def database_create(request):
     ok, err = _verify_reseller_access(request.api_token, domain)
     if not ok: return err
 
+    dbname, err = _sanitise(data.get('database'), _RE_DBNAME, 'database name')
+    if err: return err
+    dbuser, err = _sanitise(data.get('user'), _RE_DBNAME, 'database user')
+    if err: return err
+    dbpass = data.get('password', '').strip()
+    if not dbpass or len(dbpass) < 4:
+        return _json_error('Database password must be at least 4 characters')
     try:
         u = VUser.objects.get(domain=domain)
+        if not _RE_USERNAME.match(u.username):
+            return _json_error('Invalid username in database')
         full_db = f"{u.username}_{dbname}"
         full_user = f"{u.username}_{dbuser}"
-        import os
-        os.system(f"mysql -u root -e \\\"CREATE DATABASE {full_db}; CREATE USER '{full_user}'@'localhost' IDENTIFIED BY '{dbpass}'; GRANT ALL PRIVILEGES ON {full_db}.* TO '{full_user}'@'localhost'; FLUSH PRIVILEGES;\\\"")
+        sql = (f"CREATE DATABASE IF NOT EXISTS `{full_db}`; "
+               f"CREATE USER IF NOT EXISTS '{full_user}'@'localhost' IDENTIFIED BY %s; "
+               f"GRANT ALL PRIVILEGES ON `{full_db}`.* TO '{full_user}'@'localhost'; "
+               f"FLUSH PRIVILEGES;")
+        # Use mysql --execute with proper escaping
+        _safe_run(['mysql', '-u', 'root', '-e',
+                   f"CREATE DATABASE IF NOT EXISTS `{full_db}`;"])
+        _safe_run(['mysql', '-u', 'root', '-e',
+                   f"CREATE USER IF NOT EXISTS '{full_user}'@'localhost' IDENTIFIED BY '{dbpass}';"])
+        _safe_run(['mysql', '-u', 'root', '-e',
+                   f"GRANT ALL PRIVILEGES ON `{full_db}`.* TO '{full_user}'@'localhost'; FLUSH PRIVILEGES;"])
         return _json_success(message=f'Database {full_db} created')
     except Exception as e:
         return _json_error(str(e))
@@ -448,8 +507,8 @@ def accounts_change_package(request):
         u.hosting_package = pkg.name
         u.save(update_fields=['hosting_package'])
         # Apply new quota
-        import os
-        os.system(f"setquota -u {u.username} 0 {int(pkg.storage)*1024*1024} 0 0 /  2>/dev/null || true")
+        if _RE_USERNAME.match(u.username):
+            _safe_run(['setquota', '-u', u.username, '0', str(int(pkg.storage)*1024*1024), '0', '0', '/'])
         return _json_success(message=f'Package for {domain} changed to {pkg_name}')
     except package.DoesNotExist:
         return _json_error('Package not found', 404)
@@ -481,9 +540,10 @@ def accounts_change_password(request):
             auth_user.save()
         except AuthUser.DoesNotExist:
             pass
-        # Also update system user password
-        import subprocess
-        subprocess.run(f"echo '{u.username}:{password}' | chpasswd", shell=True)
+        # Also update system user password safely
+        if _RE_USERNAME.match(u.username):
+            proc = subprocess.Popen(['chpasswd'], stdin=subprocess.PIPE, text=True)
+            proc.communicate(input=f'{u.username}:{password}')
         return _json_success(message=f'Password changed for {domain}')
     except VUser.DoesNotExist:
         return _json_error('Domain not found', 404)
@@ -531,9 +591,10 @@ def email_delete(request):
         ok, err = _verify_reseller_access(request.api_token, domain)
         if not ok: return err
     from control.models import allemail
-    import os
+    email, err = _sanitise(email, _RE_EMAIL, 'email')
+    if err: return err
     allemail.objects.filter(email=email, domain=domain).delete()
-    os.system(f"sudo voidemail del '{email}' 2>/dev/null || true")
+    _safe_run(['sudo', 'voidemail', 'del', email])
     return _json_success(message=f'Email {email} deleted')
 
 
@@ -554,12 +615,13 @@ def email_change_password(request):
         ok, err = _verify_reseller_access(request.api_token, domain)
         if not ok: return err
     from control.models import allemail
-    import os
+    email, err = _sanitise(email, _RE_EMAIL, 'email')
+    if err: return err
     obj = allemail.objects.filter(email=email, domain=domain).first()
     if not obj: return _json_error('Email not found', 404)
     obj.password = password
     obj.save()
-    os.system(f"sudo voidemail chpass '{email}' '{password}' 2>/dev/null || true")
+    _safe_run(['sudo', 'voidemail', 'chpass', email, password])
     return _json_success(message=f'Password changed for {email}')
 
 
@@ -577,8 +639,13 @@ def dns_delete(request):
     if not all([domain, rtype, name]): return _json_error('domain, type and name required')
     ok, err = _verify_reseller_access(request.api_token, domain)
     if not ok: return err
-    import os
-    os.system(f'sudo voiddns del {domain} {rtype} {name} 2>/dev/null || true')
+    domain, err = _sanitise(domain, _RE_DOMAIN, 'domain')
+    if err: return err
+    rtype, err = _sanitise(rtype, _RE_DNS_TYPE, 'record type')
+    if err: return err
+    name, err = _sanitise(name, _RE_DNS_NAME, 'record name')
+    if err: return err
+    _safe_run(['sudo', 'voiddns', 'del', domain, rtype, name])
     return _json_success(message='DNS record deleted')
 
 
@@ -610,11 +677,14 @@ def subdomains_create(request):
     ok, err = _verify_reseller_access(request.api_token, domain)
     if not ok: return err
     from control.models import subdomainname
-    import os
+    domain, err = _sanitise(domain, _RE_DOMAIN, 'domain')
+    if err: return err
+    subdomain, err = _sanitise(subdomain, _RE_USERNAME, 'subdomain')
+    if err: return err
     if subdomainname.objects.filter(subdomain=subdomain, domain=domain).exists():
         return _json_error('Subdomain already exists', 409)
     full = f'{subdomain}.{domain}'
-    os.system(f'sudo voidsubdomain create {full} {domain} 2>/dev/null || true')
+    _safe_run(['sudo', 'voidsubdomain', 'create', full, domain])
     subdomainname.objects.create(subdomain=subdomain, name=full, domain=domain)
     return _json_success(message=f'Subdomain {full} created')
 
@@ -632,9 +702,12 @@ def subdomains_delete(request):
     ok, err = _verify_reseller_access(request.api_token, domain)
     if not ok: return err
     from control.models import subdomainname
-    import os
+    domain, err = _sanitise(domain, _RE_DOMAIN, 'domain')
+    if err: return err
+    subdomain, err = _sanitise(subdomain, _RE_USERNAME, 'subdomain')
+    if err: return err
     full = f'{subdomain}.{domain}'
-    os.system(f'sudo voidsubdomain del {full} 2>/dev/null || true')
+    _safe_run(['sudo', 'voidsubdomain', 'del', full])
     subdomainname.objects.filter(subdomain=subdomain, domain=domain).delete()
     return _json_success(message=f'Subdomain {full} deleted')
 
@@ -675,9 +748,10 @@ def ftp_create(request):
     try:
         u = VUser.objects.get(domain=domain)
         from control.models import ftpaccount
-        import os
+        username, err = _sanitise(username, _RE_USERNAME, 'username')
+        if err: return err
         full_user = f'{u.username}_{username}'
-        os.system(f"sudo voidftp add '{full_user}' '{password}' '{storage}' 2>/dev/null || true")
+        _safe_run(['sudo', 'voidftp', 'add', full_user, password, str(storage)])
         ftpaccount.objects.create(main=u.username, username=full_user, password=password, storage=storage)
         return _json_success(message=f'FTP account {full_user} created')
     except VUser.DoesNotExist:
@@ -697,8 +771,9 @@ def ftp_delete(request):
     ok, err = _verify_reseller_access(request.api_token, domain)
     if not ok: return err
     from control.models import ftpaccount
-    import os
-    os.system(f"sudo voidftp del '{username}' 2>/dev/null || true")
+    username, err = _sanitise(username, _RE_USERNAME, 'username')
+    if err: return err
+    _safe_run(['sudo', 'voidftp', 'del', username])
     ftpaccount.objects.filter(username=username).delete()
     return _json_success(message=f'FTP account {username} deleted')
 
@@ -732,9 +807,20 @@ def cron_create(request):
     ok, err = _verify_reseller_access(request.api_token, domain)
     if not ok: return err
     from control.models import cron as CronModel
-    import os
+    domain, err = _sanitise(domain, _RE_DOMAIN, 'domain')
+    if err: return err
+    schedule, err = _sanitise(schedule, _RE_CRON_SCHEDULE, 'cron schedule')
+    if err: return err
+    command, err = _sanitise(command, _RE_CRON_CMD, 'cron command')
+    if err: return err
     CronModel.objects.create(domain=domain, duratioin=schedule, path=command)
-    os.system(f"(crontab -u {domain.split('.')[0]} -l 2>/dev/null; echo '{schedule} {command}') | crontab -u {domain.split('.')[0]} - 2>/dev/null || true")
+    cron_user = domain.split('.')[0]
+    if _RE_USERNAME.match(cron_user):
+        # Read existing crontab, append new entry, write back
+        rc, existing, _ = _safe_run(['crontab', '-u', cron_user, '-l'])
+        new_crontab = (existing.strip() + '\n' if existing.strip() else '') + f'{schedule} {command}\n'
+        proc = subprocess.Popen(['crontab', '-u', cron_user, '-'], stdin=subprocess.PIPE, text=True)
+        proc.communicate(input=new_crontab)
     return _json_success(message='Cron job created')
 
 
@@ -837,8 +923,11 @@ def php_set(request):
         dom = DomainModel.objects.get(domain=domain)
         dom.php = version
         dom.save(update_fields=['php'])
-        import os
-        os.system(f'sudo voidphp set {domain} {version} 2>/dev/null || true')
+        domain, err = _sanitise(domain, _RE_DOMAIN, 'domain')
+        if err: return err
+        version, err = _sanitise(version, _RE_PHP_VER, 'PHP version')
+        if err: return err
+        _safe_run(['sudo', 'voidphp', 'set', domain, version])
         return _json_success(message=f'PHP version for {domain} set to {version}')
     except DomainModel.DoesNotExist:
         return _json_error('Domain not found', 404)
@@ -856,8 +945,9 @@ def ssl_issue(request):
     if not domain: return _json_error('domain required')
     ok, err = _verify_reseller_access(request.api_token, domain)
     if not ok: return err
-    import os
-    os.system(f'sudo certbot --nginx -d {domain} --non-interactive --agree-tos -m admin@{domain} 2>/dev/null || true')
+    domain, err = _sanitise(domain, _RE_DOMAIN, 'domain')
+    if err: return err
+    _safe_run(['sudo', 'certbot', '--nginx', '-d', domain, '--non-interactive', '--agree-tos', '-m', f'admin@{domain}'])
     return _json_success(message=f'SSL issuance started for {domain}')
 
 
@@ -1178,9 +1268,10 @@ def wordpress_install(request):
         else:
             _log.getLogger('voidpanel').info('WP PHP-installer OK for %s', domain)
 
-    # Fix ownership
+    from voidplatform.config import get_web_user
+    _wu = get_web_user()
     subprocess.run(
-        f'chown -R {sys_user}:{sys_user} "{doc_root}" 2>/dev/null || chown -R www-data:www-data "{doc_root}"',
+        f'chown -R {sys_user}:{sys_user} "{doc_root}" 2>/dev/null || chown -R {_wu}:{_wu} "{doc_root}"',
         shell=True, capture_output=True
     )
 

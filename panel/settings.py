@@ -46,7 +46,7 @@ def _load_secret_key():
 SECRET_KEY = _load_secret_key()
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = _os.environ.get('DJANGO_DEBUG', 'true').strip().lower() in ('1', 'true', 'yes')
+DEBUG = _os.environ.get('DJANGO_DEBUG', 'false').strip().lower() in ('1', 'true', 'yes')
 
 # Accept the server's own hostname/IP; '*' is replaced by the actual host at setup time.
 # Additional hostnames are appended by change_hostname() at install time.
@@ -93,6 +93,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'panel.middleware.LicenseMiddleware',
+    'panel.middleware.MarketingTenantMiddleware',
+    'panel.middleware.SessionNameFallbackMiddleware',
 ]
 
 ROOT_URLCONF = 'panel.urls'
@@ -279,8 +281,8 @@ VOIDPANEL_API_KEY = _os.environ.get(
 # Install: pip install celery redis
 # Start worker: celery -A panel worker --loglevel=info
 # ─────────────────────────────────────────────────────────────
-CELERY_BROKER_URL          = 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND      = 'redis://localhost:6379/0'
+CELERY_BROKER_URL          = 'redis://127.0.0.1:6379/0'
+CELERY_RESULT_BACKEND      = 'redis://127.0.0.1:6379/0'
 CELERY_ACCEPT_CONTENT      = ['json']
 CELERY_TASK_SERIALIZER     = 'json'
 CELERY_RESULT_SERIALIZER   = 'json'
@@ -365,11 +367,34 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 import os as _os
 VOIDPANEL_WEBSITE_URL = _os.environ.get('VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com')
 
-CSRF_TRUSTED_ORIGINS.extend(["http://panel.voidpanel.com", "http://panel.voidpanel.com:8080", "https://panel.voidpanel.com", "https://panel.voidpanel.com:8082"])
-
-CSRF_TRUSTED_ORIGINS.extend(["http://panel.voidpanel.com", "http://panel.voidpanel.com:8080", "https://panel.voidpanel.com", "https://panel.voidpanel.com:8082"])
+CSRF_TRUSTED_ORIGINS.extend([
+    "http://panel.voidpanel.com", "http://panel.voidpanel.com:8080", "https://panel.voidpanel.com", "https://panel.voidpanel.com:8082",
+    "http://fast.voidpanel.com", "http://fast.voidpanel.com:8080", "https://fast.voidpanel.com", "https://fast.voidpanel.com:8082",
+    "http://voidpanel.com", "http://voidpanel.com:8080", "https://voidpanel.com", "https://voidpanel.com:8082"
+])
 
 # Suite API Key (for external integrations from voidpanel.com website)
-SUITE_API_KEY = _os.environ.get('SUITE_API_KEY', 'vp-suite-api-k3y-v01dp4nel2024!')
+# Auto-generated per installation — never use a hardcoded default in production.
+def _load_suite_api_key():
+    _env = _os.environ.get('SUITE_API_KEY', '').strip()
+    if _env:
+        return _env
+    _key_file = _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), '.suite_api_key')
+    if _os.path.exists(_key_file):
+        with open(_key_file, 'r') as _f:
+            _stored = _f.read().strip()
+        if _stored:
+            return _stored
+    import secrets as _secrets
+    _fresh = 'vp-' + _secrets.token_urlsafe(32)
+    try:
+        with open(_key_file, 'w') as _f:
+            _f.write(_fresh)
+        _os.chmod(_key_file, 0o600)
+    except Exception:
+        pass
+    return _fresh
+
+SUITE_API_KEY = _load_suite_api_key()
 
 # This is useful for the panel owner's own installation.

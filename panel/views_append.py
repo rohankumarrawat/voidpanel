@@ -3,7 +3,14 @@
 
 import requests
 
-VOIDPANEL_API_URL = "https://voidpanel.com"
+VOIDPANEL_API_URL = None  # Lazy-loaded from settings
+
+def _get_api_url():
+    global VOIDPANEL_API_URL
+    if VOIDPANEL_API_URL is None:
+        from django.conf import settings
+        VOIDPANEL_API_URL = getattr(settings, 'VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com').rstrip('/')
+    return VOIDPANEL_API_URL
 
 def get_license_key_value():
     from control.license import get_license
@@ -49,7 +56,7 @@ def api_ticket_create(request):
         return JsonResponse({'status': 'error', 'message': 'Subject and message are required'}, status=400)
 
     try:
-        r = requests.post(f"{VOIDPANEL_API_URL}/api/panel/ticket/create/", json=payload, timeout=15)
+        r = requests.post(f"{_get_api_url()}/api/panel/ticket/create/", json=payload, timeout=15)
         resp = r.json()
         if resp.get('ok'):
             return JsonResponse({'status': 'success', 'ticket_id': resp.get('ticket_number')})
@@ -70,7 +77,7 @@ def api_ticket_list(request):
         return JsonResponse({'status': 'success', 'tickets': []})
 
     try:
-        r = requests.post(f"{VOIDPANEL_API_URL}/api/panel/ticket/list/", json={'license_key': license_key}, timeout=15)
+        r = requests.post(f"{_get_api_url()}/api/panel/ticket/list/", json={'license_key': license_key}, timeout=15)
         resp = r.json()
         if resp.get('ok'):
             tickets = resp.get('tickets', [])
@@ -96,7 +103,7 @@ def api_ticket_detail(request, ticket_id):
         return JsonResponse({'status': 'error', 'message': 'No license'}, status=400)
 
     try:
-        r = requests.post(f"{VOIDPANEL_API_URL}/api/panel/ticket/list/", json={'license_key': license_key}, timeout=15)
+        r = requests.post(f"{_get_api_url()}/api/panel/ticket/list/", json={'license_key': license_key}, timeout=15)
         resp = r.json()
         if resp.get('ok'):
             tickets = resp.get('tickets', [])

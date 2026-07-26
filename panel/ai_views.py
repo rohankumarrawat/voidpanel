@@ -273,16 +273,54 @@ AI_TOOLS = [
     }
 ]
 
-# Blocklist of dangerous commands the AI must never be allowed to run
-BLOCKED_COMMAND_PATTERNS = [
-    'rm -rf /',
-    'mkfs',
-    'dd if=',
-    '> /dev/sda',
-    'shutdown -h now',
-    'reboot',
-    'halt',
-    ':(){:|:&};:',  # fork bomb
+# Whitelist of safe command prefixes the AI is allowed to run.
+# ANY command not starting with one of these is BLOCKED.
+ALLOWED_COMMAND_PREFIXES = [
+    # System monitoring (read-only)
+    'uptime', 'hostname', 'whoami', 'id', 'uname',
+    'df ', 'df\t', 'du ', 'free ', 'free\t',
+    'top -b -n 1', 'ps aux', 'ps -ef',
+    'cat /proc/cpuinfo', 'cat /proc/meminfo', 'cat /proc/loadavg',
+    'lscpu', 'lsblk', 'lsof',
+    # Network diagnostics (read-only)
+    'ping -c', 'traceroute', 'dig ', 'nslookup ', 'host ',
+    'ss -tlnp', 'ss -ulnp', 'netstat -tlnp',
+    'curl -I', 'curl -sI', 'curl --head',
+    # Service status (read-only)
+    'systemctl status', 'systemctl is-active', 'systemctl is-enabled',
+    'systemctl list-units', 'service --status-all',
+    'nginx -t', 'nginx -T',
+    'php -v', 'php -m', 'mysql --version', 'node --version',
+    # File inspection (read-only)
+    'ls ', 'ls\t', 'stat ', 'file ', 'wc ',
+    'head ', 'tail ', 'cat ', 'grep ',
+    'find /home', 'find /var/log', 'find /etc/nginx',
+    # Disk & quota
+    'quota ', 'repquota',
+    # Logs (read-only)
+    'journalctl', 'tail -f /var/log', 'tail -n',
+    # VoidPanel CLI tools
+    'sudo voiddns', 'sudo voidemail', 'sudo voidftp',
+    'sudo voidsubdomain', 'sudo voidphp', 'sudo voidpanel',
+    # Service management (restart only)
+    'sudo systemctl restart nginx',
+    'sudo systemctl restart php',
+    'sudo systemctl reload nginx',
+    'sudo nginx -s reload',
+]
+
+# Additional patterns that are ALWAYS blocked even if they match a prefix
+HARD_BLOCKED_PATTERNS = [
+    'rm -rf /', 'rm -rf /*', 'mkfs', 'dd if=', '> /dev/sd',
+    'shutdown', 'reboot', 'halt', 'init 0', 'init 6',
+    ':(){:|:&};:', '| bash', '| sh', '| zsh',
+    'curl ', 'wget ',  # prevent downloading remote scripts
+    'python', 'perl', 'ruby', 'node -e', 'php -r',  # prevent code execution
+    'nc ', 'ncat ', 'netcat',  # prevent reverse shells
+    'chmod 777', 'chown root',
+    '/etc/shadow', '/etc/passwd',
+    'crontab',  # prevent cron manipulation
+    'eval ', 'exec ',
 ]
 
 
@@ -392,6 +430,7 @@ def ai_execute_tool(request):
     POST /api/agent/execute/
     Executes a tool ONLY after the user clicks [Approve] on the frontend.
     This is the safety gate — the AI cannot run anything without this approval.
+    Security: Uses WHITELIST approach — only pre-approved commands can run.
     """
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Only POST allowed'}, status=405)
@@ -407,20 +446,35 @@ def ai_execute_tool(request):
             if not cmd:
                 return JsonResponse({'status': 'error', 'message': 'No command provided'}, status=400)
 
-            # Safety: block dangerous patterns
             cmd_lower = cmd.lower()
-            for pattern in BLOCKED_COMMAND_PATTERNS:
+
+            # STEP 1: Hard-block dangerous patterns (always rejected)
+            for pattern in HARD_BLOCKED_PATTERNS:
                 if pattern.lower() in cmd_lower:
                     return JsonResponse({
                         'status': 'error',
                         'message': f'Command blocked by safety filter: contains "{pattern}"'
                     }, status=403)
 
-            # Execute safely
+            # STEP 2: Whitelist check — command must start with an approved prefix
+            is_allowed = False
+            for prefix in ALLOWED_COMMAND_PREFIXES:
+                if cmd.startswith(prefix) or cmd_lower.startswith(prefix.lower()):
+                    is_allowed = True
+                    break
+
+            if not is_allowed:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Command not in the allowed list. Only system monitoring, diagnostics, and VoidPanel CLI commands are permitted.'
+                }, status=403)
+
+            # STEP 3: Execute safely with shell=False using shlex
+            import shlex
             try:
+                args = shlex.split(cmd)
                 result = subprocess.run(
-                    cmd,
-                    shell=True,
+                    args,
                     capture_output=True,
                     text=True,
                     timeout=20

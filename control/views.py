@@ -2375,15 +2375,26 @@ def upload_files(request,file_path):
           
            file_path=file_path.replace('////','')
            file_path=file_path.replace('//','')
-           d['location']=file_path
            new="/"+file_path
-           dataw = os.listdir(new)
+
+           # Security: resolve symlinks and restrict non-admins to their home dir
+           resolved = os.path.realpath(new)
+           if not request.user.is_superuser:
+               home = os.path.realpath(os.path.join(paths.HOME_BASE, str(current)))
+               if not resolved.startswith(home):
+                   return redirect(f'/filemanager/?key={home}')
+
+           d['location']=file_path
+           dataw = os.listdir(resolved)
            d['data']=dataw
-           url = getattr(settings, 'VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com') + '/clientdocs/'  # Replace with your API URL
-           response = requests.get(url, timeout=2)
-           if response.status_code == 200:
-                        dataee = response.json()  # Parse the JSON response
-                        d['docs']=dataee
+           try:
+               url = getattr(settings, 'VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com') + '/clientdocs/'
+               response = requests.get(url, timeout=2)
+               if response.status_code == 200:
+                           dataee = response.json()
+                           d['docs']=dataee
+           except Exception:
+               pass
            return render(request,'control/upload.html',d)
         
 @login_required(login_url='/')
@@ -8490,7 +8501,8 @@ def _suite_api_auth(request):
     if not key:
         # If no key configured, reject all external API calls
         return False
-    return request.headers.get('X-Suite-API-Key', '') == key
+    import hmac as _hmac
+    return _hmac.compare_digest(request.headers.get('X-Suite-API-Key', ''), key)
 
 
 def suite_api_plans(request):
