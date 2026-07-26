@@ -319,7 +319,7 @@ def ai_chat_handler(request):
         }
 
         # Route to central gateway on voidpanel.com
-        gateway_url = getattr(settings, 'VOIDPANEL_AI_GATEWAY', 'https://voidpanel.com/api/ai/chat/')
+        gateway_url = getattr(settings, 'VOIDPANEL_AI_GATEWAY', 'https://voidonyx.com/api/ai/chat/')
         panel_host  = request.get_host()
 
         # Get local license key

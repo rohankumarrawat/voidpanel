@@ -18,7 +18,7 @@ from celery import shared_task
 
 from panel.logger import get_logger
 from voidplatform import get_platform
-from voidplatform.config import paths
+from voidplatform.config import paths, get_web_user, get_dns_service_name
 
 logger = get_logger(__name__)
 
@@ -101,24 +101,16 @@ def provision_user_task(self, domain12: str, domainname: str, email: str,
             else:
                 os.makedirs(_dir, exist_ok=True)
 
-        # Set ownership so www-data can write files before PHP ini is created
+        # Set ownership so web server can write files before PHP ini is created
         if sys.platform != 'win32':
-            _run(['sudo', 'chown', '-R', 'www-data:www-data', path])
+            _wu = get_web_user()
+            _run(['sudo', 'chown', '-R', f'{_wu}:{_wu}', path])
             _run(['sudo', 'chmod', '-R', '755', path])
 
-        # Copy voidpanel default landing page into public_html
-        _vp_src = os.path.join(paths.PANEL_ROOT, 'voidpanel')
+        # Create default landing page in public_html
         _vp_dst = os.path.join(path, 'public_html')
-        if os.path.isdir(_vp_src):
-            for _item in os.listdir(_vp_src):
-                _s = os.path.join(_vp_src, _item)
-                _d = os.path.join(_vp_dst, _item)
-                if os.path.isdir(_s):
-                    shutil.copytree(_s, _d, dirs_exist_ok=True)
-                else:
-                    shutil.copy2(_s, _d)
-        else:
-            logger.warning('voidpanel static dir not found at %s, skipping copy', _vp_src)
+        from function import create_default_index_html
+        create_default_index_html(_vp_dst, domain12)
 
         # ── 1. Write PHP INI ──────────────────────────────────────────────────
         with open(inipath, 'w', encoding='utf-8') as f:
@@ -168,8 +160,9 @@ def provision_user_task(self, domain12: str, domainname: str, email: str,
 
         home_dir = os.path.join(paths.HOME_BASE, domainname)
         if sys.platform != 'win32':
-            # Secure ownership and permissions: client owns files, group www-data has read access, others blocked
-            _run(['sudo', 'chown', '-R', f'{domainname}:www-data', home_dir])
+            # Secure ownership and permissions: client owns files, group web server has read access, others blocked
+            _wu = get_web_user()
+            _run(['sudo', 'chown', '-R', f'{domainname}:{_wu}', home_dir])
             _run(['sudo', 'chmod', '750', home_dir])
             _run(['sudo', 'find', home_dir, '-type', 'd', '-exec', 'chmod', '750', '{}', '+'])
             _run(['sudo', 'find', home_dir, '-type', 'f', '-exec', 'chmod', '640', '{}', '+'])
@@ -190,7 +183,7 @@ def provision_user_task(self, domain12: str, domainname: str, email: str,
             logger.warning('Quota setup skipped for %s (setquota not available?)', domainname)
 
         # ── 6. Zero-downtime service reloads ──────────────────────────────────
-        for svc in ('opendkim', 'bind9', 'postfix', 'nginx'):
+        for svc in ('opendkim', get_dns_service_name(), 'postfix', 'nginx'):
             _reload(svc)
 
         logger.info('Provisioning SUCCESS: %s', domain12)
@@ -278,11 +271,12 @@ def terminate_user_task(self, domain_str: str, mainusername: str, subdomains: li
         for nginx_dir in (paths.NGINX_SITES_ENABLED, paths.NGINX_SITES_AVAILABLE):
             conf = os.path.join(nginx_dir, f'{d}.conf')
             try:
-                if os.path.islink(conf) or os.path.isfile(conf):
-                    os.remove(conf)
-                    logger.info('[terminate] Removed nginx conf: %s', conf)
-            except FileNotFoundError:
-                pass
+                if sys.platform != 'win32':
+                    subprocess.run(['sudo', 'rm', '-f', conf], check=False)
+                else:
+                    if os.path.exists(conf):
+                        os.remove(conf)
+                logger.info('[terminate] Removed nginx conf: %s', conf)
             except Exception as e:
                 logger.warning('[terminate] nginx conf %s: %s', conf, e)
 
@@ -290,7 +284,11 @@ def terminate_user_task(self, domain_str: str, mainusername: str, subdomains: li
     for d in all_domains:
         zone_file = os.path.join(paths.BIND_ZONE_DIR, f'db.{d}')
         try:
-            os.remove(zone_file)
+            if sys.platform != 'win32':
+                subprocess.run(['sudo', 'rm', '-f', zone_file], check=False)
+            else:
+                if os.path.exists(zone_file):
+                    os.remove(zone_file)
         except Exception:
             pass
     try:
@@ -302,37 +300,63 @@ def terminate_user_task(self, domain_str: str, mainusername: str, subdomains: li
     # ── 4. DKIM keys ───────────────────────────────────────────────────────────
     if paths.OPENDKIM_KEY_DIR:
         for d in all_domains:
-            shutil.rmtree(os.path.join(paths.OPENDKIM_KEY_DIR, d), ignore_errors=True)
+            dkim_dir = os.path.join(paths.OPENDKIM_KEY_DIR, d)
+            if sys.platform != 'win32':
+                subprocess.run(['sudo', 'rm', '-rf', dkim_dir], check=False)
+            else:
+                shutil.rmtree(dkim_dir, ignore_errors=True)
 
-        # Also remove entries from OpenDKIM KeyTable and SigningTable
-        for table_path in (paths.OPENDKIM_KEYTABLE, paths.OPENDKIM_SIGNINGTABLE):
+        for table_path in (paths.OPENDKIM_KEYTABLE, paths.OPENDKIM_SIGNINGTABLE, paths.OPENDKIM_TRUSTEDHOSTS):
             if not table_path or not os.path.exists(table_path):
                 continue
             try:
                 with open(table_path, 'r') as f:
                     lines = f.readlines()
-                cleaned = [l for l in lines if domain_str not in l]
-                with open(table_path, 'w') as f:
-                    f.writelines(cleaned)
+                cleaned = [l for l in lines if not any(d in l for d in all_domains)]
+                import tempfile
+                with tempfile.NamedTemporaryFile('w', delete=False) as tmp:
+                    tmp.writelines(cleaned)
+                    tmp_name = tmp.name
+                if sys.platform != 'win32':
+                    subprocess.run(['sudo', 'cp', tmp_name, table_path], check=False)
+                    subprocess.run(['sudo', 'rm', '-f', tmp_name], check=False)
+                else:
+                    with open(table_path, 'w') as f:
+                        f.writelines(cleaned)
+                    try: os.remove(tmp_name)
+                    except Exception: pass
             except Exception as e:
                 logger.warning('[terminate] OpenDKIM table %s cleanup: %s', table_path, e)
 
-    # ── 5. SSL certs (Let's Encrypt) ───────────────────────────────────────────
-    for d in all_domains:
-        shutil.rmtree(os.path.join(paths.LETSENCRYPT_LIVE, d), ignore_errors=True)
-        # Also remove from /etc/letsencrypt/renewal/ to prevent certbot errors
-        renewal = f'/etc/letsencrypt/renewal/{d}.conf'
         try:
-            if os.path.exists(renewal):
-                os.remove(renewal)
+            if sys.platform != 'win32':
+                subprocess.run(['sudo', 'systemctl', 'reload', 'opendkim'], check=False)
         except Exception:
             pass
-        # Also remove archived certs
+
+    # ── 5. SSL certs (Let's Encrypt) ───────────────────────────────────────────
+    for d in all_domains:
+        live_dir = os.path.join(paths.LETSENCRYPT_LIVE, d)
         archive_dir = f'/etc/letsencrypt/archive/{d}'
-        shutil.rmtree(archive_dir, ignore_errors=True)
+        renewal = f'/etc/letsencrypt/renewal/{d}.conf'
+        if sys.platform != 'win32':
+            subprocess.run(['sudo', 'rm', '-rf', live_dir, archive_dir, renewal], check=False)
+        else:
+            shutil.rmtree(live_dir, ignore_errors=True)
+            shutil.rmtree(archive_dir, ignore_errors=True)
+            if os.path.exists(renewal):
+                try: os.remove(renewal)
+                except Exception: pass
 
     # ── 6. Mail data ───────────────────────────────────────────────────────────
-    shutil.rmtree(_resolve_mail_domain_dir(domain_str, username=mainusername), ignore_errors=True)
+    try:
+        mail_dir = _resolve_mail_domain_dir(domain_str, username=mainusername)
+        if sys.platform != 'win32':
+            subprocess.run(['sudo', 'rm', '-rf', mail_dir], check=False)
+        else:
+            shutil.rmtree(mail_dir, ignore_errors=True)
+    except Exception:
+        pass
 
     # ── 7. Postfix & Dovecot config cleanup ────────────────────────────────────
     # Remove all lines referencing this domain from virtual mailbox, alias, and
@@ -348,9 +372,19 @@ def terminate_user_task(self, domain_str: str, mainusername: str, subdomains: li
         try:
             with open(fpath, 'r') as f:
                 lines = f.readlines()
-            cleaned = [l for l in lines if f'@{domain_str}' not in l and f'{domain_str}' not in l]
-            with open(fpath, 'w') as f:
-                f.writelines(cleaned)
+            cleaned = [l for l in lines if not any(d in l for d in all_domains)]
+            import tempfile
+            with tempfile.NamedTemporaryFile('w', delete=False) as tmp:
+                tmp.writelines(cleaned)
+                tmp_name = tmp.name
+            if sys.platform != 'win32':
+                subprocess.run(['sudo', 'cp', tmp_name, fpath], check=False)
+                subprocess.run(['sudo', 'rm', '-f', tmp_name], check=False)
+            else:
+                with open(fpath, 'w') as f:
+                    f.writelines(cleaned)
+                try: os.remove(tmp_name)
+                except Exception: pass
             logger.info('[terminate] Cleaned %s for domain %s', fpath, domain_str)
         except Exception as e:
             logger.warning('[terminate] postfix/dovecot file %s: %s', fpath, e)
@@ -404,7 +438,7 @@ def terminate_user_task(self, domain_str: str, mainusername: str, subdomains: li
     else:
         logger.error('[terminate] nginx -t failed after cleanup — NOT reloading nginx: %s',
                      nginx_test.stderr)
-    for svc in ('bind9', 'postfix', 'dovecot'):
+    for svc in (get_dns_service_name(), 'postfix', 'dovecot'):
         _reload(svc)
 
     # ── 10. FTP accounts ──────────────────────────────────────────────────────
@@ -489,8 +523,9 @@ def add_website_task(self, domain12: str, email: str, domainname: str, path: str
         for d in [path, f'{path}/public_html', f'{path}/ssl', f'{path}/logs', os.path.join(path, 'mail', domain12)]:
             os.makedirs(d, exist_ok=True)
 
-        # Copy default voidpanel index
-        _run(['sudo', 'cp', '-r', os.path.join(paths.PANEL_ROOT, 'voidpanel', '.'), f'{path}/public_html/'])
+        # Create clean default landing page (DO NOT copy Django source into public_html)
+        from function import create_default_index_html
+        create_default_index_html(f'{path}/public_html', domain12)
 
         # Write PHP INI
         with open(inipath, 'w', encoding='utf-8') as f:
@@ -529,7 +564,7 @@ def add_website_task(self, domain12: str, email: str, domainname: str, path: str
         domain.objects.create(domain=domain12, email=email, dir=domainname, userdomain=True)
 
         # Reload services securely
-        for svc in ('opendkim', 'postfix', 'nginx', 'bind9'):
+        for svc in ('opendkim', 'postfix', 'nginx', get_dns_service_name()):
             _reload(svc)
 
         logger.info('Add Website SUCCESS: %s', domain12)
