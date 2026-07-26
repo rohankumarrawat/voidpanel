@@ -18,7 +18,15 @@ from django.utils import timezone
 log = logging.getLogger(__name__)
 
 # ── Configuration ────────────────────────────────────────────────────────────
-VOIDPANEL_LICENSE_API = "https://voidpanel.com"
+def _get_api_base():
+    """Return the central VoidPanel website URL from settings, with fallback."""
+    try:
+        from django.conf import settings
+        return getattr(settings, 'VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com').rstrip('/')
+    except Exception:
+        return 'https://voidpanel.com'
+
+VOIDPANEL_LICENSE_API = _get_api_base()
 _REGISTER_URL  = f"{VOIDPANEL_LICENSE_API}/api/license/register/"
 _VALIDATE_URL  = f"{VOIDPANEL_LICENSE_API}/api/license/validate/"
 _REQUEST_TIMEOUT = 12  # seconds
@@ -132,10 +140,25 @@ def get_features() -> dict:
     lic = get_license()
     if lic is None:
         return {}
-    # If tier is set locally and features_json is empty, synthesise from tier map
+    
+    # Extract features or synthesise from local tier features
     if lic.features_json:
-        return lic.features_json
-    return dict(_TIER_FEATURES.get(lic.tier, _TIER_FEATURES['starter']))
+        features = dict(lic.features_json)
+    else:
+        features = dict(_TIER_FEATURES.get(lic.tier, _TIER_FEATURES['starter']))
+        
+    # Map server-provided alias keys to standard keys expected by templates and views
+    mapping = {
+        'social_media':        'social_suite',
+        'whatsapp_automation': 'whatsapp',
+        'docker_manager':      'docker',
+        'reseller_hosting':    'reseller',
+    }
+    for server_key, code_key in mapping.items():
+        if server_key in features:
+            features[code_key] = features[server_key]
+            
+    return features
 
 
 def has_feature(key: str, default: bool = False) -> bool:

@@ -6,7 +6,7 @@ import requests
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from control.models import pythonname,mernname,user,domain,subdomainname,cron,package,allemail,redir,ftpaccount,ftp,phpversion
-from function import get_server_ip,is_website_live,get_database_users_with_filter,get_database_names_with_filter,parse_dns_zone_file,run_command,zip_multiple_locations_backup_user,get_directory_size_in_mb,get_file_info,get_database_privileges_with_filter
+from function import get_server_ip,is_website_live,get_database_users_with_filter,get_database_names_with_filter,parse_dns_zone_file,run_command,zip_multiple_locations_backup_user,get_directory_size_in_mb,get_file_info,get_database_privileges_with_filter, get_active_zone_file_path, format_dns_data, update_soa_serial_in_content, fix_zone_file_permissions
 from django.views.decorators.csrf import csrf_exempt
 import os
 import subprocess
@@ -148,9 +148,28 @@ def get_user_dashboard_context(current, adminpassword=""):
         d['suite_sso_seo']       = f'/control/suite-sso/{dom}/seo/'
         d['suite_sso_marketing'] = f'/control/suite-sso/{dom}/marketing/'
         d['has_any_suite']       = any([d['pkg_includes_social'], d['pkg_includes_seo'], d['pkg_includes_marketing']])
+        # ── license_features dict — used by template conditionals ──────────────
+        # Template checks: license_features.social_suite / marketing_suite / seo_tools
+        from control.license import get_features
+        features = get_features()
+        _key_map = {
+            'social_media':        'social_suite',
+            'reseller_hosting':    'reseller',
+            'docker_manager':      'docker',
+            'whatsapp_automation': 'whatsapp',
+        }
+        for api_key, template_key in _key_map.items():
+            if api_key in features:
+                features.setdefault(template_key, features[api_key])
+
+        features['social_suite'] = d['pkg_includes_social']
+        features['marketing_suite'] = d['pkg_includes_marketing']
+        features['seo_tools'] = d['pkg_includes_seo']
+        d['license_features'] = features
     except Exception:
         d['pkg_includes_social'] = d['pkg_includes_seo'] = d['pkg_includes_marketing'] = False
         d['has_any_suite'] = False
+        d['license_features'] = {'social_suite': False, 'marketing_suite': False, 'seo_tools': False, 'script_installer': True}
 
     return d
 
@@ -348,7 +367,7 @@ def ftp122(request,data):
                     d['ftp']=ftpaccount.objects.filter(main=lold.dir)
                     d['domain']=lold.domain
                     d['dir']=lold.dir
-                    url = 'https://voidpanel.com/clientdocs/'  # Replace with your API URL
+                    url = getattr(settings, 'VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com') + '/clientdocs/'  # Replace with your API URL
                     response = requests.get(url, timeout=2)
                     if response.status_code == 200:
                         dataee = response.json()  # Parse the JSON response
@@ -648,7 +667,7 @@ def fulldbwizard(request, data):
             # The JS expects front in adddatabase and adddatabaseuser, which is the domain prefix!
             d['front'] = cc + "_"
             
-            url = 'https://voidpanel.com/clientdocs/'
+            url = getattr(settings, 'VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com') + '/clientdocs/'
             try:
                 response = requests.get(url, timeout=3)
                 if response.status_code == 200:
@@ -693,7 +712,7 @@ def addredirect(request,data):
                     d['domain']=data
 
                     d['subdomain']=subdomainname.objects.filter(domain=data).all()     
-                    url = 'https://voidpanel.com/clientdocs/'  # Replace with your API URL
+                    url = getattr(settings, 'VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com') + '/clientdocs/'  # Replace with your API URL
                     response = requests.get(url, timeout=2)
                     if response.status_code == 200:
                         dataee = response.json()  # Parse the JSON response
@@ -742,7 +761,7 @@ def subdomain(request,data):
                             d['s']=False
                     else:
                             d['s']=False
-                    url = 'https://voidpanel.com/clientdocs/'  # Replace with your API URL
+                    url = getattr(settings, 'VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com') + '/clientdocs/'  # Replace with your API URL
                     response = requests.get(url, timeout=2)
                     if response.status_code == 200:
                         dataee = response.json()  # Parse the JSON response
@@ -824,7 +843,7 @@ def phpini(request, data):
         d.update(get_user_dashboard_context(username))
         
         try:
-            url = 'https://voidpanel.com/clientdocs/'
+            url = getattr(settings, 'VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com') + '/clientdocs/'
             req = requests.get(url, timeout=3)
             if req.status_code == 200:
                 d['docs'] = req.json()
@@ -994,7 +1013,7 @@ def listemail(request,data):
                d['server_ip'] = get_server_ip()
                d['roundcube_url'] = f"https://{hostname}:9002"
                
-               url = 'https://voidpanel.com/clientdocs/'  # Replace with your API URL
+               url = getattr(settings, 'VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com') + '/clientdocs/'  # Replace with your API URL
                response = requests.get(url, timeout=2)
                if response.status_code == 200:
                         dataee = response.json()  # Parse the JSON response
@@ -1516,9 +1535,9 @@ def eadns(request):
     except:
         adminpassword = ''
     if request.user.is_superuser:
-        current=request.session['name']
+        current=request.session.get('name', request.user.username)
     else:
-        current=request.user
+        current=request.user.username
     d={}
     d.update(get_user_dashboard_context(current, adminpassword))
     
@@ -1529,10 +1548,9 @@ def eadns(request):
         current_domain=domain.objects.get(domain=domainname)
         d['domain']=current_domain
         try:
-            pat=os.path.join(paths.BIND_ZONE_DIR, f"db.{current_domain}")
-            data12=parse_dns_zone_file(pat)
-            # Skip the $TTL header entry (index 0), and the SOA record usually at [1]
-            d['data']=data12[2:]
+            pat = get_active_zone_file_path(domainname)
+            data12 = parse_dns_zone_file(pat)
+            d['data'] = data12[2:]
             d['zone_error'] = None
         except PermissionError as e:
             d['data'] = []
@@ -1548,195 +1566,299 @@ def eadns(request):
 
 @login_required(login_url='/')
 def adddnsrecord(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+
+    name         = (request.POST.get('name') or '').strip()
+    domainname   = (request.POST.get('domain') or '').strip().lower()
+    record_class = (request.POST.get('class') or 'IN').strip().upper()
+    record_type  = (request.POST.get('type') or '').strip().upper()
+    ttl          = (request.POST.get('ttl') or '86400').strip()
+    data         = (request.POST.get('data') or '').strip()
+
+    VALID_TYPES = {'A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SRV', 'CAA', 'PTR', 'SOA'}
+
+    if not name:
+        return JsonResponse({'success': False, 'error': 'Record name is required (use @ for root).'}, status=400)
+    if record_type not in VALID_TYPES:
+        return JsonResponse({'success': False, 'error': f'Invalid record type "{record_type}".'}, status=400)
+    if not data:
+        return JsonResponse({'success': False, 'error': 'Record value/data is required.'}, status=400)
+
+    # Domain authorization check
+    is_auth = False
+    if request.user.is_superuser:
+        is_auth = True
+    else:
+        try:
+            u = user.objects.get(username=request.user)
+            if u.domain == domainname or domain.objects.filter(domain=domainname).exists():
+                is_auth = True
+        except Exception:
+            if domain.objects.filter(domain=domainname).exists():
+                is_auth = True
+
+    if not is_auth:
+        return JsonResponse({'success': False, 'error': 'Unauthorized domain.'}, status=403)
+
+    data = format_dns_data(record_type, data)
+
+    import re as _re
+    if not _re.match(r'^[a-zA-Z0-9@._\-\*]+$', name):
+        return JsonResponse({'success': False, 'error': 'Invalid record name characters.'}, status=400)
+
+    pat = get_active_zone_file_path(domainname)
+    if not os.path.exists(pat):
+        return JsonResponse({'success': False, 'error': f'Zone file not found for {domainname}.'}, status=404)
+
     try:
-        usewe=user.objects.get(username=request.user)
-        dddd=usewe.domain
-    except:
-        if request.user.is_superuser:
-            usewe=user.objects.get(username=request.session['name'])
-            dddd=usewe.domain
-        else:
-            return JsonResponse({'success': False, 'error': 'Unauthorized'})
+        import subprocess
+        result = subprocess.run(['sudo', 'cat', pat], capture_output=True, text=True)
+        if result.returncode != 0:
+            raise PermissionError('Failed to read zone file.')
+        original_content = result.stdout
 
-    if request.method == 'POST':
-        name         = (request.POST.get('name') or '').strip()
-        domainname   = (request.POST.get('domain') or '').strip()
-        record_type  = (request.POST.get('type') or '').strip().upper()
-        ttl          = (request.POST.get('ttl') or '86400').strip()
-        data         = (request.POST.get('data') or '').strip()
+        new_record_line = f"{name} {ttl} {record_class} {record_type} {data}\n"
+        new_content = original_content + f"\n; {record_type} Record added via VoidPanel\n{new_record_line}"
+        new_content = update_soa_serial_in_content(new_content)
 
-        VALID_TYPES = {'A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SRV', 'CAA', 'PTR', 'SOA'}
-
-        if not name:
-            return JsonResponse({'success': False, 'error': 'Record name is required (use @ for root).'})
-        if record_type not in VALID_TYPES:
-            return JsonResponse({'success': False, 'error': f'Invalid record type "{record_type}".'})
-        if not data:
-            return JsonResponse({'success': False, 'error': 'Record value/data is required.'})
-        if dddd != domainname:
-            return JsonResponse({'success': False, 'error': 'Unauthorized domain.'})
-
-        import re as _re
-        if not _re.match(r'^[a-zA-Z0-9@._\-\*]+$', name):
-            return JsonResponse({'success': False, 'error': 'Invalid record name characters.'})
-
-        pat = os.path.join(paths.BIND_ZONE_DIR, f"db.{domainname}")
         import tempfile
-        # Write a properly-formatted zone record: name TTL IN TYPE data
-        with tempfile.NamedTemporaryFile('w', delete=False, suffix='.zone') as tf:
-            tf.write(f"\n; {record_type} Record added via VoidPanel\n")
-            tf.write(f"{name} {ttl} IN {record_type} {data}\n")
+        with tempfile.NamedTemporaryFile('w', delete=False) as tf:
+            tf.write(new_content)
             tmpd = tf.name
-        run_command(f'cat {tmpd} | sudo tee -a {pat}')
-        run_command(f'sudo rm {tmpd}')
-        get_platform().services.restart('bind9')
-        return JsonResponse({'success': True})
 
-    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+        if sys.platform != 'win32':
+            check = subprocess.run(['named-checkzone', domainname, tmpd], capture_output=True, text=True)
+            if check.returncode != 0:
+                subprocess.run(['sudo', 'rm', '-f', tmpd], check=False)
+                detail = (check.stdout or check.stderr or '').strip()[:150]
+                return JsonResponse({'success': False, 'error': f'Invalid record syntax. BIND rejected entry: {detail}'}, status=400)
+
+        subprocess.run(['sudo', 'mv', tmpd, pat], check=True)
+        fix_zone_file_permissions(pat)
+
+        alt_paths = [
+            os.path.join('/etc/bind/zones', f'{domainname}.zone'),
+            os.path.join('/etc/bind', f'db.{domainname}'),
+        ]
+        for alt in alt_paths:
+            if os.path.exists(alt) and os.path.realpath(alt) != os.path.realpath(pat):
+                try:
+                    subprocess.run(['sudo', 'cp', pat, alt], check=False)
+                    fix_zone_file_permissions(alt)
+                except Exception:
+                    pass
+
+        get_platform().services.restart('bind9')
+        return JsonResponse({'success': True, 'message': f'{record_type} record added successfully.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Failed to add record: {str(e)}'}, status=500)
 
 @login_required(login_url='/')
 def deletedns(request):
     if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Invalid request method'})
+        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
 
-    domainname = request.POST.get('domain', None)
-    name = request.POST.get('name')
-    domain = request.POST.get('domain')
-    record_type = request.POST.get('type')
-    data = request.POST.get('data')
-    ttl = request.POST.get('ttl', None)
+    domainname = (request.POST.get('domain') or '').strip().lower()
+    name = (request.POST.get('name') or '').strip()
+    record_type = (request.POST.get('type') or '').strip().upper()
+    data = (request.POST.get('data') or '').strip()
+    ttl = (request.POST.get('ttl') or '').strip()
     
-    if not all([name, domain, record_type, data]):
-        return JsonResponse({'success': False, 'error': 'Missing required fields'})
+    if not all([name, domainname, record_type, data]):
+        return JsonResponse({'success': False, 'error': 'Missing required fields'}, status=400)
+
+    is_auth = False
+    if request.user.is_superuser:
+        is_auth = True
+    else:
+        try:
+            u = user.objects.get(username=request.user)
+            if u.domain == domainname or domain.objects.filter(domain=domainname).exists():
+                is_auth = True
+        except Exception:
+            if domain.objects.filter(domain=domainname).exists():
+                is_auth = True
+
+    if not is_auth:
+        return JsonResponse({'success': False, 'error': 'Unauthorized domain.'}, status=403)
+
+    pat = get_active_zone_file_path(domainname)
+    if not os.path.exists(pat):
+        return JsonResponse({'success': False, 'error': 'Zone file not found'}, status=404)
 
     deleted = False
-    pat = os.path.join(paths.BIND_ZONE_DIR, f"db.{domain}")
-    
     try:
-        usewe = user.objects.get(username=request.user)
-        dddd = usewe.domain
-    except:
-        if request.user.is_superuser:
-            usewe = user.objects.get(username=request.session['name'])
-            dddd = usewe.domain
-        else:
-            return JsonResponse({'success': False, 'error': 'Unauthorized'})
-            
-    if domain == dddd:
-        try:
-            import subprocess
-            result = subprocess.run(['sudo', 'cat', pat], capture_output=True, text=True)
-            if result.returncode != 0:
-                raise PermissionError('Failed to read zone file.')
-            lines = result.stdout.splitlines(True)
-            import tempfile
-            with tempfile.NamedTemporaryFile('w', delete=False) as tfile:
-                for line in lines:
-                    if name in line and record_type in line and data[:20] in line and (not ttl or ttl in line):
-                        deleted = True
-                    elif name in line and data[:20] in line:
-                        deleted = True
-                    else:
-                        tfile.write(line)
-                tmpout = tfile.name
+        import subprocess
+        result = subprocess.run(['sudo', 'cat', pat], capture_output=True, text=True)
+        if result.returncode != 0:
+            raise PermissionError('Failed to read zone file.')
+        lines = result.stdout.splitlines(True)
 
-            if deleted:
-                run_command(f'sudo cp {tmpout} {pat}')
-                run_command(f'sudo chmod 644 {pat}')
-                run_command(f'sudo rm {tmpout}')
-                get_platform().services.restart('bind9')
-                return JsonResponse({'success': True})
+        new_lines = []
+        clean_data = data.strip('"')
+        for line in lines:
+            line_str = line.strip()
+            if not line_str or line_str.startswith(';'):
+                new_lines.append(line)
+                continue
+
+            parts = line_str.split()
+            if len(parts) >= 4 and parts[0] == name and record_type in parts:
+                if clean_data and clean_data[:15] not in line_str:
+                    new_lines.append(line)
+                else:
+                    deleted = True
             else:
-                run_command(f'sudo rm {tmpout}')
-                return JsonResponse({'success': False, 'error': 'Record not found'})
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)})
-    else:
-        return JsonResponse({'success': False, 'error': 'Unauthorized domain'})
+                new_lines.append(line)
+
+        if deleted:
+            content_str = update_soa_serial_in_content("".join(new_lines))
+
+            import tempfile
+            with tempfile.NamedTemporaryFile('w', delete=False) as tmp:
+                tmp.write(content_str)
+                tmpout = tmp.name
+
+            if sys.platform != 'win32':
+                check = subprocess.run(['named-checkzone', domainname, tmpout], capture_output=True, text=True)
+                if check.returncode != 0:
+                    subprocess.run(['sudo', 'rm', '-f', tmpout], check=False)
+                    detail = (check.stdout or check.stderr or '').strip()[:150]
+                    return JsonResponse({'success': False, 'error': f'DNS validation failed: {detail}'}, status=400)
+
+            subprocess.run(['sudo', 'mv', tmpout, pat], check=True)
+            fix_zone_file_permissions(pat)
+
+            alt_paths = [
+                os.path.join('/etc/bind/zones', f'{domainname}.zone'),
+                os.path.join('/etc/bind', f'db.{domainname}'),
+            ]
+            for alt in alt_paths:
+                if os.path.exists(alt) and os.path.realpath(alt) != os.path.realpath(pat):
+                    try:
+                        subprocess.run(['sudo', 'cp', pat, alt], check=False)
+                        fix_zone_file_permissions(alt)
+                    except Exception:
+                        pass
+
+            get_platform().services.restart('bind9')
+            return JsonResponse({'success': True, 'message': 'DNS record deleted successfully.'})
+        else:
+            return JsonResponse({'success': False, 'error': 'Record not found in zone file'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 @login_required(login_url='/')
 def editdnsrecord(request):
     if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Invalid request method'})
+        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
 
-    # Old data for matching
-    old_name        = request.POST.get('old_name', '').strip()
-    old_type        = request.POST.get('old_type', '').strip()
-    old_data        = request.POST.get('old_data', '').strip()
+    old_name        = (request.POST.get('old_name') or '').strip()
+    old_type        = (request.POST.get('old_type') or '').strip().upper()
+    old_data        = (request.POST.get('old_data') or '').strip()
     
-    # New data for writing
-    name        = request.POST.get('name', '').strip()
-    domain      = request.POST.get('domain', '').strip().lower()
-    record_class = request.POST.get('class', 'IN').strip().upper()
-    record_type = request.POST.get('type', '').strip().upper()
-    ttl         = request.POST.get('ttl', '86400').strip()
-    data        = request.POST.get('data', '').strip()
+    name        = (request.POST.get('name') or '').strip()
+    domainname  = (request.POST.get('domain') or '').strip().lower()
+    record_class = (request.POST.get('class') or 'IN').strip().upper()
+    record_type = (request.POST.get('type') or '').strip().upper()
+    ttl         = (request.POST.get('ttl') or '86400').strip()
+    data        = (request.POST.get('data') or '').strip()
 
     VALID_TYPES = {'A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SRV', 'CAA', 'PTR', 'SOA'}
-    if not all([old_name, old_type, name, domain, record_type, data]):
-        return JsonResponse({'success': False, 'error': 'Missing required fields.'})
+    if not all([old_name, old_type, name, domainname, record_type, data]):
+        return JsonResponse({'success': False, 'error': 'Missing required fields.'}, status=400)
 
     if record_type not in VALID_TYPES:
-        return JsonResponse({'success': False, 'error': f'Invalid record type "{record_type}".'})
+        return JsonResponse({'success': False, 'error': f'Invalid record type "{record_type}".'}, status=400)
+
+    is_auth = False
+    if request.user.is_superuser:
+        is_auth = True
+    else:
+        try:
+            u = user.objects.get(username=request.user)
+            if u.domain == domainname or domain.objects.filter(domain=domainname).exists():
+                is_auth = True
+        except Exception:
+            if domain.objects.filter(domain=domainname).exists():
+                is_auth = True
+
+    if not is_auth:
+        return JsonResponse({'success': False, 'error': 'Unauthorized domain.'}, status=403)
+
+    data = format_dns_data(record_type, data)
 
     import re
     if not re.match(r'^[a-zA-Z0-9@._\-\*]+$', name):
-        return JsonResponse({'success': False, 'error': 'Invalid new record name.'})
+        return JsonResponse({'success': False, 'error': 'Invalid new record name.'}, status=400)
 
-    pat = os.path.join(paths.BIND_ZONE_DIR, f"db.{domain}")
-    
+    pat = get_active_zone_file_path(domainname)
+    if not os.path.exists(pat):
+        return JsonResponse({'success': False, 'error': 'Zone file not found'}, status=404)
+
+    edited = False
     try:
-        usewe = user.objects.get(username=request.user)
-        dddd = usewe.domain
-    except:
-        if request.user.is_superuser:
-            usewe = user.objects.get(username=request.session['name'])
-            dddd = usewe.domain
-        else:
-            return JsonResponse({'success': False, 'error': 'Unauthorized'})
-            
-    if domain == dddd:
-        edited = False
-        try:
-            import subprocess
-            result = subprocess.run(['sudo', 'cat', pat], capture_output=True, text=True)
-            if result.returncode != 0:
-                raise PermissionError('Failed to read zone file.')
-            lines = result.stdout.splitlines(True)
-            
-            new_lines = []
-            for line in lines:
-                line_str = line.strip()
-                if not line_str or line_str.startswith(';'):
+        import subprocess
+        result = subprocess.run(['sudo', 'cat', pat], capture_output=True, text=True)
+        if result.returncode != 0:
+            raise PermissionError('Failed to read zone file.')
+        lines = result.stdout.splitlines(True)
+        
+        new_lines = []
+        clean_old_data = old_data.strip('"')
+        for line in lines:
+            line_str = line.strip()
+            if not line_str or line_str.startswith(';'):
+                new_lines.append(line)
+                continue
+                
+            parts = line_str.split()
+            if len(parts) >= 4 and parts[0] == old_name and old_type in parts:
+                if clean_old_data and clean_old_data[:15] not in line_str:
                     new_lines.append(line)
-                    continue
-                    
-                parts = line_str.split()
-                if len(parts) >= 4 and parts[0] == old_name and old_type in parts:
-                    if old_data and old_data[:15] not in line_str:
-                        new_lines.append(line)
-                    else:
-                        new_lines.append(f"{name} {ttl} {record_class} {record_type} {data}\n")
-                        edited = True
                 else:
-                    new_lines.append(line)
-
-            if edited:
-                import tempfile
-                with tempfile.NamedTemporaryFile('w', delete=False) as tfe:
-                    tfe.writelines(new_lines)
-                    tmpedit = tfe.name
-                run_command(f'sudo cp {tmpedit} {pat}')
-                run_command(f'sudo chmod 644 {pat}')
-                run_command(f'sudo rm {tmpedit}')
-                get_platform().services.restart('bind9')
-                return JsonResponse({'success': True, 'message': 'DNS record updated successfully.'})
+                    new_lines.append(f"{name} {ttl} {record_class} {record_type} {data}\n")
+                    edited = True
             else:
-                return JsonResponse({'success': False, 'error': 'Original record not found.'})
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)})
-    else:
-        return JsonResponse({'success': False, 'error': 'Unauthorized domain'})
+                new_lines.append(line)
+
+        if edited:
+            content_str = update_soa_serial_in_content("".join(new_lines))
+
+            import tempfile
+            with tempfile.NamedTemporaryFile('w', delete=False) as tfe:
+                tfe.write(content_str)
+                tmpedit = tfe.name
+
+            if sys.platform != 'win32':
+                check = subprocess.run(['named-checkzone', domainname, tmpedit], capture_output=True, text=True)
+                if check.returncode != 0:
+                    subprocess.run(['sudo', 'rm', '-f', tmpedit], check=False)
+                    detail = (check.stdout or check.stderr or '').strip()[:150]
+                    return JsonResponse({'success': False, 'error': f'BIND rejected change: {detail}'}, status=400)
+
+            subprocess.run(['sudo', 'mv', tmpedit, pat], check=True)
+            fix_zone_file_permissions(pat)
+
+            alt_paths = [
+                os.path.join('/etc/bind/zones', f'{domainname}.zone'),
+                os.path.join('/etc/bind', f'db.{domainname}'),
+            ]
+            for alt in alt_paths:
+                if os.path.exists(alt) and os.path.realpath(alt) != os.path.realpath(pat):
+                    try:
+                        subprocess.run(['sudo', 'cp', pat, alt], check=False)
+                        fix_zone_file_permissions(alt)
+                    except Exception:
+                        pass
+
+            get_platform().services.restart('bind9')
+            return JsonResponse({'success': True, 'message': 'DNS record updated successfully.'})
+        else:
+            return JsonResponse({'success': False, 'error': 'Original record not found.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 
@@ -1782,7 +1904,7 @@ def runssl(request,data):
 
             d['subdomain'] = subdomainname.objects.filter(domain=current_user.domain)
             try:
-                url = 'https://voidpanel.com/clientdocs/'
+                url = getattr(settings, 'VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com') + '/clientdocs/'
                 response = requests.get(url, timeout=2)
                 if response.status_code == 200:
                     d['docs'] = response.json()
@@ -1953,7 +2075,7 @@ def cronn(request,data):
                 cron.objects.create(domain=data, path=path_val, duratioin=time_val)
                 return JsonResponse({'success': True, 'message': 'Cronjob successfully protected & created.'})
 
-            url = 'https://voidpanel.com/clientdocs/'
+            url = getattr(settings, 'VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com') + '/clientdocs/'
             response = requests.get(url, timeout=2)
             if response.status_code == 200:
                 dataee = response.json()
@@ -2257,7 +2379,7 @@ def upload_files(request,file_path):
            new="/"+file_path
            dataw = os.listdir(new)
            d['data']=dataw
-           url = 'https://voidpanel.com/clientdocs/'  # Replace with your API URL
+           url = getattr(settings, 'VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com') + '/clientdocs/'  # Replace with your API URL
            response = requests.get(url, timeout=2)
            if response.status_code == 200:
                         dataee = response.json()  # Parse the JSON response
@@ -2290,7 +2412,7 @@ def domainterminal(request):
         d['hostname']=socket.gethostbyname(socket.gethostname())
         
         try:
-            url = 'https://voidpanel.com/clientdocs/'
+            url = getattr(settings, 'VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com') + '/clientdocs/'
             req = requests.get(url, timeout=3)
             if req.status_code == 200:
                 d['docs'] = req.json()
@@ -3414,6 +3536,17 @@ def social_connect(request, domain, platform):
     if err:
         return err
 
+    src = request.GET.get('src', '')
+    if src == 'suite':
+        request.session['social_src'] = 'suite'
+    else:
+        request.session['social_src'] = ''
+
+    def get_redirect_url():
+        if request.session.get('social_src') == 'suite':
+            return '/control/suite/social/'
+        return f'/control/social/{domain}/'
+
     # Enforce connected accounts limit check
     limit = _resolve_suite_limit(request, domain, 'social', 'accounts', 5)
     if limit > 0:
@@ -3421,7 +3554,7 @@ def social_connect(request, domain, platform):
         current_count = SocialAccount.objects.filter(domain=domain, is_active=True).count()
         if current_count >= limit:
             messages.error(request, f"Plan Limit Reached: Your current plan only allows up to {limit} connected social accounts. Upgrade your package to connect more.")
-            return redirect(f'/control/social/{domain}/')
+            return redirect(get_redirect_url())
     # Sync enabled platforms
     cfg = SocialMediaAPIConfig.get()
     request.session['social_domain'] = domain
@@ -3431,11 +3564,11 @@ def social_connect(request, domain, platform):
     lic = PanelLicense.objects.first()
     if not lic or not lic.key:
         messages.error(request, "Panel license not configured. Social media connections require a valid VoidPanel license.")
-        return redirect(f'/control/social/{domain}/')
+        return redirect(get_redirect_url())
 
     if not cfg.enabled_platforms or platform not in cfg.enabled_platforms:
         messages.warning(request, f"Platform '{platform}' is not enabled. Ask your administrator to enable it in the Super Admin panel on voidpanel.com.")
-        return redirect(f'/control/social/{domain}/')
+        return redirect(get_redirect_url())
 
     # Build our local callback URL (the relay will redirect back here)
     local_callback = request.build_absolute_uri(f'/control/social/callback/{platform}/')
@@ -3467,23 +3600,28 @@ def social_callback(request, platform):
     if err:
         return err
 
+    def get_redirect_url():
+        if request.session.get('social_src') == 'suite':
+            return '/control/suite/social/'
+        return f'/control/social/{domain}/'
+
     # Check for error from the relay
     error = request.GET.get('error', '')
     if error:
         messages.error(request, f"OAuth was cancelled or failed ({error}).")
-        return redirect(f'/control/social/{domain}/')
+        return redirect(get_redirect_url())
 
     # Get the relay_code
     relay_code = request.GET.get('relay_code', '').strip()
     if not relay_code:
         messages.error(request, "OAuth callback missing relay code. Please try connecting again.")
-        return redirect(f'/control/social/{domain}/')
+        return redirect(get_redirect_url())
 
     # Get license key
     lic = PanelLicense.objects.first()
     if not lic or not lic.key:
         messages.error(request, "Panel license not configured.")
-        return redirect(f'/control/social/{domain}/')
+        return redirect(get_redirect_url())
 
     # Exchange relay_code for tokens via server-to-server call
     try:
@@ -3499,17 +3637,17 @@ def social_callback(request, platform):
         if r.status_code != 200:
             err_msg = r.json().get('error', r.text) if 'application/json' in r.headers.get('Content-Type', '') else r.text[:200]
             messages.error(request, f"Failed to retrieve tokens: {err_msg}")
-            return redirect(f'/control/social/{domain}/')
+            return redirect(get_redirect_url())
 
         data = r.json()
     except Exception as e:
         messages.error(request, f"Error contacting voidpanel.com: {e}")
-        return redirect(f'/control/social/{domain}/')
+        return redirect(get_redirect_url())
 
     accounts_data = data.get('accounts', [])
     if not accounts_data:
         messages.warning(request, "No accounts were returned. Please try connecting again.")
-        return redirect(f'/control/social/{domain}/')
+        return redirect(get_redirect_url())
 
     # Save each account
     count = 0
@@ -3563,7 +3701,7 @@ def social_callback(request, platform):
     }
     label = PLATFORM_NAMES.get(platform, platform.upper())
     messages.success(request, f"✅ Connected {count} {label} account(s) successfully!")
-    return redirect(f'/control/social/{domain}/')
+    return redirect(get_redirect_url())
 
 
 def _social_refresh_token(acc):
@@ -4033,16 +4171,9 @@ def social_sync_stats(request, domain, account_id):
 #  SOCIAL MEDIA PORTAL (Standalone new-tab portal)
 # ══════════════════════════════════════════════════════════════
 
-@login_required(login_url='/login')
-def social_portal_home(request, domain):
-    """
-    Render the standalone Social Media Management Portal.
-    Opens in a new tab — full-screen, no panel chrome.
-    """
+def _get_social_portal_data_ctx(request, domain):
     from control.models import SocialAccount, SocialPost, SocialMediaAPIConfig
-    current, err = _social_auth_check(request, domain)
-    if err:
-        return redirect(f'/login?next=/control/social-portal/{domain}/')
+    import json as _json
 
     accounts = list(SocialAccount.objects.filter(domain=domain, is_active=True).values(
         'id', 'platform', 'account_name', 'account_username',
@@ -4063,7 +4194,6 @@ def social_portal_home(request, domain):
     api_config = SocialMediaAPIConfig.get()
     enabled_platforms = api_config.enabled_platforms or []
 
-    import json as _json
     # Serialize platform_list for each published post
     for p in published_posts:
         p['published_at'] = p['published_at'].strftime('%Y-%m-%d %H:%M') if p.get('published_at') else ''
@@ -4120,9 +4250,7 @@ def social_portal_home(request, domain):
         'configured_platforms': api_cfg.configured_platforms,
     }
 
-    ctx = {
-        'domain': domain,
-        'user': request.user,
+    return {
         'accounts_json': _json.dumps(accounts),
         'published_json': _json.dumps(published_posts),
         'scheduled_json': _json.dumps(scheduled_posts),
@@ -4134,6 +4262,23 @@ def social_portal_home(request, domain):
         'stats': stats,
         'accounts': accounts,
     }
+
+
+@login_required(login_url='/login')
+def social_portal_home(request, domain):
+    """
+    Render the standalone Social Media Management Portal.
+    Opens in a new tab — full-screen, no panel chrome.
+    """
+    current, err = _social_auth_check(request, domain)
+    if err:
+        return redirect(f'/login?next=/control/social-portal/{domain}/')
+
+    ctx = {
+        'domain': domain,
+        'user': request.user,
+    }
+    ctx.update(_get_social_portal_data_ctx(request, domain))
     return render(request, 'control/social_portal.html', ctx)
 
 
@@ -8036,6 +8181,7 @@ def suite_social_portal(request):
     domain_key = su.get('hosting_domain') or su['email'].split('@')[0]
     ctx['domain'] = domain_key
     ctx['suite_mode'] = True
+    ctx.update(_get_social_portal_data_ctx(request, domain_key))
     return render(request, 'control/social_portal.html', ctx)
 
 
@@ -8262,7 +8408,20 @@ def suite_sub_save(request):
             from django.utils.dateparse import parse_datetime
             obj.expires_at = parse_datetime(data['expires_at'])
         if data.get('password'):
-            obj.set_password(data['password'])
+            new_pwd = data['password']
+            obj.set_password(new_pwd)
+            
+            # Sync password to matching Django auth users
+            from django.contrib.auth.models import User as AuthUser
+            for au in AuthUser.objects.filter(email=obj.email):
+                au.set_password(new_pwd)
+                au.save()
+            for au in AuthUser.objects.filter(username=obj.email):
+                au.set_password(new_pwd)
+                au.save()
+            for au in AuthUser.objects.filter(username=f"suite_{obj.pk}"):
+                au.set_password(new_pwd)
+                au.save()
         obj.save()
     else:
         email = data.get('email', '').strip().lower()
@@ -8277,8 +8436,21 @@ def suite_sub_save(request):
             suite      = plan.suite,
             is_active  = True,
         )
-        obj.set_password(data.get('password', 'changeme123'))
+        pwd = data.get('password') or 'changeme123'
+        obj.set_password(pwd)
         obj.save()
+        
+        # Sync password to matching Django auth users
+        from django.contrib.auth.models import User as AuthUser
+        for au in AuthUser.objects.filter(email=email):
+            au.set_password(pwd)
+            au.save()
+        for au in AuthUser.objects.filter(username=email):
+            au.set_password(pwd)
+            au.save()
+        for au in AuthUser.objects.filter(username=f"suite_{obj.pk}"):
+            au.set_password(pwd)
+            au.save()
 
     return JsonResponse({'ok': True, 'id': obj.pk, 'email': obj.email})
 

@@ -19,6 +19,10 @@ class Command(BaseCommand):
 
         self.stdout.write("Auto Update checking for new version...")
 
+        # Central API URL (configurable via VOIDPANEL_WEBSITE_URL env var)
+        from django.conf import settings as django_settings
+        _base_url = getattr(django_settings, 'VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com').rstrip('/')
+
         # 1. Read current version
         current_version = '1.0'
         for path_try in [paths.VERSION_FILE,
@@ -36,7 +40,7 @@ class Command(BaseCommand):
         migration_steps = []
         try:
             resp = requests.get(
-                f'https://voidpanel.com/version_migration_path/?from={current_version}',
+                f'{_base_url}/version_migration_path/?from={current_version}',
                 timeout=15
             )
             if resp.status_code == 200:
@@ -62,7 +66,7 @@ class Command(BaseCommand):
             pass
 
         for step in migration_steps:
-            script_url = step.get('script_url', 'https://voidpanel.com/updatepanel.sh')
+            script_url = step.get('script_url', f'{_base_url}/updatepanel.sh')
             target_ver = step.get('version')
             self.stdout.write(f"Applying update to version {target_ver or 'latest'}...")
 
