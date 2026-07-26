@@ -351,14 +351,14 @@ def ai_chat_handler(request):
                 try:
                     gateway_data = resp.json()
                     if 'message' in gateway_data:
-                        error_msg = f"Gateway Error: {gateway_data['message']}"
+                        error_msg = gateway_data['message']
                 except ValueError:
                     pass
                 
                 return JsonResponse({
                     'status': 'error',
                     'message': error_msg
-                }, status=502)
+                }, status=200)
 
         except requests.exceptions.ConnectionError:
             return JsonResponse({

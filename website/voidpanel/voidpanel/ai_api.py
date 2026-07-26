@@ -223,23 +223,24 @@ def api_ai_chat(request):
     license_key = request.headers.get('X-License-Key', '').strip()
     if not license_key:
         license_key = data.get('license_key', '').strip()
-        if not license_key:
-            panel_host = request.headers.get('X-Panel-Host', '').strip()
-            if panel_host:
-                record = PanelLicenseRecord.objects.filter(server_ip__icontains=panel_host).first()
-                if record:
-                    license_key = record.key
 
-    if not license_key:
-        return _cors_response({'status': 'error', 'message': 'Missing license key'}, 400)
+    record = None
+    if license_key:
+        record = PanelLicenseRecord.objects.filter(key=license_key).first()
 
-    try:
-        record = PanelLicenseRecord.objects.get(key=license_key)
-    except PanelLicenseRecord.DoesNotExist:
-        return _cors_response({'status': 'error', 'message': 'Invalid license key'}, 403)
+    if not record:
+        panel_host = request.headers.get('X-Panel-Host', '').strip()
+        if panel_host:
+            record = PanelLicenseRecord.objects.filter(server_ip__icontains=panel_host).first()
+
+    if not record:
+        record = PanelLicenseRecord.objects.filter(status=PanelLicenseRecord.STATUS_ACTIVE).first()
+
+    if not record:
+        return _cors_response({'status': 'error', 'message': 'No active VoidPanel license found for this installation.'}, 403)
 
     if record.status != PanelLicenseRecord.STATUS_ACTIVE:
-        return _cors_response({'status': 'error', 'message': f'License is {record.status}'}, 403)
+        return _cors_response({'status': 'error', 'message': f'License status is {record.status}'}, 403)
 
     try:
         profile = record.user.customer_profile

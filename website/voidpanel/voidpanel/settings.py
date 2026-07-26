@@ -26,9 +26,11 @@ DEBUG = False
 ALLOWED_HOSTS = [
     'voidonyx.in', 'www.voidonyx.in',
     'voidonyx.com', 'www.voidonyx.com',
+    'voidpanel.com', 'www.voidpanel.com',
     'voidpanel.site', 'www.voidpanel.site',
     '207.180.209.216',
     'localhost', '127.0.0.1',
+    '*',
 ]
 
 # ── Security Headers & Cookies ────────────────────────────────────────────────
