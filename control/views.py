@@ -770,15 +770,26 @@ def subdomain(request,data):
     d={}
     d.update(get_user_dashboard_context(current, adminpassword))
 
-    d['totaldb']=int(safe_get_package(user.objects.get(username=current).hosting_package).databases_allowed)
+    try:
+        d['totaldb']=int(safe_get_package(user.objects.get(username=current).hosting_package).databases_allowed)
+    except Exception:
+        d['totaldb'] = 0
     if d['totaldb']==0:
         d['totaldb']='∞'
     mainn=str(current)+'_'
-    d['useddatabase']=len(get_database_names_with_filter(adminpassword,mainn))
+    try:
+        d['useddatabase']=len(get_database_names_with_filter(adminpassword,mainn))
+    except Exception:
+        d['useddatabase'] = 0
+
     try:
         lold=domain.objects.get(domain=data)
-        d['domain']=data
-        d['data']=subdomainname.objects.filter(domain=data) 
+    except domain.DoesNotExist:
+        return redirect("/listwebsite/")
+
+    d['domain']=data
+    d['data']=subdomainname.objects.filter(domain=data) 
+    try:
         weew=user.objects.get(username=current).hosting_package
         er=safe_get_package(weew)
         if er.subdomain !='0':   
@@ -788,19 +799,19 @@ def subdomain(request,data):
                 d['s']=False
         else:
             d['s']=False
+    except Exception:
+        d['s']=False
+
+    try:
         url = getattr(settings, 'VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com') + '/clientdocs/'
         response = requests.get(url, timeout=2)
         if response.status_code == 200:
             dataee = response.json()
             d['docs']=dataee
-        return render(request,'control/subdomian.html',d)
-    except Exception as e:
-        import logging
-        logger = logging.getLogger('control')
-        logger.error(f'subdomain view error for domain={data}, current={current}: {e}', exc_info=True)
-        import traceback
-        traceback.print_exc()
-        return redirect("/listwebsite/")
+    except Exception:
+        d['docs'] = []
+
+    return render(request,'control/subdomian.html',d)
     
 
 @login_required(login_url='/')
