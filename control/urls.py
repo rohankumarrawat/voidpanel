@@ -53,7 +53,7 @@ urlpatterns = [
      path('api/email/delivery-report/', views.api_email_delivery_report, name='api_email_delivery_report'),
      path('email_delivery_report/<str:email>/', views.email_delivery_report, name='email_delivery_report'),
      path('phpini/<str:data>/', views.phpini, name='phpini'),
-     path('subdomain/<str:data>', views.subdomain, name='cron'),
+     path('subdomain/<str:data>', views.subdomain, name='subdomain'),
      path('addredirect/<str:data>/', views.addredirect, name='addredirect'),
      path('ftp/<str:data>/', views.ftp122, name='ftp'),
      path('ftpadd/', views.ftpadd, name='ftpadd'),
@@ -61,17 +61,17 @@ urlpatterns = [
     path('activitylog/<str:data>/', views.activitylog_control, name='activitylog_control'),
      path('deleteemail/<str:data>/', views.deleteemail_control, name='ctrl_deleteemail'),
      path('deleteemai/<str:data>/', views.deleteemail_control, name='ctrl_deleteemai'),
-   
+     path('changeemailpassword/', views.changeemailpassword, name='ctrl_changeemailpassword'),
 
      path('chstorageftp/', views.chstorageftp, name='chstorageftp'),
      path('chpasswordftp/', views.chpasswordftp, name='chpasswordftp'),
      path('deleteftp/<str:data>/', views.deleteftp, name='ftp'),
-     path('subdomain/<str:data>', views.subdomain, name='subdomain'),
+
      path('api/site-config/get/', views.user_api_get_site_config, name='user_api_get_site_config'),
      path('api/site-config/save/', views.user_api_save_site_config, name='user_api_save_site_config'),
       path('runsslfordomain/', views.runsslfordoamin, name='runsslfordoamin'),
     path('runsslfordomain1/', views.runsslfordoamin1, name='runsslfordoamin1'),
-          path('subdomain/<str:data>', views.subdomain, name='subdomain'),
+
 
     # Cloud Backup Sync
     path('cloud-backup-config/<str:data>/', views.cloud_backup_config, name='cloud_backup_config'),
