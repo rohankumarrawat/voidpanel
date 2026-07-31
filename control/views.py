@@ -745,42 +745,57 @@ def subdomain(request,data):
     else:
         current=request.user
    
-    # Superusers can view any domain's subdomains (admin impersonation)
+    # Check domain ownership: domain.dir must match current user, or user is superuser
+    target_domain = domain.objects.filter(domain=data).first()
     u = user.objects.filter(username=current).first()
-    if u and (request.user.is_superuser or data == u.domain):
-                d={}
-                d.update(get_user_dashboard_context(current, adminpassword))
-
-                d['totaldb']=int(safe_get_package(user.objects.get(username=current).hosting_package).databases_allowed)
-                if d['totaldb']==0:
-                    d['totaldb']='∞'
-                mainn=str(current)+'_'
-                d['useddatabase']=len(get_database_names_with_filter(adminpassword,mainn))
-                try:
-                    
-                    lold=domain.objects.get(domain=data)
-                    d['domain']=data
-                    d['data']=subdomainname.objects.filter(domain=data) 
-                    weew=user.objects.get(username=current).hosting_package
-                    er=safe_get_package(weew)
-                    if er.subdomain !='0':   
-                        if len(subdomainname.objects.filter(domain=data)) >= int(safe_get_package(user.objects.get(username=current).hosting_package).subdomain):
-                            d['s']=True
-                        else:
-                            d['s']=False
-                    else:
-                            d['s']=False
-                    url = getattr(settings, 'VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com') + '/clientdocs/'  # Replace with your API URL
-                    response = requests.get(url, timeout=2)
-                    if response.status_code == 200:
-                        dataee = response.json()  # Parse the JSON response
-                        d['docs']=dataee
-                    return render(request,'control/subdomian.html',d)
-                except Exception as e:
-                    return redirect("/listwebsite/")
-           
-    else: 
+    
+    # Allow access if: superuser, OR domain belongs to current user (via dir field or primary domain)
+    domain_owned = False
+    if target_domain:
+        domain_owned = (str(target_domain.dir) == str(current)) or (u and data == u.domain)
+    
+    if not (request.user.is_superuser or (u and domain_owned)):
         return redirect('/')
+
+    # For superuser, resolve the actual domain owner for context
+    if request.user.is_superuser and target_domain:
+        owner = user.objects.filter(username=target_domain.dir).first()
+        if owner:
+            current = owner.username
+            u = owner
+
+    if not u:
+        return redirect('/')
+
+    d={}
+    d.update(get_user_dashboard_context(current, adminpassword))
+
+    d['totaldb']=int(safe_get_package(user.objects.get(username=current).hosting_package).databases_allowed)
+    if d['totaldb']==0:
+        d['totaldb']='∞'
+    mainn=str(current)+'_'
+    d['useddatabase']=len(get_database_names_with_filter(adminpassword,mainn))
+    try:
+        lold=domain.objects.get(domain=data)
+        d['domain']=data
+        d['data']=subdomainname.objects.filter(domain=data) 
+        weew=user.objects.get(username=current).hosting_package
+        er=safe_get_package(weew)
+        if er.subdomain !='0':   
+            if len(subdomainname.objects.filter(domain=data)) >= int(safe_get_package(user.objects.get(username=current).hosting_package).subdomain):
+                d['s']=True
+            else:
+                d['s']=False
+        else:
+            d['s']=False
+        url = getattr(settings, 'VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com') + '/clientdocs/'
+        response = requests.get(url, timeout=2)
+        if response.status_code == 200:
+            dataee = response.json()
+            d['docs']=dataee
+        return render(request,'control/subdomian.html',d)
+    except Exception as e:
+        return redirect("/listwebsite/")
     
 
 @login_required(login_url='/')
