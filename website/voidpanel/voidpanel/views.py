@@ -11875,6 +11875,179 @@ def get_khatabook_packages():
          "description": "Unlimited ledgers, white-label branding, API access & priority support."}
     ]
 
+# ── Lead Generator SaaS (leads.voidonyx.in) ─────────────────────────────────
+LEADGEN_API_URL = _djsettings.LEADGEN_API_URL
+
+LEADGEN_PACKAGES_FALLBACK = [
+    {'id': '1', 'name': 'Starter', 'price': 999, 'billing_cycle': 'monthly',
+     'description': 'For solo founders & freelancers starting with B2B outreach.',
+     'max_leads': 500, 'max_members': 3,
+     'features': ['Up to 500 leads', 'CRM deal pipeline', 'Tech stack inspector', '3 team members', 'REST API access', 'CSV / Excel export']},
+    {'id': '2', 'name': 'Growth', 'price': 2999, 'billing_cycle': 'monthly',
+     'description': 'For growing sales teams that need advanced prospecting tools.',
+     'max_leads': 5000, 'max_members': 10,
+     'features': ['Up to 5,000 leads', 'Advanced CRM pipeline', 'AI contact enrichment', '10 team members', 'Bulk website analysis', 'Priority support']},
+    {'id': '3', 'name': 'Enterprise', 'price': 7999, 'billing_cycle': 'monthly',
+     'description': 'For agencies & large teams with high-volume prospecting needs.',
+     'max_leads': -1, 'max_members': -1,
+     'features': ['Unlimited leads', 'White-label CRM', 'AI auto-prospecting', 'Unlimited team members', 'Webhook integrations', 'Dedicated account manager']},
+]
+
+def get_leadgen_packages():
+    try:
+        import urllib3; urllib3.disable_warnings()
+        resp = _requests.get(f"{LEADGEN_API_URL}/api/v1/saas/packages/", timeout=6, verify=False)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("status") == "success" and "data" in data:
+                return data["data"]
+    except Exception as e:
+        _logger.error("Failed to fetch Lead Generator SaaS packages: %s", e)
+    return LEADGEN_PACKAGES_FALLBACK
+
+def lead_generator_pricing_page(request):
+    packages = get_leadgen_packages()
+    return render(request, 'lead_generator_pricing.html', {
+        'packages': packages,
+        'title': 'Lead Generator — AI B2B Lead Prospecting',
+        'tagline': 'AI-powered lead prospecting platform — find decision-makers, enrich contacts, and manage deals.',
+    })
+
+@login_required(login_url='/login/')
+def lead_generator_configure(request, package_id):
+    packages = get_leadgen_packages()
+    selected_pkg = next((p for p in packages if str(p['id']) == str(package_id)), None)
+    if not selected_pkg:
+        messages.error(request, 'Invalid Lead Generator package selected.')
+        return redirect('/lead-generator/')
+    if request.method == 'POST':
+        business_name = request.POST.get('business_name', '').strip()
+        owner_username = request.POST.get('owner_username', '').strip()
+        owner_email = request.POST.get('owner_email', '').strip()
+        owner_password = request.POST.get('owner_password', '').strip()
+        billing_cycle = request.POST.get('billing_cycle', 'monthly')
+        if not business_name or not owner_username or not owner_email or not owner_password:
+            messages.error(request, 'All fields are required.')
+            return render(request, 'lead_generator_configure.html', {
+                'pkg': selected_pkg, 'post_data': request.POST,
+            })
+        request.session['leadgen_order'] = {
+            'package_id': str(selected_pkg['id']), 'package_name': selected_pkg['name'],
+            'business_name': business_name, 'owner_username': owner_username,
+            'owner_email': owner_email, 'owner_password': _encrypt_pw(owner_password),
+            'billing_cycle': billing_cycle,
+            'price': float(selected_pkg['price']) if billing_cycle == 'monthly' else float(selected_pkg['price']) * 12
+        }
+        return redirect('/lead-generator/checkout/')
+    prepopulate = {
+        'owner_username': request.user.username if request.user.is_authenticated else '',
+        'owner_email': request.user.email if request.user.is_authenticated else '',
+        'owner_password': secrets.token_urlsafe(10)[:12]
+    }
+    return render(request, 'lead_generator_configure.html', {'pkg': selected_pkg, 'prepopulate': prepopulate})
+
+@login_required(login_url='/login/')
+def lead_generator_checkout(request):
+    blocked = _voidonyx_purchase_blocked(request)
+    if blocked: return blocked
+    session_data = request.session.get('leadgen_order')
+    if not session_data:
+        messages.error(request, 'Session expired. Please configure your Lead Generator package again.')
+        return redirect('/lead-generator/')
+    price = Decimal(str(session_data['price']))
+    billing_cycle = session_data['billing_cycle']
+    cycle_label = 'Annual' if billing_cycle == 'annually' else 'Monthly'
+    from data.models import LeadGenOrder
+    with transaction.atomic():
+        invoice = Invoice.objects.create(
+            user=request.user, invoice_number=_get_next_invoice_number(request.user, prefix='LG'),
+            status='unpaid', total=price,
+            due_date=(timezone.now() + timedelta(days=3)).date(),
+            description=f"Lead Generator {session_data['package_name']} — {session_data['business_name']} ({cycle_label})")
+        order = LeadGenOrder.objects.create(
+            user=request.user, invoice=invoice, package_id=session_data['package_id'],
+            package_name=session_data['package_name'], business_name=session_data['business_name'],
+            owner_username=session_data['owner_username'], owner_email=session_data['owner_email'],
+            owner_password=session_data['owner_password'], billing_cycle=billing_cycle,
+            price=price, status='pending_payment')
+        PortalActivity.objects.create(user=request.user, category='billing',
+            title=f'Lead Generator Order: {session_data["business_name"]}',
+            description=f"Invoice #{invoice.invoice_number} — ₹{price} ({cycle_label})")
+    request.session.pop('leadgen_order', None)
+    try:
+        profile = request.user.customer_profile
+        if profile.balance_funds >= price:
+            with transaction.atomic():
+                profile.balance_funds -= price
+                profile.save(update_fields=['balance_funds'])
+                invoice.status = 'paid'; invoice.save(update_fields=['status'])
+                order.status = 'paid'; order.save(update_fields=['status'])
+                _activate_leadgen_service(order)
+            messages.success(request, f'✅ Lead Generator {order.package_name} activated! Wallet debited ₹{price}.')
+            return redirect('/portal/services/')
+    except Exception as e:
+        _logger.error("Auto-wallet pay failed for Lead Generator order: %s", e)
+    return redirect(f'/portal/invoice/{invoice.id}/pay/')
+
+def _activate_leadgen_service(order):
+    from data.models import LeadGenService
+    login_url = f"{LEADGEN_API_URL}/accounts/login/"
+    remote_id = None; max_leads = 500; max_members = 3; api_key = ''
+    try:
+        import urllib3; urllib3.disable_warnings()
+        resp = _requests.post(f"{LEADGEN_API_URL}/api/v1/saas/tenant/create/",
+            json={"business_name": order.business_name, "owner_username": order.owner_username,
+                  "owner_email": order.owner_email, "owner_password": _decrypt_pw(order.owner_password),
+                  "package_id": order.package_id},
+            headers={"X-Provision-Key": _djsettings.LEADGEN_PROVISION_KEY},
+            timeout=12, verify=False)
+        if resp.status_code in (200, 201):
+            data = resp.json()
+            if data.get('status') == 'success':
+                info = data.get('tenant', {})
+                remote_id = info.get('id'); max_leads = info.get('max_leads', 500)
+                max_members = info.get('max_members', 3); api_key = info.get('api_key', '')
+    except Exception as e:
+        _logger.error("Failed to provision Lead Generator tenant: %s", e)
+    due = (timezone.now() + timedelta(days=365 if order.billing_cycle == 'annually' else 30)).date()
+    svc = LeadGenService.objects.create(
+        user=order.user, business_name=order.business_name, owner_username=order.owner_username,
+        package_name=order.package_name, package_id=order.package_id, status='active',
+        monthly_price=order.price if order.billing_cycle == 'monthly' else order.price / 12,
+        billing_cycle=order.billing_cycle, dashboard_url=login_url, owner_email=order.owner_email,
+        max_leads=max_leads, max_members=max_members, remote_id=remote_id, api_key=api_key, next_due_date=due)
+    order.status = 'paid'; order.save(update_fields=['status'])
+    PortalActivity.objects.create(user=order.user, category='service',
+        title=f'Lead Generator Activated: {svc.business_name}',
+        description=f"Owner: {svc.owner_username} | Package: {svc.package_name}")
+    # Send email with credentials
+    try:
+        from django.core.mail import send_mail
+        plain_pw = _decrypt_pw(order.owner_password)
+        send_mail(
+            subject=f'🚀 Your Lead Generator Account is Ready — {svc.business_name}',
+            message=(
+                f"Hi {order.owner_username},\n\n"
+                f"Your Lead Generator account on VoidOnyx has been activated!\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"   🌐 Login URL:  https://leads.voidonyx.in/accounts/login/\n"
+                f"   📧 Email:      {order.owner_email}\n"
+                f"   🔑 Password:   {plain_pw}\n"
+                f"   📦 Package:    {svc.package_name}\n"
+                f"   🏢 Business:   {svc.business_name}\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"You can now start prospecting leads, analyzing tech stacks, and managing your sales pipeline.\n\n"
+                f"Need help? Contact support@voidonyx.in\n\n"
+                f"— Team VoidOnyx"
+            ),
+            from_email='noreply@voidonyx.in',
+            recipient_list=[order.owner_email],
+            fail_silently=True,
+        )
+    except Exception as e:
+        _logger.error("Failed to send Lead Generator activation email: %s", e)
+    return svc
+
 def khatabook_pricing_page(request):
     packages = get_khatabook_packages()
     return render(request, 'khatabook_pricing.html', {

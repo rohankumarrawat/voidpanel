@@ -227,6 +227,11 @@ urlpatterns = [
     path('khatabook/',                              views.khatabook_pricing_page, name='khatabook_pricing'),
     path('khatabook/configure/<str:package_id>/',   views.khatabook_configure,    name='khatabook_configure'),
     path('khatabook/checkout/',                     views.khatabook_checkout,     name='khatabook_checkout'),
+
+    # ── Lead Generator SaaS — Public Landing, Configure & Checkout ────
+    path('lead-generator/',                              views.lead_generator_pricing_page, name='lead_generator_pricing'),
+    path('lead-generator/configure/<str:package_id>/',   views.lead_generator_configure,    name='lead_generator_configure'),
+    path('lead-generator/checkout/',                     views.lead_generator_checkout,      name='lead_generator_checkout'),
 ]
 
 if settings.DEBUG:

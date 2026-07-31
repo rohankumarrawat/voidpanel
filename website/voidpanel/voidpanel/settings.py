@@ -196,6 +196,8 @@ AI_VOICE_API_URL = os.environ.get('AI_VOICE_API_URL', 'https://calling.voidonyx.
 HOTEL_SAAS_API_URL = os.environ.get('HOTEL_SAAS_API_URL', 'https://hotel.voidonyx.in')
 KHATABOOK_API_URL = os.environ.get('KHATABOOK_API_URL', 'https://khatabook.voidonyx.in')
 KHATABOOK_PROVISION_KEY = os.environ.get('KHATABOOK_PROVISION_KEY', 'voidonyx-khatabook-provision-2026')
+LEADGEN_API_URL = os.environ.get('LEADGEN_API_URL', 'https://leads.voidonyx.in')
+LEADGEN_PROVISION_KEY = os.environ.get('LEADGEN_PROVISION_KEY', 'voidonyx-leads-provision-2026-secret')
 
 # ── Login Security (django-axes) ─────────────────────────────────────────────
 # pip install django-axes (add 'axes' to INSTALLED_APPS, AxesMiddleware to MIDDLEWARE)

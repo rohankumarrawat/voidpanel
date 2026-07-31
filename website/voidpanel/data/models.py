@@ -3523,3 +3523,99 @@ class KhataBookOrder(models.Model):
     def __str__(self):
         return f"KhataBookOrder #{self.id} — {self.business_name} — {self.status}"
 
+
+# ── Lead Generator SaaS ─────────────────────────────────────────────────────
+
+class LeadGenService(models.Model):
+    """
+    Active Lead Generator SaaS subscription on leads.voidonyx.in.
+    Created automatically after payment is confirmed.
+    """
+    STATUS_CHOICES = [
+        ('pending',   'Pending'),
+        ('active',    'Active'),
+        ('suspended', 'Suspended'),
+        ('cancelled', 'Cancelled'),
+    ]
+    BILLING_CHOICES = [
+        ('monthly',  'Monthly'),
+        ('annually', 'Annually'),
+    ]
+
+    user           = models.ForeignKey(
+                         settings.AUTH_USER_MODEL,
+                         on_delete=models.CASCADE,
+                         related_name='leadgen_services',
+                     )
+    business_name  = models.CharField(max_length=150)
+    owner_username = models.CharField(max_length=80)
+    package_name   = models.CharField(max_length=50)
+    package_id     = models.CharField(max_length=64, default='')
+    status         = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    monthly_price  = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    billing_cycle  = models.CharField(max_length=20, choices=BILLING_CHOICES, default='monthly')
+    dashboard_url  = models.URLField(max_length=255, blank=True, default='https://leads.voidonyx.in')
+    owner_email    = models.EmailField()
+    max_leads      = models.IntegerField(default=500, help_text='Max leads allowed')
+    max_members    = models.IntegerField(default=3, help_text='Max team members')
+    next_due_date  = models.DateField(null=True, blank=True)
+    remote_id      = models.CharField(max_length=64, null=True, blank=True)
+    api_key        = models.CharField(max_length=128, blank=True, default='')
+    created_at     = models.DateTimeField(auto_now_add=True)
+    updated_at     = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Lead Generator Service'
+        verbose_name_plural = 'Lead Generator Services'
+
+    def __str__(self):
+        return f"{self.business_name} ({self.owner_username}) — {self.status}"
+
+    @property
+    def is_active(self):
+        return self.status == 'active'
+
+
+class LeadGenOrder(models.Model):
+    """
+    Pending Lead Generator order created at checkout, before payment.
+    """
+    STATUS_CHOICES = [
+        ('pending_payment', 'Pending Payment'),
+        ('paid',            'Paid'),
+        ('failed',          'Failed'),
+        ('cancelled',       'Cancelled'),
+    ]
+
+    user           = models.ForeignKey(
+                         settings.AUTH_USER_MODEL,
+                         on_delete=models.CASCADE,
+                         related_name='leadgen_orders',
+                     )
+    invoice        = models.OneToOneField(
+                         'Invoice',
+                         on_delete=models.CASCADE,
+                         related_name='leadgen_order',
+                     )
+    package_id     = models.CharField(max_length=64)
+    package_name   = models.CharField(max_length=50)
+    business_name  = models.CharField(max_length=150)
+    owner_username = models.CharField(max_length=80)
+    owner_email    = models.EmailField()
+    owner_password = models.CharField(max_length=128)
+    billing_cycle  = models.CharField(max_length=20, default='monthly')
+    price          = models.DecimalField(max_digits=10, decimal_places=2)
+    status         = models.CharField(max_length=20, choices=STATUS_CHOICES,
+                                      default='pending_payment')
+    created_at     = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Lead Generator Order'
+        verbose_name_plural = 'Lead Generator Orders'
+
+    def __str__(self):
+        return f"LeadGenOrder #{self.id} — {self.business_name} — {self.status}"
+
+
