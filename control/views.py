@@ -795,6 +795,11 @@ def subdomain(request,data):
             d['docs']=dataee
         return render(request,'control/subdomian.html',d)
     except Exception as e:
+        import logging
+        logger = logging.getLogger('control')
+        logger.error(f'subdomain view error for domain={data}, current={current}: {e}', exc_info=True)
+        import traceback
+        traceback.print_exc()
         return redirect("/listwebsite/")
     
 
