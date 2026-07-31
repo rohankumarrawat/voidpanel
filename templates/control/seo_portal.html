@@ -244,6 +244,52 @@
     ::-webkit-scrollbar-track{background:transparent}
     ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:10px}
     ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.15)}
+
+    /* ── MODERN MODAL ── */
+    .seo-modal-overlay{
+      position:fixed;inset:0;z-index:9999;
+      background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+      display:flex;align-items:center;justify-content:center;
+      opacity:0;visibility:hidden;transition:all .25s ease;
+    }
+    .seo-modal-overlay.active{opacity:1;visibility:visible}
+    .seo-modal-overlay.active .seo-modal-box{transform:translateY(0) scale(1);opacity:1}
+    .seo-modal-box{
+      background:var(--bg3);border:1px solid var(--border);
+      border-radius:16px;padding:0;width:420px;max-width:90vw;
+      box-shadow:0 24px 80px rgba(0,0,0,0.5),0 0 0 1px rgba(255,255,255,0.04) inset;
+      transform:translateY(12px) scale(0.97);opacity:0;transition:all .3s cubic-bezier(.16,1,.3,1);
+      overflow:hidden;
+    }
+    .seo-modal-header{
+      display:flex;align-items:center;gap:12px;padding:20px 24px 16px;
+      border-bottom:1px solid var(--border2);
+    }
+    .seo-modal-icon{
+      width:40px;height:40px;border-radius:12px;flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;font-size:18px;
+    }
+    .seo-modal-icon.warn{background:rgba(245,158,11,0.12);color:var(--amber)}
+    .seo-modal-icon.error{background:rgba(239,68,68,0.12);color:var(--red)}
+    .seo-modal-icon.info{background:rgba(99,102,241,0.12);color:var(--accent)}
+    .seo-modal-title{font-size:15px;font-weight:700;color:var(--txt)}
+    .seo-modal-body{padding:16px 24px 20px;font-size:13.5px;color:var(--txt2);line-height:1.7}
+    .seo-modal-body ul{list-style:none;padding:0;margin:8px 0 0}
+    .seo-modal-body ul li{padding:3px 0;color:var(--txt2)}
+    .seo-modal-body ul li::before{content:'•';color:var(--accent);font-weight:700;margin-right:8px}
+    .seo-modal-footer{
+      padding:14px 24px;border-top:1px solid var(--border2);
+      display:flex;justify-content:flex-end;
+    }
+    .seo-modal-close-btn{
+      padding:8px 28px;border-radius:10px;border:none;cursor:pointer;
+      font-size:13px;font-weight:600;font-family:'Inter',sans-serif;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      color:#fff;transition:all .2s ease;
+      box-shadow:0 4px 14px rgba(99,102,241,0.3);
+    }
+    .seo-modal-close-btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(99,102,241,0.4)}
+    .seo-modal-close-btn:active{transform:translateY(0)}
   </style>
 </head>
 <body>
@@ -821,6 +867,24 @@ function getCk(n){let v=null;if(document.cookie)document.cookie.split(';').forEa
 function dc(i){if(i){try{i.destroy()}catch(e){}}return null}
 
 // ═══════════════════════════════════════════════════════════════
+//  MODERN MODAL
+// ═══════════════════════════════════════════════════════════════
+const _modalIcons={warn:'fa-triangle-exclamation',error:'fa-circle-xmark',info:'fa-circle-info'};
+function showModal(type,title,bodyHtml){
+  const ov=document.getElementById('seoModalOverlay');
+  document.getElementById('seoModalIcon').className='seo-modal-icon '+(type||'info');
+  document.getElementById('seoModalIconI').className='fa-solid '+(_modalIcons[type]||_modalIcons.info);
+  document.getElementById('seoModalTitle').textContent=title||'Notice';
+  document.getElementById('seoModalBody').innerHTML=bodyHtml||'';
+  ov.classList.add('active');
+  document.getElementById('seoModalCloseBtn').focus();
+}
+function closeModal(){
+  document.getElementById('seoModalOverlay').classList.remove('active');
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+
+// ═══════════════════════════════════════════════════════════════
 //  PANEL SWITCH
 // ═══════════════════════════════════════════════════════════════
 function sw(name,btn){
@@ -836,12 +900,12 @@ function sw(name,btn){
 // ═══════════════════════════════════════════════════════════════
 function runAnalysis(){
   let domain=document.getElementById('domainInput').value.trim();
-  if(!domain){alert('Enter a domain first.');return}
+  if(!domain){showModal('info','Empty Domain','Please enter a domain name to analyze.');return}
   // Strip protocol and www
   domain=domain.replace(/^(https?:\/\/)?(www\.)?/,'').split('/')[0].split('?')[0].split(':')[0];
   // Frontend domain validation — must have at least one dot and a TLD
   if(!/^[a-zA-Z0-9-]{1,63}(\.[a-zA-Z0-9-]{1,63})*\.[a-zA-Z]{2,}$/.test(domain)){
-    alert('⚠️ "'+domain+'" is not a valid domain.\n\nPlease enter a real domain like:\n• google.com\n• github.com\n• yourdomain.co.in');
+    showModal('warn','"'+domain+'" is not a valid domain','Please enter a real domain like:<ul><li>google.com</li><li>github.com</li><li>yourdomain.co.in</li></ul>');
     return;
   }
   document.getElementById('domainInput').value=domain;
@@ -864,11 +928,11 @@ function runAnalysis(){
       D=res.data;
       renderAll(D);
       document.getElementById('stResults').style.display='block';
-    }else{alert(res.error||'Analysis failed.')}
+    }else{showModal('error','Analysis Failed',res.error||'The analysis could not be completed. Please try again.')}
   }).catch(e=>{
     document.getElementById('stLoader').style.display='none';
     document.getElementById('aIcon').className='fa-solid fa-bolt';
-    alert(e.message||'Network error');
+    showModal('error','Network Error',e.message||'Could not connect to the server. Please check your connection and try again.');
   });
 }
 
@@ -1442,5 +1506,18 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(document.getElementById('domainInput').value.trim()){runAnalysis()}
 });
 </script>
+<!-- Modern Modal Popup -->
+<div class="seo-modal-overlay" id="seoModalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="seo-modal-box">
+    <div class="seo-modal-header">
+      <div class="seo-modal-icon warn" id="seoModalIcon"><i class="fa-solid fa-triangle-exclamation" id="seoModalIconI"></i></div>
+      <div class="seo-modal-title" id="seoModalTitle">Notice</div>
+    </div>
+    <div class="seo-modal-body" id="seoModalBody"></div>
+    <div class="seo-modal-footer">
+      <button class="seo-modal-close-btn" id="seoModalCloseBtn" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
