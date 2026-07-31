@@ -9,8 +9,16 @@ import random
 import re
 import shlex
 import requests
-import mysql.connector
-from mysql.connector import Error
+try:
+    import mysql.connector
+    from mysql.connector import Error
+except ImportError:
+    try:
+        import pymysql as mysql
+        Error = Exception
+    except ImportError:
+        mysql = None
+        Error = Exception
 from voidplatform import get_platform
 from voidplatform.config import paths
 
@@ -20,6 +28,31 @@ def _validate_sql_identifier(name):
     if not name or not re.match(r'^[a-zA-Z0-9_.-]+$', name):
         raise ValueError(f'Invalid SQL identifier: {name!r}')
     return name
+
+
+def _validate_domain(domain):
+    """Validate a domain name to prevent command injection via shell calls.
+
+    Accepts standard domain names (e.g. example.com, sub.example.co.uk).
+    Raises ValueError for anything containing shell metacharacters.
+    """
+    if not domain or not re.match(r'^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*$', domain):
+        raise ValueError(f'Invalid domain name: {domain!r}')
+    if len(domain) > 253:
+        raise ValueError(f'Domain name too long: {domain!r}')
+    return domain
+
+
+def _validate_path(path):
+    """Validate a filesystem path to prevent command injection.
+
+    Only allows alphanumerics, slashes, dots, hyphens, underscores.
+    """
+    if not path or not re.match(r'^[a-zA-Z0-9/._ -]+$', path):
+        raise ValueError(f'Invalid path: {path!r}')
+    if '..' in path:
+        raise ValueError(f'Path traversal not allowed: {path!r}')
+    return path
 
 
 _ALLOWED_MYSQL_PRIVILEGES = frozenset({
@@ -313,10 +346,12 @@ def generate_ssl_certificates(domain, ssl_dir, logs):
 
     # Ensure SSL directory exists — use sudo since dir may be root-owned
     if sys.platform != 'win32':
+        from voidplatform.config import get_web_user
+        _wu = get_web_user()
         subprocess.run(['sudo', 'mkdir', '-p', ssl_dir], check=False)
-        subprocess.run(['sudo', 'chown', 'www-data:www-data', ssl_dir], check=False)
+        subprocess.run(['sudo', 'chown', f'{_wu}:{_wu}', ssl_dir], check=False)
         subprocess.run(['sudo', 'mkdir', '-p', logs], check=False)
-        subprocess.run(['sudo', 'chown', 'www-data:www-data', logs], check=False)
+        subprocess.run(['sudo', 'chown', f'{_wu}:{_wu}', logs], check=False)
     else:
         os.makedirs(ssl_dir, exist_ok=True)
 
@@ -411,8 +446,8 @@ server {{
         with tempfile.NamedTemporaryFile('w', delete=False) as f:
             f.write(nginx_ssl_conf)
             tmp = f.name
-        subprocess.run(f"sudo cp {tmp} {file_path}", shell=True, check=False)
-        subprocess.run(f"rm {tmp}", shell=True, check=False)
+        subprocess.run(['sudo', 'cp', tmp, file_path], check=False)
+        os.unlink(tmp)
         get_platform().services.reload('nginx')
         print(f"Nginx SSL configuration file created at: {file_path}")
     except OSError as e:
@@ -440,7 +475,10 @@ server {{
 def generate_dkim_keys(domain, key_dir):
     """Generate DKIM keys for a domain and save them to the specified directory."""
     import subprocess
-    subprocess.run(f"sudo mkdir -p {key_dir}", shell=True)
+    _validate_domain(domain)
+    _validate_path(key_dir)
+
+    subprocess.run(['sudo', 'mkdir', '-p', key_dir], check=False)
 
     private_key_path = os.path.join(key_dir, 'default.private')
     public_key_path = os.path.join(key_dir, 'default.txt')
@@ -454,10 +492,10 @@ def generate_dkim_keys(domain, key_dir):
             'openssl', 'rsa', '-in', private_key_path, '-pubout', '-out', public_key_path
         ], check=True)
     else:
-        subprocess.run(f"sudo opendkim-genkey -t -s default -d {domain} -b 2048 -D {key_dir} -r -v", shell=True, check=True)
-        subprocess.run(f"sudo chown -R opendkim:opendkim {key_dir}", shell=True, check=False)
-        subprocess.run(f"sudo chmod 700 {key_dir}", shell=True, check=False)
-        subprocess.run(f"sudo chmod 600 {key_dir}/default.private", shell=True, check=False)
+        subprocess.run([
+            'sudo', 'opendkim-genkey', '-t', '-s', 'default',
+            '-d', domain, '-b', '2048', '-D', key_dir, '-r', '-v'
+        ], check=True)
         
         # Determine the web server group dynamically (www-data or nginx)
         web_group = 'www-data'
@@ -471,8 +509,16 @@ def generate_dkim_keys(domain, key_dir):
             except KeyError:
                 web_group = 'opendkim'
                 
-        subprocess.run(f"sudo chown opendkim:{web_group} {key_dir}/default.txt", shell=True, check=False)
-        subprocess.run(f"sudo chmod 644 {key_dir}/default.txt", shell=True, check=False)
+        subprocess.run(['sudo', 'chown', '-R', f'opendkim:{web_group}', key_dir], check=False)
+        subprocess.run(['sudo', 'chmod', '750', key_dir], check=False)
+        subprocess.run(['sudo', 'chmod', '600', os.path.join(key_dir, 'default.private')], check=False)
+        subprocess.run(['sudo', 'chmod', '644', os.path.join(key_dir, 'default.txt')], check=False)
+        
+        # Self-healing parent directory permission repair
+        subprocess.run(['sudo', 'chmod', '750', '/etc/opendkim'], check=False)
+        subprocess.run(['sudo', 'chmod', '750', '/etc/opendkim/keys'], check=False)
+        subprocess.run(['sudo', 'chown', f'opendkim:{web_group}', '/etc/opendkim'], check=False)
+        subprocess.run(['sudo', 'chown', f'opendkim:{web_group}', '/etc/opendkim/keys'], check=False)
 
     print(f"DKIM keys generated for {domain}.")
     return private_key_path, public_key_path
@@ -521,11 +567,25 @@ def create_bind_records(domain, key_dir, zone_file_path):
     dkim_selector = "default._domainkey"
     dkim_record = "".join(dkim_record_lines).replace('" "', "").replace("\n", "")
     
+    # ── Read admin-configured nameservers from Hostname settings ──
+    ns1 = f"ns1.{domain}"
+    ns2 = f"ns2.{domain}"
+    try:
+        from control.models import quick
+        q = quick.objects.first()
+        if q and q.nameserver1 and q.nameserver2:
+            ns1 = q.nameserver1.strip().rstrip('.')
+            ns2 = q.nameserver2.strip().rstrip('.')
+    except Exception:
+        pass  # Fallback to ns1.{domain} if DB not ready
+
+    server_ip = get_server_ip()
+
     import tempfile, subprocess
     with tempfile.NamedTemporaryFile('w', delete=False) as zone_file:
         # Write TTL and SOA records
         zone_file.write(f"$TTL 86400  ; Default TTL\n")
-        zone_file.write(f"@   IN  SOA ns1.{domain}. admin.{domain}. (\n")
+        zone_file.write(f"@   IN  SOA {ns1}. admin.{domain}. (\n")
         zone_file.write(f"                2024091501  ; Serial\n")
         zone_file.write(f"                3600        ; Refresh\n")
         zone_file.write(f"                1800        ; Retry\n")
@@ -533,20 +593,20 @@ def create_bind_records(domain, key_dir, zone_file_path):
         zone_file.write(f"                86400 )     ; Negative Cache TTL\n\n")
         
         # Write NS records
-        zone_file.write(f"@   IN  NS   ns1.{domain}.\n")
-        zone_file.write(f"@   IN  NS   ns2.{domain}.\n\n")
+        zone_file.write(f"@   IN  NS   {ns1}.\n")
+        zone_file.write(f"@   IN  NS   {ns2}.\n\n")
         
         # Write A record
         zone_file.write(f"; A Record\n")
-        zone_file.write(f"@   IN  A    {get_server_ip()}\n\n")
-        zone_file.write(f"ns1   IN  A    {get_server_ip()}\n\n")
-        zone_file.write(f"ns2   IN  A    {get_server_ip()}\n\n")
+        zone_file.write(f"@   IN  A    {server_ip}\n\n")
+        zone_file.write(f"ns1   IN  A    {server_ip}\n\n")
+        zone_file.write(f"ns2   IN  A    {server_ip}\n\n")
 
         
          # Write A record
         zone_file.write(f"; A Record\n")
-        zone_file.write(f"mail   IN  A    {get_server_ip()}\n\n")
-        zone_file.write(f"ftp   IN  A    {get_server_ip()}\n\n")
+        zone_file.write(f"mail   IN  A    {server_ip}\n\n")
+        zone_file.write(f"ftp   IN  A    {server_ip}\n\n")
 
         # Write MX record
         zone_file.write(f"; MX Record\n")
@@ -558,7 +618,7 @@ def create_bind_records(domain, key_dir, zone_file_path):
         
         # Write TXT SPF record
         zone_file.write(f"; TXT Record\n")
-        zone_file.write(f"@   IN  TXT  \"v=spf1 a mx ~all\"\n\n")
+        zone_file.write(f"@   IN  TXT  \"v=spf1 ip4:{server_ip} a mx ~all\"\n\n")
 
         # Write DKIM Record
         zone_file.write(f"; DKIM Record for {domain}\n")
@@ -568,12 +628,24 @@ def create_bind_records(domain, key_dir, zone_file_path):
         
         for chunk in dkim_record_lines:
             zone_file.write(chunk)
+
+        # Write DMARC Record
+        zone_file.write(f"\n; DMARC Record\n")
+        zone_file.write(f"_dmarc  IN  TXT  \"v=DMARC1; p=none; rua=mailto:admin@{domain}\"\n\n")
         tmp_zone = zone_file.name
         
-    subprocess.run(f"sudo cp {tmp_zone} {zone_file_path}", shell=True)
-    subprocess.run(f"sudo chmod 644 {zone_file_path}", shell=True)
-    subprocess.run(f"rm {tmp_zone}", shell=True)
+    subprocess.run(['sudo', 'cp', tmp_zone, zone_file_path], check=False)
+    subprocess.run(['sudo', 'chmod', '644', zone_file_path], check=False)
+    os.unlink(tmp_zone)
      
+    # Remove any existing zone entry first to prevent duplicates
+    # This is critical: if we just append without checking, BIND will crash
+    # with "zone 'domain': already exists" on restart.
+    try:
+        remove_zone_from_file(paths.BIND_CONF, domain)
+    except Exception:
+        pass  # File may not exist yet on first run
+
     with tempfile.NamedTemporaryFile('w', delete=False) as f:
         f.write("\n")
         f.write(f'zone "{domain}" ')
@@ -583,8 +655,12 @@ def create_bind_records(domain, key_dir, zone_file_path):
         f.write(f'file "{zone_db}"; \n')
         f.write("};\n")
         tmp_conf = f.name
-    subprocess.run(f"cat {tmp_conf} | sudo tee -a {paths.BIND_CONF}", shell=True)
-    subprocess.run(f"rm {tmp_conf}", shell=True)
+    # Append zone config safely using sudo tee
+    with open(tmp_conf, 'r') as f:
+        conf_content = f.read()
+    proc = subprocess.run(['sudo', 'tee', '-a', paths.BIND_CONF],
+                          input=conf_content, capture_output=True, text=True)
+    os.unlink(tmp_conf)
     
 
     print(f"BIND zone file created and saved to {zone_file_path}.")
@@ -596,57 +672,98 @@ def create_bind_recordsforsubdomain(name, zone_file_path):
     
     record = f"\n; A Record\n{name}   IN  A    {get_server_ip()}\n\n"
     
-    with tempfile.NamedTemporaryFile('w', delete=False, suffix='.zone') as tmp:
-        tmp.write(record)
-        tmp_path = tmp.name
-    
-    subprocess.run(f"cat {tmp_path} | sudo tee -a {zone_file_path}", shell=True, check=False)
-    subprocess.run(f"rm {tmp_path}", shell=True, check=False)
+    proc = subprocess.run(['sudo', 'tee', '-a', zone_file_path],
+                          input=record, capture_output=True, text=True)
+    # No temp file needed — piped directly
 
 def configure_opendkim(domain, key_dir):
-    """Configure OpenDKIM for the domain."""
+    """Configure OpenDKIM for a new domain.
+
+    The main opendkim.conf should reference KeyTable, SigningTable, and
+    TrustedHosts files for multi-domain support.  This function:
+      1. Ensures opendkim.conf has the table-based config (writes it once
+         if it doesn't already reference KeyTable).
+      2. Appends entries to KeyTable, SigningTable, and TrustedHosts.
+    """
     try:
+        _validate_domain(domain)
+        _validate_path(key_dir)
+
         if sys.platform == 'win32':
-            # On Windows, DKIM is handled by hMailServer — no opendkim config
-            print(f"Skipping OpenDKIM config on Windows (handled by mail server) for {domain}.")
+            print(f"Skipping OpenDKIM config on Windows for {domain}.")
             return
 
-        # Update OpenDKIM configuration
         import tempfile, subprocess
-        with tempfile.NamedTemporaryFile('w', delete=False) as f:
-            f.write(f"\nDomain          {domain}\n")
-            f.write(f"KeyFile          {os.path.join(key_dir, 'default.private')}\n")
-            f.write(f"Selector         default\n")
-            f.write(f"AutoRestart      yes\n")
-            f.write(f"AutoRestartRate  10/1h\n")
-            f.write(f"Umask            002\n")
-            f.write(f"Mode             sv\n")
-            f.write(f"Syslog           yes\n")
-            f.write(f"LogWhy           yes\n")
-            f.write(f"Canonicalization    relaxed/simple\n")
-            tmp1 = f.name
-        subprocess.run(f"cat {tmp1} | sudo tee -a /etc/opendkim.conf", shell=True)
 
-        # Update KeyTable
-        with tempfile.NamedTemporaryFile('w', delete=False) as f:
-            f.write(f"default._domainkey.{domain} {domain}:default:{os.path.join(key_dir, 'default.private')}\n")
-            tmp2 = f.name
-        subprocess.run(f"cat {tmp2} | sudo tee -a {paths.OPENDKIM_KEYTABLE}", shell=True)
+        # ── Step 1: Ensure opendkim.conf uses table-based multi-domain config ──
+        needs_rewrite = True
+        try:
+            with open('/etc/opendkim.conf', 'r') as f:
+                conf_content = f.read()
+            if 'KeyTable' in conf_content and 'SigningTable' in conf_content:
+                needs_rewrite = False
+        except Exception:
+            pass
 
-        # Update SigningTable
-        with tempfile.NamedTemporaryFile('w', delete=False) as f:
-            f.write(f"*@{domain} default._domainkey.{domain}\n")
-            tmp3 = f.name
-        subprocess.run(f"cat {tmp3} | sudo tee -a {paths.OPENDKIM_SIGNINGTABLE}", shell=True)
+        if needs_rewrite:
+            base_conf = f"""# OpenDKIM Configuration — Multi-domain mode
+Syslog          yes
+LogWhy          yes
+SyslogSuccess   yes
 
-        # Update TrustedHosts
-        with tempfile.NamedTemporaryFile('w', delete=False) as f:
-            f.write(f"127.0.0.1\n")
-            f.write(f"localhost\n")
-            f.write(f"*.{domain}\n")
-            tmp4 = f.name
-        subprocess.run(f"cat {tmp4} | sudo tee -a {paths.OPENDKIM_TRUSTEDHOSTS}", shell=True)
-        subprocess.run(f"rm {tmp1} {tmp2} {tmp3} {tmp4}", shell=True)
+Canonicalization    relaxed/simple
+Mode                sv
+SubDomains          no
+
+AutoRestart         yes
+AutoRestartRate     10/1h
+
+UMask               007
+Socket              {paths.OPENDKIM_SOCKET}
+
+PidFile             /run/opendkim/opendkim.pid
+OversignHeaders     From
+
+UserID              opendkim
+
+# Multi-domain tables
+KeyTable            {paths.OPENDKIM_KEYTABLE}
+SigningTable        refile:{paths.OPENDKIM_SIGNINGTABLE}
+ExternalIgnoreList  {paths.OPENDKIM_TRUSTEDHOSTS}
+InternalHosts       {paths.OPENDKIM_TRUSTEDHOSTS}
+"""
+            with tempfile.NamedTemporaryFile('w', delete=False) as f:
+                f.write(base_conf)
+                tmp_conf = f.name
+            subprocess.run(['sudo', 'cp', tmp_conf, '/etc/opendkim.conf'], check=False)
+            os.unlink(tmp_conf)
+
+        # Helper: append entry to a file if not already present (no shell)
+        def _append_if_absent(file_path, search_str, entry):
+            """Append entry to file_path if search_str is not already in it."""
+            try:
+                with open(file_path, 'r') as fh:
+                    if search_str in fh.read():
+                        return  # Already present
+            except FileNotFoundError:
+                pass
+            subprocess.run(['sudo', 'tee', '-a', file_path],
+                           input=entry, capture_output=True, text=True)
+
+        # ── Step 2: Append to KeyTable (if not already present) ──
+        key_entry = f"default._domainkey.{domain} {domain}:default:{os.path.join(key_dir, 'default.private')}\n"
+        _append_if_absent(paths.OPENDKIM_KEYTABLE,
+                          f"default._domainkey.{domain}", key_entry)
+
+        # ── Step 3: Append to SigningTable (if not already present) ──
+        sign_entry = f"*@{domain} default._domainkey.{domain}\n"
+        _append_if_absent(paths.OPENDKIM_SIGNINGTABLE,
+                          f"*@{domain}", sign_entry)
+
+        # ── Step 4: Append to TrustedHosts (if not already present) ──
+        trust_entry = f"*.{domain}\n"
+        _append_if_absent(paths.OPENDKIM_TRUSTEDHOSTS,
+                          f"*.{domain}", trust_entry)
 
         print(f"OpenDKIM configured for {domain}.")
     except IOError as e:
@@ -797,7 +914,97 @@ ZONE_FILE = "example.com.zone"  # Replace with your zone file
 
 
 
-import re
+def get_active_zone_file_path(domainname):
+    """
+    Find the actual zone file path used by BIND for the given domain across Linux distros (Ubuntu/Debian & AlmaLinux/RHEL/CentOS).
+    Checks named.conf for exact zone file setting, as well as candidate zone directories.
+    """
+    domainname = (domainname or '').strip().lower()
+    if not domainname:
+        return ''
+
+    conf_files = [
+        '/etc/bind/named.conf',
+        '/etc/bind/named.conf.local',
+        '/etc/named.conf',
+        '/etc/named.conf.local',
+        '/var/named/named.conf',
+    ]
+    for cf in conf_files:
+        if os.path.exists(cf):
+            try:
+                with open(cf, 'r') as f:
+                    content = f.read()
+                pattern = rf'zone\s+"{re.escape(domainname)}"\s*\{{[^}}]*file\s+"([^"]+)";'
+                match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+                if match:
+                    fp = match.group(1)
+                    if os.path.exists(fp):
+                        return fp
+            except Exception:
+                pass
+
+    candidates = [
+        os.path.join('/etc/bind/zones', f'{domainname}.zone'),
+        os.path.join(paths.BIND_ZONE_DIR, 'zones', f'{domainname}.zone'),
+        os.path.join(paths.BIND_ZONE_DIR, f'db.{domainname}'),
+        os.path.join('/etc/bind', f'db.{domainname}'),
+        os.path.join('/var/named', f'{domainname}.zone'),
+        os.path.join('/var/named', f'db.{domainname}'),
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+
+    return os.path.join(paths.BIND_ZONE_DIR, f'db.{domainname}')
+
+def format_dns_data(record_type, data):
+    """
+    Ensure TXT record values are properly enclosed in double quotes for BIND zone file syntax.
+    """
+    data = (data or '').strip()
+    if record_type.upper() == 'TXT':
+        if not (data.startswith('"') and data.endswith('"')):
+            cleaned = data.replace('\\"', '"').replace('"', '\\"')
+            data = f'"{cleaned}"'
+    return data
+
+def update_soa_serial_in_content(content):
+    """
+    Increment or set the SOA serial number (YYYYMMDDNN format) in BIND zone file content.
+    """
+    import datetime
+    today = datetime.datetime.now().strftime('%Y%m%d')
+
+    def replace_serial(m):
+        old_val = m.group(1)
+        if old_val.startswith(today):
+            try:
+                seq = int(old_val[-2:]) + 1
+                new_val = f"{today}{seq:02d}"
+            except Exception:
+                new_val = f"{today}01"
+        else:
+            new_val = f"{today}01"
+        return m.group(0).replace(old_val, new_val)
+
+    res = re.sub(r'(\d{8,10})\s*;\s*[Ss]erial', replace_serial, content)
+    if res == content:
+        res = re.sub(r'(\b\d{10}\b)', replace_serial, content, count=1)
+    return res
+
+def fix_zone_file_permissions(filepath):
+    """
+    Fix ownership and permissions on a BIND zone file after writing.
+    BIND runs as 'bind' user and needs read access.
+    Sets ownership to bind:bind and mode 644.
+    """
+    import subprocess
+    try:
+        subprocess.run(['sudo', 'chown', 'bind:bind', filepath], check=False, capture_output=True)
+        subprocess.run(['sudo', 'chmod', '644', filepath], check=False, capture_output=True)
+    except Exception:
+        pass
 
 def parse_dns_zone_file(DNS_FILE):
     records = []
@@ -850,7 +1057,13 @@ def parse_dns_zone_file(DNS_FILE):
                 match = re.match(r'(?P<name>\S+)\s+((?P<ttl>\d+)\s+)?IN\s+(?P<type>\S+)\s+(?P<data>.*)', multiline_record)
                 if match:
                     record_data = match.groupdict()
-                    record_data['ttl'] = record_data.get('ttl', None)
+                    record_data['ttl'] = record_data.get('ttl') or '86400'
+                    record_data['class'] = 'IN'
+                    # Merge divided TXT string parts ("part1" "part2" -> "part1part2")
+                    if record_data.get('type') == 'TXT' and record_data.get('data'):
+                        parts = re.findall(r'"([^"]*)"', record_data['data'])
+                        if parts:
+                            record_data['data'] = f'"{ "".join(parts) }"'
                     records.append(record_data)
                 multiline_record = ""
             continue
@@ -864,6 +1077,10 @@ def parse_dns_zone_file(DNS_FILE):
             record_data = match.groupdict()
             record_data['ttl'] = record_data.get('ttl') or '86400'
             record_data['class'] = 'IN'
+            if record_data.get('type') == 'TXT' and record_data.get('data'):
+                parts = re.findall(r'"([^"]*)"', record_data['data'])
+                if parts:
+                    record_data['data'] = f'"{ "".join(parts) }"'
             records.append(record_data)
 
     return records
@@ -1315,28 +1532,57 @@ def zip_multiple_locations_backup_user(main_directory, locations, zip_filename, 
 import re
 
 def remove_zone_from_file(file_path, domain):
+    """Remove ALL occurrences of a zone block for the given domain from the BIND config file.
+    
+    This handles the case where duplicate zone entries exist (e.g., from a failed
+    termination followed by recreation), which would otherwise crash BIND.
+    """
     with open(file_path, 'r') as file:
         lines = file.readlines()
 
-    # Identify the zone block to remove
+    # Identify the zone block to remove — match all occurrences
     zone_start = f'zone "{domain}" {{'
-    zone_end = "};\n"
+    zone_end = "};" 
     
     in_zone_block = False
     updated_lines = []
     
     for line in lines:
         if zone_start in line:
-            in_zone_block = True  # Start of the zone block
-        if in_zone_block and zone_end in line:
-            in_zone_block = False  # End of the zone block
-            continue  # Skip adding the zone block to updated_lines
-        if not in_zone_block:
-            updated_lines.append(line)
+            in_zone_block = True  # Start of a zone block
+            continue  # Skip the zone start line
+        if in_zone_block:
+            if zone_end in line:
+                in_zone_block = False  # End of the zone block
+                continue  # Skip the zone end line
+            continue  # Skip lines inside the zone block
+        updated_lines.append(line)
 
-    # Write the updated content back to the file
-    with open(file_path, 'w') as file:
-        file.writelines(updated_lines)
+    # Clean up excessive blank lines that may be left behind
+    cleaned_lines = []
+    prev_blank = False
+    for line in updated_lines:
+        is_blank = line.strip() == ''
+        if is_blank and prev_blank:
+            continue  # Skip consecutive blank lines
+        cleaned_lines.append(line)
+        prev_blank = is_blank
+
+    import tempfile, subprocess
+    with tempfile.NamedTemporaryFile('w', delete=False) as tmp:
+        tmp.writelines(cleaned_lines)
+        tmp_name = tmp.name
+
+    if sys.platform != 'win32':
+        subprocess.run(['sudo', 'cp', tmp_name, file_path], check=False)
+        subprocess.run(['rm', '-f', tmp_name], check=False)
+    else:
+        with open(file_path, 'w') as file:
+            file.writelines(cleaned_lines)
+        try:
+            os.remove(tmp_name)
+        except Exception:
+            pass
 
 
 import subprocess
@@ -1643,3 +1889,42 @@ def clone_website(target_url, destination_dir):
         err_msg = f"Clone failed: {str(e)}"
         _update_status(100, "Failed", log_msg=err_msg, status="error", error=err_msg)
         return False, err_msg
+
+
+def create_default_index_html(target_dir, domain_name):
+    """Create a clean default index.html placeholder page if no index file exists."""
+    try:
+        os.makedirs(target_dir, exist_ok=True)
+        index_file = os.path.join(target_dir, 'index.html')
+        if not os.path.exists(index_file) and not os.path.exists(os.path.join(target_dir, 'index.php')):
+            html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to {domain_name}</title>
+    <style>
+        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }}
+        .card {{ background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 40px; max-width: 500px; width: 100%; text-align: center; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3); }}
+        .icon {{ font-size: 48px; margin-bottom: 20px; color: #38bdf8; }}
+        h1 {{ font-size: 24px; font-weight: 700; margin-bottom: 12px; color: #ffffff; }}
+        p {{ font-size: 15px; color: #94a3b8; line-height: 1.6; margin-bottom: 24px; }}
+        .badge {{ display: inline-block; background: rgba(56, 189, 248, 0.1); color: #38bdf8; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; border: 1px solid rgba(56, 189, 248, 0.2); }}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">🚀</div>
+        <h1>{domain_name} is live!</h1>
+        <p>Your website has been successfully provisioned. Upload your web files to <code>public_html</code> to publish your site.</p>
+        <span class="badge">Powered by VoidPanel</span>
+    </div>
+</body>
+</html>"""
+            with open(index_file, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning('Failed to create default index.html for %s: %s', domain_name, e)
+
