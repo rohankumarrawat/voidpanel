@@ -31,12 +31,12 @@ from django.http import JsonResponse, HttpResponse
 from control.models import mernname,portnumber,quick,domain,allemail,phpextentions,cron,subdomainname,phpversion,redir,package,firewall,ftp,user,ftpaccount,pythonname
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from function import start_service,stop_service,get_directory_size_in_mb,restart_service,get_service_status,get_php_versions,get_php_version,get_php_extensions,get_database_names,get_database_users,change_hostname,remove_zone_from_file,zip_multiple_locations_backup,create_bind_recordsforsubdomain,grant_mysql_user_privileges,change_mysql_user_password,delete_mysql_user,remove_database,get_database_names_with_filter,get_database_users_with_filter,create_mysql_user,is_website_live,parse_dns_zone_file,configure_opendkim,create_bind_records,generate_dkim_keys,create_nginx_ssl_conf,generate_ssl_certificates,hostnamessl,run_command,get_server_ip,get_random_port,get_file_info,zip_files_and_folders,extract_zip_with_error_handling,create_database_and_table,clone_website, get_database_privileges_with_filter, revoke_mysql_user_privileges
+from function import start_service,stop_service,get_directory_size_in_mb,restart_service,get_service_status,get_php_versions,get_php_version,get_php_extensions,get_database_names,get_database_users,change_hostname,remove_zone_from_file,zip_multiple_locations_backup,create_bind_recordsforsubdomain,grant_mysql_user_privileges,change_mysql_user_password,delete_mysql_user,remove_database,get_database_names_with_filter,get_database_users_with_filter,create_mysql_user,is_website_live,parse_dns_zone_file,configure_opendkim,create_bind_records,generate_dkim_keys,create_nginx_ssl_conf,generate_ssl_certificates,hostnamessl,run_command,get_server_ip,get_random_port,get_file_info,zip_files_and_folders,extract_zip_with_error_handling,create_database_and_table,clone_website, get_database_privileges_with_filter, revoke_mysql_user_privileges, get_active_zone_file_path, format_dns_data, update_soa_serial_in_content, fix_zone_file_permissions
 import psutil
 import os, shlex, subprocess
 from panel.logger import get_logger
-
 logger = get_logger(__name__)
+from voidplatform.config import get_web_user, get_dns_service_name, get_dns_user
 from django.http import FileResponse, Http404
 from django.contrib.auth.models import User
 import shutil
@@ -792,7 +792,7 @@ def installed_services(request):
             'version': _ver('dovecot --version'),
         },
         {
-            'id': 'bind9',
+            'id': get_dns_service_name(),
             'name': 'BIND9 DNS',
             'role': 'Authoritative Name Server',
             'icon': 'fa-solid fa-network-wired',
@@ -939,7 +939,6 @@ def processmanager(request):
     return render(request, 'panel/processmanager.html', d)
 
 
-@csrf_exempt
 @login_required(login_url='/')
 def process_action(request):
     """Handle process termination gracefully or forcefully."""
@@ -956,7 +955,7 @@ def process_action(request):
             proc_name = p.name()
             
             # Safeguard: prevent killing critical panel processes dynamically
-            if proc_name in ['uwsgi', 'nginx'] and p.username() in ['root', 'nginx', 'www-data']:
+            if proc_name in ['uwsgi', 'nginx'] and p.username() in ['root', 'nginx', 'www-data', get_web_user()]:
                 return JsonResponse({'status': 'error', 'message': f'Cannot kill core cluster process: {proc_name}'})
             
             if action == 'kill':
@@ -1204,7 +1203,7 @@ def filemanager(request):
     last = os.path.dirname(file_path)
     if request.user.is_superuser or request.user.is_authenticated:
         try:
-            current = request.session['name']
+            current = request.session.get('name', request.user.username)
         except Exception:
             current = request.user
         d = {}
@@ -1517,8 +1516,7 @@ def save_file(request):
         content = data.get('content', '')
         path = data.get('path', '')
 
-        x=len(path)
-        path='/'+path[:x-1]
+        path = '/' + path.strip('/')
         
         try:
             with open(path, 'w') as file:
@@ -1540,6 +1538,7 @@ def save_file(request):
     
 
 @login_required(login_url='/')
+@csrf_exempt
 @secure_fm_paths
 def upload_file(request):
     if request.method == 'POST' and request.FILES.getlist('file'):
@@ -1624,13 +1623,16 @@ def upload_file(request):
                         except: pass
                     return JsonResponse({'status': 'error', 'message': f'Failed to move file to destination: {str(move_err)}'}, status=400)
 
-                # Set correct file ownership
+                # Set correct file ownership and permissions
                 try:
                     if sys.platform != 'win32':
                         if request.user.is_superuser:
-                            subprocess.run(['sudo', 'chown', 'www-data:www-data', file_path], check=True)
+                            subprocess.run(['sudo', 'chown', f'{get_web_user()}:{get_web_user()}', file_path], check=True)
                         else:
                             subprocess.run(['sudo', 'chown', f'{request.user.username}:{request.user.username}', file_path], check=True)
+                        # Fix permissions: temp files are created with 600,
+                        # but uploaded web files need to be readable (644)
+                        subprocess.run(['sudo', 'chmod', '644', file_path], check=True)
                 except Exception:
                     pass
             return JsonResponse({'status': 'success', 'message': f'{len(uploaded_files)} file(s) uploaded successfully!'})
@@ -2317,8 +2319,34 @@ def _trash_move(src_path, user):
 
     SECURITY: trash dir is always determined by where the FILE lives,
     not who is logged in. This prevents admin's trash from leaking user files.
+
+    PROTECTION: Critical infrastructure directories (mail, ssl, logs,
+    public_html, .trash) cannot be deleted by regular users. This prevents
+    accidental deletion that would break email, nginx, SSL, etc.
     """
     import subprocess
+
+    # ── Protected directory guard ─────────────────────────────────────────
+    # Prevent deletion of critical infrastructure directories.
+    # These are top-level dirs inside /home/<username>/ that the panel depends on.
+    PROTECTED_DIRS = {'mail', 'ssl', 'logs', 'public_html', '.trash'}
+
+    real = os.path.realpath(src_path)
+    home_base = paths.HOME_BASE.rstrip('/')  # e.g. /home
+
+    if real.startswith(home_base + '/'):
+        # Split into parts after /home/: [username, dir, subdir, ...]
+        rel_parts = real[len(home_base)+1:].split('/')
+        # rel_parts[0] = username, rel_parts[1] = top-level dir
+        if len(rel_parts) == 2 and rel_parts[1] in PROTECTED_DIRS:
+            # This is a protected top-level directory — block deletion
+            if not (hasattr(user, 'is_superuser') and user.is_superuser):
+                raise PermissionError(
+                    f"Cannot delete '{rel_parts[1]}/' — this is a critical system directory. "
+                    f"Deleting it would break email, SSL, or web hosting for this account."
+                )
+    # ── End protected directory guard ─────────────────────────────────────
+
     # Always use the file path to determine which user's trash to use
     t_dir = get_trash_dir_for_path(src_path)
     # Ensure trash dir exists and is writable by www-data using sudo
@@ -2532,29 +2560,43 @@ def trash_empty(request):
 @login_required(login_url='/')
 @secure_fm_paths
 def renamedata(request):
-   
-     
      if request.user.is_superuser or request.user.is_authenticated:
-         if request.method =="POST":
-               data = json.loads(request.body)  # Get the data from the request body
-               selected_items = data.get('selected', [])
-               file_path = data.get('path')
-               
-               copy = data.get('copy')   
-               if '/' !=file_path[0]:
-                   file_path="/"+file_path+'/'
-       
-              
-               for i in selected_items:
-             
+         if request.method == "POST":
+             data = json.loads(request.body)
+             selected_items = data.get('selected', [])
+             file_path = data.get('path', '')
+             new_name = data.get('copy', '')
 
-                try:
-                    os.rename(file_path+i,file_path+copy)
-                    return JsonResponse({'status': 'success', 'message': 'File Renamed successfully!'})
-                   
-                except Exception as e:
-                  
-                    return JsonResponse({'status': 'error', 'message': 'File Rename Failed!'})
+             # @secure_fm_paths sanitizes 'path' into an absolute path.
+             # 'copy' (new filename) is also sanitized into an absolute path,
+             # so extract just the basename for the new name.
+             new_name = os.path.basename(new_name) if new_name else ''
+             if not new_name:
+                 return JsonResponse({'status': 'error', 'message': 'New name is required.'})
+
+             # Ensure path ends with /
+             if not file_path.endswith('/'):
+                 file_path = file_path + '/'
+
+             if not selected_items:
+                 return JsonResponse({'status': 'error', 'message': 'No file selected.'})
+
+             old_name = os.path.basename(selected_items[0])
+             src = os.path.join(file_path, old_name)
+             dst = os.path.join(file_path, new_name)
+
+             try:
+                 os.rename(src, dst)
+                 return JsonResponse({'status': 'success', 'message': 'File Renamed successfully!'})
+             except PermissionError:
+                 import subprocess
+                 try:
+                     subprocess.run(['sudo', 'mv', src, dst], check=True)
+                     return JsonResponse({'status': 'success', 'message': 'File Renamed successfully!'})
+                 except Exception as e2:
+                     return JsonResponse({'status': 'error', 'message': f'Rename failed: {str(e2)}'})
+             except Exception as e:
+                 return JsonResponse({'status': 'error', 'message': f'Rename failed: {str(e)}'})
              
 
 
@@ -2710,6 +2752,11 @@ def addweb(request):
                domain12 = data.get('web').lower()
                email = data.get('email')
                
+               # Validate domain name to prevent command injection
+               import re as _re_dom
+               if not domain12 or not _re_dom.match(r'^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)+$', domain12):
+                   return JsonResponse({'status': 'error', 'message': 'Invalid domain name.'}, status=400)
+
                try:
                    if domain.objects.filter(domain=domain12).exists():
                        return JsonResponse({'status': 'already', 'message': 'Domain Already Exist'})
@@ -2782,22 +2829,12 @@ def _background_provision_user(domain12, email, password, package12, sto, domain
     try:
         if sys.platform != 'win32':
             subprocess.run(['sudo', 'mkdir', '-p', f"{path}/public_html"], check=True)
-            subprocess.run(['sudo', 'chown', '-R', 'www-data:www-data', path], check=True)
+            subprocess.run(['sudo', 'chown', '-R', f'{get_web_user()}:{get_web_user()}', path], check=True)
         else:
             os.makedirs(f"{path}/public_html", exist_ok=True)
-        # Copy voidpanel default web files if source dir exists
-        _vp_src = os.path.join(paths.PANEL_ROOT, 'voidpanel')
-        _vp_dst = os.path.join(path, 'public_html')
-        if os.path.isdir(_vp_src):
-            for _item in os.listdir(_vp_src):
-                _s = os.path.join(_vp_src, _item)
-                _d = os.path.join(_vp_dst, _item)
-                if os.path.isdir(_s):
-                    shutil.copytree(_s, _d, dirs_exist_ok=True)
-                else:
-                    shutil.copy2(_s, _d)
-        else:
-            logger.warning('voidpanel static dir not found at %s, skipping copy', _vp_src)
+        # Create default landing page in public_html
+        from function import create_default_index_html
+        create_default_index_html(_vp_dst, domain12)
         _ln_src = f'{paths.NGINX_SITES_AVAILABLE}/{domain12}.conf'
         _ln_dst = f'{paths.NGINX_SITES_ENABLED}/'
         if sys.platform == 'win32':
@@ -2811,7 +2848,7 @@ def _background_provision_user(domain12, email, password, package12, sto, domain
             # Create Recycle Bin dir owned by www-data so the panel can always write to it
             subprocess.run(['sudo', 'mkdir', '-p', f"{path}/.trash"], check=True)
             # CRITICAL: chown+chmod BEFORE writing files — dirs are root-owned after sudo mkdir
-            subprocess.run(['sudo', 'chown', '-R', 'www-data:www-data', path], check=True)
+            subprocess.run(['sudo', 'chown', '-R', f'{get_web_user()}:{get_web_user()}', path], check=True)
             subprocess.run(['sudo', 'chmod', '-R', '755', path], check=True)
             # .trash must be 777 so user files (owned by the linux user) can also be moved in/out
             subprocess.run(['sudo', 'chmod', '777', f"{path}/.trash"], check=True)
@@ -2841,7 +2878,7 @@ open_basedir = "{path}/public_html:/tmp"
             _tmp_name = _tmp.name
         if sys.platform != 'win32':
             subprocess.run(['sudo', 'cp', _tmp_name, inipath], check=True)
-            subprocess.run(['sudo', 'chown', 'www-data:www-data', inipath], check=True)
+            subprocess.run(['sudo', 'chown', f'{get_web_user()}:{get_web_user()}', inipath], check=True)
         else:
             import shutil as _shutil
             _shutil.copy2(_tmp_name, inipath)
@@ -2887,7 +2924,7 @@ open_basedir = "{path}/public_html:/tmp"
 
         # ZERO-DOWNTIME RELOADS
         plat = get_platform()
-        for svc in ('opendkim', 'bind9', 'postfix', 'nginx'):
+        for svc in ('opendkim', get_dns_service_name(), 'postfix', 'nginx'):
             try:
                 if sys.platform != 'win32':
                     plat.services.reload(svc)
@@ -2941,6 +2978,7 @@ open_basedir = "{path}/public_html:/tmp"
 def addusermain(request):
     if request.user.is_superuser:
         if request.method =="POST":
+          try:
             data = json.loads(request.body)
             domain12 = data.get('web').lower()
             email = data.get('email') 
@@ -2987,14 +3025,33 @@ def addusermain(request):
                 'date.timezone = "Asia/Kolkata"\nfile_uploads = On\n'
                 f'open_basedir = "{acct_path}/public_html:/tmp"\n'
             )
-            task = provision_user_task.delay(
-                domain12, domainname, email, password, package12,
-                acct_path, int(sto), inipath, php_ini_content,
-            )
-            logger.info(
-                'Provision task dispatched: domain=%s domainname=%s task_id=%s',
-                domain12, domainname, task.id,
-            )
+            try:
+                task = provision_user_task.delay(
+                    domain12, domainname, email, password, package12,
+                    acct_path, int(sto), inipath, php_ini_content,
+                )
+                task_id = str(task.id)
+                logger.info(
+                    'Provision task dispatched: domain=%s domainname=%s task_id=%s',
+                    domain12, domainname, task_id,
+                )
+            except Exception as celery_err:
+                # Celery/Redis unavailable — fall back to threading
+                logger.warning(
+                    'Celery dispatch failed (%s), falling back to thread for %s',
+                    celery_err, domain12,
+                )
+                task_id = 'thread-fallback'
+                import threading
+                def _thread_provision():
+                    try:
+                        provision_user_task(
+                            domain12, domainname, email, password, package12,
+                            acct_path, int(sto), inipath, php_ini_content,
+                        )
+                    except Exception as e:
+                        logger.error('Thread provision failed for %s: %s', domain12, e)
+                threading.Thread(target=_thread_provision, daemon=True).start()
             
             # If shell_access requested, update the model once we know domainname
             # The user model row is created inside Celery, so we save it async after
@@ -3052,10 +3109,14 @@ def addusermain(request):
             
             return JsonResponse({
                 'status': 'success',
-                'task_id': str(task.id),
+                'task_id': task_id,
                 'username': domainname,
                 'message': 'User Creation Initiated!'
             })
+
+          except Exception as _global_err:
+            logger.error('addusermain crashed: %s', _global_err, exc_info=True)
+            return JsonResponse({'status': 'error', 'message': f'Server error: {_global_err}'}, status=500)
 
         return JsonResponse({'status': 'success', 'message': 'Domain Added!'})
 
@@ -3111,9 +3172,6 @@ def viewwebsite(request):
 
 @login_required(login_url='/')
 def eadns(request):
-    if not request.user.is_superuser:
-        return redirect('/')
-
     domainname = request.GET.get('domain', None)
     if not domainname:
         return redirect('/')
@@ -3123,7 +3181,7 @@ def eadns(request):
         current_domain = domain.objects.get(domain=domainname)
         d['domain'] = current_domain
 
-        zone_file_path = os.path.join(paths.BIND_ZONE_DIR, f'db.{current_domain.domain}')
+        zone_file_path = get_active_zone_file_path(domainname)
 
         if not os.path.exists(zone_file_path):
             d['error'] = f"Zone file not found for {domainname}. Ensure BIND is configured correctly."
@@ -3146,29 +3204,24 @@ def eadns(request):
 
 @login_required(login_url='/')
 def deletedns(request):
-    if not request.user.is_superuser:
-        return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
-
-    # Industry standard: state-modifying actions MUST use POST
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Method not allowed. Use POST.'}, status=405)
 
-    domainname  = request.POST.get('domain', '').strip()
+    domainname  = request.POST.get('domain', '').strip().lower()
     name        = request.POST.get('name', '').strip()
-    record_type = request.POST.get('type', '').strip()
+    record_type = request.POST.get('type', '').strip().upper()
     data        = request.POST.get('data', '').strip()
     ttl         = request.POST.get('ttl', '').strip()
 
     if not domainname or not name:
         return JsonResponse({'status': 'error', 'message': 'Missing required parameters.'}, status=400)
 
-    # Validate domain is actually in our database (prevents path traversal)
     try:
         domain.objects.get(domain=domainname)
     except domain.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': 'Domain not found.'}, status=404)
 
-    zone_file_path = os.path.join(paths.BIND_ZONE_DIR, f'db.{domainname}')
+    zone_file_path = get_active_zone_file_path(domainname)
 
     if not os.path.exists(zone_file_path):
         return JsonResponse({'status': 'error', 'message': 'Zone file not found.'}, status=404)
@@ -3182,6 +3235,7 @@ def deletedns(request):
         lines = result.stdout.splitlines(True)
 
         new_lines = []
+        clean_data = data.strip('"')
         for line in lines:
             line_str = line.strip()
             if not line_str or line_str.startswith(';'):
@@ -3190,7 +3244,7 @@ def deletedns(request):
                 
             parts = line_str.split()
             if len(parts) >= 4 and parts[0] == name and record_type in parts:
-                if data and data[:15] not in line_str:
+                if clean_data and clean_data[:15] not in line_str:
                     new_lines.append(line)
                 else:
                     deleted = True
@@ -3198,38 +3252,50 @@ def deletedns(request):
                 new_lines.append(line)
 
         if deleted:
+            content_str = update_soa_serial_in_content("".join(new_lines))
+
             import tempfile, subprocess
             with tempfile.NamedTemporaryFile('w', delete=False) as tmp:
-                tmp.writelines(new_lines)
+                tmp.write(content_str)
                 tmp_path = tmp.name
 
             if sys.platform != 'win32':
                 check = subprocess.run(['named-checkzone', domainname, tmp_path], capture_output=True, text=True)
                 if check.returncode != 0:
                     subprocess.run(['sudo', 'rm', '-f', tmp_path], check=False)
-                    return JsonResponse({'status': 'error', 'message': 'DNS Validation failed. Record syntax may break the DNS zone.'}, status=400)
+                    err_detail = (check.stdout or check.stderr or '').strip()[:150]
+                    return JsonResponse({'status': 'error', 'message': f'DNS Validation failed: {err_detail}'}, status=400)
             
             subprocess.run(['sudo', 'mv', tmp_path, zone_file_path], check=True)
-            subprocess.run(['sudo', 'chown', 'bind:bind', zone_file_path], check=False)
+            fix_zone_file_permissions(zone_file_path)
+
+            # Sync to alternate zone file paths if they exist
+            alt_paths = [
+                os.path.join('/etc/bind/zones', f'{domainname}.zone'),
+                os.path.join('/etc/bind', f'db.{domainname}'),
+            ]
+            for alt in alt_paths:
+                if os.path.exists(alt) and os.path.realpath(alt) != os.path.realpath(zone_file_path):
+                    try:
+                        subprocess.run(['sudo', 'cp', zone_file_path, alt], check=False)
+                        fix_zone_file_permissions(alt)
+                    except Exception:
+                        pass
 
             if sys.platform != 'win32':
-                subprocess.run(['sudo', 'systemctl', 'reload', 'bind9'], check=False)
-            return JsonResponse({'status': 'success', 'message': 'DNS record deleted successfully.'})
+                subprocess.run(['sudo', 'systemctl', 'reload', get_dns_service_name()], check=False)
+            return JsonResponse({'success': True, 'status': 'success', 'message': 'DNS record deleted successfully.'})
         else:
-            return JsonResponse({'status': 'error', 'message': 'Record not found in zone file.'}, status=404)
+            return JsonResponse({'success': False, 'status': 'error', 'message': 'Record not found in zone file.'}, status=404)
 
     except PermissionError:
-        return JsonResponse({'status': 'error', 'message': 'Permission error. Cannot modify zone file.'}, status=500)
+        return JsonResponse({'success': False, 'status': 'error', 'message': 'Permission error. Cannot modify zone file.'}, status=500)
     except Exception as e:
-        return JsonResponse({'status': 'error', 'message': f'Error: {str(e)}'}, status=500)
-
+        return JsonResponse({'success': False, 'status': 'error', 'message': f'Error: {str(e)}'}, status=500)
 
 
 @login_required(login_url='/')
 def adddnsrecord(request):
-    if not request.user.is_superuser:
-        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
-
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Method not allowed.'}, status=405)
 
@@ -3240,7 +3306,6 @@ def adddnsrecord(request):
     ttl         = request.POST.get('ttl', '86400').strip()
     data        = request.POST.get('data', '').strip()
 
-    # --- Input Validation ---
     VALID_TYPES = {'A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SRV', 'CAA', 'PTR', 'SOA'}
     VALID_CLASSES = {'IN', 'CH', 'HS'}
 
@@ -3256,18 +3321,19 @@ def adddnsrecord(request):
     if not ttl.isdigit():
         return JsonResponse({'success': False, 'error': 'TTL must be a numeric value.'}, status=400)
 
-    # Validate domain is in our database (prevent arbitrary file writes)
     try:
         domain.objects.get(domain=domainname)
     except domain.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Domain not found in system.'}, status=404)
 
-    # Validate name (no shell metacharacters)
+    # Format data (especially wrapping TXT records in double quotes for BIND syntax)
+    data = format_dns_data(record_type, data)
+
     import re
     if not re.match(r'^[a-zA-Z0-9@._\-\*]+$', name):
         return JsonResponse({'success': False, 'error': 'Invalid record name. Only alphanumeric, dots, hyphens, and @ allowed.'}, status=400)
 
-    zone_file_path = os.path.join(paths.BIND_ZONE_DIR, f'db.{domainname}')
+    zone_file_path = get_active_zone_file_path(domainname)
     
     if not os.path.exists(zone_file_path):
         return JsonResponse({'success': False, 'error': 'Zone file not found for this domain.'}, status=404)
@@ -3279,7 +3345,9 @@ def adddnsrecord(request):
             raise PermissionError('Failed to read zone file.')
         original_content = result.stdout
 
-        new_content = original_content + f"\n; {record_type} Record added via VoidPanel\n{name} {ttl} IN {record_type} {data}\n"
+        new_record_line = f"{name} {ttl} {record_class} {record_type} {data}\n"
+        new_content = original_content + f"\n; {record_type} Record added via VoidPanel\n{new_record_line}"
+        new_content = update_soa_serial_in_content(new_content)
 
         import tempfile, subprocess
         with tempfile.NamedTemporaryFile('w', delete=False) as tmp:
@@ -3290,13 +3358,27 @@ def adddnsrecord(request):
             check = subprocess.run(['named-checkzone', domainname, tmp_path], capture_output=True, text=True)
             if check.returncode != 0:
                 subprocess.run(['sudo', 'rm', '-f', tmp_path], check=False)
-                return JsonResponse({'success': False, 'error': f'Invalid record syntax. BIND rejected the entry. Details: {check.stdout[:100]}'}, status=400)
+                detail = (check.stdout or check.stderr or '').strip()[:150]
+                return JsonResponse({'success': False, 'error': f'Invalid record syntax. BIND rejected the entry: {detail}'}, status=400)
         
         subprocess.run(['sudo', 'mv', tmp_path, zone_file_path], check=True)
-        subprocess.run(['sudo', 'chown', 'bind:bind', zone_file_path], check=False)
+        fix_zone_file_permissions(zone_file_path)
+
+        # Sync to alternate zone file paths if they exist
+        alt_paths = [
+            os.path.join('/etc/bind/zones', f'{domainname}.zone'),
+            os.path.join('/etc/bind', f'db.{domainname}'),
+        ]
+        for alt in alt_paths:
+            if os.path.exists(alt) and os.path.realpath(alt) != os.path.realpath(zone_file_path):
+                try:
+                    subprocess.run(['sudo', 'cp', zone_file_path, alt], check=False)
+                    fix_zone_file_permissions(alt)
+                except Exception:
+                    pass
 
         if sys.platform != 'win32':
-            subprocess.run(['sudo', 'systemctl', 'reload', 'bind9'], check=False)
+            subprocess.run(['sudo', 'systemctl', 'reload', get_dns_service_name()], check=False)
         return JsonResponse({'success': True, 'message': f'{record_type} record for "{name}" added successfully.'})
 
     except PermissionError:
@@ -3306,18 +3388,13 @@ def adddnsrecord(request):
 
 @login_required(login_url='/')
 def editdnsrecord(request):
-    if not request.user.is_superuser:
-        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
-
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Method not allowed.'}, status=405)
 
-    # Old data for matching
     old_name        = request.POST.get('old_name', '').strip()
-    old_type        = request.POST.get('old_type', '').strip()
+    old_type        = request.POST.get('old_type', '').strip().upper()
     old_data        = request.POST.get('old_data', '').strip()
     
-    # New data for writing
     name        = request.POST.get('name', '').strip()
     domainname  = request.POST.get('domain', '').strip().lower()
     record_class = request.POST.get('class', 'IN').strip().upper()
@@ -3332,11 +3409,13 @@ def editdnsrecord(request):
     if record_type not in VALID_TYPES:
         return JsonResponse({'success': False, 'error': f'Invalid record type "{record_type}".'}, status=400)
 
+    data = format_dns_data(record_type, data)
+
     import re
     if not re.match(r'^[a-zA-Z0-9@._\-\*]+$', name):
         return JsonResponse({'success': False, 'error': 'Invalid new record name.'}, status=400)
 
-    zone_file_path = os.path.join(paths.BIND_ZONE_DIR, f'db.{domainname}')
+    zone_file_path = get_active_zone_file_path(domainname)
     
     if not os.path.exists(zone_file_path):
         return JsonResponse({'success': False, 'error': 'Zone file not found for this domain.'}, status=404)
@@ -3350,6 +3429,7 @@ def editdnsrecord(request):
         lines = result.stdout.splitlines(True)
 
         new_lines = []
+        clean_old_data = old_data.strip('"')
         for line in lines:
             line_str = line.strip()
             if not line_str or line_str.startswith(';'):
@@ -3358,32 +3438,46 @@ def editdnsrecord(request):
                 
             parts = line_str.split()
             if len(parts) >= 4 and parts[0] == old_name and old_type in parts:
-                if old_data and old_data[:15] not in line_str:
+                if clean_old_data and clean_old_data[:15] not in line_str:
                     new_lines.append(line)
                 else:
-                    new_lines.append(f"{name} {ttl} IN {record_type} {data}\n")
+                    new_lines.append(f"{name} {ttl} {record_class} {record_type} {data}\n")
                     edited = True
             else:
                 new_lines.append(line)
 
         if edited:
+            content_str = update_soa_serial_in_content("".join(new_lines))
+
             import tempfile, subprocess
             with tempfile.NamedTemporaryFile('w', delete=False) as tmp:
-                tmp.writelines(new_lines)
+                tmp.write(content_str)
                 tmp_path = tmp.name
 
             if sys.platform != 'win32':
                 check = subprocess.run(['named-checkzone', domainname, tmp_path], capture_output=True, text=True)
                 if check.returncode != 0:
                     subprocess.run(['sudo', 'rm', '-f', tmp_path], check=False)
-                    detail = (check.stdout or check.stderr or '').strip()[:200]
+                    detail = (check.stdout or check.stderr or '').strip()[:150]
                     return JsonResponse({'success': False, 'error': f'Invalid record syntax. BIND rejected the change. Details: {detail}'}, status=400)
             
             subprocess.run(['sudo', 'mv', tmp_path, zone_file_path], check=True)
-            subprocess.run(['sudo', 'chown', 'bind:bind', zone_file_path], check=False)
+            fix_zone_file_permissions(zone_file_path)
+
+            alt_paths = [
+                os.path.join('/etc/bind/zones', f'{domainname}.zone'),
+                os.path.join('/etc/bind', f'db.{domainname}'),
+            ]
+            for alt in alt_paths:
+                if os.path.exists(alt) and os.path.realpath(alt) != os.path.realpath(zone_file_path):
+                    try:
+                        subprocess.run(['sudo', 'cp', zone_file_path, alt], check=False)
+                        fix_zone_file_permissions(alt)
+                    except Exception:
+                        pass
 
             if sys.platform != 'win32':
-                subprocess.run(['sudo', 'systemctl', 'reload', 'bind9'], check=False)
+                subprocess.run(['sudo', 'systemctl', 'reload', get_dns_service_name()], check=False)
             return JsonResponse({'success': True, 'message': 'DNS record updated successfully.'})
         else:
             return JsonResponse({'success': False, 'error': 'Original record not found for editing.'}, status=404)
@@ -3510,7 +3604,6 @@ def listdns(request):
               
 from django.views.decorators.csrf import csrf_exempt
 
-@csrf_exempt
 def addemailaccount(request):
     import base64
     from control.models import user as sysuser
@@ -3674,30 +3767,39 @@ def changeemailpassword(request):
         if request.method == 'POST':
             password = request.POST.get('password')
             domain_name = request.POST.get('domain')
-            domain_name=domain_name.lower()
+            domain_name = domain_name.lower()
             email = request.POST.get('emailname')
-            email=email.lower()
+            email = email.lower()
             if sys.platform != 'win32':
-                # Use subprocess list to avoid shell injection
                 import subprocess
+                # Generate SHA512-CRYPT hash for Dovecot
                 hashed = subprocess.run(
-                    ['doveadm', 'pw', '-p', password],
+                    ['doveadm', 'pw', '-s', 'SHA512-CRYPT', '-p', password],
                     capture_output=True, text=True
                 ).stdout.strip()
-                shadow_path = os.path.join(_resolve_mail_domain_dir(domain_name), 'shadow')
-                if os.path.exists(shadow_path):
-                    with open(shadow_path, 'r') as f:
+
+                # Update /etc/dovecot/users (the ACTUAL passdb used by Dovecot)
+                dovecot_users = '/etc/dovecot/users'
+                if os.path.exists(dovecot_users):
+                    with open(dovecot_users, 'r') as f:
                         lines = f.readlines()
-                    with open(shadow_path, 'w') as f:
+                    with open(dovecot_users, 'w') as f:
                         for line in lines:
                             if line.startswith(email + ':'):
-                                f.write(f'{email}:{hashed}\n')
+                                # Preserve uid:gid::home fields (columns 3-6)
+                                parts = line.strip().split(':')
+                                rest = ':'.join(parts[2:]) if len(parts) > 2 else '5000:5000::'
+                                f.write(f'{email}:{hashed}:{rest}\n')
                             else:
                                 f.write(line)
-            password = base64.b64encode(password.encode('utf-8'))
-            
-            xxxx=allemail.objects.get(email=email)
-            xxxx.password=password
+                    # Reload Dovecot to pick up new password
+                    subprocess.run(['systemctl', 'reload', 'dovecot'],
+                                   capture_output=True, check=False)
+
+            # Update database (base64 encoded for autologin)
+            password_b64 = base64.b64encode(password.encode('utf-8')).decode('utf-8')
+            xxxx = allemail.objects.get(email=email)
+            xxxx.password = password_b64
             xxxx.save()
             return JsonResponse({'status': 'success'})
         
@@ -4173,7 +4275,7 @@ def sync_cloudflare_subdomain_delete(domain_name, subdomain_full):
 def subdomainprocess(request):
     try:
         if request.user.is_superuser:
-            current=request.session['name']
+            current=request.session.get('name', request.user.username)
         else:
             current=request.user
     except:
@@ -4203,19 +4305,13 @@ def subdomainprocess(request):
                                 if not os.path.exists(path):
                                     if sys.platform != 'win32':
                                         run_command(f'sudo mkdir -p {path}')
-                                        run_command(f'sudo chown www-data:www-data {path}')
+                                        run_command(f'sudo chown {get_web_user()}:{get_web_user()} {path}')
                                     else:
                                         os.makedirs(path, exist_ok=True)
-                                    _vp_src = os.path.join(paths.PANEL_ROOT, 'voidpanel')
-                                    for _item in os.listdir(_vp_src):
-                                        _s = os.path.join(_vp_src, _item)
-                                        _d = os.path.join(path, _item)
-                                        if os.path.isdir(_s):
-                                            shutil.copytree(_s, _d, dirs_exist_ok=True)
-                                        else:
-                                            shutil.copy2(_s, _d)
+                                    from function import create_default_index_html
+                                    create_default_index_html(path, full)
                                     if sys.platform != 'win32':
-                                        run_command(f'sudo chown -R {lold.dir}:www-data {path}')
+                                        run_command(f'sudo chown -R {lold.dir}:{get_web_user()} {path}')
                                         run_command(f'sudo chmod -R 750 {path}')
                                 
                                 # ── Engine-aware subdomain config ──
@@ -4262,7 +4358,7 @@ def subdomainprocess(request):
                                 zone_file_path = os.path.join(paths.BIND_ZONE_DIR, f'db.{lold.domain}')
                                 create_bind_recordsforsubdomain(name, zone_file_path)
                                 try:
-                                    get_platform().services.reload('bind9')
+                                    get_platform().services.reload(get_dns_service_name())
                                 except Exception:
                                     pass
                                 cce=subdomainname.objects.create(subdomain=full, name=name, domain=data)
@@ -4296,7 +4392,7 @@ def deletesubdomain(request,data):
         except Exception:
             pass
         xxxx.delete()
-        return redirect(f'/subdomain/{domainname}')
+        return redirect(f'/control/subdomain/{domainname}')
     elif request.user.is_authenticated:
         xxxx=subdomainname.objects.get(subdomain=data)
         # Ownership check: ensure user owns this subdomain's parent domain
@@ -4889,25 +4985,35 @@ def _background_terminate_user(domain_str, mainusername, subdomains):
 
     # --- Filesystem: home directory ---
     try:
-        shutil.rmtree(os.path.join(paths.HOME_BASE, mainusername), ignore_errors=True)
+        if sys.platform != 'win32':
+            subprocess.run(['sudo', 'rm', '-rf', os.path.join(paths.HOME_BASE, mainusername)], check=False)
+        else:
+            shutil.rmtree(os.path.join(paths.HOME_BASE, mainusername), ignore_errors=True)
     except Exception as e:
         logger.warning('[terminate] Could not remove home dir for %s: %s', mainusername, e)
 
     # --- Nginx configs: main domain + all subdomains ---
-    # Fix: delete BOTH sites-enabled symlinks AND sites-available files to prevent dangling config files
     for d in all_domains:
         for nginx_dir in (paths.NGINX_SITES_ENABLED, paths.NGINX_SITES_AVAILABLE):
             conf = os.path.join(nginx_dir, f'{d}.conf')
             try:
-                if os.path.islink(conf) or os.path.isfile(conf):
-                    os.remove(conf)
+                if sys.platform != 'win32':
+                    subprocess.run(['sudo', 'rm', '-f', conf], check=False)
+                else:
+                    if os.path.exists(conf):
+                        os.remove(conf)
             except Exception:
                 pass
 
     # --- DNS zone file ---
     for d in all_domains:
         try:
-            os.remove(os.path.join(paths.BIND_ZONE_DIR, f'db.{d}'))
+            zf = os.path.join(paths.BIND_ZONE_DIR, f'db.{d}')
+            if sys.platform != 'win32':
+                subprocess.run(['sudo', 'rm', '-f', zf], check=False)
+            else:
+                if os.path.exists(zf):
+                    os.remove(zf)
         except Exception:
             pass
     try:
@@ -4916,38 +5022,64 @@ def _background_terminate_user(domain_str, mainusername, subdomains):
     except Exception:
         pass
 
-    # --- DKIM keys ---
+    # --- DKIM keys & Tables ---
     if paths.OPENDKIM_KEY_DIR:
         for d in all_domains:
-            shutil.rmtree(os.path.join(paths.OPENDKIM_KEY_DIR, d), ignore_errors=True)
-        # Clean DKIM tables
-        for table_path in (paths.OPENDKIM_KEYTABLE, paths.OPENDKIM_SIGNINGTABLE):
+            dkim_dir = os.path.join(paths.OPENDKIM_KEY_DIR, d)
+            if sys.platform != 'win32':
+                subprocess.run(['sudo', 'rm', '-rf', dkim_dir], check=False)
+            else:
+                shutil.rmtree(dkim_dir, ignore_errors=True)
+
+        for table_path in (paths.OPENDKIM_KEYTABLE, paths.OPENDKIM_SIGNINGTABLE, paths.OPENDKIM_TRUSTEDHOSTS):
             if not table_path or not os.path.exists(table_path):
                 continue
             try:
                 with open(table_path, 'r') as f:
                     lines = f.readlines()
-                cleaned = [l for l in lines if domain_str not in l]
-                with open(table_path, 'w') as f:
-                    f.writelines(cleaned)
+                cleaned = [l for l in lines if not any(d in l for d in all_domains)]
+                import tempfile
+                with tempfile.NamedTemporaryFile('w', delete=False) as tmp:
+                    tmp.writelines(cleaned)
+                    tmp_name = tmp.name
+                if sys.platform != 'win32':
+                    subprocess.run(['sudo', 'cp', tmp_name, table_path], check=False)
+                    subprocess.run(['sudo', 'rm', '-f', tmp_name], check=False)
+                else:
+                    with open(table_path, 'w') as f:
+                        f.writelines(cleaned)
+                    try: os.remove(tmp_name)
+                    except Exception: pass
             except Exception as e:
                 logger.warning('[terminate] OpenDKIM table %s cleanup: %s', table_path, e)
 
-    # --- SSL certificates ---
-    for d in all_domains:
-        shutil.rmtree(os.path.join(paths.LETSENCRYPT_LIVE, d), ignore_errors=True)
-        renewal = f'/etc/letsencrypt/renewal/{d}.conf'
         try:
-            if os.path.exists(renewal):
-                os.remove(renewal)
+            if sys.platform != 'win32':
+                subprocess.run(['sudo', 'systemctl', 'reload', 'opendkim'], check=False)
         except Exception:
             pass
+
+    # --- SSL certificates ---
+    for d in all_domains:
+        live_dir = os.path.join(paths.LETSENCRYPT_LIVE, d)
         archive_dir = f'/etc/letsencrypt/archive/{d}'
-        shutil.rmtree(archive_dir, ignore_errors=True)
+        renewal = f'/etc/letsencrypt/renewal/{d}.conf'
+        if sys.platform != 'win32':
+            subprocess.run(['sudo', 'rm', '-rf', live_dir, archive_dir, renewal], check=False)
+        else:
+            shutil.rmtree(live_dir, ignore_errors=True)
+            shutil.rmtree(archive_dir, ignore_errors=True)
+            if os.path.exists(renewal):
+                try: os.remove(renewal)
+                except Exception: pass
 
     # --- Mail data ---
     try:
-        shutil.rmtree(_resolve_mail_domain_dir(domain_str), ignore_errors=True)
+        mail_dir = _resolve_mail_domain_dir(domain_str)
+        if sys.platform != 'win32':
+            subprocess.run(['sudo', 'rm', '-rf', mail_dir], check=False)
+        else:
+            shutil.rmtree(mail_dir, ignore_errors=True)
     except Exception:
         pass
 
@@ -4963,9 +5095,19 @@ def _background_terminate_user(domain_str, mainusername, subdomains):
         try:
             with open(fpath, 'r') as f:
                 lines = f.readlines()
-            cleaned = [l for l in lines if f'@{domain_str}' not in l and f'{domain_str}' not in l]
-            with open(fpath, 'w') as f:
-                f.writelines(cleaned)
+            cleaned = [l for l in lines if not any(d in l for d in all_domains)]
+            import tempfile
+            with tempfile.NamedTemporaryFile('w', delete=False) as tmp:
+                tmp.writelines(cleaned)
+                tmp_name = tmp.name
+            if sys.platform != 'win32':
+                subprocess.run(['sudo', 'cp', tmp_name, fpath], check=False)
+                subprocess.run(['sudo', 'rm', '-f', tmp_name], check=False)
+            else:
+                with open(fpath, 'w') as f:
+                    f.writelines(cleaned)
+                try: os.remove(tmp_name)
+                except Exception: pass
         except Exception as e:
             logger.warning('[terminate] postfix/dovecot file %s: %s', fpath, e)
 
@@ -5006,7 +5148,7 @@ def _background_terminate_user(domain_str, mainusername, subdomains):
 
     # --- Reload services (zero-downtime: reload not restart) ---
     try:
-        subprocess.run(['sudo', 'systemctl', 'reload', 'bind9'], timeout=15, check=False)
+        subprocess.run(['sudo', 'systemctl', 'reload', get_dns_service_name()], timeout=15, check=False)
     except Exception:
         pass
     # Reload Nginx only if the test is successful to avoid failing the server globally
@@ -5025,7 +5167,7 @@ def _background_terminate_user(domain_str, mainusername, subdomains):
     except Exception:
         pass
 
-    # --- Remove FTP accounts (parameterized — no shell injection) ---
+    # --- Remove FTP accounts ---
     try:
         ft = ftpaccount.objects.filter(main=mainusername)
         for ftp_acct in ft:
@@ -5034,7 +5176,7 @@ def _background_terminate_user(domain_str, mainusername, subdomains):
     except Exception as e:
         logger.warning('[terminate] FTP cleanup error for %s: %s', mainusername, e)
 
-    # --- Remove Linux system user (parameterised) ---
+    # --- Remove Linux system user ---
     try:
         get_platform().users.delete_user(mainusername)
     except Exception as e:
@@ -5054,8 +5196,7 @@ def _background_terminate_user(domain_str, mainusername, subdomains):
                     run_command(f'sudo systemctl stop {svc_name} || true')
                     run_command(f'sudo systemctl disable {svc_name} || true')
                     svc_file = f'/etc/systemd/system/{svc_name}.service'
-                    if os.path.exists(svc_file):
-                        os.remove(svc_file)
+                    subprocess.run(['sudo', 'rm', '-f', svc_file], check=False)
                     run_command('sudo systemctl daemon-reload || true')
             except Exception:
                 pass
@@ -5568,8 +5709,8 @@ def updatepanel(request):
             # Backup first
             try:
                 tag = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-                _sp.run(f'cp -r {panel_dir} /var/backups/voidpanel-{tag} 2>/dev/null || true',
-                        shell=True)
+                _sp.run(['cp', '-r', panel_dir, f'/var/backups/voidpanel-{tag}'],
+                        capture_output=True)
             except Exception:
                 pass
 
@@ -5587,8 +5728,8 @@ def updatepanel(request):
                 if target_ver:
                     # Write to /etc/version.txt via sudo (www-data can't write /etc directly)
                     try:
-                        _sp.run(f'echo "{target_ver}" | sudo tee /etc/version.txt > /dev/null',
-                                shell=True, check=False)
+                        _sp.run(['sudo', 'tee', '/etc/version.txt'],
+                                input=target_ver.encode(), check=False, capture_output=True)
                     except Exception:
                         pass
                     # Also write to panel dir (always writable by www-data — reliable fallback)
@@ -6748,7 +6889,7 @@ def ftp12(request):
         except Exception as err:
             return JsonResponse({'status': 'error', 'message': f'Server Error: {str(err)}'}, status=500)
             
-    return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
+    return redirect('/ftpserver/')
 
 
 
@@ -6795,7 +6936,6 @@ def delpackage(request, data):
     return redirect('/package/')
 
 
-@csrf_exempt
 def editpackage(request):
     if not request.user.is_superuser:
         return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
@@ -6919,7 +7059,7 @@ def serverstatus(request):
         d['mysqlstatus']=get_service_status('mysql')
         d['dovecotstatus']=get_service_status('dovecot')
         d['postfixstatus']=get_service_status('postfix')
-        d['dnsstatus']=get_service_status('bind9')
+        d['dnsstatus']=get_service_status(get_dns_service_name())
         d['firewallstatus']=get_service_status('csf')
         return render(request,'panel/serverstatus.html',d)
     else: 
@@ -7075,7 +7215,7 @@ def restart(request):
 @login_required(login_url='/')
 def restartservice(request):
     if request.user.is_superuser and request.method == 'POST':
-         service=['mysql','postfix','dovecot','uwsgi','bind9','csf']
+         service=['mysql','postfix','dovecot','uwsgi',get_dns_service_name(),'csf']
          for i in service:
             restart_service(i)
   
@@ -7404,7 +7544,7 @@ def addpython(request):
         # Fix ownership AFTER script runs: user owns files, www-data group for nginx access
         try:
             import subprocess
-            subprocess.run(['sudo', 'chown', '-R', f'{fre.dir}:www-data', app_dir], check=False)
+            subprocess.run(['sudo', 'chown', '-R', f'{fre.dir}:{get_web_user()}', app_dir], check=False)
             subprocess.run(['sudo', 'chmod', '-R', '750', app_dir], check=False)
             subprocess.run(['sudo', 'chmod', '-R', '755', os.path.join(app_dir, 'static')], check=False)
             # Service file should run as www-data for socket access — fix socket perms
@@ -7559,8 +7699,9 @@ context /static/ {{
         else:
             # Linux: start and enable the systemd service created by createpython.sh
             import subprocess
-            subprocess.run(['sudo', 'systemctl', 'enable', name], check=False)
-            subprocess.run(['sudo', 'systemctl', 'start', name], check=False)
+            service_name = f"app-{fre.dir}-{name}"
+            subprocess.run(['sudo', 'systemctl', 'enable', service_name], check=False)
+            subprocess.run(['sudo', 'systemctl', 'start', service_name], check=False)
 
         try:
             get_platform().services.reload('nginx')
@@ -7737,7 +7878,7 @@ def addmern(request):
                         ['sudo', 'bash', script_path, name, frontend_build, app_dir, _pasport],
                         capture_output=True, text=True, timeout=600
                     )
-                    _sp.run(['sudo', 'chown', '-R', f'{_fre_dir}:www-data', app_dir], check=False)
+                    _sp.run(['sudo', 'chown', '-R', f'{_fre_dir}:{get_web_user()}', app_dir], check=False)
                     _sp.run(['sudo', 'chmod', '-R', '750', app_dir], check=False)
                     _sp.run(['sudo', 'chmod', 'g+ws', app_dir], check=False)
                 else:
@@ -7754,7 +7895,7 @@ def addmern(request):
             compiling_html_path = os.path.join(app_dir, 'compiling.html')
             html_content = "<html><body style=\"font-family:sans-serif;text-align:center;padding:50px;background:#111;color:#fff;\"><h2>Deploying MERN Architecture...</h2><p>Your React environment is currently compiling in the background. It takes approximately 3-4 minutes to download Node dependencies and build the DOM.</p><p>Please refresh this page in a few minutes.</p></body></html>"
             run_command(f"sudo bash -c \"cat << 'EOF' > {shlex.quote(compiling_html_path)}\\n{html_content}\\nEOF\"")
-            run_command(f'sudo chown -R {_fre_dir}:www-data {shlex.quote(app_dir)}')
+            run_command(f'sudo chown -R {_fre_dir}:{get_web_user()} {shlex.quote(app_dir)}')
         except Exception as e:
             import logging
             logging.getLogger(__name__).error(f"Error creating compiling.html: {e}")
@@ -7830,11 +7971,12 @@ def delete_python(request):
                     pass
             else:
                 # Linux: remove systemd service file
-                svc_file = f'/etc/systemd/system/{name}.service'
+                service_name = f"app-{iwefj}-{name}"
+                svc_file = f'/etc/systemd/system/{service_name}.service'
                 if os.path.exists(svc_file):
                     try:
-                        run_command(f'sudo systemctl stop {name}')
-                        run_command(f'sudo systemctl disable {name}')
+                        run_command(f'sudo systemctl stop {service_name}')
+                        run_command(f'sudo systemctl disable {service_name}')
                         os.remove(svc_file)
                         run_command('sudo systemctl daemon-reload')
                     except Exception:
@@ -7885,7 +8027,7 @@ def terminalname(request):
     if persistent_shell is None:
         return JsonResponse({'status': 'error', 'message': 'Terminal not available on this platform.'})
     if request.user.is_superuser:
-                    current=request.session['name']
+                    current=request.session.get('name', request.user.username)
     else:
                     current=str(request.user)
     homedir=os.path.join(paths.HOME_BASE, current+datahold)
@@ -7942,7 +8084,7 @@ def terminalnamenpm(request):
     if persistent_shell is None:
         return JsonResponse({'status': 'error', 'message': 'Terminal not available on this platform.'})
     if request.user.is_superuser:
-                    current=request.session['name']
+                    current=request.session.get('name', request.user.username)
     else:
                     current=str(request.user)
     homedir=os.path.join(paths.HOME_BASE, current+datahold)
@@ -8038,6 +8180,10 @@ def addusermainapi(username,password,domain12,package12):
                if package12 == 'Select':
                     package12='default'
                
+               # Validate domain name to prevent command injection
+               import re as _re_dom
+               if not domain12 or not _re_dom.match(r'^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)+$', domain12):
+                    return False
                
                try:
                     fgf=package.objects.get(name=package12)
@@ -8065,15 +8211,9 @@ def addusermainapi(username,password,domain12,package12):
                    path="/home/"+domainname
                    os.mkdir(path)
                    os.mkdir(path+'/public_html')
-                   _vp_src = os.path.join(paths.PANEL_ROOT, 'voidpanel')
                    _vp_dst = os.path.join(path, 'public_html')
-                   for _item in os.listdir(_vp_src):
-                       _s = os.path.join(_vp_src, _item)
-                       _d = os.path.join(_vp_dst, _item)
-                       if os.path.isdir(_s):
-                           shutil.copytree(_s, _d, dirs_exist_ok=True)
-                       else:
-                           shutil.copy2(_s, _d)
+                   from function import create_default_index_html
+                   create_default_index_html(_vp_dst, domain12)
                    _ln_src = f'{paths.NGINX_SITES_AVAILABLE}/{domain12}.conf'
                    _ln_dst = f'{paths.NGINX_SITES_ENABLED}/'
                    if sys.platform == 'win32':
@@ -8168,7 +8308,7 @@ open_basedir = "/{path}/public_html:/tmp"
                    
                    # Reload/restart all services via platform layer (works on all platforms)
                    _plat = get_platform()
-                   for _svc in ('opendkim', 'bind9', 'postfix', 'nginx'):
+                   for _svc in ('opendkim', get_dns_service_name(), 'postfix', 'nginx'):
                        try:
                            _plat.services.reload(_svc)
                        except Exception:
@@ -8259,12 +8399,12 @@ def copysite(request):
     import subprocess, sys
     if sys.platform != 'win32':
         parent_dir = os.path.dirname(destination)
-        subprocess.run(['sudo', 'chown', f'{unix_user}:www-data', parent_dir], check=False)
+        subprocess.run(['sudo', 'chown', f'{unix_user}:{get_web_user()}', parent_dir], check=False)
         subprocess.run(['sudo', 'chmod', '750', parent_dir], check=False)
 
         # Create destination directory and own it by www-data
         subprocess.run(['sudo', 'mkdir', '-p', destination], check=False)
-        subprocess.run(['sudo', 'chown', '-R', 'www-data:www-data', destination], check=False)
+        subprocess.run(['sudo', 'chown', '-R', f'{get_web_user()}:{get_web_user()}', destination], check=False)
         subprocess.run(['sudo', 'chmod', '-R', '755', destination], check=False)
 
     # Kick off background clone thread
@@ -8274,7 +8414,7 @@ def copysite(request):
             clone_website(target_url, destination)
         finally:
             if sys.platform != 'win32' and unix_user:
-                subprocess.run(['sudo', 'chown', '-R', f'{unix_user}:www-data', destination], check=False)
+                subprocess.run(['sudo', 'chown', '-R', f'{unix_user}:{get_web_user()}', destination], check=False)
                 subprocess.run(['sudo', 'chmod', '-R', '755', destination], check=False)
 
     t = threading.Thread(target=_run_clone, daemon=True)
@@ -8592,7 +8732,6 @@ def api_get_site_config(request):
     })
 
 @login_required(login_url='/')
-@csrf_exempt
 def api_save_site_config(request):
     if not request.user.is_superuser:
          return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
@@ -8620,61 +8759,123 @@ def api_save_site_config(request):
     else:
         return JsonResponse({'status': 'error', 'message': result.error}, status=400)
 
-@csrf_exempt
+@login_required(login_url='/')
 def suspendemail_incoming(request):
-    import shlex
-    if not (request.user.is_superuser or request.user.is_authenticated): return JsonResponse({'error': 'Unauthorized'})
-    email = request.POST.get('email')
-    action = request.POST.get('action') 
-    if not email: return JsonResponse({'error': 'No email'})
-    
+    """Suspend or unsuspend incoming email for an address."""
+    import re, subprocess as _sp
+    if not request.user.is_superuser:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+
+    email = request.POST.get('email', '').strip().lower()
+    action = request.POST.get('action', '')
+    if not email or not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+        return JsonResponse({'error': 'Invalid email'}, status=400)
+
     file_path = "/etc/postfix/vp_suspended_incoming"
-    if action == 'suspend':
-        cmd = f"sudo bash -c 'grep -q \"^{shlex.quote(email)} \" {file_path} || echo \"{shlex.quote(email)} REJECT Incoming messages suspended\" >> {file_path}'"
-    else:
-        cmd = f"sudo sed -i '/^{shlex.quote(email)} /d' {file_path}"
-    run_command(cmd)
-    run_command(f"sudo postmap {file_path}")
+    _update_postfix_map(file_path, email, action == 'suspend', 'Incoming messages suspended')
     return JsonResponse({'status': 'success'})
 
-@csrf_exempt
+@login_required(login_url='/')
 def suspendemail_outgoing(request):
-    import shlex
-    if not (request.user.is_superuser or request.user.is_authenticated): return JsonResponse({'error': 'Unauthorized'})
-    email = request.POST.get('email')
-    action = request.POST.get('action') 
-    if not email: return JsonResponse({'error': 'No email'})
-    
+    """Suspend or unsuspend outgoing email for an address."""
+    import re, subprocess as _sp
+    if not request.user.is_superuser:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+
+    email = request.POST.get('email', '').strip().lower()
+    action = request.POST.get('action', '')
+    if not email or not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+        return JsonResponse({'error': 'Invalid email'}, status=400)
+
     file_path = "/etc/postfix/vp_suspended_outgoing"
-    if action == 'suspend':
-        cmd = f"sudo bash -c 'grep -q \"^{shlex.quote(email)} \" {file_path} || echo \"{shlex.quote(email)} REJECT Outgoing messages suspended\" >> {file_path}'"
-    else:
-        cmd = f"sudo sed -i '/^{shlex.quote(email)} /d' {file_path}"
-    run_command(cmd)
-    run_command(f"sudo postmap {file_path}")
+    _update_postfix_map(file_path, email, action == 'suspend', 'Outgoing messages suspended')
     return JsonResponse({'status': 'success'})
 
-@csrf_exempt
+
+def _update_postfix_map(file_path, email, suspend, reason):
+    """Safely add/remove an email from a Postfix restriction map using file I/O."""
+    import subprocess as _sp, tempfile, os
+
+    # Read existing entries
+    lines = []
+    try:
+        with open(file_path, 'r') as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        pass
+
+    # Filter out existing entry for this email
+    new_lines = [l for l in lines if not l.startswith(f'{email} ')]
+
+    if suspend:
+        new_lines.append(f'{email} REJECT {reason}\n')
+
+    # Write atomically via temp file + sudo mv
+    tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.postfix', delete=False)
+    tmp.writelines(new_lines)
+    tmp.close()
+    _sp.run(['sudo', 'cp', tmp.name, file_path], capture_output=True)
+    _sp.run(['sudo', 'chmod', '644', file_path], capture_output=True)
+    os.unlink(tmp.name)
+    _sp.run(['sudo', 'postmap', file_path], capture_output=True)
+
+
+@login_required(login_url='/')
 def set_email_limit(request):
-    if not (request.user.is_superuser or request.user.is_authenticated): return JsonResponse({'error': 'Unauthorized'})
-    email = request.POST.get('email')
+    """Set or remove per-user email rate limit in the policy daemon's DB."""
+    import re, subprocess as _sp
+    if not request.user.is_superuser:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+
+    email = request.POST.get('email', '').strip().lower()
     limit = request.POST.get('limit')
     limit_type = request.POST.get('type')
-    if not email or not limit: return JsonResponse({'error': 'Invalid parameters'})
-    
-    try: limit_count = int(limit)
-    except: return JsonResponse({'error': 'Limit must be integer'})
-        
+    if not email or not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+        return JsonResponse({'error': 'Invalid email'}, status=400)
+    if not limit:
+        return JsonResponse({'error': 'Invalid parameters'})
+
+    try:
+        limit_count = int(limit)
+    except (TypeError, ValueError):
+        return JsonResponse({'error': 'Limit must be integer'})
+
     timespan = 3600 if limit_type == 'hourly' else 86400
-    
-    # Save/delete user limit in our custom daemon's SQLite database
-    if limit_count > 0:
-        cmd = f"sudo python3 -c \"import sqlite3; conn=sqlite3.connect('/var/lib/voidpanel-mail-policy/rate.db'); conn.execute('CREATE TABLE IF NOT EXISTS user_limits (username TEXT PRIMARY KEY, limit_val INTEGER, timespan INTEGER)'); conn.execute('INSERT OR REPLACE INTO user_limits (username, limit_val, timespan) VALUES (\\\"{email}\\\", {limit_count}, {timespan})'); conn.commit(); conn.close()\""
-    else:
-        cmd = f"sudo python3 -c \"import sqlite3; conn=sqlite3.connect('/var/lib/voidpanel-mail-policy/rate.db'); conn.execute('CREATE TABLE IF NOT EXISTS user_limits (username TEXT PRIMARY KEY, limit_val INTEGER, timespan INTEGER)'); conn.execute('DELETE FROM user_limits WHERE username=\\\"{email}\\\"'); conn.commit(); conn.close()\""
-    
-    run_command(cmd)
+
+    # Use a helper script with parameterised queries to avoid shell/SQL injection
+    db_path = '/var/lib/voidpanel-mail-policy/rate.db'
+    _update_email_rate_limit(db_path, email, limit_count, timespan)
     return JsonResponse({'status': 'success'})
+
+
+def _update_email_rate_limit(db_path, email, limit_count, timespan):
+    """Update email rate limit in SQLite using parameterised queries via a sudo helper."""
+    import subprocess as _sp, tempfile, os, stat
+
+    # Write a tiny Python script that uses parameterised queries
+    script = f'''import sqlite3, sys
+conn = sqlite3.connect("{db_path}")
+conn.execute("CREATE TABLE IF NOT EXISTS user_limits (username TEXT PRIMARY KEY, limit_val INTEGER, timespan INTEGER)")
+if int(sys.argv[3]) > 0:
+    conn.execute("INSERT OR REPLACE INTO user_limits (username, limit_val, timespan) VALUES (?, ?, ?)", (sys.argv[1], int(sys.argv[2]), int(sys.argv[3])))
+else:
+    conn.execute("DELETE FROM user_limits WHERE username=?", (sys.argv[1],))
+conn.commit()
+conn.close()
+'''
+    tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False)
+    tmp.write(script)
+    tmp.close()
+    os.chmod(tmp.name, stat.S_IRUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IROTH)
+    _sp.run(['sudo', 'python3', tmp.name, email, str(limit_count), str(limit_count if limit_count > 0 else 0)],
+            capture_output=True, timeout=10)
+    os.unlink(tmp.name)
 
 # ─── Restore / Migration Functions ───────────────────────────────────────────
 
@@ -8692,7 +8893,6 @@ def restore_wizard(request):
     return render(request, 'panel/restore.html', d)
 
 @login_required(login_url='/')
-@csrf_exempt
 def process_restore(request):
     """Handle incoming request to process a backup."""
     if not request.user.is_superuser:
@@ -8824,31 +9024,30 @@ def toggle_shell_access(request):
 
     # Update system shell (Linux only)
     if sys.platform != 'win32':
+        import subprocess as _sp
         if enable:
-            os.system(f'sudo usermod -s /bin/bash {username}')
+            _sp.run(['sudo', 'usermod', '-s', '/bin/bash', username])
             # Secure home directory permissions and ownership when shell is enabled
             home_dir = f'/home/{username}'
             if os.path.exists(home_dir):
-                os.system(f'sudo chown -R {username}:www-data {home_dir}')
-                os.system(f'sudo chmod 751 {home_dir}')
-                os.system(f'sudo find {home_dir} -type d -exec chmod 750 {{}} +')
-                os.system(f'sudo find {home_dir} -type f -exec chmod 640 {{}} +')
+                _sp.run(['sudo', 'chown', '-R', f'{username}:{get_web_user()}', home_dir])
+                _sp.run(['sudo', 'chmod', '751', home_dir])
+                _sp.run(['sudo', 'find', home_dir, '-type', 'd', '-exec', 'chmod', '750', '{}', '+'])
+                _sp.run(['sudo', 'find', home_dir, '-type', 'f', '-exec', 'chmod', '640', '{}', '+'])
                 # Explicitly allow www-data to write to the logs directory and files inside it
                 logs_dir = f'{home_dir}/logs'
-                os.system(f'sudo chmod 770 {logs_dir}')
-                os.system(f'sudo find {logs_dir} -type f -exec chmod 660 {{}} +')
+                _sp.run(['sudo', 'chmod', '770', logs_dir])
+                _sp.run(['sudo', 'find', logs_dir, '-type', 'f', '-exec', 'chmod', '660', '{}', '+'])
                 for bash_file in ('.bashrc', '.profile', '.bash_profile', '.bash_logout'):
                     bpath = os.path.join(home_dir, bash_file)
                     if os.path.exists(bpath):
-                        os.system(f'sudo chmod 644 {bpath}')
+                        _sp.run(['sudo', 'chmod', '644', bpath])
         else:
-            os.system(f'sudo usermod -s /bin/false {username}')
+            _sp.run(['sudo', 'usermod', '-s', '/bin/false', username])
 
     action = 'enabled' if enable else 'revoked'
     return JsonResponse({'status': 'success', 'message': f'Shell access {action} for {username}.'})
 
-# ── Nginx Cache Toggle API ──────────────────────────────────────────────────
-@csrf_exempt
 @login_required(login_url='/')
 def api_nginx_cache_status(request):
     """Return whether Nginx browser caching is enabled for a domain."""
@@ -8876,7 +9075,6 @@ def api_nginx_cache_status(request):
     return JsonResponse({'status': 'success', 'enabled': enabled, 'engine': engine})
 
 
-@csrf_exempt
 @login_required(login_url='/')
 def api_nginx_cache_toggle(request):
     """Enable or disable Nginx browser caching for a domain."""
@@ -8985,7 +9183,6 @@ def support_page(request):
     return render(request, 'panel/support.html')
 
 @login_required(login_url='/')
-@csrf_exempt
 def api_ticket_create(request):
     """POST /api/tickets/create/ (Proxies to voidpanel.com)"""
     if not request.user.is_superuser:
@@ -9105,7 +9302,6 @@ def api_ticket_detail(request, ticket_id):
 
 
 @login_required(login_url='/')
-@csrf_exempt
 def api_ticket_reply(request, ticket_id):
     """POST /api/tickets/<ticket_id>/reply/ — proxies to voidpanel.com"""
     if not request.user.is_superuser:
@@ -9232,98 +9428,153 @@ def activate_panel(request):
 def email_services_admin(request):
     """
     GET /email-services/
-    Superadmin-only page to view all professional email hosting services
-    purchased through the website portal. Shows domain, status, mailbox count,
-    and a quick-action to manually provision/re-provision if auto-provision failed.
+    Superadmin-only page to view all email accounts and domains managed
+    by this VoidPanel server. Shows per-domain stats, mailbox counts,
+    and quick actions (delete, change password).
+
+    Dual-mode:
+      • If the `data` app is installed and EmailService table exists,
+        shows portal-provisioned email services (fresh installs).
+      • Otherwise falls back to control.models.allemail which tracks
+        server-level mailboxes (existing servers).
     """
     if not request.user.is_superuser:
         return redirect('/')
 
-    # Handle manual re-provision POST
+    from control.models import allemail, domain as DomainModel
+    from collections import defaultdict
+
+    # ── Detect whether data.models.EmailService is available ──
+    _has_email_service = False
+    try:
+        from data.models import EmailService
+        from django.db import connection
+        table_names = connection.introspection.table_names()
+        if 'data_emailservice' in table_names:
+            _has_email_service = True
+    except Exception:
+        pass
+
+    # ── Handle POST actions ──
     if request.method == 'POST':
         action = request.POST.get('action', '')
-        svc_id = request.POST.get('service_id', '')
 
-        if action == 'reprovision' and svc_id:
-            try:
-                from data.models import EmailService
-                svc = EmailService.objects.get(pk=svc_id)
-                # Create the mailbox on the server via API
-                import requests as _rq, secrets as _sec
-                if svc.server:
-                    primary_email = f'admin@{svc.domain}'
-                    existing_pw = None
-                    try:
-                        from data.models import EmailMailbox
-                        mb = EmailMailbox.objects.filter(service=svc).first()
-                        if mb:
-                            existing_pw = mb.password
-                    except Exception:
-                        pass
-
-                    primary_pass = existing_pw or _sec.token_urlsafe(12)
-                    try:
-                        resp = _rq.post(
-                            f'{svc.server.url.rstrip("/")}/api/v2/email/create/',
-                            json={'domain': svc.domain, 'email': primary_email, 'password': primary_pass},
-                            headers={'X-API-Token': svc.server.api_key},
-                            timeout=15,
-                        )
-                        data = resp.json()
-                        if data.get('status') == 'success':
-                            svc.status = 'active'
-                            svc.save(update_fields=['status'])
-                            from control.models import allemail
-                            allemail.objects.get_or_create(
-                                email=primary_email, domain=svc.domain,
-                                defaults={'password': primary_pass},
-                            )
-                            from django.contrib import messages as _msgs
-                            _msgs.success(request, f'✅ Email service for {svc.domain} provisioned successfully.')
-                        else:
-                            from django.contrib import messages as _msgs
-                            _msgs.error(request, f'❌ API error: {data.get("message", "unknown")}')
-                    except Exception as exc:
-                        from django.contrib import messages as _msgs
-                        _msgs.error(request, f'❌ Provision failed: {exc}')
-                else:
+        if action == 'delete':
+            email_addr = request.POST.get('email', '')
+            if email_addr:
+                try:
+                    obj = allemail.objects.get(email=email_addr)
+                    obj.delete()
                     from django.contrib import messages as _msgs
-                    _msgs.error(request, '❌ No server assigned to this email service.')
-            except Exception as exc:
-                from django.contrib import messages as _msgs
-                _msgs.error(request, f'❌ Service not found: {exc}')
+                    _msgs.success(request, f'✅ Mailbox {email_addr} deleted successfully.')
+                except allemail.DoesNotExist:
+                    from django.contrib import messages as _msgs
+                    _msgs.error(request, f'❌ Mailbox {email_addr} not found.')
+                except Exception as exc:
+                    from django.contrib import messages as _msgs
+                    _msgs.error(request, f'❌ Error: {exc}')
 
-        elif action == 'terminate' and svc_id:
-            try:
-                from data.models import EmailService
-                svc = EmailService.objects.get(pk=svc_id)
-                svc.status = 'terminated'
-                svc.save(update_fields=['status'])
-                from django.contrib import messages as _msgs
-                _msgs.success(request, f'Email service for {svc.domain} marked as terminated.')
-            except Exception as exc:
-                from django.contrib import messages as _msgs
-                _msgs.error(request, f'Error: {exc}')
+        elif action == 'reprovision' and _has_email_service:
+            svc_id = request.POST.get('service_id', '')
+            if svc_id:
+                try:
+                    import requests as _rq, secrets as _sec
+                    svc = EmailService.objects.get(pk=svc_id)
+                    if svc.server:
+                        primary_email = f'admin@{svc.domain}'
+                        primary_pass = _sec.token_urlsafe(12)
+                        try:
+                            resp = _rq.post(
+                                f'{svc.server.url.rstrip("/")}/api/v2/email/create/',
+                                json={'domain': svc.domain, 'email': primary_email, 'password': primary_pass},
+                                headers={'X-API-Token': svc.server.api_key},
+                                timeout=15,
+                            )
+                            data = resp.json()
+                            if data.get('status') == 'success':
+                                svc.status = 'active'
+                                svc.save(update_fields=['status'])
+                                import base64
+                                allemail.objects.get_or_create(
+                                    email=primary_email, domain=svc.domain,
+                                    defaults={'password': base64.b64encode(primary_pass.encode('utf-8')).decode('utf-8')},
+                                )
+                                from django.contrib import messages as _msgs
+                                _msgs.success(request, f'✅ Email service for {svc.domain} provisioned successfully.')
+                            else:
+                                from django.contrib import messages as _msgs
+                                _msgs.error(request, f'❌ API error: {data.get("message", "unknown")}')
+                        except Exception as exc:
+                            from django.contrib import messages as _msgs
+                            _msgs.error(request, f'❌ Provision failed: {exc}')
+                    else:
+                        from django.contrib import messages as _msgs
+                        _msgs.error(request, '❌ No server assigned to this email service.')
+                except Exception as exc:
+                    from django.contrib import messages as _msgs
+                    _msgs.error(request, f'❌ Service not found: {exc}')
+
+        elif action == 'terminate' and _has_email_service:
+            svc_id = request.POST.get('service_id', '')
+            if svc_id:
+                try:
+                    svc = EmailService.objects.get(pk=svc_id)
+                    svc.status = 'terminated'
+                    svc.save(update_fields=['status'])
+                    from django.contrib import messages as _msgs
+                    _msgs.success(request, f'Email service for {svc.domain} marked as terminated.')
+                except Exception as exc:
+                    from django.contrib import messages as _msgs
+                    _msgs.error(request, f'Error: {exc}')
 
         return redirect('/email-services/')
 
-    # Fetch all email services
-    try:
-        from data.models import EmailService
-        email_services = EmailService.objects.select_related('user', 'plan', 'server').order_by('-created_at')
-    except Exception:
-        email_services = []
+    # ── Build context ──
+    # Portal email services (if available)
+    email_services = []
+    email_svc_stats = {'total': 0, 'active': 0, 'pending': 0, 'failed': 0}
+    if _has_email_service:
+        try:
+            email_services = EmailService.objects.select_related('user', 'server').order_by('-created_at')
+            email_svc_stats = {
+                'total':   email_services.count(),
+                'active':  email_services.filter(status='active').count(),
+                'pending': email_services.filter(status='pending').count(),
+                'failed':  email_services.filter(status='failed').count(),
+            }
+        except Exception:
+            email_services = []
+
+    # Server-level mailboxes (always available)
+    all_emails = allemail.objects.all().order_by('domain', 'email')
+    all_domains = DomainModel.objects.all()
+
+    domain_emails = defaultdict(list)
+    for em in all_emails:
+        domain_emails[em.domain].append(em)
+
+    domain_groups = []
+    for dom_name in sorted(domain_emails.keys()):
+        emails = domain_emails[dom_name]
+        domain_groups.append({
+            'domain': dom_name,
+            'emails': emails,
+            'count': len(emails),
+        })
 
     stats = {
-        'total':      len(email_services) if hasattr(email_services, '__len__') else (email_services.count() if hasattr(email_services, 'count') else 0),
-        'active':     email_services.filter(status='active').count() if hasattr(email_services, 'filter') else 0,
-        'pending':    email_services.filter(status='pending').count() if hasattr(email_services, 'filter') else 0,
-        'failed':     email_services.filter(status='failed').count() if hasattr(email_services, 'filter') else 0,
+        'total_emails':      all_emails.count(),
+        'total_domains':     len(domain_groups),
+        'all_domains_count': all_domains.count() if hasattr(all_domains, 'count') else 0,
     }
 
     return render(request, 'panel/email_services_admin.html', {
-        'email_services': email_services,
-        'stats': stats,
+        'domain_groups':    domain_groups,
+        'all_emails':       all_emails,
+        'stats':            stats,
+        'has_email_service': _has_email_service,
+        'email_services':   email_services,
+        'email_svc_stats':  email_svc_stats,
     })
 
 
@@ -9346,7 +9597,6 @@ def api_tokens_page(request):
 
 
 @login_required(login_url='/')
-@csrf_exempt
 def api_token_create(request):
     """
     POST /api-tokens/create/
@@ -9394,7 +9644,6 @@ def api_token_create(request):
 
 
 @login_required(login_url='/')
-@csrf_exempt
 def api_token_revoke(request, token_id):
     """
     POST /api-tokens/revoke/<id>/

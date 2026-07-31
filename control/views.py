@@ -190,8 +190,8 @@ def chstorageftp(request):
             dddd=usewe.domain
         except:
              if request.user.is_superuser:
-                usewe=user.objects.get(username=request.session['name'])
-                curren=request.session['name']
+                usewe=user.objects.get(username=request.session.get('name', request.user.username))
+                curren=request.session.get('name', request.user.username)
                 dddd=usewe.domain
              else:
                 return JsonResponse({'status': 'error', 'error': 'Unauthorized'}, status=403)
@@ -225,8 +225,8 @@ def chpasswordftp(request):
             dddd=usewe.domain
         except:
              if request.user.is_superuser:
-                usewe=user.objects.get(username=request.session['name'])
-                curren=request.session['name']
+                usewe=user.objects.get(username=request.session.get('name', request.user.username))
+                curren=request.session.get('name', request.user.username)
                 dddd=usewe.domain
              else:
                 return JsonResponse({'status': 'error', 'error': 'Unauthorized'}, status=403)
@@ -270,8 +270,8 @@ def ftpadd(request):
             dddd=usewe.domain
         except:
              if request.user.is_superuser:
-                usewe=user.objects.get(username=request.session['name'])
-                curren=request.session['name']
+                usewe=user.objects.get(username=request.session.get('name', request.user.username))
+                curren=request.session.get('name', request.user.username)
                 dddd=usewe.domain
                   
              
@@ -348,7 +348,7 @@ def ftp122(request,data):
 
 
     if request.user.is_superuser:
-        current=request.session['name']
+        current=request.session.get('name', request.user.username)
     else:
         current=request.user
     try:
@@ -358,7 +358,8 @@ def ftp122(request,data):
     except Exception:
         adminpassword = ''
    
-    if data == user.objects.get(username=current).domain:
+    u = user.objects.filter(username=current).first()
+    if u and (request.user.is_superuser or data == u.domain):
                 d={}
                 d.update(get_user_dashboard_context(current, adminpassword))
         
@@ -367,11 +368,14 @@ def ftp122(request,data):
                     d['ftp']=ftpaccount.objects.filter(main=lold.dir)
                     d['domain']=lold.domain
                     d['dir']=lold.dir
-                    url = getattr(settings, 'VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com') + '/clientdocs/'  # Replace with your API URL
-                    response = requests.get(url, timeout=2)
-                    if response.status_code == 200:
-                        dataee = response.json()  # Parse the JSON response
-                        d['docs']=dataee
+                    try:
+                        url = getattr(settings, 'VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com') + '/clientdocs/'
+                        response = requests.get(url, timeout=2)
+                        if response.status_code == 200:
+                            dataee = response.json()
+                            d['docs']=dataee
+                    except Exception:
+                        pass
                    
                  
                     return render(request,'control/ftp.html',d)
@@ -385,7 +389,7 @@ def ftp122(request,data):
 def deleteftp(request,data):
 
     if request.user.is_superuser:
-        current=request.session['name']
+        current=request.session.get('name', request.user.username)
     else:
         current=request.user
     loo=ftpaccount.objects.get(username=data).main
@@ -609,7 +613,8 @@ def dbconnect(request, data):
     else:
         current = request.user
 
-    if data == user.objects.get(username=current).domain:
+    u = user.objects.filter(username=current).first()
+    if u and (request.user.is_superuser or data == u.domain):
         d = {}
         d.update(get_user_dashboard_context(current, adminpassword))
         d['totaldb'] = int(safe_get_package(user.objects.get(username=current).hosting_package).databases_allowed)
@@ -645,7 +650,8 @@ def fulldbwizard(request, data):
     else:
         current = request.user
 
-    if data == user.objects.get(username=current).domain:
+    u = user.objects.filter(username=current).first()
+    if u and (request.user.is_superuser or data == u.domain):
         d = {}
         d.update(get_user_dashboard_context(current, adminpassword))
         
@@ -692,11 +698,12 @@ def addredirect(request,data):
         adminpassword = ''
    
     if request.user.is_superuser:
-        current=request.session['name']
+        current=request.session.get('name', request.user.username)
     else:
         current=request.user
    
-    if data == user.objects.get(username=current).domain:
+    u = user.objects.filter(username=current).first()
+    if u and (request.user.is_superuser or data == u.domain):
                 d={}
                 d.update(get_user_dashboard_context(current, adminpassword))
                 d['totaldb']=int(safe_get_package(user.objects.get(username=current).hosting_package).databases_allowed)
@@ -734,11 +741,13 @@ def subdomain(request,data):
         adminpassword = ''
    
     if request.user.is_superuser:
-        current=request.session['name']
+        current=request.session.get('name', request.user.username)
     else:
         current=request.user
    
-    if data == user.objects.get(username=current).domain:
+    # Superusers can view any domain's subdomains (admin impersonation)
+    u = user.objects.filter(username=current).first()
+    if u and (request.user.is_superuser or data == u.domain):
                 d={}
                 d.update(get_user_dashboard_context(current, adminpassword))
 
@@ -868,12 +877,30 @@ def listemail(request,data):
         adminpassword = ''
     import subprocess
     if request.user.is_superuser:
-        current=request.session['name']
+        current=request.session.get('name', request.user.username)
     else:
         current=request.user
    
-   
-    if data == user.objects.get(username=current).domain:
+    # Resolve the user's primary domain — try by username first, then by domain ownership
+    user_domain = None
+    try:
+        user_domain = user.objects.get(username=current).domain
+    except user.DoesNotExist:
+        # Fallback: the logged-in user might not match control.models.user username
+        # (e.g., SSO autologin creates auth user but control user has different name)
+        try:
+            from control.models import domain as DomainModel
+            dom_obj = DomainModel.objects.get(domain=data)
+            ctrl_user = user.objects.get(username=dom_obj.dir)
+            user_domain = ctrl_user.domain
+            current = ctrl_user.username
+        except Exception:
+            pass
+    
+    if not user_domain:
+        return redirect('/')
+    
+    if data == user_domain:
            d={}
            emaildetail=[]
            try: 
@@ -1013,13 +1040,18 @@ def listemail(request,data):
                d['server_ip'] = get_server_ip()
                d['roundcube_url'] = f"https://{hostname}:9002"
                
-               url = getattr(settings, 'VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com') + '/clientdocs/'  # Replace with your API URL
-               response = requests.get(url, timeout=2)
-               if response.status_code == 200:
-                        dataee = response.json()  # Parse the JSON response
+               try:
+                   url = getattr(settings, 'VOIDPANEL_WEBSITE_URL', 'https://voidpanel.com') + '/clientdocs/'
+                   response = requests.get(url, timeout=2)
+                   if response.status_code == 200:
+                        dataee = response.json()
                         d['docs']=dataee
+               except Exception:
+                   pass  # External docs API failure should not block email listing
                return render(request,'control/listemail.html',d)
-           except:
+           except Exception as _e:
+               import traceback, logging
+               logging.getLogger('voidpanel').error(f'listemail error for {data}: {_e}\n{traceback.format_exc()}')
                return redirect('/')
     else: 
         return redirect('/')
@@ -1034,11 +1066,12 @@ def email_analysis(request, data):
         adminpassword = ''
     
     if request.user.is_superuser:
-        current = request.session['name']
+        current = request.session.get('name', request.user.username)
     else:
         current = request.user
     
-    if data == user.objects.get(username=current).domain:
+    u = user.objects.filter(username=current).first()
+    if u and (request.user.is_superuser or data == u.domain):
         d = {}
         email_stats = []
         try:
@@ -1133,7 +1166,7 @@ def email_delivery_report(request, email):
         adminpassword = ''
         
     if request.user.is_superuser:
-        current = request.session['name']
+        current = request.session.get('name', request.user.username)
     else:
         current = request.user
         
@@ -1232,7 +1265,6 @@ def email_delivery_report(request, email):
     return render(request, 'control/email_delivery_report.html', d)
 
 
-@csrf_exempt
 @login_required(login_url='/')
 def api_email_delivery_report(request):
     """AJAX endpoint for returning detailed email delivery logs for a given email address"""
@@ -1343,11 +1375,12 @@ def backup(request,data):
     import glob
     import os
     if request.user.is_superuser:
-        current=request.session['name']
+        current=request.session.get('name', request.user.username)
     else:
         current=request.user
     
-    if data == user.objects.get(username=current).domain:
+    u = user.objects.filter(username=current).first()
+    if u and (request.user.is_superuser or data == u.domain):
                 
                 d={}
                 d.update(get_user_dashboard_context(current, adminpassword))
@@ -1410,7 +1443,7 @@ def delete_backup(request):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Invalid method'})
     if request.user.is_superuser:
-        current = request.session['name']
+        current = request.session.get('name', request.user.username)
     else:
         current = request.user
 
@@ -1449,7 +1482,7 @@ def delete_backup(request):
 @login_required(login_url='/')
 def download_backup(request, filename):
     if request.user.is_superuser:
-        current = request.session['name']
+        current = request.session.get('name', request.user.username)
     else:
         current = request.user
 
@@ -2010,7 +2043,7 @@ def runsslfordoamin(request):
 @login_required(login_url='/')
 def runsslfordoamin1(request):
     if request.user.is_superuser:
-        current = request.session['name']
+        current = request.session.get('name', request.user.username)
     else:
         current = request.user
         
@@ -2044,11 +2077,12 @@ def cronn(request,data):
         adminpassword = ""
 
     if request.user.is_superuser:
-        current=request.session['name']
+        current=request.session.get('name', request.user.username)
     else:
         current=request.user
    
-    if data == user.objects.get(username=current).domain:
+    u = user.objects.filter(username=current).first()
+    if u and (request.user.is_superuser or data == u.domain):
         d={}
         d.update(get_user_dashboard_context(current, adminpassword))
         try:
@@ -2089,7 +2123,7 @@ def cronn(request,data):
 @login_required(login_url='/')
 def deletecron(request,data):
     if request.user.is_superuser:
-        current=request.session['name']
+        current=request.session.get('name', request.user.username)
     else:
         current=request.user
         
@@ -2133,7 +2167,7 @@ def _get_backup_store(username):
 @login_required(login_url='/')
 def backupdata(request):
     if request.user.is_superuser:
-        current=request.session['name']
+        current=request.session.get('name', request.user.username)
     else:
         current=request.user
     
@@ -2252,7 +2286,7 @@ def backupdata(request):
 @login_required(login_url='/')
 def backup_status(request, data):
     if request.user.is_superuser:
-        current = request.session['name']
+        current = request.session.get('name', request.user.username)
     else:
         current = request.user
         
@@ -2359,7 +2393,7 @@ def filemanager(request):
 @login_required(login_url='/')
 def upload_files(request,file_path):
            if request.user.is_superuser:
-                current=request.session['name']
+                current=request.session.get('name', request.user.username)
            else:
                 current=request.user
    
@@ -2404,7 +2438,7 @@ def domainterminal(request):
         from control.models import user as control_user, package
         
         if request.user.is_superuser:
-                    current=request.session['name']
+                    current=request.session.get('name', request.user.username)
         else:
                     current=request.user.username
         
@@ -2437,7 +2471,7 @@ def domainterminal(request):
 @login_required(login_url='/')
 def setpython(request, data):
     if request.user.is_superuser:
-        current = request.session['name']
+        current = request.session.get('name', request.user.username)
     else:
         current = request.user.username
 
@@ -2470,7 +2504,7 @@ def setpython(request, data):
 @login_required(login_url='/')
 def createpython(request, data):
     if request.user.is_superuser:
-        current = request.session['name']
+        current = request.session.get('name', request.user.username)
     else:
         current = request.user.username
 
@@ -2503,7 +2537,7 @@ def createpython(request, data):
 @login_required(login_url='/')
 def setmern(request, data):
     if request.user.is_superuser:
-        current = request.session['name']
+        current = request.session.get('name', request.user.username)
     else:
         current = request.user.username
 
@@ -2536,7 +2570,7 @@ def setmern(request, data):
 @login_required(login_url='/')
 def createmern(request, data):
     if request.user.is_superuser:
-        current = request.session['name']
+        current = request.session.get('name', request.user.username)
     else:
         current = request.user.username
 
@@ -2607,11 +2641,16 @@ def roundcube_login(request, email):
             return HttpResponse("Unauthorized.", status=403)
 
     # ── Decode stored password ─────────────────────────────────────────────────
+    stored_pw = email_obj.password or ''
     try:
-        password = base64.b64decode(email_obj.password.encode()).decode('utf-8')
+        password = base64.b64decode(stored_pw.encode()).decode('utf-8')
     except Exception:
+        # Password is stored as plaintext (not base64-encoded)
+        password = stored_pw
+
+    if not password:
         return HttpResponse(
-            "Cannot decode credentials — please reset the email password.",
+            "No password stored for this email account — please reset the email password.",
             status=500
         )
 
@@ -2912,7 +2951,6 @@ def user_api_get_site_config(request):
     })
 
 @login_required(login_url='/login')
-@csrf_exempt
 def user_api_save_site_config(request):
     try:
         if request.user.is_superuser:
@@ -2974,7 +3012,6 @@ def activitylog_control(request, data):
 
 
 @login_required(login_url="/")
-@csrf_exempt
 def deleteemail_control(request, data):
     """Delete an email account – user-portal route.
     
@@ -3269,7 +3306,6 @@ def app_installer(request, domain=None):
 
 
 @login_required(login_url='/')
-@csrf_exempt
 def app_installer_install(request):
     """
     POST endpoint: validate the form, create an InstalledScript record,
@@ -3386,7 +3422,6 @@ def app_installer_status(request, record_id):
 
 
 @login_required(login_url='/')
-@csrf_exempt
 def app_installer_delete(request, record_id):
     """POST endpoint: uninstall (remove) an installed script."""
     if request.method != 'POST':
@@ -7614,9 +7649,14 @@ def seo_suite_home(request, domain):
     return render(request, 'control/seo_suite.html', context)
 
 
-@login_required(login_url='/login')
+@csrf_exempt
 def seo_suite_analyze(request, domain):
     """Perform domain SEO audits and backlinks/keywords check utilizing Common Crawl index."""
+    # Allow both Django-authenticated users and suite session users
+    is_django_auth = getattr(request.user, 'is_authenticated', False)
+    is_suite_auth = bool(request.session.get('suite_user'))
+    if not is_django_auth and not is_suite_auth:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
     import json
@@ -7627,18 +7667,26 @@ def seo_suite_analyze(request, domain):
         if not target_domain:
             return JsonResponse({'error': 'Domain name is required.'}, status=400)
         result = analyze_domain_seo(target_domain)
+        # Handle validation errors from the engine
+        if result.get('valid') is False:
+            return JsonResponse({'error': result['error']}, status=400)
         return JsonResponse({'status': 'success', 'data': result})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
 
-@login_required(login_url='/login')
+@csrf_exempt
 def seo_competitor_battle(request, domain):
     """
     Head-to-head competitor battle analysis.
     Compares your page vs a competitor page and returns actionable outranking tips.
     POST body: { "your_url": "...", "competitor_url": "..." }
     """
+    # Allow both Django-authenticated users and suite session users
+    is_django_auth = getattr(request.user, 'is_authenticated', False)
+    is_suite_auth = bool(request.session.get('suite_user'))
+    if not is_django_auth and not is_suite_auth:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
     import json
@@ -8713,5 +8761,66 @@ def suite_api_toggle_status(request):
     sub.is_active = is_active
     sub.save(update_fields=['is_active'])
     return JsonResponse({'ok': True, 'email': email, 'is_active': is_active})
+
+
+@login_required(login_url='/')
+def changeemailpassword(request):
+    """Change password for an email account (Dovecot + DB)."""
+    import base64
+    if not (request.user.is_superuser or request.user.is_authenticated):
+        return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+
+    password = request.POST.get('password', '').strip()
+    domain_name = request.POST.get('domain', '').strip().lower()
+    email = request.POST.get('emailname', '').strip().lower()
+
+    if not password or not email:
+        return JsonResponse({'status': 'error', 'message': 'Email and password are required'})
+
+    try:
+        if sys.platform != 'win32':
+            # Generate SHA512-CRYPT hash for Dovecot
+            result = subprocess.run(
+                ['doveadm', 'pw', '-s', 'SHA512-CRYPT', '-p', password],
+                capture_output=True, text=True, timeout=10
+            )
+            hashed = result.stdout.strip()
+
+            if not hashed:
+                return JsonResponse({'status': 'error', 'message': 'Failed to generate password hash'})
+
+            # Update /etc/dovecot/users (the ACTUAL passdb used by Dovecot)
+            dovecot_users = '/etc/dovecot/users'
+            if os.path.exists(dovecot_users):
+                with open(dovecot_users, 'r') as f:
+                    lines = f.readlines()
+                found = False
+                with open(dovecot_users, 'w') as f:
+                    for line in lines:
+                        if line.startswith(email + ':'):
+                            parts = line.strip().split(':')
+                            rest = ':'.join(parts[2:]) if len(parts) > 2 else '5000:5000::'
+                            f.write(f'{email}:{hashed}:{rest}\n')
+                            found = True
+                        else:
+                            f.write(line)
+                if found:
+                    subprocess.run(['systemctl', 'reload', 'dovecot'],
+                                   capture_output=True, check=False, timeout=10)
+
+        # Update database (base64 encoded for autologin)
+        password_b64 = base64.b64encode(password.encode('utf-8')).decode('utf-8')
+        email_obj = allemail.objects.get(email=email)
+        email_obj.password = password_b64
+        email_obj.save()
+        return JsonResponse({'status': 'success', 'message': 'Password updated successfully'})
+
+    except allemail.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': f'Email account {email} not found in database'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': f'Failed to update password: {str(e)}'})
 
 
