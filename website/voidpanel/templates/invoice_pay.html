@@ -225,6 +225,22 @@
                 </div>
                 {% endif %}
 
+                <!-- ── Promo Code ── -->
+                <div id="promoSection" style="background:rgba(139,92,246,0.06); border:1px solid rgba(139,92,246,0.2); border-radius:16px; padding:18px; margin-bottom:18px;">
+                    <div style="font-weight:800;color:#a78bfa;margin-bottom:12px;font-size:0.9rem;display:flex;align-items:center;gap:8px;">
+                        <i class="fas fa-tag"></i> Have a Promo Code?
+                    </div>
+                    <div style="display:flex;gap:8px;" id="promoInputRow">
+                        <input type="text" id="promoCodeInput" placeholder="Enter code" maxlength="30"
+                            style="flex:1;padding:10px 14px;border-radius:10px;border:1px solid rgba(139,92,246,0.3);background:rgba(255,255,255,0.04);color:var(--text-primary);font-size:0.88rem;font-weight:700;text-transform:uppercase;outline:none;">
+                        <button type="button" id="promoApplyBtn" onclick="applyPromoCode()"
+                            style="padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;font-weight:700;font-size:0.85rem;cursor:pointer;white-space:nowrap;">
+                            Apply
+                        </button>
+                    </div>
+                    <div id="promoResult" style="margin-top:10px;display:none;"></div>
+                </div>
+
                 {% if razorpay_on %}
                 <!-- ── Razorpay Checkout ── -->
                 <!-- Provisioning Error Banner (shown by JS if account creation fails after payment) -->
@@ -468,6 +484,69 @@ function getCookie(name) {
     let v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
     return v ? v.pop() : '';
 }
+
+async function applyPromoCode() {
+    const input = document.getElementById('promoCodeInput');
+    const btn = document.getElementById('promoApplyBtn');
+    const result = document.getElementById('promoResult');
+    const code = input.value.trim().toUpperCase();
+
+    if (!code) {
+        result.style.display = 'block';
+        result.innerHTML = '<div style="color:#f87171;font-size:0.82rem;font-weight:600;"><i class="fas fa-exclamation-circle"></i> Please enter a coupon code</div>';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Applying...';
+    result.style.display = 'none';
+
+    try {
+        const res = await fetch('/api/invoice/' + INVOICE_ID + '/apply-coupon/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify({ code: code }),
+        });
+        const data = await res.json();
+
+        if (data.error) {
+            result.style.display = 'block';
+            result.innerHTML = '<div style="color:#f87171;font-size:0.82rem;font-weight:600;"><i class="fas fa-exclamation-circle"></i> ' + data.error + '</div>';
+            btn.disabled = false;
+            btn.textContent = 'Apply';
+            return;
+        }
+
+        // Success — show discount and reload page
+        result.style.display = 'block';
+        result.innerHTML = '<div style="color:#4ade80;font-size:0.85rem;font-weight:700;padding:10px;background:rgba(74,222,128,0.08);border-radius:10px;">' +
+            '<i class="fas fa-check-circle"></i> Coupon <strong>' + data.coupon_code + '</strong> applied! ' +
+            '<span style="text-decoration:line-through;color:#94a3b8;">₹' + data.original_total + '</span> → ' +
+            '<strong style="color:#4ade80;">₹' + data.new_total + '</strong> ' +
+            '(-' + data.discount_label + ')' +
+            '</div>';
+
+        // Hide input row after success
+        document.getElementById('promoInputRow').style.display = 'none';
+
+        // Reload page after 2s to update all payment buttons
+        setTimeout(() => { window.location.reload(); }, 2000);
+
+    } catch(e) {
+        result.style.display = 'block';
+        result.innerHTML = '<div style="color:#f87171;font-size:0.82rem;font-weight:600;"><i class="fas fa-exclamation-circle"></i> Network error. Please try again.</div>';
+        btn.disabled = false;
+        btn.textContent = 'Apply';
+    }
+}
+
+// Enter key to apply promo
+document.getElementById('promoCodeInput')?.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); applyPromoCode(); }
+});
 </script>
 </body>
 </html>

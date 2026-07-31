@@ -77,8 +77,51 @@ class Command(BaseCommand):
         except Exception as exc:
             self.stdout.write(self.style.WARNING(f'    ⚠ Could not create license record: {exc}'))
 
-        # ── 4. Print activation URL ──────────────────────────────────────────
-        self.stdout.write(self.style.MIGRATE_HEADING('\n[4/4] Setup complete!\n'))
+        # ── 4. Seed default hosting packages ─────────────────────────────────
+        self.stdout.write(self.style.MIGRATE_HEADING('\n[4/5] Seeding hosting packages...'))
+        try:
+            from control.models import package
+            packages = [
+                # Shared Hosting
+                ('Starter', '10', '5', '5', '100', '5', '3', True, 'starter', False, '', False, ''),
+                ('Pro', '30', '20', '20', '300', '20', '10', True, 'growth', True, 'lite', True, 'starter'),
+                ('Business', '100', '100', '100', '1000', '100', '50', True, 'agency', True, 'standard', True, 'pro'),
+                # WordPress Hosting
+                ('WordPress Starter', '15', '5', '5', '150', '5', '3', True, 'starter', False, '', False, ''),
+                ('WordPress Pro', '50', '20', '20', '500', '20', '10', True, 'growth', True, 'lite', True, 'starter'),
+                ('WordPress Enterprise', '150', '50', '50', '1500', '50', '30', True, 'agency', True, 'standard', True, 'pro'),
+                # Reseller Hosting
+                ('Reseller Starter', '50', '100', '100', '500', '100', '50', True, 'growth', True, 'lite', True, 'starter'),
+                ('Reseller Pro', '150', '9999', '9999', '1500', '9999', '9999', True, 'agency', True, 'standard', True, 'pro'),
+                ('Reseller Enterprise', '500', '9999', '9999', '5000', '9999', '9999', True, 'agency', True, 'advanced', True, 'pro'),
+            ]
+            for p_info in packages:
+                name, storage, ftp, subdomain, bandwidth, emails, dbs, inc_soc, soc_pl, inc_seo, seo_pl, inc_mkt, mkt_pl = p_info
+                pkg, created = package.objects.get_or_create(
+                    name=name,
+                    defaults={
+                        'storage': storage,
+                        'ftp': ftp,
+                        'subdomain': subdomain,
+                        'bandwidth': bandwidth,
+                        'email_accounts': emails,
+                        'databases_allowed': dbs,
+                        'includes_social': inc_soc,
+                        'social_plan': soc_pl,
+                        'includes_seo': inc_seo,
+                        'seo_plan': seo_pl,
+                        'includes_marketing': inc_mkt,
+                        'marketing_plan': mkt_pl,
+                    }
+                )
+                if created:
+                    self.stdout.write(f"    ✔ Created package '{name}'")
+            self.stdout.write(self.style.SUCCESS('    ✔ Hosting packages seeded'))
+        except Exception as exc:
+            self.stdout.write(self.style.WARNING(f'    ⚠ Could not seed hosting packages: {exc}'))
+
+        # ── 5. Print activation URL ──────────────────────────────────────────
+        self.stdout.write(self.style.MIGRATE_HEADING('\n[5/5] Setup complete!\n'))
         try:
             ip = socket.gethostbyname(socket.gethostname())
         except Exception:

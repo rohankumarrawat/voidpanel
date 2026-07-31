@@ -58,6 +58,20 @@ python manage.py makemigrations --no-input 2>/dev/null || true
 python manage.py migrate --noinput
 python manage.py collectstatic --noinput --clear 2>/dev/null || true
 
+info "Applying security hardening"
+# Bind Daphne backup service to localhost only (prevent ASGI exposure)
+if [[ -f /etc/systemd/system/voidpanel-backup.service ]]; then
+    sed -i 's|-b 0\.0\.0\.0 -p 8081|-b 127.0.0.1 -p 8081|' /etc/systemd/system/voidpanel-backup.service
+    systemctl daemon-reload
+    ok "Daphne backup service bound to localhost"
+fi
+# Block MySQL from internet access
+if command -v ufw &>/dev/null && ufw status | grep -q "active"; then
+    ufw delete allow 3306 2>/dev/null || true
+    ufw deny 3306 2>/dev/null || true
+    ok "MySQL port 3306 blocked from internet"
+fi
+
 info "Restarting services"
 systemctl restart voidpanel voidpanel-daphne voidpanel-celery voidpanel-celery-beat voidpanel-wa 2>/dev/null || true
 
@@ -164,5 +178,12 @@ done
 for svc in php-fpm php8.1-fpm php8.2-fpm php8.3-fpm php8.0-fpm php7.4-fpm; do
     systemctl is-active --quiet "$svc" 2>/dev/null && systemctl reload "$svc" 2>/dev/null && break
 done
+
+info "Updating version files to $LATEST"
+echo "$LATEST" > "/etc/version.txt"
+echo "$LATEST" > "$PROJECT_DIR/version.txt"
+
+info "Restoring project directory ownership"
+chown -R "$WEB_USER:$WEB_USER" "$PROJECT_DIR"
 
 ok "VoidPanel updated to $LATEST successfully!"

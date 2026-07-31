@@ -1084,14 +1084,20 @@ def wordpress_install(request):
     except Exception:
         return _json_error('Invalid JSON body')
 
-    domain        = data.get('domain', '').strip()
+    domain, err = _sanitise(data.get('domain', ''), _RE_DOMAIN, 'domain')
+    if err: return err
     admin_user    = data.get('wp_admin_user', 'admin').strip()
     admin_email   = data.get('wp_admin_email', '').strip()
     admin_pass    = data.get('wp_admin_password', '').strip()
     site_title    = data.get('site_title', f'{domain} — Powered by WordPress').strip()
 
-    if not domain or not admin_email or not admin_pass:
-        return _json_error('domain, wp_admin_email, and wp_admin_password are required')
+    if not admin_email or not admin_pass:
+        return _json_error('wp_admin_email and wp_admin_password are required')
+    # Validate inputs to prevent injection
+    if not _RE_EMAIL.match(admin_email):
+        return _json_error('Invalid admin email format')
+    if not _RE_USERNAME.match(admin_user):
+        return _json_error('Invalid admin username — use alphanumeric characters only')
 
     ok, err = _verify_reseller_access(request.api_token, domain)
     if not ok:
@@ -1106,8 +1112,8 @@ def wordpress_install(request):
     # Ensure doc root exists — use sudo to handle permission issues
     if not os.path.exists(doc_root):
         result = subprocess.run(
-            f'sudo mkdir -p "{doc_root}"',
-            shell=True, capture_output=True, text=True
+            ['sudo', 'mkdir', '-p', doc_root],
+            capture_output=True, text=True
         )
         if result.returncode != 0:
             return _json_error(f'Cannot create document root: {result.stderr.strip() or doc_root}')
@@ -1180,20 +1186,20 @@ def wordpress_install(request):
         from control.script_installers import _get_wp_php
         wp_php = _get_wp_php()
         cmds = [
-            f'{wp_php} {wpcli} core download --path={doc_root} --allow-root --quiet',
-            (f'{wp_php} {wpcli} config create --path={doc_root} --allow-root '
-             f'--dbname={db_name} --dbuser={db_user} --dbpass={db_pass} '
-             f'--dbhost=localhost --quiet --force'),
-            (f'{wp_php} {wpcli} core install --path={doc_root} --allow-root '
-             f'--url="{site_url}" --title="{site_title}" '
-             f'--admin_user="{admin_user}" --admin_email="{admin_email}" '
-             f'--admin_password="{admin_pass}" --skip-email'),
+            [wp_php, wpcli, 'core', 'download', f'--path={doc_root}', '--allow-root', '--quiet'],
+            [wp_php, wpcli, 'config', 'create', f'--path={doc_root}', '--allow-root',
+             f'--dbname={db_name}', f'--dbuser={db_user}', f'--dbpass={db_pass}',
+             '--dbhost=localhost', '--quiet', '--force'],
+            [wp_php, wpcli, 'core', 'install', f'--path={doc_root}', '--allow-root',
+             f'--url={site_url}', f'--title={site_title}',
+             f'--admin_user={admin_user}', f'--admin_email={admin_email}',
+             f'--admin_password={admin_pass}', '--skip-email'],
         ]
         # Prepend sudo so WP-CLI runs with write access to domain directories
-        cmds = ['sudo ' + c for c in cmds]
+        cmds = [['sudo'] + c for c in cmds]
         step_names = ['core download', 'config create', 'core install']
-        for step_name, cmd in zip(step_names, cmds):
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=180)
+        for step_name, cmd_args in zip(step_names, cmds):
+            result = subprocess.run(cmd_args, capture_output=True, text=True, timeout=180)
             combined = (result.stderr + result.stdout).lower()
             if result.returncode != 0 and 'already' not in combined:
                 err_detail = (result.stderr or result.stdout or '').strip()[:300]
@@ -1203,8 +1209,8 @@ def wordpress_install(request):
     else:
         # ── Fallback: download + write wp-config.php + run PHP installer ──
         dl = subprocess.run(
-            f'cd "{doc_root}" && curl -sL https://wordpress.org/latest.tar.gz | tar -xz --strip-components=1',
-            shell=True, capture_output=True, timeout=180
+            ['sudo', 'bash', '-c', f'cd "{doc_root}" && curl -sL https://wordpress.org/latest.tar.gz | tar -xz --strip-components=1'],
+            capture_output=True, timeout=180
         )
         if dl.returncode != 0:
             return _json_error('Failed to download WordPress — check server internet access')
@@ -1270,10 +1276,10 @@ def wordpress_install(request):
 
     from voidplatform.config import get_web_user
     _wu = get_web_user()
-    subprocess.run(
-        f'chown -R {sys_user}:{sys_user} "{doc_root}" 2>/dev/null || chown -R {_wu}:{_wu} "{doc_root}"',
-        shell=True, capture_output=True
-    )
+    # Try owning to sys_user first, fall back to web user
+    result = subprocess.run(['chown', '-R', f'{sys_user}:{sys_user}', doc_root], capture_output=True)
+    if result.returncode != 0:
+        subprocess.run(['chown', '-R', f'{_wu}:{_wu}', doc_root], capture_output=True)
 
     return _json_success({
         'domain': domain,
@@ -1333,7 +1339,7 @@ def wordpress_uninstall(request):
                 'wp-mail.php', 'wp-settings.php', 'wp-signup.php', 'wp-trackback.php',
                 'xmlrpc.php', 'index.php', 'readme.html', 'license.txt']
     for d in wp_dirs:
-        subprocess.run(f'rm -rf "{doc_root}/{d}"', shell=True, capture_output=True)
+        subprocess.run(['rm', '-rf', os.path.join(doc_root, d)], capture_output=True)
     for f in wp_files:
         try:
             os.remove(f'{doc_root}/{f}')
@@ -1385,8 +1391,9 @@ def wordpress_reset_password(request):
         from control.script_installers import _get_wp_php
         wp_php = _get_wp_php()
         r = subprocess.run(
-            f'sudo {wp_php} {wpcli} user update {wp_user} --user_pass="{new_pass}" --path={doc_root} --allow-root',
-            shell=True, capture_output=True, text=True, timeout=30
+            ['sudo', wp_php, wpcli, 'user', 'update', wp_user,
+             f'--user_pass={new_pass}', f'--path={doc_root}', '--allow-root'],
+            capture_output=True, text=True, timeout=30
         )
         if r.returncode == 0:
             return _json_success(message=f'WordPress admin password updated for {domain}')
@@ -1413,8 +1420,8 @@ def wordpress_reset_password(request):
             )
             # simpler: use WP's own PHP
             hash_r = subprocess.run(
-                f'php -r "require(\'{doc_root}/wp-load.php\');wp_set_password(\'{new_pass}\',1);"',
-                shell=True, capture_output=True, text=True, timeout=20
+                ['php', '-r', f"require('{doc_root}/wp-load.php');wp_set_password('{new_pass}',1);"],
+                capture_output=True, text=True, timeout=20
             )
             if hash_r.returncode == 0:
                 return _json_success(message='WordPress admin password updated')

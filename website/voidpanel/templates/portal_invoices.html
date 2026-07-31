@@ -1,0 +1,120 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invoices — VoidOnyx Portal</title>
+<link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+<link rel="stylesheet" href="{% static 'voidonyx/voidonyx.css' %}">
+<style>
+body { font-family: 'Inter', system-ui, sans-serif; background: #f8fafc; color: #0f172a; margin: 0; min-height: 100vh; }
+.portal-main { padding: 28px 32px 60px; overflow-y: auto; }
+@media (max-width: 768px) { .portal-main { padding: 18px 16px; } }
+.pg-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; flex-wrap: wrap; gap: 12px; }
+.pg-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.4rem; font-weight: 800; }
+.pg-sub { font-size: 0.82rem; color: #64748b; margin-top: 2px; }
+
+.kpi-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px; }
+@media (max-width: 600px) { .kpi-strip { grid-template-columns: 1fr; } }
+.kpi { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px 18px; }
+.kpi-lbl { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.05em; }
+.kpi-val { font-size: 1.2rem; font-weight: 800; margin-top: 4px; }
+
+.filter-bar { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+.filter-btn { padding: 6px 14px; border-radius: 8px; border: 1px solid #e2e8f0; background: #fff; font-size: 0.78rem; font-weight: 700; cursor: pointer; color: #64748b; font-family: inherit; transition: all 0.15s; }
+.filter-btn.active, .filter-btn:hover { background: #f59e0b; color: #fff; border-color: #f59e0b; }
+
+.inv-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; }
+.inv-table { width: 100%; border-collapse: collapse; }
+.inv-table th { text-align: left; padding: 12px 16px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.05em; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+.inv-table td { padding: 14px 16px; font-size: 0.85rem; border-bottom: 1px solid #f1f5f9; }
+.inv-table tr:last-child td { border-bottom: none; }
+.inv-table tr:hover { background: rgba(245,158,11,0.03); }
+
+.badge { padding: 3px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; }
+.badge-paid { background: rgba(34,197,94,0.1); color: #16a34a; }
+.badge-unpaid, .badge-overdue { background: rgba(239,68,68,0.1); color: #ef4444; }
+.badge-cancelled { background: rgba(148,163,184,0.15); color: #94a3b8; }
+
+.btn-pay { padding: 5px 14px; border-radius: 8px; background: linear-gradient(135deg,#f59e0b,#ea580c); color: #fff; font-size: 0.75rem; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
+.btn-pay:hover { opacity: 0.88; }
+
+.empty-state { text-align: center; padding: 48px 20px; }
+.empty-state i { font-size: 2.5rem; color: #e2e8f0; margin-bottom: 12px; }
+.empty-state p { color: #94a3b8; font-size: 0.88rem; }
+</style>
+</head>
+<body>
+<div class="portal-layout">
+{% include "voidonyx/portal_sidebar.html" %}
+
+<main class="portal-main">
+  <div class="pg-head">
+    <div>
+      <div class="pg-title"><i class="fas fa-file-invoice" style="color:#f59e0b;margin-right:8px;"></i>Invoices</div>
+      <div class="pg-sub">All your billing history and outstanding invoices</div>
+    </div>
+  </div>
+
+  <div class="kpi-strip">
+    <div class="kpi"><div class="kpi-lbl">Total Invoices</div><div class="kpi-val">{{ stats.total }}</div></div>
+    <div class="kpi"><div class="kpi-lbl">Unpaid</div><div class="kpi-val" style="color:#ef4444;">{{ stats.unpaid }}</div></div>
+    <div class="kpi"><div class="kpi-lbl">Unpaid Amount</div><div class="kpi-val" style="color:#f59e0b;">₹{{ stats.unpaid_total }}</div></div>
+  </div>
+
+  <div class="filter-bar">
+    <a href="/portal/invoices/" class="filter-btn {% if not status_filter %}active{% endif %}">All</a>
+    <a href="/portal/invoices/?status=unpaid" class="filter-btn {% if status_filter == 'unpaid' %}active{% endif %}">Unpaid</a>
+    <a href="/portal/invoices/?status=paid" class="filter-btn {% if status_filter == 'paid' %}active{% endif %}">Paid</a>
+    <a href="/portal/invoices/?status=overdue" class="filter-btn {% if status_filter == 'overdue' %}active{% endif %}">Overdue</a>
+  </div>
+
+  {% if invoices %}
+  <div class="inv-card">
+    <table class="inv-table">
+      <thead>
+        <tr>
+          <th>Invoice #</th>
+          <th>Description</th>
+          <th>Amount</th>
+          <th>Date</th>
+          <th>Due Date</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in invoices %}
+        <tr>
+          <td style="font-weight:700;font-family:'Plus Jakarta Sans',sans-serif;">{{ inv.invoice_number }}</td>
+          <td>{{ inv.description|truncatechars:50 }}</td>
+          <td style="font-weight:700;">₹{{ inv.total }}</td>
+          <td style="color:#64748b;font-size:0.8rem;">{{ inv.created_at|date:"d M Y" }}</td>
+          <td style="color:#64748b;font-size:0.8rem;">{{ inv.due_date|date:"d M Y"|default:"—" }}</td>
+          <td>
+            <span class="badge badge-{{ inv.status }}">{{ inv.status|upper }}</span>
+          </td>
+          <td>
+            {% if inv.status == 'unpaid' or inv.status == 'overdue' %}
+            <a href="/portal/invoice/{{ inv.id }}/pay/" class="btn-pay"><i class="fas fa-wallet"></i> Pay</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="inv-card empty-state">
+    <i class="fas fa-receipt"></i>
+    <p>No invoices found{% if status_filter %} with status "{{ status_filter }}"{% endif %}.</p>
+  </div>
+  {% endif %}
+</main>
+</div>
+</body>
+</html>

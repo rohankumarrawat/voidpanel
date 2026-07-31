@@ -20,8 +20,18 @@ logger = logging.getLogger(__name__)
 
 
 def _inv_number(service):
-    count = Invoice.objects.filter(user=service.user).count()
-    return f"VP-{service.user.id:04d}-{count + 1:03d}"
+    import re
+    user = service.user
+    user_invs = Invoice.objects.filter(user=user, invoice_number__startswith=f'VP-{user.id:04d}-')
+    max_num = 0
+    for inv in user_invs:
+        match = re.search(r'-(\d+)$', inv.invoice_number)
+        if match:
+            num = int(match.group(1))
+            if num > max_num:
+                max_num = num
+    next_num = max_num + 1
+    return f"VP-{user.id:04d}-{next_num:03d}"
 
 
 class Command(BaseCommand):

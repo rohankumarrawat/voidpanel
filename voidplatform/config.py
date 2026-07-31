@@ -27,6 +27,7 @@ class LinuxPaths:
     OPENDKIM_KEYTABLE     = '/etc/opendkim/KeyTable'
     OPENDKIM_SIGNINGTABLE = '/etc/opendkim/SigningTable'
     OPENDKIM_TRUSTEDHOSTS = '/etc/opendkim/TrustedHosts'
+    OPENDKIM_SOCKET       = 'local:/run/opendkim/opendkim.sock'
     CSF_CONF         = '/etc/csf/csf.conf'
     SYSTEMD_DIR      = '/etc/systemd/system'
     LETSENCRYPT_LIVE = '/etc/letsencrypt/live'
@@ -87,6 +88,7 @@ class WindowsPaths:
     OPENDKIM_KEYTABLE     = ''
     OPENDKIM_SIGNINGTABLE = ''
     OPENDKIM_TRUSTEDHOSTS = ''
+    OPENDKIM_SOCKET       = ''
 
     # Firewall / Services
     CSF_CONF         = ''
@@ -132,3 +134,52 @@ def get_paths():
 
 
 paths = get_paths()
+
+
+# ── Cross-distro helpers ────────────────────────────────────────────────────
+_cached_web_user = None
+
+
+def get_web_user():
+    """Return the web server system user: 'www-data' (Ubuntu) or 'nginx' (RHEL/AlmaLinux).
+    Result is cached for the lifetime of the process."""
+    global _cached_web_user
+    if _cached_web_user is not None:
+        return _cached_web_user
+    if detector.is_windows():
+        _cached_web_user = 'SYSTEM'
+        return _cached_web_user
+    import grp
+    for candidate in ('www-data', 'nginx'):
+        try:
+            grp.getgrnam(candidate)
+            _cached_web_user = candidate
+            return _cached_web_user
+        except KeyError:
+            continue
+    _cached_web_user = 'nobody'
+    return _cached_web_user
+
+
+def get_dns_service_name():
+    """Return the DNS service name: 'bind9' (Ubuntu) or 'named' (RHEL/AlmaLinux)."""
+    if detector.is_windows():
+        return 'named'
+    # On RHEL/AlmaLinux the service is 'named'; on Ubuntu/Debian it's 'bind9'
+    if os.path.exists('/usr/lib/systemd/system/named.service'):
+        return 'named'
+    return 'bind9'
+
+
+def get_dns_user():
+    """Return the BIND system user: 'bind' (Ubuntu) or 'named' (RHEL/AlmaLinux)."""
+    if detector.is_windows():
+        return 'named'
+    import pwd
+    for candidate in ('bind', 'named'):
+        try:
+            pwd.getpwnam(candidate)
+            return candidate
+        except KeyError:
+            continue
+    return 'named'

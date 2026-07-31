@@ -835,8 +835,16 @@
   //  ANALYSIS
   // ═══════════════════════════════════════════════════════════════
   function runAnalysis() {
-    const domain = document.getElementById('targetDomain').value.trim();
+    let domain = document.getElementById('targetDomain').value.trim();
     if (!domain) { alert('Enter a valid domain first.'); return; }
+    // Strip protocol and www
+    domain = domain.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0].split('?')[0].split(':')[0];
+    // Frontend domain validation — must have at least one dot and a TLD
+    if (!/^[a-zA-Z0-9-]{1,63}(\.[a-zA-Z0-9-]{1,63})*\.[a-zA-Z]{2,}$/.test(domain)) {
+      alert('⚠️ "' + domain + '" is not a valid domain.\n\nPlease enter a real domain like:\n• google.com\n• github.com\n• yourdomain.co.in');
+      return;
+    }
+    document.getElementById('targetDomain').value = domain;
 
     document.getElementById('stateEmpty').style.display = 'none';
     document.getElementById('stateLoader').style.display = 'flex';
@@ -848,7 +856,10 @@
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') || '' },
       body: JSON.stringify({ domain })
     })
-    .then(r => r.json())
+    .then(r => {
+      if (!r.ok) return r.json().then(d => { throw new Error(d.error || 'Analysis failed (HTTP ' + r.status + ')') });
+      return r.json();
+    })
     .then(res => {
       document.getElementById('stateLoader').style.display = 'none';
       document.getElementById('analyzeIcon').className = 'fa-solid fa-bolt';
@@ -863,7 +874,7 @@
     .catch(err => {
       document.getElementById('stateLoader').style.display = 'none';
       document.getElementById('analyzeIcon').className = 'fa-solid fa-bolt';
-      alert('Network error: ' + err.message);
+      alert(err.message || 'Network error');
     });
   }
 

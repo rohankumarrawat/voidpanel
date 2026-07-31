@@ -1,0 +1,723 @@
+{% load static %}
+{% load currency_tags %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Portal — VoidOnyx</title>
+<meta name="description" content="VoidOnyx client portal — manage all your services, billing, and support.">
+<link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+<link rel="stylesheet" href="{% static 'voidonyx/voidonyx.css' %}">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', system-ui, sans-serif; background: #f8fafc; color: #0f172a; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+a { text-decoration: none; color: inherit; }
+
+/* Main area */
+.portal-main { padding: 28px 32px 60px; overflow-y: auto; }
+@media (max-width: 768px) { .portal-main { padding: 18px 16px 48px; } }
+
+/* Page header */
+.ph { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+.ph-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.55rem; font-weight: 800; color: #0f172a; letter-spacing: -0.03em; }
+.ph-title em { font-style: normal; background: linear-gradient(135deg,#f59e0b,#ea580c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.ph-sub { font-size: 0.82rem; color: #64748b; margin-top: 3px; }
+
+/* KPI Strip */
+.kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 24px; }
+@media (max-width: 900px) { .kpi-row { grid-template-columns: repeat(2,1fr); } }
+@media (max-width: 480px)  { .kpi-row { grid-template-columns: 1fr 1fr; gap: 10px; } }
+.kpi-card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
+  padding: 18px 20px; display: flex; align-items: flex-start; gap: 14px;
+  box-shadow: 0 1px 4px rgba(15,23,42,0.04);
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.kpi-card:hover { box-shadow: 0 4px 16px rgba(15,23,42,0.08); border-color: #fde68a; }
+.kpi-icon { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+.kpi-icon.amber  { background: #fef3c7; color: #d97706; }
+.kpi-icon.green  { background: #dcfce7; color: #16a34a; }
+.kpi-icon.orange { background: #ffedd5; color: #ea580c; }
+.kpi-icon.blue   { background: #dbeafe; color: #2563eb; }
+.kpi-num   { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.65rem; font-weight: 800; color: #0f172a; line-height: 1; letter-spacing: -0.02em; }
+.kpi-label { font-size: 0.7rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }
+
+/* Overdue alert */
+.portal-alert {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 14px 18px;
+  background: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #f59e0b;
+  border-radius: 12px; margin-bottom: 20px; flex-wrap: wrap;
+}
+.portal-alert-text { font-size: 0.875rem; font-weight: 700; color: #92400e; display: flex; align-items: center; gap: 9px; }
+.portal-alert-sub  { font-size: 0.76rem; color: #b45309; margin-top: 2px; font-weight: 500; }
+
+/* 2-col grid */
+.grid-2 { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 18px; }
+@media (max-width: 960px) { .grid-2 { grid-template-columns: 1fr; } }
+
+/* Cards */
+.p-card { background: #fff; border: 1px solid #e8edf2; border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
+.p-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.p-card-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.9rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 7px; }
+.p-card-title i { color: #f59e0b; font-size: 0.8rem; }
+
+/* Service rows */
+.svc-item { padding: 12px 14px; border-radius: 11px; background: #f8fafc; border: 1px solid #e8edf2; margin-bottom: 8px; transition: border-color 0.15s; }
+.svc-item:last-child { margin-bottom: 0; }
+.svc-item:hover { border-color: #fde68a; }
+.svc-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.svc-name   { font-weight: 700; font-size: 0.875rem; color: #0f172a; }
+.svc-domain { font-size: 0.75rem; color: #94a3b8; margin-top: 2px; }
+.svc-meta   { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #f1f5f9; }
+.meta-lbl   { font-size: 0.65rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+.meta-val   { font-size: 0.8rem; font-weight: 700; color: #334155; margin-top: 2px; }
+
+/* Invoice / Ticket rows */
+.inv-row, .tkt-row { padding: 11px 14px; border-radius: 11px; background: #f8fafc; border: 1px solid #e8edf2; margin-bottom: 7px; display: flex; align-items: center; justify-content: space-between; gap: 10px; transition: border-color 0.15s; }
+.inv-row:hover  { border-color: #fde68a; }
+.tkt-row:hover  { border-color: #e9d5ff; }
+.inv-num, .tkt-subj { font-weight: 700; font-size: 0.84rem; color: #0f172a; }
+.inv-desc, .tkt-meta { font-size: 0.72rem; color: #94a3b8; margin-top: 2px; }
+.inv-row:last-child, .tkt-row:last-child { margin-bottom: 0; }
+
+/* Quick Order */
+.qo-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+@media (max-width: 640px) { .qo-grid { grid-template-columns: 1fr 1fr; } }
+.qo-item { padding: 12px 10px; border-radius: 11px; background: #f8fafc; border: 1px solid #e8edf2; display: flex; align-items: center; gap: 9px; transition: all 0.14s; text-decoration: none; }
+.qo-item:hover { border-color: #fde68a; background: #fffbeb; transform: translateY(-1px); }
+.qo-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.82rem; flex-shrink: 0; }
+.qo-name { font-weight: 700; font-size: 0.78rem; color: #0f172a; }
+.qo-hint { font-size: 0.65rem; color: #94a3b8; margin-top: 1px; }
+
+/* Status badges */
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px; font-size: 0.68rem; font-weight: 700; }
+.badge-active    { background: #dcfce7; color: #15803d; }
+.badge-pending   { background: #fef3c7; color: #d97706; }
+.badge-suspended { background: #fee2e2; color: #dc2626; }
+.badge-unpaid    { background: #fee2e2; color: #dc2626; }
+.badge-paid      { background: #dcfce7; color: #15803d; }
+.badge-overdue   { background: #fee2e2; color: #dc2626; }
+.badge-open      { background: #ede9fe; color: #7c3aed; }
+.badge-closed    { background: #f1f5f9; color: #64748b; }
+
+/* Buttons */
+.p-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border-radius: 9px; font-size: 0.78rem; font-weight: 700; cursor: pointer; border: none; transition: all 0.14s; text-decoration: none; font-family: 'Plus Jakarta Sans', sans-serif; }
+.p-btn-primary { background: linear-gradient(135deg,#f59e0b,#ea580c); color: #fff; box-shadow: 0 2px 10px rgba(245,158,11,0.3); }
+.p-btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+.p-btn-amber { background: #fef3c7; color: #d97706; border: 1px solid #fde68a; }
+.p-btn-amber:hover { background: #fde68a; }
+.p-btn-ghost { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+.p-btn-ghost:hover { background: #e2e8f0; }
+
+/* Empty states */
+.empty-state { text-align: center; padding: 28px 16px; }
+.empty-icon  { font-size: 2.2rem; margin-bottom: 10px; }
+.empty-text  { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; color: #334155; font-size: 0.9rem; margin-bottom: 5px; }
+.empty-sub   { font-size: 0.8rem; color: #94a3b8; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+{% if not request.user.is_authenticated %}
+<script>window.location.replace('/login/?next=/portal/');</script>
+{% endif %}
+
+<div class="portal-layout">
+
+  <!-- ── Shared sidebar ────────────────────────────────────────────────── -->
+  {% include 'voidonyx/portal_sidebar.html' %}
+
+  <!-- ── Main Content ──────────────────────────────────────────────────── -->
+  <main class="portal-main">
+
+    <!-- Page header -->
+    <div class="ph">
+      <div>
+        <div class="ph-title">Welcome back, <em>{{ request.user.get_full_name|default:request.user.username }}</em> 👋</div>
+        <div class="ph-sub">Your VoidOnyx dashboard — all services, billing, and support in one place.</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        {% if request.user.is_superuser %}
+          <a href="/super-admin/" class="p-btn p-btn-ghost"><i class="fas fa-shield-halved"></i> Super Admin</a>
+        {% endif %}
+        <a href="/portal/ticket/new/" class="p-btn p-btn-primary"><i class="fas fa-headset"></i> New Ticket</a>
+      </div>
+    </div>
+
+    <!-- Overdue alert -->
+    {% for inv in invoices %}{% if inv.status == 'overdue' or inv.status == 'unpaid' %}{% if forloop.first %}
+    <div class="portal-alert">
+      <div>
+        <div class="portal-alert-text"><i class="fas fa-triangle-exclamation"></i> Invoice {{ inv.invoice_number }} is {{ inv.status }}</div>
+        <div class="portal-alert-sub">Due: {{ inv.due_date|date:"d M Y" }} · Amount: {{ currency_symbol }}{{ inv.total|to_currency:currency_rate }}</div>
+      </div>
+      <a href="/portal/invoice/{{ inv.id }}/pay/" class="p-btn p-btn-primary">Pay Now</a>
+    </div>
+    {% endif %}{% endif %}{% endfor %}
+
+    <!-- KPI Strip -->
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-icon green"><i class="fas fa-server"></i></div>
+        <div>
+          <div class="kpi-num">{{ service_mix.active|default:"0" }}</div>
+          <div class="kpi-label">Active Services</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon amber"><i class="fas fa-file-invoice"></i></div>
+        <div>
+          <div class="kpi-num">{{ currency_symbol }}{{ stats.unpaid_total|floatformat:0|default:"0"|to_currency:currency_rate }}</div>
+          <div class="kpi-label">Unpaid Amount</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon blue"><i class="fas fa-headset"></i></div>
+        <div>
+          <div class="kpi-num">{{ stats.open_tickets|default:"0" }}</div>
+          <div class="kpi-label">Open Tickets</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon orange"><i class="fas fa-terminal"></i></div>
+        <div>
+          <div class="kpi-num">{{ licenses.count|default:"0" }}</div>
+          <div class="kpi-label">VP Licenses</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Two-col grid -->
+    <div class="grid-2">
+
+      <!-- Left: Services -->
+      <div>
+        {% if services %}
+        <div class="p-card">
+          <div class="p-card-head">
+            <div class="p-card-title"><i class="fas fa-server"></i> Hosting Services</div>
+            <a href="/web-hosting/" class="p-btn p-btn-amber" style="font-size:0.72rem;"><i class="fas fa-plus"></i> Add</a>
+          </div>
+          {% for svc in services %}
+          <div class="svc-item">
+            <div class="svc-top">
+              <div><div class="svc-name">{{ svc.service_name }}</div><div class="svc-domain">{{ svc.domain }}</div></div>
+              <div style="display:flex;align-items:center;gap:7px;">
+                <span class="badge badge-{{ svc.status }}">{{ svc.get_status_display|default:svc.status|capfirst }}</span>
+                <a href="/portal/service/{{ svc.id }}/" class="p-btn p-btn-ghost" style="font-size:0.7rem;">Manage</a>
+              </div>
+            </div>
+            <div class="svc-meta">
+              <div><div class="meta-lbl">Storage</div><div class="meta-val">{{ svc.storage_gb }}GB</div></div>
+              <div><div class="meta-lbl">Due Date</div><div class="meta-val">{{ svc.next_due_date|date:"d M Y"|default:"—" }}</div></div>
+              <div><div class="meta-lbl">Plan</div><div class="meta-val">{{ svc.package_type|capfirst|default:"Shared" }}</div></div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="p-card" style="text-align:center;padding:32px 20px;">
+          <div style="font-size:2.4rem;margin-bottom:10px;">🚀</div>
+          <div class="empty-text">No Hosting Yet</div>
+          <div class="empty-sub">Get started with NVMe SSD hosting powered by VoidPanel.</div>
+          <a href="/web-hosting/" class="p-btn p-btn-primary"><i class="fas fa-server"></i> Browse Hosting Plans</a>
+        </div>
+        {% endif %}
+
+        {% if email_services %}
+        <div class="p-card">
+          <div class="p-card-head">
+            <div class="p-card-title"><i class="fas fa-envelope"></i> Email Services</div>
+            <a href="/professional-email/" class="p-btn p-btn-amber" style="font-size:0.72rem;"><i class="fas fa-plus"></i> Add</a>
+          </div>
+          {% for esvc in email_services %}
+          <div class="svc-item">
+            <div class="svc-top">
+              <div><div class="svc-name">{{ esvc.plan_name|default:"Email Plan" }}</div><div class="svc-domain">{{ esvc.domain }}</div></div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span class="badge badge-{{ esvc.status }}">{{ esvc.status|capfirst }}</span>
+                <a href="/portal/email/{{ esvc.id }}/" class="p-btn p-btn-ghost" style="font-size:0.72rem;padding:5px 10px;"><i class="fas fa-cog"></i> Manage</a>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if ssl_services %}
+        <div class="p-card">
+          <div class="p-card-head">
+            <div class="p-card-title"><i class="fas fa-shield-halved"></i> SSL Certificates</div>
+          </div>
+          {% for ssvc in ssl_services %}
+          <div class="svc-item">
+            <div class="svc-top">
+              <div><div class="svc-name">{{ ssvc.plan_name|default:"SSL Certificate" }}</div><div class="svc-domain">{{ ssvc.domain }}</div></div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span class="badge badge-{{ ssvc.status }}">{{ ssvc.status|capfirst }}</span>
+                <a href="/portal/ssl/{{ ssvc.id }}/" class="p-btn p-btn-ghost" style="font-size:0.72rem;padding:5px 10px;"><i class="fas fa-cog"></i> Manage</a>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if erp_services %}
+        <div class="p-card">
+          <div class="p-card-head">
+            <div class="p-card-title"><i class="fas fa-users"></i> HRMS Services</div>
+          </div>
+          {% for erp in erp_services %}
+          <div class="svc-item">
+            <div class="svc-top">
+              <div>
+                <div class="svc-name">{{ erp.company_name|default:"HRMS Portal" }}</div>
+                <div class="svc-domain">{% if erp.custom_domain %}{{ erp.custom_domain }}{% else %}hrms.voidpanel.com{% endif %}</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:7px;">
+                <span class="badge badge-{{ erp.status }}">{{ erp.status|capfirst }}</span>
+                <button type="button" onclick="openHrmsModal({{ erp.id }}, '{{ erp.company_name|escapejs }}', '{% if erp.custom_domain %}https://{{ erp.custom_domain }}{% else %}https://hrms.voidpanel.com{% endif %}', '{{ erp.admin_email|escapejs }}', '{{ erp.package_name|default:"Enterprise"|escapejs }}', '{{ erp.status|capfirst }}', '{{ currency_symbol }}{{ erp.monthly_price }}', '{{ erp.billing_cycle|title }}', '{{ erp.next_due_date|default:"" }}')" class="p-btn p-btn-ghost" style="font-size:0.7rem;">
+                  <i class="fas fa-circle-info"></i> View Details
+                </button>
+                {% if erp.status == 'active' %}
+                  <a href="{% if erp.custom_domain %}https://{{ erp.custom_domain }}{% else %}https://hrms.voidpanel.com{% endif %}" target="_blank" class="p-btn p-btn-amber" style="font-size:0.7rem;"><i class="fas fa-arrow-up-right-from-square"></i> Open</a>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if suite_services %}
+        <div class="p-card">
+          <div class="p-card-head">
+            <div class="p-card-title"><i class="fas fa-hashtag"></i> Digital Suites</div>
+            <a href="/social-media-suite/" class="p-btn p-btn-amber" style="font-size:0.72rem;"><i class="fas fa-plus"></i> Add</a>
+          </div>
+          {% for svc in suite_services %}
+          <div class="svc-item">
+            <div class="svc-top">
+              <div>
+                <div class="svc-name">
+                  {% if svc.suite == 'social' %}<i class="fa-brands fa-instagram" style="color:#f472b6;margin-right:6px;"></i>
+                  {% elif svc.suite == 'seo' %}<i class="fas fa-magnifying-glass-chart" style="color:#818cf8;margin-right:6px;"></i>
+                  {% else %}<i class="fas fa-bullhorn" style="color:#fbbf24;margin-right:6px;"></i>{% endif %}
+                  {{ svc.service_name }}
+                </div>
+                <div class="svc-domain">{{ svc.get_suite_display }} · {{ svc.billing_cycle|title }} · {{ currency_symbol }}{{ svc.monthly_price|to_currency:currency_rate }}/mo</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:7px;">
+                <span class="badge badge-{{ svc.status }}">{{ svc.get_status_display }}</span>
+                {% if svc.is_active %}
+                <a href="/portal/suite-sso/{{ svc.id }}/" target="_blank" class="p-btn p-btn-amber" style="font-size:0.7rem;"><i class="fas fa-rocket"></i> Launch</a>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if domain_orders %}
+        <div class="p-card" id="my-domains">
+          <div class="p-card-head">
+            <div class="p-card-title"><i class="fas fa-globe"></i> My Domains</div>
+            <a href="/domain-registration/" class="p-btn p-btn-amber" style="font-size:0.72rem;"><i class="fas fa-plus"></i> New</a>
+          </div>
+          {% for dom in domain_orders %}
+          <div class="svc-item">
+            <div class="svc-top">
+              <div>
+                <a href="/portal/domain/{{ dom.id }}/manage/" class="svc-name" style="text-decoration:none;color:inherit;">{{ dom.domain_name }}</a>
+                <div class="svc-domain">{{ dom.years }} year{{ dom.years|pluralize }} · {{ currency_symbol }}{{ dom.final_price|floatformat:0|to_currency:currency_rate }}</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:7px;">
+                {% if dom.status == 'active' %}
+                  <span class="badge badge-active">Active</span>
+                  <a href="/portal/domain/{{ dom.id }}/manage/" class="p-btn p-btn-amber" style="font-size:0.7rem;"><i class="fas fa-cog"></i> Manage</a>
+                {% elif dom.status == 'paid' %}
+                  <span class="badge badge-active">Paid</span>
+                  <a href="/portal/domain/{{ dom.id }}/manage/" class="p-btn p-btn-amber" style="font-size:0.7rem;"><i class="fas fa-cog"></i> Manage</a>
+                {% elif dom.status == 'pending_payment' %}
+                  <span class="badge badge-pending">Unpaid</span>
+                  {% if dom.invoice %}
+                  <a href="/portal/invoice/{{ dom.invoice.id }}/pay/" class="p-btn p-btn-amber" style="font-size:0.7rem;"><i class="fas fa-credit-card"></i> Pay</a>
+                  {% endif %}
+                {% elif dom.status == 'failed' %}
+                  <span class="badge badge-suspended">Failed</span>
+                {% else %}
+                  <span class="badge badge-pending">{{ dom.get_status_display }}</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+      </div>
+
+      <!-- Right: Invoices + Tickets + Quick Order -->
+      <div>
+        <!-- Recent Invoices -->
+        <div class="p-card">
+          <div class="p-card-head">
+            <div class="p-card-title"><i class="fas fa-file-invoice"></i> Recent Invoices</div>
+            <a href="/portal/" class="p-btn p-btn-ghost" style="font-size:0.7rem;">View All</a>
+          </div>
+          {% for inv in invoices %}
+          <div class="inv-row">
+            <div>
+              <div class="inv-num">{{ inv.invoice_number }}</div>
+              <div class="inv-desc">{{ inv.description|truncatechars:38|default:"Service Invoice" }}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:7px;">
+              <span class="badge badge-{{ inv.status }}">{{ inv.status|capfirst }}</span>
+              {% if inv.status == 'unpaid' or inv.status == 'overdue' %}
+                <a href="/portal/invoice/{{ inv.id }}/pay/" class="p-btn p-btn-primary" style="font-size:0.7rem;">Pay {{ currency_symbol }}{{ inv.total|to_currency:currency_rate }}</a>
+              {% else %}
+                <span style="font-size:0.8rem;font-weight:700;color:#334155;">{{ currency_symbol }}{{ inv.total|to_currency:currency_rate }}</span>
+              {% endif %}
+            </div>
+          </div>
+          {% empty %}
+          <div class="empty-state">
+            <div class="empty-icon">🧾</div>
+            <div class="empty-text">No invoices yet</div>
+            <div class="empty-sub">Your billing history will appear here.</div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <!-- Support Tickets -->
+        <div class="p-card">
+          <div class="p-card-head">
+            <div class="p-card-title"><i class="fas fa-headset"></i> Support Tickets</div>
+            <a href="/portal/ticket/new/" class="p-btn p-btn-amber" style="font-size:0.72rem;"><i class="fas fa-plus"></i> New</a>
+          </div>
+          {% for ticket in tickets %}
+          <div class="tkt-row">
+            <div>
+              <div class="tkt-subj">{{ ticket.subject|truncatechars:46 }}</div>
+              <div class="tkt-meta">#{{ ticket.ticket_number }} · {{ ticket.created_at|date:"d M Y" }}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:7px;">
+              <span class="badge badge-{{ ticket.status }}">{{ ticket.status|capfirst }}</span>
+              <a href="/portal/ticket/{{ ticket.id }}/" class="p-btn p-btn-ghost" style="font-size:0.7rem;">View</a>
+            </div>
+          </div>
+          {% empty %}
+          <div class="empty-state">
+            <div class="empty-icon">🎧</div>
+            <div class="empty-text">No tickets yet</div>
+            <div class="empty-sub">Need help? <a href="/portal/ticket/new/" style="color:#d97706;font-weight:700;">Open a ticket →</a></div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <!-- Quick Order -->
+        <div class="p-card">
+          <div class="p-card-head">
+            <div class="p-card-title"><i class="fas fa-bag-shopping"></i> Quick Order</div>
+          </div>
+          <div class="qo-grid">
+            <a href="/web-hosting/"         class="qo-item"><div class="qo-icon" style="background:#fef3c7;color:#d97706;"><i class="fas fa-server"></i></div><div><div class="qo-name">Hosting</div><div class="qo-hint">from {{ currency_symbol }}149/mo</div></div></a>
+            <a href="/domain-registration/" class="qo-item"><div class="qo-icon" style="background:#fce7f3;color:#db2777;"><i class="fas fa-globe"></i></div><div><div class="qo-name">Domain</div><div class="qo-hint">from {{ currency_symbol }}799/yr</div></div></a>
+            <a href="/erp-crm/"             class="qo-item"><div class="qo-icon" style="background:#ede9fe;color:#7c3aed;"><i class="fas fa-users"></i></div><div><div class="qo-name">HRMS</div><div class="qo-hint">from {{ currency_symbol }}2,499/mo</div></div></a>
+            <a href="/professional-email/"  class="qo-item"><div class="qo-icon" style="background:#cffafe;color:#0e7490;"><i class="fas fa-envelope"></i></div><div><div class="qo-name">Email</div><div class="qo-hint">from {{ currency_symbol }}99/mo</div></div></a>
+            <a href="/ssl-certificates/"    class="qo-item"><div class="qo-icon" style="background:#dcfce7;color:#15803d;"><i class="fas fa-shield-halved"></i></div><div><div class="qo-name">SSL</div><div class="qo-hint">from {{ currency_symbol }}399/yr</div></div></a>
+            <a href="/reseller-hosting/"    class="qo-item"><div class="qo-icon" style="background:#ffedd5;color:#ea580c;"><i class="fas fa-store"></i></div><div><div class="qo-name">Reseller</div><div class="qo-hint">from {{ currency_symbol }}999/mo</div></div></a>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /grid-2 -->
+  </main>
+</div><!-- /portal-layout -->
+
+
+<!-- ── Add Funds Modal ─────────────────────────────────────────────────────── -->
+<div id="addFundsModal" style="display:none;position:fixed;inset:0;background:rgba(8,12,24,0.85);backdrop-filter:blur(8px);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:20px;padding:30px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.15);position:relative;">
+    <button type="button" onclick="closeAddFundsModal()" style="position:absolute;top:14px;right:14px;background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;"><i class="fas fa-times"></i></button>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#fef3c7;display:flex;align-items:center;justify-content:center;color:#d97706;font-size:1.1rem;"><i class="fas fa-wallet"></i></div>
+      <div>
+        <h4 style="margin:0;font-size:1.05rem;font-weight:800;color:#0f172a;font-family:'Plus Jakarta Sans',sans-serif;">Deposit Funds</h4>
+        <p style="margin:0;font-size:0.75rem;color:#64748b;">Add INR balance to your client wallet</p>
+      </div>
+    </div>
+    <form id="funds-modal-form" method="POST" action="/portal/wallet/deposit/" style="display:flex;flex-direction:column;gap:14px;">
+      {% csrf_token %}
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        <label style="font-size:0.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Amount to Add (INR)</label>
+        <div style="position:relative;display:flex;align-items:center;">
+          <span style="position:absolute;left:13px;color:#94a3b8;font-weight:700;font-size:0.9rem;">{{ currency_symbol }}</span>
+          <input type="number" id="funds-amount-input" name="amount" value="500" min="10" step="1" required
+            style="width:100%;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:11px 14px 11px 28px;color:#0f172a;font-size:0.95rem;font-weight:700;outline:none;transition:border-color 0.15s;"
+            onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#e2e8f0'">
+        </div>
+      </div>
+      <div style="display:flex;gap:7px;">
+      
+        <button type="button" onclick="setFundsAmount(100)"  style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px;color:#0f172a;font-size:0.78rem;cursor:pointer;font-weight:600;">{{ currency_symbol }}100</button>
+        <button type="button" onclick="setFundsAmount(500)"  style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px;color:#0f172a;font-size:0.78rem;cursor:pointer;font-weight:600;">{{ currency_symbol }}500</button>
+        <button type="button" onclick="setFundsAmount(1000)" style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px;color:#0f172a;font-size:0.78rem;cursor:pointer;font-weight:600;">{{ currency_symbol }}1000</button>
+        <button type="button" onclick="setFundsAmount(2000)" style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px;color:#0f172a;font-size:0.78rem;cursor:pointer;font-weight:600;">{{ currency_symbol }}2000</button>
+      </div>
+      <button type="submit" style="background:linear-gradient(135deg,#f59e0b,#ea580c);border:none;border-radius:10px;padding:12px;color:#fff;font-weight:800;font-size:0.88rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(245,158,11,0.3);">
+        <i class="fas fa-credit-card"></i> Proceed to Pay
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ── Buy Chips Modal ──────────────────────────────────────────────────────── -->
+<div id="buyChipsModal" style="display:none;position:fixed;inset:0;background:rgba(8,12,24,0.85);backdrop-filter:blur(8px);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:20px;padding:30px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.15);position:relative;">
+    <button type="button" onclick="closeBuyChipsModal()" style="position:absolute;top:14px;right:14px;background:none;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;"><i class="fas fa-times"></i></button>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#fef3c7;display:flex;align-items:center;justify-content:center;color:#d97706;font-size:1.1rem;"><i class="fas fa-coins"></i></div>
+      <div>
+        <h4 style="margin:0;font-size:1.05rem;font-weight:800;color:#0f172a;font-family:'Plus Jakarta Sans',sans-serif;">Buy AI Chips</h4>
+        <p style="margin:0;font-size:0.75rem;color:#64748b;">Purchase credits to run Agentic AI commands</p>
+      </div>
+    </div>
+    <form id="chips-modal-form" method="POST" action="/portal/wallet/buy_chips/" style="display:flex;flex-direction:column;gap:14px;">
+      {% csrf_token %}
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        <label style="font-size:0.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Payment Amount (INR)</label>
+        <div style="position:relative;display:flex;align-items:center;">
+          <span style="position:absolute;left:13px;color:#94a3b8;font-weight:700;font-size:0.9rem;">{{ currency_symbol }}</span>
+          <input type="number" id="chips-amount-input" name="amount" value="100" min="10" step="1" required
+            style="width:100%;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:11px 14px 11px 28px;color:#0f172a;font-size:0.95rem;font-weight:700;outline:none;transition:border-color 0.15s;"
+            onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#e2e8f0'"
+            oninput="updateChipsYield(this.value)">
+        </div>
+      </div>
+      <div style="display:flex;gap:7px;">
+        <button type="button" onclick="setChipsAmount(50)"  style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px;color:#0f172a;font-size:0.78rem;cursor:pointer;font-weight:600;">{{ currency_symbol }}50</button>
+        <button type="button" onclick="setChipsAmount(100)" style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px;color:#0f172a;font-size:0.78rem;cursor:pointer;font-weight:600;">{{ currency_symbol }}100</button>
+        <button type="button" onclick="setChipsAmount(200)" style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px;color:#0f172a;font-size:0.78rem;cursor:pointer;font-weight:600;">{{ currency_symbol }}200</button>
+        <button type="button" onclick="setChipsAmount(500)" style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px;color:#0f172a;font-size:0.78rem;cursor:pointer;font-weight:600;">{{ currency_symbol }}500</button>
+      </div>
+      <div style="background:#fffbeb;border:1px dashed #fde68a;border-radius:10px;padding:11px;text-align:center;font-size:0.84rem;color:#0f172a;">
+        You will receive: <strong style="color:#d97706;font-size:1rem;" id="chips-yield-text">10,000 Coins</strong>
+      </div>
+      <button type="submit" style="background:linear-gradient(135deg,#f59e0b,#ea580c);border:none;border-radius:10px;padding:12px;color:#fff;font-weight:800;font-size:0.88rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(245,158,11,0.3);">
+        <i class="fas fa-credit-card"></i> Proceed to Pay
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ── HRMS Service Details Modal ─────────────────────────────────────────── -->
+<div id="hrmsDetailsModal" style="display:none;position:fixed;inset:0;background:rgba(8,12,24,0.85);backdrop-filter:blur(8px);z-index:9999;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:20px;padding:28px;max-width:480px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.2);position:relative;">
+    <button type="button" onclick="closeHrmsModal()" style="position:absolute;top:14px;right:14px;background:none;border:none;color:#94a3b8;font-size:1.2rem;cursor:pointer;"><i class="fas fa-times"></i></button>
+    
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;border-bottom:1px solid #f1f5f9;padding-bottom:14px;">
+      <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#ea580c);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.2rem;box-shadow:0 4px 14px rgba(245,158,11,0.3);flex-shrink:0;">
+        <i class="fas fa-users"></i>
+      </div>
+      <div>
+        <h3 id="modalHrmsTitle" style="margin:0;font-size:1.15rem;font-weight:800;color:#0f172a;font-family:'Plus Jakarta Sans',sans-serif;">HRMS Service Details</h3>
+        <span id="modalHrmsBadge" class="badge badge-active" style="margin-top:4px;display:inline-block;">Active</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;font-size:0.86rem;font-family:'Plus Jakarta Sans',sans-serif;">
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#f8fafc;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0;">
+        <span style="color:#64748b;font-weight:600;"><i class="fas fa-globe" style="color:#f59e0b;margin-right:6px;"></i> Portal Login Link</span>
+        <a id="modalHrmsUrl" href="https://hrms.voidpanel.com" target="_blank" style="font-weight:700;color:#2563eb;text-decoration:none;">https://hrms.voidpanel.com</a>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#f8fafc;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0;">
+        <span style="color:#64748b;font-weight:600;"><i class="fas fa-envelope" style="color:#f59e0b;margin-right:6px;"></i> Admin Email</span>
+        <span id="modalHrmsEmail" style="font-weight:700;color:#0f172a;">admin@company.com</span>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#f8fafc;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0;">
+        <span style="color:#64748b;font-weight:600;"><i class="fas fa-layer-group" style="color:#f59e0b;margin-right:6px;"></i> Plan Tier</span>
+        <span id="modalHrmsPlan" style="font-weight:700;color:#0f172a;">Enterprise Tier</span>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#f8fafc;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0;">
+        <span style="color:#64748b;font-weight:600;"><i class="fas fa-receipt" style="color:#f59e0b;margin-right:6px;"></i> Price & Billing</span>
+        <span id="modalHrmsPrice" style="font-weight:700;color:#0f172a;">Monthly · ₹4,999/mo</span>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#f8fafc;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0;">
+        <span style="color:#64748b;font-weight:600;"><i class="fas fa-calendar" style="color:#f59e0b;margin-right:6px;"></i> Next Renewal</span>
+        <span id="modalHrmsDate" style="font-weight:700;color:#0f172a;">Active</span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <a id="modalHrmsLaunchBtn" href="https://hrms.voidpanel.com" target="_blank" style="flex:1;background:linear-gradient(135deg,#f59e0b,#ea580c);border:none;border-radius:10px;padding:12px;color:#fff;font-weight:800;font-size:0.86rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;box-shadow:0 4px 14px rgba(245,158,11,0.3);">
+        <i class="fas fa-arrow-up-right-from-square"></i> Open HRMS Portal
+      </a>
+      <button type="button" onclick="copyHrmsUrl()" style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:10px;padding:12px 16px;color:#0f172a;font-weight:700;font-size:0.86rem;cursor:pointer;display:flex;align-items:center;gap:6px;">
+        <i class="fas fa-copy"></i> Copy Link
+      </button>
+    </div>
+
+    <!-- DANGER ZONE: DELETE SERVICE -->
+    <div style="margin-top:16px;padding-top:14px;border-top:1px dashed #fca5a5;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-weight:800;color:#dc2626;font-size:0.8rem;"><i class="fas fa-triangle-exclamation"></i> Danger Zone</div>
+        <div style="font-size:0.73rem;color:#991b1b;">Permanently remove company from hrms.voidpanel.com</div>
+      </div>
+      <button type="button" onclick="promptDeleteHrmsService()" style="background:#fef2f2;border:1px solid #fca5a5;color:#dc2626;padding:7px 14px;border-radius:8px;font-weight:800;font-size:0.75rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+        <i class="fas fa-trash-can"></i> Delete Service
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Delete HRMS Service Confirmation Modal ─────────────────────────────── -->
+<div id="deleteHrmsConfirmModal" style="display:none;position:fixed;inset:0;background:rgba(8,12,24,0.85);backdrop-filter:blur(8px);z-index:10000;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border:1.5px solid #fca5a5;border-radius:20px;padding:28px;max-width:440px;width:100%;box-shadow:0 20px 60px rgba(220,38,38,0.15);position:relative;">
+    <button type="button" onclick="closeDeleteHrmsModal()" style="position:absolute;top:14px;right:14px;background:none;border:none;color:#94a3b8;font-size:1.2rem;cursor:pointer;"><i class="fas fa-times"></i></button>
+    
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+      <div style="width:44px;height:44px;border-radius:12px;background:#fef2f2;border:1px solid #fca5a5;display:flex;align-items:center;justify-content:center;color:#dc2626;font-size:1.2rem;flex-shrink:0;">
+        <i class="fas fa-triangle-exclamation"></i>
+      </div>
+      <div>
+        <h3 style="margin:0;font-size:1.1rem;font-weight:800;color:#991b1b;font-family:'Plus Jakarta Sans',sans-serif;">Delete HRMS Service</h3>
+        <p style="margin:2px 0 0;font-size:0.75rem;color:#64748b;">This action cannot be undone!</p>
+      </div>
+    </div>
+
+    <p style="font-size:0.84rem;color:#334155;line-height:1.45;margin-bottom:16px;">
+      Are you sure you want to permanently delete <strong id="deleteHrmsCompName" style="color:#0f172a;"></strong>? This will remove all company data, employee records, and tenant access on <strong>hrms.voidpanel.com</strong>.
+    </p>
+
+    <div style="background:#fff5f5;border:1px solid #fee2e2;border-radius:10px;padding:12px;margin-bottom:16px;">
+      <label style="font-size:0.75rem;font-weight:700;color:#991b1b;display:block;margin-bottom:6px;">Type DELETE below to confirm:</label>
+      <input type="text" id="deleteConfirmInput" placeholder="Type DELETE" style="width:100%;padding:9px 12px;border:1px solid #fca5a5;border-radius:8px;font-weight:700;font-size:0.9rem;color:#991b1b;outline:none;" oninput="validateDeleteInput(this.value)">
+    </div>
+
+    <div style="display:flex;gap:10px;">
+      <button type="button" onclick="closeDeleteHrmsModal()" style="flex:1;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:10px;padding:11px;color:#0f172a;font-weight:700;font-size:0.84rem;cursor:pointer;">Cancel</button>
+      <button type="button" id="confirmDeleteBtn" disabled onclick="executeDeleteHrmsService()" style="flex:1.2;background:#dc2626;border:none;border-radius:10px;padding:11px;color:#fff;font-weight:800;font-size:0.84rem;cursor:not-allowed;opacity:0.5;display:flex;align-items:center;justify-content:center;gap:6px;">
+        <i class="fas fa-trash-can"></i> Confirm & Delete
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+function setChipsAmount(v) { var i=document.getElementById('chips-amount-input'); if(i){i.value=v; updateChipsYield(v);} }
+function updateChipsYield(v) { var t=document.getElementById('chips-yield-text'); if(t){var c=parseInt(v||0)*100; t.textContent=c.toLocaleString('en-IN')+' Coins';} }
+
+let currentHrmsServiceId = null;
+let currentHrmsCompName = '';
+let currentHrmsUrl = 'https://hrms.voidpanel.com';
+
+function openHrmsModal(serviceId, companyName, url, email, plan, status, price, billing, dueDate) {
+  currentHrmsServiceId = serviceId;
+  currentHrmsCompName = companyName || 'HRMS Service';
+  currentHrmsUrl = url || 'https://hrms.voidpanel.com';
+
+  document.getElementById('modalHrmsTitle').innerText = companyName + ' — HRMS Details';
+  document.getElementById('modalHrmsUrl').innerText = currentHrmsUrl;
+  document.getElementById('modalHrmsUrl').href = currentHrmsUrl;
+  document.getElementById('modalHrmsLaunchBtn').href = currentHrmsUrl;
+  document.getElementById('modalHrmsEmail').innerText = email || 'N/A';
+  document.getElementById('modalHrmsPlan').innerText = plan + ' Plan';
+  document.getElementById('modalHrmsPrice').innerText = billing + ' · ' + price;
+  document.getElementById('modalHrmsDate').innerText = dueDate || 'Active';
+
+  const badge = document.getElementById('modalHrmsBadge');
+  badge.innerText = status;
+  badge.className = 'badge badge-' + (status.toLowerCase() === 'active' ? 'active' : 'pending');
+
+  const modal = document.getElementById('hrmsDetailsModal');
+  modal.style.display = 'flex';
+}
+
+function closeHrmsModal() {
+  document.getElementById('hrmsDetailsModal').style.display = 'none';
+}
+
+function copyHrmsUrl() {
+  navigator.clipboard.writeText(currentHrmsUrl).then(() => {
+    alert("HRMS Portal URL copied to clipboard:\n" + currentHrmsUrl);
+  });
+}
+
+function promptDeleteHrmsService() {
+  closeHrmsModal();
+  document.getElementById('deleteHrmsCompName').innerText = currentHrmsCompName;
+  document.getElementById('deleteConfirmInput').value = '';
+  const btn = document.getElementById('confirmDeleteBtn');
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  btn.style.cursor = 'not-allowed';
+  document.getElementById('deleteHrmsConfirmModal').style.display = 'flex';
+}
+
+function closeDeleteHrmsModal() {
+  document.getElementById('deleteHrmsConfirmModal').style.display = 'none';
+}
+
+function validateDeleteInput(val) {
+  const btn = document.getElementById('confirmDeleteBtn');
+  if (val.trim() === 'DELETE' || val.trim() === 'delete') {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+  } else {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+  }
+}
+
+function executeDeleteHrmsService() {
+  if (!currentHrmsServiceId) return;
+
+  const btn = document.getElementById('confirmDeleteBtn');
+  btn.innerText = 'Deleting...';
+  btn.disabled = true;
+
+  const formData = new FormData();
+  formData.append('service_type', 'erp');
+  formData.append('service_id', currentHrmsServiceId);
+  formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+  fetch('/portal/delete-service/', {
+    method: 'POST',
+    body: formData
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.ok) {
+      alert(data.message || 'HRMS service deleted successfully!');
+      window.location.reload();
+    } else {
+      alert('Deletion error: ' + (data.message || 'Failed to delete service.'));
+      btn.innerText = 'Confirm & Delete';
+      btn.disabled = false;
+    }
+  })
+  .catch(err => {
+    alert('Error connecting to server: ' + err);
+    btn.innerText = 'Confirm & Delete';
+    btn.disabled = false;
+  });
+}
+</script>
+
+<script src="{% static 'assets/js/portal.js' %}" onerror="console.log('portal.js not found')"></script>
+</body>
+</html>

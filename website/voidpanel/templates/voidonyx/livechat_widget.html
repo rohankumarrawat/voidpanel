@@ -1,0 +1,376 @@
+<!-- ╔════════════════════════════════════════════════════════╗ -->
+<!-- ║  LIVE CHAT WIDGET (Shared Partial)                     ║ -->
+<!-- ╚════════════════════════════════════════════════════════╝ -->
+<div id="liveChatWidget" style="position:fixed;bottom:28px;right:28px;z-index:9999;font-family:'Plus Jakarta Sans',system-ui,sans-serif;">
+    <!-- FAB Button -->
+    <button id="liveChatBtn" onclick="toggleLiveChat()" aria-label="Open live chat" style="
+        width:58px;height:58px;border-radius:50%;
+        background:linear-gradient(135deg,#f59e0b,#ea580c);
+        border:none;box-shadow:0 8px 28px rgba(245,158,11,0.35);
+        cursor:pointer;display:flex;align-items:center;justify-content:center;
+        color:#ffffff;font-size:1.35rem;transition:transform 0.2s,box-shadow 0.2s;
+        position:relative;">
+        <i class="fas fa-headset"></i>
+        <span id="lcUnreadBadge" style="display:none;position:absolute;top:-4px;right:-4px;
+            background:#ef4444;color:#fff;font-size:0.58rem;font-weight:800;
+            border-radius:50%;width:18px;height:18px;align-items:center;justify-content:center;
+            border:2px solid #fff;"></span>
+    </button>
+
+    <!-- Chat Window -->
+    <div id="liveChatWin" style="
+        display:none;position:absolute;bottom:72px;right:0;
+        width:370px;height:530px;
+        background:#ffffff;border:1px solid rgba(15,23,42,0.09);
+        border-radius:22px;box-shadow:0 24px 60px rgba(15,23,42,0.12);
+        flex-direction:column;overflow:hidden;">
+
+        <!-- Header -->
+        <div style="background:linear-gradient(135deg,#f59e0b,#ea580c);padding:16px 20px;color:#ffffff;display:flex;align-items:center;gap:12px;flex-shrink:0;">
+            <div style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">
+                <i class="fas fa-headset"></i>
+            </div>
+            <div style="flex:1;">
+                <div style="font-weight:800;font-size:0.92rem;letter-spacing:-0.01em;">VoidOnyx Support</div>
+                <div style="font-size:0.7rem;opacity:0.8;" id="lcAgentStatus">⚡ Connecting to an agent…</div>
+            </div>
+            <button onclick="toggleLiveChat()" style="background:rgba(255,255,255,0.12);border:none;color:#fff;cursor:pointer;width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:0.85rem;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.12)'">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Guest Auth Form -->
+        <div id="liveChatForm" style="display:none;padding:24px 20px;background:#ffffff;flex:1;overflow-y:auto;">
+            <div style="text-align:center;margin-bottom:20px;">
+                <div style="width:52px;height:52px;border-radius:14px;background:rgba(245,158,11,0.08);display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin:0 auto 12px;">👋</div>
+                <div style="font-weight:800;color:#0f172a;font-size:0.95rem;">Welcome!</div>
+                <div style="font-size:0.82rem;color:#64748b;margin-top:4px;line-height:1.5;">Please share your details and an agent will join you shortly.</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                <input type="text" id="lcName" placeholder="Your Full Name" style="width:100%;background:#f8fafc;border:1.5px solid rgba(15,23,42,0.09);padding:12px 14px;border-radius:10px;color:#0f172a;font-family:inherit;font-size:0.88rem;outline:none;box-sizing:border-box;transition:border-color 0.2s;" onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='rgba(15,23,42,0.09)'">
+                <input type="email" id="lcEmail" placeholder="Email Address" style="width:100%;background:#f8fafc;border:1.5px solid rgba(15,23,42,0.09);padding:12px 14px;border-radius:10px;color:#0f172a;font-family:inherit;font-size:0.88rem;outline:none;box-sizing:border-box;transition:border-color 0.2s;" onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='rgba(15,23,42,0.09)'">
+                <input type="tel" id="lcPhone" placeholder="Phone / WhatsApp Number" style="width:100%;background:#f8fafc;border:1.5px solid rgba(15,23,42,0.09);padding:12px 14px;border-radius:10px;color:#0f172a;font-family:inherit;font-size:0.88rem;outline:none;box-sizing:border-box;transition:border-color 0.2s;" onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='rgba(15,23,42,0.09)'">
+                <div style="font-size:0.72rem;color:#94a3b8;margin-top:-4px;padding-left:4px;">📱 10-digit numbers will auto-get +91 country code</div>
+                <button onclick="startLiveChat()" style="padding:13px;border:none;background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;font-weight:800;border-radius:10px;cursor:pointer;font-size:0.88rem;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(245,158,11,0.25);transition:opacity 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+                    <i class="fas fa-paper-plane"></i> Start Chat
+                </button>
+            </div>
+            <div id="lcError" style="color:#ef4444;font-size:0.75rem;margin-top:10px;display:none;text-align:center;"></div>
+        </div>
+
+        <!-- "No Agent Available" Screen -->
+        <div id="liveChatBusy" style="display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;padding:28px 24px;text-align:center;background:#fff;">
+            <div style="width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#fef2f2,#fee2e2);display:flex;align-items:center;justify-content:center;font-size:1.8rem;margin-bottom:18px;">😔</div>
+            <div style="font-weight:800;font-size:1rem;color:#0f172a;margin-bottom:8px;">Sorry, we're a bit busy!</div>
+            <div style="font-size:0.83rem;color:#64748b;line-height:1.6;margin-bottom:20px;">No agent is available right now. We've been notified and will follow up with you as soon as possible.</div>
+            <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:14px 18px;width:100%;box-sizing:border-box;margin-bottom:20px;">
+                <div style="font-size:0.75rem;font-weight:700;color:#15803d;margin-bottom:4px;">✅ What happens next</div>
+                <div style="font-size:0.78rem;color:#166534;line-height:1.6;">• Our team has been notified via email<br>• If you shared a phone number, we'll send you a WhatsApp message<br>• We'll follow up shortly!</div>
+            </div>
+            <button onclick="lcResetToForm()" style="padding:10px 24px;border:1.5px solid rgba(245,158,11,0.25);background:rgba(245,158,11,0.06);color:#f59e0b;font-weight:700;border-radius:10px;cursor:pointer;font-size:0.84rem;font-family:inherit;transition:background 0.15s;" onmouseover="this.style.background='rgba(245,158,11,0.12)'" onmouseout="this.style.background='rgba(245,158,11,0.06)'">
+                Try Again Later
+            </button>
+        </div>
+
+        <!-- Countdown Timer Bar -->
+        <div id="lcTimerBar" style="display:none;padding:7px 16px;background:#fffbeb;border-bottom:1px solid #fde68a;flex-shrink:0;">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span id="lcTimerDot" style="width:8px;height:8px;border-radius:50%;background:#f59e0b;flex-shrink:0;animation:lcPulse 1s ease-in-out infinite;"></span>
+                <span style="font-size:0.74rem;color:#92400e;flex:1;">Connecting you to an agent…</span>
+                <span id="lcTimerCount" style="font-size:0.78rem;font-weight:800;color:#b45309;font-family:monospace;">2:00</span>
+            </div>
+            <div style="margin-top:5px;background:#fde68a;border-radius:4px;height:3px;overflow:hidden;">
+                <div id="lcTimerFill" style="width:100%;height:100%;background:#f59e0b;border-radius:4px;transition:width 1s linear;"></div>
+            </div>
+        </div>
+        <style>@keyframes lcPulse{0%,100%{opacity:1}50%{opacity:0.35}}</style>
+
+        <!-- Chat History -->
+        <div id="liveChatHistory" style="display:none;flex:1;padding:14px 16px;background:#f8fafc;overflow-y:auto;flex-direction:column;gap:10px;"></div>
+
+        <!-- Emoji Picker -->
+        <div id="lcEmojiPicker" style="display:none;position:absolute;bottom:62px;left:0;right:0;background:#ffffff;border-top:1px solid rgba(15,23,42,0.06);padding:10px;flex-wrap:wrap;gap:5px;max-height:130px;overflow-y:auto;z-index:10;"></div>
+
+        <!-- Input Area -->
+        <div id="liveChatInputArea" style="display:none;padding:10px 12px;background:#ffffff;border-top:1px solid rgba(15,23,42,0.06);flex-direction:column;gap:8px;flex-shrink:0;">
+            <div style="display:flex;align-items:center;gap:6px;">
+                <button onclick="toggleEmojiPicker()" title="Emoji" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:1.15rem;padding:4px;border-radius:6px;transition:background 0.1s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'">😊</button>
+                <label title="Attach file" style="color:#64748b;cursor:pointer;font-size:0.95rem;padding:4px;border-radius:6px;transition:background 0.1s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'"><i class="fas fa-paperclip"></i><input type="file" id="lcFileInput" style="display:none;" onchange="sendAttachment()"></label>
+                <label title="Send image" style="color:#64748b;cursor:pointer;font-size:0.95rem;padding:4px;border-radius:6px;transition:background 0.1s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'"><i class="fas fa-image"></i><input type="file" id="lcImageInput" accept="image/*" style="display:none;" onchange="sendImage()"></label>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <input type="text" id="lcMsg" placeholder="Type a message…" autocomplete="off"
+                    onkeydown="if(event.key==='Enter')sendLiveChatMsg()"
+                    style="flex:1;background:#f8fafc;border:1.5px solid rgba(15,23,42,0.09);color:#0f172a;padding:10px 14px;border-radius:20px;outline:none;font-family:inherit;font-size:0.85rem;transition:border-color 0.2s;"
+                    onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='rgba(15,23,42,0.09)'">
+                <button onclick="sendLiveChatMsg()" style="width:38px;height:38px;flex-shrink:0;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#ea580c);border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.85rem;box-shadow:0 4px 10px rgba(245,158,11,0.25);transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const CSRF = '{{ csrf_token }}';
+    const isUserAuth = "{{ request.user.is_authenticated }}" === "True";
+    let lcSessionId = localStorage.getItem('voidpanel_lc_session') || null;
+    let lcLastId = 0;
+    let lcInterval = null;
+    let lcUnread = 0;
+    let lcOpen = false;
+    let lcNoAgentTimer = null;
+    let lcAgentHasJoined = false;
+    let lcNoAgentFired = false;
+
+    const EMOJIS = ['😊','😂','❤️','👍','🙏','🎉','😎','🔥','✅','❌','💡','⚡','🛠️','📋','📎','🖼️','🤝','😢','😡','🚀','💬','📧','🔑','🛡️','🌐','⭐','💻','📞','✉️','👋','😅','🙌','💪','🤔','👀','🎯','🏆','📂','🔒','⚙️'];
+
+    function buildEmojiPicker() {
+        const p = document.getElementById('lcEmojiPicker');
+        EMOJIS.forEach(em => {
+            const btn = document.createElement('button');
+            btn.textContent = em;
+            btn.style.cssText = 'background:none;border:none;font-size:1.25rem;cursor:pointer;padding:4px;border-radius:6px;transition:background 0.1s;';
+            btn.onmouseenter = () => btn.style.background = '#f1f5f9';
+            btn.onmouseleave = () => btn.style.background = 'none';
+            btn.onclick = () => {
+                const inp = document.getElementById('lcMsg');
+                inp.value += em;
+                inp.focus();
+                document.getElementById('lcEmojiPicker').style.display = 'none';
+            };
+            p.appendChild(btn);
+        });
+    }
+    buildEmojiPicker();
+
+    window.toggleEmojiPicker = function() {
+        const p = document.getElementById('lcEmojiPicker');
+        p.style.display = (p.style.display === 'none' || p.style.display === '') ? 'flex' : 'none';
+    };
+
+    let lcTimerInterval = null;
+    const LC_TIMEOUT_SECS = 120;
+
+    function startNoAgentTimer(sessionId) {
+        lcNoAgentFired = false;
+        if (lcNoAgentTimer)  clearTimeout(lcNoAgentTimer);
+        if (lcTimerInterval) clearInterval(lcTimerInterval);
+        const bar   = document.getElementById('lcTimerBar');
+        const count = document.getElementById('lcTimerCount');
+        const fill  = document.getElementById('lcTimerFill');
+        if (bar) bar.style.display = 'block';
+        let remaining = LC_TIMEOUT_SECS;
+        function tick() {
+            remaining--;
+            const m = Math.floor(remaining / 60);
+            const s = remaining % 60;
+            if (count) count.textContent = `${m}:${s < 10 ? '0' + s : s}`;
+            if (fill)  fill.style.width  = `${(remaining / LC_TIMEOUT_SECS) * 100}%`;
+            if (remaining <= 0) {
+                clearInterval(lcTimerInterval); lcTimerInterval = null;
+                if (bar) bar.style.display = 'none';
+            }
+        }
+        lcTimerInterval = setInterval(tick, 1000);
+        lcNoAgentTimer = setTimeout(function () {
+            if (!lcAgentHasJoined && !lcNoAgentFired) {
+                lcNoAgentFired = true;
+                fetch(`/livechat/${sessionId}/no-agent/`, {
+                    method: 'POST',
+                    headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+                    body: JSON.stringify({})
+                }).catch(() => {});
+                showBusyScreen();
+            }
+        }, LC_TIMEOUT_SECS * 1000);
+    }
+
+    function _stopTimerBar() {
+        if (lcTimerInterval) { clearInterval(lcTimerInterval); lcTimerInterval = null; }
+        const bar = document.getElementById('lcTimerBar');
+        if (bar) bar.style.display = 'none';
+    }
+
+    function showBusyScreen() {
+        clearInterval(lcInterval); lcInterval = null;
+        _stopTimerBar();
+        document.getElementById('liveChatHistory').style.display = 'none';
+        document.getElementById('liveChatInputArea').style.display = 'none';
+        document.getElementById('liveChatForm').style.display = 'none';
+        document.getElementById('liveChatBusy').style.display = 'flex';
+        document.getElementById('lcAgentStatus').textContent = '⏳ Sorry, we are busy';
+    }
+
+    window.lcResetToForm = function() {
+        if(lcSessionId) {
+            fetch(`/livechat/${lcSessionId}/close/`, {method:'POST', headers:{'X-CSRFToken': CSRF}}).catch(()=>{});
+        }
+        lcSessionId = null;
+        localStorage.removeItem('voidpanel_lc_session');
+        clearInterval(lcInterval); lcInterval = null;
+        if (lcNoAgentTimer)  { clearTimeout(lcNoAgentTimer);  lcNoAgentTimer  = null; }
+        _stopTimerBar();
+        lcLastId = 0; lcAgentHasJoined = false; lcNoAgentFired = false;
+        document.getElementById('liveChatBusy').style.display = 'none';
+        document.getElementById('liveChatHistory').style.display = 'none';
+        document.getElementById('liveChatHistory').innerHTML = '';
+        document.getElementById('liveChatInputArea').style.display = 'none';
+        document.getElementById('lcAgentStatus').textContent = '⚡ Connecting to an agent…';
+        if(isUserAuth) { startLiveChat(); }
+        else { document.getElementById('liveChatForm').style.display = 'block'; }
+    };
+
+    window.toggleLiveChat = function() {
+        const win = document.getElementById('liveChatWin');
+        const btn = document.getElementById('liveChatBtn');
+        lcOpen = !lcOpen;
+        win.style.display = lcOpen ? 'flex' : 'none';
+        btn.style.transform = lcOpen ? 'scale(0.92)' : 'scale(1)';
+        if(lcOpen) {
+            lcUnread = 0;
+            const badge = document.getElementById('lcUnreadBadge');
+            badge.style.display = 'none';
+            if(!lcSessionId) {
+                if(isUserAuth) { startLiveChat(); }
+                else { document.getElementById('liveChatForm').style.display = 'block'; }
+            } else {
+                showChatInterface();
+            }
+        }
+    };
+
+    window.startLiveChat = function() {
+        const name  = (document.getElementById('lcName')  || {}).value || '';
+        const email = (document.getElementById('lcEmail') || {}).value || '';
+        const phone = (document.getElementById('lcPhone') || {}).value || '';
+        const err   = document.getElementById('lcError');
+        fetch('/livechat/start/', {
+            method: 'POST',
+            body: JSON.stringify({name: name.trim(), email: email.trim(), phone: phone.trim()}),
+            headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'}
+        }).then(r => r.json()).then(data => {
+            if(data.status === 'ok') {
+                lcSessionId = data.session_id;
+                localStorage.setItem('voidpanel_lc_session', lcSessionId);
+                lcAgentHasJoined = false;
+                lcNoAgentFired = false;
+                showChatInterface();
+                startNoAgentTimer(lcSessionId);
+            } else {
+                if(err) { err.textContent = data.error; err.style.display = 'block'; }
+            }
+        }).catch(() => {
+            if(err) { err.textContent = 'Could not connect. Please try again.'; err.style.display = 'block'; }
+        });
+    };
+
+    function showChatInterface() {
+        document.getElementById('liveChatForm').style.display = 'none';
+        document.getElementById('liveChatBusy').style.display = 'none';
+        document.getElementById('liveChatHistory').style.display = 'flex';
+        document.getElementById('liveChatInputArea').style.display = 'flex';
+        pollChat();
+        if(!lcInterval) lcInterval = setInterval(pollChat, 2500);
+    }
+
+    function renderMessage(m) {
+        const hist = document.getElementById('liveChatHistory');
+        const wrap = document.createElement('div');
+        wrap.dataset.msgId = m.id;
+        const isUser = (m.sender === 'user');
+        wrap.style.cssText = `display:flex;flex-direction:column;align-items:${isUser ? 'flex-end' : 'flex-start'};`;
+        const bubbleBg = isUser ? 'linear-gradient(135deg,#f59e0b,#ea580c)' : '#ffffff';
+        const bubbleColor = isUser ? '#ffffff' : '#0f172a';
+        const br = isUser ? '14px 14px 2px 14px' : '14px 14px 14px 2px';
+        const label = isUser ? 'You' : '🛡️ Support';
+        let inner = '';
+        if(m.msg_type === 'image') {
+            inner = `<img src="${m.attachment_url}" alt="${m.attachment_name}" style="max-width:220px;border-radius:10px;border:1px solid rgba(15,23,42,0.08);">`;
+        } else if(m.msg_type === 'file') {
+            inner = `<div style="background:${isUser ? '#f59e0b' : '#ffffff'};color:${bubbleColor};padding:10px 14px;border-radius:${br};font-size:0.83rem;border:1px solid rgba(15,23,42,0.08);box-shadow:0 1px 3px rgba(15,23,42,0.05);">📎 <a href="${m.attachment_url}" target="_blank" style="color:${isUser ? '#fff8e1' : '#f59e0b'};text-decoration:underline;">${m.attachment_name}</a></div>`;
+        } else {
+            inner = `<div style="background:${bubbleBg};color:${bubbleColor};padding:10px 14px;border-radius:${br};font-size:0.85rem;max-width:260px;word-break:break-word;line-height:1.5;${isUser ? 'box-shadow:0 4px 12px rgba(245,158,11,0.2);' : 'border:1px solid rgba(15,23,42,0.08);box-shadow:0 1px 3px rgba(15,23,42,0.05);'}">${m.content}</div>`;
+        }
+        wrap.innerHTML = `<div style="font-size:0.67rem;color:#94a3b8;margin-bottom:4px;padding:0 2px;">${label} · ${m.timestamp}</div>${inner}`;
+        hist.appendChild(wrap);
+        hist.scrollTop = hist.scrollHeight;
+    }
+
+    function pollChat() {
+        if(!lcSessionId) return;
+        fetch(`/livechat/${lcSessionId}/poll/?last_id=${lcLastId}`)
+        .then(r => r.json()).then(d => {
+            if(d.status === 'ok') {
+                d.messages.forEach(m => {
+                    if(m.id > lcLastId) {
+                        lcLastId = m.id;
+                        renderMessage(m);
+                        if(!lcOpen && m.sender === 'agent') {
+                            lcUnread++;
+                            const badge = document.getElementById('lcUnreadBadge');
+                            badge.textContent = lcUnread;
+                            badge.style.display = 'flex';
+                        }
+                    }
+                });
+                if (d.is_agent_assigned && !lcAgentHasJoined) {
+                    lcAgentHasJoined = true;
+                    if (lcNoAgentTimer) { clearTimeout(lcNoAgentTimer); lcNoAgentTimer = null; }
+                    _stopTimerBar();
+                }
+                if(d.assigned) { document.getElementById('lcAgentStatus').textContent = `🟢 ${d.assigned}`; }
+                if(d.session_status === 'closed') {
+                    lcSessionId = null;
+                    localStorage.removeItem('voidpanel_lc_session');
+                    clearInterval(lcInterval); lcInterval = null;
+                    if(lcNoAgentTimer) { clearTimeout(lcNoAgentTimer); lcNoAgentTimer = null; }
+                    const hist = document.getElementById('liveChatHistory');
+                    const cd = document.createElement('div');
+                    cd.style.cssText = 'text-align:center;color:#ef4444;font-size:0.75rem;padding:10px;background:#fef2f2;border-radius:10px;margin-top:6px;';
+                    cd.innerHTML = '🔒 Session closed. A transcript has been emailed to you.';
+                    hist.appendChild(cd);
+                    document.getElementById('liveChatInputArea').style.display = 'none';
+                    document.getElementById('lcAgentStatus').textContent = 'Session ended';
+                }
+            } else if(d.error === 'Session not found') {
+                localStorage.removeItem('voidpanel_lc_session');
+                lcSessionId = null;
+                clearInterval(lcInterval); lcInterval = null;
+            }
+        }).catch(() => {});
+    }
+
+    window.sendLiveChatMsg = function() {
+        const inp = document.getElementById('lcMsg');
+        const txt = inp.value.trim();
+        if(!txt || !lcSessionId) return;
+        inp.value = '';
+        document.getElementById('lcEmojiPicker').style.display = 'none';
+        fetch(`/livechat/${lcSessionId}/send/`, {
+            method: 'POST',
+            body: JSON.stringify({message: txt}),
+            headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'}
+        }).then(() => pollChat());
+    };
+
+    window.sendAttachment = function() {
+        const input = document.getElementById('lcFileInput');
+        if(!input.files[0] || !lcSessionId) return;
+        const form = new FormData();
+        form.append('attachment', input.files[0]);
+        fetch(`/livechat/${lcSessionId}/send/`, { method: 'POST', body: form, headers: {'X-CSRFToken': CSRF} })
+            .then(() => { input.value = ''; pollChat(); });
+    };
+
+    window.sendImage = function() {
+        const input = document.getElementById('lcImageInput');
+        if(!input.files[0] || !lcSessionId) return;
+        const form = new FormData();
+        form.append('attachment', input.files[0]);
+        fetch(`/livechat/${lcSessionId}/send/`, { method: 'POST', body: form, headers: {'X-CSRFToken': CSRF} })
+            .then(() => { input.value = ''; pollChat(); });
+    };
+})();
+</script>

@@ -19,6 +19,56 @@ import json
 import random
 import re
 
+# ── Domain validation ────────────────────────────────────────────────────────
+# Common TLDs for quick validation without tldextract dependency
+_DOMAIN_RE = re.compile(
+    r'^(?!-)[a-zA-Z0-9-]{1,63}(?<!-)'       # domain label
+    r'(\.[a-zA-Z0-9-]{1,63})*'               # optional subdomains
+    r'\.[a-zA-Z]{2,}$'                        # TLD (2+ alpha chars)
+)
+
+
+def validate_domain(raw):
+    """Validate and clean a domain input. Returns (clean_domain, error_msg)."""
+    if not raw or not raw.strip():
+        return None, 'Domain is required.'
+    clean = re.sub(r'^(https?://)?(www\.)?', '', raw.lower().strip())
+    clean = clean.split('/')[0]  # Remove any path
+    clean = clean.split('?')[0]  # Remove query string
+    clean = clean.split(':')[0]  # Remove port
+    if not _DOMAIN_RE.match(clean):
+        return None, f'"{raw}" is not a valid domain. Enter a domain like example.com'
+    return clean, None
+
+
+def check_pagespeed(domain):
+    """🟢 LIVE — Google PageSpeed Insights API for real Core Web Vitals."""
+    url = f"https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=https://{domain}&strategy=mobile&category=performance"
+    try:
+        r = requests.get(url, timeout=30)
+        if r.status_code != 200:
+            return None
+        data = r.json()
+        lhr = data.get('lighthouseResult', {})
+        audits = lhr.get('audits', {})
+        # Extract real CWV metrics
+        lcp_ms = audits.get('largest-contentful-paint', {}).get('numericValue', 0)
+        cls_val = audits.get('cumulative-layout-shift', {}).get('numericValue', 0)
+        fid_ms = audits.get('interaction-to-next-paint', {}).get('numericValue', 0)
+        if fid_ms == 0:
+            fid_ms = audits.get('max-potential-fid', {}).get('numericValue', 0)
+        speed_score = int(lhr.get('categories', {}).get('performance', {}).get('score', 0) * 100)
+        return {
+            'lcp': round(lcp_ms / 1000, 1),  # Convert ms to seconds
+            'cls': round(cls_val, 2),
+            'fid': int(fid_ms),
+            'speed_score': speed_score,
+            'source': 'LIVE',
+        }
+    except Exception:
+        return None
+
+
 COMMON_CRAWL_INDEX = "CC-MAIN-2026-16-index"
 
 INTENT_MAP = {
@@ -229,14 +279,17 @@ def get_fix_recommendation(check_name, status):
 
 
 def build_audit_checks(domain, crawled_urls_count, rng, lh, robots_ok,
-                        sitemap_in_robots, sitemap_ok, robots_content):
+                        sitemap_in_robots, sitemap_ok, robots_content,
+                        pagespeed=None):
     checks = []
 
-    def add(name, status, detail, category, impact='medium'):
+    def add(name, status, detail, category, impact='medium', source=None):
+        if source is None:
+            source = 'LIVE' if category in ('Security','Crawlability') else 'EST'
         checks.append({'name': name, 'status': status, 'detail': detail,
                        'category': category, 'impact': impact,
                        'fix': get_fix_recommendation(name, status),
-                       'source': 'LIVE' if category in ('Security','Crawlability') else 'EST'})
+                       'source': source})
 
     p = lambda t: rng.random() > t
 
@@ -303,17 +356,28 @@ def build_audit_checks(domain, crawled_urls_count, rng, lh, robots_ok,
 
     add('Mobile Viewport', 'Passed', 'viewport meta set: width=device-width, initial-scale=1.', 'Mobile', 'high')
 
-    lcp = round(rng.uniform(1.1, 4.8), 1)
+    # ── Core Web Vitals — use REAL PageSpeed Insights data when available ──
+    if pagespeed:
+        lcp = pagespeed['lcp']
+        cls = pagespeed['cls']
+        fid = pagespeed['fid']
+        ps_score = pagespeed['speed_score']
+        cwv_source = 'LIVE'
+    else:
+        lcp = round(rng.uniform(1.1, 4.8), 1)
+        cls = round(rng.uniform(0.01, 0.38), 2)
+        fid = int(rng.uniform(50, 380))
+        ps_score = None
+        cwv_source = 'EST'
+
     add('Core Web Vitals — LCP', 'Passed' if lcp <= 2.5 else ('Warning' if lcp <= 4.0 else 'Failed'),
-        f'Largest Contentful Paint: {lcp}s. Target: ≤2.5s.', 'Performance', 'high')
+        f'Largest Contentful Paint: {lcp}s. Target: ≤2.5s.', 'Performance', 'high', source=cwv_source)
 
-    cls = round(rng.uniform(0.01, 0.38), 2)
     add('Core Web Vitals — CLS', 'Passed' if cls <= 0.1 else ('Warning' if cls <= 0.25 else 'Failed'),
-        f'Cumulative Layout Shift: {cls}. Target: ≤0.1.', 'Performance', 'high')
+        f'Cumulative Layout Shift: {cls}. Target: ≤0.1.', 'Performance', 'high', source=cwv_source)
 
-    fid = int(rng.uniform(50, 380))
     add('Core Web Vitals — INP', 'Passed' if fid <= 100 else ('Warning' if fid <= 200 else 'Failed'),
-        f'Interaction to Next Paint: {fid}ms. Target: ≤200ms.', 'Performance', 'high')
+        f'Interaction to Next Paint: {fid}ms. Target: ≤200ms.', 'Performance', 'high', source=cwv_source)
 
     alts = p(0.3)
     add('Image Alt Attributes', 'Passed' if alts else 'Warning',
@@ -715,7 +779,11 @@ def analyze_domain_seo(domain):
     Full SEO analysis matching Ahrefs + SEMrush feature set.
     Returns structured data for all 15 portal panels.
     """
-    clean = re.sub(r'^(https?://)?(www\.)?', '', domain.lower().strip())
+    # ── Domain validation ─────────────────────────────────────────────────
+    clean, err = validate_domain(domain)
+    if err:
+        return {'error': err, 'domain': domain, 'valid': False}
+
     brand = clean.split('.')[0].capitalize()
     rng = random.Random(sum(ord(c) for c in clean))
 
@@ -747,15 +815,15 @@ def analyze_domain_seo(domain):
         for r in cc_records[:50]
     ]
 
-    if crawled_count == 0:
-        status_dist = {"200": 84, "301": 12, "302": 4, "404": 2, "500": 0}
-        mime_dist = {"text/html": 65, "application/json": 15, "text/css": 8, "image/png": 10, "other": 2}
-        depth_dist = {"1": 25, "2": 40, "3": 22, "4+": 13}
-        crawled_count = rng.randint(45, 230)
+    # Don't fake crawl data — show real zeros if no CC records found
+    cc_has_data = crawled_count > 0
 
     # 🟢 Real live checks
     lh = check_live_headers(clean)
     robots_ok, sitemap_in_robots, sitemap_ok, robots_content = check_robots_sitemap(clean)
+
+    # 🟢 Real PageSpeed Insights (Core Web Vitals)
+    psi = check_pagespeed(clean)
 
     # 🟡 Metric estimates
     base_auth = rng.randint(15, 65)
@@ -854,7 +922,8 @@ def analyze_domain_seo(domain):
         })
 
     audit_checks, health_score, fail_c, warn_c, pass_c = build_audit_checks(
-        clean, crawled_count, rng, lh, robots_ok, sitemap_in_robots, sitemap_ok, robots_content)
+        clean, crawled_count, rng, lh, robots_ok, sitemap_in_robots, sitemap_ok, robots_content,
+        pagespeed=psi)
 
     competitors = build_competitor_data(clean, auth_score, traffic_est, rng)
     content_gap = build_content_gap(brand, competitors, rng)
@@ -867,13 +936,14 @@ def analyze_domain_seo(domain):
     anchors = build_anchor_text_analysis(backlinks, brand, rng)
 
     return {
-        'domain': clean, 'brand': brand,
+        'domain': clean, 'brand': brand, 'valid': True,
         'live_checks': {
             'ssl': lh.get('ssl'), 'hsts': lh.get('has_hsts'),
             'server': lh.get('server'), 'http_status': lh.get('http_status'),
             'robots_ok': robots_ok, 'sitemap_ok': sitemap_ok,
             'compression': lh.get('content_encoding', 'none'),
         },
+        'pagespeed': psi,  # Real PageSpeed data or None
         'metrics': {
             'authority_score': auth_score, 'organic_traffic': traffic_est,
             'organic_keywords': kw_count, 'backlinks': bl_count,
@@ -882,6 +952,16 @@ def analyze_domain_seo(domain):
             'dofollow_count': dofollow, 'nofollow_count': nofollow,
             'toxic_count': toxic_cnt, 'new_backlinks_30d': new_bl,
             'lost_backlinks_30d': lost_bl, 'pos_dist': pos_dist,
+        },
+        'data_sources': {
+            'common_crawl': 'LIVE' if cc_has_data else 'NO_DATA',
+            'http_headers': 'LIVE',
+            'robots_sitemap': 'LIVE',
+            'pagespeed': 'LIVE' if psi else 'UNAVAILABLE',
+            'authority_score': 'EST',
+            'traffic': 'EST',
+            'keywords': 'EST',
+            'backlinks': 'EST',
         },
         'traffic_trend': traffic_trend, 'country_dist': country_dist,
         'crawled_samples': crawled_samples, 'keywords': keywords,

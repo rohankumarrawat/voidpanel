@@ -1,0 +1,557 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <meta name="format-detection" content="telephone=no">
+    <title>VoidOnyx — Executive Visiting Card</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        :root {
+            --ox-bg: #090d16;
+            --ox-card-bg: #0f172a;
+            --ox-amber-500: #f59e0b;
+            --ox-orange-600: #ea580c;
+            --ox-grad-brand: linear-gradient(135deg, #f59e0b 0%, #ea580c 50%, #c2410c 100%);
+            --ox-border: rgba(255, 255, 255, 0.12);
+            --ox-text-main: #ffffff;
+            --ox-text-muted: #94a3b8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--ox-bg);
+            color: var(--ox-text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 16px;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(245,158,11,0.08), transparent 35%),
+                radial-gradient(circle at 85% 85%, rgba(234,88,12,0.06), transparent 35%);
+            overflow-x: hidden;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        .header { text-align: center; margin-bottom: 24px; max-width: 650px; width: 100%; }
+        .header h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(1.5rem, 5vw, 2.2rem);
+            font-weight: 700;
+            background: var(--ox-grad-brand);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+        .header p { color: var(--ox-text-muted); font-size: clamp(0.82rem, 2.5vw, 0.95rem); line-height: 1.5; }
+
+        .toolbar { display: flex; gap: 10px; margin-bottom: 28px; flex-wrap: wrap; justify-content: center; width: 100%; }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--ox-border);
+            color: var(--ox-text-main);
+            padding: 8px 18px;
+            border-radius: 99px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.25s ease;
+            text-decoration: none;
+        }
+        .btn:hover, .btn.active {
+            background: var(--ox-grad-brand);
+            border-color: transparent;
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(234, 88, 12, 0.35);
+        }
+
+        .cards-stage {
+            display: flex;
+            gap: 32px;
+            flex-wrap: wrap;
+            justify-content: center;
+            perspective: 1200px;
+            width: 100%;
+            max-width: 1020px;
+        }
+
+        /* ── Standard 3.5" x 2.0" Aspect Ratio, Fully Responsive Container ── */
+        .card-stage-item {
+            width: 100%;
+            max-width: 480px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .card-wrapper {
+            width: 100%;
+            max-width: 480px;
+            aspect-ratio: 480 / 274;
+            min-height: 250px;
+            position: relative;
+            border-radius: 18px;
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease;
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+            .card-wrapper:hover {
+                transform: translateY(-6px) rotateX(3deg) rotateY(-3deg);
+                box-shadow: 0 25px 50px -12px rgba(245, 158, 11, 0.25);
+            }
+        }
+
+        .card {
+            width: 100%;
+            height: 100%;
+            border-radius: 18px;
+            background: var(--ox-card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            padding: clamp(16px, 4.5vw, 24px) clamp(18px, 5vw, 28px);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: -60px;
+            right: -60px;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(245, 158, 11, 0.18), transparent 70%);
+            pointer-events: none;
+        }
+
+        .card::after {
+            content: '';
+            position: absolute;
+            bottom: -50px;
+            left: -50px;
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(234, 88, 12, 0.12), transparent 70%);
+            pointer-events: none;
+        }
+
+        .card-edge {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--ox-grad-brand);
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        .front-top { display: flex; justify-content: space-between; align-items: flex-start; z-index: 2; }
+
+        .brand-block { display: flex; align-items: center; gap: 10px; }
+
+        .brand-logo-emblem {
+            width: clamp(32px, 8vw, 40px);
+            height: clamp(32px, 8vw, 40px);
+            border-radius: 10px;
+            background: var(--ox-grad-brand);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            flex-shrink: 0;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        .brand-logo-emblem img { width: 65%; height: 65%; object-fit: contain; }
+
+        .brand-titles h2 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(1.1rem, 3.5vw, 1.35rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: #ffffff;
+            line-height: 1.1;
+        }
+        .brand-titles span {
+            font-size: clamp(0.6rem, 1.8vw, 0.68rem);
+            color: var(--ox-amber-500);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            font-weight: 700;
+            display: block;
+            margin-top: 1px;
+        }
+
+        .badge-tag {
+            padding: 4px 10px;
+            border-radius: 99px;
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.25);
+            color: var(--ox-amber-500);
+            font-size: clamp(0.55rem, 1.6vw, 0.65rem);
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            white-space: nowrap;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        .front-mid { 
+            z-index: 2; 
+            margin-top: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .person-name { font-size: clamp(1.05rem, 3.2vw, 1.25rem); font-weight: 800; color: #ffffff; letter-spacing: -0.01em; }
+        .person-title { font-size: clamp(0.68rem, 2vw, 0.78rem); color: var(--ox-text-muted); font-weight: 500; margin-top: 2px; }
+
+        .front-bottom {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 8px;
+            z-index: 2;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .contact-item { display: flex; align-items: center; gap: 6px; font-size: clamp(0.65rem, 1.8vw, 0.76rem); color: var(--ox-text-muted); word-break: break-all; }
+        .contact-item i { width: 14px; color: var(--ox-amber-500); font-size: 0.75rem; text-align: center; flex-shrink: 0; }
+        .contact-item strong { color: #ffffff; font-weight: 600; }
+
+        /* ── Phone number highlight color matching card theme (amber/yellow) ── */
+        .phone-highlight, 
+        .phone-highlight strong, 
+        .phone-highlight:hover, 
+        .phone-highlight:visited,
+        a[href^="tel"] {
+            color: var(--ox-amber-500) !important;
+            text-decoration: none !important;
+            font-weight: 700 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        .back-content { display: flex; flex-direction: column; height: 100%; justify-content: space-between; z-index: 2; }
+        .back-services-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0; }
+
+        .service-pill {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            padding: clamp(5px, 1.5vw, 8px) clamp(6px, 1.8vw, 10px);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: clamp(0.62rem, 1.8vw, 0.72rem);
+            color: var(--ox-text-main);
+            font-weight: 500;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        .service-pill i { color: var(--ox-amber-500); font-size: 0.7rem; flex-shrink: 0; }
+
+        .back-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            padding-top: 8px;
+        }
+
+        .qr-code-box {
+            width: clamp(40px, 9vw, 48px);
+            height: clamp(40px, 9vw, 48px);
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            flex-shrink: 0;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        .qr-code-box img { width: 100%; height: 100%; object-fit: contain; }
+
+        .back-slogan { font-size: clamp(0.62rem, 1.8vw, 0.72rem); color: var(--ox-text-muted); font-style: italic; }
+        .card-label { text-align: center; margin-top: 10px; font-size: 0.75rem; color: var(--ox-text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; }
+
+        /* ── Mobile Layout Adjustments ── */
+        @media (max-width: 480px) {
+            body { padding: 16px 10px; }
+            .front-bottom {
+                grid-template-columns: 1fr;
+                gap: 5px;
+            }
+            .badge-tag {
+                padding: 3px 7px;
+            }
+            .card-wrapper {
+                min-height: 230px;
+            }
+        }
+
+        /* ── Exact Print Preview & PDF Export Formatting ── */
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 0.4in;
+            }
+            *, *::before, *::after {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important;
+            }
+            html, body {
+                background: #090d16 !important;
+                color: #ffffff !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                min-height: auto !important;
+            }
+            /* Hide web UI elements */
+            .header, .toolbar, .card-label { display: none !important; }
+
+            /* Crucial: Disable pseudo-element radial gradients in print so browser print engine doesn't render solid yellow circles */
+            .card::before, .card::after {
+                display: none !important;
+                content: none !important;
+                background: none !important;
+            }
+
+            .cards-stage {
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 0.4in !important;
+                justify-content: flex-start !important;
+                align-items: center !important;
+                padding: 0.2in 0 !important;
+                max-width: 100% !important;
+                perspective: none !important;
+            }
+            .card-stage-item {
+                width: 3.5in !important;
+                max-width: 3.5in !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+            .card-wrapper {
+                width: 3.5in !important;
+                height: 2.0in !important;
+                aspect-ratio: 3.5 / 2.0 !important;
+                min-height: 2.0in !important;
+                max-height: 2.0in !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                box-shadow: none !important;
+                transform: none !important;
+                border-radius: 12px !important;
+                overflow: hidden !important;
+            }
+            .card {
+                width: 3.5in !important;
+                height: 2.0in !important;
+                background: #0f172a !important;
+                border: 1px solid rgba(255, 255, 255, 0.25) !important;
+                border-radius: 12px !important;
+                padding: 16px 20px !important;
+                box-shadow: none !important;
+                overflow: hidden !important;
+            }
+            .brand-logo-emblem {
+                background: linear-gradient(135deg, #f59e0b 0%, #ea580c 50%, #c2410c 100%) !important;
+                width: 32px !important;
+                height: 32px !important;
+            }
+            .card-edge {
+                background: linear-gradient(135deg, #f59e0b 0%, #ea580c 50%, #c2410c 100%) !important;
+            }
+            .badge-tag {
+                background: rgba(245, 158, 11, 0.15) !important;
+                border: 1px solid rgba(245, 158, 11, 0.3) !important;
+                color: #f59e0b !important;
+                font-size: 0.52rem !important;
+                padding: 2px 7px !important;
+                white-space: nowrap !important;
+            }
+            .brand-titles h2 { font-size: 1.1rem !important; color: #ffffff !important; }
+            .brand-titles span { font-size: 0.58rem !important; color: #f59e0b !important; }
+            .person-name { font-size: 1.05rem !important; color: #ffffff !important; }
+            .person-title { font-size: 0.68rem !important; color: #94a3b8 !important; }
+            .contact-item { font-size: 0.65rem !important; color: #94a3b8 !important; }
+            .contact-item strong { color: #ffffff !important; }
+            .phone-highlight, .phone-highlight strong { color: #f59e0b !important; }
+            .service-pill {
+                background: rgba(255, 255, 255, 0.06) !important;
+                border: 1px solid rgba(255, 255, 255, 0.1) !important;
+                color: #ffffff !important;
+                font-size: 0.6rem !important;
+                padding: 4px 6px !important;
+            }
+            .service-pill i { color: #f59e0b !important; }
+            .back-slogan { font-size: 0.62rem !important; color: #94a3b8 !important; }
+            .qr-code-box {
+                width: 38px !important;
+                height: 38px !important;
+                background: #ffffff !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>VoidOnyx — Visiting Card</h1>
+        <p>Official Executive Visiting Card for VoidOnyx Technologies.</p>
+    </div>
+
+    <div class="toolbar">
+        <button class="btn active" onclick="window.print()"><i class="fa-solid fa-print"></i> Print / Save PDF</button>
+        <button class="btn" onclick="copyContact()"><i class="fa-solid fa-copy"></i> Copy Contact Details</button>
+        <a href="/" class="btn"><i class="fa-solid fa-house"></i> Back to VoidOnyx</a>
+    </div>
+
+    <div class="cards-stage">
+        <!-- FRONT SIDE -->
+        <div class="card-stage-item">
+            <div class="card-wrapper">
+                <div class="card">
+                    <div class="card-edge"></div>
+                    
+                    <div class="front-top">
+                        <div class="brand-block">
+                            <div class="brand-logo-emblem">
+                                <img src="{% static 'voidonyx/logo_emblem.png' %}" alt="VoidOnyx Logo">
+                            </div>
+                            <div class="brand-titles">
+                                <h2>VoidOnyx</h2>
+                                <span>Technologies</span>
+                            </div>
+                        </div>
+                        <span class="badge-tag"><i class="fa-solid fa-bolt"></i> SaaS · Cloud · CRM</span>
+                    </div>
+
+                    <div class="front-mid">
+                        <div>
+                            <div class="person-name">Rohan Kumar Rawat</div>
+                            <div class="person-title">Founder & Technology Lead</div>
+                        </div>
+                        <div class="qr-code-box" title="Scan to visit voidonyx.in">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https%3A%2F%2Fwww.voidonyx.in" alt="voidonyx.in QR Code">
+                        </div>
+                    </div>
+
+                    <div class="front-bottom">
+                        <div class="contact-item">
+                            <i class="fa-solid fa-phone"></i>
+                            <a href="tel:+919354519271" class="phone-highlight"><strong>+91 93545 19271</strong></a>
+                        </div>
+                        <div class="contact-item">
+                            <i class="fa-solid fa-globe"></i>
+                            <span>www.voidonyx.com</span>
+                        </div>
+                        <div class="contact-item">
+                            <i class="fa-solid fa-envelope"></i>
+                            <span>contact@voidonyx.com</span>
+                        </div>
+                        <div class="contact-item">
+                            <i class="fa-solid fa-location-dot"></i>
+                            <span>New Delhi, India</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-label">Front Side (3.5" × 2.0")</div>
+        </div>
+
+        <!-- BACK SIDE -->
+        <div class="card-stage-item">
+            <div class="card-wrapper">
+                <div class="card">
+                    <div class="card-edge"></div>
+
+                    <div class="back-content">
+                        <div class="back-top">
+                            <div class="brand-block">
+                                <div class="brand-logo-emblem">
+                                    <img src="{% static 'voidonyx/logo_emblem.png' %}" alt="VoidOnyx Logo">
+                                </div>
+                                <div class="brand-titles">
+                                    <h2>VoidOnyx</h2>
+                                    <span>Product Ecosystem</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="back-services-grid">
+                            <div class="service-pill">
+                                <i class="fa-solid fa-layer-group"></i>
+                                <span>SaaS, CRM & ERP Solutions</span>
+                            </div>
+                            <div class="service-pill">
+                                <i class="fa-solid fa-server"></i>
+                                <span>Web Hosting & WordPress</span>
+                            </div>
+                            <div class="service-pill">
+                                <i class="fa-solid fa-terminal"></i>
+                                <span>VoidPanel Control Panel</span>
+                            </div>
+                            <div class="service-pill">
+                                <i class="fa-solid fa-shield-halved"></i>
+                                <span>Email, SSL & Domains</span>
+                            </div>
+                        </div>
+
+                        <div class="back-footer">
+                            <div>
+                                <div class="back-slogan">"Your Digital Business, Fully Managed"</div>
+                                <div style="font-size: 0.68rem; color: var(--ox-amber-500); margin-top: 3px; font-weight: 600;">
+                                    voidonyx.com &nbsp;·&nbsp; voidonyx.in
+                                </div>
+                            </div>
+                            <div class="qr-code-box" title="Scan to save contact">
+                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=BEGIN%3AVCARD%0AVERSION%3A3.0%0AN%3ARawat%3BRohan%20Kumar%0AFN%3ARohan%20Kumar%20Rawat%0AORG%3AVoidOnyx%20Technologies%0ATITLE%3AFounder%0ATEL%3BTYPE%3DCELL%3A%2B919354519271%0AEMAIL%3Acontact%40voidonyx.com%0AURL%3Ahttps%3A%2F%2Fwww.voidonyx.com%0AEND%3AVCARD" alt="vCard QR Code">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-label">Back Side (3.5" × 2.0")</div>
+        </div>
+    </div>
+
+    <script>
+        function copyContact() {
+            const info = "Rohan Kumar Rawat\nFounder — VoidOnyx Technologies\nPhone: +91 93545 19271\nEmail: contact@voidonyx.com\nWebsite: https://www.voidonyx.com";
+            navigator.clipboard.writeText(info).then(() => {
+                alert("Contact details copied to clipboard!");
+            });
+        }
+    </script>
+</body>
+</html>

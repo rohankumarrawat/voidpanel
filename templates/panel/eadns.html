@@ -199,20 +199,20 @@
                                         <span class="type-badge type-{{ i.type }}">{{ i.type }}</span>
                                     </td>
                                     <td>
-                                        <span class="data-cell" onclick="openViewModal('{{ i.data|escapejs }}')" title="{{ i.data }}">
+                                        <span class="data-cell" data-data="{{ i.data }}" onclick="openViewModal(this)" title="{{ i.data }}">
                                             {{ i.data|truncatechars:45 }}
                                         </span>
                                     </td>
                                     <td>
                                         <div style="display:inline-flex; gap:6px; align-items:center;">
-                                            <button class="btn-view" onclick="openViewModal('{{ i.data|escapejs }}')">
+                                            <button class="btn-view" data-data="{{ i.data }}" onclick="openViewModal(this)">
                                                 <i class="fa-solid fa-eye"></i>
                                             </button>
-                                            {% if i.name != 'default._domainkey' and i.type != 'SOA' %}
-                                            <button class="btn-view" onclick="openEditModal('{{ i.name|escapejs }}', '{{ i.type|escapejs }}', '{{ i.data|escapejs }}', '{{ i.ttl|escapejs }}')" style="color:#f59e0b; border-color:rgba(245,158,11,0.3); background:rgba(245,158,11,0.1);">
+                                            {% if i.type != 'SOA' %}
+                                            <button class="btn-view" data-name="{{ i.name }}" data-type="{{ i.type }}" data-data="{{ i.data }}" data-ttl="{{ i.ttl|default:'86400' }}" onclick="openEditModal(this)" style="color:#f59e0b; border-color:rgba(245,158,11,0.3); background:rgba(245,158,11,0.1);">
                                                 <i class="fa-solid fa-pen"></i> Edit
                                             </button>
-                                            <button class="btn-del" onclick="confirmDelete('{{ i.name|escapejs }}', '{{ i.type|escapejs }}', '{{ i.data|escapejs }}', '{{ i.ttl|escapejs }}')">
+                                            <button class="btn-del" data-name="{{ i.name }}" data-type="{{ i.type }}" data-data="{{ i.data }}" data-ttl="{{ i.ttl|default:'86400' }}" onclick="confirmDelete(this)">
                                                 <i class="fa-solid fa-trash-can"></i> Delete
                                             </button>
                                             {% endif %}
@@ -414,7 +414,15 @@
                 headers: { 'X-CSRFToken': CSRF_TOKEN, 'X-Requested-With': 'XMLHttpRequest' },
                 body: new FormData(form)
             });
-            const data = await resp.json();
+            let data;
+            const ct = resp.headers.get('content-type') || '';
+            if (ct.includes('application/json')) {
+                data = await resp.json();
+            } else {
+                const txt = await resp.text();
+                console.error('Non-JSON response:', resp.status, txt.substring(0, 500));
+                data = { success: false, error: `Server error (${resp.status}). Please check server logs.` };
+            }
             if (resp.ok && data.success) {
                 toast(data.message || 'Record added successfully.', 'success');
                 closeAddModal();
@@ -425,7 +433,8 @@
                 btn.disabled = false;
             }
         } catch(err) {
-            toast('Network error. Please retry.', 'error');
+            console.error('DNS add error:', err);
+            toast('Network error: ' + (err.message || 'Please retry.'), 'error');
             btn.innerHTML = '<i class="fa-solid fa-check"></i> Create Record';
             btn.disabled = false;
         }
@@ -433,6 +442,13 @@
 
     // EDIT RECORD MODAL
     function openEditModal(name, type, data, ttl) {
+        if (typeof name === 'object' && name.dataset) {
+            const btn = name;
+            name = btn.dataset.name;
+            type = btn.dataset.type;
+            data = btn.dataset.data;
+            ttl = btn.dataset.ttl;
+        }
         document.getElementById('edit-old-name').value = name;
         document.getElementById('edit-old-type').value = type;
         document.getElementById('edit-old-data').value = data;
@@ -464,7 +480,15 @@
                 headers: { 'X-CSRFToken': CSRF_TOKEN, 'X-Requested-With': 'XMLHttpRequest' },
                 body: new FormData(form)
             });
-            const data = await resp.json();
+            let data;
+            const ct = resp.headers.get('content-type') || '';
+            if (ct.includes('application/json')) {
+                data = await resp.json();
+            } else {
+                const txt = await resp.text();
+                console.error('Non-JSON response:', resp.status, txt.substring(0, 500));
+                data = { success: false, error: `Server error (${resp.status}). Please check server logs.` };
+            }
             if (resp.ok && data.success) {
                 toast(data.message || 'Record updated.', 'success');
                 closeEditModal();
@@ -475,7 +499,8 @@
                 btn.disabled = false;
             }
         } catch(err) {
-            toast('Network error saving changes.', 'error');
+            console.error('DNS edit error:', err);
+            toast('Network error: ' + (err.message || 'Please retry.'), 'error');
             btn.innerHTML = '<i class="fa-solid fa-check"></i> Save Changes';
             btn.disabled = false;
         }
@@ -483,6 +508,9 @@
 
     // VIEW MODAL
     function openViewModal(data) {
+        if (typeof data === 'object' && data.dataset) {
+            data = data.dataset.data;
+        }
         document.getElementById('view-data-content').textContent = data;
         document.getElementById('modal-view').classList.add('show');
     }
@@ -492,6 +520,13 @@
 
     // DELETE MODAL
     function confirmDelete(name, type, data, ttl) {
+        if (typeof name === 'object' && name.dataset) {
+            const btn = name;
+            name = btn.dataset.name;
+            type = btn.dataset.type;
+            data = btn.dataset.data;
+            ttl = btn.dataset.ttl;
+        }
         pendingDelete = { name, type, data, ttl };
         document.getElementById('del-name').textContent = name;
         document.getElementById('del-type').textContent = type;
@@ -524,17 +559,26 @@
                 headers: { 'X-CSRFToken': CSRF_TOKEN, 'X-Requested-With': 'XMLHttpRequest' },
                 body: formData
             });
-            const data = await resp.json();
-            if (resp.ok && data.status === 'success') {
-                toast(data.message, 'success');
+            let data;
+            const ct = resp.headers.get('content-type') || '';
+            if (ct.includes('application/json')) {
+                data = await resp.json();
+            } else {
+                const txt = await resp.text();
+                console.error('Non-JSON response:', resp.status, txt.substring(0, 500));
+                data = { success: false, error: `Server error (${resp.status}). Please check server logs.` };
+            }
+            if (resp.ok && (data.success || data.status === 'success')) {
+                toast(data.message || 'Record deleted.', 'success');
                 closeDeleteModal();
                 setTimeout(() => location.reload(), 900);
             } else {
-                toast(data.message || 'Failed to delete record.', 'error');
+                toast(data.message || data.error || 'Failed to delete record.', 'error');
                 closeDeleteModal();
             }
         } catch(err) {
-            toast('Network error during deletion.', 'error');
+            console.error('DNS delete error:', err);
+            toast('Network error: ' + (err.message || 'Please retry.'), 'error');
             closeDeleteModal();
         }
     }

@@ -651,7 +651,14 @@
 
 <script>
 const CURRENT_DIR = "{{ main_dir }}";
-const CSRF = document.querySelector('[name=csrfmiddlewaretoken]').value;
+const CSRF = (function() {
+    // Prefer the CSRF cookie (always fresh, survives page staleness after server reload)
+    const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^\s;]+)/);
+    if (m) return m[1];
+    // Fallback to the hidden input rendered by {% csrf_token %}
+    const el = document.querySelector('[name=csrfmiddlewaretoken]');
+    return el ? el.value : '';
+})();
 let _ctx = null;
 let _ctxTargets = [];
 

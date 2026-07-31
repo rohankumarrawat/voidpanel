@@ -1,0 +1,385 @@
+{% load static %}
+{% load currency_tags %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Email Manager — {{ email_svc.domain }} | VoidOnyx</title>
+<link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+<link rel="stylesheet" href="{% static 'voidonyx/voidonyx.css' %}">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:#f8fafc;color:#0f172a;min-height:100vh;-webkit-font-smoothing:antialiased}
+a{text-decoration:none;color:inherit}
+
+.portal-main{padding:28px 32px 60px;overflow-y:auto;height:100vh}
+@media(max-width:768px){.portal-main{padding:18px 16px 48px}}
+.em-page{max-width:900px;margin:0 auto}
+
+/* Header */
+.em-header{display:flex;align-items:center;gap:14px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid #e2e8f0}
+.back-btn{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;background:#f1f5f9;border:1px solid #e2e8f0;color:#64748b;font-size:.8rem;font-weight:700;transition:.15s;font-family:'Plus Jakarta Sans',sans-serif}
+.back-btn:hover{background:#e2e8f0;color:#334155}
+.em-logo{width:44px;height:44px;background:linear-gradient(135deg,#f59e0b,#ea580c);border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 12px rgba(245,158,11,.2)}
+.em-logo i{color:#fff;font-size:1.1rem}
+.em-title{font-family:'Plus Jakarta Sans',sans-serif;font-size:1.2rem;font-weight:800;color:#0f172a;letter-spacing:-.03em}
+.em-domain{font-size:.78rem;color:#94a3b8;margin-top:2px;font-weight:500}
+
+/* Quota bar */
+.quota-wrap{background:#fff;border:1px solid #e8edf2;border-radius:16px;padding:18px 22px;margin-bottom:20px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;box-shadow:0 1px 3px rgba(15,23,42,.04)}
+.quota-bar{height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;flex:1}
+.quota-fill{height:100%;border-radius:4px;transition:width .6s ease}
+.quota-fill.ok{background:linear-gradient(90deg,#f59e0b,#ea580c)}
+.quota-fill.warn{background:linear-gradient(90deg,#f59e0b,#dc2626)}
+.quota-fill.full{background:linear-gradient(90deg,#ef4444,#dc2626)}
+.quota-text{font-size:.78rem;color:#64748b;white-space:nowrap}
+
+/* Cards */
+.card{background:#fff;border:1px solid #e8edf2;border-radius:16px;overflow:hidden;margin-bottom:18px;box-shadow:0 1px 3px rgba(15,23,42,.04);transition:.15s}
+.card:hover{box-shadow:0 4px 16px rgba(15,23,42,.06);border-color:#fde68a}
+.card-head{padding:16px 20px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:12px}
+.card-body{padding:20px}
+.c-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0}
+.c-icon.amber{background:#fef3c7;color:#d97706}
+.c-icon.blue{background:#dbeafe;color:#2563eb}
+.c-icon.green{background:#dcfce7;color:#16a34a}
+.c-icon.red{background:#fee2e2;color:#dc2626}
+.c-icon.purple{background:#ede9fe;color:#7c3aed}
+.c-title{font-family:'Plus Jakarta Sans',sans-serif;font-size:.88rem;font-weight:800;color:#0f172a}
+.c-sub{font-size:.74rem;color:#94a3b8;margin-top:1px}
+
+/* Grid */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px}
+@media(max-width:640px){.grid2{grid-template-columns:1fr}}
+
+/* Forms */
+.fg{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.fg label{font-size:.76rem;color:#64748b;font-weight:600}
+.fg input{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;color:#0f172a;font-size:.87rem;outline:none;transition:.15s;width:100%;font-family:inherit}
+.fg input:focus{border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.08)}
+.fg input::placeholder{color:#94a3b8}
+.fg input[readonly]{opacity:.55;cursor:default}
+.input-group{display:flex;gap:0}
+.input-prefix{background:#f1f5f9;border:1px solid #e2e8f0;border-right:none;border-radius:10px 0 0 10px;padding:10px 12px;font-size:.85rem;color:#64748b;white-space:nowrap;font-weight:600}
+.input-group input{border-radius:0 10px 10px 0}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+@media(max-width:500px){.form-row{grid-template-columns:1fr}}
+
+/* SMTP grid */
+.smtp-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.smtp-item .slbl{font-size:.7rem;color:#94a3b8;margin-bottom:3px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.smtp-item .sval{font-size:.85rem;font-weight:700;font-family:'JetBrains Mono',monospace;color:#334155}
+.sval.highlight{color:#d97706}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:10px 18px;border-radius:10px;font-size:.84rem;font-weight:700;cursor:pointer;border:none;transition:.15s;text-decoration:none;font-family:'Plus Jakarta Sans',sans-serif}
+.btn:hover{transform:translateY(-1px)}
+.btn:disabled{opacity:.5;pointer-events:none}
+.btn-primary{background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;box-shadow:0 3px 12px rgba(245,158,11,.25)}
+.btn-green{background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;box-shadow:0 3px 12px rgba(34,197,94,.18)}
+.btn-red{background:#fee2e2;color:#dc2626;border:1px solid #fecaca}
+.btn-red:hover{background:#fecaca}
+.btn-ghost{background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0}
+.btn-ghost:hover{background:#e2e8f0;color:#334155}
+.btn-webmail{background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;box-shadow:0 3px 12px rgba(124,58,237,.18)}
+.btn-sm{padding:5px 12px;font-size:.78rem;border-radius:8px}
+
+/* Table */
+.mb-table{width:100%;border-collapse:collapse}
+.mb-table th{font-size:.7rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;padding:10px 16px;text-align:left;border-bottom:1px solid #f1f5f9;font-weight:700}
+.mb-table td{padding:12px 16px;font-size:.84rem;border-bottom:1px solid #f8fafc;vertical-align:middle}
+.mb-table tr:last-child td{border-bottom:none}
+.mb-table tr:hover td{background:#fefce8}
+.pass-cell{display:flex;align-items:center;gap:6px}
+.pass-mask{font-family:monospace;color:#94a3b8}
+.eye-btn{background:none;border:none;color:#94a3b8;cursor:pointer;font-size:.78rem;padding:2px 4px;transition:.15s}
+.eye-btn:hover{color:#0f172a}
+.actions-cell{display:flex;gap:6px;align-items:center}
+.webmail-link{font-size:.78rem;color:#7c3aed;display:inline-flex;align-items:center;gap:4px;font-weight:600}
+.webmail-link:hover{text-decoration:underline}
+
+/* Section label */
+.section-label{font-family:'Plus Jakarta Sans',sans-serif;font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin:28px 0 12px;padding-left:2px}
+
+/* Alerts */
+.al{border-radius:10px;padding:12px 16px;font-size:.82rem;display:none;align-items:center;gap:8px}
+.al.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;display:flex}
+.al.err{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;display:flex}
+.al.info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;display:flex}
+
+/* Spinner */
+.spin{width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .6s linear infinite;display:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* Toast */
+#toast{position:fixed;bottom:22px;right:22px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.ti{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 18px;font-size:.82rem;display:flex;align-items:center;gap:10px;min-width:280px;box-shadow:0 8px 28px rgba(15,23,42,.12);animation:si .3s ease}
+.ti.ok{border-left:4px solid #22c55e}
+.ti.err{border-left:4px solid #ef4444}
+@keyframes si{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* Modal */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border:1px solid #e2e8f0;border-radius:20px;padding:28px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(15,23,42,.2)}
+.modal h3{font-family:'Plus Jakarta Sans',sans-serif;font-size:1rem;font-weight:800;margin-bottom:16px;color:#0f172a;display:flex;align-items:center;gap:8px}
+
+/* Danger zone */
+.dz{border:1px solid #fecaca;border-radius:12px;padding:18px;background:#fef2f2;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+
+/* Empty */
+.empty-state{text-align:center;padding:30px 20px;color:#94a3b8}
+.empty-state i{font-size:2rem;margin-bottom:10px;display:block;opacity:.4}
+
+/* Webmail button in header */
+.webmail-header-btn{display:inline-flex;align-items:center;gap:7px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;padding:9px 18px;border-radius:10px;font-size:.82rem;font-weight:700;transition:.15s;font-family:'Plus Jakarta Sans',sans-serif;box-shadow:0 3px 12px rgba(124,58,237,.18)}
+.webmail-header-btn:hover{transform:translateY(-1px);opacity:.9}
+</style>
+</head>
+<body>
+
+<div class="portal-layout">
+{% include 'voidonyx/portal_sidebar.html' %}
+
+<main class="portal-main">
+<div class="em-page">
+
+<!-- Header -->
+<div class="em-header">
+  <a href="/portal/" class="back-btn"><i class="fa fa-arrow-left"></i> Portal</a>
+  <div class="em-logo"><i class="fas fa-envelope"></i></div>
+  <div style="flex:1">
+    <div class="em-title">Email Manager</div>
+    <div class="em-domain">{{ email_svc.domain }} · {{ email_svc.plan_name|default:"Professional Email" }}</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;padding:5px 14px;border-radius:20px;font-size:.78rem;color:#64748b;font-weight:600;"><i class="fa fa-at" style="margin-right:5px;color:#d97706"></i>{{ email_svc.domain }}</div>
+    {% if webmail_url %}
+    <a href="{{ webmail_url }}" target="_blank" class="webmail-header-btn"><i class="fas fa-globe"></i> Webmail</a>
+    {% endif %}
+  </div>
+</div>
+
+{% if api_error %}
+<div class="al info" style="display:flex;margin-bottom:18px;"><i class="fa fa-triangle-exclamation"></i> Panel unreachable: {{ api_error }}. Showing cached data.</div>
+{% endif %}
+
+<!-- Quota Bar -->
+<div class="quota-wrap">
+  <div style="flex:1">
+    <div style="font-size:.78rem;color:#64748b;margin-bottom:6px;font-weight:600;">Mailbox Quota</div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="quota-bar">
+        <div class="quota-fill {% if quota_pct >= 100 %}full{% elif quota_pct >= 80 %}warn{% else %}ok{% endif %}"
+             style="width:{{ quota_pct }}%"></div>
+      </div>
+      <div class="quota-text">{{ email_svc.mailbox_count }} / {{ email_svc.max_mailboxes }} mailboxes</div>
+    </div>
+  </div>
+  <div style="text-align:right;">
+    <div style="font-size:.7rem;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Plan</div>
+    <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:.92rem;font-weight:800;color:#0f172a;">{{ email_svc.plan_name|default:"Professional Email" }}</div>
+  </div>
+</div>
+
+<!-- Top Grid: Add Mailbox + IMAP Settings -->
+<div class="grid2">
+
+  <!-- Add Mailbox -->
+  <div class="card">
+    <div class="card-head"><div class="c-icon amber"><i class="fas fa-plus"></i></div><div><div class="c-title">Add Mailbox</div><div class="c-sub">Create a new email address</div></div></div>
+    <div class="card-body">
+      <div id="add-alert" class="al"></div>
+      {% if email_svc.mailbox_count >= email_svc.max_mailboxes %}
+      <div style="text-align:center;padding:20px;color:#d97706;font-size:.88rem;">
+        <i class="fas fa-triangle-exclamation" style="font-size:1.5rem;display:block;margin-bottom:8px;"></i>
+        Quota reached ({{ email_svc.max_mailboxes }}/{{ email_svc.max_mailboxes }}).<br>
+        <span style="color:#94a3b8;font-size:.8rem;">Upgrade your plan to add more mailboxes.</span>
+      </div>
+      {% else %}
+      <form id="add-form">
+        <div class="fg">
+          <label>Email Address</label>
+          <div class="input-group">
+            <div class="input-prefix">@{{ email_svc.domain }}</div>
+            <input type="text" id="add-local" placeholder="info, sales, support…" autocomplete="off">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="fg"><label>Password</label><input type="password" id="add-pass" placeholder="Min 8 chars" minlength="8"></div>
+          <div class="fg"><label>Confirm</label><input type="password" id="add-pass2" placeholder="Repeat"></div>
+        </div>
+        <button type="submit" class="btn btn-primary" id="add-btn">
+          <span class="spin" id="add-spin"></span><i class="fas fa-plus" id="add-icon"></i> Create Mailbox
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- IMAP / SMTP Settings -->
+  <div class="card">
+    <div class="card-head"><div class="c-icon blue"><i class="fas fa-gear"></i></div><div><div class="c-title">IMAP / SMTP Settings</div><div class="c-sub">Configure your email client</div></div></div>
+    <div class="card-body">
+      <div class="smtp-grid">
+        <div class="smtp-item"><div class="slbl">IMAP Server</div><div class="sval highlight">{{ panel_host }}</div></div>
+        <div class="smtp-item"><div class="slbl">IMAP Port</div><div class="sval">993 (SSL)</div></div>
+        <div class="smtp-item"><div class="slbl">SMTP Server</div><div class="sval highlight">{{ panel_host }}</div></div>
+        <div class="smtp-item"><div class="slbl">SMTP Port</div><div class="sval">587 / 465</div></div>
+        <div class="smtp-item"><div class="slbl">POP3 Server</div><div class="sval highlight">{{ panel_host }}</div></div>
+        <div class="smtp-item"><div class="slbl">POP3 Port</div><div class="sval">995 (SSL)</div></div>
+        <div class="smtp-item" style="grid-column:1/-1;">
+          <div class="slbl">Webmail</div>
+          {% if webmail_url %}<div class="sval"><a href="{{ webmail_url }}" target="_blank" style="color:#7c3aed;">{{ webmail_url }}</a></div>
+          {% else %}<div class="sval" style="color:#94a3b8;">Not configured</div>{% endif %}
+        </div>
+      </div>
+      <p style="font-size:.74rem;color:#94a3b8;margin-top:14px;padding:8px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e8edf2;">
+        <i class="fa fa-info-circle" style="color:#d97706;margin-right:4px;"></i> Use <strong>SSL/TLS</strong> for all connections. Username = your full email address.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- Mailbox List -->
+<div class="section-label">Your Mailboxes</div>
+<div class="card">
+  <div class="card-head">
+    <div class="c-icon purple"><i class="fas fa-inbox"></i></div>
+    <div style="flex:1"><div class="c-title">Mailboxes ({{ live_mailboxes|length }})</div></div>
+    {% if webmail_url %}<a href="{{ webmail_url }}" target="_blank" class="btn btn-webmail btn-sm"><i class="fas fa-globe"></i> Webmail</a>{% endif %}
+  </div>
+  <div class="card-body" style="padding:0;">
+    {% if live_mailboxes %}
+    <table class="mb-table">
+      <thead><tr><th>Email Address</th><th>Password</th><th>Webmail</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for mb in live_mailboxes %}
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="width:30px;height:30px;border-radius:8px;background:#fef3c7;display:flex;align-items:center;justify-content:center;color:#d97706;font-size:.75rem;"><i class="fas fa-user"></i></div>
+              <span style="font-weight:700;">{{ mb.email }}</span>
+              {% if mb.pending %}<span style="font-size:.68rem;color:#d97706;background:#fef3c7;padding:2px 8px;border-radius:999px;margin-left:4px;">(installing…)</span>{% endif %}
+            </div>
+          </td>
+          <td>
+            <div class="pass-cell">
+              <span class="pass-mask" id="pw-{{ forloop.counter }}">••••••••</span>
+              <button class="eye-btn" onclick="togglePass('{{ mb.password }}','pw-{{ forloop.counter }}',this)"><i class="fas fa-eye"></i></button>
+            </div>
+          </td>
+          <td>
+            {% if webmail_url %}<a href="{{ webmail_url }}" target="_blank" class="webmail-link"><i class="fas fa-external-link-alt"></i> Webmail</a>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            <div class="actions-cell">
+              <button class="btn btn-green btn-sm" onclick="openPassModal('{{ mb.email }}')"><i class="fas fa-key"></i> Password</button>
+              <button class="btn btn-red btn-sm" onclick="deleteMb('{{ mb.email }}')" {% if mb.email == 'admin@'|add:email_svc.domain %}disabled title="Primary mailbox"{% endif %}><i class="fas fa-trash"></i></button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><i class="fas fa-inbox"></i> No mailboxes found. Add your first mailbox above.</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Danger Zone -->
+<div class="section-label" style="color:#dc2626">Danger Zone</div>
+<div class="card" style="border-color:#fecaca">
+  <div class="card-body" style="padding:18px 22px;">
+    <div class="dz">
+      <div>
+        <div style="font-size:.88rem;font-weight:800;color:#dc2626;margin-bottom:4px;font-family:'Plus Jakarta Sans',sans-serif;"><i class="fa fa-triangle-exclamation"></i> Delete Email Service</div>
+        <div style="font-size:.78rem;color:#64748b;max-width:420px;">Permanently removes the domain config, all mailboxes, and all stored emails. This action is irreversible.</div>
+      </div>
+      <button class="btn btn-red" onclick="deleteEmailService()" style="background:#dc2626;color:#fff;border:none;"><i class="fas fa-trash-can"></i> Terminate</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- /em-page -->
+</main>
+</div><!-- /portal-layout -->
+
+<!-- Change Password Modal -->
+<div class="modal-bg" id="pass-modal">
+  <div class="modal">
+    <h3><i class="fas fa-key" style="color:#16a34a;"></i> Change Mailbox Password</h3>
+    <div id="modal-alert" class="al"></div>
+    <input type="hidden" id="modal-email">
+    <div class="fg"><label>Mailbox</label><input type="text" id="modal-email-display" readonly></div>
+    <div class="fg"><label>New Password</label><input type="password" id="modal-pass" placeholder="Min 8 characters" minlength="8"></div>
+    <div class="fg" style="margin-bottom:18px;"><label>Confirm Password</label><input type="password" id="modal-pass2" placeholder="Repeat password"></div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-green" id="modal-save-btn" onclick="savePass()"><span class="spin" id="modal-spin"></span><i class="fas fa-save" id="modal-icon"></i> Save</button>
+      <button class="btn btn-ghost" onclick="closePassModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const ACTION='/portal/email/{{ email_svc.id }}/action/';
+const CSRF='{{ csrf_token }}';
+const DOMAIN='{{ email_svc.domain }}';
+
+function deleteEmailService(){
+  if(!confirm("Are you sure you want to terminate this email service? All mailboxes and emails will be deleted permanently!"))return;
+  fetch('/portal/delete-service/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':CSRF},body:'service_type=email&service_id={{ email_svc.id }}'})
+  .then(r=>r.json()).then(d=>{if(d.ok){toast(d.message,'ok');setTimeout(()=>window.location.href='/portal/',1500)}else toast("Error: "+d.message,'err')})
+  .catch(()=>toast("Request failed",'err'));
+}
+
+function toast(m,t='ok'){const c=document.getElementById('toast'),e=document.createElement('div');e.className='ti '+t;e.innerHTML=`<i class="fa ${t==='ok'?'fa-circle-check':'fa-circle-xmark'}" style="color:${t==='ok'?'#22c55e':'#ef4444'}"></i> ${m}`;c.appendChild(e);setTimeout(()=>e.remove(),4500)}
+function al(id,m,t){const e=document.getElementById(id);if(!e)return;e.textContent=m;e.className='al '+t;e.style.display='flex';setTimeout(()=>e.style.display='none',6000)}
+function load(b,s,i,on){const B=document.getElementById(b),S=document.getElementById(s),I=document.getElementById(i);if(B)B.disabled=on;if(S)S.style.display=on?'block':'none';if(I)I.style.display=on?'none':'inline'}
+async function post(p){const r=await fetch(ACTION,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF},body:JSON.stringify(p)});return r.json()}
+
+function togglePass(pw,id,btn){const el=document.getElementById(id);if(el.textContent==='••••••••'){el.textContent=pw;el.style.color='#0f172a';btn.innerHTML='<i class="fas fa-eye-slash"></i>'}else{el.textContent='••••••••';el.style.color='#94a3b8';btn.innerHTML='<i class="fas fa-eye"></i>'}}
+
+const addForm=document.getElementById('add-form');
+if(addForm)addForm.addEventListener('submit',async function(e){
+  e.preventDefault();
+  const local=document.getElementById('add-local').value.trim();
+  const pass=document.getElementById('add-pass').value.trim();
+  const pass2=document.getElementById('add-pass2').value.trim();
+  if(!local){al('add-alert','Enter a local part (e.g. info)','err');return}
+  if(pass!==pass2){al('add-alert','Passwords do not match','err');return}
+  if(pass.length<8){al('add-alert','Password must be at least 8 characters','err');return}
+  load('add-btn','add-spin','add-icon',true);
+  try{const d=await post({action:'add',local,password:pass});if(d.status==='success'){toast(d.message,'ok');setTimeout(()=>location.reload(),1800)}else{toast(d.message||'Failed','err');al('add-alert',d.message||'Failed','err')}}
+  catch(ex){toast('Network error','err')}finally{load('add-btn','add-spin','add-icon',false)}
+});
+
+async function deleteMb(email){
+  if(!confirm(`Delete mailbox ${email}?\n\nThis will permanently remove the mailbox and all its emails.`))return;
+  try{const d=await post({action:'delete',email});if(d.status==='success'){toast(d.message,'ok');setTimeout(()=>location.reload(),1800)}else toast(d.message||'Delete failed','err')}catch(ex){toast('Network error','err')}
+}
+
+function openPassModal(email){document.getElementById('modal-email').value=email;document.getElementById('modal-email-display').value=email;document.getElementById('modal-pass').value='';document.getElementById('modal-pass2').value='';document.getElementById('pass-modal').classList.add('open')}
+function closePassModal(){document.getElementById('pass-modal').classList.remove('open')}
+async function savePass(){
+  const email=document.getElementById('modal-email').value;
+  const pass=document.getElementById('modal-pass').value.trim();
+  const pass2=document.getElementById('modal-pass2').value.trim();
+  if(pass!==pass2){al('modal-alert','Passwords do not match','err');return}
+  if(pass.length<8){al('modal-alert','Min 8 characters','err');return}
+  load('modal-save-btn','modal-spin','modal-icon',true);
+  try{const d=await post({action:'change_password',email,new_password:pass});if(d.status==='success'){toast(d.message,'ok');closePassModal();setTimeout(()=>location.reload(),1500)}else{toast(d.message||'Failed','err');al('modal-alert',d.message||'Failed','err')}}
+  catch(ex){toast('Network error','err')}finally{load('modal-save-btn','modal-spin','modal-icon',false)}
+}
+document.getElementById('pass-modal').addEventListener('click',function(e){if(e.target===this)closePassModal()});
+</script>
+</body>
+</html>

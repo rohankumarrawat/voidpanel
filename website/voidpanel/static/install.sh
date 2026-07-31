@@ -98,7 +98,7 @@ require_ubuntu_22() {
 }
 
 # ── Linux distro detection ─────────────────────────────────────────────────────
-# Returns: ubuntu
+# Returns: ubuntu | rhel
 detect_distro() {
     local ID=""
     local VERSION_ID=""
@@ -107,10 +107,21 @@ detect_distro() {
         VERSION_ID=$(. /etc/os-release && echo "${VERSION_ID:-}")
     fi
 
-    if [[ "$ID" != "ubuntu" || "$VERSION_ID" != "22.04" ]]; then
-        die "OS not supported right now, we will update it soon"
+    # Normalize to lowercase
+    ID=$(echo "$ID" | tr '[:upper:]' '[:lower:]')
+
+    if [[ "$ID" == "ubuntu" ]]; then
+        if [[ "$VERSION_ID" != "22.04" && "$VERSION_ID" != "24.04" ]]; then
+            warn "Recommended Ubuntu version is 22.04 or 24.04. Proceeding anyway."
+        fi
+        echo "ubuntu"
+        return
+    elif [[ "$ID" == "almalinux" || "$ID" == "rocky" || "$ID" == "rhel" ]]; then
+        echo "rhel"
+        return
+    else
+        die "OS '$ID' is not supported right now."
     fi
-    echo "ubuntu"
 }
 
 # ── RAM / disk sanity ──────────────────────────────────────────────────────────
@@ -172,21 +183,35 @@ run_linux_install() {
         "https://voidpanel.com/api/increment/" > /dev/null 2>&1 || true
 
     local SCRIPT_NAME
-    local SCRIPT_URL
     if [[ "$DISTRO_FAMILY" == "rhel" ]]; then
         SCRIPT_NAME="almalinux.sh"
-        SCRIPT_URL="https://voidpanel.com/static/almalinux.sh"
     else
         SCRIPT_NAME="ubuntu.sh"
-        SCRIPT_URL="https://voidpanel.com/static/ubuntu.sh"
     fi
 
-    step "Downloading VoidPanel installation payload ($SCRIPT_NAME)..."
+    local SCRIPT_PATH
+    local SCRIPT_DIR
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-install.sh}")" 2>/dev/null && pwd || echo "")"
+    SCRIPT_PATH="$SCRIPT_DIR/$SCRIPT_NAME"
+
     local TEMP
-    TEMP=$(mktemp /tmp/voidpanel_XXXXXX.sh)
-    if ! curl -fsSL --max-time 120 -o "$TEMP" "$SCRIPT_URL"; then
-        rm -f "$TEMP"
-        die "Download failed. Check your internet connection and try again."
+    if [[ -f "$SCRIPT_PATH" ]]; then
+        step "Using local installation payload: $SCRIPT_NAME"
+        TEMP=$(mktemp /tmp/voidpanel_XXXXXX.sh)
+        cp "$SCRIPT_PATH" "$TEMP"
+    else
+        step "Downloading VoidPanel installation payload ($SCRIPT_NAME)..."
+        local SCRIPT_URL
+        if [[ "$DISTRO_FAMILY" == "rhel" ]]; then
+            SCRIPT_URL="https://voidpanel.com/static/almalinux.sh"
+        else
+            SCRIPT_URL="https://voidpanel.com/static/ubuntu.sh"
+        fi
+        TEMP=$(mktemp /tmp/voidpanel_XXXXXX.sh)
+        if ! curl -fsSL --max-time 120 -o "$TEMP" "$SCRIPT_URL"; then
+            rm -f "$TEMP"
+            die "Download failed. Check your internet connection and try again."
+        fi
     fi
     chmod +x "$TEMP"
     ok "Download complete. Launching installation engine..."

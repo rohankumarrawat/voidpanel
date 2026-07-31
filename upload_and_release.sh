@@ -14,7 +14,7 @@ NOTES="${2:-VoidPanel v$VERSION update}"
 
 # ── CONFIG — edit these to match your server ───────────────
 SERVER_USER="root"
-SERVER_HOST="voidpanel.com"          # or use IP: 178.18.250.134
+SERVER_HOST="fast.voidpanel.com"          # or use IP: 178.18.250.134
 SERVER_PATH="/home/voidpanelc091/voidpanel"
 LOCAL_PANEL="/Users/rohan/Desktop/voidpanel"
 SSH_KEY=""  # optional: e.g. ~/.ssh/id_rsa  (leave blank to use password)

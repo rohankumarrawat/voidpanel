@@ -1,0 +1,393 @@
+{% load static %}
+{% load currency_tags %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Web Hosting Plans — Fast, Reliable &amp; Affordable | VoidOnyx</title>
+    <meta name="description" content="Get SSD-powered web hosting from {{ currency_symbol }}149/mo. Free SSL, unlimited email, PHP switcher, one-click WordPress, and 99.9% uptime guarantee. Managed by VoidOnyx.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="{% static 'voidonyx/favicon.png' %}" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="{% static 'voidonyx/voidonyx.css' %}">
+    <style>
+        /* ── Page layout ── */
+        .pricing-page { padding: 100px 5% 80px; min-height: 100vh; background: #fffcf9; }
+        .pricing-wrap { max-width: 1240px; margin: 0 auto; }
+
+        /* ── Hero band ── */
+        .pricing-hero {
+            background: linear-gradient(160deg, #fff7ed, #ffffff);
+            border: 1px solid var(--ox-border);
+            border-radius: 28px;
+            padding: 52px 52px 48px;
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 48px;
+            align-items: center;
+            margin-bottom: 28px;
+            box-shadow: 0 4px 20px rgba(245,158,11,0.04);
+        }
+        @media(max-width:868px) { .pricing-hero { grid-template-columns:1fr; padding: 36px 28px; } }
+        .pricing-hero h1 {
+            font-size: clamp(2.2rem, 4.5vw, 3.8rem);
+            font-weight: 900;
+            letter-spacing: -0.04em;
+            line-height: 1.08;
+            color: var(--ox-text);
+            margin: 14px 0 16px;
+            font-family: var(--ox-font-display);
+        }
+        .pricing-hero p { font-size: 1rem; color: var(--ox-text-muted); line-height: 1.75; }
+        .hero-badges {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .hero-badge-row {
+            background: #ffffff;
+            border: 1px solid var(--ox-border);
+            border-radius: 16px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        }
+        .hbr-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0; }
+        .hbr-title { font-weight: 800; font-size: 0.9rem; color: var(--ox-text); }
+        .hbr-sub   { font-size: 0.78rem; color: var(--ox-text-muted); margin-top: 2px; }
+
+        /* ── Billing toggle ── */
+        .billing-toggle-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+        .billing-toggle-wrap .billing-label { font-size: 0.9rem; font-weight: 700; color: var(--ox-text); }
+        .billing-toggle-wrap .save-pill { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; border-radius: 999px; padding: 3px 10px; font-size: 0.72rem; font-weight: 800; }
+
+        /* ── Plans Grid ── */
+        .plans-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 28px;
+        }
+        @media(max-width: 900px) { .plans-grid { grid-template-columns: 1fr; } }
+
+        .plan-card {
+            background: #ffffff;
+            border: 1.5px solid var(--ox-border);
+            border-radius: 24px;
+            padding: 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            transition: var(--ox-transition);
+            box-shadow: 0 4px 20px rgba(15,23,42,0.03);
+            position: relative;
+        }
+        .plan-card:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(15,23,42,0.08); border-color: var(--ox-amber-200); }
+        .plan-card.featured {
+            border-color: var(--ox-amber-500);
+            border-width: 2px;
+            box-shadow: 0 10px 25px rgba(245,158,11,0.15);
+        }
+        .plan-card.featured:hover { box-shadow: 0 15px 35px rgba(245,158,11,0.22); }
+        .plan-popular {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--ox-grad-brand);
+            color: #fff;
+            font-size: 0.72rem;
+            font-weight: 800;
+            padding: 4px 14px;
+            border-radius: 999px;
+            white-space: nowrap;
+            letter-spacing: 0.04em;
+            box-shadow: 0 4px 12px rgba(234,88,12,0.25);
+        }
+        .plan-tier {
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--ox-text-faint);
+            margin-bottom: 8px;
+        }
+        .plan-name { font-size: 1.3rem; font-weight: 900; color: var(--ox-text); margin-bottom: 6px; letter-spacing: -0.015em; }
+        .plan-desc { font-size: 0.85rem; color: var(--ox-text-muted); line-height: 1.6; margin-bottom: 22px; }
+        .plan-price-row { display: flex; align-items: baseline; gap: 4px; margin-bottom: 20px; }
+        .plan-price {
+            font-size: 2.6rem;
+            font-weight: 900;
+            letter-spacing: -0.04em;
+            color: var(--ox-text);
+        }
+        .plan-price.featured-price { color: var(--ox-amber-600); }
+        .plan-mo { font-size: 1rem; color: var(--ox-text-muted); font-weight: 600; }
+        .plan-specs {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            margin-bottom: 24px;
+            border: 1px solid var(--ox-border);
+            border-radius: 14px;
+            overflow: hidden;
+        }
+        .plan-spec-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--ox-border);
+            font-size: 0.84rem;
+        }
+        .plan-spec-row:last-child { border-bottom: none; }
+        .plan-spec-row span { color: var(--ox-text-muted); }
+        .plan-spec-row strong { color: var(--ox-text); font-weight: 700; }
+        .plan-incl { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; flex: 1; }
+        .plan-incl-item { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--ox-text-muted); }
+        .plan-incl-item i { color: #059669; font-size: 0.72rem; width: 16px; text-align: center; flex-shrink: 0; }
+        .plan-btn { margin-top: auto; }
+        .plan-btn button {
+            width: 100%;
+            padding: 13px;
+            border-radius: 999px;
+            border: none;
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: -0.01em;
+        }
+        .plan-btn button.primary {
+            background: var(--ox-grad-brand);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(234,88,12,0.2);
+        }
+        .plan-btn button.primary:hover { opacity: 0.95; transform: translateY(-1px); }
+        .plan-btn button.outline {
+            background: transparent;
+            color: var(--ox-text);
+            border: 1.5px solid var(--ox-border);
+        }
+        .plan-btn button.outline:hover { border-color: var(--ox-amber-500); color: var(--ox-amber-600); }
+
+        /* ── FAQ ── */
+        .faq-surface {
+            background: #ffffff;
+            border: 1px solid var(--ox-border);
+            border-radius: 28px;
+            padding: 36px;
+            box-shadow: 0 4px 20px rgba(15,23,42,0.03);
+            margin-top: 32px;
+        }
+        .faq-surface h2 { font-size: 1.5rem; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 24px; font-family: var(--ox-font-display); }
+        .faq-list { display: flex; flex-direction: column; gap: 10px; }
+        .faq-item { border: 1px solid var(--ox-border); border-radius: 16px; overflow: hidden; background: #ffffff; transition: var(--ox-transition); }
+        .faq-item:hover { border-color: var(--ox-amber-300); }
+        .faq-trigger {
+            width: 100%;
+            padding: 20px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: transparent;
+            border: none;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--ox-text);
+            text-align: left;
+            cursor: pointer;
+            transition: var(--ox-transition);
+        }
+        .faq-trigger:hover { color: var(--ox-amber-600); }
+        .faq-icon { font-size: 0.85rem; color: var(--ox-text-faint); transition: transform 0.25s var(--ox-ease); }
+        .faq-item.open .faq-icon { transform: rotate(45deg); color: var(--ox-amber-500); }
+        .faq-body { max-height: 0; overflow: hidden; transition: max-height 0.3s var(--ox-ease); }
+        .faq-item.open .faq-body { max-height: 200px; }
+        .faq-body-inner { padding: 0 24px 20px; font-size: 0.88rem; color: var(--ox-text-muted); line-height: 1.6; }
+    </style>
+</head>
+
+{% include 'header.html' %}
+<main class="pricing-page">
+    <div class="pricing-wrap">
+
+        <!-- HERO BAND -->
+        <div class="pricing-hero reveal">
+            <div>
+                <span class="section-eyebrow"><span class="dot"></span> Web Hosting</span>
+                <h1>Hosting that<br>just works.</h1>
+                <p>SSD-powered shared hosting from {{ currency_symbol }}149/mo. Free SSL on every domain, unlimited email accounts, and PHP version switching — managed by VoidOnyx.</p>
+            </div>
+            <div class="hero-badges">
+                <div class="hero-badge-row">
+                    <div class="hbr-icon" style="background:#fff7ed;color:#ea580c;"><i class="fas fa-bolt"></i></div>
+                    <div>
+                        <div class="hbr-title">NVMe SSD Storage</div>
+                        <div class="hbr-sub">Up to 10× faster than standard SSD</div>
+                    </div>
+                </div>
+                <div class="hero-badge-row">
+                    <div class="hbr-icon" style="background:#f0fdf4;color:#059669;"><i class="fas fa-shield-halved"></i></div>
+                    <div>
+                        <div class="hbr-title">Free SSL + Auto-Renewal</div>
+                        <div class="hbr-sub">Let's Encrypt on every domain, forever</div>
+                    </div>
+                </div>
+                <div class="hero-badge-row">
+                    <div class="hbr-icon" style="background:#fffbeb;color:#b45309;"><i class="fas fa-percent"></i></div>
+                    <div>
+                        <div class="hbr-title">Save {{ pricing_settings.annual_discount_percent }}% Annually</div>
+                        <div class="hbr-sub">Switch to annual at checkout</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PLANS GRID -->
+        <div style="text-align:center;margin-bottom:28px;" class="reveal">
+            <h2 style="font-size:clamp(1.6rem,3vw,2.2rem);font-weight:900;letter-spacing:-0.025em;margin-bottom:8px;font-family:var(--ox-font-display);">Choose a plan</h2>
+            <p style="color:var(--ox-text-muted);font-size:0.95rem;">Three clean starting points. Or build your own below.</p>
+        </div>
+
+        <div class="plans-grid" data-stagger="80">
+            {% for package in packages %}
+            <div class="plan-card {% if package.is_featured %}featured{% endif %}">
+                {% if package.is_featured %}
+                <div class="plan-popular">★ Most Popular</div>
+                {% endif %}
+                <div class="plan-tier">{% if package.is_featured %}Best Value{% else %}Standard Plan{% endif %}</div>
+                <div class="plan-name">{{ package.name }}</div>
+                <div class="plan-desc">{{ package.short_description }}</div>
+                <div class="plan-price-row">
+                    <span class="plan-price {% if package.is_featured %}featured-price{% endif %}" data-price-inr="{{ package.monthly_price }}" data-price-inr-suffix="/mo">{{ currency_symbol }}{{ package.monthly_price|to_currency:currency_rate }}</span>
+                    <span class="plan-mo price-suffix">/mo</span>
+                </div>
+                <div class="plan-specs">
+                    <div class="plan-spec-row"><span>Storage</span><strong>{{ package.storage_gb }} GB NVMe SSD</strong></div>
+                    <div class="plan-spec-row"><span>Email Accounts</span><strong>{% if package.id == 1 %}10 Email Accounts{% elif package.id == 2 %}50 Email Accounts{% else %}100 Email Accounts{% endif %}</strong></div>
+                    <div class="plan-spec-row"><span>Databases &amp; FTP</span><strong>{% if package.id == 1 %}5 MySQL &amp; FTP{% elif package.id == 2 %}20 MySQL &amp; FTP{% else %}50 MySQL &amp; FTP{% endif %}</strong></div>
+                    <div class="plan-spec-row"><span>Bandwidth</span><strong>{{ package.bandwidth_label }}</strong></div>
+                    <div class="plan-spec-row"><span>SSL Certificate</span><strong>Free Let's Encrypt SSL</strong></div>
+                </div>
+                <div class="plan-incl">
+                    <div class="plan-incl-item"><i class="fas fa-check-circle"></i> Free Let's Encrypt SSL</div>
+                    <div class="plan-incl-item"><i class="fas fa-check-circle"></i> Professional Email Accounts</div>
+                    <div class="plan-incl-item"><i class="fas fa-check-circle"></i> PHP Version Switcher (7.4 - 8.3)</div>
+                    <div class="plan-incl-item"><i class="fas fa-check-circle"></i> One-Click WordPress Installer</div>
+                    <div class="plan-incl-item"><i class="fas fa-check-circle"></i> Git Auto-Deployment &amp; Crons</div>
+                    <div class="plan-incl-item"><i class="fas fa-check-circle"></i> Advanced DNS &amp; Firewall</div>
+                    <div class="plan-incl-item"><i class="fas fa-check-circle"></i> 24/7 Premium Support</div>
+                    {% if package.has_email_marketing %}
+                    <div class="plan-incl-item" style="color: #059669; font-weight: 700;"><i class="fas fa-check-circle" style="color:#059669;"></i> Email Marketing Included</div>
+                    {% endif %}
+                    {% if package.has_whatsapp_marketing %}
+                    <div class="plan-incl-item" style="color: #059669; font-weight: 700;"><i class="fas fa-check-circle" style="color:#059669;"></i> WhatsApp Campaigns</div>
+                    {% endif %}
+                    {% if package.has_automation %}
+                    <div class="plan-incl-item" style="color: #059669; font-weight: 700;"><i class="fas fa-check-circle" style="color:#059669;"></i> Advanced Automation</div>
+                    {% endif %}
+                    {% if package.has_analytics %}
+                    <div class="plan-incl-item" style="color: #059669; font-weight: 700;"><i class="fas fa-check-circle" style="color:#059669;"></i> Advanced Analytics</div>
+                    {% endif %}
+                    {% if package.has_seo_crm %}
+                    <div class="plan-incl-item" style="color: #059669; font-weight: 700;"><i class="fas fa-check-circle" style="color:#059669;"></i> SEO Management CRM</div>
+                    {% endif %}
+                </div>
+                <div class="plan-btn">
+                    <button type="button" class="{% if package.is_featured %}primary{% else %}outline{% endif %}"
+                        onclick="selectPlan('package', {{ package.id }}, '{{ package.name|escapejs }}', {{ package.monthly_price }}, {storage: {{ package.storage_gb }}, email: '{% if package.id == 1 %}10 Email Accounts{% elif package.id == 2 %}50 Email Accounts{% else %}100 Email Accounts{% endif %}', db: '{% if package.id == 1 %}5 MySQL &amp; FTP{% elif package.id == 2 %}20 MySQL &amp; FTP{% else %}50 MySQL &amp; FTP{% endif %}', bandwidth: '{{ package.bandwidth_label|escapejs }}'}, '{{ package.slug }}')">
+                        Order {{ package.name }} <i class="fas fa-arrow-right" style="font-size:0.8rem;"></i>
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- FAQ -->
+        <div class="faq-surface reveal">
+            <h2>Frequently asked questions</h2>
+            <div class="faq-list">
+                <div class="faq-item">
+                    <button class="faq-trigger" onclick="toggleFaq(this)">
+                        Can I upgrade my plan later?
+                        <span class="faq-icon"><i class="fas fa-plus"></i></span>
+                    </button>
+                    <div class="faq-body">
+                        <div class="faq-body-inner">Yes, you can upgrade or downgrade your hosting plan at any time from the client portal. Upgrades are prorated so you only pay the difference.</div>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-trigger" onclick="toggleFaq(this)">
+                        Is the SSL certificate really free?
+                        <span class="faq-icon"><i class="fas fa-plus"></i></span>
+                    </button>
+                    <div class="faq-body">
+                        <div class="faq-body-inner">Yes. Every domain on your hosting plan gets a free Let's Encrypt SSL certificate, automatically installed and renewed. There's no hidden fee.</div>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-trigger" onclick="toggleFaq(this)">
+                        What control panel do I get?
+                        <span class="faq-icon"><i class="fas fa-plus"></i></span>
+                    </button>
+                    <div class="faq-body">
+                        <div class="faq-body-inner">All hosting plans are powered by VoidPanel — a full-featured open-source control panel with website manager, DNS editor, email hosting, file manager, database tools, and more.</div>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-trigger" onclick="toggleFaq(this)">
+                        Do you offer a money-back guarantee?
+                        <span class="faq-icon"><i class="fas fa-plus"></i></span>
+                    </button>
+                    <div class="faq-body">
+                        <div class="faq-body-inner">Yes, we offer a 30-day money-back guarantee on all shared hosting plans. If you're not satisfied, contact our support team within 30 days for a full refund.</div>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-trigger" onclick="toggleFaq(this)">
+                        Can I host multiple websites?
+                        <span class="faq-icon"><i class="fas fa-plus"></i></span>
+                    </button>
+                    <div class="faq-body">
+                        <div class="faq-body-inner">Yes! Depending on your plan, you can host multiple domains. The number of allowed domains is shown in each plan's specifications.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</main>
+
+{% include 'footer.html' %}
+<script src="/static/assets/js/void-utils.js"></script>
+<script>
+/* ── FAQ accordion ── */
+function toggleFaq(trigger) {
+    const item = trigger.closest('.faq-item');
+    const isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item.open').forEach(el => el.classList.remove('open'));
+    if (!isOpen) item.classList.add('open');
+}
+
+function writeOrderDraft(payload) {
+    sessionStorage.setItem('voidpanelOrderDraft', JSON.stringify(payload));
+    window.location.href = '/web-hosting/order-summary/';
+}
+
+function selectPlan(kind, packageId, name, monthlyPrice, specs, slug) {
+    if (slug) { window.location.href = '/cart/' + slug + '/'; return; }
+    writeOrderDraft({type: kind, packageId, name, monthlyPrice, specs, slug});
+}
+</script>
+</body>
+</html>

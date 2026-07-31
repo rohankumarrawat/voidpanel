@@ -1,0 +1,613 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Services — VoidOnyx Portal</title>
+<link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+<link rel="stylesheet" href="{% static 'voidonyx/voidonyx.css' %}">
+<style>
+body { font-family: 'Inter', system-ui, sans-serif; background: #f8fafc; color: #0f172a; margin: 0; min-height: 100vh; }
+.portal-main { padding: 28px 32px 60px; overflow-y: auto; }
+@media (max-width: 768px) { .portal-main { padding: 18px 16px; } }
+.pg-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; flex-wrap: wrap; gap: 12px; }
+.pg-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.4rem; font-weight: 800; }
+.pg-sub { font-size: 0.82rem; color: #64748b; margin-top: 2px; }
+.btn-order { padding: 9px 18px; border-radius: 10px; background: linear-gradient(135deg,#f59e0b,#ea580c); color: #fff; font-size: 0.82rem; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 10px rgba(245,158,11,0.25); }
+.btn-order:hover { opacity: 0.88; }
+
+.kpi-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px; }
+@media (max-width: 600px) { .kpi-strip { grid-template-columns: 1fr; } }
+.kpi { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px 18px; }
+.kpi-lbl { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.05em; }
+.kpi-val { font-size: 1.2rem; font-weight: 800; margin-top: 4px; }
+
+/* Service Section */
+.svc-section { margin-bottom: 24px; }
+.svc-section-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.92rem; font-weight: 800; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; color: #0f172a; }
+.svc-section-title i { color: #f59e0b; font-size: 0.85rem; }
+.svc-section-title .count { font-size: 0.7rem; background: rgba(245,158,11,0.1); color: #f59e0b; padding: 2px 8px; border-radius: 6px; font-weight: 800; }
+
+.svc-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; }
+.svc-item { padding: 16px 20px; border-bottom: 1px solid #f1f5f9; transition: background 0.15s; }
+.svc-item:last-child { border-bottom: none; }
+.svc-item:hover { background: rgba(245,158,11,0.02); }
+.svc-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.svc-info { flex: 1; min-width: 200px; }
+.svc-name { font-weight: 800; font-size: 0.92rem; font-family: 'Plus Jakarta Sans', sans-serif; margin-bottom: 3px; }
+.svc-domain { font-size: 0.78rem; color: #64748b; }
+.svc-meta { display: flex; gap: 16px; margin-top: 8px; }
+.svc-meta-item { font-size: 0.75rem; color: #94a3b8; display: flex; align-items: center; gap: 4px; }
+.svc-meta-item strong { color: #475569; }
+.svc-actions { display: flex; align-items: center; gap: 8px; }
+
+.badge { padding: 3px 10px; border-radius: 6px; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; }
+.badge-active { background: rgba(34,197,94,0.1); color: #16a34a; }
+.badge-pending, .badge-pending_payment { background: rgba(245,158,11,0.1); color: #f59e0b; }
+.badge-suspended { background: rgba(239,68,68,0.1); color: #ef4444; }
+.badge-cancelled, .badge-expired { background: rgba(148,163,184,0.15); color: #94a3b8; }
+
+.btn-manage { padding: 6px 14px; border-radius: 8px; background: rgba(245,158,11,0.1); color: #f59e0b; font-size: 0.75rem; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; border: 1px solid rgba(245,158,11,0.2); }
+.btn-manage:hover { background: rgba(245,158,11,0.18); }
+.btn-launch { padding: 6px 14px; border-radius: 8px; background: linear-gradient(135deg,#f59e0b,#ea580c); color: #fff; font-size: 0.75rem; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
+.btn-launch:hover { opacity: 0.88; }
+
+.empty-state { text-align: center; padding: 48px 20px; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; }
+.empty-state i { font-size: 2.5rem; color: #e2e8f0; margin-bottom: 12px; display: block; }
+.empty-state p { color: #94a3b8; font-size: 0.88rem; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<div class="portal-layout">
+{% include "voidonyx/portal_sidebar.html" %}
+
+<main class="portal-main">
+  <div class="pg-head">
+    <div>
+      <div class="pg-title"><i class="fas fa-server" style="color:#f59e0b;margin-right:8px;"></i>My Services</div>
+      <div class="pg-sub">All your active hosting, email, and security subscriptions</div>
+    </div>
+    <a href="/web-hosting/" class="btn-order"><i class="fas fa-plus"></i> Order New</a>
+  </div>
+
+  <div class="kpi-strip">
+    <div class="kpi"><div class="kpi-lbl">Total Services</div><div class="kpi-val">{{ stats.total }}</div></div>
+    <div class="kpi"><div class="kpi-lbl">Active</div><div class="kpi-val" style="color:#16a34a;">{{ stats.active }}</div></div>
+    <div class="kpi"><div class="kpi-lbl">Pending</div><div class="kpi-val" style="color:#f59e0b;">{{ stats.pending }}</div></div>
+  </div>
+
+  {% if not stats.total %}
+  <div class="empty-state">
+    <i class="fas fa-server"></i>
+    <p>No services yet. Browse our plans to get started!</p>
+    <a href="/web-hosting/" class="btn-order"><i class="fas fa-shopping-cart"></i> Browse Plans</a>
+  </div>
+  {% endif %}
+
+  <!-- Hosting Services -->
+  {% if services %}
+  <div class="svc-section">
+    <div class="svc-section-title"><i class="fas fa-server"></i> Web Hosting <span class="count">{{ services.count }}</span></div>
+    <div class="svc-card">
+      {% for svc in services %}
+      <div class="svc-item">
+        <div class="svc-row">
+          <div class="svc-info">
+            <div class="svc-name">{{ svc.service_name }}</div>
+            <div class="svc-domain">{{ svc.domain }}</div>
+            <div class="svc-meta">
+              <div class="svc-meta-item"><i class="fas fa-hdd"></i> <strong>{{ svc.storage_gb }}GB</strong></div>
+              <div class="svc-meta-item"><i class="fas fa-tag"></i> <strong>{{ svc.package_type|capfirst }}</strong></div>
+              <div class="svc-meta-item"><i class="fas fa-calendar"></i> Due: <strong>{{ svc.next_due_date|date:"d M Y"|default:"—" }}</strong></div>
+            </div>
+          </div>
+          <div class="svc-actions">
+            <span class="badge badge-{{ svc.status }}">{{ svc.get_status_display|default:svc.status|capfirst }}</span>
+            <a href="/portal/service/{{ svc.id }}/" class="btn-manage"><i class="fas fa-cog"></i> Manage</a>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Email Services -->
+  {% if email_services %}
+  <div class="svc-section">
+    <div class="svc-section-title"><i class="fas fa-envelope"></i> Professional Email <span class="count">{{ email_services.count }}</span></div>
+    <div class="svc-card">
+      {% for esvc in email_services %}
+      <div class="svc-item">
+        <div class="svc-row">
+          <div class="svc-info">
+            <div class="svc-name">{{ esvc.plan_name|default:"Email Plan" }}</div>
+            <div class="svc-domain">{{ esvc.domain }}</div>
+          </div>
+          <div class="svc-actions">
+            <span class="badge badge-{{ esvc.status }}">{{ esvc.status|capfirst }}</span>
+            <a href="/portal/email/{{ esvc.id }}/" class="btn-manage"><i class="fas fa-cog"></i> Manage</a>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- SSL Certificates -->
+  {% if ssl_services %}
+  <div class="svc-section">
+    <div class="svc-section-title"><i class="fas fa-shield-halved"></i> SSL Certificates <span class="count">{{ ssl_services.count }}</span></div>
+    <div class="svc-card">
+      {% for ssvc in ssl_services %}
+      <div class="svc-item">
+        <div class="svc-row">
+          <div class="svc-info">
+            <div class="svc-name">{{ ssvc.plan_name|default:"SSL Certificate" }}</div>
+            <div class="svc-domain">{{ ssvc.domain }}</div>
+          </div>
+          <div class="svc-actions">
+            <span class="badge badge-{{ ssvc.status }}">{{ ssvc.status|capfirst }}</span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Digital Suites -->
+  {% if suite_services %}
+  <div class="svc-section">
+    <div class="svc-section-title"><i class="fas fa-hashtag"></i> Digital Suites <span class="count">{{ suite_services.count }}</span></div>
+    <div class="svc-card">
+      {% for svc in suite_services %}
+      <div class="svc-item">
+        <div class="svc-row">
+          <div class="svc-info">
+            <div class="svc-name">
+              {% if svc.suite == 'social' %}<i class="fa-brands fa-instagram" style="color:#f472b6;margin-right:6px;"></i>
+              {% elif svc.suite == 'seo' %}<i class="fas fa-magnifying-glass-chart" style="color:#818cf8;margin-right:6px;"></i>
+              {% else %}<i class="fas fa-bullhorn" style="color:#fbbf24;margin-right:6px;"></i>{% endif %}
+              {{ svc.service_name }}
+            </div>
+            <div class="svc-domain">{{ svc.get_suite_display }} · {{ svc.billing_cycle|title }} · ₹{{ svc.monthly_price }}/mo</div>
+          </div>
+          <div class="svc-actions">
+            <span class="badge badge-{{ svc.status }}">{{ svc.get_status_display }}</span>
+            {% if svc.is_active %}
+            <a href="/portal/suite-sso/{{ svc.id }}/" target="_blank" class="btn-launch"><i class="fas fa-rocket"></i> Launch</a>
+            {% endif %}
+            <button type="button" onclick="promptDeleteSuiteService({{ svc.id }}, '{{ svc.service_name|escapejs }}')" style="background:#fef2f2;border:1px solid #fca5a5;color:#dc2626;padding:5px 10px;border-radius:8px;font-weight:700;font-size:0.7rem;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-family:inherit;">
+              <i class="fas fa-trash-can" style="font-size:0.65rem;"></i> Terminate
+            </button>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- HRMS / ERP Services -->
+  {% if erp_services %}
+  <div class="svc-section">
+    <div class="svc-section-title"><i class="fas fa-users"></i> HRMS Services <span class="count">{{ erp_services.count }}</span></div>
+    <div class="svc-card">
+      {% for erp in erp_services %}
+      <div class="svc-item">
+        <div class="svc-row">
+          <div class="svc-info">
+            <div class="svc-name">{{ erp.company_name|default:"HRMS Portal" }}</div>
+            <div class="svc-domain">{% if erp.custom_domain %}{{ erp.custom_domain }}{% else %}hrms.voidpanel.com{% endif %}</div>
+          </div>
+          <div class="svc-actions">
+            <span class="badge badge-{{ erp.status }}">{{ erp.status|capfirst }}</span>
+            <button type="button" onclick="openHrmsModal({{ erp.id }}, '{{ erp.company_name|escapejs }}', '{% if erp.custom_domain %}https://{{ erp.custom_domain }}{% else %}https://hrms.voidpanel.com{% endif %}', '{{ erp.admin_email|escapejs }}', '{{ erp.package_name|default:"Enterprise"|escapejs }}', '{{ erp.status|capfirst }}', '₹{{ erp.monthly_price }}', '{{ erp.billing_cycle|title }}', '{{ erp.next_due_date|default:"" }}')" class="btn-manage" style="cursor:pointer;">
+              <i class="fas fa-circle-info"></i> View Service
+            </button>
+            {% if erp.status == 'active' %}
+            <a href="{% if erp.custom_domain %}https://{{ erp.custom_domain }}{% else %}https://hrms.voidpanel.com{% endif %}" target="_blank" class="btn-launch"><i class="fas fa-arrow-up-right-from-square"></i> Open</a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Gym Portal Services -->
+  {% if gym_services %}
+  <div class="svc-section">
+    <div class="svc-section-title"><i class="fas fa-dumbbell" style="color:#10b981;"></i> Gym Portal Services <span class="count" style="background:rgba(16,185,129,0.1);color:#10b981;">{{ gym_services.count }}</span></div>
+    <div class="svc-card">
+      {% for gym in gym_services %}
+      <div class="svc-item">
+        <div class="svc-row">
+          <div class="svc-info">
+            <div class="svc-name">{{ gym.gym_name|default:"Gym Portal" }}</div>
+            <div class="svc-domain">gym.voidonyx.in · Owner: <strong>{{ gym.owner_username }}</strong></div>
+          </div>
+          <div class="svc-actions">
+            <span class="badge badge-{{ gym.status }}">{{ gym.status|capfirst }}</span>
+            <button type="button" onclick="openGymModal({{ gym.id }}, '{{ gym.gym_name|escapejs }}', 'https://gym.voidonyx.in', '{{ gym.owner_username|escapejs }}', '{{ gym.owner_email|escapejs }}', '{{ gym.package_name|default:"Starter Plan"|escapejs }}', '{{ gym.status|capfirst }}', '₹{{ gym.monthly_price }}', '{{ gym.billing_cycle|title }}', '{{ gym.max_clients }}', '{{ gym.max_trainers }}')" class="btn-manage" style="cursor:pointer;background:rgba(16,185,129,0.1);color:#10b981;border-color:rgba(16,185,129,0.2);">
+              <i class="fas fa-circle-info"></i> View Service
+            </button>
+            {% if gym.status == 'active' %}
+            <a href="https://gym.voidonyx.in/login/" target="_blank" class="btn-launch" style="background:linear-gradient(135deg,#059669,#10b981);"><i class="fas fa-arrow-up-right-from-square"></i> Open Gym</a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- KhataBook / LedgerFlow Services -->
+  {% if khatabook_services %}
+  <div class="svc-section">
+    <div class="svc-section-title"><i class="fas fa-book" style="color:#8b5cf6;"></i> KhataBook / LedgerFlow <span class="count" style="background:rgba(139,92,246,0.1);color:#8b5cf6;">{{ khatabook_services.count }}</span></div>
+    <div class="svc-card">
+      {% for kb in khatabook_services %}
+      <div class="svc-item">
+        <div class="svc-row">
+          <div class="svc-info">
+            <div class="svc-name">{{ kb.business_name|default:"KhataBook" }} — {{ kb.package_name }}</div>
+            <div class="svc-domain">khatabook.voidonyx.in · Owner: <strong>{{ kb.owner_username }}</strong> · {{ kb.owner_email }}</div>
+          </div>
+          <div class="svc-actions">
+            <span class="badge badge-{{ kb.status }}">{{ kb.status|capfirst }}</span>
+            {% if kb.status == 'active' %}
+            <a href="{{ kb.dashboard_url }}" target="_blank" class="btn-launch" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);"><i class="fas fa-arrow-up-right-from-square"></i> Open KhataBook</a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- VoidPanel Licenses -->
+  {% if licenses %}
+  <div class="svc-section">
+    <div class="svc-section-title"><i class="fas fa-terminal"></i> VoidPanel Licenses <span class="count">{{ licenses.count }}</span></div>
+    <div class="svc-card">
+      {% for lic in licenses %}
+      <div class="svc-item">
+        <div class="svc-row">
+          <div class="svc-info">
+            <div class="svc-name">VoidPanel License</div>
+            <div class="svc-domain">{{ lic.server_ip|default:"Not assigned" }} · Key: {{ lic.license_key|truncatechars:20 }}</div>
+          </div>
+          <div class="svc-actions">
+            <span class="badge badge-{{ lic.status }}">{{ lic.status|capfirst }}</span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</main>
+</div>
+
+<!-- ── HRMS Service Details Modal ─────────────────────────────────────────── -->
+<div id="hrmsDetailsModal" style="display:none;position:fixed;inset:0;background:rgba(8,12,24,0.85);backdrop-filter:blur(8px);z-index:9999;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:20px;padding:28px;max-width:480px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.2);position:relative;">
+    <button type="button" onclick="closeHrmsModal()" style="position:absolute;top:14px;right:14px;background:none;border:none;color:#94a3b8;font-size:1.2rem;cursor:pointer;"><i class="fas fa-times"></i></button>
+    
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;border-bottom:1px solid #f1f5f9;padding-bottom:14px;">
+      <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#ea580c);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.2rem;box-shadow:0 4px 14px rgba(245,158,11,0.3);flex-shrink:0;">
+        <i class="fas fa-users"></i>
+      </div>
+      <div>
+        <h3 id="modalHrmsTitle" style="margin:0;font-size:1.15rem;font-weight:800;color:#0f172a;font-family:'Plus Jakarta Sans',sans-serif;">HRMS Service Details</h3>
+        <span id="modalHrmsBadge" class="badge badge-active" style="margin-top:4px;display:inline-block;">Active</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;font-size:0.86rem;font-family:'Plus Jakarta Sans',sans-serif;">
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#f8fafc;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0;">
+        <span style="color:#64748b;font-weight:600;"><i class="fas fa-globe" style="color:#f59e0b;margin-right:6px;"></i> Portal Login Link</span>
+        <a id="modalHrmsUrl" href="https://hrms.voidpanel.com" target="_blank" style="font-weight:700;color:#2563eb;text-decoration:none;">https://hrms.voidpanel.com</a>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#f8fafc;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0;">
+        <span style="color:#64748b;font-weight:600;"><i class="fas fa-envelope" style="color:#f59e0b;margin-right:6px;"></i> Admin Email</span>
+        <span id="modalHrmsEmail" style="font-weight:700;color:#0f172a;">admin@company.com</span>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#f8fafc;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0;">
+        <span style="color:#64748b;font-weight:600;"><i class="fas fa-layer-group" style="color:#f59e0b;margin-right:6px;"></i> Plan Tier</span>
+        <span id="modalHrmsPlan" style="font-weight:700;color:#0f172a;">Enterprise Tier</span>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#f8fafc;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0;">
+        <span style="color:#64748b;font-weight:600;"><i class="fas fa-receipt" style="color:#f59e0b;margin-right:6px;"></i> Price & Billing</span>
+        <span id="modalHrmsPrice" style="font-weight:700;color:#0f172a;">Monthly · ₹4,999/mo</span>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#f8fafc;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0;">
+        <span style="color:#64748b;font-weight:600;"><i class="fas fa-calendar" style="color:#f59e0b;margin-right:6px;"></i> Next Renewal</span>
+        <span id="modalHrmsDate" style="font-weight:700;color:#0f172a;">Active</span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <a id="modalHrmsLaunchBtn" href="https://hrms.voidpanel.com" target="_blank" style="flex:1;background:linear-gradient(135deg,#f59e0b,#ea580c);border:none;border-radius:10px;padding:12px;color:#fff;font-weight:800;font-size:0.86rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;box-shadow:0 4px 14px rgba(245,158,11,0.3);">
+        <i class="fas fa-arrow-up-right-from-square"></i> Open HRMS Portal
+      </a>
+      <button type="button" onclick="copyHrmsUrl()" style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:10px;padding:12px 16px;color:#0f172a;font-weight:700;font-size:0.86rem;cursor:pointer;display:flex;align-items:center;gap:6px;">
+        <i class="fas fa-copy"></i> Copy Link
+      </button>
+    </div>
+
+    <!-- DANGER ZONE: DELETE SERVICE -->
+    <div style="margin-top:16px;padding-top:14px;border-top:1px dashed #fca5a5;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-weight:800;color:#dc2626;font-size:0.8rem;"><i class="fas fa-triangle-exclamation"></i> Danger Zone</div>
+        <div style="font-size:0.73rem;color:#991b1b;">Permanently remove company from hrms.voidpanel.com</div>
+      </div>
+      <button type="button" onclick="promptDeleteHrmsService()" style="background:#fef2f2;border:1px solid #fca5a5;color:#dc2626;padding:7px 14px;border-radius:8px;font-weight:800;font-size:0.75rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+        <i class="fas fa-trash-can"></i> Delete Service
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Gym Service Details Modal ─────────────────────────────────────────── -->
+<div id="gymDetailsModal" style="display:none;position:fixed;inset:0;background:rgba(8,12,24,0.85);backdrop-filter:blur(8px);z-index:9999;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border:1px solid #e2e8f0;border-radius:20px;padding:28px;max-width:480px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.2);position:relative;">
+    <button type="button" onclick="closeGymModal()" style="position:absolute;top:14px;right:14px;background:none;border:none;color:#94a3b8;font-size:1.2rem;cursor:pointer;"><i class="fas fa-times"></i></button>
+    
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;border-bottom:1px solid #f1f5f9;padding-bottom:14px;">
+      <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#059669,#10b981);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.2rem;box-shadow:0 4px 14px rgba(16,185,129,0.3);flex-shrink:0;">
+        <i class="fas fa-dumbbell"></i>
+      </div>
+      <div>
+        <h3 id="modalGymTitle" style="margin:0;font-size:1.15rem;font-weight:800;color:#0f172a;font-family:'Plus Jakarta Sans',sans-serif;">Gym Service Details</h3>
+        <span id="modalGymBadge" class="badge badge-active" style="margin-top:4px;display:inline-block;">Active</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;font-size:0.86rem;font-family:'Plus Jakarta Sans',sans-serif;">
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#f8fafc;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0;">
+        <span style="color:#64748b;font-weight:600;"><i class="fas fa-globe" style="color:#10b981;margin-right:6px;"></i> Portal Login Link</span>
+        <a id="modalGymUrl" href="https://gym.voidonyx.in" target="_blank" style="font-weight:700;color:#2563eb;text-decoration:none;">https://gym.voidonyx.in</a>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#f8fafc;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0;">
+        <span style="color:#64748b;font-weight:600;"><i class="fas fa-user-shield" style="color:#10b981;margin-right:6px;"></i> Owner Username</span>
+        <span id="modalGymOwner" style="font-weight:700;color:#0f172a;">admin</span>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#f8fafc;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0;">
+        <span style="color:#64748b;font-weight:600;"><i class="fas fa-envelope" style="color:#10b981;margin-right:6px;"></i> Owner Email</span>
+        <span id="modalGymEmail" style="font-weight:700;color:#0f172a;">owner@gym.com</span>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#f8fafc;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0;">
+        <span style="color:#64748b;font-weight:600;"><i class="fas fa-layer-group" style="color:#10b981;margin-right:6px;"></i> Plan Tier</span>
+        <span id="modalGymPlan" style="font-weight:700;color:#0f172a;">Starter Plan</span>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#f8fafc;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0;">
+        <span style="color:#64748b;font-weight:600;"><i class="fas fa-chart-pie" style="color:#10b981;margin-right:6px;"></i> Quotas (Members / Staff)</span>
+        <span id="modalGymQuotas" style="font-weight:700;color:#0f172a;">50 Members · 2 Staff</span>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#f8fafc;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0;">
+        <span style="color:#64748b;font-weight:600;"><i class="fas fa-receipt" style="color:#10b981;margin-right:6px;"></i> Price & Billing</span>
+        <span id="modalGymPrice" style="font-weight:700;color:#0f172a;">Monthly · ₹999/mo</span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <a id="modalGymLaunchBtn" href="https://gym.voidonyx.in/login/" target="_blank" style="flex:1;background:linear-gradient(135deg,#059669,#10b981);border:none;border-radius:10px;padding:12px;color:#fff;font-weight:800;font-size:0.86rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;box-shadow:0 4px 14px rgba(16,185,129,0.3);">
+        <i class="fas fa-arrow-up-right-from-square"></i> Open Gym Portal
+      </a>
+    </div>
+
+    <!-- DANGER ZONE: DELETE GYM SERVICE -->
+    <div style="margin-top:16px;padding-top:14px;border-top:1px dashed #fca5a5;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-weight:800;color:#dc2626;font-size:0.8rem;"><i class="fas fa-triangle-exclamation"></i> Danger Zone</div>
+        <div style="font-size:0.73rem;color:#991b1b;">Permanently remove Gym portal from gym.voidonyx.in</div>
+      </div>
+      <button type="button" onclick="promptDeleteGymService()" style="background:#fef2f2;border:1px solid #fca5a5;color:#dc2626;padding:7px 14px;border-radius:8px;font-weight:800;font-size:0.75rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+        <i class="fas fa-trash-can"></i> Delete Service
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Delete HRMS Service Confirmation Modal ─────────────────────────────── -->
+<div id="deleteHrmsConfirmModal" style="display:none;position:fixed;inset:0;background:rgba(8,12,24,0.85);backdrop-filter:blur(8px);z-index:10000;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border:1.5px solid #fca5a5;border-radius:20px;padding:28px;max-width:440px;width:100%;box-shadow:0 20px 60px rgba(220,38,38,0.15);position:relative;">
+    <button type="button" onclick="closeDeleteHrmsModal()" style="position:absolute;top:14px;right:14px;background:none;border:none;color:#94a3b8;font-size:1.2rem;cursor:pointer;"><i class="fas fa-times"></i></button>
+    
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+      <div style="width:44px;height:44px;border-radius:12px;background:#fef2f2;border:1px solid #fca5a5;display:flex;align-items:center;justify-content:center;color:#dc2626;font-size:1.2rem;flex-shrink:0;">
+        <i class="fas fa-triangle-exclamation"></i>
+      </div>
+      <div>
+        <h3 style="margin:0;font-size:1.1rem;font-weight:800;color:#991b1b;font-family:'Plus Jakarta Sans',sans-serif;">Delete Service</h3>
+        <p style="margin:2px 0 0;font-size:0.75rem;color:#64748b;">This action cannot be undone!</p>
+      </div>
+    </div>
+
+    <p style="font-size:0.84rem;color:#334155;line-height:1.45;margin-bottom:16px;">
+      Are you sure you want to permanently delete <strong id="deleteHrmsCompName" style="color:#0f172a;"></strong>? This will remove all data, records, and access from the SaaS platform.
+    </p>
+
+    <div style="background:#fff5f5;border:1px solid #fee2e2;border-radius:10px;padding:12px;margin-bottom:16px;">
+      <label style="font-size:0.75rem;font-weight:700;color:#991b1b;display:block;margin-bottom:6px;">Type DELETE below to confirm:</label>
+      <input type="text" id="deleteConfirmInput" placeholder="Type DELETE" style="width:100%;padding:9px 12px;border:1px solid #fca5a5;border-radius:8px;font-weight:700;font-size:0.9rem;color:#991b1b;outline:none;" oninput="validateDeleteInput(this.value)">
+    </div>
+
+    <div style="display:flex;gap:10px;">
+      <button type="button" onclick="closeDeleteHrmsModal()" style="flex:1;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:10px;padding:11px;color:#0f172a;font-weight:700;font-size:0.84rem;cursor:pointer;">Cancel</button>
+      <button type="button" id="confirmDeleteBtn" disabled onclick="executeDeleteService()" style="flex:1.2;background:#dc2626;border:none;border-radius:10px;padding:11px;color:#fff;font-weight:800;font-size:0.84rem;cursor:not-allowed;opacity:0.5;display:flex;align-items:center;justify-content:center;gap:6px;">
+        <i class="fas fa-trash-can"></i> Confirm & Delete
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentServiceType = 'erp';
+let currentHrmsServiceId = null;
+let currentHrmsCompName = '';
+let currentHrmsUrl = 'https://hrms.voidpanel.com';
+
+function openHrmsModal(serviceId, companyName, url, email, plan, status, price, billing, dueDate) {
+  currentServiceType = 'erp';
+  currentHrmsServiceId = serviceId;
+  currentHrmsCompName = companyName || 'HRMS Service';
+  currentHrmsUrl = url || 'https://hrms.voidpanel.com';
+
+  document.getElementById('modalHrmsTitle').innerText = companyName + ' — HRMS Details';
+  document.getElementById('modalHrmsUrl').innerText = currentHrmsUrl;
+  document.getElementById('modalHrmsUrl').href = currentHrmsUrl;
+  document.getElementById('modalHrmsLaunchBtn').href = currentHrmsUrl;
+  document.getElementById('modalHrmsEmail').innerText = email || 'N/A';
+  document.getElementById('modalHrmsPlan').innerText = plan + ' Plan';
+  document.getElementById('modalHrmsPrice').innerText = billing + ' · ' + price;
+  document.getElementById('modalHrmsDate').innerText = dueDate || 'Active';
+
+  const badge = document.getElementById('modalHrmsBadge');
+  badge.innerText = status;
+  badge.className = 'badge badge-' + (status.toLowerCase() === 'active' ? 'active' : 'pending');
+
+  const modal = document.getElementById('hrmsDetailsModal');
+  modal.style.display = 'flex';
+}
+
+function closeHrmsModal() {
+  document.getElementById('hrmsDetailsModal').style.display = 'none';
+}
+
+function openGymModal(serviceId, gymName, url, ownerUser, email, plan, status, price, billing, maxClients, maxTrainers) {
+  currentServiceType = 'gym';
+  currentHrmsServiceId = serviceId;
+  currentHrmsCompName = gymName || 'Gym Service';
+  currentHrmsUrl = url || 'https://gym.voidonyx.in';
+
+  document.getElementById('modalGymTitle').innerText = gymName + ' — Gym Details';
+  document.getElementById('modalGymOwner').innerText = ownerUser || 'N/A';
+  document.getElementById('modalGymEmail').innerText = email || 'N/A';
+  document.getElementById('modalGymPlan').innerText = plan;
+  document.getElementById('modalGymQuotas').innerText = (maxClients == -1 ? 'Unlimited' : maxClients) + ' Members · ' + (maxTrainers == -1 ? 'Unlimited' : maxTrainers) + ' Staff';
+  document.getElementById('modalGymPrice').innerText = billing + ' · ' + price;
+
+  const badge = document.getElementById('modalGymBadge');
+  badge.innerText = status;
+  badge.className = 'badge badge-' + (status.toLowerCase() === 'active' ? 'active' : 'pending');
+
+  const modal = document.getElementById('gymDetailsModal');
+  modal.style.display = 'flex';
+}
+
+function closeGymModal() {
+  document.getElementById('gymDetailsModal').style.display = 'none';
+}
+
+function promptDeleteHrmsService() {
+  currentServiceType = 'erp';
+  closeHrmsModal();
+  document.getElementById('deleteHrmsCompName').innerText = currentHrmsCompName;
+  document.getElementById('deleteConfirmInput').value = '';
+  const btn = document.getElementById('confirmDeleteBtn');
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  btn.style.cursor = 'not-allowed';
+  document.getElementById('deleteHrmsConfirmModal').style.display = 'flex';
+}
+
+function promptDeleteGymService() {
+  currentServiceType = 'gym';
+  closeGymModal();
+  document.getElementById('deleteHrmsCompName').innerText = currentHrmsCompName;
+  document.getElementById('deleteConfirmInput').value = '';
+  const btn = document.getElementById('confirmDeleteBtn');
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  btn.style.cursor = 'not-allowed';
+  document.getElementById('deleteHrmsConfirmModal').style.display = 'flex';
+}
+
+function promptDeleteSuiteService(suiteId, suiteName) {
+  currentServiceType = 'suite';
+  currentHrmsServiceId = suiteId;
+  currentHrmsCompName = suiteName;
+  document.getElementById('deleteHrmsCompName').innerText = suiteName;
+  document.getElementById('deleteConfirmInput').value = '';
+  const btn = document.getElementById('confirmDeleteBtn');
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  btn.style.cursor = 'not-allowed';
+  document.getElementById('deleteHrmsConfirmModal').style.display = 'flex';
+}
+
+function closeDeleteHrmsModal() {
+  document.getElementById('deleteHrmsConfirmModal').style.display = 'none';
+}
+
+function validateDeleteInput(val) {
+  const btn = document.getElementById('confirmDeleteBtn');
+  if (val.trim() === 'DELETE' || val.trim() === 'delete') {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+  } else {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+  }
+}
+
+function executeDeleteService() {
+  if (!currentHrmsServiceId) return;
+
+  const btn = document.getElementById('confirmDeleteBtn');
+  btn.innerText = 'Deleting...';
+  btn.disabled = true;
+
+  const formData = new FormData();
+  formData.append('service_type', currentServiceType);
+  formData.append('service_id', currentHrmsServiceId);
+  formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+  fetch('/portal/delete-service/', {
+    method: 'POST',
+    body: formData
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.ok) {
+      alert(data.message || 'Service deleted successfully!');
+      window.location.reload();
+    } else {
+      alert('Deletion error: ' + (data.message || 'Failed to delete service.'));
+      btn.innerText = 'Confirm & Delete';
+      btn.disabled = false;
+    }
+  })
+  .catch(err => {
+    alert('Error connecting to server: ' + err);
+    btn.innerText = 'Confirm & Delete';
+    btn.disabled = false;
+  });
+}
+</script>
+</body>
+</html>

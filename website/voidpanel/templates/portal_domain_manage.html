@@ -1,0 +1,447 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Manage {{ order.domain_name }} — VoidOnyx Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="{% static 'voidonyx/voidonyx.css' %}">
+<style>
+:root {
+  --bg: #f8fafc; --card: #fff; --border: #e2e8f0;
+  --text-primary: #0f172a; --text-secondary: #475569; --text-muted: #94a3b8;
+  --amber: #f59e0b; --amber-bg: rgba(245,158,11,0.08);
+  --green: #22c55e; --green-bg: rgba(34,197,94,0.08);
+  --red: #ef4444; --red-bg: rgba(239,68,68,0.08);
+  --blue: #3b82f6; --blue-bg: rgba(59,130,246,0.08);
+  --purple: #8b5cf6;
+}
+body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--text-primary); margin: 0; }
+
+.dm-main { padding: 28px 32px; max-width: 960px; }
+@media (max-width: 900px) { .dm-main { padding: 16px; } }
+
+.dm-header { margin-bottom: 24px; }
+.dm-breadcrumb { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px; }
+.dm-breadcrumb a { color: var(--amber); text-decoration: none; font-weight: 600; }
+.dm-title { font-size: 1.5rem; font-weight: 800; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.domain-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px; border-radius: 99px; font-size: 0.72rem; font-weight: 700;
+}
+.badge-active { background: var(--green-bg); color: var(--green); }
+.badge-pending { background: var(--amber-bg); color: var(--amber); }
+.badge-failed { background: var(--red-bg); color: var(--red); }
+
+.dm-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+  padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.dm-card-title {
+  font-size: 0.92rem; font-weight: 800; margin-bottom: 18px;
+  display: flex; align-items: center; gap: 10px;
+}
+.dm-card-title i { color: var(--amber); font-size: 0.88rem; }
+
+.dm-overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
+.dm-stat { background: var(--bg); border-radius: 12px; padding: 14px 16px; }
+.dm-stat-label { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+.dm-stat-value { font-size: 0.92rem; font-weight: 700; }
+
+.dm-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 600px) { .dm-form-grid { grid-template-columns: 1fr; } }
+.dm-form-group { display: flex; flex-direction: column; gap: 5px; }
+.dm-form-group.full { grid-column: 1 / -1; }
+.dm-label { font-size: 0.74rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; }
+.dm-input {
+  padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px;
+  font-size: 0.88rem; font-family: inherit; font-weight: 600;
+  background: var(--bg); color: var(--text-primary); transition: border-color 0.2s;
+}
+.dm-input:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 3px rgba(245,158,11,0.1); }
+.dm-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 30px; }
+
+.dm-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 22px; border-radius: 10px; border: none;
+  font-family: inherit; font-size: 0.85rem; font-weight: 700;
+  cursor: pointer; transition: all 0.2s;
+}
+.dm-btn-primary { background: linear-gradient(135deg, var(--amber), #ea580c); color: #fff; box-shadow: 0 4px 14px rgba(245,158,11,0.25); }
+.dm-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(245,158,11,0.35); }
+.dm-btn-secondary { background: var(--blue-bg); color: var(--blue); border: 1px solid rgba(59,130,246,0.2); }
+.dm-btn-danger { background: var(--red-bg); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
+.dm-btn-sm { padding: 7px 14px; font-size: 0.78rem; }
+.dm-form-actions { margin-top: 18px; display: flex; gap: 10px; }
+
+.dm-alert {
+  padding: 12px 16px; border-radius: 12px; font-size: 0.84rem; font-weight: 600;
+  margin-bottom: 18px; display: flex; align-items: center; gap: 10px;
+}
+.dm-alert-success { background: var(--green-bg); color: var(--green); border: 1px solid rgba(34,197,94,0.2); }
+.dm-alert-error { background: var(--red-bg); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
+
+.dm-lock-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px; background: var(--bg); border-radius: 12px; flex-wrap: wrap; gap: 12px;
+}
+.dm-lock-info { display: flex; align-items: center; gap: 12px; }
+.dm-lock-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+.dm-lock-icon.locked { background: var(--green-bg); color: var(--green); }
+.dm-lock-icon.unlocked { background: var(--red-bg); color: var(--red); }
+
+/* DNS Records Table */
+.dns-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.dns-table th { text-align: left; font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.dns-table td { padding: 10px 12px; border-bottom: 1px solid rgba(0,0,0,0.04); font-weight: 600; }
+.dns-table tr:hover { background: rgba(245,158,11,0.03); }
+
+/* Tabs */
+.dm-tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 2px solid var(--border); padding-bottom: 0; }
+.dm-tab {
+  padding: 10px 18px; font-size: 0.82rem; font-weight: 700; color: var(--text-muted);
+  cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s;
+  background: none; border-top: none; border-left: none; border-right: none; font-family: inherit;
+}
+.dm-tab:hover { color: var(--text-primary); }
+.dm-tab.active { color: var(--amber); border-bottom-color: var(--amber); }
+.dm-tab-panel { display: none; }
+.dm-tab-panel.active { display: block; }
+</style>
+</head>
+<body>
+<div class="portal-layout">
+  {% include "voidonyx/portal_sidebar.html" %}
+
+  <div class="dm-main">
+    <div class="dm-header">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="dm-breadcrumb" style="margin-bottom:0;"><a href="/portal/"><i class="fas fa-arrow-left"></i> Portal</a> / My Domains / {{ order.domain_name }}</div>
+        <a href="/" style="font-size:0.78rem;font-weight:700;color:var(--amber);text-decoration:none;display:flex;align-items:center;gap:5px;"><i class="fas fa-home"></i> Back to Site</a>
+      </div>
+      <div class="dm-title">
+        <i class="fas fa-globe" style="color:var(--amber);"></i>
+        {{ order.domain_name }}
+        {% if order.status == 'active' %}
+          <span class="domain-badge badge-active"><i class="fas fa-check-circle"></i> Active</span>
+        {% elif order.status == 'paid' %}
+          <span class="domain-badge badge-active"><i class="fas fa-check-circle"></i> Paid</span>
+        {% elif order.status == 'pending_payment' %}
+          <span class="domain-badge badge-pending"><i class="fas fa-clock"></i> Pending Payment</span>
+        {% else %}
+          <span class="domain-badge badge-failed">{{ order.get_status_display }}</span>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if success_msg %}
+    <div class="dm-alert dm-alert-success"><i class="fas fa-check-circle"></i> {{ success_msg }}</div>
+    {% endif %}
+    {% if error_msg %}
+    <div class="dm-alert dm-alert-error"><i class="fas fa-exclamation-circle"></i> {{ error_msg }}</div>
+    {% endif %}
+
+    <!-- Overview -->
+    <div class="dm-card">
+      <div class="dm-card-title"><i class="fas fa-info-circle"></i> Domain Overview</div>
+      <div class="dm-overview">
+        <div class="dm-stat"><div class="dm-stat-label">Domain</div><div class="dm-stat-value">{{ order.domain_name }}</div></div>
+        <div class="dm-stat"><div class="dm-stat-label">Registration</div><div class="dm-stat-value">{{ order.years }} Year{{ order.years|pluralize }}</div></div>
+        <div class="dm-stat"><div class="dm-stat-label">Price</div><div class="dm-stat-value">₹{{ order.final_price|floatformat:0 }}/yr</div></div>
+        <div class="dm-stat"><div class="dm-stat-label">Ordered</div><div class="dm-stat-value">{{ order.created_at|date:"d M Y" }}</div></div>
+        <div class="dm-stat"><div class="dm-stat-label">Provision</div><div class="dm-stat-value">{{ order.get_provision_status_display|default:"Pending" }}</div></div>
+        <div class="dm-stat"><div class="dm-stat-label">Payment</div><div class="dm-stat-value">{{ order.get_status_display }}</div></div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="dm-tabs">
+      <button class="dm-tab active" onclick="switchTab('ns')"><i class="fas fa-server"></i> Nameservers</button>
+      <button class="dm-tab" onclick="switchTab('dns')"><i class="fas fa-list"></i> DNS Records</button>
+      <button class="dm-tab" onclick="switchTab('childns')"><i class="fas fa-code-branch"></i> Child NS</button>
+      <button class="dm-tab" onclick="switchTab('contact')"><i class="fas fa-address-card"></i> WHOIS</button>
+      <button class="dm-tab" onclick="switchTab('lock')"><i class="fas fa-shield-halved"></i> Security</button>
+    </div>
+
+    <!-- Tab: Nameservers -->
+    <div class="dm-tab-panel active" id="tab-ns">
+      <div class="dm-card">
+        <div class="dm-card-title"><i class="fas fa-server"></i> Nameservers</div>
+        <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:10px;">Point your domain to your hosting provider. Changes may take 24-48 hours to propagate.</p>
+        <div style="font-size:0.78rem;color:var(--blue);background:var(--blue-bg);padding:10px 14px;border-radius:10px;margin-bottom:16px;font-weight:600;">
+          <i class="fas fa-info-circle"></i> Default NS: <strong>dns1.registrar-servers.com</strong> &amp; <strong>dns2.registrar-servers.com</strong>. DNS Records tab is only available with these default nameservers.
+        </div>
+        <form method="POST">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="update_ns">
+          <div class="dm-form-grid">
+            <div class="dm-form-group"><label class="dm-label">NS1 (Primary) *</label><input class="dm-input" name="ns1" value="{{ nameservers.0 }}" required></div>
+            <div class="dm-form-group"><label class="dm-label">NS2 (Secondary) *</label><input class="dm-input" name="ns2" value="{{ nameservers.1 }}" required></div>
+            <div class="dm-form-group"><label class="dm-label">NS3 (Optional)</label><input class="dm-input" name="ns3" value="{{ nameservers.2 }}"></div>
+            <div class="dm-form-group"><label class="dm-label">NS4 (Optional)</label><input class="dm-input" name="ns4" value="{{ nameservers.3 }}"></div>
+          </div>
+          <div class="dm-form-actions">
+            <button type="submit" class="dm-btn dm-btn-primary"><i class="fas fa-save"></i> Update Nameservers</button>
+          </div>
+        </form>
+        {% if not uses_cr_ns %}
+        <form method="POST" style="margin-top:12px;">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="update_ns">
+          <input type="hidden" name="ns1" value="dns1.registrar-servers.com">
+          <input type="hidden" name="ns2" value="dns2.registrar-servers.com">
+          <button type="submit" class="dm-btn dm-btn-secondary dm-btn-sm"><i class="fas fa-rotate-left"></i> Reset to Default Nameservers</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Tab: DNS Records -->
+    <div class="dm-tab-panel" id="tab-dns">
+      <div class="dm-card">
+        <div class="dm-card-title"><i class="fas fa-list"></i> DNS Records</div>
+        {% if uses_cr_ns %}
+        <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:16px;">Add and manage DNS records for {{ order.domain_name }}. Changes are synced automatically.</p>
+
+        <form method="POST" style="margin-bottom:20px;">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="add_dns">
+          <div class="dm-form-grid" style="grid-template-columns: 100px 1fr 1fr 80px auto;">
+            <div class="dm-form-group">
+              <label class="dm-label">Type</label>
+              <select class="dm-input dm-select" name="dns_type">
+                <option value="A">A</option>
+                <option value="AAAA">AAAA</option>
+                <option value="CNAME">CNAME</option>
+                <option value="MX">MX</option>
+                <option value="TXT">TXT</option>
+                <option value="SRV">SRV</option>
+                <option value="NS">NS</option>
+              </select>
+            </div>
+            <div class="dm-form-group"><label class="dm-label">Host / Name</label><input class="dm-input" name="dns_host" placeholder="@ or subdomain"></div>
+            <div class="dm-form-group"><label class="dm-label">Value / Points To</label><input class="dm-input" name="dns_value" placeholder="IP or hostname"></div>
+            <div class="dm-form-group"><label class="dm-label">TTL</label><input class="dm-input" name="dns_ttl" value="3600" placeholder="3600"></div>
+            <div class="dm-form-group" style="justify-content:flex-end;">
+              <label class="dm-label">&nbsp;</label>
+              <button type="submit" class="dm-btn dm-btn-primary dm-btn-sm"><i class="fas fa-plus"></i> Add</button>
+            </div>
+          </div>
+        </form>
+
+        {% if dns_records %}
+        <table class="dns-table">
+          <thead><tr><th>Type</th><th>Host</th><th>Value</th><th>TTL</th><th></th></tr></thead>
+          <tbody>
+            {% for rec in dns_records %}
+            <tr>
+              <td><span style="background:var(--blue-bg);color:var(--blue);padding:2px 8px;border-radius:6px;font-size:0.72rem;font-weight:700;">{{ rec.type }}</span></td>
+              <td>{{ rec.host }}</td>
+              <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ rec.value }}</td>
+              <td>{{ rec.ttl }}</td>
+              <td>
+                <form method="POST" style="margin:0;display:inline;">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="delete_dns">
+                  <input type="hidden" name="dns_id" value="{{ rec.id }}">
+                  <button type="submit" class="dm-btn dm-btn-danger dm-btn-sm" style="padding:4px 8px;" onclick="return confirm('Delete this record?')"><i class="fas fa-trash"></i></button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div style="text-align:center;padding:24px;color:var(--text-muted);font-size:0.85rem;">
+          <i class="fas fa-layer-group" style="font-size:1.5rem;margin-bottom:8px;display:block;opacity:0.5;"></i>
+          No DNS records yet. Add your first record above.
+        </div>
+        {% endif %}
+        {% else %}
+        <div style="text-align:center;padding:32px 20px;">
+          <div style="width:56px;height:56px;border-radius:14px;background:var(--amber-bg);display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;">
+            <i class="fas fa-exclamation-triangle" style="font-size:1.3rem;color:var(--amber);"></i>
+          </div>
+          <div style="font-weight:700;font-size:0.92rem;margin-bottom:6px;">Custom Nameservers Active</div>
+          <div style="font-size:0.82rem;color:var(--text-muted);max-width:400px;margin:0 auto 16px;">
+            DNS records can only be managed when using the default registrar nameservers 
+            (<strong>dns1.registrar-servers.com</strong>). Switch back to manage DNS here.
+          </div>
+          <form method="POST" style="display:inline;">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update_ns">
+            <input type="hidden" name="ns1" value="dns1.registrar-servers.com">
+            <input type="hidden" name="ns2" value="dns2.registrar-servers.com">
+            <button type="submit" class="dm-btn dm-btn-primary dm-btn-sm"><i class="fas fa-rotate-left"></i> Reset to Default NS &amp; Enable DNS</button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Tab: Child Nameservers -->
+    <div class="dm-tab-panel" id="tab-childns">
+      <div class="dm-card">
+        <div class="dm-card-title"><i class="fas fa-code-branch"></i> Child Nameservers (Glue Records)</div>
+        <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:16px;">
+          Create custom nameservers like <strong>ns1.{{ order.domain_name }}</strong> for use with your domain or reseller hosting.
+        </p>
+
+        <form method="POST" style="margin-bottom:20px;">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="add_child_ns">
+          <div class="dm-form-grid" style="grid-template-columns: 1fr 1fr auto;">
+            <div class="dm-form-group">
+              <label class="dm-label">Hostname</label>
+              <div style="display:flex;align-items:center;gap:0;">
+                <input class="dm-input" name="child_ns_host" placeholder="ns1" style="border-radius:10px 0 0 10px;border-right:none;">
+                <span style="padding:10px 14px;background:var(--bg);border:1px solid var(--border);font-size:0.82rem;font-weight:700;color:var(--text-muted);border-radius:0 10px 10px 0;">.{{ order.domain_name }}</span>
+              </div>
+            </div>
+            <div class="dm-form-group">
+              <label class="dm-label">IP Address</label>
+              <input class="dm-input" name="child_ns_ip" placeholder="123.45.67.89">
+            </div>
+            <div class="dm-form-group" style="justify-content:flex-end;">
+              <label class="dm-label">&nbsp;</label>
+              <button type="submit" class="dm-btn dm-btn-primary dm-btn-sm"><i class="fas fa-plus"></i> Create</button>
+            </div>
+          </div>
+        </form>
+
+        {% if child_nameservers %}
+        <table class="dns-table">
+          <thead><tr><th>Hostname</th><th>IP Address</th><th></th></tr></thead>
+          <tbody>
+            {% for cns in child_nameservers %}
+            <tr>
+              <td><strong>{{ cns.hostname }}</strong></td>
+              <td><code>{{ cns.ip }}</code></td>
+              <td>
+                <form method="POST" style="margin:0;display:inline;">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="delete_child_ns">
+                  <input type="hidden" name="child_ns_hostname" value="{{ cns.hostname }}">
+                  <button type="submit" class="dm-btn dm-btn-danger dm-btn-sm" style="padding:4px 8px;" onclick="return confirm('Delete this child nameserver?')"><i class="fas fa-trash"></i></button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div style="text-align:center;padding:24px;color:var(--text-muted);font-size:0.85rem;">
+          <i class="fas fa-code-branch" style="font-size:1.5rem;margin-bottom:8px;display:block;opacity:0.5;"></i>
+          No child nameservers. Create one to use custom NS like ns1.{{ order.domain_name }}.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Tab: Contact (WHOIS) -->
+    <div class="dm-tab-panel" id="tab-contact">
+      <div class="dm-card">
+        <div class="dm-card-title"><i class="fas fa-address-card"></i> Registrant Contact (WHOIS)</div>
+        <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:16px;">Update your domain's WHOIS contact details. Changes are synced automatically.</p>
+        <form method="POST">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="update_contact">
+          <div class="dm-form-grid">
+            <div class="dm-form-group"><label class="dm-label">First Name *</label><input class="dm-input" name="first_name" value="{{ contact.first_name }}" required></div>
+            <div class="dm-form-group"><label class="dm-label">Last Name</label><input class="dm-input" name="last_name" value="{{ contact.last_name }}"></div>
+            <div class="dm-form-group"><label class="dm-label">Email *</label><input class="dm-input" name="email" type="email" value="{{ contact.email }}" required></div>
+            <div class="dm-form-group"><label class="dm-label">Phone</label><input class="dm-input" name="phone" value="{{ contact.phone }}" placeholder="+91 9876543210"></div>
+            <div class="dm-form-group full"><label class="dm-label">Company</label><input class="dm-input" name="company" value="{{ contact.company }}"></div>
+            <div class="dm-form-group full"><label class="dm-label">Address</label><input class="dm-input" name="address" value="{{ contact.address }}"></div>
+            <div class="dm-form-group"><label class="dm-label">City</label><input class="dm-input" name="city" value="{{ contact.city }}"></div>
+            <div class="dm-form-group"><label class="dm-label">State</label><input class="dm-input" name="state" value="{{ contact.state }}"></div>
+            <div class="dm-form-group"><label class="dm-label">Postal Code</label><input class="dm-input" name="postal_code" value="{{ contact.postal_code }}"></div>
+            <div class="dm-form-group"><label class="dm-label">Country</label><input class="dm-input" name="country" value="{{ contact.country|default:'India' }}"></div>
+          </div>
+          <div class="dm-form-actions">
+            <button type="submit" class="dm-btn dm-btn-primary"><i class="fas fa-save"></i> Update Contact Info</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Tab: Security (Lock) -->
+    <div class="dm-tab-panel" id="tab-lock">
+      <div class="dm-card">
+        <div class="dm-card-title"><i class="fas fa-shield-halved"></i> Transfer Lock (Theft Protection)</div>
+        <div class="dm-lock-row">
+          <div class="dm-lock-info">
+            <div class="dm-lock-icon {% if domain_lock %}locked{% else %}unlocked{% endif %}">
+              <i class="fas {% if domain_lock %}fa-lock{% else %}fa-lock-open{% endif %}"></i>
+            </div>
+            <div>
+              <div style="font-weight:700;font-size:0.88rem;">{% if domain_lock %}Domain is Locked{% else %}Domain is Unlocked{% endif %}</div>
+              <div style="font-size:0.75rem;color:var(--text-muted);">{% if domain_lock %}Transfer protection ON — domain cannot be transferred.{% else %}Transfer protection OFF — domain can be transferred away.{% endif %}</div>
+            </div>
+          </div>
+          <form method="POST" style="margin:0;">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="toggle_lock">
+            {% if domain_lock %}
+              <input type="hidden" name="lock_status" value="false">
+              <button type="submit" class="dm-btn dm-btn-danger" onclick="return confirm('Disabling lock will allow transfer. Continue?')"><i class="fas fa-lock-open"></i> Unlock</button>
+            {% else %}
+              <input type="hidden" name="lock_status" value="true">
+              <button type="submit" class="dm-btn dm-btn-primary"><i class="fas fa-lock"></i> Lock Domain</button>
+            {% endif %}
+          </form>
+        </div>
+      </div>
+
+      <!-- ID Protection -->
+      <div class="dm-card">
+        <div class="dm-card-title"><i class="fas fa-user-shield"></i> WHOIS Privacy Protection</div>
+        <div class="dm-lock-row">
+          <div class="dm-lock-info">
+            <div class="dm-lock-icon locked" style="background:var(--blue-bg);color:var(--blue);">
+              <i class="fas fa-eye-slash"></i>
+            </div>
+            <div>
+              <div style="font-weight:700;font-size:0.88rem;">Privacy Protection</div>
+              <div style="font-size:0.75rem;color:var(--text-muted);">Hides your personal contact details from public WHOIS lookups.</div>
+            </div>
+          </div>
+          <span style="font-size:0.78rem;font-weight:700;color:var(--text-muted);padding:8px 14px;border-radius:8px;background:var(--bg);">Managed by Registrar</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function switchTab(tabId) {
+  document.querySelectorAll('.dm-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.dm-tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + tabId).classList.add('active');
+  event.target.closest('.dm-tab').classList.add('active');
+  // Save active tab
+  sessionStorage.setItem('dm-active-tab', tabId);
+}
+// Restore tab on page load
+document.addEventListener('DOMContentLoaded', () => {
+  const saved = sessionStorage.getItem('dm-active-tab');
+  if (saved) {
+    const panel = document.getElementById('tab-' + saved);
+    if (panel) {
+      document.querySelectorAll('.dm-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.dm-tab-panel').forEach(p => p.classList.remove('active'));
+      panel.classList.add('active');
+      // Find matching tab button
+      const tabs = document.querySelectorAll('.dm-tab');
+      const tabMap = {ns:0, dns:1, childns:2, contact:3, lock:4};
+      if (tabMap[saved] !== undefined && tabs[tabMap[saved]]) tabs[tabMap[saved]].classList.add('active');
+    }
+  }
+});
+</script>
+</body>
+</html>

@@ -1,28 +1,31 @@
 {% extends 'super_admin_base.html' %}
 
-{% block title %}Domain API Configuration{% endblock %}
+{% block title %}Domain Configuration{% endblock %}
 
 {% block admin_content %}
 <div class="sa-header">
     <div class="sa-title">
-        <i class="fas fa-globe"></i> Domain API Configuration
+        <i class="fas fa-globe"></i> Domain Configuration
     </div>
 </div>
 
-<div style="max-width:800px;">
-    {% if messages %}
-        {% for m in messages %}
-        <div style="padding:14px; background:rgba(74,222,128,0.1); border:1px solid rgba(74,222,128,0.2); color:#4ade80; border-radius:10px; margin-bottom:20px; font-weight:700;">
-            <i class="fas fa-check-circle"></i> {{ m }}
-        </div>
-        {% endfor %}
-    {% endif %}
+{% if messages %}
+    {% for m in messages %}
+    <div style="padding:14px; background:rgba(74,222,128,0.1); border:1px solid rgba(74,222,128,0.2); color:#4ade80; border-radius:10px; margin-bottom:20px; font-weight:700;">
+        <i class="fas fa-check-circle"></i> {{ m }}
+    </div>
+    {% endfor %}
+{% endif %}
 
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; max-width:1200px;">
+
+    <!-- ═══ Section A: API Credentials ═══ -->
     <div class="sa-card">
         <h3 style="margin-bottom:20px;"><i class="fas fa-link"></i> ConnectReseller Credentials</h3>
         
         <form method="POST">
             {% csrf_token %}
+            <input type="hidden" name="form_action" value="save_config">
             
             <div style="margin-bottom:15px;">
                 <label style="display:block;margin-bottom:6px;font-size:0.85rem;color:var(--text-muted);">API Key <span style="color:#f43f5e;">*</span></label>
@@ -31,24 +34,233 @@
             
             <div style="margin-bottom:15px;">
                 <label style="display:block;margin-bottom:6px;font-size:0.85rem;color:var(--text-muted);">Reseller ID (Optional)</label>
-                <input type="text" name="reseller_id" value="{{ config.reseller_id }}" placeholder="Leave blank if not strictly required" style="width:100%;padding:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;">
+                <input type="text" name="reseller_id" value="{{ config.reseller_id }}" placeholder="Leave blank if not required" style="width:100%;padding:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;">
             </div>
             
             <div style="margin-bottom:15px;">
-                <label style="display:block;margin-bottom:6px;font-size:0.85rem;color:var(--text-muted);">Retail Margin Percentage (%) <span style="color:#f43f5e;">*</span></label>
+                <label style="display:block;margin-bottom:6px;font-size:0.85rem;color:var(--text-muted);">Retail Margin (%) <span style="color:#f43f5e;">*</span></label>
                 <input type="number" name="margin_percentage" value="{{ config.margin_percentage }}" required min="0" max="1000" style="width:100%;padding:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;">
-                <p style="font-size:0.75rem; color:var(--text-muted); margin-top:6px;">This percentage is added onto the wholesale price fetched from the API. Example: If wholesale is ₹200 and margin is 20%, client pays ₹240.</p>
+                <p style="font-size:0.72rem; color:var(--text-muted); margin-top:4px;">Added onto wholesale price. E.g. 20% margin on ₹800 wholesale = ₹960 retail.</p>
             </div>
             
-            <div style="margin-bottom:25px;">
+            <div style="margin-bottom:15px;">
                 <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
                     <input type="checkbox" name="is_active" {% if config.is_active %}checked{% endif %} style="width:18px;height:18px;">
-                    <span style="font-size:0.9rem;font-weight:600;">Enable Domain Registration Workflow</span>
+                    <span style="font-size:0.9rem;font-weight:600;">Enable Domain Registration</span>
                 </label>
+            </div>
+
+            <div style="margin-bottom:20px;">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                    <input type="checkbox" name="auto_provision" {% if config.auto_provision_after_payment %}checked{% endif %} style="width:18px;height:18px;">
+                    <span style="font-size:0.9rem;font-weight:600;">Auto-Provision After Payment</span>
+                </label>
+                <p style="font-size:0.72rem; color:var(--text-muted); margin-top:4px;">If ON, domains are automatically purchased from ConnectReseller after payment. If OFF, admin must manually provision each order.</p>
             </div>
             
             <button type="submit" class="sa-btn btn-primary"><i class="fas fa-save"></i> Save Configuration</button>
         </form>
     </div>
+
+    <!-- ═══ Section B: Cron & Sync Status ═══ -->
+    <div class="sa-card">
+        <h3 style="margin-bottom:20px;"><i class="fas fa-clock"></i> Price Sync & Cron</h3>
+
+        <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:16px; margin-bottom:16px;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div>
+                    <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">Last Sync</div>
+                    <div style="font-size:0.92rem; font-weight:700; margin-top:3px;">
+                        {% if config.last_price_sync %}
+                            {{ config.last_price_sync|date:"d M Y H:i" }}
+                        {% else %}
+                            <span style="color:#94a3b8;">Never</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div>
+                    <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">Status</div>
+                    <div style="margin-top:3px;">
+                        {% if config.price_sync_status == 'success' %}
+                            <span style="background:rgba(74,222,128,0.15); color:#4ade80; padding:3px 10px; border-radius:99px; font-size:0.75rem; font-weight:700;">✓ Success</span>
+                        {% elif config.price_sync_status == 'error' %}
+                            <span style="background:rgba(248,113,113,0.15); color:#f87171; padding:3px 10px; border-radius:99px; font-size:0.75rem; font-weight:700;">✗ Error</span>
+                        {% elif config.price_sync_status == 'running' %}
+                            <span style="background:rgba(96,165,250,0.15); color:#60a5fa; padding:3px 10px; border-radius:99px; font-size:0.75rem; font-weight:700;">⟳ Running</span>
+                        {% else %}
+                            <span style="background:rgba(148,163,184,0.15); color:#94a3b8; padding:3px 10px; border-radius:99px; font-size:0.75rem; font-weight:700;">— Never</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% if config.price_sync_log %}
+            <div style="margin-top:12px; padding:10px; background:rgba(0,0,0,0.3); border-radius:8px; font-family:monospace; font-size:0.72rem; color:#94a3b8; max-height:80px; overflow-y:auto; white-space:pre-wrap;">{{ config.price_sync_log }}</div>
+            {% endif %}
+        </div>
+
+        <form method="POST" action="/super-admin/domain-api/sync-prices/" style="margin-bottom:16px;">
+            {% csrf_token %}
+            <button type="submit" class="sa-btn btn-primary" style="width:100%;"><i class="fas fa-sync"></i> Sync Prices Now</button>
+        </form>
+
+        <div style="background:rgba(255,255,255,0.03); border:1px dashed rgba(255,255,255,0.1); border-radius:10px; padding:12px;">
+            <div style="font-size:0.72rem; color:var(--text-muted); font-weight:700; margin-bottom:6px;">CRON COMMAND (Midnight Daily)</div>
+            <code style="font-size:0.72rem; color:#60a5fa; word-break:break-all;">0 0 * * * cd /var/www/voidpanel-web && python manage.py sync_domain_prices >> /var/log/domain_sync.log 2>&1</code>
+        </div>
+    </div>
 </div>
+
+<!-- ═══ Section C: TLD Pricing Table ═══ -->
+<div class="sa-card" style="max-width:1200px; margin-top:20px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+        <h3><i class="fas fa-tags"></i> TLD Pricing ({{ tld_prices.count }} TLDs)</h3>
+    </div>
+
+    {% if tld_prices %}
+    <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse;">
+            <thead>
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.08);">
+                    <th style="text-align:left; padding:10px 12px; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">TLD</th>
+                    <th style="text-align:right; padding:10px 12px; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Wholesale (₹)</th>
+                    <th style="text-align:right; padding:10px 12px; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Retail (₹)</th>
+                    <th style="text-align:right; padding:10px 12px; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Margin</th>
+                    <th style="text-align:center; padding:10px 12px; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Status</th>
+                    <th style="text-align:right; padding:10px 12px; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Last Synced</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tp in tld_prices %}
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+                    <td style="padding:10px 12px; font-weight:700; font-size:0.9rem;">{{ tp.tld }}</td>
+                    <td style="padding:10px 12px; text-align:right; color:#94a3b8; font-size:0.85rem;">₹{{ tp.wholesale_price|floatformat:0 }}</td>
+                    <td style="padding:10px 12px; text-align:right; font-weight:700; font-size:0.9rem; color:#4ade80;">₹{{ tp.retail_price|floatformat:0 }}</td>
+                    <td style="padding:10px 12px; text-align:right; font-size:0.8rem; color:#fbbf24;">
+                        {% widthratio tp.retail_price tp.wholesale_price 100 as margin_pct %}
+                        {{ config.margin_percentage }}%
+                    </td>
+                    <td style="padding:10px 12px; text-align:center;">
+                        {% if tp.is_active %}
+                            <span style="background:rgba(74,222,128,0.15); color:#4ade80; padding:2px 8px; border-radius:99px; font-size:0.7rem; font-weight:700;">Active</span>
+                        {% else %}
+                            <span style="background:rgba(148,163,184,0.15); color:#94a3b8; padding:2px 8px; border-radius:99px; font-size:0.7rem; font-weight:700;">Hidden</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:10px 12px; text-align:right; font-size:0.75rem; color:#64748b;">{{ tp.last_synced|date:"d M H:i" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="text-align:center; padding:30px; color:#64748b;">
+        <i class="fas fa-tags" style="font-size:2rem; margin-bottom:10px;"></i>
+        <p style="font-weight:700;">No TLD prices cached yet</p>
+        <p style="font-size:0.82rem;">Click "Sync Prices Now" above to fetch pricing from ConnectReseller.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ═══ Section D: Domain Orders Management ═══ -->
+<div class="sa-card" style="max-width:1200px; margin-top:20px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+        <h3><i class="fas fa-receipt"></i> Domain Orders</h3>
+        <div style="display:flex; align-items:center; gap:8px;">
+            {% if config.auto_provision_after_payment %}
+                <span style="background:rgba(74,222,128,0.15); color:#4ade80; padding:4px 12px; border-radius:99px; font-size:0.72rem; font-weight:700;"><i class="fas fa-bolt"></i> Auto-Provision ON</span>
+            {% else %}
+                <span style="background:rgba(248,113,113,0.15); color:#f87171; padding:4px 12px; border-radius:99px; font-size:0.72rem; font-weight:700;"><i class="fas fa-hand"></i> Manual Provision</span>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if domain_orders %}
+    <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse;">
+            <thead>
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.08);">
+                    <th style="text-align:left; padding:10px 12px; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Domain</th>
+                    <th style="text-align:left; padding:10px 12px; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Client</th>
+                    <th style="text-align:right; padding:10px 12px; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Cost</th>
+                    <th style="text-align:right; padding:10px 12px; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Charged</th>
+                    <th style="text-align:center; padding:10px 12px; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Payment</th>
+                    <th style="text-align:center; padding:10px 12px; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Provision</th>
+                    <th style="text-align:left; padding:10px 12px; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Date</th>
+                    <th style="text-align:right; padding:10px 12px; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in domain_orders %}
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+                    <td style="padding:10px 12px;">
+                        <div style="font-weight:700; font-size:0.88rem;">{{ order.domain_name }}</div>
+                        <div style="font-size:0.7rem; color:#64748b;">{{ order.years }} year{{ order.years|pluralize }}</div>
+                    </td>
+                    <td style="padding:10px 12px; font-size:0.82rem;">{{ order.user.username }}</td>
+                    <td style="padding:10px 12px; text-align:right; font-size:0.82rem; color:#94a3b8;">₹{{ order.wholesale_price|floatformat:0 }}</td>
+                    <td style="padding:10px 12px; text-align:right; font-weight:700; font-size:0.85rem;">₹{{ order.final_price|floatformat:0 }}</td>
+                    <td style="padding:10px 12px; text-align:center;">
+                        {% if order.status == 'paid' or order.status == 'active' %}
+                            <span style="background:rgba(74,222,128,0.15); color:#4ade80; padding:2px 8px; border-radius:99px; font-size:0.7rem; font-weight:700;">{{ order.get_status_display }}</span>
+                        {% elif order.status == 'pending_payment' %}
+                            <span style="background:rgba(251,191,36,0.15); color:#fbbf24; padding:2px 8px; border-radius:99px; font-size:0.7rem; font-weight:700;">{{ order.get_status_display }}</span>
+                        {% elif order.status == 'failed' or order.status == 'cancelled' %}
+                            <span style="background:rgba(248,113,113,0.15); color:#f87171; padding:2px 8px; border-radius:99px; font-size:0.7rem; font-weight:700;">{{ order.get_status_display }}</span>
+                        {% else %}
+                            <span style="background:rgba(96,165,250,0.15); color:#60a5fa; padding:2px 8px; border-radius:99px; font-size:0.7rem; font-weight:700;">{{ order.get_status_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:10px 12px; text-align:center;">
+                        {% if order.provision_status == 'api_provisioned' %}
+                            <span style="background:rgba(74,222,128,0.15); color:#4ade80; padding:2px 8px; border-radius:99px; font-size:0.7rem; font-weight:700;"><i class="fas fa-check"></i> API</span>
+                        {% elif order.provision_status == 'db_activated' %}
+                            <span style="background:rgba(96,165,250,0.15); color:#60a5fa; padding:2px 8px; border-radius:99px; font-size:0.7rem; font-weight:700;"><i class="fas fa-database"></i> DB</span>
+                        {% elif order.provision_status == 'failed' %}
+                            <span style="background:rgba(248,113,113,0.15); color:#f87171; padding:2px 8px; border-radius:99px; font-size:0.7rem; font-weight:700;"><i class="fas fa-xmark"></i> Failed</span>
+                        {% else %}
+                            <span style="background:rgba(148,163,184,0.1); color:#64748b; padding:2px 8px; border-radius:99px; font-size:0.7rem; font-weight:700;">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:10px 12px; font-size:0.78rem; color:#64748b;">{{ order.created_at|date:"d M Y" }}</td>
+                    <td style="padding:10px 12px; text-align:right;">
+                        {% if order.status != 'cancelled' %}
+                            {% if order.provision_status == 'not_provisioned' or order.provision_status == 'failed' %}
+                            <div style="display:flex; gap:6px; justify-content:flex-end; flex-wrap:wrap;">
+                                <form method="POST" action="/super-admin/domain-api/order/{{ order.id }}/activate/" style="margin:0;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="sa-btn" style="font-size:0.7rem; padding:5px 10px; background:rgba(96,165,250,0.15); color:#60a5fa; border:1px solid rgba(96,165,250,0.3); border-radius:7px; cursor:pointer;" title="Mark as active in DB only — no API call">
+                                        <i class="fas fa-database"></i> Activate
+                                    </button>
+                                </form>
+                                <form method="POST" action="/super-admin/domain-api/order/{{ order.id }}/provision/" style="margin:0;" onsubmit="return confirm('This will BUY the domain from ConnectReseller using real credits.\n\nDomain: {{ order.domain_name }}\nClient: {{ order.user.username }} ({{ order.user.email }})\nPayment: {{ order.get_status_display }}\n\nContinue?')">
+                                    {% csrf_token %}
+                                    <button type="submit" class="sa-btn" style="font-size:0.7rem; padding:5px 10px; background:rgba(74,222,128,0.15); color:#4ade80; border:1px solid rgba(74,222,128,0.3); border-radius:7px; cursor:pointer;" title="Buy domain from ConnectReseller API using client details">
+                                        <i class="fas fa-rocket"></i> Provision
+                                    </button>
+                                </form>
+                            </div>
+                            {% if order.status == 'pending_payment' %}
+                            <div style="font-size:0.65rem; color:#fbbf24; margin-top:4px;"><i class="fas fa-exclamation-triangle"></i> Not paid yet</div>
+                            {% endif %}
+                            {% else %}
+                                <span style="font-size:0.72rem; color:#4ade80;"><i class="fas fa-check"></i> Done</span>
+                            {% endif %}
+                        {% else %}
+                            <span style="font-size:0.72rem; color:#64748b;">Cancelled</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="text-align:center; padding:30px; color:#64748b;">
+        <i class="fas fa-receipt" style="font-size:2rem; margin-bottom:10px;"></i>
+        <p style="font-weight:700;">No domain orders yet</p>
+        <p style="font-size:0.82rem;">Domain orders will appear here as customers place them.</p>
+    </div>
+    {% endif %}
+</div>
+
 {% endblock %}

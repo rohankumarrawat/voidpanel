@@ -185,8 +185,7 @@ class NginxWebServerManager(WebServerManager):
         self.disable_site(domain)
         try:
             conf = self.get_site_config_path(domain)
-            if os.path.exists(conf):
-                os.remove(conf)
+            _run(['sudo', 'rm', '-f', conf])
             return self.reload()
         except Exception as e:
             return CommandResult(success=False, error=str(e))

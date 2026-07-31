@@ -11456,7 +11456,7 @@ def gym_portal_checkout(request):
             gym_name=session_data['gym_name'],
             owner_username=session_data['owner_username'],
             owner_email=session_data['owner_email'],
-            owner_password=_encrypt_pw(session_data['owner_password']),
+            owner_password=session_data['owner_password'],
             billing_cycle=billing_cycle,
             price=price,
             status='pending_payment'
@@ -11649,7 +11649,7 @@ def ai_voice_checkout(request):
             user=request.user, invoice=invoice, package_id=session_data['package_id'],
             package_name=session_data['package_name'], business_name=session_data['business_name'],
             owner_username=session_data['owner_username'], owner_email=session_data['owner_email'],
-            owner_password=_encrypt_pw(session_data['owner_password']), billing_cycle=billing_cycle,
+            owner_password=session_data['owner_password'], billing_cycle=billing_cycle,
             price=price, status='pending_payment')
         PortalActivity.objects.create(user=request.user, category='billing',
             title=f'AI Voice Order: {session_data["business_name"]}',
@@ -11794,7 +11794,7 @@ def hotel_portal_checkout(request):
             user=request.user, invoice=invoice, package_id=session_data['package_id'],
             package_name=session_data['package_name'], hotel_name=session_data['hotel_name'],
             owner_username=session_data['owner_username'], owner_email=session_data['owner_email'],
-            owner_password=_encrypt_pw(session_data['owner_password']), billing_cycle=billing_cycle,
+            owner_password=session_data['owner_password'], billing_cycle=billing_cycle,
             price=price, status='pending_payment')
         PortalActivity.objects.create(user=request.user, category='billing',
             title=f'Hotel Order: {session_data["hotel_name"]}',
@@ -11945,7 +11945,7 @@ def khatabook_checkout(request):
             user=request.user, invoice=invoice, package_id=session_data['package_id'],
             package_name=session_data['package_name'], business_name=session_data['business_name'],
             owner_username=session_data['owner_username'], owner_email=session_data['owner_email'],
-            owner_password=_encrypt_pw(session_data['owner_password']), billing_cycle=billing_cycle,
+            owner_password=session_data['owner_password'], billing_cycle=billing_cycle,
             price=price, status='pending_payment')
         PortalActivity.objects.create(user=request.user, category='billing',
             title=f'KhataBook Order: {session_data["business_name"]}',

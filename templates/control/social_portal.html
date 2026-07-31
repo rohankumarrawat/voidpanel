@@ -318,7 +318,7 @@
         <div class="card">
           <div class="card-hd">
             <div class="card-title"><i class="fa-solid fa-plug" style="color:#6366f1"></i> Connected Accounts</div>
-            <a href="/control/social/{{ domain }}/" style="font-size:11.5px;color:#E1306C;text-decoration:none;font-weight:600">Manage <i class="fa-solid fa-arrow-right" style="font-size:9px"></i></a>
+            <a href="#" onclick="sw('accounts');return false;" style="font-size:11.5px;color:#E1306C;text-decoration:none;font-weight:600">Manage <i class="fa-solid fa-arrow-right" style="font-size:9px"></i></a>
           </div>
           <div id="accOverviewGrid" class="g3" style="gap:10px"></div>
           {% if not accounts %}
@@ -326,7 +326,7 @@
             <i class="fa-solid fa-plug"></i>
             <h4>No Accounts Connected</h4>
             <p>Connect your Facebook, Instagram, Twitter, LinkedIn and more to start publishing.</p>
-            <a href="/control/social/{{ domain }}/" style="padding:9px 18px;border-radius:9px;background:linear-gradient(135deg,#E1306C,#833ab4);color:#fff;text-decoration:none;font-size:12.5px;font-weight:700">Connect Accounts</a>
+            <a href="#" onclick="sw('accounts');return false;" style="padding:9px 18px;border-radius:9px;background:linear-gradient(135deg,#E1306C,#833ab4);color:#fff;text-decoration:none;font-size:12.5px;font-weight:700">Connect Accounts</a>
           </div>
           {% endif %}
         </div>
@@ -401,7 +401,7 @@
               <div class="form-row">
                 <label>Post To</label>
                 <div class="plat-selector" id="platSelector"></div>
-                <div id="noPlatMsg" style="display:none;font-size:11.5px;color:var(--amber);margin-top:4px"><i class="fa-solid fa-triangle-exclamation"></i> No accounts connected. <a href="/control/social/{{ domain }}/" style="color:#E1306C">Connect accounts</a> first.</div>
+                <div id="noPlatMsg" style="display:none;font-size:11.5px;color:var(--amber);margin-top:4px"><i class="fa-solid fa-triangle-exclamation"></i> No accounts connected. <a href="#" onclick="sw('accounts');return false;" style="color:#E1306C">Connect accounts</a> first.</div>
               </div>
 
               <!-- Caption -->
@@ -712,10 +712,6 @@
         </div>
 
         <!-- ── API KEY MANAGER ─────────────────────────────────── -->
-          </div>
-        </div>
-
-        <!-- ── API KEY MANAGER ─────────────────────────────────── -->
         <div class="card">
           <div class="card-hd" style="margin-bottom:20px">
             <div>
@@ -831,6 +827,9 @@ function sw(id, btn) {
   document.querySelectorAll('.sb-item').forEach(b=>b.classList.remove('active'));
   const p = document.getElementById('panel-'+id);
   if(p) p.classList.add('active');
+  if(!btn && id) {
+    btn = document.querySelector(`.sb-item[onclick*="${id}"]`);
+  }
   if(btn) btn.classList.add('active');
 }
 
@@ -1516,12 +1515,52 @@ function buildAPITabs(){
   const tabs = document.getElementById('apiPlatTabs');
   tabs.innerHTML='';
   Object.entries(PLAT_FORMS).forEach(([code, p])=>{
-    const hasCreds = API_STATE[Object.keys(API_STATE).find(k=>k.startsWith(code.replace('ig','fb').replace('th','fb')))||''] || false;
     const hasAny = hasConfigured(code);
     const isActive = code === activePlatTab;
     const btn = document.createElement('button');
-    btn.style.cssText=`display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:9px;border:1.5px solid ${isActive?p.color:'var(--border)'};background:${isActive?p.color+'18':'transparent'};color:${isActive?p.color:'var(--txt3)'};font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;position:relative`;
-    btn.innerHTML=`<i class="${p.icon}" style="font-size:11px"></i>${p.title.split(' ')[0]}${hasAny?'<span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;border-radius:50%;background:var(--green);border:2px solid var(--bg2)"></span>':''}`;
+    
+    // Premium brand active styles
+    let activeBg = p.color;
+    let activeColor = '#fff';
+    let activeBorder = 'transparent';
+    let activeShadow = `0 4px 12px ${p.color}33`;
+    
+    if (code === 'fb') {
+      activeBg = 'linear-gradient(135deg, #1877F2, #1565C0)';
+    } else if (code === 'ig') {
+      activeBg = 'linear-gradient(135deg, #F56040, #E1306C, #833AB4)';
+      activeShadow = '0 4px 12px rgba(225,48,108,.35)';
+    } else if (code === 'tw') {
+      activeBg = 'linear-gradient(135deg, #14171A, #000000)';
+    } else if (code === 'li') {
+      activeBg = 'linear-gradient(135deg, #0A66C2, #0077B5)';
+    } else if (code === 'pi') {
+      activeBg = 'linear-gradient(135deg, #E60023, #BD081C)';
+    } else if (code === 'tt') {
+      activeBg = 'linear-gradient(135deg, #010101, #25F4EE, #FE2C55)';
+    } else if (code === 'yt') {
+      activeBg = 'linear-gradient(135deg, #FF0000, #C00)';
+    } else if (code === 'th') {
+      activeBg = 'linear-gradient(135deg, #101010, #000)';
+    }
+    
+    if (isActive) {
+      btn.style.cssText = `display:flex;align-items:center;gap:7px;padding:9px 16px;border-radius:10px;border:1.5px solid ${activeBorder};background:${activeBg};color:${activeColor};font-size:12.5px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:all .2s;position:relative;box-shadow:${activeShadow};transform:translateY(-1px);`;
+    } else {
+      btn.style.cssText = `display:flex;align-items:center;gap:7px;padding:9px 16px;border-radius:10px;border:1.5px solid var(--border2);background:rgba(255,255,255,0.02);color:var(--txt2);font-size:12.5px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all .2s;position:relative;`;
+      btn.onmouseover = () => {
+        btn.style.borderColor = p.color + '66';
+        btn.style.color = p.color;
+        btn.style.background = p.color + '0d';
+      };
+      btn.onmouseout = () => {
+        btn.style.borderColor = 'var(--border2)';
+        btn.style.color = 'var(--txt2)';
+        btn.style.background = 'rgba(255,255,255,0.02)';
+      };
+    }
+    
+    btn.innerHTML=`<i class="${p.icon}" style="font-size:12px"></i>${p.title.split(' ')[0]}${hasAny?'<span style="position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;background:var(--green);border:2.2px solid var(--bg2)"></span>':''}`;
     btn.onclick=()=>{ activePlatTab=code; buildAPITabs(); showAPIPlatform(code); };
     tabs.appendChild(btn);
   });
@@ -1631,10 +1670,19 @@ function updatePlatformStatusGrid(){
     const status=connected?'Connected':hasKey?'Keys Saved':'No Keys';
     const color=connected?'rgba(16,185,129,.2)':hasKey?'rgba(245,158,11,.2)':'rgba(255,255,255,.03)';
     const txtColor=connected?'#34d399':hasKey?'#fbbf24':'var(--txt3)';
-    pg.innerHTML+=`<div style="padding:10px;border-radius:9px;border:1px solid ${color};background:${connected?'rgba(16,185,129,.05)':hasKey?'rgba(245,158,11,.04)':'var(--surface)'};cursor:pointer" onclick="activePlatTab='${code}';buildAPITabs();showAPIPlatform('${code}')">
-      <div style="font-size:16px;margin-bottom:4px"><i class="${m.icon}" style="color:${m.color}"></i></div>
-      <div style="font-size:11px;font-weight:700;color:var(--txt);margin-bottom:2px">${m.name}</div>
-      <div style="font-size:9px;color:${txtColor};font-weight:600">${status}</div>
+    pg.innerHTML+=`<div style="padding:12px 14px;border-radius:12px;border:1.5px solid ${color};background:${connected?'rgba(16,185,129,.04)':hasKey?'rgba(245,158,11,.04)':'rgba(255,255,255,0.015)'};cursor:pointer;transition:all .2s;position:relative" 
+      onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.15)'"
+      onmouseout="this.style.transform='none';this.style.boxShadow='none'"
+      onclick="activePlatTab='${code}';buildAPITabs();showAPIPlatform('${code}')">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-size:18px"><i class="${m.icon}" style="color:${m.color}"></i></div>
+        ${connected?'<span style="position:absolute;top:12px;right:12px;width:7px;height:7px;border-radius:50%;background:var(--green)"></span>':''}
+      </div>
+      <div style="font-size:11.5px;font-weight:800;color:var(--txt);margin-bottom:2px">${m.name}</div>
+      <div style="font-size:9.5px;color:${txtColor};font-weight:700;display:flex;align-items:center;gap:4px">
+        ${connected?'<i class="fa-solid fa-circle-check" style="font-size:8px"></i>':''}
+        ${status}
+      </div>
     </div>`;
   });
 }
@@ -1684,7 +1732,7 @@ function openConnectModal(){
     }
 
     if(hasKey){
-      return `<a href="/control/social/${DOMAIN}/connect/${p.slug}/" style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:11px;border:1.5px solid ${p.color}30;background:${p.color}0d;text-decoration:none;cursor:pointer;transition:border-color .15s,transform .1s" onmouseover="this.style.borderColor='${p.color}';this.style.transform='translateY(-1px)'" onmouseout="this.style.borderColor='${p.color}30';this.style.transform='none'">
+      return `<a href="/control/social/${DOMAIN}/connect/${p.slug}/?src=suite" style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:11px;border:1.5px solid ${p.color}30;background:${p.color}0d;text-decoration:none;cursor:pointer;transition:border-color .15s,transform .1s" onmouseover="this.style.borderColor='${p.color}';this.style.transform='translateY(-1px)'" onmouseout="this.style.borderColor='${p.color}30';this.style.transform='none'">
         <div style="width:36px;height:36px;border-radius:9px;background:${p.color}22;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0"><i class="${p.icon}" style="color:${p.color}"></i></div>
         <div style="flex:1;min-width:0">
           <div style="font-size:12.5px;font-weight:700;color:var(--txt)">${p.name}</div>

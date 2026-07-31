@@ -11,8 +11,8 @@ set -euo pipefail
 
 VERSION="${1:-}"
 NOTES="${2:-VoidPanel v$VERSION}"
-DEPLOY_DIR="/var/www/voidpanel.com/deploy"
-DJANGO_DIR="/var/www/voidpanel.com"
+DEPLOY_DIR="/home/voidpanelc091/voidpanel/deploy"
+DJANGO_DIR="/home/voidpanelc091/voidpanel"
 VENV="$DJANGO_DIR/venv/bin/activate"
 
 if [ -z "$VERSION" ]; then
@@ -100,6 +100,11 @@ python manage.py collectstatic --noinput
 echo "\$VERSION" > "\$VERSION_FILE"
 log "Version updated to \$VERSION."
 
+# Restore project directory ownership
+WEB_USER="www-data"
+if ! id -u www-data &>/dev/null && id -u nginx &>/dev/null; then WEB_USER="nginx"; fi
+chown -R "\$WEB_USER:\$WEB_USER" "\$PANEL_DIR"
+
 # Restart panel
 log "Restarting panel service ..."
 systemctl restart voidpanel 2>/dev/null || \\
@@ -114,23 +119,17 @@ SCRIPT
 chmod +x "$SCRIPT_DIR/update.sh"
 echo "   ✅ Update script created"
 
-# ── Step 3: Create release tarball from uploaded code ──────
+# ── Step 3: Create release tarball from uploaded Archive.zip ──────
 echo ""
-echo "📦 Creating release tarball: voidpanel-${VERSION}.tar.gz ..."
+echo "📦 Creating release tarball from Archive.zip: voidpanel-${VERSION}.tar.gz ..."
 mkdir -p "$DJANGO_DIR/media/releases"
+TMP_TAR=$(mktemp -d)
+unzip -q "$DJANGO_DIR/Archive.zip" -d "$TMP_TAR"
 tar -czf "$DJANGO_DIR/media/releases/voidpanel-${VERSION}.tar.gz" \
-    -C "$DJANGO_DIR" \
-    --exclude='*.pyc' \
-    --exclude='__pycache__' \
-    --exclude='*.sqlite3' \
-    --exclude='media' \
-    --exclude='.env' \
-    --exclude='venv' \
-    --exclude='.venv' \
-    --exclude='deploy' \
-    --exclude='staticfiles' \
+    -C "$TMP_TAR" \
     --transform "s,^\.,voidpanel-${VERSION}," \
     .
+rm -rf "$TMP_TAR"
 echo "   ✅ Tarball: /media/releases/voidpanel-${VERSION}.tar.gz"
 
 # ── Step 4: Register version in Django database ────────────

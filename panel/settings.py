@@ -95,6 +95,7 @@ MIDDLEWARE = [
     'panel.middleware.LicenseMiddleware',
     'panel.middleware.MarketingTenantMiddleware',
     'panel.middleware.SessionNameFallbackMiddleware',
+    'panel.middleware.EnsureCsrfCookieMiddleware',
 ]
 
 ROOT_URLCONF = 'panel.urls'

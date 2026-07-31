@@ -1,0 +1,98 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Configure {{ pkg.name }} Plan | VoidOnyx Hotel Management</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="{% static 'voidonyx/favicon.png' %}" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'voidonyx/voidonyx.css' %}">
+    <style>
+        :root { --svc-c1: #0d9488; --svc-c2: #14b8a6; --svc-grad: linear-gradient(135deg, #0d9488, #14b8a6); }
+        * { box-sizing: border-box; }
+        body { font-family: 'Inter', var(--ox-font-sans), sans-serif; background: #f0fdfa; min-height: 100vh; margin: 0; color: #0f172a; }
+        .cfg-page { padding: 120px 5% 80px; display: flex; align-items: flex-start; justify-content: center; }
+        .cfg-wrap { width: 100%; max-width: 1050px; display: flex; flex-direction: column; gap: 28px; }
+        .cfg-header h1 { margin: 12px 0 8px; color: #0f172a; font-family: 'Plus Jakarta Sans', sans-serif; font-size: clamp(1.8rem, 4vw, 2.5rem); font-weight: 900; letter-spacing: -0.03em; }
+        .cfg-header p { color: #64748b; margin: 0; font-size: 1rem; }
+        .eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; background: rgba(13,148,136,0.1); color: #0f766e; font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; border: 1px solid rgba(13,148,136,0.28); font-weight: 800; }
+        .cfg-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 32px; align-items: start; }
+        @media(max-width: 880px) { .cfg-grid { grid-template-columns: 1fr; } }
+        .card { background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 24px; padding: 36px; box-shadow: 0 4px 25px rgba(15,23,42,0.03); }
+        .form-group { margin-bottom: 22px; }
+        .form-group label { display: block; font-size: 0.86rem; font-weight: 700; color: #334155; margin-bottom: 8px; }
+        .form-input { width: 100%; padding: 13px 16px; border-radius: 12px; background: #f8fafc; border: 1.5px solid #cbd5e1; color: #0f172a; font-size: 0.94rem; outline: none; transition: border-color 0.2s, box-shadow 0.2s; font-family: inherit; }
+        .form-input:focus { border-color: var(--svc-c1); background: #fff; box-shadow: 0 0 0 3px rgba(13,148,136,0.15); }
+        .summary-box { background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 16px; padding: 22px; margin-bottom: 24px; }
+        .summary-row { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 12px; color: #475569; }
+        .summary-row.total { font-weight: 800; font-size: 1.25rem; color: var(--svc-c1); border-top: 1px solid #99f6e4; padding-top: 14px; margin-bottom: 0; }
+        .btn-submit { width: 100%; padding: 15px; border-radius: 12px; border: none; background: var(--svc-grad); color: #fff; font-weight: 800; font-size: 0.96rem; cursor: pointer; box-shadow: 0 4px 16px rgba(13,148,136,0.3); transition: opacity 0.2s; }
+        .btn-submit:hover { opacity: 0.92; }
+    </style>
+</head>
+<body>
+    {% include 'voidonyx/header.html' %}
+    <div class="cfg-page">
+        <div class="cfg-wrap">
+            <div class="cfg-header">
+                <span class="eyebrow"><i class="fas fa-hotel"></i> STEP 1 OF 2 — HOTEL PORTAL CONFIGURATION</span>
+                <h1>Configure Your {{ pkg.name }}</h1>
+                <p>Set up your hotel profile and admin login for hotel.voidonyx.in</p>
+            </div>
+            {% if messages %}{% for m in messages %}
+            <div style="background:#fef2f2;border:1px solid #fca5a5;color:#991b1b;padding:14px 20px;border-radius:14px;font-size:0.88rem;font-weight:600;">
+                <i class="fas fa-exclamation-triangle" style="margin-right:6px;"></i> {{ m }}
+            </div>
+            {% endfor %}{% endif %}
+            <div class="cfg-grid">
+                <div class="card">
+                    <form method="POST">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label><i class="fas fa-hotel" style="color:var(--svc-c1);margin-right:6px;"></i> Hotel / Property Name *</label>
+                            <input type="text" name="hotel_name" required placeholder="e.g. Grand Palace Hotel" value="{{ post_data.hotel_name|default:'' }}" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-user" style="color:var(--svc-c1);margin-right:6px;"></i> Owner Username *</label>
+                            <input type="text" name="owner_username" required placeholder="e.g. grand_admin" value="{{ post_data.owner_username|default:prepopulate.owner_username }}" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-envelope" style="color:var(--svc-c1);margin-right:6px;"></i> Owner Email Address *</label>
+                            <input type="email" name="owner_email" required placeholder="admin@hotel.com" value="{{ post_data.owner_email|default:prepopulate.owner_email }}" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-key" style="color:var(--svc-c1);margin-right:6px;"></i> Set Owner Password *</label>
+                            <input type="text" name="owner_password" required value="{{ post_data.owner_password|default:prepopulate.owner_password }}" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-calendar" style="color:var(--svc-c1);margin-right:6px;"></i> Billing Cycle</label>
+                            <select name="billing_cycle" class="form-input">
+                                <option value="monthly">Monthly Billing (₹{{ pkg.price|floatformat:0 }}/mo)</option>
+                                <option value="annually">Annual Billing (₹{% widthratio pkg.price 1 12 %}/yr — Save 15%)</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn-submit">Proceed to Checkout &amp; Order <i class="fas fa-arrow-right" style="margin-left:6px;"></i></button>
+                    </form>
+                </div>
+                <div class="card">
+                    <h3 style="font-family:'Plus Jakarta Sans',sans-serif;margin:0 0 18px;font-size:1.2rem;font-weight:800;color:#0f172a;">Order Summary</h3>
+                    <div class="summary-box">
+                        <div class="summary-row"><span>Package:</span><strong style="color:#0f172a;">{{ pkg.name }}</strong></div>
+                        <div class="summary-row"><span>Max Rooms:</span><strong style="color:#0f172a;">{% if pkg.max_rooms == -1 %}Unlimited{% else %}{{ pkg.max_rooms }}{% endif %}</strong></div>
+                        <div class="summary-row"><span>Staff Accounts:</span><strong style="color:#0f172a;">{% if pkg.max_staff == -1 %}Unlimited{% else %}{{ pkg.max_staff }}{% endif %}</strong></div>
+                        <div class="summary-row"><span>Custom Branding:</span><strong style="color:#0f172a;">{% if pkg.allow_custom_branding %}Yes{% else %}No{% endif %}</strong></div>
+                        <div class="summary-row total"><span>Total Price:</span><span>₹{{ pkg.price|floatformat:0 }}</span></div>
+                    </div>
+                    <div style="font-size:0.84rem;color:#64748b;line-height:1.6;">
+                        <i class="fas fa-shield-check" style="color:var(--svc-c1);margin-right:4px;"></i> Instant activation upon payment. Dashboard at <strong>hotel.voidonyx.in</strong>.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% include 'voidonyx/footer.html' %}
+</body>
+</html>

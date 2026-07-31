@@ -1,0 +1,312 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#f59e0b">
+{% block meta %}
+<title>VoidOnyx — Digital Infrastructure, SaaS & Hosting</title>
+<meta name="description" content="VoidOnyx: buy web hosting, domains, HRMS SaaS, professional email, SSL certificates, and VoidPanel control panel licenses — all in one place.">
+{% endblock %}
+<link rel="shortcut icon" href="{% static 'voidonyx/favicon.png' %}" type="image/x-icon" onerror="this.href='/static/fav.png'">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+<link rel="stylesheet" href="{% static 'voidonyx/voidonyx.css' %}?v=2.2">
+{% block extra_head %}{% endblock %}
+
+<!-- Geo-redirect: Indian users → .in (INR), others → .com (USD) -->
+<script>
+(function(){
+  var h = location.hostname;
+  // Only redirect on live VoidOnyx domains
+  if (h !== 'voidonyx.com' && h !== 'www.voidonyx.com' &&
+      h !== 'voidonyx.in' && h !== 'www.voidonyx.in') return;
+  // Don't redirect if user already chose (via cookie)
+  if (document.cookie.indexOf('geo_skip=1') !== -1) return;
+  // Cache result in sessionStorage
+  var cached = sessionStorage.getItem('geo_country');
+  if (cached) { doRedirect(cached); return; }
+  // Fetch country from free API
+  fetch('https://ipapi.co/json/', {mode:'cors'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var cc = (d.country_code || '').toUpperCase();
+      sessionStorage.setItem('geo_country', cc);
+      doRedirect(cc);
+    }).catch(function(){});
+  function doRedirect(cc) {
+    var isIN = (cc === 'IN');
+    var onDotIn = (h === 'voidonyx.in' || h === 'www.voidonyx.in');
+    var onDotCom = (h === 'voidonyx.com' || h === 'www.voidonyx.com');
+    if (isIN && onDotCom) {
+      // Indian user on .com → redirect to .in
+      location.href = location.href.replace('voidonyx.com', 'voidonyx.in');
+    } else if (!isIN && onDotIn) {
+      // Non-Indian user on .in → redirect to .com
+      location.href = location.href.replace('voidonyx.in', 'voidonyx.com');
+    }
+  }
+})();
+</script>
+</head>
+<body>
+
+<!-- Page Preloader -->
+<div id="oxPreloader" style="
+    position: fixed; inset: 0; background: #0f172a; z-index: 99999;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: opacity 0.35s var(--ox-ease), visibility 0.35s;
+">
+    <div style="text-align: center; display: flex; flex-direction: column; align-items: center; gap: 20px;">
+        <!-- Pulsing Logo -->
+        <div class="ox-preloader-logo" style="
+            width: 60px; height: 60px;
+            background: var(--ox-grad-brand);
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid rgba(255,255,255,0.12);
+        ">
+            <img src="{% static 'voidonyx/logo_emblem.png' %}" style="width: 80%; height: 80%; object-fit: contain;" alt="VoidOnyx">
+        </div>
+        <!-- Wordmark -->
+        <div style="font-family: var(--ox-font-display); font-size: 1.4rem; font-weight: 800; color: #fff; letter-spacing: -0.02em;">
+            VoidOnyx
+        </div>
+        <!-- Loading Bar -->
+        <div style="width: 120px; height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; margin-top: 4px;">
+            <div class="ox-preloader-bar-fill" style="width: 100%; height: 100%; background: var(--ox-grad-brand); border-radius: 2px;"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const preloader = document.getElementById('oxPreloader');
+    if (preloader) {
+        setTimeout(() => {
+            preloader.style.opacity = '0';
+            preloader.style.visibility = 'hidden';
+        }, 500);
+    }
+});
+</script>
+
+<!-- ── Announcement Bar ──────────────────────────────────────────────────── -->
+<div class="ox-announce" id="oxAnnounceBar">
+  <i class="fa-solid fa-bolt" style="font-size:0.8rem"></i>
+  <span>VoidPanel 3.0 with Agentic AI is now live — <a href="https://voidpanel.com" target="_blank" rel="noopener">Install free →</a></span>
+  <button class="ox-announce-close" id="oxAnnounceClose" aria-label="Close">&times;</button>
+</div>
+
+<!-- ── Navigation ────────────────────────────────────────────────────────── -->
+<nav class="ox-nav" id="oxNav">
+  <div class="ox-nav-inner">
+
+    <!-- Brand -->
+    <a href="/" class="ox-nav-brand">
+      <span class="ox-nav-brand-icon"><img src="{% static 'voidonyx/logo_emblem.png' %}" class="ox-logo-img" alt="VoidOnyx Logo"></span>
+      VoidOnyx
+    </a>
+
+    <!-- Desktop Links -->
+    <div class="ox-nav-links">
+
+      <!-- Products mega menu -->
+      <div class="ox-nav-drop-wrap" id="navProductsDrop">
+        <span class="ox-nav-drop-trigger" id="navProductsTrigger">
+          Products <i class="fa-solid fa-chevron-down ox-chev"></i>
+        </span>
+        <div class="ox-mega-menu" id="navProductsMenu">
+          <div class="ox-mega-grid">
+
+            <!-- Column 1: Hosting & Domains -->
+            <div class="ox-mega-col">
+              <div class="ox-mega-label">Hosting & Domains</div>
+              <a href="/web-hosting/" class="ox-mega-item">
+                <span class="ox-mega-item-icon" style="background:#eff6ff;color:#2563eb;"><i class="fa-solid fa-server"></i></span>
+                <div class="ox-mega-item-meta">
+                  <strong>Web Hosting</strong>
+                  <span>NVMe SSD shared hosting</span>
+                </div>
+              </a>
+              <a href="/wordpress-hosting/" class="ox-mega-item">
+                <span class="ox-mega-item-icon" style="background:#f0fdf4;color:#059669;"><i class="fa-brands fa-wordpress"></i></span>
+                <div class="ox-mega-item-meta">
+                  <strong>WordPress Hosting</strong>
+                  <span>Managed WP environment</span>
+                </div>
+              </a>
+              <a href="/reseller-hosting/" class="ox-mega-item">
+                <span class="ox-mega-item-icon" style="background:#fff7ed;color:#ea580c;"><i class="fa-solid fa-store"></i></span>
+                <div class="ox-mega-item-meta">
+                  <strong>Reseller Hosting</strong>
+                  <span>White-label hosting business</span>
+                </div>
+              </a>
+              <a href="/domain-registration/" class="ox-mega-item">
+                <span class="ox-mega-item-icon" style="background:#fce7f3;color:#be185d;"><i class="fa-solid fa-globe"></i></span>
+                <div class="ox-mega-item-meta">
+                  <strong>Domain Names</strong>
+                  <span>Register 100+ TLDs</span>
+                </div>
+              </a>
+            </div>
+
+            <!-- Column 2: Business SaaS -->
+            <div class="ox-mega-col">
+              <div class="ox-mega-label">Business SaaS</div>
+              <a href="/erp-crm/" class="ox-mega-item">
+                <span class="ox-mega-item-icon" style="background:#f5f3ff;color:#7c3aed;"><i class="fa-solid fa-users"></i></span>
+                <div class="ox-mega-item-meta">
+                  <strong>HRMS SaaS</strong>
+                  <span>Employee portal & payroll</span>
+                </div>
+              </a>
+              <a href="/gym-portal/" class="ox-mega-item">
+                <span class="ox-mega-item-icon" style="background:#ecfdf5;color:#059669;"><i class="fa-solid fa-dumbbell"></i></span>
+                <div class="ox-mega-item-meta">
+                  <strong>Gym Portal SaaS</strong>
+                  <span>Gym & fitness management</span>
+                </div>
+              </a>
+              <a href="/ai-voice/" class="ox-mega-item">
+                <span class="ox-mega-item-icon" style="background:#eef2ff;color:#4f46e5;"><i class="fa-solid fa-phone-volume"></i></span>
+                <div class="ox-mega-item-meta">
+                  <strong>AI Voice Calling</strong>
+                  <span>Enterprise AI phone system</span>
+                </div>
+              </a>
+              <a href="/hotel-portal/" class="ox-mega-item">
+                <span class="ox-mega-item-icon" style="background:#f0fdfa;color:#0d9488;"><i class="fa-solid fa-hotel"></i></span>
+                <div class="ox-mega-item-meta">
+                  <strong>Hotel Management</strong>
+                  <span>Cloud hotel & property portal</span>
+                </div>
+              </a>
+              <a href="/khatabook/" class="ox-mega-item">
+                <span class="ox-mega-item-icon" style="background:#fffbeb;color:#d97706;"><i class="fa-solid fa-book-open"></i></span>
+                <div class="ox-mega-item-meta">
+                  <strong>KhataBook / LedgerFlow</strong>
+                  <span>Digital ledger & accounting</span>
+                </div>
+              </a>
+            </div>
+
+            <!-- Column 3: Tools & Platform -->
+            <div class="ox-mega-col">
+              <div class="ox-mega-label">Tools & Platform</div>
+              <a href="/professional-email/" class="ox-mega-item">
+                <span class="ox-mega-item-icon" style="background:#ecfeff;color:#0e7490;"><i class="fa-solid fa-envelope"></i></span>
+                <div class="ox-mega-item-meta">
+                  <strong>Professional Email</strong>
+                  <span>Custom domain business mail</span>
+                </div>
+              </a>
+              <a href="/ssl-certificates/" class="ox-mega-item">
+                <span class="ox-mega-item-icon" style="background:#f0fdf4;color:#15803d;"><i class="fa-solid fa-shield-halved"></i></span>
+                <div class="ox-mega-item-meta">
+                  <strong>SSL Certificates</strong>
+                  <span>DV, Wildcard & Multi-domain</span>
+                </div>
+              </a>
+              <a href="/social-media-suite/" class="ox-mega-item">
+                <span class="ox-mega-item-icon" style="background:#fce7f3;color:#be185d;"><i class="fa-brands fa-instagram"></i></span>
+                <div class="ox-mega-item-meta">
+                  <strong>Social Media Suite</strong>
+                  <span>Schedule & grow audience</span>
+                </div>
+              </a>
+              <a href="/marketing-suite/" class="ox-mega-item">
+                <span class="ox-mega-item-icon" style="background:#fffbeb;color:#d97706;"><i class="fa-solid fa-bullhorn"></i></span>
+                <div class="ox-mega-item-meta">
+                  <strong>Marketing Suite</strong>
+                  <span>Email marketing & automation</span>
+                </div>
+              </a>
+              <a href="/seo-suite/" class="ox-mega-item">
+                <span class="ox-mega-item-icon" style="background:#f0fdf4;color:#16a34a;"><i class="fa-solid fa-chart-line"></i></span>
+                <div class="ox-mega-item-meta">
+                  <strong>SEO Suite</strong>
+                  <span>Rank higher & drive traffic</span>
+                </div>
+              </a>
+            </div>
+
+          </div>
+          <!-- Bottom CTA Strip -->
+          <div class="ox-mega-bottom">
+            <div class="ox-mega-bottom-text">
+              <span class="ox-mega-bottom-badge">Free & Open-Source</span>
+              <span><strong>VoidPanel</strong> — The world's most advanced server control panel with Agentic AI.</span>
+            </div>
+            <a href="https://voidpanel.com" target="_blank" rel="noopener" class="ox-mega-bottom-cta">
+              <i class="fa-solid fa-terminal"></i> Get VoidPanel Free
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <a href="/blogs/">Blog</a>
+      <a href="/docs/">Docs</a>
+      <a href="/aboutus/">About</a>
+      <a href="https://hrms.voidpanel.com/internships/apply/voidonyx/" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;font-weight:700;color:#f59e0b;">
+        <i class="fa-solid fa-briefcase" style="font-size:0.75rem;"></i> Careers <span style="font-size:0.6rem;font-weight:800;background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;padding:2px 7px;border-radius:20px;text-transform:uppercase;letter-spacing:0.04em;box-shadow:0 2px 8px rgba(245,158,11,0.3);">Hiring</span>
+      </a>
+    </div>
+
+    <!-- Desktop CTA -->
+    <div class="ox-nav-cta">
+      {% if request.user.is_authenticated %}
+        <a href="/portal/" class="ox-btn ox-btn-outline ox-btn-sm">
+          <i class="fa-solid fa-circle-user"></i> {{ request.user }}
+        </a>
+        {% if request.user.is_superuser %}
+          <a href="/super-admin/" class="ox-btn ox-btn-ghost ox-btn-sm">Admin</a>
+        {% endif %}
+        <a href="/logout/" class="ox-btn ox-btn-primary ox-btn-sm">Logout</a>
+      {% else %}
+        <a href="/login/" class="ox-btn ox-btn-outline ox-btn-sm">Log In</a>
+        <a href="/register/" class="ox-btn ox-btn-primary ox-btn-sm">
+          Get Started <i class="fa-solid fa-arrow-right" style="font-size:0.7rem"></i>
+        </a>
+      {% endif %}
+    </div>
+
+    <!-- Hamburger -->
+    <button class="ox-hamburger" id="oxHamburger" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- ── Mobile Menu ────────────────────────────────────────────────────────── -->
+<div class="ox-mobile-menu" id="oxMobileMenu">
+  <span class="ox-mob-section-label">Products</span>
+  <a href="/web-hosting/"><i class="fa-solid fa-server" style="width:18px;color:#2563eb"></i> Web Hosting</a>
+  <a href="/reseller-hosting/"><i class="fa-solid fa-store" style="width:18px;color:#d97706"></i> Reseller Hosting</a>
+  <a href="/domain-registration/"><i class="fa-solid fa-globe" style="width:18px;color:#be185d"></i> Domains</a>
+  <a href="/erp-crm/"><i class="fa-solid fa-users" style="width:18px;color:#7c3aed"></i> HRMS SaaS</a>
+  <a href="/gym-portal/"><i class="fa-solid fa-dumbbell" style="width:18px;color:#059669"></i> Gym Portal SaaS</a>
+  <a href="/ai-voice/"><i class="fa-solid fa-phone-volume" style="width:18px;color:#4f46e5"></i> AI Voice Calling</a>
+  <a href="/hotel-portal/"><i class="fa-solid fa-hotel" style="width:18px;color:#0d9488"></i> Hotel Management</a>
+  <a href="/khatabook/"><i class="fa-solid fa-book-open" style="width:18px;color:#d97706"></i> KhataBook / LedgerFlow</a>
+  <a href="/professional-email/"><i class="fa-solid fa-envelope" style="width:18px;color:#0e7490"></i> Professional Email</a>
+  <a href="/ssl-certificates/"><i class="fa-solid fa-shield-halved" style="width:18px;color:#15803d"></i> SSL Certificates</a>
+  <a href="/social-media-suite/"><i class="fa-brands fa-instagram" style="width:18px;color:#be185d"></i> Social Suite</a>
+  <a href="/seo-suite/"><i class="fa-solid fa-chart-line" style="width:18px;color:#16a34a"></i> SEO Suite</a>
+  <a href="https://hrms.voidpanel.com/internships/apply/voidonyx/" target="_blank" rel="noopener" style="display:flex;align-items:center;color:#f59e0b;font-weight:700;"><i class="fa-solid fa-briefcase" style="width:18px;color:#f59e0b"></i> Careers <span style="font-size:0.65rem;background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;padding:2px 7px;border-radius:10px;margin-left:auto;font-weight:800;">HIRING</span></a>
+  <a href="https://voidpanel.com" target="_blank" rel="noopener"><i class="fa-solid fa-terminal" style="width:18px;color:#ea580c"></i> VoidPanel (Free)</a>
+  <div class="ox-mob-divider"></div>
+  <span class="ox-mob-section-label">Account</span>
+  {% if request.user.is_authenticated %}
+    <a href="/portal/"><i class="fa-solid fa-circle-user" style="width:18px;color:#f59e0b"></i> My Portal</a>
+    <a href="https://hrms.voidpanel.com" target="_blank" rel="noopener" style="font-size:0.82rem;color:#94a3b8;"><i class="fa-solid fa-arrow-up-right-from-square" style="width:18px;font-size:0.7rem;"></i> HRMS Portal</a>
+    <a href="/logout/"><i class="fa-solid fa-right-from-bracket" style="width:18px;color:#64748b"></i> Logout</a>
+  {% else %}
+    <a href="/login/"><i class="fa-solid fa-right-to-bracket" style="width:18px;color:#64748b"></i> Log In</a>
+    <a href="/register/" style="color:#d97706;font-weight:700"><i class="fa-solid fa-user-plus" style="width:18px;color:#d97706"></i> Create Account</a>
+  {% endif %}
+</div>

@@ -1,0 +1,102 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Domains — VoidOnyx Portal</title>
+<link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+<link rel="stylesheet" href="{% static 'voidonyx/voidonyx.css' %}">
+<style>
+body { font-family: 'Inter', system-ui, sans-serif; background: #f8fafc; color: #0f172a; margin: 0; min-height: 100vh; }
+.portal-main { padding: 28px 32px 60px; overflow-y: auto; }
+@media (max-width: 768px) { .portal-main { padding: 18px 16px; } }
+.pg-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; flex-wrap: wrap; gap: 12px; }
+.pg-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.4rem; font-weight: 800; }
+.pg-sub { font-size: 0.82rem; color: #64748b; margin-top: 2px; }
+.btn-new { padding: 9px 18px; border-radius: 10px; background: linear-gradient(135deg,#f59e0b,#ea580c); color: #fff; font-size: 0.82rem; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 10px rgba(245,158,11,0.25); }
+.btn-new:hover { opacity: 0.88; }
+
+.kpi-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px; }
+@media (max-width: 600px) { .kpi-strip { grid-template-columns: 1fr; } }
+.kpi { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px 18px; }
+.kpi-lbl { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.05em; }
+.kpi-val { font-size: 1.2rem; font-weight: 800; margin-top: 4px; }
+
+.dom-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+.dom-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px; transition: all 0.2s; }
+.dom-card:hover { border-color: rgba(245,158,11,0.3); box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+.dom-name { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.05rem; font-weight: 800; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.dom-meta { display: flex; gap: 16px; font-size: 0.78rem; color: #64748b; margin-bottom: 12px; }
+.dom-meta span { display: flex; align-items: center; gap: 5px; }
+.badge { padding: 3px 10px; border-radius: 6px; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; }
+.badge-active { background: rgba(34,197,94,0.1); color: #16a34a; }
+.badge-pending_payment, .badge-pending { background: rgba(245,158,11,0.1); color: #f59e0b; }
+.badge-failed { background: rgba(239,68,68,0.1); color: #ef4444; }
+.dom-actions { display: flex; gap: 8px; }
+.btn-manage { padding: 6px 14px; border-radius: 8px; background: rgba(245,158,11,0.1); color: #f59e0b; font-size: 0.75rem; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; border: 1px solid rgba(245,158,11,0.2); }
+.btn-manage:hover { background: rgba(245,158,11,0.18); }
+.btn-pay { padding: 6px 14px; border-radius: 8px; background: linear-gradient(135deg,#f59e0b,#ea580c); color: #fff; font-size: 0.75rem; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
+
+.empty-state { text-align: center; padding: 48px 20px; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; }
+.empty-state i { font-size: 2.5rem; color: #e2e8f0; margin-bottom: 12px; }
+.empty-state p { color: #94a3b8; font-size: 0.88rem; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<div class="portal-layout">
+{% include "voidonyx/portal_sidebar.html" %}
+
+<main class="portal-main">
+  <div class="pg-head">
+    <div>
+      <div class="pg-title"><i class="fas fa-globe" style="color:#f59e0b;margin-right:8px;"></i>My Domains</div>
+      <div class="pg-sub">All your registered domains and pending orders</div>
+    </div>
+    <a href="/domain-registration/" class="btn-new"><i class="fas fa-plus"></i> Register Domain</a>
+  </div>
+
+  <div class="kpi-strip">
+    <div class="kpi"><div class="kpi-lbl">Total Domains</div><div class="kpi-val">{{ stats.total }}</div></div>
+    <div class="kpi"><div class="kpi-lbl">Active</div><div class="kpi-val" style="color:#16a34a;">{{ stats.active }}</div></div>
+    <div class="kpi"><div class="kpi-lbl">Pending Payment</div><div class="kpi-val" style="color:#f59e0b;">{{ stats.pending }}</div></div>
+  </div>
+
+  {% if domains %}
+  <div class="dom-grid">
+    {% for dom in domains %}
+    <div class="dom-card">
+      <div class="dom-name">
+        <i class="fas fa-globe" style="color:#f59e0b;font-size:0.9rem;"></i>
+        {{ dom.domain_name }}
+        <span class="badge badge-{{ dom.status }}">{{ dom.get_status_display|default:dom.status|capfirst }}</span>
+      </div>
+      <div class="dom-meta">
+        <span><i class="fas fa-calendar"></i> {{ dom.years }} year{{ dom.years|pluralize }}</span>
+        <span><i class="fas fa-tag"></i> ₹{{ dom.final_price }}</span>
+        <span><i class="fas fa-clock"></i> {{ dom.created_at|date:"d M Y" }}</span>
+      </div>
+      <div class="dom-actions">
+        {% if dom.status == 'active' or dom.status == 'paid' %}
+        <a href="/portal/domain/{{ dom.id }}/manage/" class="btn-manage"><i class="fas fa-cog"></i> Manage</a>
+        {% elif dom.status == 'pending_payment' and dom.invoice %}
+        <a href="/portal/invoice/{{ dom.invoice.id }}/pay/" class="btn-pay"><i class="fas fa-wallet"></i> Pay ₹{{ dom.final_price }}</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i class="fas fa-globe"></i>
+    <p>No domains yet. Register your first domain to get started!</p>
+    <a href="/domain-registration/" class="btn-new"><i class="fas fa-search"></i> Search Domains</a>
+  </div>
+  {% endif %}
+</main>
+</div>
+</body>
+</html>

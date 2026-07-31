@@ -817,8 +817,8 @@ class CustomerProfile(models.Model):
     state = models.CharField(max_length=80, blank=True)
     postal_code = models.CharField(max_length=20, blank=True)
     portal_role = models.CharField(max_length=40, default='Account Owner')
-    balance_funds = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    balance_chips = models.IntegerField(default=0)
+    balance_funds = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), null=False)
+    balance_chips = models.IntegerField(default=0, null=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -1755,12 +1755,45 @@ class GlobalWhatsAppTemplate(models.Model):
         return self.name
 
 
+class TLDPrice(models.Model):
+    """Cached TLD pricing — synced nightly from ConnectReseller API.
+    Retail price = wholesale * (1 + margin%). Updated by sync_domain_prices command."""
+    tld = models.CharField(max_length=30, unique=True, help_text="e.g. .com, .in, .co.in")
+    wholesale_price = models.DecimalField(max_digits=10, decimal_places=2, help_text="Cost price in INR from ConnectReseller")
+    retail_price = models.DecimalField(max_digits=10, decimal_places=2, help_text="Selling price in INR (wholesale + margin)")
+    currency = models.CharField(max_length=3, default='INR')
+    last_synced = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True, help_text="Show this TLD on the domain search page")
+
+    class Meta:
+        ordering = ['retail_price']
+        verbose_name = 'TLD Price'
+        verbose_name_plural = 'TLD Prices'
+
+    def __str__(self):
+        return f"{self.tld} — ₹{self.retail_price}"
+
+
 class ConnectResellerConfig(models.Model):
     """Stores the global ConnectReseller credentials and domain pricing margin."""
     api_key = models.CharField(max_length=255)
     reseller_id = models.CharField(max_length=100, blank=True)
     margin_percentage = models.PositiveIntegerField(default=20, help_text="Percentage margin to add to wholesale domain prices")
     is_active = models.BooleanField(default=False)
+
+    # Auto-provision toggle
+    auto_provision_after_payment = models.BooleanField(
+        default=False,
+        help_text="If ON, domains are automatically purchased from ConnectReseller after payment. If OFF, admin must manually provision."
+    )
+
+    # Price sync tracking
+    last_price_sync = models.DateTimeField(null=True, blank=True)
+    price_sync_status = models.CharField(
+        max_length=20, default='never',
+        choices=[('never', 'Never'), ('running', 'Running'), ('success', 'Success'), ('error', 'Error')]
+    )
+    price_sync_log = models.TextField(blank=True, default='', help_text="Log output from last price sync")
 
     class Meta:
         verbose_name = "ConnectReseller Config"
@@ -1822,6 +1855,12 @@ class DomainOrder(models.Model):
         ('failed', 'Registration Failed'),
         ('cancelled', 'Cancelled')
     ]
+    PROVISION_CHOICES = [
+        ('not_provisioned', 'Not Provisioned'),
+        ('db_activated', 'Activated in DB'),
+        ('api_provisioned', 'Provisioned via API'),
+        ('failed', 'Provision Failed'),
+    ]
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='domain_orders')
     domain_name = models.CharField(max_length=200)
     years = models.PositiveIntegerField(default=1)
@@ -1831,6 +1870,14 @@ class DomainOrder(models.Model):
     invoice = models.OneToOneField('Invoice', on_delete=models.SET_NULL, null=True, blank=True, related_name='domain_order')
     api_response = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # Provision tracking
+    provision_status = models.CharField(max_length=20, choices=PROVISION_CHOICES, default='not_provisioned')
+    provision_log = models.TextField(blank=True, default='')
+    provisioned_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.domain_name} ({self.user.username})"
@@ -2998,4 +3045,481 @@ class WhatsAppLog(models.Model):
 
     def __str__(self):
         return f"WhatsApp Log #{self.id} to {self.phone_to} — {self.status}"
+
+
+# ══════════════════════════════════════════════════════════════════
+#  ERP/CRM (HRMS SAAS) — PLANS, SERVICES, ORDERS
+# ══════════════════════════════════════════════════════════════════
+
+class ErpCrmService(models.Model):
+    """
+    Active ERP/CRM (HRMS SaaS) subscription for a tenant company.
+    Created automatically after payment is confirmed.
+    """
+    STATUS_CHOICES = [
+        ('pending',   'Pending'),
+        ('active',    'Active'),
+        ('suspended', 'Suspended'),
+        ('cancelled', 'Cancelled'),
+    ]
+    BILLING_CHOICES = [
+        ('monthly',  'Monthly'),
+        ('annually', 'Annually'),
+    ]
+
+    user          = models.ForeignKey(
+                        settings.AUTH_USER_MODEL,
+                        on_delete=models.CASCADE,
+                        related_name='erp_services',
+                    )
+    company_name  = models.CharField(max_length=150)
+    subdomain     = models.CharField(max_length=64, unique=True)
+    package_name  = models.CharField(max_length=50) # e.g. Starter, Growth, Enterprise
+    status        = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    monthly_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    billing_cycle = models.CharField(max_length=20, choices=BILLING_CHOICES, default='monthly')
+    dashboard_url = models.URLField(max_length=255, blank=True)
+    admin_email   = models.EmailField()
+    custom_domain = models.CharField(max_length=255, blank=True, default='', help_text='Optional custom domain, e.g. hr.mycompany.com')
+    next_due_date = models.DateField(null=True, blank=True)
+    created_at    = models.DateTimeField(auto_now_add=True)
+    updated_at    = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'ERP/CRM Service'
+        verbose_name_plural = 'ERP/CRM Services'
+
+    def __str__(self):
+        return f"{self.company_name} ({self.subdomain}) — {self.status}"
+
+    @property
+    def is_active(self):
+        return self.status == 'active'
+
+
+class ErpCrmOrder(models.Model):
+    """
+    Pending ERP/CRM order record created at checkout, before payment.
+    Converted to ErpCrmService on payment confirmation.
+    """
+    STATUS_CHOICES = [
+        ('pending_payment', 'Pending Payment'),
+        ('paid',            'Paid'),
+        ('failed',          'Failed'),
+        ('cancelled',       'Cancelled'),
+    ]
+
+    user          = models.ForeignKey(
+                        settings.AUTH_USER_MODEL,
+                        on_delete=models.CASCADE,
+                        related_name='erp_orders',
+                    )
+    invoice       = models.OneToOneField(
+                        'Invoice',
+                        on_delete=models.CASCADE,
+                        related_name='erp_order',
+                    )
+    package_id      = models.IntegerField()  # ID from SaaS API
+    package_name    = models.CharField(max_length=50) # Name from SaaS API
+    company_name    = models.CharField(max_length=150)
+    subdomain       = models.CharField(max_length=64)
+    admin_name      = models.CharField(max_length=120)
+    admin_email     = models.EmailField()
+    admin_password  = models.CharField(max_length=128)
+    billing_cycle   = models.CharField(max_length=20, default='monthly')
+    price           = models.DecimalField(max_digits=10, decimal_places=2)
+    custom_domain   = models.CharField(max_length=255, blank=True, default='')
+    status          = models.CharField(max_length=20, choices=STATUS_CHOICES,
+                                     default='pending_payment')
+    created_at      = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'ERP/CRM Order'
+        verbose_name_plural = 'ERP/CRM Orders'
+
+    def __str__(self):
+        return f"ErpCrmOrder #{self.id} — {self.company_name} — {self.status}"
+
+
+class GymPortalService(models.Model):
+    """
+    Active Gym Portal SaaS subscription for a gym tenant on gym.voidonyx.in.
+    Created automatically after payment is confirmed.
+    """
+    STATUS_CHOICES = [
+        ('pending',   'Pending'),
+        ('active',    'Active'),
+        ('suspended', 'Suspended'),
+        ('cancelled', 'Cancelled'),
+    ]
+    BILLING_CHOICES = [
+        ('monthly',  'Monthly'),
+        ('annually', 'Annually'),
+    ]
+
+    user           = models.ForeignKey(
+                         settings.AUTH_USER_MODEL,
+                         on_delete=models.CASCADE,
+                         related_name='gym_services',
+                     )
+    gym_name       = models.CharField(max_length=150)
+    owner_username = models.CharField(max_length=80)
+    package_name   = models.CharField(max_length=50)
+    package_id     = models.IntegerField(default=0)
+    status         = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    monthly_price  = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    billing_cycle  = models.CharField(max_length=20, choices=BILLING_CHOICES, default='monthly')
+    dashboard_url  = models.URLField(max_length=255, blank=True, default='https://gym.voidonyx.in')
+    owner_email    = models.EmailField()
+    max_clients    = models.IntegerField(default=50)
+    max_trainers   = models.IntegerField(default=5)
+    next_due_date  = models.DateField(null=True, blank=True)
+    remote_gym_id  = models.IntegerField(null=True, blank=True)  # gym tenant ID on gym.voidonyx.in
+    created_at     = models.DateTimeField(auto_now_add=True)
+    updated_at     = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Gym Portal Service'
+        verbose_name_plural = 'Gym Portal Services'
+
+    def __str__(self):
+        return f"{self.gym_name} ({self.owner_username}) — {self.status}"
+
+    @property
+    def is_active(self):
+        return self.status == 'active'
+
+
+class GymPortalOrder(models.Model):
+    """
+    Pending Gym Portal order created at checkout, before payment.
+    Converted to GymPortalService on payment confirmation.
+    """
+    STATUS_CHOICES = [
+        ('pending_payment', 'Pending Payment'),
+        ('paid',            'Paid'),
+        ('failed',          'Failed'),
+        ('cancelled',       'Cancelled'),
+    ]
+
+    user           = models.ForeignKey(
+                         settings.AUTH_USER_MODEL,
+                         on_delete=models.CASCADE,
+                         related_name='gym_orders',
+                     )
+    invoice        = models.OneToOneField(
+                         'Invoice',
+                         on_delete=models.CASCADE,
+                         related_name='gym_order',
+                     )
+    package_id     = models.IntegerField()
+    package_name   = models.CharField(max_length=50)
+    gym_name       = models.CharField(max_length=150)
+    owner_username = models.CharField(max_length=80)
+    owner_email    = models.EmailField()
+    owner_password = models.CharField(max_length=128)
+    billing_cycle  = models.CharField(max_length=20, default='monthly')
+    price          = models.DecimalField(max_digits=10, decimal_places=2)
+    status         = models.CharField(max_length=20, choices=STATUS_CHOICES,
+                                      default='pending_payment')
+    created_at     = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Gym Portal Order'
+        verbose_name_plural = 'Gym Portal Orders'
+
+    def __str__(self):
+        return f"GymPortalOrder #{self.id} — {self.gym_name} — {self.status}"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AI VOICE CALLING SAAS (calling.voidonyx.in)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class AIVoiceService(models.Model):
+    """
+    Active AI Voice Calling SaaS subscription on calling.voidonyx.in.
+    Created automatically after payment is confirmed.
+    """
+    STATUS_CHOICES = [
+        ('pending',   'Pending'),
+        ('active',    'Active'),
+        ('suspended', 'Suspended'),
+        ('cancelled', 'Cancelled'),
+    ]
+    BILLING_CHOICES = [
+        ('monthly',  'Monthly'),
+        ('annually', 'Annually'),
+    ]
+
+    user           = models.ForeignKey(
+                         settings.AUTH_USER_MODEL,
+                         on_delete=models.CASCADE,
+                         related_name='ai_voice_services',
+                     )
+    business_name  = models.CharField(max_length=150)
+    owner_username = models.CharField(max_length=80)
+    package_name   = models.CharField(max_length=50)
+    package_id     = models.IntegerField(default=0)
+    status         = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    monthly_price  = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    billing_cycle  = models.CharField(max_length=20, choices=BILLING_CHOICES, default='monthly')
+    dashboard_url  = models.URLField(max_length=255, blank=True, default='https://calling.voidonyx.in')
+    owner_email    = models.EmailField()
+    max_agents     = models.IntegerField(default=5, help_text='Max concurrent AI agents')
+    max_calls_day  = models.IntegerField(default=100, help_text='Max calls per day')
+    next_due_date  = models.DateField(null=True, blank=True)
+    remote_id      = models.IntegerField(null=True, blank=True)
+    created_at     = models.DateTimeField(auto_now_add=True)
+    updated_at     = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'AI Voice Service'
+        verbose_name_plural = 'AI Voice Services'
+
+    def __str__(self):
+        return f"{self.business_name} ({self.owner_username}) — {self.status}"
+
+    @property
+    def is_active(self):
+        return self.status == 'active'
+
+
+class AIVoiceOrder(models.Model):
+    """
+    Pending AI Voice Calling order created at checkout, before payment.
+    """
+    STATUS_CHOICES = [
+        ('pending_payment', 'Pending Payment'),
+        ('paid',            'Paid'),
+        ('failed',          'Failed'),
+        ('cancelled',       'Cancelled'),
+    ]
+
+    user           = models.ForeignKey(
+                         settings.AUTH_USER_MODEL,
+                         on_delete=models.CASCADE,
+                         related_name='ai_voice_orders',
+                     )
+    invoice        = models.OneToOneField(
+                         'Invoice',
+                         on_delete=models.CASCADE,
+                         related_name='ai_voice_order',
+                     )
+    package_id     = models.IntegerField()
+    package_name   = models.CharField(max_length=50)
+    business_name  = models.CharField(max_length=150)
+    owner_username = models.CharField(max_length=80)
+    owner_email    = models.EmailField()
+    owner_password = models.CharField(max_length=128)
+    billing_cycle  = models.CharField(max_length=20, default='monthly')
+    price          = models.DecimalField(max_digits=10, decimal_places=2)
+    status         = models.CharField(max_length=20, choices=STATUS_CHOICES,
+                                      default='pending_payment')
+    created_at     = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'AI Voice Order'
+        verbose_name_plural = 'AI Voice Orders'
+
+    def __str__(self):
+        return f"AIVoiceOrder #{self.id} — {self.business_name} — {self.status}"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HOTEL MANAGEMENT SAAS (hotel.voidonyx.in)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class HotelPortalService(models.Model):
+    """
+    Active Hotel Management SaaS subscription on hotel.voidonyx.in.
+    Created automatically after payment is confirmed.
+    """
+    STATUS_CHOICES = [
+        ('pending',   'Pending'),
+        ('active',    'Active'),
+        ('suspended', 'Suspended'),
+        ('cancelled', 'Cancelled'),
+    ]
+    BILLING_CHOICES = [
+        ('monthly',  'Monthly'),
+        ('annually', 'Annually'),
+    ]
+
+    user           = models.ForeignKey(
+                         settings.AUTH_USER_MODEL,
+                         on_delete=models.CASCADE,
+                         related_name='hotel_services',
+                     )
+    hotel_name     = models.CharField(max_length=150)
+    owner_username = models.CharField(max_length=80)
+    package_name   = models.CharField(max_length=50)
+    package_id     = models.IntegerField(default=0)
+    status         = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    monthly_price  = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    billing_cycle  = models.CharField(max_length=20, choices=BILLING_CHOICES, default='monthly')
+    dashboard_url  = models.URLField(max_length=255, blank=True, default='https://hotel.voidonyx.in')
+    owner_email    = models.EmailField()
+    max_rooms      = models.IntegerField(default=50, help_text='Max rooms managed')
+    max_staff      = models.IntegerField(default=10, help_text='Max staff accounts')
+    next_due_date  = models.DateField(null=True, blank=True)
+    remote_id      = models.IntegerField(null=True, blank=True)
+    created_at     = models.DateTimeField(auto_now_add=True)
+    updated_at     = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Hotel Portal Service'
+        verbose_name_plural = 'Hotel Portal Services'
+
+    def __str__(self):
+        return f"{self.hotel_name} ({self.owner_username}) — {self.status}"
+
+    @property
+    def is_active(self):
+        return self.status == 'active'
+
+
+class HotelPortalOrder(models.Model):
+    """
+    Pending Hotel Management order created at checkout, before payment.
+    """
+    STATUS_CHOICES = [
+        ('pending_payment', 'Pending Payment'),
+        ('paid',            'Paid'),
+        ('failed',          'Failed'),
+        ('cancelled',       'Cancelled'),
+    ]
+
+    user           = models.ForeignKey(
+                         settings.AUTH_USER_MODEL,
+                         on_delete=models.CASCADE,
+                         related_name='hotel_orders',
+                     )
+    invoice        = models.OneToOneField(
+                         'Invoice',
+                         on_delete=models.CASCADE,
+                         related_name='hotel_order',
+                     )
+    package_id     = models.IntegerField()
+    package_name   = models.CharField(max_length=50)
+    hotel_name     = models.CharField(max_length=150)
+    owner_username = models.CharField(max_length=80)
+    owner_email    = models.EmailField()
+    owner_password = models.CharField(max_length=128)
+    billing_cycle  = models.CharField(max_length=20, default='monthly')
+    price          = models.DecimalField(max_digits=10, decimal_places=2)
+    status         = models.CharField(max_length=20, choices=STATUS_CHOICES,
+                                      default='pending_payment')
+    created_at     = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Hotel Portal Order'
+        verbose_name_plural = 'Hotel Portal Orders'
+
+    def __str__(self):
+        return f"HotelPortalOrder #{self.id} — {self.hotel_name} — {self.status}"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# KHATABOOK / LEDGERFLOW SAAS (khatabook.voidonyx.in)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class KhataBookService(models.Model):
+    """
+    Active KhataBook / LedgerFlow SaaS subscription on khatabook.voidonyx.in.
+    Created automatically after payment is confirmed.
+    """
+    STATUS_CHOICES = [
+        ('pending',   'Pending'),
+        ('active',    'Active'),
+        ('suspended', 'Suspended'),
+        ('cancelled', 'Cancelled'),
+    ]
+    BILLING_CHOICES = [
+        ('monthly',  'Monthly'),
+        ('annually', 'Annually'),
+    ]
+
+    user           = models.ForeignKey(
+                         settings.AUTH_USER_MODEL,
+                         on_delete=models.CASCADE,
+                         related_name='khatabook_services',
+                     )
+    business_name  = models.CharField(max_length=150)
+    owner_username = models.CharField(max_length=80)
+    package_name   = models.CharField(max_length=50)
+    package_id     = models.CharField(max_length=64, default='')
+    status         = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    monthly_price  = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    billing_cycle  = models.CharField(max_length=20, choices=BILLING_CHOICES, default='monthly')
+    dashboard_url  = models.URLField(max_length=255, blank=True, default='https://khatabook.voidonyx.in')
+    owner_email    = models.EmailField()
+    max_customers  = models.IntegerField(default=100, help_text='Max customer ledgers')
+    max_staff      = models.IntegerField(default=5, help_text='Max staff accounts')
+    next_due_date  = models.DateField(null=True, blank=True)
+    remote_id      = models.CharField(max_length=64, null=True, blank=True)
+    created_at     = models.DateTimeField(auto_now_add=True)
+    updated_at     = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'KhataBook Service'
+        verbose_name_plural = 'KhataBook Services'
+
+    def __str__(self):
+        return f"{self.business_name} ({self.owner_username}) — {self.status}"
+
+    @property
+    def is_active(self):
+        return self.status == 'active'
+
+
+class KhataBookOrder(models.Model):
+    """
+    Pending KhataBook / LedgerFlow order created at checkout, before payment.
+    """
+    STATUS_CHOICES = [
+        ('pending_payment', 'Pending Payment'),
+        ('paid',            'Paid'),
+        ('failed',          'Failed'),
+        ('cancelled',       'Cancelled'),
+    ]
+
+    user           = models.ForeignKey(
+                         settings.AUTH_USER_MODEL,
+                         on_delete=models.CASCADE,
+                         related_name='khatabook_orders',
+                     )
+    invoice        = models.OneToOneField(
+                         'Invoice',
+                         on_delete=models.CASCADE,
+                         related_name='khatabook_order',
+                     )
+    package_id     = models.CharField(max_length=64)
+    package_name   = models.CharField(max_length=50)
+    business_name  = models.CharField(max_length=150)
+    owner_username = models.CharField(max_length=80)
+    owner_email    = models.EmailField()
+    owner_password = models.CharField(max_length=128)
+    billing_cycle  = models.CharField(max_length=20, default='monthly')
+    price          = models.DecimalField(max_digits=10, decimal_places=2)
+    status         = models.CharField(max_length=20, choices=STATUS_CHOICES,
+                                      default='pending_payment')
+    created_at     = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'KhataBook Order'
+        verbose_name_plural = 'KhataBook Orders'
+
+    def __str__(self):
+        return f"KhataBookOrder #{self.id} — {self.business_name} — {self.status}"
 

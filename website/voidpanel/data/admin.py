@@ -58,3 +58,19 @@ class MarketingServiceAdmin(admin.ModelAdmin):
     list_filter = ('status', 'billing_cycle', 'plan_name')
     search_fields = ('user__username', 'user__email')
     readonly_fields = ('leads_stored', 'emails_sent_this_month', 'ai_copies_used_this_month')
+
+
+from .models import ErpCrmService, ErpCrmOrder
+
+@admin.register(ErpCrmService)
+class ErpCrmServiceAdmin(admin.ModelAdmin):
+    list_display = ('company_name', 'subdomain', 'package_name', 'user', 'status', 'created_at')
+    list_filter = ('status', 'package_name')
+    search_fields = ('company_name', 'subdomain', 'user__username', 'admin_email')
+
+@admin.register(ErpCrmOrder)
+class ErpCrmOrderAdmin(admin.ModelAdmin):
+    list_display = ('company_name', 'subdomain', 'package_name', 'user', 'status', 'created_at')
+    list_filter = ('status', 'package_name')
+    search_fields = ('company_name', 'subdomain', 'user__username', 'admin_email')
+

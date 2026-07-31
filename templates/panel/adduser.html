@@ -1104,22 +1104,29 @@
 
             startProgress();
 
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000);
+
             fetch("{% url 'addusermain' %}", {
                 method: 'POST',
+                signal: controller.signal,
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': '{{ csrf_token }}'
                 },
                 body: JSON.stringify({
                     web: website, email, password, package: pkg, shell_access: shellAccess,
-                    make_reseller:       document.getElementById('resellerToggle').checked,
-                    reseller_storage_gb: parseInt(document.getElementById('resellerStorageGb').value)||10,
-                    reseller_max_accounts: parseInt(document.getElementById('resellerMaxAccounts').value)||5,
-                    reseller_company:    document.getElementById('resellerCompany').value,
-                    reseller_branding:   document.getElementById('resellerBranding').value,
+                    make_reseller:       (document.getElementById('resellerToggle') || {}).checked || false,
+                    reseller_storage_gb: parseInt((document.getElementById('resellerStorageGb') || {}).value) || 10,
+                    reseller_max_accounts: parseInt((document.getElementById('resellerMaxAccounts') || {}).value) || 5,
+                    reseller_company:    (document.getElementById('resellerCompany') || {}).value || '',
+                    reseller_branding:   (document.getElementById('resellerBranding') || {}).value || 'VoidPanel',
                 })
             })
-            .then(r => r.json())
+            .then(r => {
+                clearTimeout(timeoutId);
+                return r.json().catch(() => ({status:'error', message:'Server returned invalid response (code '+r.status+')'}));
+            })
             .then(data => {
                 finishProgress();
                 if (data.status === 'success') {
@@ -1132,10 +1139,15 @@
                     showResult('✕', 'fail', data.message || 'An unexpected error occurred. Please try again.');
                 }
             })
-            .catch(() => {
+            .catch((err) => {
+                clearTimeout(timeoutId);
                 finishProgress();
-                showResult('✓', 'ok', 'Request submitted. Check the users list in a moment.');
-                setTimeout(() => { window.location.href = '/listusers/'; }, 2500);
+                if (err.name === 'AbortError') {
+                    showResult('✕', 'fail', 'Request timed out. Check server logs and try again.');
+                } else {
+                    showResult('✕', 'fail', 'Network error: ' + (err.message || 'Connection failed'));
+                }
+                btn.disabled = false;
             });
         });
     </script>

@@ -835,8 +835,16 @@ function sw(name,btn){
 //  ANALYSIS
 // ═══════════════════════════════════════════════════════════════
 function runAnalysis(){
-  const domain=document.getElementById('domainInput').value.trim();
+  let domain=document.getElementById('domainInput').value.trim();
   if(!domain){alert('Enter a domain first.');return}
+  // Strip protocol and www
+  domain=domain.replace(/^(https?:\/\/)?(www\.)?/,'').split('/')[0].split('?')[0].split(':')[0];
+  // Frontend domain validation — must have at least one dot and a TLD
+  if(!/^[a-zA-Z0-9-]{1,63}(\.[a-zA-Z0-9-]{1,63})*\.[a-zA-Z]{2,}$/.test(domain)){
+    alert('⚠️ "'+domain+'" is not a valid domain.\n\nPlease enter a real domain like:\n• google.com\n• github.com\n• yourdomain.co.in');
+    return;
+  }
+  document.getElementById('domainInput').value=domain;
   document.getElementById('stEmpty').style.display='none';
   document.getElementById('stLoader').style.display='flex';
   document.getElementById('stResults').style.display='none';
@@ -846,7 +854,10 @@ function runAnalysis(){
     method:'POST',
     headers:{'Content-Type':'application/json','X-CSRFToken':getCk('csrftoken')||''},
     body:JSON.stringify({domain})
-  }).then(r=>r.json()).then(res=>{
+  }).then(r=>{
+    if(!r.ok) return r.json().then(d=>{throw new Error(d.error||'Analysis failed (HTTP '+r.status+')')});
+    return r.json();
+  }).then(res=>{
     document.getElementById('stLoader').style.display='none';
     document.getElementById('aIcon').className='fa-solid fa-bolt';
     if(res.status==='success'){
@@ -857,7 +868,7 @@ function runAnalysis(){
   }).catch(e=>{
     document.getElementById('stLoader').style.display='none';
     document.getElementById('aIcon').className='fa-solid fa-bolt';
-    alert('Network error: '+e.message);
+    alert(e.message||'Network error');
   });
 }
 
@@ -1016,10 +1027,12 @@ function renderAuditList(checks){
   }).forEach(c=>{
     const sl=c.status.toLowerCase();
     const fix=c.fix?`<div class="a-fix"><i class="fa-solid fa-screwdriver-wrench" style="font-size:9px"></i> <strong>Fix:</strong> ${c.fix}</div>`:'';
+    const srcColor=c.source==='LIVE'?'#10b981':'#f59e0b';
+    const srcBadge=`<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:${srcColor}22;color:${srcColor};border:1px solid ${srcColor}44;margin-left:5px;font-weight:600">${c.source||'EST'}</span>`;
     el.innerHTML+=`<div class="audit-item" onclick="this.classList.toggle('open')">
       <div class="audit-row">
         <div class="a-dot ${sl}"></div>
-        <div class="a-name">${c.name}</div>
+        <div class="a-name">${c.name}${srcBadge}</div>
         <span class="badge b-${sl}" style="margin-right:5px">${c.status}</span>
         <span class="a-cat">${c.category}</span>
         <i class="fa-solid fa-chevron-down" style="font-size:8px;color:var(--txt3);margin-left:5px"></i>

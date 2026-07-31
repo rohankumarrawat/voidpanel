@@ -122,6 +122,9 @@
     <button class="sa-tab" id="tabBtn-suite" onclick="switchTab('suite')">
         <i class="fas fa-cubes" style="margin-right: 6px;"></i> Digital Suites ({{ suite_services|length }})
     </button>
+    <button class="sa-tab" id="tabBtn-erp" onclick="switchTab('erp')">
+        <i class="fas fa-briefcase" style="margin-right: 6px;"></i> ERP/CRM Workspaces ({{ erp_services|length }})
+    </button>
 </div>
 
 <!-- ==================== HOSTING SERVICES TAB ==================== -->
@@ -582,6 +585,253 @@
     </div>
 </div>
 
+<!-- ==================== ERP/CRM SERVICES TAB ==================== -->
+<div class="sa-card service-tab-panel" id="panel-erp" style="padding:0; overflow:hidden; display:none;">
+
+    <!-- Provision Form -->
+    <div style="padding:20px 22px; border-bottom:2px solid rgba(16,185,129,0.2); background: linear-gradient(135deg, rgba(16,185,129,0.05) 0%, rgba(6,78,59,0.03) 100%);">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px;">
+            <div style="width:36px; height:36px; background:linear-gradient(135deg,#10b981,#059669); border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <i class="fas fa-plus" style="color:#fff; font-size:0.85rem;"></i>
+            </div>
+            <div>
+                <div style="font-size:0.95rem; font-weight:800; color:var(--text-1);">Provision ERP/HRMS Workspace</div>
+                <div style="font-size:0.75rem; color:var(--text-3);">Calls the HRMS SaaS API to create a new tenant workspace for the selected client</div>
+            </div>
+        </div>
+        <form method="POST" action="/super-admin/services/" id="erp-provision-form">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="assign_erp_service">
+            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:12px; margin-bottom:14px;">
+                <div class="sa-form-group">
+                    <label class="sa-label"><i class="fas fa-user" style="margin-right:4px; color:#10b981;"></i> Client / User</label>
+                    <select name="user_id" class="sa-input" required>
+                        <option value="">-- Select Client --</option>
+                        {% for u in portal_users %}
+                        <option value="{{ u.id }}">{{ u.username }} ({{ u.email }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="sa-form-group">
+                    <label class="sa-label"><i class="fas fa-building" style="margin-right:4px; color:#10b981;"></i> Company Name</label>
+                    <input type="text" name="company_name" placeholder="e.g. Acme Corporation" class="sa-input" required>
+                </div>
+                <div class="sa-form-group">
+                    <label class="sa-label"><i class="fas fa-at" style="margin-right:4px; color:#10b981;"></i> Subdomain</label>
+                    <div style="position:relative;">
+                        <input type="text" name="subdomain" id="erp-subdomain" placeholder="e.g. acme" class="sa-input" style="padding-right:130px;" required oninput="checkErpSubdomain(this)">
+                        <span style="position:absolute; right:10px; top:50%; transform:translateY(-50%); font-size:0.72rem; color:var(--text-3); pointer-events:none;">.voidpanel.com</span>
+                    </div>
+                    <div id="subdomain-check" style="font-size:0.72rem; margin-top:3px;"></div>
+                </div>
+                <div class="sa-form-group">
+                    <label class="sa-label"><i class="fas fa-layer-group" style="margin-right:4px; color:#10b981;"></i> Package / Plan</label>
+                    <select name="package_name" class="sa-input">
+                        <option value="Starter">Starter (Free)</option>
+                        <option value="Growth">Growth</option>
+                        <option value="Enterprise">Enterprise</option>
+                    </select>
+                </div>
+                <div class="sa-form-group">
+                    <label class="sa-label"><i class="fas fa-user-tie" style="margin-right:4px; color:#10b981;"></i> Admin Full Name</label>
+                    <input type="text" name="admin_name" placeholder="e.g. John Doe" class="sa-input">
+                </div>
+                <div class="sa-form-group">
+                    <label class="sa-label"><i class="fas fa-envelope" style="margin-right:4px; color:#10b981;"></i> Admin Email</label>
+                    <input type="email" name="admin_email" placeholder="admin@company.com" class="sa-input" required>
+                </div>
+                <div class="sa-form-group">
+                    <label class="sa-label"><i class="fas fa-lock" style="margin-right:4px; color:#10b981;"></i> Admin Password</label>
+                    <input type="text" name="admin_password" placeholder="Leave blank for default" class="sa-input">
+                </div>
+                <div class="sa-form-group">
+                    <label class="sa-label">
+                        <i class="fas fa-globe" style="margin-right:4px; color:#10b981;"></i> Custom Domain
+                        <span style="cursor:pointer; color:var(--text-3);" title="Optional. Customer's own domain (e.g. hr.company.com). They must add a CNAME record: hr.company.com → hrms.voidpanel.com">ⓘ</span>
+                    </label>
+                    <input type="text" name="custom_domain" id="erp-custom-domain" placeholder="hr.company.com (optional)" class="sa-input" oninput="previewCustomDomain(this)">
+                    <div id="custom-domain-preview" style="font-size:0.71rem; color:var(--text-3); margin-top:3px; display:none;"></div>
+                </div>
+                <div class="sa-form-group">
+                    <label class="sa-label"><i class="fas fa-indian-rupee-sign" style="margin-right:4px; color:#10b981;"></i> Monthly Price (₹)</label>
+                    <input type="number" name="monthly_price" value="0" step="0.01" class="sa-input">
+                </div>
+                <div class="sa-form-group">
+                    <label class="sa-label"><i class="fas fa-calendar" style="margin-right:4px; color:#10b981;"></i> Billing Cycle</label>
+                    <select name="billing_cycle" class="sa-input">
+                        <option value="monthly">Monthly</option>
+                        <option value="annually">Annually</option>
+                    </select>
+                </div>
+                <div class="sa-form-group">
+                    <label class="sa-label"><i class="fas fa-calendar-check" style="margin-right:4px; color:#10b981;"></i> Next Due Date</label>
+                    <input type="date" name="next_due_date" class="sa-input">
+                </div>
+            </div>
+
+            <!-- DNS Instructions box -->
+            <div id="erp-dns-hint" style="display:none; background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.2); border-radius:10px; padding:12px 16px; margin-bottom:14px;">
+                <div style="font-size:0.75rem; font-weight:700; color:#10b981; margin-bottom:6px;"><i class="fas fa-info-circle"></i> DNS Setup Required for Custom Domain</div>
+                <div style="font-size:0.72rem; color:var(--text-2); line-height:1.6;">
+                    Ask the customer to add this DNS record at their domain registrar:
+                    <div style="margin-top:6px; background:var(--bg-raised); border-radius:6px; padding:8px 12px; font-family:monospace; font-size:0.78rem; color:var(--text-1);">
+                        Type: <b>CNAME</b> &nbsp;|&nbsp; Host: <span id="dns-host-preview" style="color:#10b981;">hr</span> &nbsp;|&nbsp; Value: <b>hrms.voidpanel.com</b>
+                    </div>
+                    <div style="margin-top:4px; color:var(--text-3);">✦ Cloudflare proxy (orange cloud ON) handles SSL automatically.</div>
+                </div>
+            </div>
+
+            <button type="submit" class="sa-btn" style="background:linear-gradient(135deg,#10b981,#059669); border-color:#059669; color:#fff; padding:9px 22px; font-weight:700;">
+                <i class="fas fa-rocket"></i> Provision Workspace via API
+            </button>
+        </form>
+    </div>
+
+    <!-- Table -->
+    <div style="padding:14px 22px; border-bottom:1px solid var(--border); display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px;">
+        <div class="sa-card-title"><i class="fas fa-briefcase" style="color:#10b981;"></i> ERP/HRMS Workspaces (DB Rows)</div>
+        <div style="position:relative;">
+            <input type="text" id="erpSearchInput" onkeyup="filterErpTable()" placeholder="Search company, client..." class="sa-input sm" style="width:220px; padding-left:30px; height:32px; font-size:0.8rem; background:var(--bg-raised); border-color:var(--border);">
+            <i class="fas fa-search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.8rem;"></i>
+        </div>
+    </div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead>
+                <tr>
+                    <th>Client</th>
+                    <th>Company / Plan</th>
+                    <th>Subdomain</th>
+                    <th>Custom Domain</th>
+                    <th>Price</th>
+                    <th>Next Due</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for svc in erp_services %}
+                <tr>
+                    <td>
+                        <div style="font-weight:700; color:var(--text-1);">{{ svc.user.get_full_name|default:svc.user.username }}</div>
+                        <div style="font-size:0.74rem; color:var(--text-3);">{{ svc.user.email }}</div>
+                    </td>
+                    <td>
+                        <div style="font-weight:700; color:var(--text-1);">{{ svc.company_name }}</div>
+                        <div style="font-size:0.74rem; color:var(--text-3);">Plan: <span style="color:#10b981;">{{ svc.package_name }}</span></div>
+                    </td>
+                    <td>
+                        <a href="{{ svc.dashboard_url }}" target="_blank" style="color:var(--sky-2); font-weight:700; font-size:0.82rem;">{{ svc.subdomain }}.voidpanel.com</a>
+                        <div style="font-size:0.7rem; color:var(--text-3);">Admin: {{ svc.admin_email }}</div>
+                    </td>
+                    <td>
+                        {% if svc.custom_domain %}
+                        <div style="display:flex; align-items:center; gap:5px;">
+                            <span style="background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.25); border-radius:6px; padding:2px 8px; font-size:0.75rem; font-weight:700; color:#34d399; font-family:monospace;">{{ svc.custom_domain }}</span>
+                        </div>
+                        <div style="font-size:0.68rem; color:var(--text-3); margin-top:2px;"><i class="fas fa-circle-check" style="color:#10b981;"></i> Custom domain active</div>
+                        {% else %}
+                        <span style="color:var(--text-3); font-size:0.78rem; font-style:italic;">None set</span>
+                        {% endif %}
+                    </td>
+                    <td>₹{{ svc.monthly_price }}<div style="font-size:0.72rem; color:var(--text-3);">{{ svc.billing_cycle|capfirst }}</div></td>
+                    <td>{{ svc.next_due_date|date:"M d, Y"|default:"—" }}</td>
+                    <td>
+                        <span class="sa-badge {% if svc.status == 'active' %}green{% elif svc.status == 'suspended' %}amber{% else %}red{% endif %}">
+                            {{ svc.status|capfirst }}
+                        </span>
+                    </td>
+                    <td>
+                        <div style="display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
+                            <!-- Set Custom Domain -->
+                            <button type="button" class="sa-btn sm" onclick="openErpDomainModal({{ svc.id }}, '{{ svc.custom_domain|escapejs }}', '{{ svc.company_name|escapejs }}')" style="background:rgba(16,185,129,0.1); border-color:rgba(16,185,129,0.25); color:#34d399;" title="Set / Update Custom Domain">
+                                <i class="fas fa-globe"></i> Domain
+                            </button>
+
+                            {% if svc.status == 'active' %}
+                            <form method="POST" style="display:inline;" onsubmit="return confirm('Suspend the HRMS workspace for {{ svc.company_name }}? Client logins will be blocked.')">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="suspend_erp">
+                                <input type="hidden" name="service_id" value="{{ svc.id }}">
+                                <button type="submit" class="sa-btn amber sm"><i class="fas fa-pause"></i> Suspend</button>
+                            </form>
+                            {% elif svc.status == 'suspended' %}
+                            <form method="POST" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="unsuspend_erp">
+                                <input type="hidden" name="service_id" value="{{ svc.id }}">
+                                <button type="submit" class="sa-btn green sm"><i class="fas fa-play"></i> Activate</button>
+                            </form>
+                            {% endif %}
+
+                            <!-- Delete -->
+                            <form method="POST" style="display:inline;" onsubmit="return confirm('WARNING: Delete ERP record for {{ svc.company_name }} from DB only? The HRMS tenant will NOT be removed from the SaaS server!')">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete_service_db_only">
+                                <input type="hidden" name="service_type" value="erp_crm">
+                                <input type="hidden" name="service_id" value="{{ svc.id }}">
+                                <button type="submit" class="sa-btn red sm" title="Delete DB Only"><i class="fas fa-trash-can"></i></button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8">
+                        <div class="sa-empty">
+                            <i class="fas fa-briefcase"></i>
+                            <div class="sa-empty-title">No ERP/CRM workspaces found</div>
+                            <div class="sa-empty-sub">Use the form above to provision a new HRMS workspace for a client.</div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ── Custom Domain Modal ── -->
+<div id="erp-domain-modal" style="display:none; position:fixed; inset:0; z-index:99998; background:rgba(0,0,0,0.65); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+    <div style="background:var(--bg-card,#0f172a); border:1px solid rgba(16,185,129,0.3); border-radius:18px; padding:28px 32px; width:100%; max-width:480px; box-shadow:0 25px 60px rgba(0,0,0,0.6);">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+            <div style="width:40px; height:40px; background:linear-gradient(135deg,#10b981,#059669); border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <i class="fas fa-globe" style="color:#fff;"></i>
+            </div>
+            <div>
+                <div style="font-size:1rem; font-weight:800; color:var(--text-1);">Set Custom Domain</div>
+                <div id="modal-company-label" style="font-size:0.78rem; color:var(--text-3);"></div>
+            </div>
+        </div>
+        <form method="POST" action="/super-admin/services/">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="set_erp_custom_domain">
+            <input type="hidden" name="service_id" id="modal-service-id">
+            <div class="sa-form-group" style="margin-bottom:12px;">
+                <label class="sa-label"><i class="fas fa-globe" style="margin-right:4px; color:#10b981;"></i> Custom Domain</label>
+                <input type="text" name="custom_domain" id="modal-custom-domain" placeholder="hr.mycompany.com" class="sa-input" autocomplete="off">
+                <div style="font-size:0.72rem; color:var(--text-3); margin-top:5px;">Leave blank to <strong>clear</strong> the custom domain.</div>
+            </div>
+            <div style="background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.15); border-radius:10px; padding:12px 14px; margin-bottom:16px;">
+                <div style="font-size:0.72rem; font-weight:700; color:#10b981; margin-bottom:5px;"><i class="fas fa-terminal"></i> Required DNS CNAME Record</div>
+                <div style="font-family:monospace; font-size:0.78rem; color:var(--text-2); line-height:1.8;">
+                    Type: <b>CNAME</b><br>
+                    Host: <b>hr</b> (or @ for root)<br>
+                    Value: <b>hrms.voidpanel.com</b>
+                </div>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button type="submit" class="sa-btn" style="background:linear-gradient(135deg,#10b981,#059669); border-color:#059669; color:#fff; font-weight:700; flex:1;">
+                    <i class="fas fa-save"></i> Save Domain
+                </button>
+                <button type="button" onclick="closeErpDomainModal()" class="sa-btn gray">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Tab Switching Script -->
 <script>
 function switchTab(tabId) {
@@ -708,5 +958,72 @@ function filterEmailTable() {
         }
     });
 }
+
+/* ─── ERP Custom Domain Modal ─── */
+function openErpDomainModal(id, currentDomain, companyName) {
+    document.getElementById('modal-service-id').value = id;
+    document.getElementById('modal-custom-domain').value = currentDomain || '';
+    document.getElementById('modal-company-label').textContent = companyName;
+    const modal = document.getElementById('erp-domain-modal');
+    modal.style.display = 'flex';
+}
+function closeErpDomainModal() {
+    document.getElementById('erp-domain-modal').style.display = 'none';
+}
+document.getElementById('erp-domain-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeErpDomainModal();
+});
+
+/* ─── Subdomain availability check ─── */
+let _sdTimer = null;
+function checkErpSubdomain(input) {
+    const val = input.value.trim().toLowerCase();
+    const out = document.getElementById('subdomain-check');
+    if (!val) { out.innerHTML = ''; return; }
+    clearTimeout(_sdTimer);
+    out.innerHTML = '<span style="color:var(--text-3);">Checking...</span>';
+    _sdTimer = setTimeout(function() {
+        fetch('/api/erp/check-subdomain/?subdomain=' + encodeURIComponent(val))
+            .then(r => r.json())
+            .then(d => {
+                if (d.available) {
+                    out.innerHTML = '<i class="fas fa-circle-check" style="color:#10b981;"></i> <span style="color:#10b981;">Available</span>';
+                } else {
+                    out.innerHTML = '<i class="fas fa-circle-xmark" style="color:#ef4444;"></i> <span style="color:#ef4444;">' + (d.error || 'Already taken') + '</span>';
+                }
+            })
+            .catch(() => { out.innerHTML = ''; });
+    }, 500);
+}
+
+/* ─── Custom Domain preview + DNS hint ─── */
+function previewCustomDomain(input) {
+    const val = input.value.trim();
+    const preview = document.getElementById('custom-domain-preview');
+    const hint = document.getElementById('erp-dns-hint');
+    const hostPreview = document.getElementById('dns-host-preview');
+    if (val) {
+        const parts = val.split('.');
+        const host = parts.length >= 3 ? parts[0] : '@';
+        hostPreview.textContent = host;
+        preview.style.display = 'block';
+        preview.innerHTML = '<i class="fas fa-globe" style="color:#10b981;"></i> Login URL will be: <strong>https://' + val + '/login/</strong>';
+        hint.style.display = 'block';
+    } else {
+        preview.style.display = 'none';
+        hint.style.display = 'none';
+    }
+}
+
+/* ─── ERP Table Search ─── */
+function filterErpTable() {
+    const q = document.getElementById('erpSearchInput').value.toLowerCase();
+    document.querySelectorAll('#panel-erp .sa-table tbody tr').forEach(row => {
+        if (row.querySelector('.sa-empty')) return;
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(q) ? '' : 'none';
+    });
+}
 </script>
+
 {% endblock %}

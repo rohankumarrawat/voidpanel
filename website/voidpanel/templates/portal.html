@@ -175,8 +175,14 @@ a{text-decoration:none;color:inherit}
 <!-- ═══ SIDEBAR ═══ -->
 <aside class="sidebar">
   <a href="/portal/" class="sidebar-logo">
-    <img src="/static/fav.png" alt="VP">
-    <span>Client Portal</span>
+    <svg xmlns="http://www.w3.org/2000/svg" width="140" height="32" viewBox="0 0 180 40" role="img" aria-label="VoidPanel">
+      <rect x="0" y="4" width="34" height="34" rx="8" ry="8" fill="rgba(255,255,255,0.12)"/>
+      <rect x="7" y="13" width="20" height="4" rx="1.5" fill="#ffffff" opacity="0.9"/>
+      <rect x="7" y="19.5" width="14" height="4" rx="1.5" fill="#ffffff" opacity="0.65"/>
+      <rect x="7" y="26" width="10" height="4" rx="1.5" fill="#60a5fa" opacity="0.95"/>
+      <text x="43" y="28" font-family="'Plus Jakarta Sans', 'Inter', system-ui, sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#ffffff">Void</text>
+      <text x="91" y="28" font-family="'Plus Jakarta Sans', 'Inter', system-ui, sans-serif" font-size="20" font-weight="800" letter-spacing="-0.5" fill="#60a5fa">Panel</text>
+    </svg>
   </a>
 
   <div class="user-card">
@@ -254,7 +260,6 @@ a{text-decoration:none;color:inherit}
   <div class="sidebar-spacer"></div>
 
   <div class="sidebar-foot">
-    <a href="/web-hosting/" class="foot-btn primary"><i class="fas fa-plus"></i> Order Hosting</a>
     <a href="/portal/ticket/new/" class="foot-btn indigo"><i class="fas fa-headset"></i> Open Ticket</a>
     {% if request.user.is_superuser %}
     <a href="/super-admin/" class="foot-btn primary"><i class="fas fa-shield-halved"></i> Admin Console</a>
@@ -402,6 +407,42 @@ a{text-decoration:none;color:inherit}
             </a>
             {% else %}
             <span class="lbtn lbtn-ghost" style="opacity:.6;cursor:not-allowed;"><i class="fas fa-clock"></i> {{ svc.get_status_display }}</span>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+
+        {# ── ERP/CRM Services ── #}
+        {% for esvc in erp_services %}
+        <div class="svc-row" style="border-top:1px solid rgba(255,255,255,.06);">
+          <div class="svc-top">
+            <div>
+              <div class="svc-name">
+                <i class="fas fa-briefcase" style="color:#10b981;margin-right:6px;font-size:.85rem;"></i>
+                {{ esvc.company_name }}
+              </div>
+              <div class="svc-domain">Workspace: {{ esvc.subdomain }}.voidpanel.com &middot; {{ esvc.billing_cycle|title }}</div>
+            </div>
+            <span class="badge b-{{ esvc.status }}">{{ esvc.get_status_display }}</span>
+          </div>
+          <div class="svc-meta">
+            <div><div class="meta-lbl">Billing</div><div class="meta-val">₹{{ esvc.monthly_price }}/mo</div></div>
+            <div><div class="meta-lbl">Plan</div><div class="meta-val">{{ esvc.package_name }}</div></div>
+            <div><div class="meta-lbl">Due</div><div class="meta-val">{{ esvc.next_due_date|default:"—" }}</div></div>
+          </div>
+          <div style="margin-top:9px;display:flex;gap:8px;">
+            {% if esvc.is_active %}
+            {% if esvc.custom_domain %}
+            <a href="https://{{ esvc.custom_domain }}/login/" target="_blank" class="lbtn lbtn-teal" style="text-decoration:none;">
+              <i class="fas fa-rocket"></i> Open Portal
+            </a>
+            {% else %}
+            <a href="https://hrms.voidpanel.com/login/" target="_blank" class="lbtn lbtn-teal" style="text-decoration:none;">
+              <i class="fas fa-rocket"></i> Open Portal
+            </a>
+            {% endif %}
+            {% else %}
+            <span class="lbtn lbtn-ghost" style="opacity:.6;cursor:not-allowed;"><i class="fas fa-clock"></i> {{ esvc.get_status_display }}</span>
             {% endif %}
           </div>
         </div>
@@ -577,7 +618,46 @@ a{text-decoration:none;color:inherit}
       </div>
       {% endfor %}
 
-      {% if not services and not email_services and not ssl_services and not suite_services %}
+      {# ── 5. ERP/CRM (HRMS SaaS) Services ── #}
+      {% for esvc in erp_services %}
+      <div class="svc-row" style="display:block;border-top:1px solid rgba(255,255,255,.06);">
+        <div class="svc-top">
+          <div>
+            <div class="svc-name">
+              <i class="fas fa-briefcase" style="color:#10b981;margin-right:6px;"></i>
+              {{ esvc.company_name }}
+            </div>
+            <div class="svc-domain">Workspace: {{ esvc.subdomain }}.voidpanel.com &middot; {{ esvc.billing_cycle|title }}</div>
+          </div>
+          <span class="badge b-{{ esvc.status }}">{{ esvc.get_status_display }}</span>
+        </div>
+        <div class="svc-meta">
+          <div><div class="meta-lbl">Billing</div><div class="meta-val">₹{{ esvc.monthly_price }}/mo</div></div>
+          <div><div class="meta-lbl">Plan</div><div class="meta-val">{{ esvc.package_name }}</div></div>
+          <div><div class="meta-lbl">Due Date</div><div class="meta-val">{{ esvc.next_due_date|default:"—" }}</div></div>
+        </div>
+        <div style="margin-top:9px;display:flex;gap:8px;flex-wrap:wrap;">
+          {% if esvc.is_active %}
+          {% if esvc.custom_domain %}
+          <a href="https://{{ esvc.custom_domain }}/login/" target="_blank" class="lbtn lbtn-teal" style="text-decoration:none;">
+            <i class="fas fa-rocket"></i> Open Portal
+          </a>
+          {% else %}
+          <a href="https://hrms.voidpanel.com/login/" target="_blank" class="lbtn lbtn-teal" style="text-decoration:none;">
+            <i class="fas fa-rocket"></i> Open Portal
+          </a>
+          {% endif %}
+          {% else %}
+          <span class="lbtn lbtn-ghost" style="opacity:.6;cursor:not-allowed;"><i class="fas fa-clock"></i> {{ esvc.get_status_display }}</span>
+          {% endif %}
+          <a href="/erp-crm/" class="lbtn lbtn-ghost" style="text-decoration:none;font-size:.78rem;">
+            <i class="fas fa-arrow-up-right-from-square"></i> View Plans
+          </a>
+        </div>
+      </div>
+      {% endfor %}
+
+      {% if not services and not email_services and not ssl_services and not suite_services and not erp_services %}
       <div class="empty"><i class="fas fa-server"></i>No services yet<br><a href="/web-hosting/" style="color:#59c4bc;margin-top:8px;display:inline-block;">Browse plans →</a></div>
       {% endif %}
     </div>

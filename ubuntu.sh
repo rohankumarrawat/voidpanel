@@ -15,7 +15,7 @@ exec > >(tee -i "$LOG_FILE") 2>&1
 print_header() {
     clear
     echo -e "${CYAN}=========================================================================="
-    echo "          VoidPanel Enterprise Installation Pipeline v2.5.24"
+    echo "          VoidPanel Enterprise Installation Pipeline v2.5.37"
     echo "=========================================================================="
     echo -e " Time: $(date)"
     echo -e " Logs: $LOG_FILE"
@@ -36,8 +36,8 @@ NGINX_CONF="/etc/nginx/sites-available/$PROJECT_NAME"
 PUBLIC_IP=$(curl -4 -s --max-time 8 ifconfig.me 2>/dev/null \
          || curl -4 -s --max-time 8 api.ipify.org 2>/dev/null \
          || echo "127.0.0.1")
-MYSQL_ROOT_PASS=$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 20)
-DJANGO_SUPERUSER_PASS=$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 20)
+MYSQL_ROOT_PASS=$(head -c 100 /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 20)
+DJANGO_SUPERUSER_PASS=$(head -c 100 /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 20)
 HOSTNAME_FQDN=$(hostname -f 2>/dev/null || hostname)
 INSTALL_START_DIR="$PWD"
 
@@ -71,13 +71,18 @@ apt-get install -y software-properties-common ca-certificates gnupg lsb-release 
 
 # ── Add PHP 8.3 PPA BEFORE installing PHP ────────────────────────────────────
 status_msg "Adding PHP 8.3 repository (ondrej/php PPA)"
-add-apt-repository -y ppa:ondrej/php
+add-apt-repository -y --no-update ppa:ondrej/php
+CODENAME=$(lsb_release -sc)
+if [[ "$CODENAME" != "noble" && "$CODENAME" != "jammy" && "$CODENAME" != "focal" ]]; then
+    warn_msg "Development or non-LTS Ubuntu codename '$CODENAME' detected. Mapping PPA source file to noble (24.04) for package resolution..."
+    find /etc/apt/sources.list.d/ -name "*ondrej-ubuntu-php*.list" -exec sed -i "s/$CODENAME/noble/g" {} +
+fi
 apt-get update -y
 
 # ── Install all packages in one shot ─────────────────────────────────────────
 status_msg "Installing all system dependencies"
 apt-get install -y \
-    git unzip zip openssl \
+    git unzip zip openssl rsync \
     python3 python3-venv python3-pip python3-dev \
     build-essential libssl-dev libffi-dev \
     mysql-server redis-server \
@@ -173,15 +178,22 @@ panelsetup() {
     cd "$PROJECT_DIR"
 
     status_msg "Deploying VoidPanel Source Code"
-    if [[ -f "$INSTALL_START_DIR/Archive.zip" ]]; then
+    if [[ -f "$INSTALL_START_DIR/manage.py" && -d "$INSTALL_START_DIR/panel" ]]; then
+        success_msg "Local source files found in installation directory, copying to project directory."
+        rsync -aq --exclude='venv/' --exclude='Archive.zip' --exclude='*.log' --exclude='*.sock' --exclude='__pycache__/' \
+            "$INSTALL_START_DIR/" "$PROJECT_DIR/"
+    elif [[ -f "$INSTALL_START_DIR/Archive.zip" ]]; then
         success_msg "Local Archive.zip found, copying to project directory."
         cp "$INSTALL_START_DIR/Archive.zip" Archive.zip
-    elif ! wget -q https://voidpanel.com/static/voidpanel.zip -O Archive.zip; then
+        unzip -o Archive.zip -d "$PROJECT_DIR" > /dev/null
+        rm -f Archive.zip
+    elif ! wget -q "https://voidpanel.com/static/voidpanel.zip?v=$(date +%s)" -O Archive.zip; then
         error_msg "Failed to download voidpanel.zip from voidpanel.com"
         exit 1
+    else
+        unzip -o Archive.zip -d "$PROJECT_DIR" > /dev/null
+        rm -f Archive.zip
     fi
-    unzip -o Archive.zip -d "$PROJECT_DIR" > /dev/null
-    rm -f Archive.zip
 
     # Remove any venv/ that came from the zip — it may contain hardcoded paths
     # from a developer's machine (e.g. /Users/rohan/...) which are invalid on Linux.
@@ -434,7 +446,7 @@ WorkingDirectory=${PROJECT_DIR}
 EnvironmentFile=${PROJECT_DIR}/.env
 Environment=PYTHONPATH=${PROJECT_DIR}
 Environment=DJANGO_SETTINGS_MODULE=panel.settings
-ExecStart=${VENV_DIR}/bin/daphne -b 0.0.0.0 -p 8081 panel.asgi:application
+ExecStart=${VENV_DIR}/bin/daphne -b 127.0.0.1 -p 8081 panel.asgi:application
 Restart=always
 RestartSec=5s
 
@@ -611,11 +623,11 @@ NGINXCONF
     # ── Version tracking file — must be writable by www-data (Django update process) ──
     # Without this, the update flow can't record the new version after applying an update.
     VFILE="/etc/version.txt"
-    echo "2.5.24" > "$VFILE"
+    echo "2.5.37" > "$VFILE"
     chown www-data:www-data "$VFILE"
     chmod 664 "$VFILE"
     # Also write to panel dir as a reliable fallback
-    echo "2.5.24" > "$PROJECT_DIR/version.txt"
+    echo "2.5.37" > "$PROJECT_DIR/version.txt"
     chown www-data:www-data "$PROJECT_DIR/version.txt"
 
 
@@ -721,6 +733,9 @@ EOF
 # =============================================================================
 bindsetup() {
     status_msg "Configuring Authoritative DNS (BIND9)"
+    mkdir -p /etc/bind/zones
+    chown -R bind:bind /etc/bind/zones 2>/dev/null || true
+    chmod 755 /etc/bind/zones 2>/dev/null || true
     cp /etc/bind/named.conf.options /etc/bind/named.conf.options.backup 2>/dev/null || true
 
     cat > /etc/bind/named.conf.options <<EOF
@@ -877,11 +892,13 @@ Mode                    sv
 Socket                  inet:8891@127.0.0.1
 PidFile                 /run/opendkim/opendkim.pid
 OversignHeaders         From
-TrustAnchorFile         /usr/share/dns/root.key
+# TrustAnchorFile         /usr/share/dns/root.key
+UserID                  opendkim
 
-KeyTable                /etc/opendkim/KeyTable
-SigningTable            refile:/etc/opendkim/SigningTable
-TrustedHosts            /etc/opendkim/TrustedHosts
+# KeyTable                /etc/opendkim/KeyTable
+# SigningTable            refile:/etc/opendkim/SigningTable
+ExternalIgnoreList      refile:/etc/opendkim/TrustedHosts
+InternalHosts          refile:/etc/opendkim/TrustedHosts
 EOF
 
     # Configure default socket in /etc/default/opendkim for Debian/Ubuntu
@@ -895,8 +912,10 @@ EOF
     echo "localhost" >> /etc/opendkim/TrustedHosts
 
     # Set proper ownership and permissions
-    chown -R opendkim:opendkim /etc/opendkim
-    chmod -R 700 /etc/opendkim
+    chown -R opendkim:www-data /etc/opendkim
+    chmod 750 /etc/opendkim
+    chmod 750 /etc/opendkim/keys
+    chmod 640 /etc/opendkim/KeyTable /etc/opendkim/SigningTable /etc/opendkim/TrustedHosts
 
     # ── Dovecot core config ────────────────────────────────────────────────────
     cat > /etc/dovecot/dovecot.conf <<EOF
@@ -978,7 +997,8 @@ EOF
 
     touch /etc/dovecot/users
     chown vmail:dovecot /etc/dovecot/users
-    chmod 640 /etc/dovecot/users
+    chmod 660 /etc/dovecot/users
+    usermod -aG dovecot www-data 2>/dev/null || true
 
     # Create voidemail wrapper script for API v2
     cat > /usr/bin/voidemail <<'EOF'
@@ -1470,7 +1490,7 @@ NGINXCONF
         if [[ -z "$CURRENT_MEM" || "$CURRENT_MEM" -lt 512 ]]; then
             sed -i 's/^memory_limit = .*/memory_limit = 512M/' "$PHP_FPM_INI"
         fi
-        ok "PHP-FPM ini tuned: upload=256M post=256M exec=600s"
+        success_msg "PHP-FPM ini tuned: upload=256M post=256M exec=600s"
     else
         warn_msg "PHP-FPM ini not found at $PHP_FPM_INI — skipping ini tuning"
     fi
@@ -1588,7 +1608,7 @@ fi
 info "Downloading VoidPanel $LATEST"
 cd /tmp
 curl -fsSL --max-time 300 "https://voidpanel.com/releases/voidpanel-${LATEST}.tar.gz" -o voidpanel-update.tar.gz \
-    || curl -fsSL --max-time 300 "https://voidpanel.com/static/voidpanel.zip" -o voidpanel-update.zip
+    || curl -fsSL --max-time 300 "https://voidpanel.com/static/voidpanel.zip?v=$(date +%s)" -o voidpanel-update.zip
 
 if [[ -f /tmp/voidpanel-update.tar.gz ]]; then
     info "Extracting tarball"
@@ -1837,7 +1857,7 @@ EOF
 #  MAIN
 # =============================================================================
 install_main_system() {
-    status_msg "VoidPanel v2.5.24 — Enterprise Installation Starting (Ubuntu 22.04)"
+    status_msg "VoidPanel v2.5.37 — Enterprise Installation Starting (Ubuntu 22.04)"
     panelsetup
     bindsetup
     quotasetup

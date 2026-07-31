@@ -1,0 +1,218 @@
+{% load static %}
+{% load currency_tags %}
+<style>
+/* ── Shared Portal Sidebar ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+.portal-layout { display: grid; grid-template-columns: 256px 1fr; min-height: 100vh; }
+@media (max-width: 900px) { .portal-layout { grid-template-columns: 1fr; } }
+
+.portal-sidebar {
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  background: #0f172a;
+  border-right: 1px solid rgba(255,255,255,0.06);
+  display: flex; flex-direction: column;
+  scrollbar-width: thin; scrollbar-color: rgba(245,158,11,0.3) transparent;
+}
+@media (max-width: 900px) { .portal-sidebar { display: none; } }
+
+/* Header area */
+.sb-header { padding: 18px 14px 14px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.sb-logo {
+  display: flex; align-items: center; gap: 9px;
+  text-decoration: none; margin-bottom: 14px;
+}
+.sb-logo-icon {
+  width: 34px; height: 34px;
+  background: linear-gradient(135deg, #f59e0b, #ea580c);
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 0.88rem;
+  box-shadow: 0 2px 10px rgba(245,158,11,0.35);
+}
+.sb-logo-text {
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-size: 0.95rem; font-weight: 800; color: #fff; letter-spacing: -0.02em;
+}
+.sb-logo-text sub { font-size: 0.58rem; color: rgba(245,158,11,0.65); font-weight: 600; }
+
+/* User card */
+.sb-user {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, rgba(245,158,11,0.1), rgba(234,88,12,0.06));
+  border: 1px solid rgba(245,158,11,0.15);
+  border-radius: 12px;
+}
+.sb-avatar {
+  width: 36px; height: 36px; border-radius: 9px;
+  background: linear-gradient(135deg, #f59e0b, #ea580c);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 1rem; color: #fff; flex-shrink: 0;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+.sb-user-name { font-weight: 700; font-size: 0.82rem; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-user-role { font-size: 0.62rem; color: #f59e0b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-top: 1px; }
+
+/* Balance block */
+.sb-balance { padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.sb-bal-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; }
+.sb-bal-lbl { font-size: 0.73rem; color: #64748b; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+.sb-bal-lbl i { color: #f59e0b; font-size: 0.65rem; }
+.sb-bal-val { font-size: 0.82rem; font-weight: 700; color: #f1f5f9; }
+.sb-bal-val.amber { color: #fbbf24; }
+.sb-bal-btns { display: flex; gap: 6px; margin-top: 10px; }
+.sb-bal-btn {
+  flex: 1; padding: 7px 8px; border-radius: 8px;
+  font-size: 0.72rem; font-weight: 800; cursor: pointer; border: none;
+  transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+}
+.sb-bal-btn.primary { background: linear-gradient(135deg, #f59e0b, #ea580c); color: #fff; }
+.sb-bal-btn.primary:hover { opacity: 0.88; }
+.sb-bal-btn.ghost { background: rgba(245,158,11,0.1); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); }
+.sb-bal-btn.ghost:hover { background: rgba(245,158,11,0.18); }
+
+/* Navigation */
+.sb-nav { padding: 10px 8px; flex: 1; }
+.sb-nav-label {
+  font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: #334155;
+  padding: 0 8px; margin: 14px 0 4px;
+}
+.sb-nav-link {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 9px;
+  color: #64748b; font-size: 0.82rem; font-weight: 600;
+  transition: all 0.14s; margin-bottom: 1px;
+  text-decoration: none;
+}
+.sb-nav-link:hover { background: rgba(255,255,255,0.05); color: #e2e8f0; }
+.sb-nav-link.active { background: rgba(245,158,11,0.12); color: #fbbf24; border-left: 2px solid #f59e0b; }
+.sb-nav-link i { width: 15px; text-align: center; font-size: 0.8rem; flex-shrink: 0; }
+.sb-nav-badge {
+  margin-left: auto;
+  background: rgba(239,68,68,0.15); color: #f87171;
+  font-size: 0.6rem; font-weight: 800; padding: 2px 6px; border-radius: 999px;
+}
+
+/* Footer buttons */
+.sb-footer { padding: 10px 8px 16px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; gap: 4px; }
+.sb-footer-link {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: 9px;
+  font-size: 0.8rem; font-weight: 600; transition: all 0.14s;
+  text-decoration: none;
+}
+.sb-footer-link.store { color: #fbbf24; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.12); }
+.sb-footer-link.store:hover { background: rgba(245,158,11,0.16); }
+.sb-footer-link.logout { color: #64748b; }
+.sb-footer-link.logout:hover { color: #f87171; background: rgba(248,113,113,0.06); }
+
+/* Mobile topbar */
+.portal-mobile-topbar {
+  display: none; align-items: center; justify-content: space-between;
+  padding: 13px 16px; background: #0f172a;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+@media (max-width: 900px) { .portal-mobile-topbar { display: flex; } }
+.mob-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; }
+.mob-logo-icon { width: 28px; height: 28px; background: linear-gradient(135deg,#f59e0b,#ea580c); border-radius: 7px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.75rem; }
+.mob-logo-text { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; color: #fff; font-size: 0.9rem; }
+.mob-logout { font-size: 0.78rem; color: #64748b; font-weight: 600; text-decoration: none; padding: 6px 10px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.08); }
+.mob-logout:hover { color: #f87171; }
+</style>
+
+<!-- Mobile topbar -->
+<div class="portal-mobile-topbar">
+  <a href="/portal/" class="mob-logo">
+    <span class="mob-logo-icon"><img src="{% static 'voidonyx/logo_emblem.png' %}" class="ox-logo-img" alt="VoidOnyx Logo"></span>
+    <span class="mob-logo-text">VoidOnyx</span>
+  </a>
+  <a href="/logout/" class="mob-logout"><i class="fas fa-right-from-bracket"></i> Logout</a>
+</div>
+
+<aside class="portal-sidebar">
+
+  <!-- Logo + User -->
+  <div class="sb-header">
+    <a href="/portal/" class="sb-logo">
+      <span class="sb-logo-icon"><img src="{% static 'voidonyx/logo_emblem.png' %}" class="ox-logo-img" alt="VoidOnyx Logo"></span>
+      <span class="sb-logo-text">VoidOnyx <sub>Client</sub></span>
+    </a>
+    <div class="sb-user">
+      <div class="sb-avatar">{{ request.user.get_full_name|default:request.user.username|first|upper }}</div>
+      <div style="overflow:hidden;">
+        <div class="sb-user-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+        <div class="sb-user-role">{% if request.user.is_superuser %}Admin{% else %}{{ profile.portal_role|default:"Client" }}{% endif %}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Balance -->
+  <div class="sb-balance">
+    <div class="sb-bal-row">
+      <span class="sb-bal-lbl"><i class="fas fa-wallet"></i> Funds</span>
+      <span class="sb-bal-val">{{ currency_symbol }}{{ request.user.customer_profile.balance_funds|default:"0.00"|to_currency:currency_rate }}</span>
+    </div>
+    <div class="sb-bal-row">
+      <span class="sb-bal-lbl"><i class="fas fa-coins"></i> Chips</span>
+      <span class="sb-bal-val amber">{{ request.user.customer_profile.balance_chips|default:"0" }}</span>
+    </div>
+    <div class="sb-bal-btns">
+      <button class="sb-bal-btn primary" onclick="openAddFundsModal()"><i class="fas fa-plus"></i> Add Funds</button>
+      <button class="sb-bal-btn ghost" onclick="openBuyChipsModal()"><i class="fas fa-coins"></i> Chips</button>
+    </div>
+  </div>
+
+  <!-- Nav -->
+  <nav class="sb-nav">
+    <div class="sb-nav-label">Overview</div>
+    <a href="/portal/" class="sb-nav-link {% if request.path == '/portal/' %}active{% endif %}">
+      <i class="fas fa-gauge-high"></i> Dashboard
+    </a>
+    <a href="/portal/services/" class="sb-nav-link {% if request.path == '/portal/services/' %}active{% endif %}">
+      <i class="fas fa-server"></i> My Services
+      {% if stats.active_services %}<span class="sb-nav-badge">{{ stats.active_services }}</span>{% endif %}
+    </a>
+    <a href="/portal/invoices/" class="sb-nav-link {% if request.path == '/portal/invoices/' %}active{% endif %}">
+      <i class="fas fa-file-invoice"></i> Invoices
+      {% if stats.unpaid_invoices %}<span class="sb-nav-badge">{{ stats.unpaid_invoices }}</span>{% endif %}
+    </a>
+    <a href="/portal/tickets/" class="sb-nav-link {% if '/portal/ticket' in request.path %}active{% endif %}">
+      <i class="fas fa-headset"></i> Support Tickets
+    </a>
+    <a href="/notifications/" class="sb-nav-link {% if request.path == '/notifications/' %}active{% endif %}">
+      <i class="fas fa-bell"></i> Notifications
+    </a>
+    <a href="/portal/domains/" class="sb-nav-link {% if '/portal/domain' in request.path %}active{% endif %}">
+      <i class="fas fa-globe"></i> My Domains
+    </a>
+
+    <div class="sb-nav-label">Services</div>
+    <a href="/web-hosting/"         class="sb-nav-link"><i class="fas fa-server"></i> Web Hosting</a>
+    <a href="/domain-registration/" class="sb-nav-link"><i class="fas fa-globe"></i> Domain Names</a>
+    <a href="/professional-email/"  class="sb-nav-link"><i class="fas fa-envelope"></i> Professional Email</a>
+    <a href="/ssl-certificates/"    class="sb-nav-link"><i class="fas fa-shield-halved"></i> SSL Certificates</a>
+    <a href="/erp-crm/"             class="sb-nav-link"><i class="fas fa-users"></i> HRMS SaaS</a>
+    <a href="/gym-portal/"          class="sb-nav-link"><i class="fas fa-dumbbell"></i> Gym Portal SaaS</a>
+    <a href="/reseller-hosting/"    class="sb-nav-link"><i class="fas fa-store"></i> Reseller Hosting</a>
+    <a href="/social-media-suite/"  class="sb-nav-link"><i class="fas fa-hashtag"></i> Digital Suites</a>
+    <a href="/get-voidpanel/"       class="sb-nav-link"><i class="fas fa-terminal"></i> VoidPanel</a>
+  </nav>
+
+  <div class="sb-footer">
+    <a href="/" class="sb-footer-link store"><i class="fas fa-bag-shopping"></i> VoidOnyx Store</a>
+    <a href="/logout/" class="sb-footer-link logout"><i class="fas fa-right-from-bracket"></i> Logout</a>
+  </div>
+
+</aside>
+
+<script>
+function openAddFundsModal()  { var m=document.getElementById('addFundsModal');  if(m) m.style.display='flex'; }
+function closeAddFundsModal() { var m=document.getElementById('addFundsModal');  if(m) m.style.display='none'; }
+function setFundsAmount(v)   { var i=document.getElementById('funds-amount-input'); if(i) i.value=v; }
+function openBuyChipsModal()  { var m=document.getElementById('buyChipsModal');   if(m) m.style.display='flex'; }
+function closeBuyChipsModal() { var m=document.getElementById('buyChipsModal');   if(m) m.style.display='none'; }
+</script>

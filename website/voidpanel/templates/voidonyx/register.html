@@ -1,0 +1,486 @@
+{% load static %}
+{% load currency_tags %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create Account — VoidOnyx</title>
+<meta name="description" content="Create your free VoidOnyx account — get access to web hosting, HRMS SaaS, professional email, SSL, and VoidPanel.">
+<link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+<link rel="stylesheet" href="{% static 'voidonyx/voidonyx.css' %}">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  background: #fff;
+  -webkit-font-smoothing: antialiased;
+}
+@media (max-width: 900px) { body { grid-template-columns: 1fr; } }
+
+/* ── Left Panel (register — lighter aesthetic) ──────────────────────────── */
+.auth-left {
+  background: linear-gradient(150deg, #0f172a 0%, #1c1917 45%, #7c2d12 100%);
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column;
+  justify-content: space-between;
+  padding: 48px;
+  min-height: 100vh;
+}
+@media (max-width: 900px) { .auth-left { display: none; } }
+
+.orb { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.3; animation: orbF 9s ease-in-out infinite; }
+.orb1 { width: 380px; height: 380px; background: #f59e0b; top: -60px; left: -80px; animation-delay: 0s; }
+.orb2 { width: 260px; height: 260px; background: #ea580c; bottom: 80px; right: -60px; animation-delay: 2.5s; }
+.orb3 { width: 180px; height: 180px; background: #fbbf24; top: 55%; left: 55%; animation-delay: 1s; }
+@keyframes orbF { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-18px)} }
+
+.auth-left::before {
+  content: ''; position: absolute; inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.055) 1px, transparent 1px);
+  background-size: 26px 26px; pointer-events: none; z-index: 1;
+}
+.auth-left-inner { position: relative; z-index: 2; display: flex; flex-direction: column; height: 100%; justify-content: space-between; }
+
+/* Brand */
+.auth-brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; margin-bottom: 48px; }
+.auth-brand-icon {
+  width: 40px; height: 40px; background: linear-gradient(135deg, #f59e0b, #ea580c);
+  border-radius: 11px; display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 1rem; box-shadow: 0 4px 16px rgba(245,158,11,0.4);
+}
+.auth-brand-name { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.25rem; font-weight: 800; color: #fff; letter-spacing: -0.02em; }
+
+.auth-left h2 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: clamp(1.7rem, 2.8vw, 2.5rem); font-weight: 800;
+  color: #fff; letter-spacing: -0.04em; line-height: 1.12; margin-bottom: 14px;
+}
+.auth-left h2 em { font-style: normal; color: #fbbf24; }
+.auth-left p { font-size: 0.9rem; color: rgba(255,255,255,0.55); line-height: 1.75; max-width: 340px; margin-bottom: 32px; }
+
+/* Steps indicator */
+.auth-steps { display: flex; flex-direction: column; gap: 12px; margin-bottom: 40px; }
+.auth-step { display: flex; align-items: flex-start; gap: 12px; }
+.auth-step-num {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: linear-gradient(135deg, #f59e0b, #ea580c);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.68rem; font-weight: 800; color: #fff;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  flex-shrink: 0; margin-top: 1px;
+}
+.auth-step-text { font-size: 0.875rem; color: rgba(255,255,255,0.75); font-weight: 500; line-height: 1.45; }
+.auth-step-text strong { color: #fff; font-weight: 700; }
+
+/* Free badge */
+.auth-free-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3);
+  border-radius: 12px; padding: 12px 16px;
+  font-size: 0.85rem; color: rgba(255,255,255,0.8);
+}
+.auth-free-badge strong { color: #fbbf24; font-size: 1rem; }
+
+/* Stats strip */
+.auth-stats { display: flex; gap: 24px; flex-wrap: wrap; }
+.auth-stat { display: flex; flex-direction: column; }
+.auth-stat-num {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.4rem; font-weight: 800; color: #fff; letter-spacing: -0.03em;
+}
+.auth-stat-label { font-size: 0.72rem; color: rgba(255,255,255,0.4); font-weight: 500; }
+
+/* ── Right Panel ─────────────────────────────────────────────────────────── */
+.auth-right {
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  padding: 40px 40px;
+  background: #fff; min-height: 100vh;
+  overflow-y: auto;
+}
+@media (max-width: 900px) { .auth-right { padding: 32px 20px; } }
+
+.auth-form-wrap { width: 100%; max-width: 460px; }
+
+.auth-back {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 0.82rem; font-weight: 600; color: #64748b;
+  text-decoration: none; margin-bottom: 28px; transition: color 0.15s;
+}
+.auth-back:hover { color: #f59e0b; }
+
+.auth-mobile-brand {
+  display: none; align-items: center; gap: 8px;
+  text-decoration: none; margin-bottom: 24px;
+}
+@media (max-width: 900px) { .auth-mobile-brand { display: inline-flex; } }
+.auth-mobile-brand-icon {
+  width: 30px; height: 30px; background: linear-gradient(135deg, #f59e0b, #ea580c);
+  border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 0.8rem;
+}
+.auth-mobile-brand-name { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1rem; font-weight: 800; color: #0f172a; }
+
+.auth-heading {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.8rem; font-weight: 800; letter-spacing: -0.04em; color: #0f172a; margin-bottom: 4px;
+}
+.auth-subheading { font-size: 0.88rem; color: #64748b; line-height: 1.6; margin-bottom: 26px; }
+
+/* Progress bar for form steps */
+.auth-progress {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 24px;
+}
+.auth-progress-step {
+  flex: 1; height: 3px; border-radius: 99px;
+  background: #f1f5f9; transition: background 0.3s;
+}
+.auth-progress-step.active { background: linear-gradient(90deg, #f59e0b, #ea580c); }
+.auth-progress-label { font-size: 0.75rem; color: #94a3b8; font-weight: 600; white-space: nowrap; }
+
+/* Fields */
+.af-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 460px) { .af-row { grid-template-columns: 1fr; } }
+.af-group { margin-bottom: 14px; }
+.af-label {
+  display: block; font-size: 0.8rem; font-weight: 700;
+  color: #374151; margin-bottom: 6px;
+  font-family: 'Plus Jakarta Sans', sans-serif; letter-spacing: 0.01em;
+}
+.af-label .af-optional { font-weight: 400; color: #94a3b8; font-size: 0.72rem; }
+.af-input-wrap { position: relative; }
+.af-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.8rem; pointer-events: none; }
+.af-input {
+  width: 100%; padding: 12px 14px 12px 38px;
+  border: 1.5px solid #e2e8f0; border-radius: 12px;
+  font-family: 'Inter', sans-serif; font-size: 0.9rem;
+  color: #0f172a; background: #f8fafc; outline: none;
+  transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+}
+.af-input:focus { border-color: #f59e0b; background: #fff; box-shadow: 0 0 0 3px rgba(245,158,11,0.12); }
+.af-input::placeholder { color: #cbd5e1; }
+.af-input.no-icon { padding-left: 14px; }
+
+/* Password strength */
+.pw-strength { margin-top: 6px; display: flex; gap: 4px; }
+.pw-bar { flex: 1; height: 3px; border-radius: 99px; background: #f1f5f9; transition: background 0.3s; }
+.pw-bar.weak { background: #ef4444; }
+.pw-bar.fair { background: #f59e0b; }
+.pw-bar.good { background: #22c55e; }
+.pw-label { font-size: 0.68rem; color: #94a3b8; margin-top: 4px; }
+
+/* Toggle pw */
+.af-toggle-pw {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer;
+  color: #94a3b8; font-size: 0.8rem; padding: 4px;
+  transition: color 0.15s;
+}
+.af-toggle-pw:hover { color: #f59e0b; }
+
+.af-btn {
+  width: 100%; padding: 14px; border: none; border-radius: 12px;
+  background: linear-gradient(135deg, #f59e0b, #ea580c); color: #fff;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 0.95rem; font-weight: 800; cursor: pointer;
+  box-shadow: 0 4px 18px rgba(245,158,11,0.35);
+  transition: opacity 0.18s, transform 0.18s, box-shadow 0.18s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin-top: 10px;
+}
+.af-btn:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(245,158,11,0.45); }
+
+.af-footer { text-align: center; font-size: 0.85rem; color: #64748b; margin-top: 16px; }
+.af-footer a { color: #d97706; font-weight: 700; text-decoration: none; }
+.af-footer a:hover { color: #f59e0b; }
+
+.af-terms { font-size: 0.76rem; color: #94a3b8; margin-top: 14px; text-align: center; line-height: 1.6; }
+.af-terms a { color: #d97706; font-weight: 600; text-decoration: none; }
+
+.af-alert { border-radius: 10px; padding: 12px 14px; font-size: 0.85rem; margin-bottom: 16px; display: flex; align-items: flex-start; gap: 9px; line-height: 1.5; }
+.af-alert-error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+
+.af-trust { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 14px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #f1f5f9; }
+.af-trust-item { display: flex; align-items: center; gap: 5px; font-size: 0.7rem; color: #94a3b8; font-weight: 600; }
+.af-trust-item i { color: #f59e0b; font-size: 0.63rem; }
+</style>
+</head>
+<body>
+
+<!-- Page Preloader -->
+<div id="oxPreloader" style="
+    position: fixed; inset: 0; background: #0f172a; z-index: 99999;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: opacity 0.35s var(--ox-ease), visibility 0.35s;
+">
+    <div style="text-align: center; display: flex; flex-direction: column; align-items: center; gap: 20px;">
+        <!-- Pulsing Logo -->
+        <div class="ox-preloader-logo" style="
+            width: 60px; height: 60px;
+            background: var(--ox-grad-brand);
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid rgba(255,255,255,0.12);
+        ">
+            <img src="{% static 'voidonyx/logo_emblem.png' %}" style="width: 80%; height: 80%; object-fit: contain;" alt="VoidOnyx">
+        </div>
+        <!-- Wordmark -->
+        <div style="font-family: var(--ox-font-display); font-size: 1.4rem; font-weight: 800; color: #fff; letter-spacing: -0.02em;">
+            VoidOnyx
+        </div>
+        <!-- Loading Bar -->
+        <div style="width: 120px; height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; margin-top: 4px;">
+            <div class="ox-preloader-bar-fill" style="width: 100%; height: 100%; background: var(--ox-grad-brand); border-radius: 2px;"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const preloader = document.getElementById('oxPreloader');
+    if (preloader) {
+        setTimeout(() => {
+            preloader.style.opacity = '0';
+            preloader.style.visibility = 'hidden';
+        }, 500);
+    }
+});
+</script>
+
+<!-- ── Left Panel ────────────────────────────────────────────────────────── -->
+<div class="auth-left">
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="orb orb3"></div>
+
+  <div class="auth-left-inner">
+    <div>
+      <a href="/" class="auth-brand">
+        <span class="auth-brand-icon"><img src="{% static 'voidonyx/logo_emblem.png' %}" class="ox-logo-img" alt="VoidOnyx Logo"></span>
+        <span class="auth-brand-name">VoidOnyx</span>
+      </a>
+
+      <h2>Start your digital<br><em>journey today.</em></h2>
+      <p>Join 5,000+ businesses using VoidOnyx for hosting, HRMS, email, and server management — all in one ecosystem.</p>
+
+      <div class="auth-steps">
+        <div class="auth-step">
+          <span class="auth-step-num">1</span>
+          <div class="auth-step-text"><strong>Create your free account</strong><br>Takes less than 60 seconds.</div>
+        </div>
+        <div class="auth-step">
+          <span class="auth-step-num">2</span>
+          <div class="auth-step-text"><strong>Pick a service</strong><br>Hosting, HRMS, email, or VoidPanel.</div>
+        </div>
+        <div class="auth-step">
+          <span class="auth-step-num">3</span>
+          <div class="auth-step-text"><strong>Go live instantly</strong><br>Automated provisioning in minutes.</div>
+        </div>
+      </div>
+
+      <div class="auth-free-badge">
+        <i class="fas fa-gift" style="color:#fbbf24;font-size:1rem;"></i>
+        <span><strong>Free forever</strong> on VoidPanel — no credit card needed</span>
+      </div>
+    </div>
+
+    <div class="auth-stats">
+      <div class="auth-stat">
+        <span class="auth-stat-num">5,000+</span>
+        <span class="auth-stat-label">Active Accounts</span>
+      </div>
+      <div class="auth-stat">
+        <span class="auth-stat-num">99.9%</span>
+        <span class="auth-stat-label">Uptime SLA</span>
+      </div>
+      <div class="auth-stat">
+        <span class="auth-stat-num">{{ currency_symbol }}0</span>
+        <span class="auth-stat-label">To Get Started</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Right Panel ────────────────────────────────────────────────────────── -->
+<div class="auth-right">
+  <div class="auth-form-wrap">
+
+    <a href="/" class="auth-back"><i class="fas fa-arrow-left"></i> Back to VoidOnyx</a>
+
+    <a href="/" class="auth-mobile-brand">
+      <span class="auth-mobile-brand-icon"><img src="{% static 'voidonyx/logo_emblem.png' %}" class="ox-logo-img" alt="VoidOnyx Logo"></span>
+      <span class="auth-mobile-brand-name">VoidOnyx</span>
+    </a>
+
+    <h1 class="auth-heading">Create free account 🚀</h1>
+    <p class="auth-subheading">Get instant access to all VoidOnyx services. No credit card required.</p>
+
+    <!-- Progress indicator -->
+    <div class="auth-progress">
+      <div class="auth-progress-step active"></div>
+      <div class="auth-progress-step"></div>
+      <div class="auth-progress-step"></div>
+      <span class="auth-progress-label">Step 1 of 1</span>
+    </div>
+
+    {% if messages %}
+      {% for message in messages %}
+        <div class="af-alert af-alert-error">
+          <i class="fa-solid fa-circle-exclamation" style="flex-shrink:0;margin-top:1px;"></i>
+          <span>{{ message }}</span>
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    <form method="post" action="/register/" id="reg-form" novalidate>
+      {% csrf_token %}
+
+      <!-- Name row -->
+      <div class="af-row">
+        <div class="af-group">
+          <label class="af-label" for="reg-first">First Name</label>
+          <div class="af-input-wrap">
+            <i class="fas fa-user af-icon"></i>
+            <input type="text" id="reg-first" name="first_name" class="af-input" placeholder="Rahul" required autocomplete="given-name">
+          </div>
+        </div>
+        <div class="af-group">
+          <label class="af-label" for="reg-last">Last Name</label>
+          <div class="af-input-wrap">
+            <i class="fas fa-user af-icon"></i>
+            <input type="text" id="reg-last" name="last_name" class="af-input" placeholder="Sharma" required autocomplete="family-name">
+          </div>
+        </div>
+      </div>
+
+      <!-- Email -->
+      <div class="af-group">
+        <label class="af-label" for="reg-email">Email Address</label>
+        <div class="af-input-wrap">
+          <i class="fas fa-envelope af-icon"></i>
+          <input type="email" id="reg-email" name="email" class="af-input"
+            placeholder="you@company.com" required autocomplete="email">
+        </div>
+      </div>
+
+      <!-- Phone -->
+      <div class="af-group">
+        <label class="af-label" for="reg-phone">Phone / WhatsApp <span class="af-optional">(optional)</span></label>
+        <div class="af-input-wrap">
+          <i class="fa-brands fa-whatsapp af-icon" style="color:#25d366;"></i>
+          <input type="tel" id="reg-phone" name="phone" class="af-input" placeholder="+91 98765 43210" autocomplete="tel">
+        </div>
+      </div>
+
+      <!-- Company -->
+      <div class="af-group">
+        <label class="af-label" for="reg-company">Company <span class="af-optional">(optional)</span></label>
+        <div class="af-input-wrap">
+          <i class="fas fa-building af-icon"></i>
+          <input type="text" id="reg-company" name="company" class="af-input" placeholder="Acme Pvt. Ltd.">
+        </div>
+      </div>
+
+      <!-- Password -->
+      <div class="af-group">
+        <label class="af-label" for="reg-pass">Password</label>
+        <div class="af-input-wrap">
+          <i class="fas fa-lock af-icon"></i>
+          <input type="password" id="reg-pass" name="password1" class="af-input"
+            placeholder="Min 8 characters" required autocomplete="new-password"
+            oninput="updateStrength(this.value)">
+          <button type="button" class="af-toggle-pw" onclick="togglePw('reg-pass', this)" tabindex="-1">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+        <div class="pw-strength">
+          <div class="pw-bar" id="pw-bar-1"></div>
+          <div class="pw-bar" id="pw-bar-2"></div>
+          <div class="pw-bar" id="pw-bar-3"></div>
+          <div class="pw-bar" id="pw-bar-4"></div>
+        </div>
+        <div class="pw-label" id="pw-label">Enter at least 8 characters</div>
+      </div>
+
+      <!-- Confirm Password -->
+      <div class="af-group">
+        <label class="af-label" for="reg-pass2">Confirm Password</label>
+        <div class="af-input-wrap">
+          <i class="fas fa-lock af-icon"></i>
+          <input type="password" id="reg-pass2" name="password2" class="af-input"
+            placeholder="Repeat password" required autocomplete="new-password">
+          <button type="button" class="af-toggle-pw" onclick="togglePw('reg-pass2', this)" tabindex="-1">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" class="af-btn" id="reg-submit-btn">
+        <i class="fas fa-rocket"></i> Create Free Account
+      </button>
+
+      <p class="af-terms">
+        By signing up you agree to VoidOnyx's
+        <a href="/terms-and-conditions/">Terms of Service</a> and
+        <a href="/privacy-policy/">Privacy Policy</a>.
+      </p>
+    </form>
+
+    <div class="af-footer">Already have an account? <a href="/login/">Log in →</a></div>
+
+    <div class="af-trust">
+      <span class="af-trust-item"><i class="fas fa-shield-halved"></i> SSL Secured</span>
+      <span class="af-trust-item"><i class="fas fa-lock"></i> Encrypted</span>
+      <span class="af-trust-item"><i class="fas fa-gift"></i> Free to Start</span>
+      <span class="af-trust-item"><i class="fas fa-ban"></i> No Card Needed</span>
+    </div>
+  </div>
+</div>
+
+<script>
+function togglePw(inputId, btn) {
+  var input = document.getElementById(inputId);
+  var icon  = btn.querySelector('i');
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.className = 'fas fa-eye-slash';
+  } else {
+    input.type = 'password';
+    icon.className = 'fas fa-eye';
+  }
+}
+
+function updateStrength(val) {
+  var bars  = [1,2,3,4].map(function(n){ return document.getElementById('pw-bar-'+n); });
+  var label = document.getElementById('pw-label');
+  var score = 0;
+  if (val.length >= 8)  score++;
+  if (/[A-Z]/.test(val)) score++;
+  if (/[0-9]/.test(val)) score++;
+  if (/[^A-Za-z0-9]/.test(val)) score++;
+
+  bars.forEach(function(b, i) {
+    b.className = 'pw-bar';
+    if (i < score) {
+      if (score <= 1) b.classList.add('weak');
+      else if (score <= 2) b.classList.add('fair');
+      else b.classList.add('good');
+    }
+  });
+
+  var labels = ['', 'Weak — add uppercase or numbers', 'Fair — add a special character', 'Good password', 'Strong password ✓'];
+  label.textContent = labels[score] || 'Enter at least 8 characters';
+  label.style.color = score <= 1 ? '#ef4444' : score <= 2 ? '#f59e0b' : '#16a34a';
+}
+</script>
+</body>
+</html>

@@ -2,43 +2,142 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Notifications — VoidPanel</title>
-    <meta name="description" content="Latest VoidPanel updates and announcements.">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
-    <link rel="stylesheet" href="/static/assets/css/void-modern.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notifications — VoidOnyx Portal</title>
+<meta name="description" content="Latest VoidOnyx updates and announcements.">
+<link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+<link rel="stylesheet" href="{% static 'voidonyx/voidonyx.css' %}">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', system-ui, sans-serif; background: #f8fafc; color: #0f172a; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+a { text-decoration: none; color: inherit; }
+
+/* Main area */
+.portal-main { padding: 28px 32px 60px; overflow-y: auto; }
+@media (max-width: 768px) { .portal-main { padding: 18px 16px 48px; } }
+
+/* Page header */
+.ph { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 10px; }
+.ph-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #fef3c7; border: 1px solid #fde68a;
+  color: #d97706; padding: 4px 12px; border-radius: 999px;
+  font-size: 0.72rem; font-weight: 700; margin-bottom: 8px;
+}
+.ph-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.5rem; font-weight: 800; color: #0f172a; letter-spacing: -0.03em; }
+.ph-title em { font-style: normal; background: linear-gradient(135deg, #f59e0b, #ea580c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.ph-sub { font-size: 0.82rem; color: #64748b; margin-top: 3px; }
+
+.back-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.82rem; font-weight: 700; color: #64748b;
+  padding: 7px 13px; border-radius: 9px;
+  border: 1px solid #e2e8f0; background: #fff;
+  transition: border-color 0.14s;
+}
+.back-btn:hover { border-color: #fde68a; color: #d97706; }
+
+/* Notification list */
+.notif-list { display: flex; flex-direction: column; gap: 12px; max-width: 740px; }
+
+.notif-card {
+  background: #fff;
+  border: 1px solid #e8edf2;
+  border-radius: 14px;
+  padding: 18px 20px;
+  display: flex; align-items: flex-start; gap: 14px;
+  box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.notif-card:hover { border-color: #fde68a; box-shadow: 0 4px 14px rgba(15,23,42,0.07); }
+.notif-thumb {
+  width: 48px; height: 48px; border-radius: 10px;
+  object-fit: cover; flex-shrink: 0;
+  background: #f1f5f9; border: 1px solid #e2e8f0;
+}
+.notif-icon-wrap {
+  width: 48px; height: 48px; border-radius: 10px;
+  background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(234,88,12,0.1));
+  border: 1px solid rgba(245,158,11,0.2);
+  display: flex; align-items: center; justify-content: center;
+  color: #f59e0b; font-size: 1.1rem; flex-shrink: 0;
+}
+.notif-body { flex: 1; min-width: 0; }
+.notif-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: #fef3c7; color: #d97706;
+  font-size: 0.67rem; font-weight: 700;
+  padding: 2px 8px; border-radius: 999px; margin-bottom: 6px;
+}
+.notif-text { font-size: 0.875rem; color: #334155; line-height: 1.65; }
+.notif-date {
+  font-size: 0.72rem; color: #94a3b8; font-weight: 600;
+  margin-top: 8px; display: flex; align-items: center; gap: 5px;
+}
+.notif-date i { color: #f59e0b; font-size: 0.65rem; }
+
+/* Empty state */
+.notif-empty {
+  text-align: center; padding: 60px 24px;
+  background: #fff; border: 1px solid #e8edf2;
+  border-radius: 16px; max-width: 420px;
+}
+.notif-empty-icon { font-size: 3rem; color: #cbd5e1; margin-bottom: 14px; }
+.notif-empty-title { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 1rem; color: #334155; margin-bottom: 6px; }
+.notif-empty-sub { font-size: 0.84rem; color: #94a3b8; }
+</style>
 </head>
 <body>
-{% include 'header.html' %}
 
-<section class="notif-section">
-    <div class="notif-inner">
-        <div style="margin-bottom:40px;">
-            <span class="section-label">Latest</span>
-            <h1 class="section-title" style="font-size:2rem;">Notifications <span class="gradient-text">&amp; Updates</span></h1>
-        </div>
+<div class="portal-layout">
 
-        {% for i in data %}
-        <div class="glass-card notif-item animate-up">
-            <img class="notif-photo" src="https://voidpanel.com/{{ i.photo }}" alt="Update" onerror="this.src='/static/fav.png'">
-            <div class="notif-body">
-                <div class="notif-title">VoidPanel Update</div>
-                <div class="notif-text">{{ i.text }}</div>
-                <div class="notif-date"><i class="fas fa-clock" style="color:var(--accent);"></i> {{ i.date|slice:":10" }}</div>
-            </div>
-        </div>
-        {% empty %}
-        <div class="glass-card" style="padding:48px;text-align:center;">
-            <div style="font-size:3rem;color:var(--text-muted);margin-bottom:16px;"><i class="fas fa-bell-slash"></i></div>
-            <h3 style="color:var(--text-secondary);">No notifications yet</h3>
-            <p style="color:var(--text-muted);font-size:0.9rem;margin-top:8px;">Check back later for updates and announcements.</p>
-        </div>
-        {% endfor %}
+  <!-- ── Shared sidebar ─────────────────────────────────────────────────── -->
+  {% include 'voidonyx/portal_sidebar.html' %}
+
+  <!-- ── Main Content ───────────────────────────────────────────────────── -->
+  <main class="portal-main">
+
+    <div class="ph">
+      <div>
+        <div class="ph-badge"><i class="fas fa-satellite-dish"></i> Latest</div>
+        <div class="ph-title">Notifications &amp; <em>Updates</em></div>
+        <div class="ph-sub">System announcements, product updates, and important alerts.</div>
+      </div>
+      <a href="/portal/" class="back-btn"><i class="fas fa-arrow-left" style="font-size:0.72rem;"></i> Back to Portal</a>
     </div>
-</section>
 
-{% include 'footer.html' %}
+    <div class="notif-list">
+      {% for i in data %}
+      <div class="notif-card" style="animation: nFade 0.3s ease {{ forloop.counter0 }}00ms both;">
+        <img class="notif-thumb"
+             src="https://voidpanel.com/{{ i.photo }}" alt="Update"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="notif-icon-wrap" style="display:none;"><i class="fas fa-bell"></i></div>
+        <div class="notif-body">
+          <div class="notif-tag"><i class="fas fa-hexagon-nodes"></i> VoidOnyx Update</div>
+          <div class="notif-text">{{ i.text }}</div>
+          <div class="notif-date"><i class="fas fa-clock"></i> {{ i.date|slice:":10" }}</div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="notif-empty">
+        <div class="notif-empty-icon"><i class="fas fa-bell-slash"></i></div>
+        <div class="notif-empty-title">No notifications yet</div>
+        <div class="notif-empty-sub">Check back later for updates and announcements.</div>
+      </div>
+      {% endfor %}
+    </div>
+
+  </main>
+</div>
+
+<style>
+@keyframes nFade { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+</style>
+
 </body>
 </html>

@@ -20,7 +20,7 @@ exec > >(tee -i "$LOG_FILE") 2>&1
 print_header() {
     clear
     echo -e "${CYAN}=========================================================================="
-    echo "      VoidPanel Enterprise Installation Pipeline v1.0 (RHEL/AlmaLinux)"
+    echo "      VoidPanel Enterprise Installation Pipeline v2.5.37 (RHEL/AlmaLinux)"
     echo "=========================================================================="
     echo -e " Time: $(date)"
     echo -e " Logs: $LOG_FILE"
@@ -40,8 +40,8 @@ NGINX_CONF="/etc/nginx/conf.d/${PROJECT_NAME}.conf"
 PUBLIC_IP=$(curl -4 -s --max-time 8 ifconfig.me 2>/dev/null \
          || curl -4 -s --max-time 8 api.ipify.org 2>/dev/null \
          || echo "127.0.0.1")
-MYSQL_ROOT_PASS=$(openssl rand -base64 16)
-DJANGO_SUPERUSER_PASS=$(openssl rand -base64 16)
+MYSQL_ROOT_PASS=$(head -c 100 /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 20)
+DJANGO_SUPERUSER_PASS=$(head -c 100 /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 20)
 HOSTNAME=$(hostname)
 INSTALL_START_DIR="$PWD"
 
@@ -51,13 +51,21 @@ RHEL_MAJOR=$(rpm -E %{rhel} 2>/dev/null || echo "9")
 print_header
 
 # --- 1. Environment Hardening ---
+status_msg "Setting SELinux to permissive mode"
+if command -v setenforce &>/dev/null; then
+    setenforce 0 || true
+fi
+if [[ -f /etc/selinux/config ]]; then
+    sed -i 's/^SELINUX=.*/SELINUX=permissive/' /etc/selinux/config
+fi
+
 status_msg "Initializing System Update"
 dnf update -y
 
 status_msg "Installing Core Dependencies"
 dnf install -y epel-release
 dnf install -y curl wget git unzip perl python3 python3-pip python3-devel \
-    gcc make openssl openssl-devel libffi-devel
+    gcc make openssl openssl-devel libffi-devel redis
 
 # Enable CRB/PowerTools (needed for some build deps)
 if [[ "$RHEL_MAJOR" -ge 9 ]]; then
@@ -85,6 +93,36 @@ systemctl enable nginx 2>/dev/null || true
 NGINX_CONF_DIR="/etc/nginx/conf.d"
 success_msg "NGINX selected as primary web engine"
 
+# ── Create Ubuntu-compatible directory layout for nginx ──────────────────────
+# The VoidPanel Python codebase (voidplatform/config.py) uses sites-available and
+# sites-enabled conventions.  RHEL ships with conf.d/ only, so we create the
+# Ubuntu-style directories and add an include directive to nginx.conf.
+mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
+# Only add include line if not already present
+if ! grep -q 'sites-enabled' /etc/nginx/nginx.conf; then
+    sed -i '/include.*conf\.d\/\*\.conf;/a\    include /etc/nginx/sites-enabled/*.conf;' /etc/nginx/nginx.conf
+fi
+
+# ── Create Ubuntu-compatible BIND directory layout ───────────────────────────
+# The codebase writes zone files to /etc/bind/ and appends zone declarations
+# to /etc/bind/named.conf (Ubuntu layout).
+# On RHEL: zone dir is /var/named/, main conf is /etc/named.conf.
+# Solution: symlink /etc/bind -> /var/named so zone files resolve, then create
+# symlinks for config files inside /var/named pointing to the real locations.
+if [[ ! -L /etc/bind ]]; then
+    rm -rf /etc/bind 2>/dev/null || true
+    ln -sf /var/named /etc/bind
+fi
+# Ensure named.conf.local exists (for zone declarations from the panel)
+touch /etc/named.conf.local
+# Create symlinks inside /var/named/ so paths.BIND_CONF* resolve correctly
+ln -sf /etc/named.conf       /var/named/named.conf       2>/dev/null || true
+ln -sf /etc/named.conf.local /var/named/named.conf.local 2>/dev/null || true
+# Create vsftpd.conf compatibility symlink (Ubuntu: /etc/vsftpd.conf, RHEL: /etc/vsftpd/vsftpd.conf)
+if [[ -f /etc/vsftpd/vsftpd.conf ]] && [[ ! -e /etc/vsftpd.conf ]]; then
+    ln -sf /etc/vsftpd/vsftpd.conf /etc/vsftpd.conf
+fi
+
 # Generate Dummy SSL for the active web server
 status_msg "Generating Initial Dummy SSL Certificates"
 mkdir -p /etc/nginx/ssl
@@ -106,7 +144,7 @@ dnf install -y \
     mariadb-server certbot python3-certbot-nginx \
     bind bind-utils quota quota-nld \
     opendkim opendkim-tools vsftpd \
-    postfix dovecot
+    postfix postfix-hash dovecot
 
 # Generate Dummy SSL for Nginx
 status_msg "Generating Initial SSL Certificates"
@@ -142,6 +180,21 @@ panelsetup() {
     mkdir -p "$PROJECT_DIR"
     cd "$PROJECT_DIR"
 
+    status_msg "Deploying VoidPanel Source Code"
+    if [[ -f "$INSTALL_START_DIR/Archive.zip" ]]; then
+        success_msg "Local Archive.zip found, copying to project directory."
+        cp "$INSTALL_START_DIR/Archive.zip" Archive.zip
+    elif ! wget -q "https://voidpanel.com/static/voidpanel.zip?v=$(date +%s)" -O Archive.zip; then
+        error_msg "Failed to download voidpanel.zip from voidpanel.com."
+        exit 1
+    fi
+    unzip -o Archive.zip
+    rm -f Archive.zip
+
+    if [[ -d "$PROJECT_DIR/venv" ]]; then
+        rm -rf "$PROJECT_DIR/venv"
+    fi
+
     status_msg "Initializing Python Virtual Environment"
     python3 -m venv venv
     source venv/bin/activate
@@ -151,23 +204,12 @@ panelsetup() {
     if [[ -f "$PROJECT_DIR/requirements.txt" ]]; then
         pip install --quiet -r "$PROJECT_DIR/requirements.txt"
     else
-        pip install --quiet django uwsgi psutil pexpect requests mysql-connector-python huggingface_hub djangorestframework django-cors-headers celery redis channels channels_redis daphne geoip2
+        pip install --quiet django uwsgi psutil pexpect requests mysql-connector-python huggingface_hub djangorestframework django-cors-headers celery redis django-celery-beat django-celery-results channels channels_redis daphne geoip2
     fi
 
     status_msg "Downloading GeoIP Database for Traffic Analytics"
     mkdir -p "$PROJECT_DIR/geoip"
     curl -L -s -o "$PROJECT_DIR/geoip/GeoLite2-Country.mmdb" https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb
-
-    status_msg "Deploying VoidPanel Source Code"
-    if [[ -f "$INSTALL_START_DIR/Archive.zip" ]]; then
-        success_msg "Local Archive.zip found, copying to project directory."
-        cp "$INSTALL_START_DIR/Archive.zip" Archive.zip
-    elif ! wget -q https://voidpanel.com/static/voidpanel.zip -O Archive.zip; then
-        error_msg "Failed to download voidpanel.zip from voidpanel.com."
-        exit 1
-    fi
-    unzip -o Archive.zip
-    rm -f Archive.zip
 
     status_msg "Configuring Django Environment"
     DJANGO_SETTINGS=$(find . -name "settings.py" | grep -v venv | head -n 1)
@@ -260,6 +302,16 @@ else:
     print("Superuser already exists.")
 PYEOF
 
+    # ── Version tracking file — must be writable by nginx (Django update process) ──
+    VFILE="/etc/version.txt"
+    echo "2.5.37" > "$VFILE"
+    chown nginx:nginx "$VFILE"
+    chmod 664 "$VFILE"
+    # Also write to panel dir as a reliable fallback
+    echo "2.5.37" > "$PROJECT_DIR/version.txt"
+    chown nginx:nginx "$PROJECT_DIR/version.txt"
+
+
     status_msg "Configuring uWSGI Engine"
     cat << EOF > "$PROJECT_DIR/panel.ini"
 [uwsgi]
@@ -282,7 +334,7 @@ EOF
     chown -R nginx:nginx /var/log/voidpanel
     chmod 750 /var/log/voidpanel
 
-    cat << EOF > /etc/systemd/system/uwsgi.service
+    cat << EOF > /etc/systemd/system/voidpanel.service
 [Unit]
 Description=uWSGI service for VoidPanel
 After=network.target mariadb.service redis.service
@@ -307,8 +359,8 @@ EOF
     cat > /etc/systemd/system/voidpanel-daphne.service <<SVC
 [Unit]
 Description=VoidPanel Daphne ASGI Application Server
-After=network.target redis-server.service
-Wants=redis-server.service
+After=network.target redis.service
+Wants=redis.service
 
 [Service]
 Type=simple
@@ -328,8 +380,8 @@ SVC
     cat > /etc/systemd/system/voidpanel-backup.service <<SVC
 [Unit]
 Description=VoidPanel Backup Dashboard (Always-On Port 8081)
-After=network.target redis-server.service mysql.service
-Wants=redis-server.service mysql.service
+After=network.target redis.service mysql.service
+Wants=redis.service mysql.service
 
 [Service]
 Type=simple
@@ -338,7 +390,7 @@ WorkingDirectory=${PROJECT_DIR}
 EnvironmentFile=${PROJECT_DIR}/.env
 Environment=PYTHONPATH=${PROJECT_DIR}
 Environment=DJANGO_SETTINGS_MODULE=panel.settings
-ExecStart=${VENV_DIR}/bin/daphne -b 0.0.0.0 -p 8081 panel.asgi:application
+ExecStart=${VENV_DIR}/bin/daphne -b 127.0.0.1 -p 8081 panel.asgi:application
 Restart=always
 RestartSec=5s
 
@@ -352,8 +404,8 @@ SVC
     cat > /etc/systemd/system/voidpanel-celery.service <<SVC
 [Unit]
 Description=VoidPanel Celery Worker
-After=network.target redis-server.service mariadb.service
-Wants=redis-server.service mariadb.service
+After=network.target redis.service mariadb.service
+Wants=redis.service mariadb.service
 
 [Service]
 Type=simple
@@ -379,8 +431,8 @@ SVC
     cat > /etc/systemd/system/voidpanel-celery-beat.service <<SVC
 [Unit]
 Description=VoidPanel Celery Beat Scheduler
-After=network.target redis-server.service mariadb.service voidpanel-celery.service
-Wants=redis-server.service mariadb.service voidpanel-celery.service
+After=network.target redis.service mariadb.service voidpanel-celery.service
+Wants=redis.service mariadb.service voidpanel-celery.service
 
 [Service]
 Type=simple
@@ -571,14 +623,19 @@ EOF
     fi
 
     systemctl daemon-reload
-    systemctl enable uwsgi voidpanel-daphne voidpanel-backup voidpanel-celery voidpanel-celery-beat voidpanel-wa
-    systemctl start uwsgi voidpanel-daphne voidpanel-backup voidpanel-celery voidpanel-celery-beat voidpanel-wa
+    # Start Redis first — Celery depends on it as message broker
+    systemctl enable --now redis
+    systemctl enable voidpanel voidpanel-daphne voidpanel-backup voidpanel-celery voidpanel-celery-beat voidpanel-wa
+    systemctl start voidpanel voidpanel-daphne voidpanel-backup voidpanel-celery voidpanel-celery-beat voidpanel-wa
     success_msg "Panel Core Setup Complete"
 }
 
 # --- 4. DNS (BIND/named) Configuration ---
 bindsetup() {
     status_msg "Configuring Authoritative DNS (BIND/named)"
+    mkdir -p /var/named /etc/bind/zones
+    chown -R named:named /var/named /etc/bind/zones 2>/dev/null || true
+    chmod 755 /var/named /etc/bind/zones 2>/dev/null || true
     cp /etc/named.conf /etc/named.conf.backup 2>/dev/null || true
 
     cat << EOF > /etc/named.conf
@@ -864,7 +921,7 @@ EOF
             if [[ -z "$CURRENT_MEM" || "$CURRENT_MEM" -lt 512 ]]; then
                 sed -i 's/^memory_limit = .*/memory_limit = 512M/' "$PHP_FPM_INI"
             fi
-            ok "PHP ini tuned at $PHP_FPM_INI: upload=256M post=256M exec=600s"
+            success_msg "PHP ini tuned at $PHP_FPM_INI: upload=256M post=256M exec=600s"
             break
         fi
     done
@@ -879,7 +936,7 @@ EOF
             echo 'php_admin_value[max_execution_time] = 600'    >> "$PHP_FPM_POOL"
         grep -q '^php_admin_value\[memory_limit\]' "$PHP_FPM_POOL" || \
             echo 'php_admin_value[memory_limit] = 512M'         >> "$PHP_FPM_POOL"
-        ok "PHP-FPM www pool tuned"
+        success_msg "PHP-FPM www pool tuned"
     fi
 
     # ── Deploy VoidPanel SSO gateway for phpMyAdmin ───────────────────────────
@@ -1131,6 +1188,7 @@ EOF
     touch /etc/dovecot/users
     chown vmail:vmail /etc/dovecot/users
     chmod 660 /etc/dovecot/users
+    usermod -aG vmail nginx 2>/dev/null || usermod -aG vmail www-data 2>/dev/null || true
 
     # ── OpenDKIM configuration ─────────────────────────────────────────────────
     status_msg "Configuring OpenDKIM"
@@ -1143,11 +1201,13 @@ Mode                    sv
 Socket                  inet:8891@127.0.0.1
 PidFile                 /run/opendkim/opendkim.pid
 OversignHeaders         From
-TrustAnchorFile         /usr/share/dns/root.key
+# TrustAnchorFile         /usr/share/dns/root.key
+UserID                  opendkim
 
-KeyTable                /etc/opendkim/KeyTable
-SigningTable            refile:/etc/opendkim/SigningTable
-TrustedHosts            /etc/opendkim/TrustedHosts
+# KeyTable                /etc/opendkim/KeyTable
+# SigningTable            refile:/etc/opendkim/SigningTable
+ExternalIgnoreList      refile:/etc/opendkim/TrustedHosts
+InternalHosts          refile:/etc/opendkim/TrustedHosts
 EOF
 
     # Create empty OpenDKIM tables if they don't exist
@@ -1156,8 +1216,10 @@ EOF
     echo "localhost" >> /etc/opendkim/TrustedHosts
 
     # Set proper ownership and permissions
-    chown -R opendkim:opendkim /etc/opendkim
-    chmod -R 700 /etc/opendkim
+    chown -R opendkim:nginx /etc/opendkim
+    chmod 750 /etc/opendkim
+    chmod 750 /etc/opendkim/keys
+    chmod 640 /etc/opendkim/KeyTable /etc/opendkim/SigningTable /etc/opendkim/TrustedHosts
 
     # Create voidemail wrapper script for API v2
     cat > /usr/bin/voidemail <<'EOF'
@@ -1363,8 +1425,8 @@ dockersetup() {
 # --- 10. Service Orchestration ---
 final_restart() {
     status_msg "Synchronizing System Services"
-    systemctl restart nginx uwsgi php-fpm mariadb named vsftpd postfix dovecot docker voidpanel-wa 2>/dev/null || true
-    systemctl enable nginx uwsgi php-fpm mariadb named vsftpd postfix dovecot docker voidpanel-wa 2>/dev/null || true
+    systemctl restart nginx voidpanel php-fpm mariadb named vsftpd postfix dovecot docker voidpanel-wa 2>/dev/null || true
+    systemctl enable nginx voidpanel php-fpm mariadb named vsftpd postfix dovecot docker voidpanel-wa 2>/dev/null || true
     success_msg "All Services Synchronized"
 }
 
@@ -1435,7 +1497,7 @@ EOF
 }
 
 install_main_system() {
-    status_msg "VoidPanel Enterprise Pipeline Starting (AlmaLinux/RHEL)"
+    status_msg "VoidPanel v2.5.37 — Enterprise Pipeline Starting (AlmaLinux/RHEL)"
 
     configure_php_fpm
     panelsetup
