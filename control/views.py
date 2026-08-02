@@ -8574,14 +8574,25 @@ def suite_sub_toggle(request, sub_id):
 #  Set SUITE_API_KEY = 'your-secret-key' in panel/settings.py
 #
 def _suite_api_auth(request):
-    """Return True if the request carries a valid API key."""
+    """Return True if the request carries a valid API key.
+    
+    Accepts either the dedicated SUITE_API_KEY or the main
+    VOIDPANEL_API_KEY (which the website already stores per-server).
+    """
     from django.conf import settings
-    key = getattr(settings, 'SUITE_API_KEY', None)
-    if not key:
-        # If no key configured, reject all external API calls
-        return False
     import hmac as _hmac
-    return _hmac.compare_digest(request.headers.get('X-Suite-API-Key', ''), key)
+    provided = request.headers.get('X-Suite-API-Key', '')
+    if not provided:
+        return False
+    # Check dedicated suite key first
+    suite_key = getattr(settings, 'SUITE_API_KEY', None)
+    if suite_key and _hmac.compare_digest(provided, suite_key):
+        return True
+    # Fall back to the main provisioning key (website stores this per-server)
+    main_key = getattr(settings, 'VOIDPANEL_API_KEY', None)
+    if main_key and _hmac.compare_digest(provided, main_key):
+        return True
+    return False
 
 
 def suite_api_plans(request):

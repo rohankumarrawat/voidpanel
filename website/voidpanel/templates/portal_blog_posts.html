@@ -1,0 +1,127 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My Blog Posts | Client Portal | VoidPanel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css">
+    <style>
+        .portal-page { min-height: 100vh; padding: 80px 0 48px; background: #07101a; }
+        .b-container { max-width: 960px; margin: 0 auto; padding: 20px; }
+
+        .page-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+        .page-hdr h1 { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin: 0; }
+        .btn-write {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 11px 22px; border-radius: 10px;
+            font-weight: 700; font-size: 0.88rem;
+            background: #59c4bc; color: #021f15;
+            border: none; cursor: pointer; text-decoration: none;
+            transition: all 0.2s;
+        }
+        .btn-write:hover { background: #4db3a8; transform: translateY(-1px); }
+
+        .blog-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+        @media(max-width:640px) { .blog-stats { grid-template-columns: repeat(2, 1fr); } }
+        .blog-stat {
+            background: rgba(11,18,30,0.8); border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 14px; padding: 18px 16px; text-align: center;
+        }
+        .blog-stat-val { font-size: 1.6rem; font-weight: 900; color: var(--text-primary); }
+        .blog-stat-lbl { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; margin-top: 4px; }
+
+        .b-card {
+            background: rgba(11,18,30,0.8); border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 18px; overflow: hidden;
+        }
+        .b-card-hdr { padding: 16px 24px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .b-card-hdr h3 { font-size: 1rem; font-weight: 800; color: var(--text-primary); margin: 0; }
+
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 12px 16px; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        td { padding: 14px 16px; font-size: 0.88rem; color: var(--text-secondary); border-bottom: 1px solid rgba(255,255,255,0.04); }
+
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; }
+        .badge.pending { background: rgba(251,191,36,0.12); color: #fbbf24; }
+        .badge.published { background: rgba(34,197,94,0.12); color: #4ade80; }
+        .badge.rejected { background: rgba(239,68,68,0.12); color: #f87171; }
+        .badge.draft { background: rgba(148,163,184,0.12); color: #94a3b8; }
+
+        .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+    </style>
+</head>
+<body>
+{% include 'header.html' %}
+
+<main class="portal-page">
+    <div class="b-container">
+        <div class="page-hdr">
+            <h1><i class="fas fa-pen-nib" style="color:#59c4bc;margin-right:8px;"></i> My Blog Posts</h1>
+            <a href="/portal/blog/write/" class="btn-write"><i class="fas fa-plus"></i> Write New Post</a>
+        </div>
+
+        <div class="blog-stats">
+            <div class="blog-stat">
+                <div class="blog-stat-val">{{ blog_stats.total|default:"0" }}</div>
+                <div class="blog-stat-lbl">Total Posts</div>
+            </div>
+            <div class="blog-stat">
+                <div class="blog-stat-val" style="color:#fbbf24;">{{ blog_stats.pending|default:"0" }}</div>
+                <div class="blog-stat-lbl">Pending Review</div>
+            </div>
+            <div class="blog-stat">
+                <div class="blog-stat-val" style="color:#4ade80;">{{ blog_stats.published|default:"0" }}</div>
+                <div class="blog-stat-lbl">Published</div>
+            </div>
+            <div class="blog-stat">
+                <div class="blog-stat-val" style="color:#f87171;">{{ blog_stats.rejected|default:"0" }}</div>
+                <div class="blog-stat-lbl">Rejected</div>
+            </div>
+        </div>
+
+        <div class="b-card">
+            <div class="b-card-hdr"><h3>All Submissions</h3></div>
+            {% if user_posts %}
+            <table>
+                <thead>
+                    <tr><th>Title</th><th>Status</th><th>Submitted</th><th>Published</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                    {% for post in user_posts %}
+                    <tr>
+                        <td><strong style="color:var(--text-primary);">{{ post.title|truncatewords:10 }}</strong></td>
+                        <td>
+                            {% if post.status == 'published' %}<span class="badge published">Published</span>
+                            {% elif post.status == 'pending_approval' %}<span class="badge pending">Pending</span>
+                            {% elif post.status == 'rejected' %}<span class="badge rejected">Rejected</span>
+                            {% else %}<span class="badge draft">Draft</span>{% endif %}
+                        </td>
+                        <td>{{ post.created_at|date:"M d, Y" }}</td>
+                        <td>{% if post.published_at %}{{ post.published_at|date:"M d, Y" }}{% else %}—{% endif %}</td>
+                        <td>
+                            {% if post.status == 'published' %}
+                            <a href="/blog/{{ post.slug }}/" target="_blank" style="color:#59c4bc;text-decoration:none;font-size:0.82rem;"><i class="fas fa-external-link"></i> View</a>
+                            {% else %}—{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-pen-fancy" style="font-size:2.5rem;margin-bottom:16px;display:block;"></i>
+                <h3 style="font-size:1.15rem;font-weight:800;margin:0 0 8px;">No blog posts yet</h3>
+                <p>Start writing to share your expertise!</p>
+                <a href="/portal/blog/write/" class="btn-write" style="margin-top:16px;font-size:0.82rem;padding:10px 20px;"><i class="fas fa-plus"></i> Write Your First Post</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</main>
+
+{% include 'footer.html' %}
+</body>
+</html>

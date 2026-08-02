@@ -61,6 +61,7 @@ urlpatterns = [
 
     # ── Client Portal ──────────────────────────────────────────────────────────
     path('portal/', views.portal),
+    path('portal/blog/', views.portal_blog_posts),
     path('portal/blog/write/', views.portal_blog_write),
     path('portal/ticket/new/', views.portal_ticket_new, name='portal_ticket_new'),
     path('portal/service/<int:service_id>/wordpress/',        views.portal_manage_wordpress,  name='portal_manage_wordpress'),
@@ -79,6 +80,9 @@ urlpatterns = [
     path('portal/license/<int:license_id>/',          views.portal_license_detail, name='portal_license_detail'),
     path('portal/license/<int:license_id>/remote-install/start/', views.portal_remote_install_start, name='portal_remote_install_start'),
     path('portal/license/<int:license_id>/remote-install/status/<int:job_id>/', views.portal_remote_install_status, name='portal_remote_install_status'),
+
+    # ── SaaS External Provisioning API ──────────────────────────────────────
+    path('api/v1/saas/client/create/', views.api_saas_client_create),
 
     # ── SSO Token Validation (called by VoidPanel panel server) ───────────
     path('api/sso/validate/', views.api_sso_validate, name='api_sso_validate'),
@@ -228,10 +232,11 @@ urlpatterns = [
     path('khatabook/configure/<str:package_id>/',   views.khatabook_configure,    name='khatabook_configure'),
     path('khatabook/checkout/',                     views.khatabook_checkout,     name='khatabook_checkout'),
 
-    # ── Lead Generator SaaS — Public Landing, Configure & Checkout ────
+    # ── Lead Generator SaaS — Public Landing, Buy Flow & Checkout ────────────
     path('lead-generator/',                              views.lead_generator_pricing_page, name='lead_generator_pricing'),
     path('lead-generator/configure/<str:package_id>/',   views.lead_generator_configure,    name='lead_generator_configure'),
     path('lead-generator/checkout/',                     views.lead_generator_checkout,      name='lead_generator_checkout'),
+
 ]
 
 if settings.DEBUG:

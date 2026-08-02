@@ -74,3 +74,13 @@ class ErpCrmOrderAdmin(admin.ModelAdmin):
     list_filter = ('status', 'package_name')
     search_fields = ('company_name', 'subdomain', 'user__username', 'admin_email')
 
+from .models import LoginAttempt
+
+@admin.register(LoginAttempt)
+class LoginAttemptAdmin(admin.ModelAdmin):
+    list_display = ('ip_address', 'identity', 'succeeded', 'created_at', 'user_agent')
+    list_filter = ('succeeded', 'created_at')
+    search_fields = ('ip_address', 'identity', 'user_agent')
+    readonly_fields = ('ip_address', 'identity', 'user_agent', 'succeeded', 'created_at')
+    ordering = ('-created_at',)
+    date_hierarchy = 'created_at'

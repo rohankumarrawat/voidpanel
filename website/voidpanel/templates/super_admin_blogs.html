@@ -119,4 +119,76 @@
         </tbody>
     </table>
 </div>
+
+<!-- ── Category Management ─────────────────────────────────────────────── -->
+<div class="sa-card" style="margin-top:24px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div>
+            <div style="font-weight:700;font-size:1rem;color:var(--text-1);display:flex;align-items:center;gap:8px;">
+                <i class="fas fa-folder-open" style="color:var(--amber-2);"></i> Blog Categories
+            </div>
+            <div style="font-size:0.82rem;color:var(--text-3);margin-top:2px;">Create and manage blog categories</div>
+        </div>
+    </div>
+
+    <!-- Create new category -->
+    <form method="POST" style="display:flex;gap:10px;margin-bottom:20px;align-items:flex-end;">
+        {% csrf_token %}
+        <input type="hidden" name="cat_action" value="create_category">
+        <div style="flex:1;">
+            <label style="display:block;font-size:0.72rem;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">New Category Name</label>
+            <input type="text" name="cat_name" placeholder="e.g. DevOps, Tutorials, News..." required
+                   style="width:100%;padding:10px 14px;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;color:var(--text-1);font-size:0.88rem;font-family:inherit;outline:none;">
+        </div>
+        <button type="submit" class="sa-btn green" style="height:40px;white-space:nowrap;">
+            <i class="fas fa-plus"></i> Add Category
+        </button>
+    </form>
+
+    <!-- Categories list -->
+    {% if categories %}
+    <table class="sa-table" style="border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+        <thead>
+            <tr>
+                <th>Category Name</th>
+                <th>Slug</th>
+                <th>Posts</th>
+                <th>Created</th>
+                <th style="width:80px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cat in categories %}
+            <tr>
+                <td style="font-weight:600;color:var(--text-1);">
+                    <i class="fas fa-tag" style="color:var(--amber-2);margin-right:6px;font-size:0.75rem;"></i>
+                    {{ cat.name }}
+                </td>
+                <td style="font-size:0.82rem;color:var(--text-3);font-family:monospace;">{{ cat.slug }}</td>
+                <td>
+                    <span class="sa-badge sm">{{ cat.posts.count }} post{{ cat.posts.count|pluralize }}</span>
+                </td>
+                <td style="font-size:0.82rem;color:var(--text-3);">{{ cat.created_at|date:"M d, Y" }}</td>
+                <td>
+                    <form method="POST" style="display:inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="cat_action" value="delete_category">
+                        <input type="hidden" name="cat_id" value="{{ cat.id }}">
+                        <button type="submit" class="sa-btn sm red" title="Delete category"
+                                onclick="return confirm('Delete category \'{{ cat.name }}\'? Posts in this category will become uncategorized.')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="text-align:center;padding:30px;color:var(--text-3);">
+        <i class="fas fa-folder-open" style="font-size:1.5rem;margin-bottom:8px;display:block;color:var(--text-3);opacity:0.5;"></i>
+        No categories yet. Create one above to get started.
+    </div>
+    {% endif %}
+</div>
 {% endblock %}

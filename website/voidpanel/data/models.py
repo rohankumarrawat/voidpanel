@@ -3508,6 +3508,7 @@ class KhataBookOrder(models.Model):
     business_name  = models.CharField(max_length=150)
     owner_username = models.CharField(max_length=80)
     owner_email    = models.EmailField()
+    owner_phone    = models.CharField(max_length=20, blank=True, default='')
     owner_password = models.CharField(max_length=128)
     billing_cycle  = models.CharField(max_length=20, default='monthly')
     price          = models.DecimalField(max_digits=10, decimal_places=2)
@@ -3524,7 +3525,7 @@ class KhataBookOrder(models.Model):
         return f"KhataBookOrder #{self.id} — {self.business_name} — {self.status}"
 
 
-# ── Lead Generator SaaS ─────────────────────────────────────────────────────
+# ── Lead Generator SaaS (leads.voidonyx.in) ─────────────────────────────────
 
 class LeadGenService(models.Model):
     """
@@ -3580,6 +3581,7 @@ class LeadGenService(models.Model):
 class LeadGenOrder(models.Model):
     """
     Pending Lead Generator order created at checkout, before payment.
+    Converted to LeadGenService on payment confirmation.
     """
     STATUS_CHOICES = [
         ('pending_payment', 'Pending Payment'),
@@ -3619,3 +3621,122 @@ class LeadGenOrder(models.Model):
         return f"LeadGenOrder #{self.id} — {self.business_name} — {self.status}"
 
 
+class LoginAttempt(models.Model):
+    """
+    Database-backed brute-force protection.
+    Tracks every failed login attempt by IP and by identity (email/username).
+    Reliable across multiple uWSGI workers (unlike LocMemCache).
+    """
+    ip_address  = models.GenericIPAddressField(db_index=True)
+    identity    = models.CharField(max_length=255, blank=True, db_index=True,
+                                   help_text="The email/username attempted")
+    user_agent  = models.CharField(max_length=512, blank=True)
+    succeeded   = models.BooleanField(default=False)
+    created_at  = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Login Attempt'
+        indexes = [
+            models.Index(fields=['ip_address', 'created_at']),
+            models.Index(fields=['identity', 'created_at']),
+        ]
+
+    # ── Thresholds ──
+    IP_MAX_FAILS       = 8          # Max failures per IP in window
+    ACCOUNT_MAX_FAILS  = 5          # Max failures per account in window
+    WINDOW_MINUTES     = 15         # Rolling window
+    HARD_LOCK_FAILS    = 20         # Hard lock after this many total fails
+    HARD_LOCK_MINUTES  = 60         # Hard lock duration
+    CAPTCHA_THRESHOLD  = 3          # Show CAPTCHA after this many failures
+
+    @classmethod
+    def _cutoff(cls, minutes=None):
+        from django.utils import timezone
+        import datetime
+        m = minutes or cls.WINDOW_MINUTES
+        return timezone.now() - datetime.timedelta(minutes=m)
+
+    @classmethod
+    def get_ip_fail_count(cls, ip):
+        return cls.objects.filter(
+            ip_address=ip, succeeded=False,
+            created_at__gte=cls._cutoff()
+        ).count()
+
+    @classmethod
+    def get_account_fail_count(cls, identity):
+        if not identity:
+            return 0
+        return cls.objects.filter(
+            identity__iexact=identity, succeeded=False,
+            created_at__gte=cls._cutoff()
+        ).count()
+
+    @classmethod
+    def is_ip_locked(cls, ip):
+        """Check if IP is locked (normal or hard lock)."""
+        # Hard lock check
+        hard_count = cls.objects.filter(
+            ip_address=ip, succeeded=False,
+            created_at__gte=cls._cutoff(cls.HARD_LOCK_MINUTES)
+        ).count()
+        if hard_count >= cls.HARD_LOCK_FAILS:
+            return True, cls.HARD_LOCK_MINUTES
+        # Normal lock check
+        normal_count = cls.get_ip_fail_count(ip)
+        if normal_count >= cls.IP_MAX_FAILS:
+            return True, cls.WINDOW_MINUTES
+        return False, 0
+
+    @classmethod
+    def is_account_locked(cls, identity):
+        if not identity:
+            return False
+        return cls.get_account_fail_count(identity) >= cls.ACCOUNT_MAX_FAILS
+
+    @classmethod
+    def needs_captcha(cls, ip, identity=''):
+        """Returns True if CAPTCHA should be shown."""
+        ip_fails = cls.get_ip_fail_count(ip)
+        if ip_fails >= cls.CAPTCHA_THRESHOLD:
+            return True
+        if identity:
+            acc_fails = cls.get_account_fail_count(identity)
+            if acc_fails >= cls.CAPTCHA_THRESHOLD:
+                return True
+        return False
+
+    @classmethod
+    def record(cls, ip, identity='', user_agent='', succeeded=False):
+        cls.objects.create(
+            ip_address=ip,
+            identity=identity.lower().strip() if identity else '',
+            user_agent=user_agent[:512] if user_agent else '',
+            succeeded=succeeded,
+        )
+
+    @classmethod
+    def clear_on_success(cls, ip, identity):
+        """On successful login, delete recent failed attempts for this IP+account."""
+        cls.objects.filter(
+            ip_address=ip, succeeded=False,
+            created_at__gte=cls._cutoff()
+        ).delete()
+        if identity:
+            cls.objects.filter(
+                identity__iexact=identity, succeeded=False,
+                created_at__gte=cls._cutoff()
+            ).delete()
+
+    @classmethod
+    def cleanup_old(cls, days=7):
+        """Delete entries older than N days (run periodically)."""
+        from django.utils import timezone
+        import datetime
+        cutoff = timezone.now() - datetime.timedelta(days=days)
+        cls.objects.filter(created_at__lt=cutoff).delete()
+
+    def __str__(self):
+        status = '✓' if self.succeeded else '✗'
+        return f"[{status}] {self.ip_address} → {self.identity} @ {self.created_at:%Y-%m-%d %H:%M}"

@@ -287,6 +287,66 @@ body {
 }
 .af-trust-item { display: flex; align-items: center; gap: 5px; font-size: 0.72rem; color: #94a3b8; font-weight: 600; }
 .af-trust-item i { color: #f59e0b; font-size: 0.65rem; }
+
+/* Lockout box */
+.af-lockout-box {
+  background: linear-gradient(135deg, #fef2f2, #fff7ed);
+  border: 1.5px solid #fecaca;
+  border-radius: 14px;
+  padding: 24px 22px;
+  text-align: center;
+  margin-bottom: 22px;
+}
+.af-lockout-icon {
+  width: 48px; height: 48px;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border-radius: 14px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 1.2rem;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 16px rgba(239,68,68,0.3);
+  animation: lockPulse 2s ease-in-out infinite;
+}
+@keyframes lockPulse {
+  0%, 100% { box-shadow: 0 4px 16px rgba(239,68,68,0.3); }
+  50% { box-shadow: 0 4px 24px rgba(239,68,68,0.5); }
+}
+.af-lockout-title {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 1rem; font-weight: 800; color: #991b1b;
+  margin-bottom: 6px;
+}
+.af-lockout-text { font-size: 0.82rem; color: #b91c1c; line-height: 1.5; margin-bottom: 14px; }
+.af-lockout-timer {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 0.88rem; font-weight: 700; color: #dc2626;
+  margin-bottom: 12px;
+}
+.af-lockout-bar {
+  width: 100%; height: 4px; background: #fecaca; border-radius: 2px;
+  overflow: hidden; margin-bottom: 14px;
+}
+.af-lockout-bar-fill {
+  height: 100%; background: linear-gradient(90deg, #ef4444, #f59e0b);
+  border-radius: 2px; transition: width 1s linear;
+  width: 100%;
+}
+.af-lockout-link {
+  font-size: 0.82rem; color: #d97706; font-weight: 700;
+  text-decoration: none; display: inline-flex; align-items: center; gap: 5px;
+}
+.af-lockout-link:hover { color: #f59e0b; }
+
+/* CAPTCHA notice */
+.af-captcha-notice {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; border-radius: 10px;
+  background: #fffbeb; border: 1px solid #fde68a;
+  font-size: 0.78rem; color: #92400e; font-weight: 600;
+  margin-bottom: 14px;
+}
+.af-captcha-notice i { color: #d97706; }
 </style>
 </head>
 <body>
@@ -408,6 +468,20 @@ document.addEventListener('DOMContentLoaded', () => {
       {% endfor %}
     {% endif %}
 
+    {% if ip_locked or account_locked %}
+    <div class="af-lockout-box">
+      <div class="af-lockout-icon"><i class="fas fa-shield-halved"></i></div>
+      <div class="af-lockout-title">Account Temporarily Locked</div>
+      <div class="af-lockout-text">Too many failed login attempts detected. This is a security measure to protect your account.</div>
+      <div class="af-lockout-timer">
+        <i class="fas fa-clock"></i>
+        Try again in <span id="lockoutTimer">15:00</span>
+      </div>
+      <div class="af-lockout-bar"><div class="af-lockout-bar-fill" id="lockoutBar"></div></div>
+      <a href="/forgot-password/" class="af-lockout-link"><i class="fas fa-key"></i> Reset your password instead</a>
+    </div>
+    {% endif %}
+
     <form method="post" action="/login/" id="login-form" novalidate>
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ request.GET.next }}">
@@ -418,7 +492,8 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="af-input-wrap">
           <i class="fas fa-envelope af-icon"></i>
           <input type="email" id="id-email" name="email" class="af-input"
-            placeholder="you@company.com" required autocomplete="email">
+            placeholder="you@company.com" required autocomplete="email"
+            {% if ip_locked or account_locked %}disabled{% endif %}>
         </div>
       </div>
 
@@ -431,14 +506,25 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="af-input-wrap">
           <i class="fas fa-lock af-icon"></i>
           <input type="password" id="id-password" name="password" class="af-input"
-            placeholder="Enter your password" required autocomplete="current-password">
+            placeholder="Enter your password" required autocomplete="current-password"
+            {% if ip_locked or account_locked %}disabled{% endif %}>
           <button type="button" class="af-toggle-pw" onclick="togglePw('id-password', this)" tabindex="-1">
             <i class="fas fa-eye"></i>
           </button>
         </div>
       </div>
 
-      <button type="submit" class="af-btn" id="login-submit-btn">
+      {% if show_captcha %}
+      <!-- reCAPTCHA v3 hidden token -->
+      <input type="hidden" name="g-recaptcha-response" id="recaptchaToken">
+      <div class="af-captcha-notice">
+        <i class="fas fa-robot"></i>
+        <span>Security verification active — powered by reCAPTCHA</span>
+      </div>
+      {% endif %}
+
+      <button type="submit" class="af-btn" id="login-submit-btn"
+        {% if ip_locked or account_locked %}disabled style="opacity:0.5;cursor:not-allowed;"{% endif %}>
         <i class="fas fa-right-to-bracket"></i> Log In to VoidOnyx
       </button>
     </form>
@@ -472,6 +558,49 @@ function togglePw(inputId, btn) {
     icon.className = 'fas fa-eye';
   }
 }
+}
+
+// ── Lockout countdown timer ──
+var timerEl = document.getElementById('lockoutTimer');
+var barEl = document.getElementById('lockoutBar');
+if (timerEl) {
+  var totalSec = 15 * 60;
+  var remaining = totalSec;
+  function updateTimer() {
+    var m = Math.floor(remaining / 60);
+    var s = remaining % 60;
+    timerEl.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+    if (barEl) barEl.style.width = ((remaining / totalSec) * 100) + '%';
+    if (remaining <= 0) {
+      window.location.reload();
+      return;
+    }
+    remaining--;
+    setTimeout(updateTimer, 1000);
+  }
+  updateTimer();
+}
 </script>
+
+{% if show_captcha %}
+<!-- reCAPTCHA v3 (invisible, only loads when needed) -->
+<script src="https://www.google.com/recaptcha/api.js?render=6LfEOHAtAAAAAIYlU6zyC3oSK17gWbfREIUBHp5l" async defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var form = document.getElementById('login-form');
+  if (form && typeof grecaptcha !== 'undefined') {
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      grecaptcha.ready(function() {
+        grecaptcha.execute('6LfEOHAtAAAAAIYlU6zyC3oSK17gWbfREIUBHp5l', {action: 'login'}).then(function(token) {
+          document.getElementById('recaptchaToken').value = token;
+          form.submit();
+        });
+      });
+    });
+  }
+});
+</script>
+{% endif %}
 </body>
 </html>

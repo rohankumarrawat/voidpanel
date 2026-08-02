@@ -85,10 +85,8 @@ def api_response(data=None, error=None, status=200):
     if error is not None:
         body['error'] = error
     resp = JsonResponse(body, status=status)
-    # CORS headers for Flutter app
-    resp['Access-Control-Allow-Origin'] = '*'
-    resp['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
-    resp['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    # No CORS wildcard — this API is consumed by native Flutter apps only.
+    # Specific origins can be added here if a web frontend is needed later.
     return resp
 
 

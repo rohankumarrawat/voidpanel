@@ -199,6 +199,8 @@ KHATABOOK_PROVISION_KEY = os.environ.get('KHATABOOK_PROVISION_KEY', 'voidonyx-kh
 LEADGEN_API_URL = os.environ.get('LEADGEN_API_URL', 'https://leads.voidonyx.in')
 LEADGEN_PROVISION_KEY = os.environ.get('LEADGEN_PROVISION_KEY', 'voidonyx-leads-provision-2026-secret')
 
+
+
 # ── Login Security (django-axes) ─────────────────────────────────────────────
 # pip install django-axes (add 'axes' to INSTALLED_APPS, AxesMiddleware to MIDDLEWARE)
 AXES_FAILURE_LIMIT = 5              # Lock after 5 failed attempts
@@ -214,3 +216,7 @@ ALLOWED_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'}
 # Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 # Set FERNET_KEY env var on production server. Without it, passwords are base64-only (not secure).
 FERNET_KEY = os.environ.get('FERNET_KEY', '')
+
+# ── Google reCAPTCHA v3 (brute-force protection on login) ─────────────────────
+RECAPTCHA_SITE_KEY = '6LfEOHAtAAAAAIYlU6zyC3oSK17gWbfREIUBHp5l'
+RECAPTCHA_SECRET_KEY = '6LfEOHAtAAAAAOTSoiwLYxM9yT5IlDja8ydmtLI0'

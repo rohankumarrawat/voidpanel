@@ -1,0 +1,548 @@
+{% load static %}
+{% load currency_tags %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Write a Blog — VoidOnyx</title>
+<meta name="description" content="Write and submit a blog post on VoidOnyx.">
+<link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+<link rel="stylesheet" href="{% static 'voidonyx/voidonyx.css' %}">
+
+<!-- Quill Rich Text Editor -->
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Inter', system-ui, sans-serif; background: #f8fafc; color: #0f172a; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+a { text-decoration: none; color: inherit; }
+
+.portal-main { padding: 28px 32px 60px; overflow-y: auto; }
+@media (max-width: 768px) { .portal-main { padding: 18px 16px 48px; } }
+
+/* Page header */
+.ph { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+.ph-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.55rem; font-weight: 800; color: #0f172a; letter-spacing: -0.03em; display: flex; align-items: center; gap: 10px; }
+.ph-title i { color: #f59e0b; font-size: 1.2rem; }
+.ph-sub { font-size: 0.82rem; color: #64748b; margin-top: 3px; }
+
+/* Breadcrumb */
+.back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 600; color: #64748b; margin-bottom: 16px; transition: color 0.15s; }
+.back-link:hover { color: #f59e0b; }
+
+/* Buttons */
+.p-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border-radius: 9px; font-size: 0.78rem; font-weight: 700; cursor: pointer; border: none; transition: all 0.14s; text-decoration: none; font-family: 'Plus Jakarta Sans', sans-serif; }
+.p-btn-primary { background: linear-gradient(135deg,#f59e0b,#ea580c); color: #fff; box-shadow: 0 2px 10px rgba(245,158,11,0.3); }
+.p-btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+.p-btn-ghost { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+.p-btn-ghost:hover { background: #e2e8f0; }
+
+/* Messages */
+.msg-bar { padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.msg-bar.success { background: #dcfce7; border: 1px solid #bbf7d0; color: #15803d; }
+.msg-bar.error   { background: #fee2e2; border: 1px solid #fecaca; color: #dc2626; }
+
+/* Write Layout — 2 columns */
+.write-layout { display: grid; grid-template-columns: 1fr 340px; gap: 20px; align-items: start; }
+@media (max-width: 1024px) { .write-layout { grid-template-columns: 1fr; } }
+
+/* Card */
+.p-card { background: #fff; border: 1px solid #e8edf2; border-radius: 16px; padding: 24px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
+.p-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid #f1f5f9; }
+.p-card-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.88rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 7px; }
+.p-card-title i { color: #f59e0b; font-size: 0.8rem; }
+
+/* Form fields */
+.f-group { margin-bottom: 18px; }
+.f-group:last-child { margin-bottom: 0; }
+.f-label { display: block; font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+.f-hint { font-size: 0.72rem; color: #94a3b8; font-weight: 500; margin-top: 4px; }
+.f-input {
+  width: 100%; padding: 10px 14px;
+  background: #fff; border: 1px solid #e2e8f0;
+  border-radius: 10px; color: #0f172a;
+  font-size: 0.9rem; font-family: inherit;
+  outline: none; transition: all 0.2s;
+}
+.f-input:focus { border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,0.1); }
+.f-input::placeholder { color: #94a3b8; }
+select.f-input { cursor: pointer; }
+textarea.f-input { resize: vertical; min-height: 80px; }
+
+.f-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media(max-width:640px) { .f-row { grid-template-columns: 1fr; } }
+
+/* Title input — large */
+.f-input-title {
+  width: 100%; padding: 14px 18px;
+  background: #fff; border: 1px solid #e2e8f0;
+  border-radius: 12px; color: #0f172a;
+  font-size: 1.25rem; font-weight: 700;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  outline: none; transition: all 0.2s;
+  letter-spacing: -0.01em;
+}
+.f-input-title:focus { border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,0.1); }
+.f-input-title::placeholder { color: #cbd5e1; font-weight: 600; }
+
+/* Slug field */
+.slug-row { display: flex; align-items: center; gap: 0; margin-top: 8px; }
+.slug-prefix {
+  background: #f8fafc; border: 1px solid #e2e8f0; border-right: none;
+  padding: 8px 12px; border-radius: 10px 0 0 10px;
+  font-size: 0.78rem; color: #94a3b8; font-weight: 600;
+  white-space: nowrap; user-select: all;
+}
+.slug-input {
+  flex: 1; padding: 8px 12px;
+  background: #fff; border: 1px solid #e2e8f0;
+  border-radius: 0 10px 10px 0; color: #0f172a;
+  font-size: 0.82rem; font-family: 'Plus Jakarta Sans', monospace;
+  font-weight: 600; outline: none; transition: all 0.2s;
+}
+.slug-input:focus { border-color: #f59e0b; }
+
+/* Image upload */
+.img-upload-zone {
+  border: 2px dashed #e2e8f0; border-radius: 12px;
+  padding: 24px 16px; text-align: center;
+  transition: all 0.2s; cursor: pointer;
+  background: #fafbfc;
+}
+.img-upload-zone:hover { border-color: #f59e0b; background: #fffbeb; }
+.img-upload-zone i { font-size: 1.5rem; color: #d97706; margin-bottom: 8px; display: block; }
+.img-upload-zone .upload-text { font-size: 0.82rem; font-weight: 600; color: #64748b; }
+.img-upload-zone .upload-hint { font-size: 0.72rem; color: #94a3b8; margin-top: 4px; }
+.img-upload-zone input[type="file"] { display: none; }
+.img-preview { max-width: 100%; max-height: 160px; border-radius: 8px; margin-top: 10px; display: none; object-fit: cover; }
+
+/* Tags input */
+.tag-container {
+  display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+  min-height: 42px; align-items: center; cursor: text;
+  transition: all 0.2s;
+}
+.tag-container:focus-within { border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,0.1); }
+.tag-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 999px;
+  background: #fef3c7; color: #92400e;
+  font-size: 0.75rem; font-weight: 600;
+}
+.tag-pill .tag-remove { cursor: pointer; font-size: 0.65rem; color: #b45309; transition: color 0.15s; }
+.tag-pill .tag-remove:hover { color: #dc2626; }
+.tag-input {
+  border: none; outline: none; background: transparent;
+  font-size: 0.82rem; color: #0f172a; font-family: inherit;
+  min-width: 120px; flex: 1;
+}
+.tag-input::placeholder { color: #94a3b8; }
+
+/* Quill styling — light theme */
+.ql-toolbar.ql-snow {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px 12px 0 0;
+  padding: 10px 12px;
+}
+.ql-container.ql-snow {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  color: #0f172a;
+  font-size: 1rem;
+  font-family: 'Inter', system-ui, sans-serif;
+  min-height: 400px;
+}
+.ql-editor { line-height: 1.8; padding: 18px 20px; }
+.ql-editor.ql-blank::before { color: #94a3b8; font-style: normal; }
+.ql-snow .ql-tooltip { background: #fff; border-color: #e2e8f0; color: #0f172a; box-shadow: 0 4px 20px rgba(0,0,0,0.1); border-radius: 8px; }
+.ql-snow .ql-tooltip input[type=text] { background: #f8fafc; border: 1px solid #e2e8f0; color: #0f172a; border-radius: 6px; }
+.ql-toolbar.ql-snow .ql-picker-options { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+
+/* SEO Preview */
+.seo-preview { padding: 18px; background: #f8fafc; border-radius: 12px; border: 1px solid #e8edf2; }
+.seo-preview-url { font-size: 0.78rem; color: #16a34a; font-weight: 500; margin-bottom: 4px; word-break: break-all; }
+.seo-preview-title { font-size: 1.05rem; color: #1a0dab; font-weight: 700; margin-bottom: 4px; cursor: pointer; line-height: 1.3; }
+.seo-preview-title:hover { text-decoration: underline; }
+.seo-preview-desc { font-size: 0.82rem; color: #64748b; line-height: 1.5; }
+
+/* Stats bar */
+.write-stats {
+  display: flex; gap: 16px; flex-wrap: wrap; padding: 12px 0; font-size: 0.75rem; color: #94a3b8; font-weight: 600;
+}
+.write-stats span { display: flex; align-items: center; gap: 5px; }
+.write-stats i { font-size: 0.7rem; color: #d97706; }
+
+/* Submission info */
+.info-alert {
+  display: flex; gap: 12px; padding: 14px 16px;
+  background: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #f59e0b;
+  border-radius: 12px; margin-bottom: 16px;
+}
+.info-alert i { color: #d97706; font-size: 1rem; margin-top: 2px; flex-shrink: 0; }
+.info-alert h4 { font-size: 0.82rem; font-weight: 700; color: #92400e; margin-bottom: 3px; }
+.info-alert p { font-size: 0.75rem; color: #b45309; line-height: 1.5; }
+
+/* Submit bar */
+.submit-bar {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+  padding: 20px 0; border-top: 1px solid #e8edf2; margin-top: 20px;
+}
+</style>
+</head>
+<body>
+
+{% if not request.user.is_authenticated %}
+<script>window.location.replace('/login/?next=/portal/blog/write/');</script>
+{% endif %}
+
+<div class="portal-layout">
+  {% include 'voidonyx/portal_sidebar.html' %}
+
+  <main class="portal-main">
+
+    <a href="/portal/blog/" class="back-link"><i class="fas fa-arrow-left"></i> Back to My Blogs</a>
+
+    {% for message in messages %}
+    <div class="msg-bar {% if message.tags == 'error' %}error{% else %}success{% endif %}">
+      <i class="fas {% if message.tags == 'error' %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}"></i>
+      {{ message }}
+    </div>
+    {% endfor %}
+
+    <!-- Page header -->
+    <div class="ph">
+      <div>
+        <div class="ph-title"><i class="fas fa-pen-fancy"></i> Write a Blog Post</div>
+        <div class="ph-sub">Create quality content for the VoidOnyx community. Posts are reviewed before going live.</div>
+      </div>
+    </div>
+
+    <form id="blogForm" method="POST" enctype="multipart/form-data">
+      {% csrf_token %}
+      <input type="hidden" name="content" id="realContent">
+      <input type="hidden" name="tags" id="realTags">
+
+      <div class="write-layout">
+
+        <!-- ═══ LEFT COLUMN: Main editor ═══ -->
+        <div>
+
+          <!-- Title -->
+          <div class="p-card">
+            <div class="f-group" style="margin-bottom:0;">
+              <input type="text" name="title" id="titleInput" class="f-input-title" required
+                     placeholder="Enter your blog post title..." autocomplete="off">
+              <!-- Slug -->
+              <div class="slug-row" id="slugRow" style="display:none;">
+                <span class="slug-prefix">voidonyx.in/blog/</span>
+                <input type="text" name="custom_slug" id="slugInput" class="slug-input"
+                       placeholder="auto-generated-slug">
+              </div>
+            </div>
+          </div>
+
+          <!-- Rich Text Editor -->
+          <div class="p-card">
+            <div class="p-card-head" style="margin-bottom:12px;">
+              <div class="p-card-title"><i class="fas fa-align-left"></i> Content</div>
+              <div class="write-stats" id="writeStats">
+                <span><i class="fas fa-font"></i> <span id="wordCount">0</span> words</span>
+                <span><i class="fas fa-clock"></i> <span id="readTime">0</span> min read</span>
+                <span><i class="fas fa-paragraph"></i> <span id="paraCount">0</span> paragraphs</span>
+              </div>
+            </div>
+            <div id="editor"></div>
+          </div>
+
+          <!-- SEO Card -->
+          <div class="p-card">
+            <div class="p-card-head">
+              <div class="p-card-title"><i class="fas fa-search"></i> SEO & Meta</div>
+            </div>
+
+            <div class="f-group">
+              <label class="f-label">Focus Keyword</label>
+              <input type="text" name="focus_keyword" id="focusKeyword" class="f-input"
+                     placeholder="e.g. web hosting, nginx optimization">
+              <div class="f-hint">The primary keyword you want this post to rank for</div>
+            </div>
+
+            <div class="f-group">
+              <label class="f-label">Meta Description</label>
+              <textarea name="meta_description" id="metaDesc" class="f-input" rows="3" maxlength="300"
+                        placeholder="A compelling 150-160 character description for search engines..."></textarea>
+              <div class="f-hint"><span id="metaCharCount">0</span>/160 characters (recommended)</div>
+            </div>
+
+            <div class="f-group">
+              <label class="f-label">Excerpt</label>
+              <textarea name="excerpt" id="excerptInput" class="f-input" rows="2" maxlength="500"
+                        placeholder="A brief summary shown on blog listing pages..."></textarea>
+              <div class="f-hint">If left empty, the first 160 characters of content will be used</div>
+            </div>
+
+            <!-- Google Preview -->
+            <label class="f-label" style="margin-bottom:10px;">Search Engine Preview</label>
+            <div class="seo-preview">
+              <div class="seo-preview-url" id="seoUrl">voidonyx.in/blog/<span id="seoSlug">your-post-slug</span>/</div>
+              <div class="seo-preview-title" id="seoTitle">Your Blog Post Title</div>
+              <div class="seo-preview-desc" id="seoDesc">Your meta description will appear here. Write a compelling description to improve click-through rates from search results.</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ═══ RIGHT COLUMN: Sidebar ═══ -->
+        <div>
+
+          <!-- Publish Box -->
+          <div class="p-card">
+            <div class="p-card-head">
+              <div class="p-card-title"><i class="fas fa-paper-plane"></i> Publish</div>
+            </div>
+            <div class="info-alert" style="margin-bottom:14px;">
+              <i class="fas fa-info-circle"></i>
+              <div>
+                <h4>Review Required</h4>
+                <p>All posts are submitted for admin review. You'll be notified once approved.</p>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <a href="/portal/blog/" class="p-btn p-btn-ghost" style="flex:1;justify-content:center;padding:10px;">Cancel</a>
+              <button type="submit" class="p-btn p-btn-primary" style="flex:2;justify-content:center;padding:10px 16px;font-size:0.85rem;">
+                <i class="fas fa-paper-plane"></i> Submit for Review
+              </button>
+            </div>
+          </div>
+
+          <!-- Category -->
+          <div class="p-card">
+            <div class="p-card-head">
+              <div class="p-card-title"><i class="fas fa-folder"></i> Category</div>
+            </div>
+            <div class="f-group" style="margin-bottom:0;">
+              <select name="category_id" class="f-input">
+                <option value="">— Select Category —</option>
+                {% for c in categories %}
+                <option value="{{ c.id }}">{{ c.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <!-- Tags -->
+          <div class="p-card">
+            <div class="p-card-head">
+              <div class="p-card-title"><i class="fas fa-tags"></i> Tags</div>
+            </div>
+            <div class="tag-container" id="tagContainer" onclick="document.getElementById('tagInputField').focus()">
+              <input type="text" class="tag-input" id="tagInputField"
+                     placeholder="Type and press Enter..."
+                     autocomplete="off">
+            </div>
+            <div class="f-hint" style="margin-top:6px;">Press Enter or comma to add tags. Click × to remove.</div>
+          </div>
+
+          <!-- Featured Image -->
+          <div class="p-card">
+            <div class="p-card-head">
+              <div class="p-card-title"><i class="fas fa-image"></i> Featured Image</div>
+            </div>
+            <div class="img-upload-zone" id="imgZone" onclick="document.getElementById('imgFile').click()">
+              <i class="fas fa-cloud-arrow-up"></i>
+              <div class="upload-text">Click to upload</div>
+              <div class="upload-hint">JPG, PNG, GIF, WebP • Max 5MB</div>
+              <input type="file" name="featured_image" id="imgFile" accept="image/*">
+              <img class="img-preview" id="imgPreview" alt="Preview">
+            </div>
+          </div>
+
+          <!-- Guidelines -->
+          <div class="p-card" style="background:#fffbeb;border-color:#fde68a;">
+            <div class="p-card-title" style="margin-bottom:10px;font-size:0.82rem;"><i class="fas fa-lightbulb"></i> Writing Tips</div>
+            <ul style="font-size:0.75rem;color:#92400e;line-height:1.7;padding-left:16px;margin:0;">
+              <li>Write original, well-researched content</li>
+              <li>Use headings (H2, H3) to structure your post</li>
+              <li>Include your focus keyword in the title</li>
+              <li>Keep meta descriptions under 160 characters</li>
+              <li>Add relevant tags for discoverability</li>
+              <li>Use images to enhance readability</li>
+            </ul>
+          </div>
+
+        </div>
+
+      </div><!-- /write-layout -->
+    </form>
+
+  </main>
+</div>
+
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<script>
+(function(){
+  // ── Quill Editor ──
+  var quill = new Quill('#editor', {
+    theme: 'snow',
+    placeholder: 'Start writing your blog post...\n\nTip: Use headings, lists, and images to make your content engaging.',
+    modules: {
+      toolbar: [
+        [{ 'header': [2, 3, 4, false] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        ['blockquote', 'code-block'],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        [{ 'indent': '-1'}, { 'indent': '+1' }],
+        ['link', 'image'],
+        [{ 'align': [] }],
+        ['clean']
+      ]
+    }
+  });
+
+  // ── Word / Reading time / Paragraph Counter ──
+  function updateStats() {
+    var text = quill.getText().trim();
+    var words = text ? text.split(/\s+/).filter(function(w){return w.length > 0}).length : 0;
+    var readMin = Math.max(1, Math.ceil(words / 200));
+    var paras = text ? text.split(/\n\n+/).filter(function(p){return p.trim().length > 0}).length : 0;
+    document.getElementById('wordCount').textContent = words;
+    document.getElementById('readTime').textContent = readMin;
+    document.getElementById('paraCount').textContent = paras;
+  }
+  quill.on('text-change', updateStats);
+
+  // ── Slug Generation ──
+  var titleInput = document.getElementById('titleInput');
+  var slugRow = document.getElementById('slugRow');
+  var slugInput = document.getElementById('slugInput');
+  var seoTitleEl = document.getElementById('seoTitle');
+  var seoSlugEl = document.getElementById('seoSlug');
+
+  function toSlug(str) {
+    return str.toLowerCase()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/[\s_]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .substring(0, 80);
+  }
+
+  titleInput.addEventListener('input', function() {
+    var val = this.value.trim();
+    if (val.length > 0) {
+      slugRow.style.display = 'flex';
+      slugInput.value = toSlug(val);
+      seoTitleEl.textContent = val + ' — VoidOnyx Blog';
+      seoSlugEl.textContent = toSlug(val);
+    } else {
+      slugRow.style.display = 'none';
+      seoTitleEl.textContent = 'Your Blog Post Title';
+      seoSlugEl.textContent = 'your-post-slug';
+    }
+  });
+
+  slugInput.addEventListener('input', function() {
+    var v = toSlug(this.value);
+    this.value = v;
+    seoSlugEl.textContent = v || 'your-post-slug';
+  });
+
+  // ── Meta Description Counter & SEO Preview ──
+  var metaDesc = document.getElementById('metaDesc');
+  var metaCharCount = document.getElementById('metaCharCount');
+  var seoDescEl = document.getElementById('seoDesc');
+
+  metaDesc.addEventListener('input', function() {
+    metaCharCount.textContent = this.value.length;
+    metaCharCount.style.color = this.value.length > 160 ? '#dc2626' : '#94a3b8';
+    if (this.value.trim()) {
+      seoDescEl.textContent = this.value.substring(0, 160);
+    } else {
+      seoDescEl.textContent = 'Your meta description will appear here. Write a compelling description to improve click-through rates.';
+    }
+  });
+
+  // ── Tags System ──
+  var tags = [];
+  var tagContainer = document.getElementById('tagContainer');
+  var tagInput = document.getElementById('tagInputField');
+  var realTags = document.getElementById('realTags');
+
+  function renderTags() {
+    var pills = tagContainer.querySelectorAll('.tag-pill');
+    pills.forEach(function(p) { p.remove(); });
+    tags.forEach(function(tag, i) {
+      var pill = document.createElement('span');
+      pill.className = 'tag-pill';
+      pill.innerHTML = tag + ' <span class="tag-remove" data-idx="'+i+'">&times;</span>';
+      tagContainer.insertBefore(pill, tagInput);
+    });
+    realTags.value = tags.join(', ');
+  }
+
+  function addTag(val) {
+    val = val.trim().toLowerCase();
+    if (val && tags.indexOf(val) === -1 && tags.length < 15) {
+      tags.push(val);
+      renderTags();
+    }
+  }
+
+  tagInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addTag(this.value);
+      this.value = '';
+    }
+    if (e.key === 'Backspace' && !this.value && tags.length > 0) {
+      tags.pop();
+      renderTags();
+    }
+  });
+
+  tagContainer.addEventListener('click', function(e) {
+    if (e.target.classList.contains('tag-remove')) {
+      var idx = parseInt(e.target.getAttribute('data-idx'));
+      tags.splice(idx, 1);
+      renderTags();
+    }
+  });
+
+  // ── Image Preview ──
+  var imgFile = document.getElementById('imgFile');
+  var imgPreview = document.getElementById('imgPreview');
+  var imgZone = document.getElementById('imgZone');
+
+  imgFile.addEventListener('change', function() {
+    if (this.files && this.files[0]) {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        imgPreview.src = e.target.result;
+        imgPreview.style.display = 'block';
+        imgZone.querySelector('.upload-text').textContent = 'Image selected';
+        imgZone.querySelector('i').className = 'fas fa-check-circle';
+      };
+      reader.readAsDataURL(this.files[0]);
+    }
+  });
+
+  // ── Form Submit ──
+  document.getElementById('blogForm').onsubmit = function() {
+    var html = quill.root.innerHTML;
+    if (html === '<p><br></p>' || html.trim() === '') {
+      alert('Please write some content before submitting.');
+      return false;
+    }
+    document.getElementById('realContent').value = html;
+    return true;
+  };
+})();
+</script>
+</body>
+</html>

@@ -28,7 +28,7 @@ def _get_backup_store(username):
     store = os.path.join(paths.HOME_BASE, str(username), '.backups')
     subprocess.run(['sudo', 'mkdir', '-p', store], check=False)
     subprocess.run(['sudo', 'chown', '-R', 'www-data:www-data', store], check=False)
-    subprocess.run(['sudo', 'chmod', '777', store], check=False)
+    subprocess.run(['sudo', 'chmod', '750', store], check=False)
     return store
 
 

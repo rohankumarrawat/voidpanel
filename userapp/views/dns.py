@@ -42,7 +42,6 @@ def api_dns_list(request):
         return api_response(data={
             'domain': ctrl_user.domain,
             'records': records,
-            'zone_file': zone_file,
         })
 
     except Domain.DoesNotExist:
