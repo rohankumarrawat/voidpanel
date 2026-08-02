@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     'chatting',
     'channels',
     'django_celery_beat',
+    'userapp',
 ]
 # Allow iframes only from same origin (needed for file manager, terminal embeds)
 X_FRAME_OPTIONS = 'SAMEORIGIN'

@@ -31,6 +31,7 @@ urlpatterns = [
     path('panel/',views.panel),
     path('control/',include('control.urls')),
     path('ai/',include('chatting.urls')),
+    path('api/v1/', include('userapp.urls')),
     path('terminal/',views.terminal),
     # path('domainterminal/',views.domainterminal),
      path('quicksetup/', views.quicksetup, name='quicksetup'),
