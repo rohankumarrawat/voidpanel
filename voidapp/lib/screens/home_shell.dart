@@ -5,7 +5,7 @@ import 'email_screen.dart';
 import 'ftp_screen.dart';
 import 'more_screen.dart';
 
-/// Main app shell with bottom navigation.
+/// Main app shell with bottom navigation matching VoidPanel design system (Images 1 & 2).
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
 
@@ -31,25 +31,55 @@ class _HomeShellState extends State<HomeShell> {
         children: _screens,
       ),
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: VoidTheme.bgSurface,
-          border: Border(
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0x0F0F172A),
+              blurRadius: 20,
+              offset: const Offset(0, -4),
+            ),
+          ],
+          border: const Border(
             top: BorderSide(color: VoidTheme.border, width: 1),
           ),
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildNavItem(0, Icons.dashboard_rounded, 'Dashboard'),
-                _buildNavItem(1, Icons.email_rounded, 'Email'),
+                _buildNavItem(0, Icons.grid_view_rounded, 'Dashboard'),
+                _buildNavItem(1, Icons.layers_rounded, 'Services'),
+                _buildCenterButton(),
                 _buildNavItem(2, Icons.folder_shared_rounded, 'FTP'),
-                _buildNavItem(3, Icons.more_horiz_rounded, 'More'),
+                _buildNavItem(3, Icons.person_rounded, 'Account'),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCenterButton() {
+    return GestureDetector(
+      onTap: () {
+        setState(() => _currentIndex = 3);
+      },
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          gradient: VoidTheme.primaryGradient,
+          shape: BoxShape.circle,
+          boxShadow: VoidTheme.glowShadow(VoidTheme.accentPrimary),
+        ),
+        child: const Icon(
+          Icons.add_rounded,
+          color: Colors.white,
+          size: 28,
         ),
       ),
     );
@@ -62,7 +92,7 @@ class _HomeShellState extends State<HomeShell> {
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: isSelected
             ? BoxDecoration(
                 color: VoidTheme.accentPrimary.withValues(alpha: 0.1),

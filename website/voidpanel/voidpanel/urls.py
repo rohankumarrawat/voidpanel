@@ -161,6 +161,12 @@ urlpatterns = [
     path('api/license/validate/', views.api_license_validate),
     path('api/marketing/global-templates/', views.api_global_templates, name='api_global_templates'),
 
+    # ── WhatsApp Webhook + Inbox API ──────────────────────────────────────────
+    path('api/whatsapp/webhook/',                    views.whatsapp_webhook,          name='whatsapp_webhook'),
+    path('api/whatsapp/inbox/',                      views.api_whatsapp_inbox,        name='api_whatsapp_inbox'),
+    path('api/whatsapp/conversation/<str:phone>/',   views.api_whatsapp_conversation, name='api_whatsapp_conversation'),
+    path('api/whatsapp/reply/',                      views.api_whatsapp_reply,        name='api_whatsapp_reply'),
+
     # ── Panel Ticket API (called by installed VoidPanel instances) ─────────────
     path('api/panel/ticket/create/', views.api_panel_ticket_create),
     path('api/panel/ticket/list/', views.api_panel_ticket_list),
@@ -206,6 +212,15 @@ urlpatterns = [
 
     # ── Digital Suites — Super-Admin ──────────────────────────────────────────
     path('super-admin/suite-plans/', views.super_admin_suite_plans, name='super_admin_suite_plans'),
+
+    # ── Marketing Suite — Portal Dashboard + API ──────────────────────────────
+    path('portal/marketing-suite/',                   views.portal_marketing_dashboard, name='portal_marketing_dashboard'),
+    path('portal/marketing-suite/campaign/save/',      views.marketing_campaign_save,    name='marketing_campaign_save'),
+    path('portal/marketing-suite/email/send/',         views.marketing_email_send,       name='marketing_email_send'),
+    path('portal/marketing-suite/ai-copy/',            views.marketing_ai_copy,          name='marketing_ai_copy'),
+    path('portal/marketing-suite/leads/',              views.marketing_leads_save,       name='marketing_leads_save'),
+    path('portal/marketing-suite/ab-test/save/',       views.marketing_ab_test_save,     name='marketing_ab_test_save'),
+    path('portal/marketing-suite/whatsapp/send/',      views.marketing_whatsapp_send,    name='marketing_whatsapp_send'),
 
     # ── ERP / CRM — Public Landing, Buy Flow & Checkout ──────────────────────
     path('erp-crm/',                               views.erp_crm_pricing_page, name='erp_crm_pricing'),

@@ -1,0 +1,324 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ post.title }} — VoidPanel Blog</title>
+    <meta name="description" content="{{ post.content|striptags|truncatechars:160 }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta property="og:title" content="{{ post.title }}">
+    <meta property="og:description" content="{{ post.content|striptags|truncatechars:160 }}">
+    <meta property="og:type" content="article">
+    {% if post.featured_image %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ post.featured_image.url }}">{% endif %}
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <!-- Quill for rendering rich content -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css?v=3.0">
+    <style>
+        /* ── Reading progress ── */
+        .read-progress {
+            position: fixed;
+            top: 70px; left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent), #818cf8);
+            width: 0%;
+            z-index: 200;
+            transition: width 0.1s linear;
+        }
+
+        /* ── Article hero ── */
+        .ad-hero {
+            padding: 100px 5% 56px;
+            background: linear-gradient(160deg, #f0f7ff 0%, #f8fafc 60%, #eef2ff 100%);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .ad-hero::before {
+            content: '';
+            position: absolute; inset: 0;
+            background-image: radial-gradient(circle, rgba(15,23,42,0.05) 1px, transparent 1px);
+            background-size: 28px 28px;
+            pointer-events: none;
+        }
+        .ad-hero-inner { position: relative; z-index: 1; max-width: 800px; margin: 0 auto; }
+        .ad-cat-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: var(--blue-50); border: 1px solid var(--blue-100);
+            padding: 6px 14px; border-radius: 999px;
+            font-size: 0.75rem; font-weight: 800; color: var(--blue-700);
+            text-transform: uppercase; letter-spacing: 0.08em;
+            margin-bottom: 22px;
+        }
+        .ad-title {
+            font-size: clamp(2rem, 5vw, 3.6rem);
+            font-weight: 900;
+            letter-spacing: -0.04em;
+            line-height: 1.1;
+            color: var(--text-primary);
+            margin-bottom: 26px;
+        }
+        .ad-meta-bar {
+            display: flex; align-items: center; justify-content: center;
+            gap: 20px; flex-wrap: wrap;
+            font-size: 0.85rem; color: var(--text-muted);
+        }
+        .ad-meta-bar .sep { opacity: 0.4; }
+        .ad-author-chip { display: flex; align-items: center; gap: 9px; }
+        .ad-author-avatar {
+            width: 34px; height: 34px; border-radius: 50%;
+            background: var(--gradient-brand);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.88rem; font-weight: 900; color: #fff;
+            flex-shrink: 0;
+        }
+        .ad-author-name { font-weight: 700; color: var(--text-primary); }
+
+        /* Cover image */
+        .ad-cover-wrap {
+            max-width: 960px; margin: 0 auto;
+            padding: 0 5% 0;
+            position: relative;
+            z-index: 1;
+            margin-top: -24px;
+        }
+        .ad-cover-img {
+            width: 100%; border-radius: 20px;
+            box-shadow: var(--shadow-xl);
+            border: 1px solid var(--border);
+            display: block;
+        }
+        .ad-cover-placeholder {
+            width: 100%; border-radius: 20px;
+            aspect-ratio: 21/9;
+            background: linear-gradient(135deg, #eff6ff, #eef2ff);
+            border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: var(--shadow-md);
+        }
+        .ad-cover-placeholder i { font-size: 4rem; color: rgba(37,99,235,0.12); }
+
+        /* ── Article layout ── */
+        .ad-layout {
+            max-width: 760px;
+            margin: 64px auto 100px;
+            padding: 0 5%;
+        }
+
+        /* Article body text */
+        .ad-body { font-family: 'Georgia', 'Times New Roman', serif; font-size: 1.15rem; line-height: 1.88; color: var(--text-secondary); }
+        .ql-editor { padding: 0 !important; }
+        .ad-body h1, .ad-body h2, .ad-body h3, .ad-body h4 {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-weight: 900; color: var(--text-primary); letter-spacing: -0.025em;
+            margin: 2.2em 0 0.7em; line-height: 1.25;
+        }
+        .ad-body h1 { font-size: 2rem; }
+        .ad-body h2 { font-size: 1.65rem; padding-top: 1em; border-top: 1px solid var(--border-subtle); margin-top: 2.5em; }
+        .ad-body h3 { font-size: 1.2rem; }
+        .ad-body h4 { font-size: 0.82rem; font-family: 'Plus Jakarta Sans', sans-serif; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); font-weight: 800; }
+        .ad-body p { margin-bottom: 1.5em; font-size: 1.1rem; }
+        .ad-body a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+        .ad-body a:hover { color: var(--accent-dark); }
+        .ad-body img { max-width: 100%; border-radius: 14px; margin: 2em 0; box-shadow: var(--shadow-lg); border: 1px solid var(--border); display: block; }
+        .ad-body blockquote { border-left: 4px solid var(--accent); background: var(--blue-50); border-radius: 0 12px 12px 0; padding: 18px 22px; margin: 2em 0; font-style: italic; color: var(--text-secondary); }
+        .ad-body pre, .ql-syntax {
+            background: #0f172a !important;
+            border: 1px solid rgba(255,255,255,0.05) !important;
+            border-radius: 12px !important;
+            padding: 22px !important;
+            overflow-x: auto; margin: 2em 0;
+            font-size: 0.88rem !important;
+            color: #e2e8f0 !important;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+            line-height: 1.65 !important;
+        }
+        .ad-body code {
+            background: var(--blue-50);
+            color: var(--blue-700);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.88em;
+            padding: 2px 7px;
+            border-radius: 5px;
+            border: 1px solid var(--blue-100);
+        }
+        .ad-body ul, .ad-body ol { padding-left: 1.8em; margin: 1.2em 0 1.8em; }
+        .ad-body li { margin-bottom: 0.6em; }
+        .ad-body table { width: 100%; border-collapse: collapse; margin: 2em 0; font-size: 0.95rem; font-family: 'Plus Jakarta Sans', sans-serif; }
+        .ad-body th { background: var(--bg-subtle); color: var(--text-secondary); font-weight: 700; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 12px 16px; border: 1px solid var(--border); text-align: left; }
+        .ad-body td { padding: 11px 16px; border: 1px solid var(--border-subtle); color: var(--text-secondary); }
+        .ad-body strong { color: var(--text-primary); font-weight: 700; }
+
+        /* Tags */
+        .ad-tags { margin-top: 40px; padding-top: 26px; border-top: 1px solid var(--border); display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+        .ad-tags-label { font-size: 0.76rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-faint); line-height: 1.8; }
+        .ad-tag { padding: 5px 13px; border-radius: var(--r-sm); font-size: 0.78rem; font-weight: 600; background: var(--bg-subtle); border: 1px solid var(--border); color: var(--text-secondary); transition: all 0.18s; }
+        .ad-tag:hover { background: var(--blue-50); color: var(--accent); border-color: var(--blue-100); }
+
+        /* Share bar */
+        .ad-share { margin-top: 40px; padding: 26px; border-radius: 18px; background: var(--bg-subtle); border: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+        .ad-share-label { font-size: 0.88rem; font-weight: 700; color: var(--text-secondary); }
+        .ad-share-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+        .share-btn {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 9px 16px; border-radius: var(--r-sm); font-size: 0.82rem; font-weight: 700;
+            border: 1.5px solid var(--border-medium); color: var(--text-secondary); background: #ffffff;
+            transition: all 0.18s; cursor: pointer; text-decoration: none; font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .share-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--blue-50); }
+
+        /* Author box */
+        .ad-author-box { margin-top: 40px; padding: 28px; border-radius: 18px; background: #ffffff; border: 1px solid var(--border); display: flex; align-items: flex-start; gap: 20px; box-shadow: var(--shadow-xs); }
+        .ad-author-box-avatar { width: 58px; height: 58px; border-radius: 50%; flex-shrink: 0; background: var(--gradient-brand); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: 900; color: #fff; }
+        .ad-author-box-name { font-size: 1rem; font-weight: 800; color: var(--text-primary); margin-bottom: 5px; }
+        .ad-author-box-bio { font-size: 0.88rem; color: var(--text-muted); line-height: 1.65; }
+
+        /* Related posts */
+        .ad-related { margin-top: 64px; padding-top: 36px; border-top: 1px solid var(--border); }
+        .ad-related-title { font-size: 1.25rem; font-weight: 900; letter-spacing: -0.02em; color: var(--text-primary); margin-bottom: 26px; }
+        .related-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+        @media(max-width: 900px) { .related-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media(max-width: 600px)  { .related-grid { grid-template-columns: 1fr; } }
+        .related-card { border-radius: 16px; overflow: hidden; border: 1px solid var(--border); background: #ffffff; transition: all 0.25s var(--ease); display: block; text-decoration: none; box-shadow: var(--shadow-xs); }
+        .related-card:hover { border-color: var(--blue-200); transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+        .related-card-img { height: 130px; overflow: hidden; background: var(--bg-subtle); }
+        .related-card-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s var(--ease); }
+        .related-card:hover .related-card-img img { transform: scale(1.06); }
+        .related-card-fallback { width: 100%; height: 100%; background: linear-gradient(135deg, #eff6ff, #eef2ff); display: flex; align-items: center; justify-content: center; }
+        .related-card-fallback i { font-size: 2rem; color: rgba(37,99,235,0.12); }
+        .related-card-body { padding: 14px 16px; }
+        .related-card-title { font-size: 0.9rem; font-weight: 800; color: var(--text-primary); line-height: 1.35; margin-bottom: 7px; }
+        .related-card-meta { font-size: 0.73rem; color: var(--text-faint); }
+
+        /* Back to blog strip */
+        .ad-back-strip { background: var(--bg-subtle); border-top: 1px solid var(--border-subtle); padding: 20px 5%; }
+        .ad-back-strip-inner { max-width: 960px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
+        .ad-back-link { display: inline-flex; align-items: center; gap: 8px; font-size: 0.86rem; font-weight: 700; color: var(--text-secondary); text-decoration: none; transition: color 0.15s; }
+        .ad-back-link:hover { color: var(--accent); }
+    </style>
+</head>
+<body>
+<!-- Reading progress bar -->
+<div class="read-progress" id="readProgress"></div>
+
+{% include 'header.html' %}
+
+<!-- HERO -->
+<header class="ad-hero">
+    <div class="ad-hero-inner">
+        {% if post.category %}
+        <span class="ad-cat-badge"><i class="fas fa-folder"></i> {{ post.category.name }}</span>
+        {% endif %}
+        <h1 class="ad-title">{{ post.title }}</h1>
+        <div class="ad-meta-bar">
+            <div class="ad-author-chip">
+                <div class="ad-author-avatar">{{ post.author.username|first|upper }}</div>
+                <div>
+                    <div class="ad-author-name">{{ post.author.get_full_name|default:post.author.username }}</div>
+                </div>
+            </div>
+            <span class="sep">·</span>
+            <span><i class="fas fa-calendar-alt" style="color:var(--accent);margin-right:5px;"></i>{{ post.published_at|date:"F j, Y" }}</span>
+            {% if post.tags %}
+            <span class="sep">·</span>
+            <span><i class="fas fa-tags" style="color:var(--accent);margin-right:5px;"></i>{{ post.tags|truncatechars:40 }}</span>
+            {% endif %}
+        </div>
+    </div>
+</header>
+
+<!-- COVER IMAGE -->
+<div class="ad-cover-wrap">
+    {% if post.featured_image %}
+    <img class="ad-cover-img" src="{{ post.featured_image.url }}" alt="{{ post.title }}" loading="eager">
+    {% else %}
+    <div class="ad-cover-placeholder"><i class="fas fa-newspaper"></i></div>
+    {% endif %}
+</div>
+
+<!-- ARTICLE BODY -->
+<article class="ad-layout">
+    <div class="ad-body ql-editor">{{ post.content|safe }}</div>
+
+    <!-- Tags -->
+    {% if post.tag_list %}
+    <div class="ad-tags">
+        <span class="ad-tags-label">Tags:</span>
+        {% for tag in post.tag_list %}
+        <span class="ad-tag">#{{ tag }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Share -->
+    <div class="ad-share">
+        <span class="ad-share-label"><i class="fas fa-share-nodes" style="color:var(--accent);margin-right:8px;"></i>Share this article</span>
+        <div class="ad-share-btns">
+            <a class="share-btn" href="https://twitter.com/intent/tweet?text={{ post.title|urlencode }}&url={{ request.build_absolute_uri }}" target="_blank" rel="noopener">
+                <i class="fab fa-x-twitter"></i> Twitter / X
+            </a>
+            <a class="share-btn" href="https://www.linkedin.com/sharing/share-offsite/?url={{ request.build_absolute_uri }}" target="_blank" rel="noopener">
+                <i class="fab fa-linkedin-in"></i> LinkedIn
+            </a>
+            <button class="share-btn" onclick="navigator.clipboard.writeText(location.href).then(()=>{this.innerHTML='<i class=\'fas fa-check\'></i> Copied!';setTimeout(()=>{this.innerHTML='<i class=\'fas fa-link\'></i> Copy Link'},2000)})">
+                <i class="fas fa-link"></i> Copy Link
+            </button>
+        </div>
+    </div>
+
+    <!-- Author bio -->
+    <div class="ad-author-box">
+        <div class="ad-author-box-avatar">{{ post.author.username|first|upper }}</div>
+        <div>
+            <div class="ad-author-box-name">{{ post.author.get_full_name|default:post.author.username }}</div>
+            <div class="ad-author-box-bio">Member of the VoidPanel engineering team. Passionate about open-source hosting infrastructure, DevOps automation, and cloud-native technologies.</div>
+        </div>
+    </div>
+
+    <!-- Related posts -->
+    {% if latest_posts %}
+    <div class="ad-related">
+        <div class="ad-related-title">More from the Blog</div>
+        <div class="related-grid">
+            {% for rp in latest_posts %}
+            <a href="/blog/{{ rp.slug }}/" class="related-card">
+                <div class="related-card-img">
+                    {% if rp.featured_image %}
+                    <img src="{{ rp.featured_image.url }}" alt="{{ rp.title }}" loading="lazy">
+                    {% else %}
+                    <div class="related-card-fallback"><i class="fas fa-newspaper"></i></div>
+                    {% endif %}
+                </div>
+                <div class="related-card-body">
+                    <div class="related-card-title">{{ rp.title }}</div>
+                    <div class="related-card-meta">{{ rp.published_at|date:"M d, Y" }} · {{ rp.author.get_full_name|default:rp.author.username }}</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</article>
+
+<!-- BACK STRIP -->
+<div class="ad-back-strip">
+    <div class="ad-back-strip-inner">
+        <a href="/blogs/" class="ad-back-link"><i class="fas fa-arrow-left"></i> Back to Blog</a>
+        <a href="/" class="ad-back-link">VoidPanel Home <i class="fas fa-arrow-right"></i></a>
+    </div>
+</div>
+
+{% include 'footer.html' %}
+
+<script>
+// Reading progress
+const prog = document.getElementById('readProgress');
+window.addEventListener('scroll', () => {
+    const scrollTop = window.scrollY;
+    const docHeight = document.body.scrollHeight - window.innerHeight;
+    prog.style.width = (scrollTop / docHeight * 100) + '%';
+}, { passive: true });
+</script>
+</body>
+</html>

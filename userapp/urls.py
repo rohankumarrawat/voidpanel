@@ -28,6 +28,12 @@ urlpatterns = [
     path('emails/delete/', email.api_email_delete, name='api_email_delete'),
     path('emails/change-password/', email.api_email_change_password, name='api_email_change_password'),
 
+    # ── VoidMail AI Whitelist ────────────────────────────────────────────
+    path('emails/whitelist/', email.api_email_whitelist_list, name='api_email_whitelist_list'),
+    path('emails/whitelist/add/', email.api_email_whitelist_add, name='api_email_whitelist_add'),
+    path('emails/whitelist/remove/', email.api_email_whitelist_remove, name='api_email_whitelist_remove'),
+    path('emails/ai-status/', email.api_email_ai_status, name='api_email_ai_status'),
+
     # ── FTP Management ───────────────────────────────────────────────────
     path('ftp/', ftp.api_ftp_list, name='api_ftp_list'),
     path('ftp/create/', ftp.api_ftp_create, name='api_ftp_create'),

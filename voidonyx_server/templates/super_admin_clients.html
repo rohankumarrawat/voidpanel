@@ -1,0 +1,257 @@
+{% extends 'super_admin_base.html' %}
+{% block title %}Clients | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}Clients{% endblock %}
+{% block admin_content %}
+
+<div class="sa-page-header">
+    <div>
+        <div class="sa-page-title">Client Accounts</div>
+        <div class="sa-page-sub">{{ client_data|length }} total clients registered on the platform</div>
+    </div>
+    <div class="sa-header-actions">
+        <div class="sa-stat-chip green"><span class="val">{{ admin_stats.client_count }}</span> Clients</div>
+        <div class="sa-stat-chip violet"><span class="val">{{ admin_stats.open_ticket_count }}</span> Open Tickets</div>
+    </div>
+</div>
+
+<div class="sa-card" style="padding:0;overflow:hidden;">
+    <div style="padding:16px 22px;border-bottom:1px solid var(--border);">
+        <div class="sa-card-title"><i class="fas fa-users"></i> All Clients</div>
+    </div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead>
+                <tr>
+                    <th>Client</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Company</th>
+                    <th>Services</th>
+                    <th>Balance</th>
+                    <th>Joined</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in client_data %}
+                <tr>
+                    <td>
+                        <div style="font-weight:700;color:var(--text-1);">{{ item.user.get_full_name|default:item.user.username }}</div>
+                        {% if item.open_tickets > 0 %}
+                        <span class="sa-badge violet" style="margin-top:3px;">{{ item.open_tickets }} ticket{{ item.open_tickets|pluralize }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:0.82rem;">{{ item.user.email }}</td>
+                    <td style="font-size:0.82rem;white-space:nowrap;">{{ item.profile.phone|default:"—" }}</td>
+                    <td style="font-size:0.82rem;">{{ item.profile.company_name|default:"—" }}</td>
+                    <td><span class="sa-badge green">{{ item.active_services }}/{{ item.total_services }} active</span></td>
+                    <td>
+                        {% if item.unpaid_balance > 0 %}
+                        <span style="font-weight:800;color:var(--amber-2);">₹{{ item.unpaid_balance }}</span>
+                        {% else %}
+                        <span class="sa-badge green">Paid</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:0.78rem;white-space:nowrap;">{{ item.user.date_joined|date:"M d, Y" }}</td>
+                    <td>
+                        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                            <button type="button" class="sa-btn sm" style="background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.25);color:#34d399;"
+                                onclick="openEditModal({
+                                    id: {{ item.user.id }},
+                                    first_name: '{{ item.user.first_name|escapejs }}',
+                                    last_name: '{{ item.user.last_name|escapejs }}',
+                                    email: '{{ item.user.email|escapejs }}',
+                                    username: '{{ item.user.username|escapejs }}',
+                                    phone: '{{ item.profile.phone|escapejs }}',
+                                    company: '{{ item.profile.company_name|escapejs }}',
+                                    address: '{{ item.profile.address|escapejs }}',
+                                    city: '{{ item.profile.city|escapejs }}',
+                                    state: '{{ item.profile.state|escapejs }}',
+                                    postal_code: '{{ item.profile.postal_code|escapejs }}',
+                                    country: '{{ item.profile.country|escapejs }}',
+                                    balance_funds: '{{ item.profile.balance_funds }}',
+                                    balance_chips: '{{ item.profile.balance_chips }}'
+                                })">
+                                <i class="fas fa-pen"></i> Edit
+                            </button>
+                            <a href="/super-admin/billing/?user={{ item.user.id }}" class="sa-btn sky sm"><i class="fas fa-receipt"></i> Invoices</a>
+                            <a href="/super-admin/tickets/?user={{ item.user.id }}" class="sa-btn ghost sm"><i class="fas fa-headset"></i> Tickets</a>
+                            {% if item.active_services > 0 %}
+                            <form method="POST" action="/super-admin/clients/" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="suspend_all">
+                                <input type="hidden" name="user_id" value="{{ item.user.id }}">
+                                <button type="submit"
+                                    onclick="return confirm('Suspend all services for {{ item.user.username }}?')"
+                                    class="sa-btn red sm">
+                                    <i class="fas fa-ban"></i> Suspend
+                                </button>
+                            </form>
+                            {% endif %}
+                            <form method="POST" action="/super-admin/clients/" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete_client">
+                                <input type="hidden" name="user_id" value="{{ item.user.id }}">
+                                <button type="submit"
+                                    onclick="return confirm('⚠️ PERMANENTLY DELETE {{ item.user.username }} ({{ item.user.email }})?\n\nThis will:\n• Delete ALL {{ item.total_services }} services (hosting, email, SSL, SaaS)\n• Remove hosting accounts from servers\n• Delete all invoices, tickets & data\n\nThis action CANNOT be undone!')"
+                                    class="sa-btn ghost sm" style="color:#ef4444;border-color:#fecaca;">
+                                    <i class="fas fa-trash-alt"></i> Delete
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8">
+                        <div class="sa-empty">
+                            <i class="fas fa-users"></i>
+                            <div class="sa-empty-title">No client accounts yet</div>
+                            <div class="sa-empty-sub">Clients will appear here once they register.</div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ── Edit Client Modal ── -->
+<div id="edit-client-modal" style="display:none;position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);align-items:center;justify-content:center;overflow-y:auto;padding:30px 0;">
+    <div style="background:var(--bg-card,#0f172a);border:1px solid rgba(16,185,129,0.3);border-radius:18px;padding:28px 32px;width:100%;max-width:600px;box-shadow:0 25px 60px rgba(0,0,0,0.6);margin:auto;">
+
+        <!-- Header -->
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+            <div style="width:42px;height:42px;background:linear-gradient(135deg,#10b981,#059669);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fas fa-user-edit" style="color:#fff;font-size:1.1rem;"></i>
+            </div>
+            <div>
+                <div style="font-weight:800;font-size:1.1rem;color:var(--text-1);">Edit Client</div>
+                <div style="font-size:0.78rem;color:var(--text-3);" id="edit-modal-subtitle">Update client account details</div>
+            </div>
+            <button type="button" onclick="closeEditModal()" style="margin-left:auto;background:none;border:none;color:var(--text-3);font-size:1.2rem;cursor:pointer;padding:4px 8px;"><i class="fas fa-times"></i></button>
+        </div>
+
+        <form method="POST" action="/super-admin/clients/" id="edit-client-form">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="edit_client">
+            <input type="hidden" name="user_id" id="edit-user-id">
+
+            <!-- Section: Account Info -->
+            <div style="font-weight:700;font-size:0.82rem;color:#10b981;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.06em;"><i class="fas fa-user" style="margin-right:6px;"></i> Account Information</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+                <div>
+                    <label style="font-size:0.72rem;font-weight:700;color:var(--text-2);margin-bottom:4px;display:block;">First Name</label>
+                    <input type="text" name="first_name" id="edit-first-name" class="sa-input" style="width:100%;height:36px;" placeholder="First name">
+                </div>
+                <div>
+                    <label style="font-size:0.72rem;font-weight:700;color:var(--text-2);margin-bottom:4px;display:block;">Last Name</label>
+                    <input type="text" name="last_name" id="edit-last-name" class="sa-input" style="width:100%;height:36px;" placeholder="Last name">
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+                <div>
+                    <label style="font-size:0.72rem;font-weight:700;color:var(--text-2);margin-bottom:4px;display:block;">Email Address</label>
+                    <input type="email" name="email" id="edit-email" class="sa-input" style="width:100%;height:36px;" placeholder="email@example.com" required>
+                </div>
+                <div>
+                    <label style="font-size:0.72rem;font-weight:700;color:var(--text-2);margin-bottom:4px;display:block;">Username</label>
+                    <input type="text" name="username" id="edit-username" class="sa-input" style="width:100%;height:36px;" placeholder="username" required>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+                <div>
+                    <label style="font-size:0.72rem;font-weight:700;color:var(--text-2);margin-bottom:4px;display:block;">Phone Number</label>
+                    <input type="text" name="phone" id="edit-phone" class="sa-input" style="width:100%;height:36px;" placeholder="+91 9876543210">
+                </div>
+                <div>
+                    <label style="font-size:0.72rem;font-weight:700;color:var(--text-2);margin-bottom:4px;display:block;">Company Name</label>
+                    <input type="text" name="company_name" id="edit-company" class="sa-input" style="width:100%;height:36px;" placeholder="Company name">
+                </div>
+            </div>
+
+            <hr style="border:none;border-top:1px solid var(--border);margin:0 0 16px;">
+
+            <!-- Section: Address -->
+            <div style="font-weight:700;font-size:0.82rem;color:#0ea5e9;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.06em;"><i class="fas fa-map-marker-alt" style="margin-right:6px;"></i> Address</div>
+            <div style="margin-bottom:12px;">
+                <label style="font-size:0.72rem;font-weight:700;color:var(--text-2);margin-bottom:4px;display:block;">Street Address</label>
+                <input type="text" name="address" id="edit-address" class="sa-input" style="width:100%;height:36px;" placeholder="123 Main Street, Apt 4B">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+                <div>
+                    <label style="font-size:0.72rem;font-weight:700;color:var(--text-2);margin-bottom:4px;display:block;">City</label>
+                    <input type="text" name="city" id="edit-city" class="sa-input" style="width:100%;height:36px;" placeholder="Mumbai">
+                </div>
+                <div>
+                    <label style="font-size:0.72rem;font-weight:700;color:var(--text-2);margin-bottom:4px;display:block;">State</label>
+                    <input type="text" name="state" id="edit-state" class="sa-input" style="width:100%;height:36px;" placeholder="Maharashtra">
+                </div>
+                <div>
+                    <label style="font-size:0.72rem;font-weight:700;color:var(--text-2);margin-bottom:4px;display:block;">Postal Code</label>
+                    <input type="text" name="postal_code" id="edit-postal" class="sa-input" style="width:100%;height:36px;" placeholder="400001">
+                </div>
+            </div>
+            <div style="margin-bottom:20px;">
+                <label style="font-size:0.72rem;font-weight:700;color:var(--text-2);margin-bottom:4px;display:block;">Country</label>
+                <input type="text" name="country" id="edit-country" class="sa-input" style="width:100%;height:36px;" placeholder="India">
+            </div>
+
+            <hr style="border:none;border-top:1px solid var(--border);margin:0 0 16px;">
+
+            <!-- Section: Balance & Security -->
+            <div style="font-weight:700;font-size:0.82rem;color:#d97706;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.06em;"><i class="fas fa-wallet" style="margin-right:6px;"></i> Balance & Security</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px;">
+                <div>
+                    <label style="font-size:0.72rem;font-weight:700;color:var(--text-2);margin-bottom:4px;display:block;">Wallet Balance (₹)</label>
+                    <input type="number" step="0.01" name="balance_funds" id="edit-balance-funds" class="sa-input" style="width:100%;height:36px;" placeholder="0.00">
+                </div>
+                <div>
+                    <label style="font-size:0.72rem;font-weight:700;color:var(--text-2);margin-bottom:4px;display:block;">Chips Balance</label>
+                    <input type="number" name="balance_chips" id="edit-balance-chips" class="sa-input" style="width:100%;height:36px;" placeholder="0">
+                </div>
+                <div>
+                    <label style="font-size:0.72rem;font-weight:700;color:var(--text-2);margin-bottom:4px;display:block;">New Password</label>
+                    <input type="password" name="new_password" id="edit-password" class="sa-input" style="width:100%;height:36px;" placeholder="Leave blank" autocomplete="new-password">
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:6px;">
+                <button type="button" onclick="closeEditModal()" class="sa-btn ghost" style="height:38px;">Cancel</button>
+                <button type="submit" class="sa-btn green" style="height:38px;"><i class="fas fa-check" style="margin-right:6px;"></i> Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEditModal(data) {
+    document.getElementById('edit-user-id').value = data.id;
+    document.getElementById('edit-first-name').value = data.first_name || '';
+    document.getElementById('edit-last-name').value = data.last_name || '';
+    document.getElementById('edit-email').value = data.email || '';
+    document.getElementById('edit-username').value = data.username || '';
+    document.getElementById('edit-phone').value = data.phone || '';
+    document.getElementById('edit-company').value = data.company || '';
+    document.getElementById('edit-address').value = data.address || '';
+    document.getElementById('edit-city').value = data.city || '';
+    document.getElementById('edit-state').value = data.state || '';
+    document.getElementById('edit-postal').value = data.postal_code || '';
+    document.getElementById('edit-country').value = data.country || 'India';
+    document.getElementById('edit-balance-funds').value = data.balance_funds || '0.00';
+    document.getElementById('edit-balance-chips').value = data.balance_chips || '0';
+    document.getElementById('edit-password').value = '';
+    document.getElementById('edit-modal-subtitle').textContent = 'Editing: ' + ((data.first_name + ' ' + data.last_name).trim() || data.username);
+    document.getElementById('edit-client-modal').style.display = 'flex';
+}
+function closeEditModal() {
+    document.getElementById('edit-client-modal').style.display = 'none';
+}
+document.getElementById('edit-client-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeEditModal();
+});
+</script>
+
+{% endblock %}

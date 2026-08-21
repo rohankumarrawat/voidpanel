@@ -1,15 +1,16 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import '../theme/void_theme.dart';
 
-/// Animated circular progress ring used for quota display.
-class QuotaRing extends StatefulWidget {
+/// Modern Quota Display Card matching Image 2 reference design.
+class QuotaRing extends StatelessWidget {
   final double percentage;
   final String label;
   final String used;
   final String total;
   final bool unlimited;
   final IconData icon;
+  final Color? color;
+  final Color? bgColor;
 
   const QuotaRing({
     super.key,
@@ -19,124 +20,106 @@ class QuotaRing extends StatefulWidget {
     required this.total,
     this.unlimited = false,
     required this.icon,
+    this.color,
+    this.bgColor,
   });
 
-  @override
-  State<QuotaRing> createState() => _QuotaRingState();
-}
-
-class _QuotaRingState extends State<QuotaRing>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 1200),
-      vsync: this,
-    );
-    _animation = Tween<double>(begin: 0, end: widget.percentage / 100)
-        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
-    _controller.forward();
+  Color _getItemColor() {
+    if (color != null) return color!;
+    if (label.contains('Storage')) return const Color(0xFF6366F1);
+    if (label.contains('Email')) return const Color(0xFF10B981);
+    if (label.contains('Database')) return const Color(0xFFF59E0B);
+    return const Color(0xFFEC4899);
   }
 
-  @override
-  void didUpdateWidget(QuotaRing oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.percentage != widget.percentage) {
-      _animation = Tween<double>(
-        begin: _animation.value,
-        end: widget.percentage / 100,
-      ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
-      _controller
-        ..reset()
-        ..forward();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Color _getColor() {
-    if (widget.unlimited) return VoidTheme.accentSuccess;
-    if (widget.percentage >= 80) return VoidTheme.accentDanger;
-    if (widget.percentage >= 60) return VoidTheme.accentWarning;
-    return VoidTheme.accentSuccess;
+  Color _getItemBgColor() {
+    if (bgColor != null) return bgColor!;
+    if (label.contains('Storage')) return const Color(0xFFEEF2FF);
+    if (label.contains('Email')) return const Color(0xFFECFDF5);
+    if (label.contains('Database')) return const Color(0xFFFEF3C7);
+    return const Color(0xFFFCE7F3);
   }
 
   @override
   Widget build(BuildContext context) {
-    final color = _getColor();
+    final activeColor = _getItemColor();
+    final iconBgColor = _getItemBgColor();
+    final pct = percentage.clamp(0.0, 100.0);
+
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: VoidTheme.glassCard,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(VoidTheme.radiusLarge),
+        border: Border.all(color: VoidTheme.border),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x06000000),
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
               Container(
-                width: 34,
-                height: 34,
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
+                  color: iconBgColor,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(widget.icon, size: 18, color: color),
+                child: Icon(icon, size: 20, color: activeColor),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  widget.label,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: VoidTheme.textSecondary,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: VoidTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      unlimited ? '$used / ∞' : '$used / $total',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: VoidTheme.textPrimary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          SizedBox(
-            width: 70,
-            height: 70,
-            child: AnimatedBuilder(
-              animation: _animation,
-              builder: (context, child) {
-                return CustomPaint(
-                  painter: _RingPainter(
-                    progress: _animation.value,
-                    color: color,
-                  ),
-                  child: Center(
-                    child: widget.unlimited
-                        ? const Icon(Icons.all_inclusive, color: VoidTheme.accentSuccess, size: 22)
-                        : Text(
-                            '${widget.percentage.round()}%',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: color,
-                            ),
-                          ),
-                  ),
-                );
-              },
+          const SizedBox(height: 12),
+          // Sleek progress bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: unlimited ? 0.05 : (pct / 100.0),
+              minHeight: 6,
+              backgroundColor: const Color(0xFFF1F5F9),
+              valueColor: AlwaysStoppedAnimation<Color>(activeColor),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           Text(
-            widget.unlimited ? '${widget.used} / ∞' : '${widget.used} / ${widget.total}',
+            unlimited ? 'Unlimited' : '${pct.toStringAsFixed(pct % 1 == 0 ? 0 : 1)}% used',
             style: const TextStyle(
-              fontSize: 12,
-              color: VoidTheme.textMuted,
+              fontSize: 11,
               fontWeight: FontWeight.w500,
+              color: VoidTheme.textMuted,
             ),
           ),
         ],
@@ -145,45 +128,6 @@ class _QuotaRingState extends State<QuotaRing>
   }
 }
 
-class _RingPainter extends CustomPainter {
-  final double progress;
-  final Color color;
-
-  _RingPainter({required this.progress, required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 4;
-
-    // Background ring
-    final bgPaint = Paint()
-      ..color = VoidTheme.border
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..strokeCap = StrokeCap.round;
-    canvas.drawCircle(center, radius, bgPaint);
-
-    // Progress ring
-    final progressPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -pi / 2,
-      2 * pi * progress,
-      false,
-      progressPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_RingPainter oldDelegate) =>
-      oldDelegate.progress != progress || oldDelegate.color != color;
-}
 
 /// Shimmer loading skeleton
 class Skeleton extends StatefulWidget {

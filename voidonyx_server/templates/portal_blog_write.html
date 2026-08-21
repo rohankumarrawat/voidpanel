@@ -1,0 +1,450 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Write a Blog | Client Portal | VoidPanel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css">
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <style>
+        .portal-page {
+            min-height:100vh; padding:100px 0 60px;
+            background:radial-gradient(ellipse 60% 50% at 15% 8%, rgba(99,102,241,0.05), transparent),
+                        linear-gradient(180deg,#faf9f7 0%,#f5f3f0 50%,#faf9f7 100%);
+        }
+        .b-container { max-width:960px; margin:0 auto; padding:20px; }
+
+        .b-back { color:#64748b; text-decoration:none; font-size:0.88rem; display:inline-flex; align-items:center; gap:6px; margin-bottom:20px; transition:color 0.2s; }
+        .b-back:hover { color:#1e293b; }
+
+        /* ── Main Card ── */
+        .b-card {
+            background:#fff;
+            border:1px solid rgba(15,23,42,0.08);
+            border-radius:20px;
+            box-shadow:0 4px 40px rgba(0,0,0,0.05);
+            overflow:hidden;
+        }
+
+        /* ── Header ── */
+        .b-header {
+            background:linear-gradient(135deg,rgba(99,102,241,0.06),rgba(139,92,246,0.04));
+            border-bottom:1px solid rgba(15,23,42,0.06);
+            padding:28px 32px 24px;
+        }
+        .b-header-icon {
+            width:44px;height:44px;border-radius:12px;
+            background:linear-gradient(135deg,#6366f1,#8b5cf6);
+            display:inline-flex;align-items:center;justify-content:center;margin-bottom:14px;
+            box-shadow:0 6px 18px rgba(99,102,241,0.2);
+        }
+        .b-header-icon i { color:#fff; font-size:1.1rem; }
+        .b-title { font-size:1.45rem; font-weight:800; color:#0f172a; margin:0 0 6px; }
+        .b-sub { font-size:0.88rem; color:#64748b; margin:0; line-height:1.6; }
+
+        /* ── Body ── */
+        .b-body { padding:28px 32px 32px; }
+
+        /* ── Section headers ── */
+        .section-title {
+            font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;
+            margin:0 0 14px; display:flex; align-items:center; gap:8px;
+        }
+        .section-title.indigo { color:#6366f1; }
+        .section-title.green  { color:#059669; }
+        .section-title.amber  { color:#d97706; }
+        .section-title.sky    { color:#0284c7; }
+
+        .sep { border:none; border-top:1px solid rgba(15,23,42,0.06); margin:24px 0; }
+
+        /* ── Form Fields ── */
+        .b-group { margin-bottom:18px; }
+        .b-label {
+            display:flex; align-items:center; gap:6px;
+            font-size:0.8rem; font-weight:600; color:#475569; margin-bottom:7px;
+        }
+        .b-label i { font-size:0.7rem; opacity:0.5; }
+        .b-label .req { color:#ef4444; font-size:0.7rem; }
+        .b-label .opt { color:#94a3b8; font-weight:400; font-size:0.72rem; }
+
+        .b-input {
+            width:100%; padding:11px 14px;
+            background:#fff; border:1px solid rgba(15,23,42,0.12);
+            border-radius:10px; color:#1e293b;
+            font-size:0.92rem; font-family:inherit; outline:none;
+            transition:all 0.2s;
+        }
+        .b-input:hover { border-color:rgba(15,23,42,0.2); }
+        .b-input:focus { border-color:rgba(99,102,241,0.5); box-shadow:0 0 0 3px rgba(99,102,241,0.08); }
+        .b-input::placeholder { color:#94a3b8; }
+        textarea.b-input { resize:vertical; min-height:80px; line-height:1.6; }
+        select.b-input { cursor:pointer; }
+
+        .row-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+        .row-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+
+        /* ── Slug preview ── */
+        .slug-preview {
+            margin-top:6px; font-size:0.76rem; color:#94a3b8;
+            display:flex; align-items:center; gap:4px;
+        }
+        .slug-preview span { color:#6366f1; font-weight:600; font-family:monospace; }
+
+        /* ── Featured image upload ── */
+        .img-upload {
+            border:2px dashed rgba(15,23,42,0.1); border-radius:14px;
+            padding:24px; text-align:center; cursor:pointer;
+            transition:all 0.25s; position:relative; overflow:hidden;
+            background:rgba(249,250,251,0.5);
+        }
+        .img-upload:hover { border-color:rgba(99,102,241,0.3); background:rgba(99,102,241,0.02); }
+        .img-upload i { font-size:1.6rem; color:#cbd5e1; margin-bottom:8px; }
+        .img-upload p { font-size:0.82rem; color:#94a3b8; margin:2px 0; }
+        .img-upload .browse { color:#6366f1; font-weight:600; }
+        .img-upload input { display:none; }
+        .img-preview { max-height:200px; border-radius:10px; margin-top:12px; display:none; }
+
+        /* ── Tags ── */
+        .tags-hint { font-size:0.72rem; color:#94a3b8; margin-top:5px; }
+
+        /* ── Quill ── */
+        .ql-toolbar.ql-snow {
+            background:#f8fafc; border:1px solid rgba(15,23,42,0.1);
+            border-radius:10px 10px 0 0; padding:10px 12px;
+        }
+        .ql-container.ql-snow {
+            background:#fff; border:1px solid rgba(15,23,42,0.1);
+            border-top:none; border-radius:0 0 10px 10px;
+            color:#1e293b; font-size:1rem; font-family:inherit; min-height:400px;
+        }
+        .ql-editor { line-height:1.8; }
+        .ql-editor h1,.ql-editor h2,.ql-editor h3 { color:#0f172a; }
+        .ql-editor a { color:#6366f1; }
+        .ql-editor blockquote { border-left:4px solid #6366f1; padding-left:16px; color:#475569; }
+        .ql-editor pre.ql-syntax { background:#0f172a; color:#e2e8f0; border-radius:8px; padding:16px; }
+        .ql-editor iframe { border-radius:10px; margin:12px 0; }
+
+        /* YouTube embed in editor */
+        .ql-editor .ql-video {
+            width:100%; max-width:100%; aspect-ratio:16/9;
+            border-radius:10px; margin:12px 0;
+        }
+
+        /* ── SEO Preview ── */
+        .seo-preview {
+            background:#f8fafc; border:1px solid rgba(15,23,42,0.06);
+            border-radius:12px; padding:16px 18px; margin-top:16px;
+        }
+        .seo-preview-title { color:#1a0dab; font-size:1.1rem; font-weight:600; margin:0 0 4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .seo-preview-url { color:#006621; font-size:0.82rem; margin:0 0 4px; font-family:monospace; }
+        .seo-preview-desc { color:#545454; font-size:0.85rem; line-height:1.5; margin:0; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+
+        /* ── YouTube embed button ── */
+        .yt-embed-btn {
+            display:inline-flex; align-items:center; gap:6px;
+            padding:8px 14px; border-radius:8px;
+            background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.15);
+            color:#dc2626; font-size:0.82rem; font-weight:600;
+            cursor:pointer; transition:all 0.2s;
+        }
+        .yt-embed-btn:hover { background:rgba(239,68,68,0.1); }
+
+        /* ── Submit ── */
+        .b-actions { display:flex; gap:12px; justify-content:flex-end; align-items:center; padding-top:8px; }
+        .b-btn {
+            display:inline-flex; align-items:center; justify-content:center; gap:8px;
+            padding:12px 28px; border-radius:12px; font-weight:700; font-size:0.92rem;
+            border:none; cursor:pointer; transition:all 0.25s;
+        }
+        .b-btn.primary {
+            background:linear-gradient(135deg,#6366f1,#7c3aed); color:#fff;
+            box-shadow:0 6px 18px rgba(99,102,241,0.2);
+        }
+        .b-btn.primary:hover { transform:translateY(-1px); box-shadow:0 10px 28px rgba(99,102,241,0.3); }
+        .b-btn.ghost { background:transparent; color:#64748b; border:1px solid rgba(15,23,42,0.12); }
+        .b-btn.ghost:hover { background:#f1f5f9; }
+
+        /* ── Alerts ── */
+        .b-alert {
+            padding:14px 16px; border-radius:10px;
+            display:flex; gap:12px; margin-bottom:20px;
+            background:rgba(99,102,241,0.04); border:1px solid rgba(99,102,241,0.1);
+        }
+        .b-alert i { color:#6366f1; font-size:1rem; margin-top:2px; flex-shrink:0; }
+        .b-alert p { margin:0; font-size:0.84rem; color:#475569; line-height:1.5; }
+        .b-alert strong { color:#1e293b; display:block; margin-bottom:2px; font-size:0.85rem; }
+
+        .msg-banner {
+            margin-bottom:16px; padding:12px 16px; border-radius:10px;
+            font-size:0.88rem; display:flex; align-items:center; gap:8px;
+        }
+        .msg-banner.error { background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.12); color:#dc2626; }
+        .msg-banner.success { background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.12); color:#059669; }
+
+        @media (max-width:700px) {
+            .b-header,.b-body { padding:20px; }
+            .row-2,.row-3 { grid-template-columns:1fr; }
+        }
+    </style>
+</head>
+<body>
+{% include 'header.html' %}
+
+<main class="portal-page">
+    <div class="b-container">
+        <a href="/portal/blog/" class="b-back"><i class="fas fa-arrow-left"></i> Back to My Posts</a>
+
+        <div class="b-card">
+            <!-- Header -->
+            <div class="b-header">
+                <div class="b-header-icon"><i class="fas fa-pen-fancy"></i></div>
+                <h1 class="b-title">Write a Blog Post</h1>
+                <p class="b-sub">Share your knowledge with the community. Posts are reviewed before publishing.</p>
+            </div>
+
+            <div class="b-body">
+                {% if messages %}
+                    {% for message in messages %}
+                    <div class="msg-banner {% if message.tags %}{{ message.tags }}{% else %}error{% endif %}">
+                        <i class="fas fa-{% if 'success' in message.tags %}check-circle{% else %}exclamation-circle{% endif %}"></i> {{ message }}
+                    </div>
+                    {% endfor %}
+                {% endif %}
+
+                <div class="b-alert">
+                    <i class="fas fa-lightbulb"></i>
+                    <div>
+                        <p><strong>Writing Tips</strong>
+                        Use headings (H2, H3) for structure, add images for engagement, and embed YouTube videos to enrich your content. Keep it original and relevant.</p>
+                    </div>
+                </div>
+
+                <form id="pBlogForm" method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <!-- ═══ SECTION: Basic Info ═══ -->
+                    <div class="section-title indigo"><i class="fas fa-file-alt"></i> Post Details</div>
+
+                    <div class="b-group">
+                        <div class="b-label"><i class="fas fa-heading"></i> Blog Title <span class="req">*</span></div>
+                        <input type="text" name="title" id="blogTitle" class="b-input" required
+                               placeholder="e.g. 5 Nginx Tweaks That Doubled Our Server Speed"
+                               oninput="updateSlugPreview()">
+                    </div>
+
+                    <div class="row-2">
+                        <div class="b-group">
+                            <div class="b-label"><i class="fas fa-folder"></i> Category</div>
+                            <select name="category_id" class="b-input">
+                                <option value="">— Select Category —</option>
+                                {% for c in categories %}
+                                <option value="{{ c.id }}">{{ c.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="b-group">
+                            <div class="b-label"><i class="fas fa-tags"></i> Tags <span class="opt">(comma separated)</span></div>
+                            <input type="text" name="tags" class="b-input" placeholder="nginx, performance, devops, hosting">
+                            <div class="tags-hint">Separate with commas. Helps readers discover your post.</div>
+                        </div>
+                    </div>
+
+                    <hr class="sep">
+
+                    <!-- ═══ SECTION: Featured Image ═══ -->
+                    <div class="section-title green"><i class="fas fa-image"></i> Featured Image</div>
+
+                    <div class="b-group">
+                        <label class="img-upload" for="featuredImg" id="imgUploadZone">
+                            <i class="fas fa-cloud-arrow-up"></i>
+                            <p>Click or drag to upload a cover image</p>
+                            <p style="font-size:0.72rem;color:#94a3b8;">JPG, PNG, WebP — Max 5MB</p>
+                            <input type="file" name="featured_image" id="featuredImg" accept="image/*">
+                            <img id="imgPreview" class="img-preview" alt="Preview">
+                        </label>
+                    </div>
+
+                    <hr class="sep">
+
+                    <!-- ═══ SECTION: Content ═══ -->
+                    <div class="section-title indigo"><i class="fas fa-pen"></i> Blog Content <span class="req">*</span></div>
+
+                    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
+                        <button type="button" onclick="embedYouTube()" style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:10px;background:#ff0000;border:none;color:#fff;font-size:0.88rem;font-weight:700;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 12px rgba(255,0,0,0.2);">
+                            <i class="fab fa-youtube" style="font-size:1.1rem;"></i> Embed YouTube Video
+                        </button>
+                        <button type="button" onclick="insertImageURL()" style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:10px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);color:#6366f1;font-size:0.88rem;font-weight:700;cursor:pointer;transition:all 0.2s;">
+                            <i class="fas fa-image"></i> Insert Image URL
+                        </button>
+                        <span style="font-size:0.75rem;color:#94a3b8;">← Click to embed media into your post</span>
+                    </div>
+
+
+                    <div class="b-group">
+                        <input type="hidden" name="content" id="realContent">
+                        <div id="editor"></div>
+                    </div>
+
+                    <hr class="sep">
+
+                    <!-- ═══ SECTION: SEO ═══ -->
+                    <div class="section-title amber"><i class="fas fa-search"></i> SEO Settings</div>
+
+                    <div class="b-group">
+                        <div class="b-label"><i class="fas fa-link"></i> Custom URL Slug <span class="opt">(auto-generated if empty)</span></div>
+                        <input type="text" name="custom_slug" id="customSlug" class="b-input"
+                               placeholder="my-awesome-blog-post" oninput="updateSlugPreview()">
+                        <div class="slug-preview" id="slugPreview">
+                            URL: voidonyx.in/blog/<span id="slugText">your-post-title</span>/
+                        </div>
+                    </div>
+
+                    <div class="b-group">
+                        <div class="b-label"><i class="fas fa-align-left"></i> Meta Description <span class="opt">(max 300 chars)</span></div>
+                        <textarea name="meta_description" id="metaDesc" class="b-input" rows="3" maxlength="300"
+                                  placeholder="A brief summary of your post for search engines and social media previews..."
+                                  oninput="updateSeoPreview()"></textarea>
+                        <div style="font-size:0.72rem;color:#94a3b8;margin-top:4px;text-align:right;">
+                            <span id="metaCharCount">0</span>/300
+                        </div>
+                    </div>
+
+                    <!-- Google Preview -->
+                    <div class="seo-preview" id="seoPreview">
+                        <div class="seo-preview-title" id="seoTitle">Your Blog Title Here</div>
+                        <div class="seo-preview-url" id="seoUrl">voidonyx.in/blog/your-post-title/</div>
+                        <div class="seo-preview-desc" id="seoDesc">Your meta description will appear here. Write a compelling summary to attract clicks from search results.</div>
+                    </div>
+                    <div style="font-size:0.72rem;color:#94a3b8;margin-top:6px;text-align:center;">
+                        <i class="fab fa-google" style="margin-right:4px;"></i> Google Search Preview
+                    </div>
+
+                    <hr class="sep">
+
+                    <!-- ═══ ACTIONS ═══ -->
+                    <div class="b-actions">
+                        <a href="/portal/blog/" class="b-btn ghost">Cancel</a>
+                        <button type="submit" class="b-btn primary"><i class="fas fa-paper-plane"></i> Submit for Review</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</main>
+
+{% include 'footer.html' %}
+
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<script>
+// ── Quill Editor with YouTube embed ──
+var quill = new Quill('#editor', {
+    theme: 'snow',
+    placeholder: 'Start writing your blog post...\n\nUse headings, bold, lists, and embed images or videos to make your content engaging.',
+    modules: {
+        toolbar: [
+            [{ 'header': [1, 2, 3, false] }],
+            ['bold', 'italic', 'underline', 'strike'],
+            [{ 'color': [] }, { 'background': [] }],
+            ['blockquote', 'code-block'],
+            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+            [{ 'indent': '-1'}, { 'indent': '+1' }],
+            [{ 'align': [] }],
+            ['link', 'image', 'video'],
+            ['clean']
+        ]
+    }
+});
+
+// ── YouTube Embed ──
+function embedYouTube() {
+    var url = prompt('Paste the YouTube video URL:\n(e.g. https://www.youtube.com/watch?v=dQw4w9WgXcQ)');
+    if (!url) return;
+
+    // Extract video ID from various YouTube URL formats
+    var videoId = null;
+    var match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    if (match) videoId = match[1];
+
+    if (!videoId) {
+        alert('Could not detect a valid YouTube video ID. Please paste a standard YouTube URL.');
+        return;
+    }
+
+    var embedUrl = 'https://www.youtube.com/embed/' + videoId;
+    var range = quill.getSelection(true);
+    quill.insertEmbed(range.index, 'video', embedUrl, Quill.sources.USER);
+    quill.setSelection(range.index + 1, Quill.sources.SILENT);
+}
+
+// ── Insert Image by URL ──
+function insertImageURL() {
+    var url = prompt('Paste the image URL:\n(e.g. https://example.com/image.jpg)');
+    if (!url) return;
+    var range = quill.getSelection(true);
+    quill.insertEmbed(range.index, 'image', url, Quill.sources.USER);
+    quill.setSelection(range.index + 1, Quill.sources.SILENT);
+}
+
+// ── Slug Generation ──
+function slugify(text) {
+    return text.toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
+        .substring(0, 80);
+}
+
+function updateSlugPreview() {
+    var custom = document.getElementById('customSlug').value.trim();
+    var title = document.getElementById('blogTitle').value.trim();
+    var slug = custom ? slugify(custom) : slugify(title);
+    document.getElementById('slugText').textContent = slug || 'your-post-title';
+    updateSeoPreview();
+}
+
+// ── SEO Preview ──
+function updateSeoPreview() {
+    var title = document.getElementById('blogTitle').value.trim() || 'Your Blog Title Here';
+    var custom = document.getElementById('customSlug').value.trim();
+    var slug = custom ? slugify(custom) : slugify(title);
+    var desc = document.getElementById('metaDesc').value.trim() || 'Your meta description will appear here. Write a compelling summary to attract clicks from search results.';
+
+    document.getElementById('seoTitle').textContent = title + ' | VoidOnyx Blog';
+    document.getElementById('seoUrl').textContent = 'voidonyx.in/blog/' + (slug || 'your-post-title') + '/';
+    document.getElementById('seoDesc').textContent = desc;
+    document.getElementById('metaCharCount').textContent = document.getElementById('metaDesc').value.length;
+}
+
+// ── Featured Image Preview ──
+document.getElementById('featuredImg').addEventListener('change', function() {
+    var file = this.files[0];
+    if (file) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var preview = document.getElementById('imgPreview');
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+            document.querySelector('.img-upload i').style.display = 'none';
+            document.querySelectorAll('.img-upload p').forEach(function(p) { p.style.display = 'none'; });
+        };
+        reader.readAsDataURL(file);
+    }
+});
+
+// ── Form Submit ──
+document.getElementById('pBlogForm').onsubmit = function() {
+    var html = quill.root.innerHTML;
+    if (html === '<p><br></p>' || html.trim() === '') {
+        alert('Please write some content before submitting.');
+        return false;
+    }
+    document.getElementById('realContent').value = html;
+    return true;
+};
+</script>
+</body>
+</html>

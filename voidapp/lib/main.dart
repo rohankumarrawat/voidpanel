@@ -77,7 +77,7 @@ class _VoidAppState extends State<VoidApp> {
     // Show loading while checking config
     if (_checkingConfig) {
       return MaterialApp(
-        theme: VoidTheme.darkTheme,
+        theme: VoidTheme.lightTheme,
         debugShowCheckedModeBanner: false,
         home: const Scaffold(
           body: Center(
@@ -91,7 +91,7 @@ class _VoidAppState extends State<VoidApp> {
     if (_serverUrl == null || _serverUrl!.isEmpty) {
       return MaterialApp(
         title: 'VoidApp',
-        theme: VoidTheme.darkTheme,
+        theme: VoidTheme.lightTheme,
         debugShowCheckedModeBanner: false,
         home: ServerConfigScreen(onConfigured: _onServerConfigured),
       );
@@ -108,7 +108,7 @@ class _VoidAppState extends State<VoidApp> {
       ],
       child: MaterialApp(
         title: 'VoidApp',
-        theme: VoidTheme.darkTheme,
+        theme: VoidTheme.lightTheme,
         debugShowCheckedModeBanner: false,
         home: _AuthGate(authService: authService),
         routes: {

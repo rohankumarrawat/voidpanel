@@ -178,6 +178,35 @@ body {
 .pw-bar.good { background: #22c55e; }
 .pw-label { font-size: 0.68rem; color: #94a3b8; margin-top: 4px; }
 
+/* Password criteria checklist */
+.pw-criteria { margin-top: 10px; padding: 10px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }
+.pw-criteria-title { font-size: 0.72rem; font-weight: 700; color: #475569; margin-bottom: 6px; font-family: 'Plus Jakarta Sans', sans-serif; }
+.pw-criteria-list { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
+@media (max-width: 460px) { .pw-criteria-list { grid-template-columns: 1fr; } }
+.pw-criteria-item {
+  font-size: 0.73rem; display: flex; align-items: center; gap: 6px;
+  color: #94a3b8; transition: color 0.2s;
+}
+.pw-criteria-item.met { color: #16a34a; }
+.pw-criteria-item i { font-size: 0.65rem; width: 14px; text-align: center; }
+.pw-criteria-item.met i { color: #16a34a; }
+
+/* Confirm password match indicator */
+.pw-match-msg {
+  font-size: 0.72rem; margin-top: 5px; display: flex; align-items: center; gap: 5px;
+  transition: color 0.2s;
+}
+.pw-match-msg.match { color: #16a34a; }
+.pw-match-msg.no-match { color: #ef4444; }
+
+/* Disabled submit button */
+.af-btn:disabled, .af-btn.disabled {
+  opacity: 0.45; cursor: not-allowed;
+  box-shadow: none;
+  transform: none !important;
+}
+.af-btn:disabled:hover { opacity: 0.45; transform: none; box-shadow: none; }
+
 /* Toggle pw */
 .af-toggle-pw {
   position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
@@ -397,7 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <i class="fas fa-lock af-icon"></i>
           <input type="password" id="reg-pass" name="password1" class="af-input"
             placeholder="Min 8 characters" required autocomplete="new-password"
-            oninput="updateStrength(this.value)">
+            oninput="validatePasswordRealtime()">
           <button type="button" class="af-toggle-pw" onclick="togglePw('reg-pass', this)" tabindex="-1">
             <i class="fas fa-eye"></i>
           </button>
@@ -409,6 +438,16 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="pw-bar" id="pw-bar-4"></div>
         </div>
         <div class="pw-label" id="pw-label">Enter at least 8 characters</div>
+        <!-- Password Criteria Checklist -->
+        <div class="pw-criteria">
+          <div class="pw-criteria-title">Password must contain:</div>
+          <ul class="pw-criteria-list">
+            <li class="pw-criteria-item" id="crit-len"><i class="fas fa-circle"></i> At least 8 characters</li>
+            <li class="pw-criteria-item" id="crit-upper"><i class="fas fa-circle"></i> One uppercase letter (A-Z)</li>
+            <li class="pw-criteria-item" id="crit-num"><i class="fas fa-circle"></i> One number (0-9)</li>
+            <li class="pw-criteria-item" id="crit-special"><i class="fas fa-circle"></i> One special character (!@#$...)</li>
+          </ul>
+        </div>
       </div>
 
       <!-- Confirm Password -->
@@ -417,14 +456,16 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="af-input-wrap">
           <i class="fas fa-lock af-icon"></i>
           <input type="password" id="reg-pass2" name="password2" class="af-input"
-            placeholder="Repeat password" required autocomplete="new-password">
+            placeholder="Repeat password" required autocomplete="new-password"
+            oninput="validatePasswordRealtime()">
           <button type="button" class="af-toggle-pw" onclick="togglePw('reg-pass2', this)" tabindex="-1">
             <i class="fas fa-eye"></i>
           </button>
         </div>
+        <div class="pw-match-msg" id="pw-match-msg"></div>
       </div>
 
-      <button type="submit" class="af-btn" id="reg-submit-btn">
+      <button type="submit" class="af-btn" id="reg-submit-btn" disabled>
         <i class="fas fa-rocket"></i> Create Free Account
       </button>
 
@@ -459,14 +500,33 @@ function togglePw(inputId, btn) {
   }
 }
 
-function updateStrength(val) {
-  var bars  = [1,2,3,4].map(function(n){ return document.getElementById('pw-bar-'+n); });
-  var label = document.getElementById('pw-label');
+function validatePasswordRealtime() {
+  var pw = document.getElementById('reg-pass').value;
+  var pw2 = document.getElementById('reg-pass2').value;
+  var btn = document.getElementById('reg-submit-btn');
+  var matchMsg = document.getElementById('pw-match-msg');
+
+  // Check individual criteria
+  var hasLen = pw.length >= 8;
+  var hasUpper = /[A-Z]/.test(pw);
+  var hasNum = /[0-9]/.test(pw);
+  var hasSpecial = /[^A-Za-z0-9]/.test(pw);
+
+  // Update criteria checklist UI
+  updateCriterion('crit-len', hasLen);
+  updateCriterion('crit-upper', hasUpper);
+  updateCriterion('crit-num', hasNum);
+  updateCriterion('crit-special', hasSpecial);
+
+  // Update strength bars
   var score = 0;
-  if (val.length >= 8)  score++;
-  if (/[A-Z]/.test(val)) score++;
-  if (/[0-9]/.test(val)) score++;
-  if (/[^A-Za-z0-9]/.test(val)) score++;
+  if (hasLen) score++;
+  if (hasUpper) score++;
+  if (hasNum) score++;
+  if (hasSpecial) score++;
+
+  var bars = [1,2,3,4].map(function(n){ return document.getElementById('pw-bar-'+n); });
+  var label = document.getElementById('pw-label');
 
   bars.forEach(function(b, i) {
     b.className = 'pw-bar';
@@ -477,9 +537,52 @@ function updateStrength(val) {
     }
   });
 
-  var labels = ['', 'Weak — add uppercase or numbers', 'Fair — add a special character', 'Good password', 'Strong password ✓'];
-  label.textContent = labels[score] || 'Enter at least 8 characters';
-  label.style.color = score <= 1 ? '#ef4444' : score <= 2 ? '#f59e0b' : '#16a34a';
+  var strengthLabels = ['', 'Weak — add uppercase or numbers', 'Fair — add a special character', 'Good password', 'Strong password ✓'];
+  if (pw.length === 0) {
+    label.textContent = 'Enter at least 8 characters';
+    label.style.color = '#94a3b8';
+  } else {
+    label.textContent = strengthLabels[score] || 'Enter at least 8 characters';
+    label.style.color = score <= 1 ? '#ef4444' : score <= 2 ? '#f59e0b' : '#16a34a';
+  }
+
+  // Check password match
+  var allCriteriaMet = hasLen && hasUpper && hasNum && hasSpecial;
+  var passwordsMatch = pw2.length > 0 && pw === pw2;
+
+  if (pw2.length > 0) {
+    if (passwordsMatch) {
+      matchMsg.innerHTML = '<i class="fas fa-check-circle"></i> Passwords match';
+      matchMsg.className = 'pw-match-msg match';
+    } else {
+      matchMsg.innerHTML = '<i class="fas fa-times-circle"></i> Passwords do not match';
+      matchMsg.className = 'pw-match-msg no-match';
+    }
+  } else {
+    matchMsg.innerHTML = '';
+    matchMsg.className = 'pw-match-msg';
+  }
+
+  // Enable/disable submit button
+  if (allCriteriaMet && passwordsMatch) {
+    btn.disabled = false;
+    btn.classList.remove('disabled');
+  } else {
+    btn.disabled = true;
+    btn.classList.add('disabled');
+  }
+}
+
+function updateCriterion(id, met) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  if (met) {
+    el.classList.add('met');
+    el.querySelector('i').className = 'fas fa-check-circle';
+  } else {
+    el.classList.remove('met');
+    el.querySelector('i').className = 'fas fa-circle';
+  }
 }
 </script>
 </body>

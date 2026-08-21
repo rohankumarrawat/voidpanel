@@ -1420,6 +1420,30 @@ class HostingOrder(models.Model):
     def __str__(self):
         return f"Order #{self.pk} — {self.user.username} — {self.package.name if self.package else self.package_name}"
 
+    def save(self, *args, **kwargs):
+        is_new_purchase = False
+        if self.pk:
+            old = HostingOrder.objects.filter(pk=self.pk).values('status').first()
+            if old and old['status'] == 'pending_payment' and self.status in ('paid', 'active', 'provisioning'):
+                is_new_purchase = True
+        super().save(*args, **kwargs)
+        if is_new_purchase:
+            try:
+                from voidpanel.views import send_whatsapp_notification_async
+                pkg_name = self.package.name if self.package else self.package_name
+                msg = (
+                    f"\U0001f389 *New Purchase Activated*\n"
+                    f"Package: {pkg_name}\n"
+                    f"Domain: {self.domain}\n"
+                    f"Amount: \u20b9{self.total}\n"
+                    f"Thank you for your purchase!\n"
+                    f"Portal: https://voidonyx.in/portal/"
+                )
+                send_whatsapp_notification_async(self.user, msg, 'new_purchase')
+            except Exception as e:
+                import logging
+                logging.error(f"Error sending WhatsApp new purchase alert: {e}")
+
 
 class PanelLicenseRecord(models.Model):
     """
@@ -1882,6 +1906,28 @@ class DomainOrder(models.Model):
     def __str__(self):
         return f"{self.domain_name} ({self.user.username})"
 
+    def save(self, *args, **kwargs):
+        is_new_purchase = False
+        if self.pk:
+            old = DomainOrder.objects.filter(pk=self.pk).values('status').first()
+            if old and old['status'] == 'pending_payment' and self.status in ('paid', 'active', 'provisioning'):
+                is_new_purchase = True
+        super().save(*args, **kwargs)
+        if is_new_purchase:
+            try:
+                from voidpanel.views import send_whatsapp_notification_async
+                msg = (
+                    f"\U0001f389 *New Purchase — Domain Registration*\n"
+                    f"Service: {self.domain_name}\n"
+                    f"Amount: \u20b9{self.final_price}\n"
+                    f"Thank you for your purchase!\n"
+                    f"Portal: https://voidonyx.in/portal/"
+                )
+                send_whatsapp_notification_async(self.user, msg, 'new_purchase')
+            except Exception as e:
+                import logging
+                logging.error(f"Error sending WhatsApp Domain Registration purchase alert: {e}")
+
 
 class RazorpayConfig(models.Model):
     """
@@ -2094,6 +2140,87 @@ class AiProviderConfig(models.Model):
         return bool(self.get_active_key())
 
 
+class AiApiKey(models.Model):
+    """
+    API Key Pool for multi-key rotation and rate-limit failover across AI providers.
+    """
+    PROVIDER_CHOICES = [
+        ('gemini', 'Google Gemini'),
+        ('claude', 'Anthropic Claude'),
+        ('openai', 'OpenAI ChatGPT'),
+        ('huggingface', 'Hugging Face'),
+    ]
+
+    provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES, db_index=True)
+    api_key = models.CharField(max_length=512, help_text="The API key / token")
+    label = models.CharField(max_length=100, blank=True, help_text="Optional label, e.g. 'Team Key 1'")
+    is_active = models.BooleanField(default=True, help_text="Disabled keys are never used")
+    priority = models.PositiveIntegerField(default=0, help_text="Lower number = tried first")
+    is_exhausted = models.BooleanField(default=False)
+    exhausted_at = models.DateTimeField(null=True, blank=True)
+    cooldown_minutes = models.PositiveIntegerField(default=60, help_text="Auto-reset exhausted status after N minutes")
+    total_requests = models.PositiveIntegerField(default=0)
+    failed_requests = models.PositiveIntegerField(default=0)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'AI API Key'
+        verbose_name_plural = 'AI API Keys'
+        ordering = ['provider', 'priority', 'id']
+
+    def __str__(self):
+        return f"{self.get_provider_display()} - {self.label or self.masked_key}"
+
+    @property
+    def masked_key(self):
+        if not self.api_key:
+            return '••••••••'
+        if len(self.api_key) <= 10:
+            return '••••••••'
+        return f"{self.api_key[:6]}...{self.api_key[-4:]}"
+
+    @classmethod
+    def get_available_keys(cls, provider):
+        """
+        Returns active, non-exhausted keys for provider.
+        Auto-resets keys whose cooldown has expired.
+        """
+        from django.utils import timezone
+        from datetime import timedelta
+        now = timezone.now()
+        exhausted_keys = cls.objects.filter(provider=provider, is_active=True, is_exhausted=True)
+        for k in exhausted_keys:
+            if k.exhausted_at and (now - k.exhausted_at) >= timedelta(minutes=k.cooldown_minutes):
+                k.is_exhausted = False
+                k.exhausted_at = None
+                k.last_error = ''
+                k.save(update_fields=['is_exhausted', 'exhausted_at', 'last_error'])
+
+        return cls.objects.filter(provider=provider, is_active=True, is_exhausted=False).order_by('priority', 'id')
+
+    def mark_exhausted(self, error_msg=''):
+        from django.utils import timezone
+        self.is_exhausted = True
+        self.exhausted_at = timezone.now()
+        self.failed_requests += 1
+        self.last_error = str(error_msg)[:500]
+        self.save(update_fields=['is_exhausted', 'exhausted_at', 'failed_requests', 'last_error'])
+
+    def record_success(self):
+        from django.utils import timezone
+        self.total_requests += 1
+        self.last_used_at = timezone.now()
+        self.save(update_fields=['total_requests', 'last_used_at'])
+
+    def reset_exhausted(self):
+        self.is_exhausted = False
+        self.exhausted_at = None
+        self.last_error = ''
+        self.save(update_fields=['is_exhausted', 'exhausted_at', 'last_error'])
+
+
 # ═══════════════════════════════════════════════════════════════
 #  AUTO-SUSPEND SETTINGS  (singleton — pk=1)
 # ═══════════════════════════════════════════════════════════════
@@ -2280,6 +2407,28 @@ class SSLOrder(models.Model):
     def __str__(self):
         return f'SSLOrder #{self.pk} — {self.domain} — {self.user.username}'
 
+    def save(self, *args, **kwargs):
+        is_new_purchase = False
+        if self.pk:
+            old = SSLOrder.objects.filter(pk=self.pk).values('status').first()
+            if old and old['status'] == 'pending_payment' and self.status in ('paid', 'active', 'provisioning'):
+                is_new_purchase = True
+        super().save(*args, **kwargs)
+        if is_new_purchase:
+            try:
+                from voidpanel.views import send_whatsapp_notification_async
+                msg = (
+                    f"\U0001f389 *New Purchase — SSL Certificate*\n"
+                    f"Service: {self.domain}\n"
+                    f"Amount: \u20b9{self.price}\n"
+                    f"Thank you for your purchase!\n"
+                    f"Portal: https://voidonyx.in/portal/"
+                )
+                send_whatsapp_notification_async(self.user, msg, 'new_purchase')
+            except Exception as e:
+                import logging
+                logging.error(f"Error sending WhatsApp SSL Certificate purchase alert: {e}")
+
 
 class EmailOrder(models.Model):
     """
@@ -2329,6 +2478,28 @@ class EmailOrder(models.Model):
 
     def __str__(self):
         return f'EmailOrder #{self.pk} — {self.domain} — {self.user.username}'
+
+    def save(self, *args, **kwargs):
+        is_new_purchase = False
+        if self.pk:
+            old = EmailOrder.objects.filter(pk=self.pk).values('status').first()
+            if old and old['status'] == 'pending_payment' and self.status in ('paid', 'active', 'provisioning'):
+                is_new_purchase = True
+        super().save(*args, **kwargs)
+        if is_new_purchase:
+            try:
+                from voidpanel.views import send_whatsapp_notification_async
+                msg = (
+                    f"\U0001f389 *New Purchase — Email Hosting*\n"
+                    f"Service: {self.domain}\n"
+                    f"Amount: \u20b9{self.price}\n"
+                    f"Thank you for your purchase!\n"
+                    f"Portal: https://voidonyx.in/portal/"
+                )
+                send_whatsapp_notification_async(self.user, msg, 'new_purchase')
+            except Exception as e:
+                import logging
+                logging.error(f"Error sending WhatsApp Email Hosting purchase alert: {e}")
 
 
 # ── SSL Certificate Service ───────────────────────────────────────────────────
@@ -2643,47 +2814,56 @@ class SocialPlatformSettings(models.Model):
 
     # Facebook
     facebook_enabled       = models.BooleanField(default=False)
+    facebook_auth_mode     = models.CharField(max_length=10, default='admin', choices=[('admin','Admin Master Key'),('user','User Custom Key')])
     facebook_app_id        = models.CharField(max_length=255, blank=True)
     facebook_app_secret    = models.CharField(max_length=255, blank=True)
 
     # Instagram (same Meta app)
     instagram_enabled      = models.BooleanField(default=False)
+    instagram_auth_mode    = models.CharField(max_length=10, default='admin', choices=[('admin','Admin Master Key'),('user','User Custom Key')])
     instagram_app_id       = models.CharField(max_length=255, blank=True)
     instagram_app_secret   = models.CharField(max_length=255, blank=True)
 
     # Twitter / X
     twitter_enabled        = models.BooleanField(default=False)
+    twitter_auth_mode      = models.CharField(max_length=10, default='admin', choices=[('admin','Admin Master Key'),('user','User Custom Key')])
     twitter_api_key        = models.CharField(max_length=255, blank=True)
     twitter_api_secret     = models.CharField(max_length=255, blank=True)
     twitter_bearer_token   = models.CharField(max_length=512, blank=True)
 
     # LinkedIn
     linkedin_enabled       = models.BooleanField(default=False)
+    linkedin_auth_mode     = models.CharField(max_length=10, default='admin', choices=[('admin','Admin Master Key'),('user','User Custom Key')])
     linkedin_client_id     = models.CharField(max_length=255, blank=True)
     linkedin_client_secret = models.CharField(max_length=255, blank=True)
 
     # YouTube / Google
     youtube_enabled        = models.BooleanField(default=False)
+    youtube_auth_mode      = models.CharField(max_length=10, default='admin', choices=[('admin','Admin Master Key'),('user','User Custom Key')])
     google_client_id       = models.CharField(max_length=255, blank=True)
     google_client_secret   = models.CharField(max_length=255, blank=True)
 
     # TikTok
     tiktok_enabled         = models.BooleanField(default=False)
+    tiktok_auth_mode       = models.CharField(max_length=10, default='admin', choices=[('admin','Admin Master Key'),('user','User Custom Key')])
     tiktok_client_key      = models.CharField(max_length=255, blank=True)
     tiktok_client_secret   = models.CharField(max_length=255, blank=True)
 
     # Pinterest
     pinterest_enabled      = models.BooleanField(default=False)
+    pinterest_auth_mode    = models.CharField(max_length=10, default='admin', choices=[('admin','Admin Master Key'),('user','User Custom Key')])
     pinterest_app_id       = models.CharField(max_length=255, blank=True)
     pinterest_app_secret   = models.CharField(max_length=255, blank=True)
 
     # Threads (Meta)
     threads_enabled        = models.BooleanField(default=False)
+    threads_auth_mode      = models.CharField(max_length=10, default='admin', choices=[('admin','Admin Master Key'),('user','User Custom Key')])
     threads_app_id         = models.CharField(max_length=255, blank=True)
     threads_app_secret     = models.CharField(max_length=255, blank=True)
 
     # Google Business
     gbusiness_enabled      = models.BooleanField(default=False)
+    gbusiness_auth_mode    = models.CharField(max_length=10, default='admin', choices=[('admin','Admin Master Key'),('user','User Custom Key')])
 
     updated_at             = models.DateTimeField(auto_now=True)
 
@@ -2695,6 +2875,19 @@ class SocialPlatformSettings(models.Model):
     def get(cls):
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
+
+    def auth_modes_dict(self):
+        return {
+            'fb': self.facebook_auth_mode,
+            'ig': self.instagram_auth_mode,
+            'tw': self.twitter_auth_mode,
+            'li': self.linkedin_auth_mode,
+            'yt': self.youtube_auth_mode,
+            'tt': self.tiktok_auth_mode,
+            'pi': self.pinterest_auth_mode,
+            'th': self.threads_auth_mode,
+            'gb': self.gbusiness_auth_mode,
+        }
 
     def enabled_platform_list(self):
         """Return list of enabled platform codes, e.g. ['fb', 'ig', 'tw']"""
@@ -2711,6 +2904,11 @@ class SocialPlatformSettings(models.Model):
             'gb': self.gbusiness_enabled,
         }
         return [code for code, enabled in mapping.items() if enabled]
+
+    def admin_enabled_platform_list(self):
+        """Platforms enabled AND configured to use Admin Master Key for 1-Click login."""
+        modes = self.auth_modes_dict()
+        return [p for p in self.enabled_platform_list() if modes.get(p) == 'admin']
 
 
 class OAuthRelayState(models.Model):
@@ -2989,6 +3187,28 @@ class SuiteOrder(models.Model):
     def __str__(self):
         return f"SuiteOrder #{self.id} — {self.suite}/{self.plan.name} — {self.status}"
 
+    def save(self, *args, **kwargs):
+        is_new_purchase = False
+        if self.pk:
+            old = SuiteOrder.objects.filter(pk=self.pk).values('status').first()
+            if old and old['status'] == 'pending_payment' and self.status in ('paid', 'active', 'provisioning'):
+                is_new_purchase = True
+        super().save(*args, **kwargs)
+        if is_new_purchase:
+            try:
+                from voidpanel.views import send_whatsapp_notification_async
+                msg = (
+                    f"\U0001f389 *New Purchase — Digital Suite*\n"
+                    f"Service: {self.suite}\n"
+                    f"Amount: \u20b9{self.price}\n"
+                    f"Thank you for your purchase!\n"
+                    f"Portal: https://voidonyx.in/portal/"
+                )
+                send_whatsapp_notification_async(self.user, msg, 'new_purchase')
+            except Exception as e:
+                import logging
+                logging.error(f"Error sending WhatsApp Digital Suite purchase alert: {e}")
+
 
 class WhatsAppConfig(models.Model):
     """
@@ -3002,6 +3222,29 @@ class WhatsAppConfig(models.Model):
     alert_on_invoice_created  = models.BooleanField(default=True)
     alert_on_service_suspend  = models.BooleanField(default=True)
     alert_on_ticket_opened    = models.BooleanField(default=True)
+    alert_on_new_purchase     = models.BooleanField(default=True)
+
+    # WhatsApp Business Cloud API credentials
+    api_phone_number_id = models.CharField(
+        max_length=100, blank=True, default='',
+        help_text='Phone Number ID from Meta Business dashboard'
+    )
+    api_waba_id = models.CharField(
+        max_length=100, blank=True, default='',
+        help_text='WhatsApp Business Account ID'
+    )
+    api_access_token = models.TextField(
+        blank=True, default='',
+        help_text='Permanent access token from Meta Business'
+    )
+    api_version = models.CharField(
+        max_length=10, blank=True, default='v20.0',
+        help_text='Graph API version (e.g. v20.0)'
+    )
+    webhook_verify_token = models.CharField(
+        max_length=100, blank=True, default='',
+        help_text='Verify token you set in Meta webhook configuration'
+    )
     
     updated_at        = models.DateTimeField(auto_now=True)
 
@@ -3045,6 +3288,52 @@ class WhatsAppLog(models.Model):
 
     def __str__(self):
         return f"WhatsApp Log #{self.id} to {self.phone_to} — {self.status}"
+
+
+class WhatsAppMessage(models.Model):
+    """
+    Stores all WhatsApp messages — both inbound (from clients)
+    and outbound (sent via API). Enables inbox-style conversation view.
+    """
+    DIRECTION_CHOICES = [
+        ('inbound',  'Inbound'),
+        ('outbound', 'Outbound'),
+    ]
+    STATUS_CHOICES = [
+        ('received',  'Received'),
+        ('sent',      'Sent'),
+        ('delivered', 'Delivered'),
+        ('read',      'Read'),
+        ('failed',    'Failed'),
+    ]
+    wa_message_id  = models.CharField(max_length=128, blank=True, db_index=True,
+                         help_text='WhatsApp message ID from Meta API')
+    direction      = models.CharField(max_length=10, choices=DIRECTION_CHOICES)
+    phone          = models.CharField(max_length=30, db_index=True)
+    contact_name   = models.CharField(max_length=200, blank=True, default='')
+    user           = models.ForeignKey(
+                         settings.AUTH_USER_MODEL,
+                         on_delete=models.SET_NULL,
+                         null=True, blank=True,
+                         related_name='whatsapp_messages',
+                     )
+    message_type   = models.CharField(max_length=20, default='text',
+                         help_text='text, image, document, audio, video, etc.')
+    body           = models.TextField(blank=True, default='')
+    media_url      = models.URLField(blank=True, default='')
+    status         = models.CharField(max_length=20, choices=STATUS_CHOICES, default='received')
+    is_read        = models.BooleanField(default=False,
+                         help_text='Whether admin has read this inbound message')
+    timestamp      = models.DateTimeField(auto_now_add=True)
+    raw_payload    = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ['timestamp']
+        verbose_name = 'WhatsApp Message'
+        verbose_name_plural = 'WhatsApp Messages'
+
+    def __str__(self):
+        return f"{self.direction} {self.phone}: {self.body[:50]}"
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -3142,6 +3431,28 @@ class ErpCrmOrder(models.Model):
     def __str__(self):
         return f"ErpCrmOrder #{self.id} — {self.company_name} — {self.status}"
 
+    def save(self, *args, **kwargs):
+        is_new_purchase = False
+        if self.pk:
+            old = ErpCrmOrder.objects.filter(pk=self.pk).values('status').first()
+            if old and old['status'] == 'pending_payment' and self.status in ('paid', 'active', 'provisioning'):
+                is_new_purchase = True
+        super().save(*args, **kwargs)
+        if is_new_purchase:
+            try:
+                from voidpanel.views import send_whatsapp_notification_async
+                msg = (
+                    f"\U0001f389 *New Purchase — ERP/CRM*\n"
+                    f"Service: {self.company_name}\n"
+                    f"Amount: \u20b9{self.price}\n"
+                    f"Thank you for your purchase!\n"
+                    f"Portal: https://voidonyx.in/portal/"
+                )
+                send_whatsapp_notification_async(self.user, msg, 'new_purchase')
+            except Exception as e:
+                import logging
+                logging.error(f"Error sending WhatsApp ERP/CRM purchase alert: {e}")
+
 
 class GymPortalService(models.Model):
     """
@@ -3234,6 +3545,28 @@ class GymPortalOrder(models.Model):
 
     def __str__(self):
         return f"GymPortalOrder #{self.id} — {self.gym_name} — {self.status}"
+
+    def save(self, *args, **kwargs):
+        is_new_purchase = False
+        if self.pk:
+            old = GymPortalOrder.objects.filter(pk=self.pk).values('status').first()
+            if old and old['status'] == 'pending_payment' and self.status in ('paid', 'active', 'provisioning'):
+                is_new_purchase = True
+        super().save(*args, **kwargs)
+        if is_new_purchase:
+            try:
+                from voidpanel.views import send_whatsapp_notification_async
+                msg = (
+                    f"\U0001f389 *New Purchase — Gym Portal*\n"
+                    f"Service: {self.gym_name}\n"
+                    f"Amount: \u20b9{self.price}\n"
+                    f"Thank you for your purchase!\n"
+                    f"Portal: https://voidonyx.in/portal/"
+                )
+                send_whatsapp_notification_async(self.user, msg, 'new_purchase')
+            except Exception as e:
+                import logging
+                logging.error(f"Error sending WhatsApp Gym Portal purchase alert: {e}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -3331,6 +3664,28 @@ class AIVoiceOrder(models.Model):
     def __str__(self):
         return f"AIVoiceOrder #{self.id} — {self.business_name} — {self.status}"
 
+    def save(self, *args, **kwargs):
+        is_new_purchase = False
+        if self.pk:
+            old = AIVoiceOrder.objects.filter(pk=self.pk).values('status').first()
+            if old and old['status'] == 'pending_payment' and self.status in ('paid', 'active', 'provisioning'):
+                is_new_purchase = True
+        super().save(*args, **kwargs)
+        if is_new_purchase:
+            try:
+                from voidpanel.views import send_whatsapp_notification_async
+                msg = (
+                    f"\U0001f389 *New Purchase — AI Voice Calling*\n"
+                    f"Service: {self.business_name}\n"
+                    f"Amount: \u20b9{self.price}\n"
+                    f"Thank you for your purchase!\n"
+                    f"Portal: https://voidonyx.in/portal/"
+                )
+                send_whatsapp_notification_async(self.user, msg, 'new_purchase')
+            except Exception as e:
+                import logging
+                logging.error(f"Error sending WhatsApp AI Voice Calling purchase alert: {e}")
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # HOTEL MANAGEMENT SAAS (hotel.voidonyx.in)
@@ -3426,6 +3781,28 @@ class HotelPortalOrder(models.Model):
 
     def __str__(self):
         return f"HotelPortalOrder #{self.id} — {self.hotel_name} — {self.status}"
+
+    def save(self, *args, **kwargs):
+        is_new_purchase = False
+        if self.pk:
+            old = HotelPortalOrder.objects.filter(pk=self.pk).values('status').first()
+            if old and old['status'] == 'pending_payment' and self.status in ('paid', 'active', 'provisioning'):
+                is_new_purchase = True
+        super().save(*args, **kwargs)
+        if is_new_purchase:
+            try:
+                from voidpanel.views import send_whatsapp_notification_async
+                msg = (
+                    f"\U0001f389 *New Purchase — Hotel Management*\n"
+                    f"Service: {self.hotel_name}\n"
+                    f"Amount: \u20b9{self.price}\n"
+                    f"Thank you for your purchase!\n"
+                    f"Portal: https://voidonyx.in/portal/"
+                )
+                send_whatsapp_notification_async(self.user, msg, 'new_purchase')
+            except Exception as e:
+                import logging
+                logging.error(f"Error sending WhatsApp Hotel Management purchase alert: {e}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -3524,6 +3901,28 @@ class KhataBookOrder(models.Model):
     def __str__(self):
         return f"KhataBookOrder #{self.id} — {self.business_name} — {self.status}"
 
+    def save(self, *args, **kwargs):
+        is_new_purchase = False
+        if self.pk:
+            old = KhataBookOrder.objects.filter(pk=self.pk).values('status').first()
+            if old and old['status'] == 'pending_payment' and self.status in ('paid', 'active', 'provisioning'):
+                is_new_purchase = True
+        super().save(*args, **kwargs)
+        if is_new_purchase:
+            try:
+                from voidpanel.views import send_whatsapp_notification_async
+                msg = (
+                    f"\U0001f389 *New Purchase — KhataBook*\n"
+                    f"Service: {self.business_name}\n"
+                    f"Amount: \u20b9{self.price}\n"
+                    f"Thank you for your purchase!\n"
+                    f"Portal: https://voidonyx.in/portal/"
+                )
+                send_whatsapp_notification_async(self.user, msg, 'new_purchase')
+            except Exception as e:
+                import logging
+                logging.error(f"Error sending WhatsApp KhataBook purchase alert: {e}")
+
 
 # ── Lead Generator SaaS (leads.voidonyx.in) ─────────────────────────────────
 
@@ -3619,6 +4018,28 @@ class LeadGenOrder(models.Model):
 
     def __str__(self):
         return f"LeadGenOrder #{self.id} — {self.business_name} — {self.status}"
+
+    def save(self, *args, **kwargs):
+        is_new_purchase = False
+        if self.pk:
+            old = LeadGenOrder.objects.filter(pk=self.pk).values('status').first()
+            if old and old['status'] == 'pending_payment' and self.status in ('paid', 'active', 'provisioning'):
+                is_new_purchase = True
+        super().save(*args, **kwargs)
+        if is_new_purchase:
+            try:
+                from voidpanel.views import send_whatsapp_notification_async
+                msg = (
+                    f"\U0001f389 *New Purchase — Lead Generator*\n"
+                    f"Service: {self.business_name}\n"
+                    f"Amount: \u20b9{self.price}\n"
+                    f"Thank you for your purchase!\n"
+                    f"Portal: https://voidonyx.in/portal/"
+                )
+                send_whatsapp_notification_async(self.user, msg, 'new_purchase')
+            except Exception as e:
+                import logging
+                logging.error(f"Error sending WhatsApp Lead Generator purchase alert: {e}")
 
 
 class LoginAttempt(models.Model):
@@ -3740,3 +4161,22 @@ class LoginAttempt(models.Model):
     def __str__(self):
         status = '✓' if self.succeeded else '✗'
         return f"[{status}] {self.ip_address} → {self.identity} @ {self.created_at:%Y-%m-%d %H:%M}"
+
+
+class VoidMailAIWhitelistDomain(models.Model):
+    """
+    Domain-based whitelist for VoidMail AI features.
+    Used by the VoidMail app to check if a domain has AI features enabled.
+    """
+    domain     = models.CharField(max_length=255, unique=True)
+    label      = models.CharField(max_length=100, blank=True, default='')
+    is_active  = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'VoidMail AI Whitelist Domain'
+        verbose_name_plural = 'VoidMail AI Whitelist Domains'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.domain} ({'active' if self.is_active else 'inactive'})"

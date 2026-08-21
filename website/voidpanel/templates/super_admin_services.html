@@ -125,6 +125,21 @@
     <button class="sa-tab" id="tabBtn-erp" onclick="switchTab('erp')">
         <i class="fas fa-briefcase" style="margin-right: 6px;"></i> ERP/CRM Workspaces ({{ erp_services|length }})
     </button>
+    <button class="sa-tab" id="tabBtn-gym" onclick="switchTab('gym')">
+        <i class="fas fa-dumbbell" style="margin-right: 6px;"></i> Gym Portal ({{ gym_services|length }})
+    </button>
+    <button class="sa-tab" id="tabBtn-aivoice" onclick="switchTab('aivoice')">
+        <i class="fas fa-phone-volume" style="margin-right: 6px;"></i> AI Voice ({{ aivoice_services|length }})
+    </button>
+    <button class="sa-tab" id="tabBtn-hotel" onclick="switchTab('hotel')">
+        <i class="fas fa-hotel" style="margin-right: 6px;"></i> Hotel Portal ({{ hotel_services|length }})
+    </button>
+    <button class="sa-tab" id="tabBtn-khatabook" onclick="switchTab('khatabook')">
+        <i class="fas fa-book-open" style="margin-right: 6px;"></i> KhataBook ({{ khatabook_services|length }})
+    </button>
+    <button class="sa-tab" id="tabBtn-leadgen" onclick="switchTab('leadgen')">
+        <i class="fas fa-crosshairs" style="margin-right: 6px;"></i> Lead Generator ({{ leadgen_services|length }})
+    </button>
 </div>
 
 <!-- ==================== HOSTING SERVICES TAB ==================== -->
@@ -785,6 +800,131 @@
                         </div>
                     </td>
                 </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ── Gym Portal Tab ── -->
+<div class="sa-card service-tab-panel" id="panel-gym" style="padding:0; overflow:hidden; display:none;">
+    <div style="padding:16px 22px; border-bottom:1px solid var(--border);"><div class="sa-card-title"><i class="fas fa-dumbbell" style="color:#10b981;"></i> Gym Portal Services (DB Rows)</div></div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead><tr><th>Client</th><th>Studio / Plan</th><th>Subdomain</th><th>Price</th><th>Due</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for svc in gym_services %}
+                <tr>
+                    <td><div style="font-weight:700;color:var(--text-1);">{{ svc.user.get_full_name|default:svc.user.username }}</div><div style="font-size:0.74rem;color:var(--text-3);">{{ svc.user.email }}</div></td>
+                    <td><div style="font-weight:700;color:var(--text-1);">{{ svc.studio_name|default:"—" }}</div><div style="font-size:0.74rem;color:var(--text-3);">{{ svc.package_name }}</div></td>
+                    <td><span style="color:var(--sky-2);font-weight:700;font-size:0.82rem;">{{ svc.subdomain }}.voidpanel.com</span></td>
+                    <td>₹{{ svc.monthly_price }}<div style="font-size:0.72rem;color:var(--text-3);">{{ svc.billing_cycle|default:"Monthly"|capfirst }}</div></td>
+                    <td>{{ svc.next_due_date|date:"M d, Y"|default:"—" }}</td>
+                    <td><span class="sa-badge {% if svc.status == 'active' %}green{% elif svc.status == 'suspended' %}amber{% else %}red{% endif %}">{{ svc.status|capfirst }}</span></td>
+                    <td><form method="POST" style="display:inline;" onsubmit="return confirm('Delete Gym record for {{ svc.user.username }} from DB?')">{% csrf_token %}<input type="hidden" name="action" value="delete_service_db_only"><input type="hidden" name="service_type" value="gym"><input type="hidden" name="service_id" value="{{ svc.id }}"><button type="submit" class="sa-btn red sm"><i class="fas fa-trash-can"></i></button></form></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7"><div class="sa-empty"><i class="fas fa-dumbbell"></i><div class="sa-empty-title">No Gym Portal services</div></div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ── AI Voice Tab ── -->
+<div class="sa-card service-tab-panel" id="panel-aivoice" style="padding:0; overflow:hidden; display:none;">
+    <div style="padding:16px 22px; border-bottom:1px solid var(--border);"><div class="sa-card-title"><i class="fas fa-phone-volume" style="color:#8b5cf6;"></i> AI Voice Services (DB Rows)</div></div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead><tr><th>Client</th><th>Company / Plan</th><th>Subdomain</th><th>Price</th><th>Due</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for svc in aivoice_services %}
+                <tr>
+                    <td><div style="font-weight:700;color:var(--text-1);">{{ svc.user.get_full_name|default:svc.user.username }}</div><div style="font-size:0.74rem;color:var(--text-3);">{{ svc.user.email }}</div></td>
+                    <td><div style="font-weight:700;color:var(--text-1);">{{ svc.company_name|default:"—" }}</div><div style="font-size:0.74rem;color:var(--text-3);">{{ svc.package_name }}</div></td>
+                    <td><span style="color:var(--sky-2);font-weight:700;font-size:0.82rem;">{{ svc.subdomain }}.voidpanel.com</span></td>
+                    <td>₹{{ svc.monthly_price }}<div style="font-size:0.72rem;color:var(--text-3);">{{ svc.billing_cycle|default:"Monthly"|capfirst }}</div></td>
+                    <td>{{ svc.next_due_date|date:"M d, Y"|default:"—" }}</td>
+                    <td><span class="sa-badge {% if svc.status == 'active' %}green{% elif svc.status == 'suspended' %}amber{% else %}red{% endif %}">{{ svc.status|capfirst }}</span></td>
+                    <td><form method="POST" style="display:inline;" onsubmit="return confirm('Delete AI Voice record for {{ svc.user.username }} from DB?')">{% csrf_token %}<input type="hidden" name="action" value="delete_service_db_only"><input type="hidden" name="service_type" value="ai_voice"><input type="hidden" name="service_id" value="{{ svc.id }}"><button type="submit" class="sa-btn red sm"><i class="fas fa-trash-can"></i></button></form></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7"><div class="sa-empty"><i class="fas fa-phone-volume"></i><div class="sa-empty-title">No AI Voice services</div></div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ── Hotel Portal Tab ── -->
+<div class="sa-card service-tab-panel" id="panel-hotel" style="padding:0; overflow:hidden; display:none;">
+    <div style="padding:16px 22px; border-bottom:1px solid var(--border);"><div class="sa-card-title"><i class="fas fa-hotel" style="color:#0ea5e9;"></i> Hotel Portal Services (DB Rows)</div></div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead><tr><th>Client</th><th>Hotel / Plan</th><th>Subdomain</th><th>Price</th><th>Due</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for svc in hotel_services %}
+                <tr>
+                    <td><div style="font-weight:700;color:var(--text-1);">{{ svc.user.get_full_name|default:svc.user.username }}</div><div style="font-size:0.74rem;color:var(--text-3);">{{ svc.user.email }}</div></td>
+                    <td><div style="font-weight:700;color:var(--text-1);">{{ svc.hotel_name|default:"—" }}</div><div style="font-size:0.74rem;color:var(--text-3);">{{ svc.package_name }}</div></td>
+                    <td><span style="color:var(--sky-2);font-weight:700;font-size:0.82rem;">{{ svc.subdomain }}.voidpanel.com</span></td>
+                    <td>₹{{ svc.monthly_price }}<div style="font-size:0.72rem;color:var(--text-3);">{{ svc.billing_cycle|default:"Monthly"|capfirst }}</div></td>
+                    <td>{{ svc.next_due_date|date:"M d, Y"|default:"—" }}</td>
+                    <td><span class="sa-badge {% if svc.status == 'active' %}green{% elif svc.status == 'suspended' %}amber{% else %}red{% endif %}">{{ svc.status|capfirst }}</span></td>
+                    <td><form method="POST" style="display:inline;" onsubmit="return confirm('Delete Hotel record for {{ svc.user.username }} from DB?')">{% csrf_token %}<input type="hidden" name="action" value="delete_service_db_only"><input type="hidden" name="service_type" value="hotel"><input type="hidden" name="service_id" value="{{ svc.id }}"><button type="submit" class="sa-btn red sm"><i class="fas fa-trash-can"></i></button></form></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7"><div class="sa-empty"><i class="fas fa-hotel"></i><div class="sa-empty-title">No Hotel Portal services</div></div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ── KhataBook Tab ── -->
+<div class="sa-card service-tab-panel" id="panel-khatabook" style="padding:0; overflow:hidden; display:none;">
+    <div style="padding:16px 22px; border-bottom:1px solid var(--border);"><div class="sa-card-title"><i class="fas fa-book-open" style="color:#d97706;"></i> KhataBook Services (DB Rows)</div></div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead><tr><th>Client</th><th>Business / Plan</th><th>Dashboard URL</th><th>Price</th><th>Due</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for svc in khatabook_services %}
+                <tr>
+                    <td><div style="font-weight:700;color:var(--text-1);">{{ svc.user.get_full_name|default:svc.user.username }}</div><div style="font-size:0.74rem;color:var(--text-3);">{{ svc.user.email }}</div></td>
+                    <td><div style="font-weight:700;color:var(--text-1);">{{ svc.business_name|default:"—" }}</div><div style="font-size:0.74rem;color:var(--text-3);">{{ svc.package_name }}</div></td>
+                    <td><span style="color:var(--sky-2);font-weight:700;font-size:0.82rem;">{% if svc.dashboard_url %}<a href="{{ svc.dashboard_url }}" target="_blank" style="color:var(--sky-2);text-decoration:none;">{{ svc.dashboard_url }} <i class="fas fa-external-link-alt" style="font-size:0.65rem;"></i></a>{% elif svc.subdomain %}{{ svc.subdomain }}.voidpanel.com{% else %}{{ svc.owner_username }}{% endif %}</span></td>
+                    <td>₹{{ svc.monthly_price }}<div style="font-size:0.72rem;color:var(--text-3);">{{ svc.billing_cycle|default:"Monthly"|capfirst }}</div></td>
+                    <td>{{ svc.next_due_date|date:"M d, Y"|default:"—" }}</td>
+                    <td><span class="sa-badge {% if svc.status == 'active' %}green{% elif svc.status == 'suspended' %}amber{% else %}red{% endif %}">{{ svc.status|capfirst }}</span></td>
+                    <td><form method="POST" style="display:inline;" onsubmit="return confirm('Delete KhataBook record for {{ svc.user.username }} from DB?')">{% csrf_token %}<input type="hidden" name="action" value="delete_service_db_only"><input type="hidden" name="service_type" value="khatabook"><input type="hidden" name="service_id" value="{{ svc.id }}"><button type="submit" class="sa-btn red sm"><i class="fas fa-trash-can"></i></button></form></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7"><div class="sa-empty"><i class="fas fa-book-open"></i><div class="sa-empty-title">No KhataBook services</div></div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ── Lead Generator Tab ── -->
+<div class="sa-card service-tab-panel" id="panel-leadgen" style="padding:0; overflow:hidden; display:none;">
+    <div style="padding:16px 22px; border-bottom:1px solid var(--border);"><div class="sa-card-title"><i class="fas fa-crosshairs" style="color:#06b6d4;"></i> Lead Generator Services (DB Rows)</div></div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead><tr><th>Client</th><th>Org / Plan</th><th>Subdomain</th><th>Price</th><th>Due</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for svc in leadgen_services %}
+                <tr>
+                    <td><div style="font-weight:700;color:var(--text-1);">{{ svc.user.get_full_name|default:svc.user.username }}</div><div style="font-size:0.74rem;color:var(--text-3);">{{ svc.user.email }}</div></td>
+                    <td><div style="font-weight:700;color:var(--text-1);">{{ svc.org_name|default:"—" }}</div><div style="font-size:0.74rem;color:var(--text-3);">{{ svc.package_name }}</div></td>
+                    <td><span style="color:var(--sky-2);font-weight:700;font-size:0.82rem;">{{ svc.subdomain }}.voidpanel.com</span></td>
+                    <td>₹{{ svc.monthly_price }}<div style="font-size:0.72rem;color:var(--text-3);">{{ svc.billing_cycle|default:"Monthly"|capfirst }}</div></td>
+                    <td>{{ svc.next_due_date|date:"M d, Y"|default:"—" }}</td>
+                    <td><span class="sa-badge {% if svc.status == 'active' %}green{% elif svc.status == 'suspended' %}amber{% else %}red{% endif %}">{{ svc.status|capfirst }}</span></td>
+                    <td><form method="POST" style="display:inline;" onsubmit="return confirm('Delete Lead Gen record for {{ svc.user.username }} from DB?')">{% csrf_token %}<input type="hidden" name="action" value="delete_service_db_only"><input type="hidden" name="service_type" value="leadgen"><input type="hidden" name="service_id" value="{{ svc.id }}"><button type="submit" class="sa-btn red sm"><i class="fas fa-trash-can"></i></button></form></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7"><div class="sa-empty"><i class="fas fa-crosshairs"></i><div class="sa-empty-title">No Lead Generator services</div></div></td></tr>
                 {% endfor %}
             </tbody>
         </table>

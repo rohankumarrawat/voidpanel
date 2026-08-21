@@ -1,0 +1,384 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Open Support Ticket | VoidPanel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Open a support ticket with VoidOnyx. Get fast, expert help from our team.">
+    <link rel="shortcut icon" href="/static/fav.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/css/void-modern.css">
+    <style>
+        .ticket-page {
+            min-height:100vh;
+            padding:108px 20px 80px;
+            background:
+                radial-gradient(ellipse 60% 50% at 20% 10%, rgba(99,102,241,0.06), transparent),
+                radial-gradient(ellipse 50% 40% at 80% 85%, rgba(245,158,11,0.04), transparent),
+                linear-gradient(180deg,#faf9f7 0%,#f5f3f0 50%,#faf9f7 100%);
+        }
+        .ticket-wrap { max-width:900px; margin:0 auto; }
+
+        /* ── Back link ── */
+        .back-link {
+            display:inline-flex; align-items:center; gap:8px;
+            color:rgba(15,23,42,0.45); margin-bottom:24px; font-size:0.85rem;
+            text-decoration:none; transition:color 0.2s;
+        }
+        .back-link:hover { color:rgba(15,23,42,0.75); }
+
+        /* ── Main Card ── */
+        .ticket-card {
+            background:#ffffff;
+            border:1px solid rgba(15,23,42,0.08);
+            border-radius:24px;
+            overflow:hidden;
+            box-shadow: 0 4px 40px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+        }
+
+        /* ── Header ── */
+        .ticket-header {
+            background:linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.05));
+            border-bottom:1px solid rgba(15,23,42,0.06);
+            padding:32px 36px 28px;
+            position:relative;
+            overflow:hidden;
+        }
+        .ticket-header::before {
+            content:'';position:absolute;top:-20px;right:-20px;
+            width:140px;height:140px;
+            background:radial-gradient(circle,rgba(99,102,241,0.08),transparent 65%);
+            border-radius:50%;
+        }
+        .ticket-header-icon {
+            width:52px;height:52px;border-radius:14px;
+            background:linear-gradient(135deg,#6366f1,#8b5cf6);
+            display:flex;align-items:center;justify-content:center;
+            margin-bottom:16px;
+            box-shadow:0 8px 24px rgba(99,102,241,0.25);
+        }
+        .ticket-header-icon i { color:#fff; font-size:1.3rem; }
+        .ticket-header h1 {
+            color:#0f172a; font-size:1.65rem; font-weight:800; margin:0 0 6px; letter-spacing:-0.02em;
+        }
+        .ticket-header p {
+            color:rgba(15,23,42,0.5); font-size:0.9rem; line-height:1.6; margin:0;
+        }
+
+        /* ── Quick Tips ── */
+        .tips-bar {
+            display:grid; grid-template-columns:repeat(3,1fr); gap:0;
+            border-bottom:1px solid rgba(15,23,42,0.06);
+            background:rgba(249,250,251,0.7);
+        }
+        .tip-item {
+            padding:16px 20px;
+            display:flex; align-items:center; gap:12px;
+            border-right:1px solid rgba(15,23,42,0.06);
+        }
+        .tip-item:last-child { border-right:none; }
+        .tip-icon {
+            width:34px;height:34px;border-radius:9px;
+            display:flex;align-items:center;justify-content:center;flex-shrink:0;
+            font-size:0.82rem;
+        }
+        .tip-icon.green  { background:rgba(16,185,129,0.1); color:#059669; }
+        .tip-icon.amber  { background:rgba(245,158,11,0.1); color:#d97706; }
+        .tip-icon.sky    { background:rgba(56,189,248,0.1); color:#0284c7; }
+        .tip-text { font-size:0.76rem; color:rgba(15,23,42,0.45); line-height:1.4; }
+        .tip-text strong { color:#1e293b; display:block; font-size:0.78rem; margin-bottom:1px; }
+
+        /* ── Form Body ── */
+        .ticket-body { padding:32px 36px 36px; }
+
+        .field-group { margin-bottom:22px; }
+        .field-label {
+            display:flex; align-items:center; gap:6px;
+            font-size:0.8rem; font-weight:600; color:rgba(15,23,42,0.5);
+            margin-bottom:8px; text-transform:uppercase; letter-spacing:0.04em;
+        }
+        .field-label .req { color:#ef4444; font-size:0.7rem; }
+        .field-label i { font-size:0.72rem; opacity:0.5; }
+
+        input[type=text], textarea, select {
+            width:100%; padding:13px 16px; border-radius:12px;
+            border:1px solid rgba(15,23,42,0.12);
+            background:#ffffff;
+            color:#1e293b; font-size:0.92rem; font-family:inherit;
+            transition:all 0.25s ease;
+        }
+        input[type=text]:hover, textarea:hover, select:hover {
+            border-color:rgba(15,23,42,0.2);
+            background:#fefefe;
+        }
+        input[type=text]:focus, textarea:focus, select:focus {
+            outline:none;
+            border-color:rgba(99,102,241,0.5);
+            background:#fff;
+            box-shadow:0 0 0 3px rgba(99,102,241,0.08);
+        }
+        input::placeholder, textarea::placeholder { color:rgba(15,23,42,0.3); }
+        textarea { min-height:180px; resize:vertical; line-height:1.65; }
+        select { cursor:pointer; -webkit-appearance:none; appearance:none;
+            background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%23999' stroke-width='1.5'/%3E%3C/svg%3E");
+            background-repeat:no-repeat; background-position:right 14px center; padding-right:36px;
+            background-color:#fff;
+        }
+        select option { background:#fff; color:#1e293b; }
+
+        .row-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+
+        /* ── Related Service Selector ── */
+        .service-selector { display:flex; flex-wrap:wrap; gap:8px; }
+        .service-chip {
+            padding:7px 14px; border-radius:20px;
+            background:rgba(15,23,42,0.03);
+            border:1px solid rgba(15,23,42,0.1);
+            color:rgba(15,23,42,0.55);
+            font-size:0.78rem; font-weight:500;
+            cursor:pointer; transition:all 0.2s;
+        }
+        .service-chip:hover, .service-chip.active {
+            background:rgba(99,102,241,0.08);
+            border-color:rgba(99,102,241,0.3);
+            color:#4f46e5;
+        }
+        .service-chip i { margin-right:5px; font-size:0.7rem; }
+
+        /* ── Attachment ── */
+        .attachment-zone {
+            border:2px dashed rgba(15,23,42,0.1);
+            border-radius:14px;
+            padding:20px;
+            text-align:center;
+            cursor:pointer;
+            transition:all 0.25s;
+            background:rgba(249,250,251,0.5);
+        }
+        .attachment-zone:hover {
+            border-color:rgba(99,102,241,0.3);
+            background:rgba(99,102,241,0.02);
+        }
+        .attachment-zone i { font-size:1.4rem; color:rgba(15,23,42,0.2); margin-bottom:8px; }
+        .attachment-zone p { font-size:0.8rem; color:rgba(15,23,42,0.4); margin:0; }
+        .attachment-zone .browse { color:#6366f1; font-weight:600; cursor:pointer; }
+        .attachment-zone input { display:none; }
+
+        /* ── Submit ── */
+        .submit-btn {
+            width:100%; padding:15px 24px; border-radius:14px; border:none; cursor:pointer;
+            background:linear-gradient(135deg,#6366f1,#7c3aed);
+            color:#fff; font-size:0.95rem; font-weight:700;
+            display:flex; align-items:center; justify-content:center; gap:10px;
+            margin-top:10px;
+            transition:all 0.3s ease;
+            box-shadow:0 6px 20px rgba(99,102,241,0.2);
+            position:relative;
+            overflow:hidden;
+        }
+        .submit-btn::after {
+            content:''; position:absolute; inset:0;
+            background:linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+            opacity:0; transition:opacity 0.3s;
+        }
+        .submit-btn:hover {
+            transform:translateY(-1px);
+            box-shadow:0 10px 30px rgba(99,102,241,0.3);
+        }
+        .submit-btn:hover::after { opacity:1; }
+        .submit-btn:active { transform:translateY(0); }
+
+        /* ── Messages ── */
+        .message-banner {
+            margin-bottom:20px; padding:14px 16px; border-radius:12px;
+            display:flex; align-items:center; gap:10px;
+            font-size:0.88rem;
+        }
+        .message-banner.error { background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.12); color:#dc2626; }
+        .message-banner.success { background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.12); color:#059669; }
+
+        /* ── Footer info ── */
+        .ticket-footer {
+            margin-top:20px;
+            padding:16px 0;
+            text-align:center;
+            font-size:0.78rem;
+            color:rgba(15,23,42,0.35);
+        }
+        .ticket-footer i { margin-right:4px; }
+
+        @media (max-width:700px) {
+            .ticket-header { padding:24px 20px 20px; }
+            .ticket-body { padding:24px 20px 28px; }
+            .row-2 { grid-template-columns:1fr; }
+            .tips-bar { grid-template-columns:1fr; }
+            .tip-item { border-right:none; border-bottom:1px solid rgba(15,23,42,0.06); }
+            .tip-item:last-child { border-bottom:none; }
+        }
+    </style>
+</head>
+<body>
+{% include 'header.html' %}
+<main class="ticket-page">
+    <div class="ticket-wrap">
+        <a href="/portal/" class="back-link"><i class="fas fa-arrow-left"></i> Back to Portal</a>
+
+        <div class="ticket-card">
+            <!-- Header -->
+            <div class="ticket-header">
+                <div class="ticket-header-icon">
+                    <i class="fas fa-headset"></i>
+                </div>
+                <h1>Open a Support Ticket</h1>
+                <p>Describe your issue in detail and our team will respond within a few hours.</p>
+            </div>
+
+            <!-- Quick Tips Bar -->
+            <div class="tips-bar">
+                <div class="tip-item">
+                    <div class="tip-icon green"><i class="fas fa-bolt"></i></div>
+                    <div class="tip-text"><strong>Fast Response</strong>Avg. response time under 2 hours</div>
+                </div>
+                <div class="tip-item">
+                    <div class="tip-icon amber"><i class="fas fa-lightbulb"></i></div>
+                    <div class="tip-text"><strong>Be Specific</strong>Include domain names & error messages</div>
+                </div>
+                <div class="tip-item">
+                    <div class="tip-icon sky"><i class="fas fa-shield-halved"></i></div>
+                    <div class="tip-text"><strong>Secure</strong>All communications are encrypted</div>
+                </div>
+            </div>
+
+            <!-- Form Body -->
+            <div class="ticket-body">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="message-banner {% if message.tags %}{{ message.tags }}{% else %}error{% endif %}">
+                            <i class="fas fa-{% if 'success' in message.tags %}check-circle{% else %}exclamation-circle{% endif %}"></i>
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <form method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <!-- Subject -->
+                    <div class="field-group">
+                        <div class="field-label">
+                            <i class="fas fa-tag"></i> Subject <span class="req">*</span>
+                        </div>
+                        <input type="text" name="subject" id="subject" placeholder="e.g. Cannot access cPanel for mysite.com" required>
+                    </div>
+
+                    <!-- Department & Priority -->
+                    <div class="row-2">
+                        <div class="field-group">
+                            <div class="field-label">
+                                <i class="fas fa-building"></i> Department
+                            </div>
+                            <select name="department" id="department">
+                                <option value="Technical Support">🔧 Technical Support</option>
+                                <option value="Billing">💳 Billing</option>
+                                <option value="Sales">🛒 Sales</option>
+                                <option value="Abuse">🚨 Abuse Report</option>
+                                <option value="General">💬 General Inquiry</option>
+                            </select>
+                        </div>
+                        <div class="field-group">
+                            <div class="field-label">
+                                <i class="fas fa-flag"></i> Priority
+                            </div>
+                            <select name="priority" id="priority">
+                                <option value="low">🟢 Low — General question</option>
+                                <option value="medium" selected>🟡 Medium — Issue affecting work</option>
+                                <option value="high">🔴 High — Service down / Critical</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Related Service -->
+                    <div class="field-group">
+                        <div class="field-label">
+                            <i class="fas fa-link"></i> Related Service <span style="color:rgba(15,23,42,0.3);font-weight:400;text-transform:none;font-size:0.72rem;">(optional)</span>
+                        </div>
+                        <div class="service-selector">
+                            <label class="service-chip" onclick="this.classList.toggle('active')">
+                                <i class="fas fa-server"></i> Web Hosting
+                                <input type="checkbox" name="related_service" value="hosting" style="display:none;">
+                            </label>
+                            <label class="service-chip" onclick="this.classList.toggle('active')">
+                                <i class="fas fa-envelope"></i> Email
+                                <input type="checkbox" name="related_service" value="email" style="display:none;">
+                            </label>
+                            <label class="service-chip" onclick="this.classList.toggle('active')">
+                                <i class="fas fa-lock"></i> SSL
+                                <input type="checkbox" name="related_service" value="ssl" style="display:none;">
+                            </label>
+                            <label class="service-chip" onclick="this.classList.toggle('active')">
+                                <i class="fas fa-globe"></i> Domain
+                                <input type="checkbox" name="related_service" value="domain" style="display:none;">
+                            </label>
+                            <label class="service-chip" onclick="this.classList.toggle('active')">
+                                <i class="fas fa-briefcase"></i> ERP / HRMS
+                                <input type="checkbox" name="related_service" value="erp" style="display:none;">
+                            </label>
+                            <label class="service-chip" onclick="this.classList.toggle('active')">
+                                <i class="fas fa-credit-card"></i> Billing
+                                <input type="checkbox" name="related_service" value="billing" style="display:none;">
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Message -->
+                    <div class="field-group">
+                        <div class="field-label">
+                            <i class="fas fa-message"></i> Message <span class="req">*</span>
+                        </div>
+                        <textarea name="body" id="body" placeholder="Please describe your issue in detail.&#10;&#10;Include:&#10;• Domain name or service affected&#10;• Error messages you're seeing&#10;• Steps to reproduce the problem&#10;• Any recent changes you've made" required></textarea>
+                    </div>
+
+                    <!-- Attachment -->
+                    <div class="field-group">
+                        <div class="field-label">
+                            <i class="fas fa-paperclip"></i> Attachments <span style="color:rgba(15,23,42,0.3);font-weight:400;text-transform:none;font-size:0.72rem;">(optional)</span>
+                        </div>
+                        <label class="attachment-zone" for="file-upload">
+                            <i class="fas fa-cloud-arrow-up"></i>
+                            <p>Drag & drop files here or <span class="browse">browse</span></p>
+                            <p style="font-size:0.72rem;margin-top:4px;color:rgba(15,23,42,0.25);">Max 10MB — PNG, JPG, PDF, TXT, LOG</p>
+                            <input type="file" name="attachment" id="file-upload" accept=".png,.jpg,.jpeg,.gif,.pdf,.txt,.log,.zip">
+                        </label>
+                        <div id="file-name" style="margin-top:8px;font-size:0.8rem;color:#6366f1;display:none;"></div>
+                    </div>
+
+                    <!-- Submit -->
+                    <button type="submit" class="submit-btn">
+                        <i class="fas fa-paper-plane"></i> Submit Support Ticket
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="ticket-footer">
+            <i class="fas fa-clock"></i> Support hours: Mon–Sat, 9 AM – 9 PM IST &nbsp;·&nbsp;
+            <i class="fas fa-envelope"></i> support@voidonyx.com
+        </div>
+    </div>
+</main>
+{% include 'footer.html' %}
+
+<script>
+document.getElementById('file-upload').addEventListener('change', function() {
+    const nameDiv = document.getElementById('file-name');
+    if (this.files.length > 0) {
+        nameDiv.textContent = '📎 ' + this.files[0].name;
+        nameDiv.style.display = 'block';
+    } else {
+        nameDiv.style.display = 'none';
+    }
+});
+</script>
+</body>
+</html>

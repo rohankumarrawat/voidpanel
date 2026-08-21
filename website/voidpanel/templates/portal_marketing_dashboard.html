@@ -502,9 +502,32 @@ function sendWA() {
   const phone = document.getElementById('waPhone').value.trim();
   const msg = document.getElementById('waMsg').value.trim();
   if (!phone || !msg) return showMsg('waMsg2','Phone and message required.',false);
-  const url = `https://wa.me/${phone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`;
-  window.open(url, '_blank');
-  showMsg('waMsg2','Opening WhatsApp...',true);
+  
+  // Send via WhatsApp Business Cloud API
+  const btn = event.target.closest('button') || event.target;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Sending via API...';
+  
+  fetch('/portal/marketing-suite/whatsapp/send/', {
+    method: 'POST',
+    headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+    body: JSON.stringify({phone: phone, message: msg})
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.ok) {
+      showMsg('waMsg2', 'Message sent via WhatsApp Business API! ✅', true);
+      document.getElementById('waPhone').value = '';
+      document.getElementById('waMsg').value = '';
+    } else {
+      showMsg('waMsg2', d.error || 'Failed to send message', false);
+    }
+  })
+  .catch(err => showMsg('waMsg2', 'Network error: ' + err.message, false))
+  .finally(() => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-brands fa-whatsapp"></i> Send WhatsApp Message';
+  });
 }
 
 const hash = window.location.hash.replace('#','');

@@ -1,0 +1,307 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Verify Email — VoidOnyx</title>
+    <meta name="description" content="Verify your email address to activate your VoidOnyx account and claim your free registration credit.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="{% static 'voidonyx/favicon.png' %}" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: 1fr 1.1fr;
+            background: #0f172a;
+            -webkit-font-smoothing: antialiased;
+        }
+        @media (max-width: 900px) { body { grid-template-columns: 1fr; } }
+
+        /* ── Left Panel ──────────────────────────── */
+        .auth-left {
+            background: linear-gradient(150deg, #0f172a 0%, #1c1917 45%, #7c2d12 100%);
+            position: relative; overflow: hidden;
+            display: flex; flex-direction: column;
+            justify-content: space-between;
+            padding: 48px;
+            min-height: 100vh;
+        }
+        @media(max-width: 900px) { .auth-left { display: none; } }
+
+        /* Animated orbs */
+        .orb { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.3; animation: orbF 9s ease-in-out infinite; }
+        .orb1 { width: 380px; height: 380px; background: #f59e0b; top: -60px; left: -80px; animation-delay: 0s; }
+        .orb2 { width: 260px; height: 260px; background: #ea580c; bottom: 80px; right: -60px; animation-delay: 2.5s; }
+        .orb3 { width: 180px; height: 180px; background: #fbbf24; top: 55%; left: 55%; animation-delay: 1s; }
+        @keyframes orbF { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-18px)} }
+
+        .auth-left::before {
+            content: ''; position: absolute; inset: 0;
+            background-image: radial-gradient(circle, rgba(255,255,255,0.055) 1px, transparent 1px);
+            background-size: 26px 26px; pointer-events: none; z-index: 1;
+        }
+        .auth-left-inner { position: relative; z-index: 2; display: flex; flex-direction: column; height: 100%; justify-content: space-between; }
+
+        /* Brand */
+        .auth-brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; margin-bottom: 48px; }
+        .auth-brand-icon {
+            width: 40px; height: 40px; background: linear-gradient(135deg, #f59e0b, #ea580c);
+            border-radius: 11px; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 16px rgba(245,158,11,0.4); overflow: hidden;
+        }
+        .auth-brand-icon img { width: 80%; height: 80%; object-fit: contain; }
+        .auth-brand-name { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.35rem; font-weight: 900; color: #ffffff; letter-spacing: -0.04em; }
+
+        /* Panel content */
+        .auth-left h2 { font-size: 2.2rem; font-weight: 900; letter-spacing: -0.03em; color: #ffffff; line-height: 1.15; margin-bottom: 14px; }
+        .auth-left p  { color: rgba(255,255,255,0.65); font-size: 0.95rem; line-height: 1.7; margin-bottom: 30px; }
+        .feature-list { display: flex; flex-direction: column; gap: 12px; }
+        .feature-item { display: flex; align-items: center; gap: 12px; color: rgba(255,255,255,0.8); font-size: 0.86rem; }
+        .feature-item i { width: 28px; height: 28px; border-radius: 8px; background: rgba(245,158,11,0.2); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: #fbbf24; flex-shrink: 0; }
+        .auth-left-footer { position: relative; z-index: 2; font-size: 0.75rem; color: rgba(255,255,255,0.35); }
+
+        /* Bonus card */
+        .bonus-card {
+            position: relative; z-index: 2;
+            background: rgba(245,158,11,0.1);
+            border: 1px solid rgba(245,158,11,0.25);
+            border-radius: 18px;
+            padding: 20px 24px;
+            margin-bottom: 32px;
+            backdrop-filter: blur(6px);
+        }
+        .bonus-tag {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: rgba(245,158,11,0.2); border: 1px solid rgba(245,158,11,0.4);
+            color: #fcd34d; font-size: 0.7rem; font-weight: 800;
+            letter-spacing: 0.08em; text-transform: uppercase;
+            padding: 3px 10px; border-radius: 20px; margin-bottom: 10px;
+        }
+        .bonus-amount {
+            font-size: 2.6rem; font-weight: 900; color: #ffffff; line-height: 1;
+            display: flex; align-items: baseline; gap: 6px;
+        }
+        .bonus-amount span { font-size: 1.1rem; font-weight: 700; color: rgba(255,255,255,0.7); }
+        .bonus-card p { color: rgba(255,255,255,0.6); font-size: 0.82rem; margin: 8px 0 0; }
+
+        /* ── Right form side ──────────────────────── */
+        .auth-right {
+            display: flex; align-items: center; justify-content: center;
+            padding: 48px 56px;
+            background: #0f172a;
+            overflow-y: auto;
+        }
+        @media(max-width: 900px) {
+            .auth-right { padding: 32px 20px; min-height: 100vh; }
+        }
+        .auth-form-wrap { width: 100%; max-width: 480px; }
+        .auth-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.75rem; font-weight: 900; color: #f1f5f9; letter-spacing: -0.025em; margin-bottom: 6px; }
+        .auth-subtitle { font-size: 0.88rem; color: #94a3b8; line-height: 1.6; margin-bottom: 24px; }
+        .auth-subtitle strong { color: #f1f5f9; }
+
+        .form-card {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 20px;
+            padding: 32px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+        }
+        .form-group { margin-bottom: 20px; }
+        .form-label { display: block; font-size: 0.82rem; font-weight: 700; color: #94a3b8; margin-bottom: 10px; text-align: left; }
+        .otp-input {
+            width: 100%; padding: 16px;
+            border: 1.5px solid rgba(255,255,255,0.12);
+            border-radius: 12px;
+            background: #0f172a;
+            color: #f1f5f9;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 1.75rem; font-weight: 800;
+            text-align: center; letter-spacing: 0.4em;
+            outline: none; transition: all 0.18s;
+        }
+        .otp-input:focus { border-color: #f59e0b; background: #0c1322; box-shadow: 0 0 0 4px rgba(245,158,11,0.15); }
+        .otp-input::placeholder { color: #475569; }
+
+        .alert-msg { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 10px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #f87171; font-size: 0.86rem; font-weight: 600; margin-bottom: 16px; text-align: left; }
+        .success-msg { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 10px; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.25); color: #4ade80; font-size: 0.86rem; font-weight: 600; margin-bottom: 16px; text-align: left; }
+
+        .btn-verify {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            width: 100%; padding: 14px 24px;
+            background: linear-gradient(135deg, #f59e0b, #ea580c);
+            border: none; border-radius: 12px;
+            color: #ffffff; font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 0.92rem; font-weight: 800;
+            cursor: pointer; margin-top: 8px;
+            box-shadow: 0 4px 20px rgba(245,158,11,0.35);
+            transition: all 0.2s;
+        }
+        .btn-verify:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(245,158,11,0.45); }
+
+        .divider { text-align: center; font-size: 0.78rem; color: #64748b; margin: 20px 0; display: flex; align-items: center; gap: 12px; }
+        .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.08); }
+
+        /* Credit Banner */
+        .credit-banner {
+            background: linear-gradient(135deg, rgba(245,158,11,0.12) 0%, rgba(234,88,12,0.08) 100%);
+            border: 1.5px solid rgba(245,158,11,0.3);
+            border-radius: 16px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            animation: bannerPulse 2.8s ease-in-out infinite;
+        }
+        @keyframes bannerPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
+            50%       { box-shadow: 0 0 0 6px rgba(245,158,11,0.12); }
+        }
+        .credit-icon {
+            width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem; color: #fff;
+            box-shadow: 0 4px 12px rgba(245,158,11,0.4);
+        }
+        .credit-text { flex: 1; text-align: left; }
+        .credit-title { font-size: 0.88rem; font-weight: 900; color: #fbbf24; margin-bottom: 2px; display: flex; align-items: center; gap: 6px; }
+        .credit-title .tag { background: #f59e0b; color: #fff; font-size: 0.65rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; padding: 1px 7px; border-radius: 20px; }
+        .credit-sub { font-size: 0.78rem; color: #d97706; }
+        .credit-sub strong { color: #fbbf24; }
+        .credit-amount { font-size: 1.35rem; font-weight: 900; color: #fbbf24; letter-spacing: -0.03em; white-space: nowrap; }
+
+        /* Mobile brand */
+        .mobile-brand { display: none; margin-bottom: 28px; }
+        @media(max-width:900px){ .mobile-brand { display: flex !important; justify-content: center; } }
+
+        a { color: #f59e0b; text-decoration: none; }
+        a:hover { color: #fbbf24; }
+    </style>
+</head>
+<body>
+
+<!-- Left Panel -->
+<div class="auth-left">
+    <div class="orb orb1"></div>
+    <div class="orb orb2"></div>
+    <div class="orb orb3"></div>
+    <div class="auth-left-inner">
+        <div>
+            <a href="/" class="auth-brand">
+                <span class="auth-brand-icon"><img src="{% static 'voidonyx/logo_emblem.png' %}" alt="VoidOnyx Logo"></span>
+                <span class="auth-brand-name">VoidOnyx</span>
+            </a>
+
+            {% if signup_bonus_chips %}
+            <div class="bonus-card">
+                <div class="bonus-tag"><i class="fas fa-gift"></i> Signup Reward</div>
+                <div class="bonus-amount">
+                    {% if bonus_rupees %}&#x20B9;{{ bonus_rupees }}{% else %}{{ signup_bonus_chips }} Chips{% endif %}
+                    <span>free credit</span>
+                </div>
+                <p>Automatically added to your wallet the moment you verify your email below.</p>
+            </div>
+            {% endif %}
+
+            <h2>Almost there —<br>verify &amp; claim.</h2>
+            <p>Enter the 6-digit code we sent you to activate your account and unlock your free credit instantly.</p>
+            <div class="feature-list">
+                <div class="feature-item"><i class="fas fa-server"></i> High-speed cloud infrastructure</div>
+                <div class="feature-item"><i class="fas fa-envelope"></i> Professional email hosting</div>
+                <div class="feature-item"><i class="fas fa-lock"></i> Free SSL via Let's Encrypt</div>
+                <div class="feature-item"><i class="fas fa-receipt"></i> Billing &amp; invoice management</div>
+                <div class="feature-item"><i class="fas fa-headset"></i> Ticketed support system</div>
+            </div>
+        </div>
+        <div class="auth-left-footer">&copy; 2024 VoidOnyx. All rights reserved.</div>
+    </div>
+</div>
+
+<!-- Right Form -->
+<div class="auth-right">
+    <div class="auth-form-wrap">
+
+        <!-- Mobile Logo -->
+        <div class="mobile-brand">
+            <a href="/" class="auth-brand">
+                <span class="auth-brand-icon"><img src="{% static 'voidonyx/logo_emblem.png' %}" alt="VoidOnyx Logo"></span>
+                <span class="auth-brand-name" style="color:#f1f5f9">VoidOnyx</span>
+            </a>
+        </div>
+
+        <div class="auth-title">Verify your email</div>
+        <div class="auth-subtitle">We've sent a 6-digit OTP code to <strong>{{ email }}</strong>. Please check your inbox.</div>
+
+        {% if signup_bonus_chips %}
+        <div class="credit-banner">
+            <div class="credit-icon"><i class="fas fa-coins"></i></div>
+            <div class="credit-text">
+                <div class="credit-title">
+                    Free Credit — Claim Now
+                    <span class="tag">New User</span>
+                </div>
+                <div class="credit-sub">
+                    Verify to receive <strong>{{ signup_bonus_chips }} Void Chips</strong>
+                    {% if bonus_rupees %}(worth &#x20B9;{{ bonus_rupees }}){% endif %} in your wallet.
+                </div>
+            </div>
+            <div class="credit-amount">
+                {% if bonus_rupees %}&#x20B9;{{ bonus_rupees }}{% else %}{{ signup_bonus_chips }}{% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="form-card">
+            {% if messages %}
+                {% for message in messages %}
+                    {% if message.tags == 'success' %}
+                        <div class="success-msg"><i class="fas fa-circle-check"></i> {{ message }}</div>
+                    {% else %}
+                        <div class="alert-msg"><i class="fas fa-circle-exclamation"></i> {{ message }}</div>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+
+            <form method="POST" action="/register/verify/">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label class="form-label" for="otp-code-input">Verification Code</label>
+                    <input
+                        type="text"
+                        id="otp-code-input"
+                        name="otp"
+                        class="otp-input"
+                        placeholder="000000"
+                        required
+                        maxlength="6"
+                        pattern="\d{6}"
+                        inputmode="numeric"
+                        autocomplete="one-time-code"
+                        autofocus
+                    >
+                </div>
+
+                <button type="submit" class="btn-verify">
+                    <i class="fas fa-shield-halved"></i> Verify &amp; Claim Credit
+                </button>
+            </form>
+
+            <div class="divider">Didn't receive it?</div>
+            <p style="text-align:center;font-size:0.86rem;color:#94a3b8;margin:0;">
+                <a href="/register/resend/" style="font-weight:700;">Resend OTP Code</a> or
+                <a href="/register/" style="color:#94a3b8;font-weight:600;margin-left:5px;">Change email</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,1169 @@
+{% extends 'super_admin_base.html' %}
+{% block title %}Active Services | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}Active Services{% endblock %}
+{% block admin_content %}
+
+<div class="sa-page-header">
+    <div>
+        <div class="sa-page-title">Active Services</div>
+        <div class="sa-page-sub">Monitor client subscriptions and securely delete database entries directly.</div>
+    </div>
+</div>
+
+<!-- Info Alert Callout -->
+<div class="sa-info-panel" style="margin-bottom: 8px; border-color: rgba(239, 68, 68, 0.2); background: rgba(239, 68, 68, 0.03);">
+    <div class="sa-info-icon" style="background: rgba(239, 68, 68, 0.1); color: var(--red-2);">
+        <i class="fas fa-triangle-exclamation"></i>
+    </div>
+    <div class="sa-info-content">
+        <div class="sa-info-title" style="color: var(--red-2);">Caution: Database-Only Deletion</div>
+        <div class="sa-info-body" style="color: var(--text-2);">
+            Using the deletion tools on this page will **only erase the record from the database**. It will NOT execute API commands to suspend/terminate resources, delete virtual mailboxes, revoke Let's Encrypt SSLs, or remove files from client hosting nodes.
+        </div>
+    </div>
+</div>
+
+<!-- Assign/Edit Hosting Service -->
+<div class="sa-card" id="hosting_form_card" style="margin-bottom: 20px;">
+    <div class="sa-card-head">
+        <div class="sa-card-title" id="hosting_form_title"><i class="fas fa-user-plus" style="color:var(--green-2);"></i> Assign Hosting Service Manually</div>
+        <div class="sa-card-count">Directly link an existing VoidPanel user account on a remote server to a client in the billing portal</div>
+    </div>
+    <form method="POST" action="/super-admin/services/">
+        {% csrf_token %}
+        <input type="hidden" name="action" id="hosting_form_action" value="assign_hosting_service">
+        <input type="hidden" name="service_id" id="edit_service_id" value="">
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:14px;">
+            <div class="sa-form-group">
+                <label class="sa-label">Select Client / User</label>
+                <select name="user_id" id="field_user_id" class="sa-input" required>
+                    <option value="">-- Choose User --</option>
+                    {% for u in portal_users %}
+                    <option value="{{ u.id }}">{{ u.username }} ({{ u.email }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="sa-form-group">
+                <label class="sa-label">Domain Name</label>
+                <input type="text" name="domain" id="field_domain" placeholder="e.g. domain.com" class="sa-input" required>
+            </div>
+            <div class="sa-form-group">
+                <label class="sa-label">Plan / Package Name</label>
+                <input type="text" name="service_name" id="field_service_name" placeholder="e.g. Advanced Plan" class="sa-input">
+            </div>
+            <div class="sa-form-group">
+                <label class="sa-label">Assign to Server</label>
+                <select name="server_id" id="field_server_id" class="sa-input" required>
+                    <option value="">-- Choose Server --</option>
+                    {% for s in servers %}
+                    <option value="{{ s.id }}">{{ s.name }} ({{ s.url }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="sa-form-group">
+                <label class="sa-label">Panel Username (Existing)</label>
+                <input type="text" name="panel_username" id="field_panel_username" placeholder="e.g. voidpanelc091" class="sa-input" required>
+            </div>
+            <div class="sa-form-group">
+                <label class="sa-label">Panel Password (Existing)</label>
+                <input type="password" name="panel_password" id="field_panel_password" placeholder="Existing user password" class="sa-input">
+            </div>
+            <div class="sa-form-group">
+                <label class="sa-label">Monthly Price (INR)</label>
+                <input type="number" name="monthly_price" id="field_monthly_price" value="0" step="0.01" class="sa-input" required>
+            </div>
+            <div class="sa-form-group">
+                <label class="sa-label">Billing Cycle</label>
+                <select name="billing_cycle" id="field_billing_cycle" class="sa-input">
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="annually">Annually</option>
+                </select>
+            </div>
+            <div class="sa-form-group">
+                <label class="sa-label">Next Due Date</label>
+                <input type="date" name="next_due_date" id="field_next_due_date" class="sa-input">
+            </div>
+            <div class="sa-form-group">
+                <label class="sa-label">Storage Limit (GB)</label>
+                <input type="number" name="storage_gb" id="field_storage_gb" value="25" class="sa-input" required>
+            </div>
+            <div class="sa-form-group">
+                <label class="sa-label">Bandwidth Limit (GB)</label>
+                <input type="number" name="bandwidth_gb" id="field_bandwidth_gb" value="250" class="sa-input" required>
+            </div>
+            <div class="sa-form-group" style="display:flex; align-items:center; height:100%; margin-top:20px;">
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.84rem; color:var(--text-1);">
+                    <input type="checkbox" name="is_reseller" id="field_is_reseller" value="true"> Is Reseller Service
+                </label>
+            </div>
+        </div>
+        <div class="sa-form-actions" style="display:flex; gap:10px;">
+            <button type="submit" class="sa-btn primary" id="hosting_submit_btn"><i class="fas fa-check-double"></i> Assign Hosting Service</button>
+            <button type="button" class="sa-btn gray" id="cancel_hosting_edit_btn" style="display:none;" onclick="cancelHostingEdit()"><i class="fas fa-times"></i> Cancel Edit</button>
+        </div>
+    </form>
+</div>
+
+<!-- Tab Navigation -->
+<div class="sa-tabs" style="margin-bottom: 20px;">
+    <button class="sa-tab active-green" id="tabBtn-hosting" onclick="switchTab('hosting')">
+        <i class="fas fa-server" style="margin-right: 6px;"></i> Hosting Packages ({{ hosting_services|length }})
+    </button>
+    <button class="sa-tab" id="tabBtn-email" onclick="switchTab('email')">
+        <i class="fas fa-envelope" style="margin-right: 6px;"></i> Emails ({{ email_services|length }})
+    </button>
+    <button class="sa-tab" id="tabBtn-ssl" onclick="switchTab('ssl')">
+        <i class="fas fa-lock" style="margin-right: 6px;"></i> SSL Certificates ({{ ssl_services|length }})
+    </button>
+    <button class="sa-tab" id="tabBtn-license" onclick="switchTab('license')">
+        <i class="fas fa-key" style="margin-right: 6px;"></i> Panel Licenses ({{ license_services|length }})
+    </button>
+    <button class="sa-tab" id="tabBtn-suite" onclick="switchTab('suite')">
+        <i class="fas fa-cubes" style="margin-right: 6px;"></i> Digital Suites ({{ suite_services|length }})
+    </button>
+    <button class="sa-tab" id="tabBtn-erp" onclick="switchTab('erp')">
+        <i class="fas fa-briefcase" style="margin-right: 6px;"></i> ERP/CRM Workspaces ({{ erp_services|length }})
+    </button>
+    <button class="sa-tab" id="tabBtn-gym" onclick="switchTab('gym')">
+        <i class="fas fa-dumbbell" style="margin-right: 6px;"></i> Gym Portal ({{ gym_services|length }})
+    </button>
+    <button class="sa-tab" id="tabBtn-aivoice" onclick="switchTab('aivoice')">
+        <i class="fas fa-phone-volume" style="margin-right: 6px;"></i> AI Voice ({{ aivoice_services|length }})
+    </button>
+    <button class="sa-tab" id="tabBtn-hotel" onclick="switchTab('hotel')">
+        <i class="fas fa-hotel" style="margin-right: 6px;"></i> Hotel Portal ({{ hotel_services|length }})
+    </button>
+    <button class="sa-tab" id="tabBtn-khatabook" onclick="switchTab('khatabook')">
+        <i class="fas fa-book-open" style="margin-right: 6px;"></i> KhataBook ({{ khatabook_services|length }})
+    </button>
+    <button class="sa-tab" id="tabBtn-leadgen" onclick="switchTab('leadgen')">
+        <i class="fas fa-crosshairs" style="margin-right: 6px;"></i> Lead Generator ({{ leadgen_services|length }})
+    </button>
+</div>
+
+<!-- ==================== HOSTING SERVICES TAB ==================== -->
+<div class="sa-card service-tab-panel" id="panel-hosting" style="padding:0; overflow:hidden;">
+    <div style="padding:16px 22px; border-bottom:1px solid var(--border); display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px;">
+        <div class="sa-card-title"><i class="fas fa-server" style="color:#22c55e;"></i> Hosting Services (DB Rows)</div>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <!-- Search Input -->
+            <div style="position:relative;">
+                <input type="text" id="hostingSearchInput" onkeyup="filterHostingTable()" placeholder="Search domain, client..." class="sa-input sm" style="width:200px; padding-left:30px; height:32px; font-size:0.8rem; background:var(--bg-raised); border-color:var(--border);">
+                <i class="fas fa-search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.8rem;"></i>
+            </div>
+            
+            <!-- Status Filter -->
+            <select id="hostingStatusFilter" onchange="filterHostingTable()" class="sa-input sm" style="width:120px; height:32px; font-size:0.8rem; background:var(--bg-raised); border-color:var(--border);">
+                <option value="">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="pending">Pending</option>
+                <option value="suspended">Suspended</option>
+            </select>
+            
+            <!-- Product Type Filter -->
+            <select id="hostingTypeFilter" onchange="filterHostingTable()" class="sa-input sm" style="width:140px; height:32px; font-size:0.8rem; background:var(--bg-raised); border-color:var(--border);">
+                <option value="">All Types</option>
+                <option value="shared">Shared Hosting</option>
+                <option value="reseller">Reseller Hosting</option>
+            </select>
+        </div>
+    </div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead>
+                <tr>
+                    <th>Client</th>
+                    <th>Domain / Product</th>
+                    <th>Server IP / Port</th>
+                    <th>Storage</th>
+                    <th>Price</th>
+                    <th>Due Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for svc in hosting_services %}
+                <tr>
+                    <td>
+                        <div style="font-weight:700; color:var(--text-1);">{{ svc.user.get_full_name|default:svc.user.username }}</div>
+                        <div style="font-size:0.74rem; color:var(--text-3);">ID: {{ svc.user.id }} • {{ svc.user.email }}</div>
+                    </td>
+                    <td>
+                        <div style="font-weight:700; color:var(--green-2);">{{ svc.domain }}</div>
+                        <div style="font-size:0.74rem; color:var(--text-3);">{{ svc.product_type }} ({% if svc.is_reseller %}Reseller{% else %}{{ svc.service_name }}{% endif %})</div>
+                    </td>
+                    <td>
+                        <div style="font-size:0.82rem;">{{ svc.server_hostname|default:"N/A" }}</div>
+                        <div style="font-size:0.74rem; color:var(--text-3);">{{ svc.server.name|default:"Localhost" }}</div>
+                    </td>
+                    <td>{{ svc.storage_gb }} GB</td>
+                    <td>₹{{ svc.monthly_price }}/{{ svc.billing_cycle }}</td>
+                    <td>{{ svc.next_due_date|date:"M d, Y" }}</td>
+                    <td>
+                        <span class="sa-badge {% if svc.status == 'active' %}green{% elif svc.status == 'suspended' %}amber{% else %}gray{% endif %}">
+                            {{ svc.status|capfirst }}
+                        </span>
+                    </td>
+                    <td>
+                        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+                            <!-- Edit Button -->
+                            <button type="button" class="sa-btn blue sm" onclick="editHostingService({
+                                id: {{ svc.id }},
+                                user_id: '{{ svc.user.id }}',
+                                domain: '{{ svc.domain|escapejs }}',
+                                service_name: '{{ svc.service_name|escapejs }}',
+                                server_id: '{{ svc.server.id|default:"" }}',
+                                panel_username: '{{ svc.panel_username|escapejs }}',
+                                panel_password: '{{ svc.panel_password|escapejs }}',
+                                monthly_price: '{{ svc.monthly_price }}',
+                                billing_cycle: '{{ svc.billing_cycle }}',
+                                next_due_date: '{{ svc.next_due_date|date:"Y-m-d" }}',
+                                storage_gb: '{{ svc.storage_gb }}',
+                                bandwidth_gb: '{{ svc.bandwidth_gb }}',
+                                is_reseller: {% if svc.is_reseller %}true{% else %}false{% endif %}
+                            })">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+
+                            <!-- Send Email via Template -->
+                            <form method="POST" style="display:inline; display:flex; align-items:center; gap:4px;">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="send_service_info_email">
+                                <input type="hidden" name="service_id" value="{{ svc.id }}">
+                                <select name="email_template_id" class="sa-input sm" style="width:150px; font-size:0.75rem; padding:3px 6px; height:auto; background:var(--bg-raised); border-color:var(--border);" title="Select an email template to send">
+                                    <option value="">📧 Default (Login Info)</option>
+                                    {% for tpl in email_templates %}
+                                    <option value="{{ tpl.id }}">{{ tpl.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="sa-btn green sm" style="padding:4px 8px;" title="Send via Email">
+                                    <i class="fas fa-paper-plane"></i> Send
+                                </button>
+                            </form>
+
+                            <!-- Send WhatsApp via Template -->
+                            <form method="POST" style="display:inline; display:flex; align-items:center; gap:4px;">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="send_service_info_whatsapp">
+                                <input type="hidden" name="service_id" value="{{ svc.id }}">
+                                <select name="wa_template_id" class="sa-input sm" style="width:150px; font-size:0.75rem; padding:3px 6px; height:auto; background:var(--bg-raised); border-color:var(--border);" title="Select a WhatsApp template to send">
+                                    <option value="">💬 Default (Login Info)</option>
+                                    {% for tpl in wa_templates %}
+                                    <option value="{{ tpl.id }}">{{ tpl.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="sa-btn sm" style="padding:4px 8px; background:#25d366; border:1px solid #1ebb59; color:#fff; font-weight:700; cursor:pointer;" title="Send via WhatsApp">
+                                    <i class="fab fa-whatsapp"></i> Send WA
+                                </button>
+                            </form>
+
+                            <!-- Delete Button -->
+                            <form method="POST" style="display:inline;" onsubmit="return confirm('WARNING: Are you sure you want to delete Hosting Service for {{ svc.domain }} from DB only? Remote panel data will NOT be touched!')">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete_service_db_only">
+                                <input type="hidden" name="service_type" value="hosting">
+                                <input type="hidden" name="service_id" value="{{ svc.id }}">
+                                <button type="submit" class="sa-btn red sm">
+                                    <i class="fas fa-trash-can"></i> Delete DB Only
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8">
+                        <div class="sa-empty">
+                            <i class="fas fa-server"></i>
+                            <div class="sa-empty-title">No hosting services found</div>
+                            <div class="sa-empty-sub">Active hosting subscriptions will appear here.</div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ==================== EMAIL SERVICES TAB ==================== -->
+<div class="sa-card service-tab-panel" id="panel-email" style="padding:0; overflow:hidden; display:none;">
+    <div style="padding:16px 22px; border-bottom:1px solid var(--border); display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px;">
+        <div class="sa-card-title"><i class="fas fa-envelope" style="color:#f59e0b;"></i> Email Services (DB Rows)</div>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <!-- Search Input -->
+            <div style="position:relative;">
+                <input type="text" id="emailSearchInput" onkeyup="filterEmailTable()" placeholder="Search domain, client..." class="sa-input sm" style="width:200px; padding-left:30px; height:32px; font-size:0.8rem; background:var(--bg-raised); border-color:var(--border);">
+                <i class="fas fa-search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.8rem;"></i>
+            </div>
+            
+            <!-- Status Filter -->
+            <select id="emailStatusFilter" onchange="filterEmailTable()" class="sa-input sm" style="width:120px; height:32px; font-size:0.8rem; background:var(--bg-raised); border-color:var(--border);">
+                <option value="">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="pending">Pending</option>
+                <option value="suspended">Suspended</option>
+            </select>
+        </div>
+    </div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead>
+                <tr>
+                    <th>Client</th>
+                    <th>Domain</th>
+                    <th>Server</th>
+                    <th>Mailboxes</th>
+                    <th>Price</th>
+                    <th>Due Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for svc in email_services %}
+                <tr>
+                    <td>
+                        <div style="font-weight:700; color:var(--text-1);">{{ svc.user.get_full_name|default:svc.user.username }}</div>
+                        <div style="font-size:0.74rem; color:var(--text-3);">ID: {{ svc.user.id }} • {{ svc.user.email }}</div>
+                    </td>
+                    <td>
+                        <div style="font-weight:700; color:var(--amber-2);">{{ svc.domain }}</div>
+                        <div style="font-size:0.74rem; color:var(--text-3);">{{ svc.plan_name }}</div>
+                    </td>
+                    <td>{{ svc.server.name|default:"Localhost" }}</td>
+                    <td>{{ svc.mailboxes.count }} / {{ svc.max_mailboxes }}</td>
+                    <td>₹{{ svc.monthly_price }}/Monthly</td>
+                    <td>{{ svc.next_due_date|date:"M d, Y" }}</td>
+                    <td>
+                        <span class="sa-badge {% if svc.status == 'active' %}green{% elif svc.status == 'suspended' %}amber{% else %}gray{% endif %}">
+                            {{ svc.status|capfirst }}
+                        </span>
+                    </td>
+                    <td>
+                        <form method="POST" style="display:inline;" onsubmit="return confirm('WARNING: Are you sure you want to delete Email Service for {{ svc.domain }} from DB only? Remote postfix/dovecot database setups will NOT be altered!')">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete_service_db_only">
+                            <input type="hidden" name="service_type" value="email">
+                            <input type="hidden" name="service_id" value="{{ svc.id }}">
+                            <button type="submit" class="sa-btn red sm">
+                                <i class="fas fa-trash-can"></i> Delete DB Only
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8">
+                        <div class="sa-empty">
+                            <i class="fas fa-envelope"></i>
+                            <div class="sa-empty-title">No email services found</div>
+                            <div class="sa-empty-sub">Active professional email configurations will appear here.</div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ==================== SSL SERVICES TAB ==================== -->
+<div class="sa-card service-tab-panel" id="panel-ssl" style="padding:0; overflow:hidden; display:none;">
+    <div style="padding:16px 22px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+        <div class="sa-card-title"><i class="fas fa-lock" style="color:#34d399;"></i> SSL Services (DB Rows)</div>
+    </div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead>
+                <tr>
+                    <th>Client</th>
+                    <th>Domain</th>
+                    <th>Type</th>
+                    <th>Server</th>
+                    <th>Price</th>
+                    <th>Expires At</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for svc in ssl_services %}
+                <tr>
+                    <td>
+                        <div style="font-weight:700; color:var(--text-1);">{{ svc.user.get_full_name|default:svc.user.username }}</div>
+                        <div style="font-size:0.74rem; color:var(--text-3);">ID: {{ svc.user.id }} • {{ svc.user.email }}</div>
+                    </td>
+                    <td>
+                        <div style="font-weight:700; color:var(--green-2);">{{ svc.domain }}</div>
+                    </td>
+                    <td>{{ svc.plan.get_ssl_type_display|default:svc.plan_name }}</td>
+                    <td>{{ svc.server.name|default:"Localhost" }}</td>
+                    <td>₹{{ svc.plan.monthly_price|default:"0.00" }}</td>
+                    <td>{{ svc.expires_at|date:"M d, Y" }}</td>
+                    <td>
+                        <span class="sa-badge {% if svc.status == 'active' %}green{% elif svc.status == 'failed' %}red{% else %}gray{% endif %}">
+                            {{ svc.status|capfirst }}
+                        </span>
+                    </td>
+                    <td>
+                        <form method="POST" style="display:inline;" onsubmit="return confirm('WARNING: Are you sure you want to delete SSL Service for {{ svc.domain }} from DB only? Certbot settings and panel keys will NOT be changed!')">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete_service_db_only">
+                            <input type="hidden" name="service_type" value="ssl">
+                            <input type="hidden" name="service_id" value="{{ svc.id }}">
+                            <button type="submit" class="sa-btn red sm">
+                                <i class="fas fa-trash-can"></i> Delete DB Only
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8">
+                        <div class="sa-empty">
+                            <i class="fas fa-lock"></i>
+                            <div class="sa-empty-title">No SSL services found</div>
+                            <div class="sa-empty-sub">Client SSL certificates will appear here.</div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ==================== LICENSES TAB ==================== -->
+<div class="sa-card service-tab-panel" id="panel-license" style="padding:0; overflow:hidden; display:none;">
+    <div style="padding:16px 22px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+        <div class="sa-card-title"><i class="fas fa-key" style="color:#a855f7;"></i> Panel Licenses (DB Rows)</div>
+    </div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead>
+                <tr>
+                    <th>Client</th>
+                    <th>Hostname / Key</th>
+                    <th>Server IP</th>
+                    <th>Price</th>
+                    <th>Created</th>
+                    <th>Expires</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for svc in license_services %}
+                <tr>
+                    <td>
+                        <div style="font-weight:700; color:var(--text-1);">{{ svc.user.get_full_name|default:svc.user.username }}</div>
+                        <div style="font-size:0.74rem; color:var(--text-3);">ID: {{ svc.user.id }} • {{ svc.user.email }}</div>
+                    </td>
+                    <td>
+                        <div style="font-weight:700; color:var(--violet-2);">{{ svc.hostname|default:"Not installed" }}</div>
+                        <div style="font-size:0.74rem; color:var(--text-3); font-family:monospace;">{{ svc.key }}</div>
+                    </td>
+                    <td>{{ svc.server_ip|default:"N/A" }}</td>
+                    <td>₹{{ svc.plan.monthly_price|default:"99" }}</td>
+                    <td>{{ svc.created_at|date:"M d, Y" }}</td>
+                    <td>{{ svc.expires_at|date:"M d, Y" }}</td>
+                    <td>
+                        <span class="sa-badge {% if svc.status == 'active' %}green{% elif svc.status == 'suspended' %}amber{% else %}red{% endif %}">
+                            {{ svc.status|capfirst }}
+                        </span>
+                    </td>
+                    <td>
+                        <form method="POST" style="display:inline;" onsubmit="return confirm('WARNING: Are you sure you want to delete Panel License key from DB only? The client server node daemon licensing state will NOT be updated!')">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete_service_db_only">
+                            <input type="hidden" name="service_type" value="license">
+                            <input type="hidden" name="service_id" value="{{ svc.id }}">
+                            <button type="submit" class="sa-btn red sm">
+                                <i class="fas fa-trash-can"></i> Delete DB Only
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8">
+                        <div class="sa-empty">
+                            <i class="fas fa-key"></i>
+                            <div class="sa-empty-title">No panel licenses found</div>
+                            <div class="sa-empty-sub">Active panel installation licenses will appear here.</div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ==================== DIGITAL SUITES TAB ==================== -->
+<div class="sa-card service-tab-panel" id="panel-suite" style="padding:0; overflow:hidden; display:none;">
+    <div style="padding:16px 22px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+        <div class="sa-card-title"><i class="fas fa-cubes" style="color:#f472b6;"></i> Digital Suites (DB Rows)</div>
+    </div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead>
+                <tr>
+                    <th>Client</th>
+                    <th>Suite / Plan</th>
+                    <th>Domain</th>
+                    <th>Price</th>
+                    <th>Billing</th>
+                    <th>Created</th>
+                    <th>Next Due</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for svc in suite_services %}
+                <tr>
+                    <td>
+                        <div style="font-weight:700; color:var(--text-1);">{{ svc.user.get_full_name|default:svc.user.username }}</div>
+                        <div style="font-size:0.74rem; color:var(--text-3);">ID: {{ svc.user.id }} • {{ svc.user.email }}</div>
+                    </td>
+                    <td>
+                        <div style="font-weight:700; color:var(--text-1);">{{ svc.get_suite_display }}</div>
+                        <div style="font-size:0.74rem; color:var(--text-3);">Plan: {{ svc.plan.name }} ({{ svc.plan.panel_plan_slug }})</div>
+                    </td>
+                    <td>
+                        {% if svc.domain %}
+                        <a href="http://{{ svc.domain }}" target="_blank" style="color:var(--sky-2); font-weight:700;">{{ svc.domain }}</a>
+                        {% else %}
+                        <span style="color:var(--text-3);">N/A</span>
+                        {% endif %}
+                    </td>
+                    <td>₹{{ svc.monthly_price }}</td>
+                    <td><span class="sa-badge sky">{{ svc.billing_cycle|capfirst }}</span></td>
+                    <td>{{ svc.created_at|date:"M d, Y" }}</td>
+                    <td>{{ svc.next_due_date|date:"M d, Y" }}</td>
+                    <td>
+                        <span class="sa-badge {% if svc.status == 'active' %}green{% elif svc.status == 'suspended' %}amber{% else %}red{% endif %}">
+                            {{ svc.status|capfirst }}
+                        </span>
+                    </td>
+                    <td>
+                        <div style="display:flex; gap:6px;">
+                            {% if svc.status == 'active' %}
+                            <form method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to suspend this suite service? The client will lose login/SSO access to the suite.')">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="suspend_suite">
+                                <input type="hidden" name="service_id" value="{{ svc.id }}">
+                                <button type="submit" class="sa-btn amber sm">
+                                    <i class="fas fa-pause"></i> Suspend
+                                </button>
+                            </form>
+                            {% elif svc.status == 'suspended' %}
+                            <form method="POST" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="unsuspend_suite">
+                                <input type="hidden" name="service_id" value="{{ svc.id }}">
+                                <button type="submit" class="sa-btn green sm">
+                                    <i class="fas fa-play"></i> Unsuspend
+                                </button>
+                            </form>
+                            {% endif %}
+
+                            <form method="POST" style="display:inline;" onsubmit="return confirm('WARNING: Are you sure you want to delete this digital suite service from the database? This is permanent!')">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete_service_db_only">
+                                <input type="hidden" name="service_type" value="suite">
+                                <input type="hidden" name="service_id" value="{{ svc.id }}">
+                                <button type="submit" class="sa-btn red sm" title="Delete DB Only">
+                                    <i class="fas fa-trash-can"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9">
+                        <div class="sa-empty">
+                            <i class="fas fa-cubes"></i>
+                            <div class="sa-empty-title">No digital suites found</div>
+                            <div class="sa-empty-sub">Purchased digital suites will appear here.</div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ==================== ERP/CRM SERVICES TAB ==================== -->
+<div class="sa-card service-tab-panel" id="panel-erp" style="padding:0; overflow:hidden; display:none;">
+
+    <!-- Provision Form -->
+    <div style="padding:20px 22px; border-bottom:2px solid rgba(16,185,129,0.2); background: linear-gradient(135deg, rgba(16,185,129,0.05) 0%, rgba(6,78,59,0.03) 100%);">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px;">
+            <div style="width:36px; height:36px; background:linear-gradient(135deg,#10b981,#059669); border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <i class="fas fa-plus" style="color:#fff; font-size:0.85rem;"></i>
+            </div>
+            <div>
+                <div style="font-size:0.95rem; font-weight:800; color:var(--text-1);">Provision ERP/HRMS Workspace</div>
+                <div style="font-size:0.75rem; color:var(--text-3);">Calls the HRMS SaaS API to create a new tenant workspace for the selected client</div>
+            </div>
+        </div>
+        <form method="POST" action="/super-admin/services/" id="erp-provision-form">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="assign_erp_service">
+            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:12px; margin-bottom:14px;">
+                <div class="sa-form-group">
+                    <label class="sa-label"><i class="fas fa-user" style="margin-right:4px; color:#10b981;"></i> Client / User</label>
+                    <select name="user_id" class="sa-input" required>
+                        <option value="">-- Select Client --</option>
+                        {% for u in portal_users %}
+                        <option value="{{ u.id }}">{{ u.username }} ({{ u.email }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="sa-form-group">
+                    <label class="sa-label"><i class="fas fa-building" style="margin-right:4px; color:#10b981;"></i> Company Name</label>
+                    <input type="text" name="company_name" placeholder="e.g. Acme Corporation" class="sa-input" required>
+                </div>
+                <div class="sa-form-group">
+                    <label class="sa-label"><i class="fas fa-at" style="margin-right:4px; color:#10b981;"></i> Subdomain</label>
+                    <div style="position:relative;">
+                        <input type="text" name="subdomain" id="erp-subdomain" placeholder="e.g. acme" class="sa-input" style="padding-right:130px;" required oninput="checkErpSubdomain(this)">
+                        <span style="position:absolute; right:10px; top:50%; transform:translateY(-50%); font-size:0.72rem; color:var(--text-3); pointer-events:none;">.voidpanel.com</span>
+                    </div>
+                    <div id="subdomain-check" style="font-size:0.72rem; margin-top:3px;"></div>
+                </div>
+                <div class="sa-form-group">
+                    <label class="sa-label"><i class="fas fa-layer-group" style="margin-right:4px; color:#10b981;"></i> Package / Plan</label>
+                    <select name="package_name" class="sa-input">
+                        <option value="Starter">Starter (Free)</option>
+                        <option value="Growth">Growth</option>
+                        <option value="Enterprise">Enterprise</option>
+                    </select>
+                </div>
+                <div class="sa-form-group">
+                    <label class="sa-label"><i class="fas fa-user-tie" style="margin-right:4px; color:#10b981;"></i> Admin Full Name</label>
+                    <input type="text" name="admin_name" placeholder="e.g. John Doe" class="sa-input">
+                </div>
+                <div class="sa-form-group">
+                    <label class="sa-label"><i class="fas fa-envelope" style="margin-right:4px; color:#10b981;"></i> Admin Email</label>
+                    <input type="email" name="admin_email" placeholder="admin@company.com" class="sa-input" required>
+                </div>
+                <div class="sa-form-group">
+                    <label class="sa-label"><i class="fas fa-lock" style="margin-right:4px; color:#10b981;"></i> Admin Password</label>
+                    <input type="text" name="admin_password" placeholder="Leave blank for default" class="sa-input">
+                </div>
+                <div class="sa-form-group">
+                    <label class="sa-label">
+                        <i class="fas fa-globe" style="margin-right:4px; color:#10b981;"></i> Custom Domain
+                        <span style="cursor:pointer; color:var(--text-3);" title="Optional. Customer's own domain (e.g. hr.company.com). They must add a CNAME record: hr.company.com → hrms.voidpanel.com">ⓘ</span>
+                    </label>
+                    <input type="text" name="custom_domain" id="erp-custom-domain" placeholder="hr.company.com (optional)" class="sa-input" oninput="previewCustomDomain(this)">
+                    <div id="custom-domain-preview" style="font-size:0.71rem; color:var(--text-3); margin-top:3px; display:none;"></div>
+                </div>
+                <div class="sa-form-group">
+                    <label class="sa-label"><i class="fas fa-indian-rupee-sign" style="margin-right:4px; color:#10b981;"></i> Monthly Price (₹)</label>
+                    <input type="number" name="monthly_price" value="0" step="0.01" class="sa-input">
+                </div>
+                <div class="sa-form-group">
+                    <label class="sa-label"><i class="fas fa-calendar" style="margin-right:4px; color:#10b981;"></i> Billing Cycle</label>
+                    <select name="billing_cycle" class="sa-input">
+                        <option value="monthly">Monthly</option>
+                        <option value="annually">Annually</option>
+                    </select>
+                </div>
+                <div class="sa-form-group">
+                    <label class="sa-label"><i class="fas fa-calendar-check" style="margin-right:4px; color:#10b981;"></i> Next Due Date</label>
+                    <input type="date" name="next_due_date" class="sa-input">
+                </div>
+            </div>
+
+            <!-- DNS Instructions box -->
+            <div id="erp-dns-hint" style="display:none; background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.2); border-radius:10px; padding:12px 16px; margin-bottom:14px;">
+                <div style="font-size:0.75rem; font-weight:700; color:#10b981; margin-bottom:6px;"><i class="fas fa-info-circle"></i> DNS Setup Required for Custom Domain</div>
+                <div style="font-size:0.72rem; color:var(--text-2); line-height:1.6;">
+                    Ask the customer to add this DNS record at their domain registrar:
+                    <div style="margin-top:6px; background:var(--bg-raised); border-radius:6px; padding:8px 12px; font-family:monospace; font-size:0.78rem; color:var(--text-1);">
+                        Type: <b>CNAME</b> &nbsp;|&nbsp; Host: <span id="dns-host-preview" style="color:#10b981;">hr</span> &nbsp;|&nbsp; Value: <b>hrms.voidpanel.com</b>
+                    </div>
+                    <div style="margin-top:4px; color:var(--text-3);">✦ Cloudflare proxy (orange cloud ON) handles SSL automatically.</div>
+                </div>
+            </div>
+
+            <button type="submit" class="sa-btn" style="background:linear-gradient(135deg,#10b981,#059669); border-color:#059669; color:#fff; padding:9px 22px; font-weight:700;">
+                <i class="fas fa-rocket"></i> Provision Workspace via API
+            </button>
+        </form>
+    </div>
+
+    <!-- Table -->
+    <div style="padding:14px 22px; border-bottom:1px solid var(--border); display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px;">
+        <div class="sa-card-title"><i class="fas fa-briefcase" style="color:#10b981;"></i> ERP/HRMS Workspaces (DB Rows)</div>
+        <div style="position:relative;">
+            <input type="text" id="erpSearchInput" onkeyup="filterErpTable()" placeholder="Search company, client..." class="sa-input sm" style="width:220px; padding-left:30px; height:32px; font-size:0.8rem; background:var(--bg-raised); border-color:var(--border);">
+            <i class="fas fa-search" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.8rem;"></i>
+        </div>
+    </div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead>
+                <tr>
+                    <th>Client</th>
+                    <th>Company / Plan</th>
+                    <th>Subdomain</th>
+                    <th>Custom Domain</th>
+                    <th>Price</th>
+                    <th>Next Due</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for svc in erp_services %}
+                <tr>
+                    <td>
+                        <div style="font-weight:700; color:var(--text-1);">{{ svc.user.get_full_name|default:svc.user.username }}</div>
+                        <div style="font-size:0.74rem; color:var(--text-3);">{{ svc.user.email }}</div>
+                    </td>
+                    <td>
+                        <div style="font-weight:700; color:var(--text-1);">{{ svc.company_name }}</div>
+                        <div style="font-size:0.74rem; color:var(--text-3);">Plan: <span style="color:#10b981;">{{ svc.package_name }}</span></div>
+                    </td>
+                    <td>
+                        <a href="{{ svc.dashboard_url }}" target="_blank" style="color:var(--sky-2); font-weight:700; font-size:0.82rem;">{{ svc.subdomain }}.voidpanel.com</a>
+                        <div style="font-size:0.7rem; color:var(--text-3);">Admin: {{ svc.admin_email }}</div>
+                    </td>
+                    <td>
+                        {% if svc.custom_domain %}
+                        <div style="display:flex; align-items:center; gap:5px;">
+                            <span style="background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.25); border-radius:6px; padding:2px 8px; font-size:0.75rem; font-weight:700; color:#34d399; font-family:monospace;">{{ svc.custom_domain }}</span>
+                        </div>
+                        <div style="font-size:0.68rem; color:var(--text-3); margin-top:2px;"><i class="fas fa-circle-check" style="color:#10b981;"></i> Custom domain active</div>
+                        {% else %}
+                        <span style="color:var(--text-3); font-size:0.78rem; font-style:italic;">None set</span>
+                        {% endif %}
+                    </td>
+                    <td>₹{{ svc.monthly_price }}<div style="font-size:0.72rem; color:var(--text-3);">{{ svc.billing_cycle|capfirst }}</div></td>
+                    <td>{{ svc.next_due_date|date:"M d, Y"|default:"—" }}</td>
+                    <td>
+                        <span class="sa-badge {% if svc.status == 'active' %}green{% elif svc.status == 'suspended' %}amber{% else %}red{% endif %}">
+                            {{ svc.status|capfirst }}
+                        </span>
+                    </td>
+                    <td>
+                        <div style="display:flex; flex-wrap:wrap; gap:5px; align-items:center;">
+                            <!-- Set Custom Domain -->
+                            <button type="button" class="sa-btn sm" onclick="openErpDomainModal({{ svc.id }}, '{{ svc.custom_domain|escapejs }}', '{{ svc.company_name|escapejs }}')" style="background:rgba(16,185,129,0.1); border-color:rgba(16,185,129,0.25); color:#34d399;" title="Set / Update Custom Domain">
+                                <i class="fas fa-globe"></i> Domain
+                            </button>
+
+                            {% if svc.status == 'active' %}
+                            <form method="POST" style="display:inline;" onsubmit="return confirm('Suspend the HRMS workspace for {{ svc.company_name }}? Client logins will be blocked.')">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="suspend_erp">
+                                <input type="hidden" name="service_id" value="{{ svc.id }}">
+                                <button type="submit" class="sa-btn amber sm"><i class="fas fa-pause"></i> Suspend</button>
+                            </form>
+                            {% elif svc.status == 'suspended' %}
+                            <form method="POST" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="unsuspend_erp">
+                                <input type="hidden" name="service_id" value="{{ svc.id }}">
+                                <button type="submit" class="sa-btn green sm"><i class="fas fa-play"></i> Activate</button>
+                            </form>
+                            {% endif %}
+
+                            <!-- Delete -->
+                            <form method="POST" style="display:inline;" onsubmit="return confirm('WARNING: Delete ERP record for {{ svc.company_name }} from DB only? The HRMS tenant will NOT be removed from the SaaS server!')">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete_service_db_only">
+                                <input type="hidden" name="service_type" value="erp_crm">
+                                <input type="hidden" name="service_id" value="{{ svc.id }}">
+                                <button type="submit" class="sa-btn red sm" title="Delete DB Only"><i class="fas fa-trash-can"></i></button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8">
+                        <div class="sa-empty">
+                            <i class="fas fa-briefcase"></i>
+                            <div class="sa-empty-title">No ERP/CRM workspaces found</div>
+                            <div class="sa-empty-sub">Use the form above to provision a new HRMS workspace for a client.</div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ── Gym Portal Tab ── -->
+<div class="sa-card service-tab-panel" id="panel-gym" style="padding:0; overflow:hidden; display:none;">
+    <div style="padding:16px 22px; border-bottom:1px solid var(--border);"><div class="sa-card-title"><i class="fas fa-dumbbell" style="color:#10b981;"></i> Gym Portal Services (DB Rows)</div></div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead><tr><th>Client</th><th>Studio / Plan</th><th>Subdomain</th><th>Price</th><th>Due</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for svc in gym_services %}
+                <tr>
+                    <td><div style="font-weight:700;color:var(--text-1);">{{ svc.user.get_full_name|default:svc.user.username }}</div><div style="font-size:0.74rem;color:var(--text-3);">{{ svc.user.email }}</div></td>
+                    <td><div style="font-weight:700;color:var(--text-1);">{{ svc.studio_name|default:"—" }}</div><div style="font-size:0.74rem;color:var(--text-3);">{{ svc.package_name }}</div></td>
+                    <td><span style="color:var(--sky-2);font-weight:700;font-size:0.82rem;">{{ svc.subdomain }}.voidpanel.com</span></td>
+                    <td>₹{{ svc.monthly_price }}<div style="font-size:0.72rem;color:var(--text-3);">{{ svc.billing_cycle|default:"Monthly"|capfirst }}</div></td>
+                    <td>{{ svc.next_due_date|date:"M d, Y"|default:"—" }}</td>
+                    <td><span class="sa-badge {% if svc.status == 'active' %}green{% elif svc.status == 'suspended' %}amber{% else %}red{% endif %}">{{ svc.status|capfirst }}</span></td>
+                    <td><form method="POST" style="display:inline;" onsubmit="return confirm('Delete Gym record for {{ svc.user.username }} from DB?')">{% csrf_token %}<input type="hidden" name="action" value="delete_service_db_only"><input type="hidden" name="service_type" value="gym"><input type="hidden" name="service_id" value="{{ svc.id }}"><button type="submit" class="sa-btn red sm"><i class="fas fa-trash-can"></i></button></form></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7"><div class="sa-empty"><i class="fas fa-dumbbell"></i><div class="sa-empty-title">No Gym Portal services</div></div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ── AI Voice Tab ── -->
+<div class="sa-card service-tab-panel" id="panel-aivoice" style="padding:0; overflow:hidden; display:none;">
+    <div style="padding:16px 22px; border-bottom:1px solid var(--border);"><div class="sa-card-title"><i class="fas fa-phone-volume" style="color:#8b5cf6;"></i> AI Voice Services (DB Rows)</div></div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead><tr><th>Client</th><th>Company / Plan</th><th>Subdomain</th><th>Price</th><th>Due</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for svc in aivoice_services %}
+                <tr>
+                    <td><div style="font-weight:700;color:var(--text-1);">{{ svc.user.get_full_name|default:svc.user.username }}</div><div style="font-size:0.74rem;color:var(--text-3);">{{ svc.user.email }}</div></td>
+                    <td><div style="font-weight:700;color:var(--text-1);">{{ svc.company_name|default:"—" }}</div><div style="font-size:0.74rem;color:var(--text-3);">{{ svc.package_name }}</div></td>
+                    <td><span style="color:var(--sky-2);font-weight:700;font-size:0.82rem;">{{ svc.subdomain }}.voidpanel.com</span></td>
+                    <td>₹{{ svc.monthly_price }}<div style="font-size:0.72rem;color:var(--text-3);">{{ svc.billing_cycle|default:"Monthly"|capfirst }}</div></td>
+                    <td>{{ svc.next_due_date|date:"M d, Y"|default:"—" }}</td>
+                    <td><span class="sa-badge {% if svc.status == 'active' %}green{% elif svc.status == 'suspended' %}amber{% else %}red{% endif %}">{{ svc.status|capfirst }}</span></td>
+                    <td><form method="POST" style="display:inline;" onsubmit="return confirm('Delete AI Voice record for {{ svc.user.username }} from DB?')">{% csrf_token %}<input type="hidden" name="action" value="delete_service_db_only"><input type="hidden" name="service_type" value="ai_voice"><input type="hidden" name="service_id" value="{{ svc.id }}"><button type="submit" class="sa-btn red sm"><i class="fas fa-trash-can"></i></button></form></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7"><div class="sa-empty"><i class="fas fa-phone-volume"></i><div class="sa-empty-title">No AI Voice services</div></div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ── Hotel Portal Tab ── -->
+<div class="sa-card service-tab-panel" id="panel-hotel" style="padding:0; overflow:hidden; display:none;">
+    <div style="padding:16px 22px; border-bottom:1px solid var(--border);"><div class="sa-card-title"><i class="fas fa-hotel" style="color:#0ea5e9;"></i> Hotel Portal Services (DB Rows)</div></div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead><tr><th>Client</th><th>Hotel / Plan</th><th>Subdomain</th><th>Price</th><th>Due</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for svc in hotel_services %}
+                <tr>
+                    <td><div style="font-weight:700;color:var(--text-1);">{{ svc.user.get_full_name|default:svc.user.username }}</div><div style="font-size:0.74rem;color:var(--text-3);">{{ svc.user.email }}</div></td>
+                    <td><div style="font-weight:700;color:var(--text-1);">{{ svc.hotel_name|default:"—" }}</div><div style="font-size:0.74rem;color:var(--text-3);">{{ svc.package_name }}</div></td>
+                    <td><span style="color:var(--sky-2);font-weight:700;font-size:0.82rem;">{{ svc.subdomain }}.voidpanel.com</span></td>
+                    <td>₹{{ svc.monthly_price }}<div style="font-size:0.72rem;color:var(--text-3);">{{ svc.billing_cycle|default:"Monthly"|capfirst }}</div></td>
+                    <td>{{ svc.next_due_date|date:"M d, Y"|default:"—" }}</td>
+                    <td><span class="sa-badge {% if svc.status == 'active' %}green{% elif svc.status == 'suspended' %}amber{% else %}red{% endif %}">{{ svc.status|capfirst }}</span></td>
+                    <td><form method="POST" style="display:inline;" onsubmit="return confirm('Delete Hotel record for {{ svc.user.username }} from DB?')">{% csrf_token %}<input type="hidden" name="action" value="delete_service_db_only"><input type="hidden" name="service_type" value="hotel"><input type="hidden" name="service_id" value="{{ svc.id }}"><button type="submit" class="sa-btn red sm"><i class="fas fa-trash-can"></i></button></form></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7"><div class="sa-empty"><i class="fas fa-hotel"></i><div class="sa-empty-title">No Hotel Portal services</div></div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ── KhataBook Tab ── -->
+<div class="sa-card service-tab-panel" id="panel-khatabook" style="padding:0; overflow:hidden; display:none;">
+    <div style="padding:16px 22px; border-bottom:1px solid var(--border);"><div class="sa-card-title"><i class="fas fa-book-open" style="color:#d97706;"></i> KhataBook Services (DB Rows)</div></div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead><tr><th>Client</th><th>Business / Plan</th><th>Dashboard URL</th><th>Price</th><th>Due</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for svc in khatabook_services %}
+                <tr>
+                    <td><div style="font-weight:700;color:var(--text-1);">{{ svc.user.get_full_name|default:svc.user.username }}</div><div style="font-size:0.74rem;color:var(--text-3);">{{ svc.user.email }}</div></td>
+                    <td><div style="font-weight:700;color:var(--text-1);">{{ svc.business_name|default:"—" }}</div><div style="font-size:0.74rem;color:var(--text-3);">{{ svc.package_name }}</div></td>
+                    <td><span style="color:var(--sky-2);font-weight:700;font-size:0.82rem;">{% if svc.dashboard_url %}<a href="{{ svc.dashboard_url }}" target="_blank" style="color:var(--sky-2);text-decoration:none;">{{ svc.dashboard_url }} <i class="fas fa-external-link-alt" style="font-size:0.65rem;"></i></a>{% elif svc.subdomain %}{{ svc.subdomain }}.voidpanel.com{% else %}{{ svc.owner_username }}{% endif %}</span></td>
+                    <td>₹{{ svc.monthly_price }}<div style="font-size:0.72rem;color:var(--text-3);">{{ svc.billing_cycle|default:"Monthly"|capfirst }}</div></td>
+                    <td>{{ svc.next_due_date|date:"M d, Y"|default:"—" }}</td>
+                    <td><span class="sa-badge {% if svc.status == 'active' %}green{% elif svc.status == 'suspended' %}amber{% else %}red{% endif %}">{{ svc.status|capfirst }}</span></td>
+                    <td><form method="POST" style="display:inline;" onsubmit="return confirm('Delete KhataBook record for {{ svc.user.username }} from DB?')">{% csrf_token %}<input type="hidden" name="action" value="delete_service_db_only"><input type="hidden" name="service_type" value="khatabook"><input type="hidden" name="service_id" value="{{ svc.id }}"><button type="submit" class="sa-btn red sm"><i class="fas fa-trash-can"></i></button></form></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7"><div class="sa-empty"><i class="fas fa-book-open"></i><div class="sa-empty-title">No KhataBook services</div></div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ── Lead Generator Tab ── -->
+<div class="sa-card service-tab-panel" id="panel-leadgen" style="padding:0; overflow:hidden; display:none;">
+    <div style="padding:16px 22px; border-bottom:1px solid var(--border);"><div class="sa-card-title"><i class="fas fa-crosshairs" style="color:#06b6d4;"></i> Lead Generator Services (DB Rows)</div></div>
+    <div class="sa-table-wrap">
+        <table class="sa-table">
+            <thead><tr><th>Client</th><th>Org / Plan</th><th>Subdomain</th><th>Price</th><th>Due</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for svc in leadgen_services %}
+                <tr>
+                    <td><div style="font-weight:700;color:var(--text-1);">{{ svc.user.get_full_name|default:svc.user.username }}</div><div style="font-size:0.74rem;color:var(--text-3);">{{ svc.user.email }}</div></td>
+                    <td><div style="font-weight:700;color:var(--text-1);">{{ svc.org_name|default:"—" }}</div><div style="font-size:0.74rem;color:var(--text-3);">{{ svc.package_name }}</div></td>
+                    <td><span style="color:var(--sky-2);font-weight:700;font-size:0.82rem;">{{ svc.subdomain }}.voidpanel.com</span></td>
+                    <td>₹{{ svc.monthly_price }}<div style="font-size:0.72rem;color:var(--text-3);">{{ svc.billing_cycle|default:"Monthly"|capfirst }}</div></td>
+                    <td>{{ svc.next_due_date|date:"M d, Y"|default:"—" }}</td>
+                    <td><span class="sa-badge {% if svc.status == 'active' %}green{% elif svc.status == 'suspended' %}amber{% else %}red{% endif %}">{{ svc.status|capfirst }}</span></td>
+                    <td><form method="POST" style="display:inline;" onsubmit="return confirm('Delete Lead Gen record for {{ svc.user.username }} from DB?')">{% csrf_token %}<input type="hidden" name="action" value="delete_service_db_only"><input type="hidden" name="service_type" value="leadgen"><input type="hidden" name="service_id" value="{{ svc.id }}"><button type="submit" class="sa-btn red sm"><i class="fas fa-trash-can"></i></button></form></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7"><div class="sa-empty"><i class="fas fa-crosshairs"></i><div class="sa-empty-title">No Lead Generator services</div></div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ── Custom Domain Modal ── -->
+<div id="erp-domain-modal" style="display:none; position:fixed; inset:0; z-index:99998; background:rgba(0,0,0,0.65); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+    <div style="background:var(--bg-card,#0f172a); border:1px solid rgba(16,185,129,0.3); border-radius:18px; padding:28px 32px; width:100%; max-width:480px; box-shadow:0 25px 60px rgba(0,0,0,0.6);">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+            <div style="width:40px; height:40px; background:linear-gradient(135deg,#10b981,#059669); border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <i class="fas fa-globe" style="color:#fff;"></i>
+            </div>
+            <div>
+                <div style="font-size:1rem; font-weight:800; color:var(--text-1);">Set Custom Domain</div>
+                <div id="modal-company-label" style="font-size:0.78rem; color:var(--text-3);"></div>
+            </div>
+        </div>
+        <form method="POST" action="/super-admin/services/">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="set_erp_custom_domain">
+            <input type="hidden" name="service_id" id="modal-service-id">
+            <div class="sa-form-group" style="margin-bottom:12px;">
+                <label class="sa-label"><i class="fas fa-globe" style="margin-right:4px; color:#10b981;"></i> Custom Domain</label>
+                <input type="text" name="custom_domain" id="modal-custom-domain" placeholder="hr.mycompany.com" class="sa-input" autocomplete="off">
+                <div style="font-size:0.72rem; color:var(--text-3); margin-top:5px;">Leave blank to <strong>clear</strong> the custom domain.</div>
+            </div>
+            <div style="background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.15); border-radius:10px; padding:12px 14px; margin-bottom:16px;">
+                <div style="font-size:0.72rem; font-weight:700; color:#10b981; margin-bottom:5px;"><i class="fas fa-terminal"></i> Required DNS CNAME Record</div>
+                <div style="font-family:monospace; font-size:0.78rem; color:var(--text-2); line-height:1.8;">
+                    Type: <b>CNAME</b><br>
+                    Host: <b>hr</b> (or @ for root)<br>
+                    Value: <b>hrms.voidpanel.com</b>
+                </div>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button type="submit" class="sa-btn" style="background:linear-gradient(135deg,#10b981,#059669); border-color:#059669; color:#fff; font-weight:700; flex:1;">
+                    <i class="fas fa-save"></i> Save Domain
+                </button>
+                <button type="button" onclick="closeErpDomainModal()" class="sa-btn gray">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tab Switching Script -->
+<script>
+function switchTab(tabId) {
+    // Hide all panels
+    document.querySelectorAll('.service-tab-panel').forEach(p => p.style.display = 'none');
+    // Remove active style from all tab buttons
+    document.querySelectorAll('.sa-tab').forEach(b => {
+        b.classList.remove('active-green');
+    });
+
+    // Show selected panel
+    const targetPanel = document.getElementById('panel-' + tabId);
+    if(targetPanel) targetPanel.style.display = 'block';
+
+    // Highlight selected button
+    const targetBtn = document.getElementById('tabBtn-' + tabId);
+    if(targetBtn) targetBtn.classList.add('active-green');
+}
+
+function editHostingService(data) {
+    document.getElementById('hosting_form_title').innerHTML = '<i class="fas fa-edit" style="color:var(--green-2);"></i> Edit Hosting Service: ' + data.domain;
+    document.getElementById('hosting_form_action').value = 'edit_hosting_service';
+    document.getElementById('edit_service_id').value = data.id;
+
+    document.getElementById('field_user_id').value = data.user_id;
+    document.getElementById('field_domain').value = data.domain;
+    document.getElementById('field_service_name').value = data.service_name;
+    document.getElementById('field_server_id').value = data.server_id;
+    document.getElementById('field_panel_username').value = data.panel_username;
+    document.getElementById('field_panel_password').value = data.panel_password;
+    document.getElementById('field_monthly_price').value = data.monthly_price;
+    document.getElementById('field_billing_cycle').value = data.billing_cycle;
+    document.getElementById('field_next_due_date').value = data.next_due_date;
+    document.getElementById('field_storage_gb').value = data.storage_gb;
+    document.getElementById('field_bandwidth_gb').value = data.bandwidth_gb;
+    document.getElementById('field_is_reseller').checked = data.is_reseller;
+
+    document.getElementById('hosting_submit_btn').innerHTML = '<i class="fas fa-save"></i> Save Changes';
+    document.getElementById('cancel_hosting_edit_btn').style.display = 'inline-block';
+
+    // Scroll to form smoothly
+    document.getElementById('hosting_form_card').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelHostingEdit() {
+    document.getElementById('hosting_form_title').innerHTML = '<i class="fas fa-user-plus" style="color:var(--green-2);"></i> Assign Hosting Service Manually';
+    document.getElementById('hosting_form_action').value = 'assign_hosting_service';
+    document.getElementById('edit_service_id').value = '';
+
+    document.getElementById('field_user_id').value = '';
+    document.getElementById('field_domain').value = '';
+    document.getElementById('field_service_name').value = '';
+    document.getElementById('field_server_id').value = '';
+    document.getElementById('field_panel_username').value = '';
+    document.getElementById('field_panel_password').value = '';
+    document.getElementById('field_monthly_price').value = '0';
+    document.getElementById('field_billing_cycle').value = 'monthly';
+    document.getElementById('field_next_due_date').value = '';
+    document.getElementById('field_storage_gb').value = '25';
+    document.getElementById('field_bandwidth_gb').value = '250';
+    document.getElementById('field_is_reseller').checked = false;
+
+    document.getElementById('hosting_submit_btn').innerHTML = '<i class="fas fa-check-double"></i> Assign Hosting Service';
+    document.getElementById('cancel_hosting_edit_btn').style.display = 'none';
+}
+
+function filterHostingTable() {
+    const query = document.getElementById('hostingSearchInput').value.toLowerCase();
+    const statusFilter = document.getElementById('hostingStatusFilter').value.toLowerCase();
+    const typeFilter = document.getElementById('hostingTypeFilter').value.toLowerCase();
+    
+    const rows = document.querySelectorAll('#panel-hosting tbody tr');
+    
+    rows.forEach(row => {
+        if (row.querySelector('.sa-empty')) return;
+        
+        const clientText = row.cells[0].textContent.toLowerCase();
+        const domainText = row.cells[1].textContent.toLowerCase();
+        const serverText = row.cells[2].textContent.toLowerCase();
+        const statusText = row.cells[6].textContent.trim().toLowerCase();
+        const typeText = row.cells[1].querySelector('div:last-child').textContent.toLowerCase();
+        
+        const matchesQuery = clientText.includes(query) || domainText.includes(query) || serverText.includes(query);
+        const matchesStatus = !statusFilter || statusText === statusFilter;
+        
+        let matchesType = true;
+        if (typeFilter) {
+            if (typeFilter === 'reseller') {
+                matchesType = typeText.includes('reseller');
+            } else if (typeFilter === 'shared') {
+                matchesType = !typeText.includes('reseller');
+            }
+        }
+        
+        if (matchesQuery && matchesStatus && matchesType) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+function filterEmailTable() {
+    const query = document.getElementById('emailSearchInput').value.toLowerCase();
+    const statusFilter = document.getElementById('emailStatusFilter').value.toLowerCase();
+    
+    const rows = document.querySelectorAll('#panel-email tbody tr');
+    
+    rows.forEach(row => {
+        if (row.querySelector('.sa-empty')) return;
+        
+        const clientText = row.cells[0].textContent.toLowerCase();
+        const domainText = row.cells[1].textContent.toLowerCase();
+        const serverText = row.cells[2].textContent.toLowerCase();
+        const statusText = row.cells[6].textContent.trim().toLowerCase();
+        
+        const matchesQuery = clientText.includes(query) || domainText.includes(query) || serverText.includes(query);
+        const matchesStatus = !statusFilter || statusText === statusFilter;
+        
+        if (matchesQuery && matchesStatus) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+/* ─── ERP Custom Domain Modal ─── */
+function openErpDomainModal(id, currentDomain, companyName) {
+    document.getElementById('modal-service-id').value = id;
+    document.getElementById('modal-custom-domain').value = currentDomain || '';
+    document.getElementById('modal-company-label').textContent = companyName;
+    const modal = document.getElementById('erp-domain-modal');
+    modal.style.display = 'flex';
+}
+function closeErpDomainModal() {
+    document.getElementById('erp-domain-modal').style.display = 'none';
+}
+document.getElementById('erp-domain-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeErpDomainModal();
+});
+
+/* ─── Subdomain availability check ─── */
+let _sdTimer = null;
+function checkErpSubdomain(input) {
+    const val = input.value.trim().toLowerCase();
+    const out = document.getElementById('subdomain-check');
+    if (!val) { out.innerHTML = ''; return; }
+    clearTimeout(_sdTimer);
+    out.innerHTML = '<span style="color:var(--text-3);">Checking...</span>';
+    _sdTimer = setTimeout(function() {
+        fetch('/api/erp/check-subdomain/?subdomain=' + encodeURIComponent(val))
+            .then(r => r.json())
+            .then(d => {
+                if (d.available) {
+                    out.innerHTML = '<i class="fas fa-circle-check" style="color:#10b981;"></i> <span style="color:#10b981;">Available</span>';
+                } else {
+                    out.innerHTML = '<i class="fas fa-circle-xmark" style="color:#ef4444;"></i> <span style="color:#ef4444;">' + (d.error || 'Already taken') + '</span>';
+                }
+            })
+            .catch(() => { out.innerHTML = ''; });
+    }, 500);
+}
+
+/* ─── Custom Domain preview + DNS hint ─── */
+function previewCustomDomain(input) {
+    const val = input.value.trim();
+    const preview = document.getElementById('custom-domain-preview');
+    const hint = document.getElementById('erp-dns-hint');
+    const hostPreview = document.getElementById('dns-host-preview');
+    if (val) {
+        const parts = val.split('.');
+        const host = parts.length >= 3 ? parts[0] : '@';
+        hostPreview.textContent = host;
+        preview.style.display = 'block';
+        preview.innerHTML = '<i class="fas fa-globe" style="color:#10b981;"></i> Login URL will be: <strong>https://' + val + '/login/</strong>';
+        hint.style.display = 'block';
+    } else {
+        preview.style.display = 'none';
+        hint.style.display = 'none';
+    }
+}
+
+/* ─── ERP Table Search ─── */
+function filterErpTable() {
+    const q = document.getElementById('erpSearchInput').value.toLowerCase();
+    document.querySelectorAll('#panel-erp .sa-table tbody tr').forEach(row => {
+        if (row.querySelector('.sa-empty')) return;
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(q) ? '' : 'none';
+    });
+}
+</script>
+
+{% endblock %}

@@ -1,10 +1,14 @@
 """
 VoidApp API — Email management endpoints.
 
-GET    /api/v1/emails/                  — List email accounts
-POST   /api/v1/emails/create/           — Create email account
-POST   /api/v1/emails/delete/           — Delete email account
-POST   /api/v1/emails/change-password/  — Change email password
+GET    /api/v1/emails/                        — List email accounts
+POST   /api/v1/emails/create/                 — Create email account
+POST   /api/v1/emails/delete/                 — Delete email account
+POST   /api/v1/emails/change-password/        — Change email password
+GET    /api/v1/emails/whitelist/              — List whitelisted IPs for VoidMail AI
+POST   /api/v1/emails/whitelist/add/          — Add IP to VoidMail AI whitelist
+POST   /api/v1/emails/whitelist/remove/       — Remove IP from whitelist
+GET    /api/v1/emails/ai-status/              — Check if caller IP is whitelisted for AI
 """
 
 import os
@@ -15,8 +19,12 @@ import logging
 import subprocess
 
 from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings as django_settings
 
-from control.models import allemail, domain as Domain, user as CtrlUser, package as Package
+from control.models import (
+    allemail, domain as Domain, user as CtrlUser, package as Package,
+    VoidMailWhitelistIP,
+)
 from userapp.decorators import (
     api_response, api_auth_required, parse_json_body, require_post
 )
@@ -273,7 +281,154 @@ def api_email_change_password(request):
         return api_response(error=f'Failed to update password: {str(e)}', status=500)
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+#  VOIDMAIL AI WHITELIST IP ENDPOINTS
+# ══════════════════════════════════════════════════════════════════════════════
+
+@api_auth_required()
+def api_email_whitelist_list(request):
+    """List all whitelisted IPs for VoidMail AI features for the user's domain."""
+    ctrl_user = request.ctrl_user
+    entries = VoidMailWhitelistIP.objects.filter(domain=ctrl_user.domain).order_by('-created_at')
+
+    ip_list = []
+    for entry in entries:
+        ip_list.append({
+            'id': entry.id,
+            'ip_address': entry.ip_address,
+            'domain': entry.domain,
+            'label': entry.label,
+            'created_at': entry.created_at.isoformat(),
+        })
+
+    return api_response(data={'whitelist': ip_list, 'count': len(ip_list)})
+
+
+@api_auth_required()
+@require_post
+def api_email_whitelist_add(request):
+    """
+    Add an IP to the VoidMail AI whitelist for the user's domain.
+
+    POST body: { "ip_address": "1.2.3.4", "label": "Office Network" }
+    """
+    data = parse_json_body(request)
+    ip_address = data.get('ip_address', '').strip()
+    label = data.get('label', '').strip()
+    ctrl_user = request.ctrl_user
+    domain_name = ctrl_user.domain
+
+    if not ip_address:
+        return api_response(error='IP address is required.', status=400)
+
+    # Check if already exists
+    if VoidMailWhitelistIP.objects.filter(ip_address=ip_address, domain=domain_name).exists():
+        return api_response(error='This IP is already whitelisted for this domain.', status=409)
+
+    entry = VoidMailWhitelistIP.objects.create(
+        ip_address=ip_address,
+        domain=domain_name,
+        label=label,
+    )
+
+    try:
+        from control.activity import log_activity
+        log_activity(request, 'success', 'email', domain=domain_name,
+                     action=f'VoidMail AI whitelist IP added: {ip_address}',
+                     detail=f'Label: {label or "none"}')
+    except Exception:
+        pass
+
+    return api_response(data={
+        'id': entry.id,
+        'ip_address': entry.ip_address,
+        'domain': entry.domain,
+        'label': entry.label,
+        'message': f'IP {ip_address} whitelisted for VoidMail AI features.',
+    })
+
+
+@api_auth_required()
+@require_post
+def api_email_whitelist_remove(request):
+    """
+    Remove an IP from the VoidMail AI whitelist.
+
+    POST body: { "ip_address": "1.2.3.4" }
+    """
+    data = parse_json_body(request)
+    ip_address = data.get('ip_address', '').strip()
+    ctrl_user = request.ctrl_user
+
+    if not ip_address:
+        return api_response(error='IP address is required.', status=400)
+
+    try:
+        entry = VoidMailWhitelistIP.objects.get(ip_address=ip_address, domain=ctrl_user.domain)
+    except VoidMailWhitelistIP.DoesNotExist:
+        return api_response(error='IP not found in whitelist.', status=404)
+
+    entry.delete()
+
+    try:
+        from control.activity import log_activity
+        log_activity(request, 'success', 'email', domain=ctrl_user.domain,
+                     action=f'VoidMail AI whitelist IP removed: {ip_address}',
+                     detail='Removed via VoidApp API')
+    except Exception:
+        pass
+
+    return api_response(data={'message': f'IP {ip_address} removed from VoidMail AI whitelist.'})
+
+
+@api_auth_required()
+def api_email_ai_status(request):
+    """
+    Check if the caller's IP is whitelisted for VoidMail AI features.
+
+    Returns: { ai_enabled: true/false, voidonyx_url, license_key }
+    """
+    ctrl_user = request.ctrl_user
+    domain_name = ctrl_user.domain
+
+    # Get caller IP from request
+    caller_ip = _get_client_ip(request)
+
+    # Check against whitelist
+    is_whitelisted = VoidMailWhitelistIP.objects.filter(
+        ip_address=caller_ip,
+        domain=domain_name,
+    ).exists()
+
+    # VoidOnyx URL and license key for AI gateway
+    voidonyx_url = 'https://voidonyx.in'
+    license_key = ''
+
+    # Try to find the license key for this server
+    try:
+        from control.license import get_license_key
+        license_key = get_license_key() or ''
+    except Exception:
+        # Fallback: read from settings if available
+        license_key = getattr(django_settings, 'VOIDPANEL_LICENSE_KEY', '')
+
+    return api_response(data={
+        'ai_enabled': is_whitelisted,
+        'caller_ip': caller_ip,
+        'domain': domain_name,
+        'voidonyx_url': voidonyx_url,
+        'license_key': license_key,
+    })
+
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
+def _get_client_ip(request):
+    """Extract the real client IP, respecting X-Forwarded-For behind proxies."""
+    xff = request.META.get('HTTP_X_FORWARDED_FOR')
+    if xff:
+        return xff.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR', '0.0.0.0')
 
 def _get_pkg(name):
     try:

@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 # Register your models here.
-from control.models import mernname,phpextentions,portnumber,pythonname,ftp,phpversion,quick,package,user,LoginActivity,domain,allemail,cron,subdomainname,redir,firewall,ftpaccount
+from control.models import mernname,phpextentions,portnumber,pythonname,ftp,phpversion,quick,package,user,LoginActivity,domain,allemail,cron,subdomainname,redir,firewall,ftpaccount,SavedSEODomain
 admin.site.register(quick)
 admin.site.register(package)
 admin.site.register(user)
@@ -19,3 +19,4 @@ admin.site.register(pythonname)
 admin.site.register(portnumber)
 admin.site.register(phpextentions)
 admin.site.register(mernname)
+admin.site.register(SavedSEODomain)

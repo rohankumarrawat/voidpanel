@@ -30,6 +30,7 @@ from rest_framework import serializers, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from data.models import (
+    AiApiKey,
     AiProviderConfig,
     AutoSuspendSettings,
     BlogCategory,
@@ -90,6 +91,13 @@ import hmac
 import json as _rjson
 import logging
 _logger = logging.getLogger(__name__)
+
+
+from django.http import HttpResponse
+
+def csrf_failure_view(request, reason=''):
+    """Custom CSRF failure view referenced in settings.CSRF_FAILURE_VIEW."""
+    return render(request, '403.html', {'reason': reason}, status=403)
 
 
 def _voidonyx_purchase_blocked(request):
@@ -4551,7 +4559,13 @@ def super_admin_clients(request):
         action = request.POST.get('action')
         if action == 'suspend_all':
             uid = request.POST.get('user_id')
+            suspended_svcs = list(HostingService.objects.filter(user_id=uid, status='active'))
             HostingService.objects.filter(user_id=uid, status='active').update(status='suspended')
+            if suspended_svcs:
+                suspended_user = suspended_svcs[0].user
+                domains = ', '.join(s.domain for s in suspended_svcs[:5])
+                msg = f"🚫 *Service Suspended*\nYour hosting services ({domains}) have been suspended due to unpaid invoices.\nPlease clear pending payments to restore access.\nPortal: https://voidonyx.in/portal/"
+                send_whatsapp_notification_async(suspended_user, msg, 'service_suspend')
             messages.success(request, 'All active services for that client have been suspended.')
         return _super_admin_redirect(request, '/super-admin/clients/')
 
@@ -6938,7 +6952,7 @@ def super_admin_notifications(request):
 
 @login_required
 def super_admin_ai_keys(request):
-    """Super admin view to manage AI provider API keys from the portal UI."""
+    """Super admin view to manage AI provider API keys and pool from the portal UI."""
     if not request.user.is_superuser:
         return redirect('/')
 
@@ -6954,7 +6968,6 @@ def super_admin_ai_keys(request):
             gemini_key = request.POST.get('gemini_api_key', '').strip()
             if gemini_key:
                 config.gemini_api_key = gemini_key
-            # Gemini model: use custom text input if "custom" was selected
             gemini_model_raw = request.POST.get('gemini_model', config.gemini_model).strip()
             if gemini_model_raw == 'custom':
                 gemini_model_raw = request.POST.get('gemini_model_custom', config.gemini_model).strip()
@@ -6963,7 +6976,6 @@ def super_admin_ai_keys(request):
             claude_key = request.POST.get('claude_api_key', '').strip()
             if claude_key:
                 config.claude_api_key = claude_key
-            # Claude model: use custom text input if "custom" was selected
             claude_model_raw = request.POST.get('claude_model', config.claude_model).strip()
             if claude_model_raw == 'custom':
                 claude_model_raw = request.POST.get('claude_model_custom', config.claude_model).strip()
@@ -6972,7 +6984,6 @@ def super_admin_ai_keys(request):
             openai_key = request.POST.get('openai_api_key', '').strip()
             if openai_key:
                 config.openai_api_key = openai_key
-            # OpenAI model: use custom text input if "custom" was selected
             openai_model_raw = request.POST.get('openai_model', config.openai_model).strip()
             if openai_model_raw == 'custom':
                 openai_model_raw = request.POST.get('openai_model_custom', config.openai_model).strip()
@@ -7002,10 +7013,89 @@ def super_admin_ai_keys(request):
             config.save()
             messages.warning(request, 'Hugging Face user access token cleared.')
 
+        # ── Pool actions ──
+        elif action == 'add_pool_key':
+            p_provider = request.POST.get('pool_provider', '').strip()
+            p_key      = request.POST.get('pool_api_key', '').strip()
+            p_label    = request.POST.get('pool_label', '').strip()
+            try:
+                p_prio = int(request.POST.get('pool_priority', 0))
+            except (ValueError, TypeError):
+                p_prio = 0
+            try:
+                p_cool = int(request.POST.get('pool_cooldown', 60))
+            except (ValueError, TypeError):
+                p_cool = 60
+
+            if p_provider and p_key:
+                AiApiKey.objects.create(
+                    provider=p_provider,
+                    api_key=p_key,
+                    label=p_label,
+                    priority=p_prio,
+                    cooldown_minutes=p_cool,
+                )
+                messages.success(request, f'Added new API key to the {p_provider.title()} pool.')
+            else:
+                messages.error(request, 'Provider and API Key are required.')
+
+        elif action == 'reset_pool_key':
+            key_id = request.POST.get('key_id')
+            key_obj = AiApiKey.objects.filter(id=key_id).first()
+            if key_obj:
+                key_obj.reset_exhausted()
+                messages.success(request, f'Reset exhausted status for {key_obj.get_provider_display()} key.')
+
+        elif action == 'toggle_pool_key':
+            key_id = request.POST.get('key_id')
+            key_obj = AiApiKey.objects.filter(id=key_id).first()
+            if key_obj:
+                key_obj.is_active = not key_obj.is_active
+                key_obj.save(update_fields=['is_active'])
+                status_text = "Enabled" if key_obj.is_active else "Disabled"
+                messages.info(request, f'{status_text} {key_obj.get_provider_display()} key.')
+
+        elif action == 'delete_pool_key':
+            key_id = request.POST.get('key_id')
+            AiApiKey.objects.filter(id=key_id).delete()
+            messages.warning(request, 'API key removed from pool.')
+
+        elif action == 'reset_all_exhausted':
+            updated = AiApiKey.objects.filter(is_exhausted=True).update(
+                is_exhausted=False, exhausted_at=None, last_error=''
+            )
+            messages.success(request, f'Reset {updated} exhausted keys across all providers.')
+
         return redirect('/super-admin/ai-keys/')
 
+    # ── Build Context ──
+    provider_choices = [
+        ('gemini', 'Google Gemini'),
+        ('claude', 'Anthropic Claude'),
+        ('openai', 'OpenAI ChatGPT'),
+        ('huggingface', 'Hugging Face'),
+    ]
+
+    try:
+        pool_keys = list(AiApiKey.objects.all().order_by('provider', 'priority', 'id'))
+    except Exception:
+        pool_keys = []
+
+    pool_stats = {}
+    for prov_code, prov_name in provider_choices:
+        prov_keys = [k for k in pool_keys if k.provider == prov_code]
+        pool_stats[prov_code] = {
+            'total': len(prov_keys),
+            'active': len([k for k in prov_keys if k.is_active and not k.is_exhausted]),
+            'exhausted': len([k for k in prov_keys if k.is_exhausted]),
+        }
+
     context = _build_super_admin_context('ai_keys')
-    context['ai_config'] = config
+    context['ai_config']        = config
+    context['config']           = config
+    context['provider_choices'] = provider_choices
+    context['pool_keys']        = pool_keys
+    context['pool_stats']       = pool_stats
     return render(request, 'super_admin_ai_keys.html', context)
 
 
@@ -7242,6 +7332,8 @@ def super_admin_auto_suspend(request):
                     title=f'Service manually suspended: {svc.domain}',
                     description=f'Manually suspended by superadmin {request.user.username}.',
                 )
+                msg = f"🚫 *Service Suspended*\nYour hosting service ({svc.domain}) has been suspended.\nPlease clear pending payments to restore access.\nPortal: https://voidonyx.in/portal/"
+                send_whatsapp_notification_async(svc.user, msg, 'service_suspend')
                 messages.success(request, f'Service {svc.domain} suspended.')
             return redirect('/super-admin/auto-suspend/')
 
@@ -8563,39 +8655,48 @@ def super_admin_social_api(request):
 
     if request.method == 'POST' and request.POST.get('action') == 'save_api_config':
         cfg.facebook_enabled       = bool(request.POST.get('facebook_enabled'))
+        cfg.facebook_auth_mode     = request.POST.get('facebook_auth_mode', 'admin')
         cfg.facebook_app_id        = request.POST.get('facebook_app_id', '').strip()
         cfg.facebook_app_secret    = request.POST.get('facebook_app_secret', '').strip() or cfg.facebook_app_secret
 
         cfg.instagram_enabled      = bool(request.POST.get('instagram_enabled'))
+        cfg.instagram_auth_mode    = request.POST.get('instagram_auth_mode', 'admin')
         cfg.instagram_app_id       = request.POST.get('instagram_app_id', '').strip()
         cfg.instagram_app_secret   = request.POST.get('instagram_app_secret', '').strip() or cfg.instagram_app_secret
 
         cfg.twitter_enabled        = bool(request.POST.get('twitter_enabled'))
+        cfg.twitter_auth_mode      = request.POST.get('twitter_auth_mode', 'admin')
         cfg.twitter_api_key        = request.POST.get('twitter_api_key', '').strip()
         cfg.twitter_api_secret     = request.POST.get('twitter_api_secret', '').strip() or cfg.twitter_api_secret
         cfg.twitter_bearer_token   = request.POST.get('twitter_bearer_token', '').strip() or cfg.twitter_bearer_token
 
         cfg.linkedin_enabled       = bool(request.POST.get('linkedin_enabled'))
+        cfg.linkedin_auth_mode     = request.POST.get('linkedin_auth_mode', 'admin')
         cfg.linkedin_client_id     = request.POST.get('linkedin_client_id', '').strip()
         cfg.linkedin_client_secret = request.POST.get('linkedin_client_secret', '').strip() or cfg.linkedin_client_secret
 
         cfg.youtube_enabled        = bool(request.POST.get('youtube_enabled'))
+        cfg.youtube_auth_mode      = request.POST.get('youtube_auth_mode', 'admin')
         cfg.google_client_id       = request.POST.get('google_client_id', '').strip()
         cfg.google_client_secret   = request.POST.get('google_client_secret', '').strip() or cfg.google_client_secret
 
         cfg.tiktok_enabled         = bool(request.POST.get('tiktok_enabled'))
+        cfg.tiktok_auth_mode       = request.POST.get('tiktok_auth_mode', 'admin')
         cfg.tiktok_client_key      = request.POST.get('tiktok_client_key', '').strip()
         cfg.tiktok_client_secret   = request.POST.get('tiktok_client_secret', '').strip() or cfg.tiktok_client_secret
 
         cfg.pinterest_enabled      = bool(request.POST.get('pinterest_enabled'))
+        cfg.pinterest_auth_mode    = request.POST.get('pinterest_auth_mode', 'admin')
         cfg.pinterest_app_id       = request.POST.get('pinterest_app_id', '').strip()
         cfg.pinterest_app_secret   = request.POST.get('pinterest_app_secret', '').strip() or cfg.pinterest_app_secret
 
         cfg.threads_enabled        = bool(request.POST.get('threads_enabled'))
+        cfg.threads_auth_mode      = request.POST.get('threads_auth_mode', 'admin')
         cfg.threads_app_id         = request.POST.get('threads_app_id', '').strip()
         cfg.threads_app_secret     = request.POST.get('threads_app_secret', '').strip() or cfg.threads_app_secret
 
         cfg.gbusiness_enabled      = bool(request.POST.get('gbusiness_enabled'))
+        cfg.gbusiness_auth_mode    = request.POST.get('gbusiness_auth_mode', 'admin')
         cfg.save()
         messages.success(request, '✅ Social Media API settings saved successfully.')
         return redirect('/super-admin/social-api/')
@@ -8615,7 +8716,7 @@ def super_admin_social_api(request):
 def api_social_platform_config(request):
     """
     Secure JSON endpoint — installed VoidPanel instances call this to check
-    which social platforms are enabled.
+    which social platforms are enabled and their authentication mode.
 
     SECURITY: App IDs and secrets are NEVER returned. Credentials stay on
     voidpanel.com and are used only during the OAuth relay flow.
@@ -8624,7 +8725,6 @@ def api_social_platform_config(request):
         Header:  X-VoidPanel-License: <key>
         OR GET param: ?license=<key>
     """
-    from django.http import JsonResponse
     from data.models import SocialPlatformSettings
 
     # ── 1. Validate licence key ───────────────────────────────────────────
@@ -8644,22 +8744,24 @@ def api_social_platform_config(request):
     # ── 2. Fetch settings ─────────────────────────────────────────────────
     cfg = SocialPlatformSettings.get()
 
-    # ── 3. Build response — ONLY enabled flags, NEVER secrets ─────────────
+    # ── 3. Build response — ONLY enabled & auth mode flags, NEVER secrets ─
     platforms = {
-        'fb': {'enabled': cfg.facebook_enabled},
-        'ig': {'enabled': cfg.instagram_enabled},
-        'tw': {'enabled': cfg.twitter_enabled},
-        'li': {'enabled': cfg.linkedin_enabled},
-        'yt': {'enabled': cfg.youtube_enabled},
-        'tt': {'enabled': cfg.tiktok_enabled},
-        'pi': {'enabled': cfg.pinterest_enabled},
-        'th': {'enabled': cfg.threads_enabled},
-        'gb': {'enabled': cfg.gbusiness_enabled},
+        'fb': {'enabled': cfg.facebook_enabled, 'auth_mode': cfg.facebook_auth_mode},
+        'ig': {'enabled': cfg.instagram_enabled, 'auth_mode': cfg.instagram_auth_mode},
+        'tw': {'enabled': cfg.twitter_enabled, 'auth_mode': cfg.twitter_auth_mode},
+        'li': {'enabled': cfg.linkedin_enabled, 'auth_mode': cfg.linkedin_auth_mode},
+        'yt': {'enabled': cfg.youtube_enabled, 'auth_mode': cfg.youtube_auth_mode},
+        'tt': {'enabled': cfg.tiktok_enabled, 'auth_mode': cfg.tiktok_auth_mode},
+        'pi': {'enabled': cfg.pinterest_enabled, 'auth_mode': cfg.pinterest_auth_mode},
+        'th': {'enabled': cfg.threads_enabled, 'auth_mode': cfg.threads_auth_mode},
+        'gb': {'enabled': cfg.gbusiness_enabled, 'auth_mode': cfg.gbusiness_auth_mode},
     }
 
     return JsonResponse({
         'authenticated': authenticated,
         'enabled_platforms': cfg.enabled_platform_list(),
+        'admin_enabled_platforms': cfg.admin_enabled_platform_list(),
+        'auth_modes': cfg.auth_modes_dict(),
         'platforms': platforms,
         'updated_at': cfg.updated_at.isoformat() if cfg.updated_at else None,
     })
@@ -8770,10 +8872,26 @@ def social_oauth_connect(request, platform):
     # Store relay state in session so we can verify on callback
     request.session['oauth_relay_license'] = license_key
     request.session['oauth_relay_callback'] = callback_uri
-    request.session['oauth_relay_platform'] = platform
-
-    # Our own callback URL on voidpanel.com
-    our_callback = request.build_absolute_uri(f'/social/oauth/callback/{platform}/')
+    # Map platform code to full slug for clean callback matching
+    REV_SLUG_MAP = {
+        'facebook': 'fb', 'fb': 'fb',
+        'instagram': 'ig', 'ig': 'ig',
+        'twitter': 'tw', 'tw': 'tw',
+        'linkedin': 'li', 'li': 'li',
+        'pinterest': 'pi', 'pi': 'pi',
+        'tiktok': 'tt', 'tt': 'tt',
+        'threads': 'th', 'th': 'th',
+        'youtube': 'yt', 'yt': 'yt',
+        'google': 'yt',
+        'gbusiness': 'gb', 'gb': 'gb',
+    }
+    p_code = REV_SLUG_MAP.get(platform.lower(), platform.lower())
+    SLUG_MAP = {'fb': 'facebook', 'ig': 'instagram', 'tw': 'twitter', 'li': 'linkedin', 'pi': 'pinterest', 'tt': 'tiktok', 'th': 'threads', 'yt': 'google', 'gb': 'gbusiness'}
+    full_slug = SLUG_MAP.get(p_code, p_code)
+    # Our own callback URL on voidpanel.com / voidonyx.in
+    our_callback = request.build_absolute_uri(f'/social/oauth/callback/{full_slug}/')
+    if not our_callback.startswith('https://') and 'localhost' not in our_callback and '127.0.0.1' not in our_callback:
+        our_callback = 'https://' + our_callback.split('://', 1)[1]
 
     # Twitter/X PKCE
     tw_verifier = secrets.token_urlsafe(64)
@@ -8789,16 +8907,16 @@ def social_oauth_connect(request, platform):
             f"https://www.facebook.com/v19.0/dialog/oauth"
             f"?client_id={cfg.facebook_app_id}"
             f"&redirect_uri={our_callback}"
-            f"&scope=pages_manage_posts,pages_read_engagement,pages_show_list,"
-            f"instagram_basic,instagram_content_publish"
+            f"&scope=public_profile,pages_show_list,pages_manage_posts,pages_read_engagement,pages_read_user_content,pages_manage_metadata"
+            f"&auth_type=rerequest"
             f"&response_type=code"
         ),
         'ig': (
             f"https://www.facebook.com/v19.0/dialog/oauth"
             f"?client_id={cfg.facebook_app_id}"
             f"&redirect_uri={our_callback}"
-            f"&scope=pages_manage_posts,pages_read_engagement,pages_show_list,"
-            f"instagram_basic,instagram_content_publish"
+            f"&scope=public_profile,pages_show_list,pages_read_engagement,instagram_basic,instagram_content_publish"
+            f"&auth_type=rerequest"
             f"&response_type=code"
         ),
         'tw': (
@@ -8816,7 +8934,7 @@ def social_oauth_connect(request, platform):
             f"?response_type=code"
             f"&client_id={cfg.linkedin_client_id}"
             f"&redirect_uri={our_callback}"
-            f"&scope=w_member_social%20r_liteprofile%20r_emailaddress"
+            f"&scope=openid%20profile%20email%20w_member_social"
         ),
         'pi': (
             f"https://www.pinterest.com/oauth/"
@@ -8831,8 +8949,10 @@ def social_oauth_connect(request, platform):
             f"&redirect_uri={our_callback}"
             f"&response_type=code"
             f"&access_type=offline"
+            f"&prompt=select_account%20consent"
             f"&scope=https://www.googleapis.com/auth/youtube.readonly"
             f"%20https://www.googleapis.com/auth/youtube.upload"
+            f"%20https://www.googleapis.com/auth/userinfo.profile"
         ),
         'gb': (
             f"https://accounts.google.com/o/oauth2/v2/auth"
@@ -8840,7 +8960,9 @@ def social_oauth_connect(request, platform):
             f"&redirect_uri={our_callback}"
             f"&response_type=code"
             f"&access_type=offline"
+            f"&prompt=select_account%20consent"
             f"&scope=https://www.googleapis.com/auth/business.manage"
+            f"%20https://www.googleapis.com/auth/userinfo.profile"
         ),
         'th': (
             f"https://www.threads.net/oauth/authorize"
@@ -8858,7 +8980,7 @@ def social_oauth_connect(request, platform):
         ),
     }
 
-    url = OAUTH_URLS.get(platform)
+    url = OAUTH_URLS.get(p_code)
     if not url:
         return JsonResponse({'error': f"Platform '{platform}' not supported."}, status=400)
     return redirect(url)
@@ -8888,14 +9010,32 @@ def social_oauth_callback(request, platform):
         return redirect(f"{callback_uri}{sep}error=oauth_cancelled")
 
     cfg = SocialPlatformSettings.get()
-    our_callback = request.build_absolute_uri(f'/social/oauth/callback/{platform}/')
+    REV_SLUG_MAP = {
+        'facebook': 'fb', 'fb': 'fb',
+        'instagram': 'ig', 'ig': 'ig',
+        'twitter': 'tw', 'tw': 'tw',
+        'linkedin': 'li', 'li': 'li',
+        'pinterest': 'pi', 'pi': 'pi',
+        'tiktok': 'tt', 'tt': 'tt',
+        'threads': 'th', 'th': 'th',
+        'youtube': 'yt', 'yt': 'yt',
+        'google': 'yt',
+        'gbusiness': 'gb', 'gb': 'gb',
+    }
+    p_code = REV_SLUG_MAP.get(platform.lower(), platform.lower())
+
+    SLUG_MAP = {'fb': 'facebook', 'ig': 'instagram', 'tw': 'twitter', 'li': 'linkedin', 'pi': 'pinterest', 'tt': 'tiktok', 'th': 'threads', 'yt': 'google', 'gb': 'gbusiness'}
+    full_slug = SLUG_MAP.get(p_code, p_code)
+    our_callback = request.build_absolute_uri(f'/social/oauth/callback/{full_slug}/')
+    if not our_callback.startswith('https://') and 'localhost' not in our_callback and '127.0.0.1' not in our_callback:
+        our_callback = 'https://' + our_callback.split('://', 1)[1]
 
     token_data = {}
     profile_data = {}
 
     # ── Token exchange ────────────────────────────────────────────────────
     try:
-        if platform in ('fb', 'ig'):
+        if p_code in ('fb', 'ig'):
             r = _req.post('https://graph.facebook.com/v19.0/oauth/access_token', data={
                 'client_id': cfg.facebook_app_id,
                 'client_secret': cfg.facebook_app_secret,
@@ -8922,7 +9062,7 @@ def social_oauth_callback(request, platform):
             }, headers={'Content-Type': 'application/x-www-form-urlencoded'}, timeout=10)
             token_data = r.json()
 
-        elif platform in ('yt', 'gb'):
+        elif p_code in ('yt', 'gb'):
             r = _req.post('https://oauth2.googleapis.com/token', data={
                 'code': code, 'client_id': cfg.google_client_id,
                 'client_secret': cfg.google_client_secret, 'grant_type': 'authorization_code',
@@ -8965,23 +9105,60 @@ def social_oauth_callback(request, platform):
     accounts = []  # list of account dicts to send back to the panel
 
     try:
-        if platform == 'fb':
-            pages_r = _req.get(
-                f"https://graph.facebook.com/v19.0/me/accounts?access_token={access_token}",
+        if p_code == 'fb':
+            user_r = _req.get(
+                f"https://graph.facebook.com/v19.0/me?fields=id,name,picture.width(200).height(200)&access_token={access_token}",
                 timeout=10
             )
+            user_name = 'Facebook Account'
+            user_pic = ''
+            user_id = ''
+            if user_r.status_code == 200:
+                u_data = user_r.json()
+                user_id = u_data.get('id', '')
+                user_name = u_data.get('name', 'Facebook Account')
+                user_pic = u_data.get('picture', {}).get('data', {}).get('url', '')
+
+            pages_found = False
+            pages_r = _req.get(
+                f"https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,category,tasks&limit=100&access_token={access_token}",
+                timeout=10
+            )
+            # DEBUG: write to file
+            import json as _json
+            with open('/tmp/fb_relay_callback_debug.log', 'a') as _dbg:
+                _dbg.write(f"\n=== RELAY FB CALLBACK {__import__('datetime').datetime.now()} ===\n")
+                _dbg.write(f"pages_r.status_code={pages_r.status_code}\n")
+                _dbg.write(f"pages_r.text={pages_r.text}\n")
             if pages_r.status_code == 200:
-                for page in pages_r.json().get('data', []):
+                p_list = pages_r.json().get('data', [])
+                for page in p_list:
+                    pages_found = True
+                    with open('/tmp/fb_relay_callback_debug.log', 'a') as _dbg:
+                        _dbg.write(f"  SAVING PAGE: id={page.get('id')} name={page.get('name')}\n")
+                    pages_found = True
                     accounts.append({
                         'platform': 'fb',
                         'account_id': page.get('id'),
                         'account_name': page.get('name', 'FB Page'),
+                        'account_username': page.get('name', ''),
                         'access_token': page.get('access_token', ''),
                         'page_id': page.get('id'),
                         'page_name': page.get('name', ''),
+                        'profile_picture_url': user_pic,
                     })
 
-        elif platform == 'ig':
+            if not pages_found and user_id:
+                accounts.append({
+                    'platform': 'fb',
+                    'account_id': user_id,
+                    'account_name': user_name,
+                    'account_username': user_name,
+                    'access_token': access_token,
+                    'profile_picture_url': user_pic,
+                })
+
+        elif p_code == 'ig':
             pages_r = _req.get(
                 f"https://graph.facebook.com/v19.0/me/accounts?access_token={access_token}",
                 timeout=10
@@ -9010,7 +9187,7 @@ def social_oauth_callback(request, platform):
                                 'followers_count': ig_data.get('followers_count', 0),
                             })
 
-        elif platform == 'tw':
+        elif p_code == 'tw':
             me_r = _req.get(
                 'https://api.twitter.com/2/users/me?user.fields=profile_image_url,public_metrics,username,name',
                 headers={'Authorization': f'Bearer {access_token}'}, timeout=10
@@ -9028,44 +9205,177 @@ def social_oauth_callback(request, platform):
                     'followers_count': me.get('public_metrics', {}).get('followers_count', 0),
                 })
 
-        elif platform == 'li':
-            me_r = _req.get(
-                'https://api.linkedin.com/v2/me?projection=(id,localizedFirstName,localizedLastName,profilePicture(displayImage~:playableStreams))',
-                headers={'Authorization': f'Bearer {access_token}'}, timeout=10
-            )
+        elif p_code == 'li':
+            user_name = 'LinkedIn Account'
+            user_pic = ''
+            user_id = ''
+            me_r = _req.get('https://api.linkedin.com/v2/userinfo', headers={'Authorization': f'Bearer {access_token}'}, timeout=10)
             if me_r.status_code == 200:
                 me = me_r.json()
-                pic = ''
-                try:
-                    pic = me['profilePicture']['displayImage~']['elements'][-1]['identifiers'][0]['identifier']
-                except Exception:
-                    pass
+                user_id = me.get('sub', '')
+                user_name = me.get('name', f"{me.get('given_name','')} {me.get('family_name','')}".strip() or 'LinkedIn Account')
+                user_pic = me.get('picture', '')
+            else:
+                me_r2 = _req.get(
+                    'https://api.linkedin.com/v2/me?projection=(id,localizedFirstName,localizedLastName,profilePicture(displayImage~:playableStreams))',
+                    headers={'Authorization': f'Bearer {access_token}'}, timeout=10
+                )
+                if me_r2.status_code == 200:
+                    me2 = me_r2.json()
+                    user_id = me2.get('id', '')
+                    user_name = f"{me2.get('localizedFirstName','')} {me2.get('localizedLastName','')}".strip() or 'LinkedIn Account'
+                    try:
+                        user_pic = me2['profilePicture']['displayImage~']['elements'][-1]['identifiers'][0]['identifier']
+                    except Exception:
+                        pass
+
+            try:
+                orgs_r = _req.get(
+                    'https://api.linkedin.com/v2/organizationalEntityAcls?q=roleAssignee&state=APPROVED',
+                    headers={'Authorization': f'Bearer {access_token}'}, timeout=10
+                )
+                if orgs_r.status_code == 200:
+                    for elem in orgs_r.json().get('elements', []):
+                        org_urn = elem.get('organizationalTarget', '')
+                        if org_urn and 'organization:' in org_urn:
+                            org_id = org_urn.split(':')[-1]
+                            o_info = _req.get(
+                                f'https://api.linkedin.com/v2/organizations/{org_id}',
+                                headers={'Authorization': f'Bearer {access_token}'}, timeout=10
+                            )
+                            if o_info.status_code == 200:
+                                o_data = o_info.json()
+                                o_name = o_data.get('localizedName', f'Company ({org_id})')
+                                accounts.append({
+                                    'platform': 'li',
+                                    'account_id': f'org_{org_id}',
+                                    'account_name': f"{o_name} (Page)",
+                                    'access_token': access_token,
+                                    'refresh_token': token_data.get('refresh_token', ''),
+                                    'profile_picture_url': user_pic,
+                                    'page_id': org_urn,
+                                    'page_name': o_name,
+                                })
+            except Exception:
+                pass
+
+            if user_id:
                 accounts.append({
                     'platform': 'li',
-                    'account_id': me.get('id', ''),
-                    'account_name': f"{me.get('localizedFirstName','')} {me.get('localizedLastName','')}".strip() or 'LinkedIn Account',
+                    'account_id': user_id,
+                    'account_name': user_name,
                     'access_token': access_token,
                     'refresh_token': token_data.get('refresh_token', ''),
-                    'profile_picture_url': pic,
+                    'profile_picture_url': user_pic,
                 })
 
-        elif platform in ('yt', 'gb'):
+        elif p_code == 'yt':
+            user_id = ''
+            user_name = 'YouTube Channel'
+            user_pic = ''
+            try:
+                me_r = _req.get(
+                    'https://www.googleapis.com/oauth2/v2/userinfo',
+                    headers={'Authorization': f'Bearer {access_token}'}, timeout=10
+                )
+                if me_r.status_code == 200:
+                    me = me_r.json()
+                    user_id = me.get('id', '')
+                    user_name = me.get('name', 'YouTube Channel')
+                    user_pic = me.get('picture', '')
+            except Exception:
+                pass
+
+            channel_found = False
+            try:
+                yt_r = _req.get(
+                    'https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true',
+                    headers={'Authorization': f'Bearer {access_token}'}, timeout=10
+                )
+                if yt_r.status_code == 200:
+                    items = yt_r.json().get('items', [])
+                    if items:
+                        ch = items[0]
+                        ch_id = ch.get('id', '')
+                        snip = ch.get('snippet', {})
+                        stats = ch.get('statistics', {})
+                        ch_title = snip.get('title', user_name)
+                        ch_pic = snip.get('thumbnails', {}).get('high', {}).get('url') or snip.get('thumbnails', {}).get('medium', {}).get('url') or snip.get('thumbnails', {}).get('default', {}).get('url', user_pic)
+                        ch_subs = int(stats.get('subscriberCount', 0))
+                        accounts.append({
+                            'platform': 'yt',
+                            'account_id': ch_id or user_id or 'yt_main',
+                            'account_name': ch_title,
+                            'account_username': snip.get('customUrl', ''),
+                            'access_token': access_token,
+                            'refresh_token': token_data.get('refresh_token', ''),
+                            'profile_picture_url': ch_pic,
+                            'followers_count': ch_subs,
+                        })
+                        channel_found = True
+            except Exception:
+                pass
+
+            if not channel_found and user_id:
+                accounts.append({
+                    'platform': 'yt',
+                    'account_id': user_id,
+                    'account_name': user_name,
+                    'access_token': access_token,
+                    'refresh_token': token_data.get('refresh_token', ''),
+                    'profile_picture_url': user_pic,
+                })
+
+        elif p_code == 'gb':
+            me = {}
             me_r = _req.get(
                 'https://www.googleapis.com/oauth2/v2/userinfo',
                 headers={'Authorization': f'Bearer {access_token}'}, timeout=10
             )
             if me_r.status_code == 200:
                 me = me_r.json()
-                accounts.append({
-                    'platform': platform,
-                    'account_id': me.get('id', ''),
-                    'account_name': me.get('name', f'{platform.upper()} Account'),
-                    'access_token': access_token,
-                    'refresh_token': token_data.get('refresh_token', ''),
-                    'profile_picture_url': me.get('picture', ''),
-                })
 
-        elif platform == 'th':
+            location_name = ''
+            biz_name = ''
+            try:
+                accs_r = _req.get(
+                    'https://mybusinessaccountmanagement.googleapis.com/v1/accounts',
+                    headers={'Authorization': f'Bearer {access_token}'}, timeout=10
+                )
+                if accs_r.status_code == 200:
+                    gbp_accounts = accs_r.json().get('accounts', [])
+                    if gbp_accounts:
+                        gbp_acc = gbp_accounts[0]
+                        acc_name = gbp_acc.get('name', '')
+                        biz_name = gbp_acc.get('accountName', '')
+                        try:
+                            loc_r = _req.get(
+                                f'https://mybusinessbusinessinformation.googleapis.com/v1/{acc_name}/locations',
+                                headers={'Authorization': f'Bearer {access_token}'}, timeout=10
+                            )
+                            if loc_r.status_code == 200:
+                                locs = loc_r.json().get('locations', [])
+                                if locs:
+                                    location_name = locs[0].get('name', '')
+                                    biz_name = locs[0].get('title', biz_name) or biz_name
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
+            account_name = biz_name or me.get('name', 'Google Business')
+            accounts.append({
+                'platform': 'gb',
+                'account_id': me.get('id', f'gb_{code[:8]}'),
+                'account_name': account_name,
+                'access_token': access_token,
+                'refresh_token': token_data.get('refresh_token', ''),
+                'profile_picture_url': me.get('picture', ''),
+                'page_id': location_name,
+                'page_name': biz_name,
+            })
+
+        elif p_code == 'th':
             me_r = _req.get(
                 f"https://graph.threads.net/v1.0/me?fields=id,username,name,threads_profile_picture_url,threads_biography&access_token={access_token}",
                 timeout=10
@@ -9082,7 +9392,7 @@ def social_oauth_callback(request, platform):
                     'profile_picture_url': me.get('threads_profile_picture_url', ''),
                 })
 
-        elif platform == 'tt':
+        elif p_code == 'tt':
             me_r = _req.post(
                 'https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name,avatar_url,follower_count',
                 headers={'Authorization': f'Bearer {access_token}'}, timeout=10
@@ -9099,7 +9409,7 @@ def social_oauth_callback(request, platform):
                     'followers_count': me.get('follower_count', 0),
                 })
 
-        elif platform == 'pi':
+        elif p_code == 'pi':
             me_r = _req.get(
                 'https://api.pinterest.com/v5/user_account',
                 headers={'Authorization': f'Bearer {access_token}'}, timeout=10
@@ -9123,9 +9433,9 @@ def social_oauth_callback(request, platform):
     # If no accounts were found, create a generic one with the token
     if not accounts:
         accounts.append({
-            'platform': platform,
+            'platform': p_code,
             'account_id': code[:16],
-            'account_name': f'{platform.upper()} Account',
+            'account_name': f'{p_code.upper()} Account',
             'access_token': access_token,
             'refresh_token': token_data.get('refresh_token', ''),
         })
@@ -9140,7 +9450,7 @@ def social_oauth_callback(request, platform):
     OAuthRelayState.objects.create(
         relay_code=relay_code,
         license_key=license_key,
-        token_data={'accounts': accounts, 'platform': platform},
+        token_data={'accounts': accounts, 'platform': p_code},
     )
 
     # Clean up expired relays (older than 10 minutes)
@@ -9754,6 +10064,8 @@ def super_admin_services(request):
                 service.status = 'suspended'
                 service.save(update_fields=['status'])
                 _call_suite_toggle_status(service, is_active=False)
+                msg = f"🚫 *Service Suspended*\nYour suite service ({service.service_name}) has been suspended.\nPlease clear pending payments to restore access.\nPortal: https://voidonyx.in/portal/"
+                send_whatsapp_notification_async(service.user, msg, 'service_suspend')
                 messages.success(request, f"Suite service '{service.service_name}' suspended successfully.")
             else:
                 messages.error(request, "Suite service not found.")
@@ -9884,6 +10196,8 @@ def super_admin_services(request):
                     pass
                 svc.status = 'suspended'
                 svc.save(update_fields=['status'])
+                msg = f"🚫 *Service Suspended*\nYour ERP workspace ({svc.company_name}) has been suspended.\nPlease clear pending payments to restore access.\nPortal: https://voidonyx.in/portal/"
+                send_whatsapp_notification_async(svc.user, msg, 'service_suspend')
                 messages.success(request, f'ERP workspace "{svc.company_name}" suspended.')
             else:
                 messages.error(request, 'ERP service not found.')
@@ -10120,19 +10434,19 @@ def super_admin_services(request):
                     f"Thank you for choosing VoidPanel! 🚀"
                 )
 
-            res = _call_wa_api('send', method='POST', payload={'to': phone, 'message': msg})
-            if res.get('ok') or res.get('success'):
-                from data.models import WhatsAppLog
-                WhatsAppLog.objects.create(
-                    user=service.user,
-                    phone_to=phone,
-                    message=msg,
-                    msg_type='alert',
-                    status='sent'
-                )
+            success, err_msg = _send_whatsapp_message(phone, msg)
+            from data.models import WhatsAppLog
+            WhatsAppLog.objects.create(
+                user=service.user,
+                phone_to=phone,
+                message=msg,
+                msg_type='alert',
+                status='sent' if success else 'failed',
+                error_msg='' if success else err_msg,
+            )
+            if success:
                 messages.success(request, f"Account info WhatsApp sent to {phone} successfully!")
             else:
-                err_msg = res.get('error', 'Daemon error')
                 messages.error(request, f"Failed to send WhatsApp: {err_msg}")
             
             return redirect('/super-admin/services/')
@@ -10263,7 +10577,10 @@ def super_admin_services(request):
             return redirect('/super-admin/services/')
 
     # GET request
-    from data.models import HostingService, EmailService, SSLService, PanelLicenseRecord, SuiteService, ErpCrmService
+    from data.models import (
+        HostingService, EmailService, SSLService, PanelLicenseRecord, SuiteService,
+        ErpCrmService, GymPortalService, AIVoiceService, HotelPortalService, KhataBookService, LeadGenService
+    )
     from django.contrib.auth.models import User
     
     hosting_svcs = HostingService.objects.select_related('user', 'server').order_by('-created_at')
@@ -10272,6 +10589,11 @@ def super_admin_services(request):
     license_svcs = PanelLicenseRecord.objects.select_related('user').order_by('-issued_at')
     suite_svcs = SuiteService.objects.select_related('user', 'server').order_by('-created_at')
     erp_svcs = ErpCrmService.objects.select_related('user').order_by('-created_at')
+    gym_svcs = GymPortalService.objects.select_related('user').order_by('-created_at')
+    aivoice_svcs = AIVoiceService.objects.select_related('user').order_by('-created_at')
+    hotel_svcs = HotelPortalService.objects.select_related('user').order_by('-created_at')
+    khatabook_svcs = KhataBookService.objects.select_related('user').order_by('-created_at')
+    leadgen_svcs = LeadGenService.objects.select_related('user').order_by('-created_at')
     portal_users = User.objects.filter(is_staff=False, is_superuser=False).order_by('username')
 
     from data.models import GlobalEmailTemplate, GlobalWhatsAppTemplate
@@ -10286,6 +10608,11 @@ def super_admin_services(request):
         'license_services': license_svcs,
         'suite_services':   suite_svcs,
         'erp_services':     erp_svcs,
+        'gym_services':     gym_svcs,
+        'aivoice_services': aivoice_svcs,
+        'hotel_services':   hotel_svcs,
+        'khatabook_services': khatabook_svcs,
+        'leadgen_services': leadgen_svcs,
         'portal_users':     portal_users,
         'email_templates':  email_tpls,
         'wa_templates':     wa_tpls,
@@ -10293,21 +10620,66 @@ def super_admin_services(request):
     return render(request, 'super_admin_services.html', ctx)
 
 
-def _call_wa_api(endpoint, method='GET', payload=None):
+def _send_whatsapp_message(to_phone, message_text):
+    """
+    Send a text message via the WhatsApp Business Cloud API (Meta Graph API).
+    Returns (success: bool, error_message: str).
+    """
     import urllib.request
     import json
-    url = f"http://127.0.0.1:3001/{endpoint.lstrip('/')}"
-    headers = {
-        'Content-Type': 'application/json',
-    }
-    data = json.dumps(payload).encode('utf-8') if payload else None
-    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    import re as _re
+
     try:
-        with urllib.request.urlopen(req, timeout=15) as res:
-            return json.loads(res.read().decode('utf-8'))
+        from data.models import WhatsAppConfig
+        config = WhatsAppConfig.objects.filter(id=1).first()
+    except Exception:
+        config = None
+
+    if not config or not config.api_phone_number_id or not config.api_access_token:
+        return False, 'WhatsApp API credentials not configured'
+
+    # Normalize phone: digits only, ensure country code
+    digits = _re.sub(r'[^\d]', '', to_phone)
+    if len(digits) == 10:
+        digits = '91' + digits  # Default to India
+
+    api_ver = config.api_version or 'v20.0'
+    url = f'https://graph.facebook.com/{api_ver}/{config.api_phone_number_id}/messages'
+
+    payload = {
+        'messaging_product': 'whatsapp',
+        'recipient_type': 'individual',
+        'to': digits,
+        'type': 'text',
+        'text': {'preview_url': False, 'body': message_text},
+    }
+
+    data = json.dumps(payload).encode('utf-8')
+    req = urllib.request.Request(
+        url, data=data, method='POST',
+        headers={
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {config.api_access_token}',
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=30) as res:
+            body = json.loads(res.read().decode('utf-8'))
+            if body.get('messages'):
+                return True, ''
+            return False, body.get('error', {}).get('message', 'Unknown API response')
+    except urllib.error.HTTPError as exc:
+        try:
+            err_body = json.loads(exc.read().decode('utf-8'))
+            err_msg = err_body.get('error', {}).get('message', str(exc))
+        except Exception:
+            err_msg = str(exc)
+        _logger.error('WhatsApp Cloud API HTTP error for %s: %s', digits, err_msg)
+        return False, err_msg
     except Exception as exc:
-        _logger.error('WhatsApp local daemon API error for %s: %s', endpoint, exc)
-        return {'ok': False, 'error': str(exc)}
+        _logger.error('WhatsApp Cloud API error for %s: %s', digits, exc)
+        return False, str(exc)
 
 
 @login_required(login_url='/login/')
@@ -10319,24 +10691,31 @@ def super_admin_whatsapp(request):
     from data.models import WhatsAppConfig, WhatsAppLog
     from django.contrib.auth import get_user_model
     User = get_user_model()
-    
+
     config, created = WhatsAppConfig.objects.get_or_create(id=1)
 
     if request.method == 'POST':
         action = request.POST.get('action')
+
         if action == 'update_settings':
             config.is_enabled = request.POST.get('is_enabled') == 'on'
             config.phone_number = request.POST.get('phone_number', '').strip()
             config.alert_on_invoice_created = request.POST.get('alert_on_invoice_created') == 'on'
             config.alert_on_service_suspend = request.POST.get('alert_on_service_suspend') == 'on'
             config.alert_on_ticket_opened = request.POST.get('alert_on_ticket_opened') == 'on'
+            config.alert_on_new_purchase = request.POST.get('alert_on_new_purchase') == 'on'
             config.save()
             messages.success(request, "WhatsApp integration settings updated successfully.")
             return redirect('/super-admin/whatsapp/')
 
-        elif action == 'logout':
-            res = _call_wa_api('logout', method='POST')
-            messages.success(request, "Logged out from WhatsApp Web session.")
+        elif action == 'update_api_credentials':
+            config.api_phone_number_id = request.POST.get('api_phone_number_id', '').strip()
+            config.api_waba_id = request.POST.get('api_waba_id', '').strip()
+            config.api_access_token = request.POST.get('api_access_token', '').strip()
+            config.api_version = request.POST.get('api_version', 'v20.0').strip() or 'v20.0'
+            config.webhook_verify_token = request.POST.get('webhook_verify_token', '').strip()
+            config.save()
+            messages.success(request, "WhatsApp Business API credentials saved successfully.")
             return redirect('/super-admin/whatsapp/')
 
         elif action == 'send_test':
@@ -10345,24 +10724,17 @@ def super_admin_whatsapp(request):
             if not phone or not message:
                 messages.error(request, "Recipient phone and message content are required.")
             else:
-                res = _call_wa_api('send', method='POST', payload={'to': phone, 'message': message})
-                if res.get('ok'):
-                    WhatsAppLog.objects.create(
-                        phone_to=phone,
-                        message=message,
-                        msg_type='alert',
-                        status='sent'
-                    )
+                success, err_msg = _send_whatsapp_message(phone, message)
+                WhatsAppLog.objects.create(
+                    phone_to=phone,
+                    message=message,
+                    msg_type='alert',
+                    status='sent' if success else 'failed',
+                    error_msg='' if success else err_msg,
+                )
+                if success:
                     messages.success(request, f"Test message successfully sent to {phone}!")
                 else:
-                    err_msg = res.get('error', 'Unknown daemon error')
-                    WhatsAppLog.objects.create(
-                        phone_to=phone,
-                        message=message,
-                        msg_type='alert',
-                        status='failed',
-                        error_msg=err_msg
-                    )
                     messages.error(request, f"Failed to send message: {err_msg}")
             return redirect('/super-admin/whatsapp/')
 
@@ -10373,10 +10745,9 @@ def super_admin_whatsapp(request):
                 messages.error(request, "Broadcast message content is required.")
                 return redirect('/super-admin/whatsapp/')
 
-            # Resolve contact list based on group
             contacts = []
             users_query = User.objects.filter(is_staff=False, is_superuser=False)
-            
+
             for u in users_query:
                 try:
                     ph = u.customer_profile.phone
@@ -10400,22 +10771,22 @@ def super_admin_whatsapp(request):
                 messages.error(request, "No clients found with valid phone numbers in this group.")
                 return redirect('/super-admin/whatsapp/')
 
-            # Prepare broadcast dispatch payload
             phone_list = [c.customer_profile.phone for c in contacts]
-            
-            # Send asynchronously using threading to prevent browser wait
+
             def run_broadcast_async(phones, text, users_map):
-                res = _call_wa_api('broadcast', method='POST', payload={'contacts': phones, 'message': text})
-                for r in res.get('results', []):
-                    usr = users_map.get(r['to'])
+                import time
+                for ph in phones:
+                    ok, err = _send_whatsapp_message(ph, text)
+                    usr = users_map.get(ph)
                     WhatsAppLog.objects.create(
                         user=usr,
-                        phone_to=r['to'],
+                        phone_to=ph,
                         message=text,
                         msg_type='broadcast',
-                        status='sent' if r.get('ok') else 'failed',
-                        error_msg='' if r.get('ok') else r.get('error', 'Daemon error')
+                        status='sent' if ok else 'failed',
+                        error_msg='' if ok else err,
                     )
+                    time.sleep(0.8)  # Rate-limit protection
 
             users_map = {u.customer_profile.phone: u for u in contacts}
             import threading
@@ -10424,46 +10795,77 @@ def super_admin_whatsapp(request):
             messages.success(request, f"Broadcast bulk send triggered for {len(phone_list)} clients in the background.")
             return redirect('/super-admin/whatsapp/')
 
-    # GET Request: Fetch status & QR code
-    status_res = _call_wa_api('status')
-    state = status_res.get('state', 'idle')
-    qr_code = None
-    
-    if state != 'connected':
-        qr_res = _call_wa_api('qr')
-        qr_code = qr_res.get('qr')
-        state = qr_res.get('state', state)
+    # GET — determine connection state from credentials
+    api_configured = bool(config.api_phone_number_id and config.api_access_token)
+    state = 'connected' if api_configured else 'not_configured'
 
     logs = WhatsAppLog.objects.select_related('user').order_by('-created_at')[:20]
+
+    # Inbox conversations
+    from data.models import WhatsAppMessage
+    from django.db.models import Count, Q, Max
+    inbox_conversations = (
+        WhatsAppMessage.objects
+        .values('phone')
+        .annotate(
+            last_msg=Max('timestamp'),
+            unread=Count('id', filter=Q(direction='inbound', is_read=False)),
+            total=Count('id'),
+        )
+        .order_by('-last_msg')[:30]
+    )
+    total_unread = WhatsAppMessage.objects.filter(direction='inbound', is_read=False).count()
+
+    # Enrich with contact names
+    inbox_list = []
+    for conv in inbox_conversations:
+        latest = WhatsAppMessage.objects.filter(phone=conv['phone']).order_by('-timestamp').first()
+        contact = WhatsAppMessage.objects.filter(
+            phone=conv['phone'], direction='inbound', contact_name__gt=''
+        ).order_by('-timestamp').first()
+        inbox_list.append({
+            'phone': conv['phone'],
+            'contact_name': contact.contact_name if contact else '',
+            'username': latest.user.username if latest and latest.user else None,
+            'last_message': latest.body[:80] if latest else '',
+            'last_direction': latest.direction if latest else '',
+            'last_time': latest.timestamp if latest else None,
+            'unread': conv['unread'],
+            'total': conv['total'],
+        })
 
     ctx = _build_super_admin_context('whatsapp')
     ctx.update({
         'config': config,
         'state': state,
-        'qr_code': qr_code,
+        'api_configured': api_configured,
         'logs': logs,
+        'inbox_conversations': inbox_list,
+        'total_unread': total_unread,
     })
     return render(request, 'super_admin_whatsapp.html', ctx)
 
 
 def send_whatsapp_notification_async(user, message, alert_type):
     """
-    Sends a WhatsApp message in a background thread if WhatsApp integration is enabled
-    and the target number is registered.
+    Sends a WhatsApp message in a background thread via Cloud API
+    if WhatsApp integration is enabled.
     """
     import threading
-    
+
     def _run():
         from data.models import WhatsAppConfig, WhatsAppLog
         config = WhatsAppConfig.objects.filter(id=1).first()
         if not config or not config.is_enabled:
             return
-            
+
         if alert_type == 'invoice_created' and not config.alert_on_invoice_created:
             return
         if alert_type == 'service_suspend' and not config.alert_on_service_suspend:
             return
         if alert_type == 'ticket_opened' and not config.alert_on_ticket_opened:
+            return
+        if alert_type == 'new_purchase' and not config.alert_on_new_purchase:
             return
 
         phone = None
@@ -10474,24 +10876,636 @@ def send_whatsapp_notification_async(user, message, alert_type):
                 pass
 
         if not phone:
-            # If no client phone, fallback to admin's configured phone for alert monitoring
             if alert_type == 'ticket_opened' and config.phone_number:
                 phone = config.phone_number
             else:
                 return
 
-        res = _call_wa_api('send', method='POST', payload={'to': phone, 'message': message})
-        is_ok = res.get('ok') or res.get('success') or False
+        success, err_msg = _send_whatsapp_message(phone, message)
         WhatsAppLog.objects.create(
             user=user if (user and user.is_authenticated) else None,
             phone_to=phone,
             message=message,
             msg_type='alert',
-            status='sent' if is_ok else 'failed',
-            error_msg='' if is_ok else res.get('error', 'Daemon error')
+            status='sent' if success else 'failed',
+            error_msg='' if success else err_msg,
         )
 
     threading.Thread(target=_run, daemon=True).start()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  WHATSAPP WEBHOOK — RECEIVE INBOUND MESSAGES FROM META
+# ══════════════════════════════════════════════════════════════════════════════
+
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt
+def whatsapp_webhook(request):
+    """
+    Meta WhatsApp Cloud API webhook endpoint.
+    GET  → Verification handshake (hub.mode, hub.verify_token, hub.challenge)
+    POST → Incoming messages and status updates
+    """
+    from data.models import WhatsAppConfig, WhatsAppMessage
+    import json, re as _re
+
+    if request.method == 'GET':
+        mode      = request.GET.get('hub.mode', '')
+        token     = request.GET.get('hub.verify_token', '')
+        challenge = request.GET.get('hub.challenge', '')
+
+        config = WhatsAppConfig.objects.filter(id=1).first()
+        if not config or not config.webhook_verify_token:
+            return HttpResponse('Webhook not configured', status=403)
+
+        if mode == 'subscribe' and token == config.webhook_verify_token:
+            _logger.info('WhatsApp webhook verified successfully')
+            return HttpResponse(challenge, content_type='text/plain', status=200)
+        else:
+            _logger.warning('WhatsApp webhook verification failed: token mismatch')
+            return HttpResponse('Verification failed', status=403)
+
+    elif request.method == 'POST':
+        try:
+            payload = json.loads(request.body)
+        except (json.JSONDecodeError, Exception):
+            return HttpResponse('Invalid JSON', status=400)
+
+        # Process each entry
+        for entry in payload.get('entry', []):
+            for change in entry.get('changes', []):
+                value = change.get('value', {})
+
+                # ── Inbound messages ──────────────────────────────
+                for msg in value.get('messages', []):
+                    phone_raw = msg.get('from', '')
+                    digits = _re.sub(r'[^\d]', '', phone_raw)
+
+                    # Extract contact name
+                    contact_name = ''
+                    for contact in value.get('contacts', []):
+                        profile = contact.get('profile', {})
+                        contact_name = profile.get('name', '')
+                        break
+
+                    msg_type = msg.get('type', 'text')
+                    body = ''
+                    media_url = ''
+
+                    if msg_type == 'text':
+                        body = msg.get('text', {}).get('body', '')
+                    elif msg_type in ('image', 'video', 'audio', 'document'):
+                        media_data = msg.get(msg_type, {})
+                        body = media_data.get('caption', f'[{msg_type.title()}]')
+                        media_url = media_data.get('id', '')  # Media ID, not URL
+                    elif msg_type == 'location':
+                        loc = msg.get('location', {})
+                        body = f"📍 Location: {loc.get('latitude', '')}, {loc.get('longitude', '')}"
+                    elif msg_type == 'contacts':
+                        body = '[Contact card shared]'
+                    elif msg_type == 'reaction':
+                        reaction = msg.get('reaction', {})
+                        body = f"Reacted with {reaction.get('emoji', '👍')}"
+                    else:
+                        body = f'[{msg_type}]'
+
+                    # Try to match phone to existing user
+                    matched_user = None
+                    try:
+                        from data.models import CustomerProfile
+                        norm_phone = digits
+                        if len(norm_phone) == 12 and norm_phone.startswith('91'):
+                            lookup_10 = norm_phone[2:]
+                        else:
+                            lookup_10 = norm_phone
+
+                        profile = CustomerProfile.objects.filter(
+                            models.Q(phone=norm_phone) |
+                            models.Q(phone=lookup_10) |
+                            models.Q(phone=f'+{norm_phone}') |
+                            models.Q(phone=f'+91{lookup_10}')
+                        ).first()
+                        if profile:
+                            matched_user = profile.user
+                    except Exception:
+                        pass
+
+                    # Don't create duplicate messages
+                    wa_msg_id = msg.get('id', '')
+                    if wa_msg_id and WhatsAppMessage.objects.filter(wa_message_id=wa_msg_id).exists():
+                        continue
+
+                    WhatsAppMessage.objects.create(
+                        wa_message_id=wa_msg_id,
+                        direction='inbound',
+                        phone=digits,
+                        contact_name=contact_name,
+                        user=matched_user,
+                        message_type=msg_type,
+                        body=body,
+                        media_url=media_url,
+                        status='received',
+                        is_read=False,
+                        raw_payload=msg,
+                    )
+
+                # ── Status updates (delivered, read) ──────────────
+                for status_update in value.get('statuses', []):
+                    wa_msg_id = status_update.get('id', '')
+                    new_status = status_update.get('status', '')
+                    if wa_msg_id and new_status in ('delivered', 'read', 'sent', 'failed'):
+                        WhatsAppMessage.objects.filter(
+                            wa_message_id=wa_msg_id
+                        ).update(status=new_status)
+
+        return HttpResponse('OK', status=200)
+
+    return HttpResponse('Method not allowed', status=405)
+
+
+@login_required(login_url='/login/')
+def api_whatsapp_inbox(request):
+    """
+    Returns JSON conversations for the WhatsApp Inbox tab.
+    Groups messages by phone number, returns recent messages + unread counts.
+    """
+    denied = _super_admin_guard(request)
+    if denied:
+        return JsonResponse({'error': 'Forbidden'}, status=403)
+
+    from data.models import WhatsAppMessage
+    from django.db.models import Count, Q, Max
+
+    # Get unique phone numbers with their latest message time
+    conversations = (
+        WhatsAppMessage.objects
+        .values('phone')
+        .annotate(
+            last_msg=Max('timestamp'),
+            unread=Count('id', filter=Q(direction='inbound', is_read=False)),
+            total=Count('id'),
+        )
+        .order_by('-last_msg')[:50]
+    )
+
+    result = []
+    for conv in conversations:
+        # Get the latest message for preview
+        latest = WhatsAppMessage.objects.filter(phone=conv['phone']).order_by('-timestamp').first()
+        # Get the contact name from the most recent inbound message
+        contact = WhatsAppMessage.objects.filter(
+            phone=conv['phone'], direction='inbound', contact_name__gt=''
+        ).order_by('-timestamp').first()
+
+        result.append({
+            'phone': conv['phone'],
+            'contact_name': contact.contact_name if contact else '',
+            'user_id': latest.user_id if latest and latest.user else None,
+            'username': latest.user.username if latest and latest.user else None,
+            'last_message': latest.body[:100] if latest else '',
+            'last_direction': latest.direction if latest else '',
+            'last_time': latest.timestamp.isoformat() if latest else '',
+            'unread': conv['unread'],
+            'total': conv['total'],
+        })
+
+    return JsonResponse({'conversations': result})
+
+
+@login_required(login_url='/login/')
+def api_whatsapp_conversation(request, phone):
+    """Returns all messages for a specific phone number conversation."""
+    denied = _super_admin_guard(request)
+    if denied:
+        return JsonResponse({'error': 'Forbidden'}, status=403)
+
+    from data.models import WhatsAppMessage
+    import re as _re
+
+    digits = _re.sub(r'[^\d]', '', phone)
+    msgs = WhatsAppMessage.objects.filter(phone=digits).order_by('timestamp')[:200]
+
+    # Mark inbound messages as read
+    WhatsAppMessage.objects.filter(phone=digits, direction='inbound', is_read=False).update(is_read=True)
+
+    messages_list = []
+    for m in msgs:
+        messages_list.append({
+            'id': m.id,
+            'direction': m.direction,
+            'body': m.body,
+            'message_type': m.message_type,
+            'status': m.status,
+            'timestamp': m.timestamp.isoformat(),
+            'contact_name': m.contact_name,
+        })
+
+    return JsonResponse({'messages': messages_list, 'phone': digits})
+
+
+@csrf_exempt
+@login_required(login_url='/login/')
+def api_whatsapp_reply(request):
+    """Send a reply message from the admin inbox via the Cloud API."""
+    denied = _super_admin_guard(request)
+    if denied:
+        return JsonResponse({'error': 'Forbidden'}, status=403)
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST only'}, status=405)
+
+    import json
+    from data.models import WhatsAppMessage
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, Exception):
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    phone = data.get('phone', '').strip()
+    message = data.get('message', '').strip()
+
+    if not phone or not message:
+        return JsonResponse({'error': 'Phone and message required'}, status=400)
+
+    success, err = _send_whatsapp_message(phone, message)
+
+    # Get wa_message_id from the API response if possible
+    msg_record = WhatsAppMessage.objects.create(
+        direction='outbound',
+        phone=phone,
+        body=message,
+        message_type='text',
+        status='sent' if success else 'failed',
+        is_read=True,
+    )
+
+    if success:
+        return JsonResponse({'ok': True, 'message_id': msg_record.id})
+    else:
+        return JsonResponse({'ok': False, 'error': err}, status=400)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  MARKETING SUITE — PORTAL DASHBOARD + API ENDPOINTS
+# ══════════════════════════════════════════════════════════════════════════════
+
+@login_required(login_url='/login/')
+def portal_marketing_dashboard(request):
+    """Renders the Marketing Hub dashboard for subscribed users."""
+    from data.models import MarketingService, MarketingCampaign, MarketingLead, MarketingABTest, SuiteService
+
+    # Check for active marketing service (try new Digital Suite first, then legacy)
+    suite_svc = SuiteService.objects.filter(
+        user=request.user, suite='marketing', status='active'
+    ).select_related('plan').first()
+
+    legacy_svc = MarketingService.objects.filter(
+        user=request.user, status='active'
+    ).first()
+
+    service = suite_svc or legacy_svc
+    plan = None
+    campaigns = []
+    leads = []
+    ab_tests = []
+    stats = {'total_campaigns': 0, 'sent': 0, 'total_leads': 0, 'hot_leads': 0}
+    limits = {
+        'emails_left': 0, 'ai_left': 0, 'leads_left': 0,
+        'can_ab': False, 'can_wa': False,
+    }
+
+    if service:
+        if legacy_svc:
+            plan = legacy_svc.plan
+            campaigns = MarketingCampaign.objects.filter(service=legacy_svc).order_by('-created_at')[:20]
+            leads = MarketingLead.objects.filter(service=legacy_svc).order_by('-score', '-created_at')[:50]
+            ab_tests = MarketingABTest.objects.filter(service=legacy_svc).order_by('-created_at')[:10]
+
+            stats = {
+                'total_campaigns': campaigns.count(),
+                'sent': campaigns.filter(status='sent').count(),
+                'total_leads': leads.count(),
+                'hot_leads': leads.filter(score__gte=70).count(),
+            }
+
+            if plan:
+                limits = {
+                    'emails_left': max(0, plan.max_emails_per_month - legacy_svc.emails_sent_this_month),
+                    'ai_left': max(0, plan.max_ai_copies_per_month - legacy_svc.ai_copies_used_this_month),
+                    'leads_left': max(0, plan.max_leads - legacy_svc.leads_stored) if plan.max_leads else 999,
+                    'can_ab': plan.has_ab_testing,
+                    'can_wa': plan.has_whatsapp_automation,
+                }
+        elif suite_svc:
+            # For Digital Suite, use the plan limits from JSONField
+            plan_limits = suite_svc.plan.limits if suite_svc.plan else {}
+            limits = {
+                'emails_left': plan_limits.get('emails_per_month', 5000),
+                'ai_left': plan_limits.get('ai_copies', 10),
+                'leads_left': plan_limits.get('max_leads', 500),
+                'can_ab': plan_limits.get('ab_testing', False),
+                'can_wa': plan_limits.get('whatsapp', False),
+            }
+
+    context = {
+        'service': service,
+        'plan': plan or (suite_svc.plan if suite_svc else None),
+        'campaigns': campaigns,
+        'leads': leads,
+        'ab_tests': ab_tests,
+        'stats': stats,
+        'limits': limits,
+    }
+    return render(request, 'portal_marketing_dashboard.html', context)
+
+
+@csrf_exempt
+@login_required(login_url='/login/')
+def marketing_campaign_save(request):
+    """Save a campaign draft for the Marketing Suite."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST only'}, status=405)
+
+    import json
+    from data.models import MarketingService, MarketingCampaign
+
+    svc = MarketingService.objects.filter(user=request.user, status='active').first()
+    if not svc:
+        return JsonResponse({'error': 'No active marketing subscription'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, Exception):
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    name = data.get('name', '').strip()
+    channel = data.get('channel', 'email')
+    subject = data.get('subject', '').strip()
+    body = data.get('body', '').strip()
+
+    if not name:
+        return JsonResponse({'error': 'Campaign name is required'}, status=400)
+
+    campaign = MarketingCampaign.objects.create(
+        service=svc, name=name, channel=channel,
+        subject=subject, body=body, status='draft',
+    )
+    return JsonResponse({'status': 'saved', 'id': campaign.id})
+
+
+@csrf_exempt
+@login_required(login_url='/login/')
+def marketing_email_send(request):
+    """Send an email campaign immediately."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST only'}, status=405)
+
+    import json
+    from data.models import MarketingService, MarketingCampaign
+
+    svc = MarketingService.objects.filter(user=request.user, status='active').first()
+    if not svc:
+        return JsonResponse({'error': 'No active marketing subscription'}, status=403)
+
+    if not svc.can_send_email():
+        return JsonResponse({'error': 'Monthly email limit reached. Upgrade your plan.'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, Exception):
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    subject = data.get('subject', '').strip()
+    body = data.get('body', '').strip()
+    if not subject or not body:
+        return JsonResponse({'error': 'Subject and body are required'}, status=400)
+
+    campaign = MarketingCampaign.objects.create(
+        service=svc, name=f'Quick Email: {subject[:50]}',
+        channel='email', subject=subject, body=body, status='sent',
+        sent_count=1,
+    )
+    svc.emails_sent_this_month += 1
+    svc.save(update_fields=['emails_sent_this_month'])
+
+    return JsonResponse({'status': 'sent', 'id': campaign.id})
+
+
+@csrf_exempt
+@login_required(login_url='/login/')
+def marketing_ai_copy(request):
+    """Generate AI marketing copy using configured AI provider."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST only'}, status=405)
+
+    import json
+    from data.models import MarketingService
+
+    svc = MarketingService.objects.filter(user=request.user, status='active').first()
+    if not svc:
+        return JsonResponse({'error': 'No active marketing subscription'}, status=403)
+
+    if not svc.can_use_ai():
+        return JsonResponse({'error': 'Monthly AI credit limit reached. Upgrade your plan.'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, Exception):
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    copy_type = data.get('type', 'email')
+    product = data.get('product', '').strip()
+    tone = data.get('tone', 'professional')
+
+    if not product:
+        return JsonResponse({'error': 'Product/service name required'}, status=400)
+
+    # Try to use OpenAI if configured
+    try:
+        from data.models import AIKeyConfig
+        ai_config = AIKeyConfig.objects.filter(is_active=True).first()
+        if ai_config and ai_config.openai_key:
+            import urllib.request
+            prompt = (
+                f"Generate 3 different {copy_type} marketing copy variants for '{product}'. "
+                f"Tone: {tone}. Each variant should be compelling, concise, and ready to use. "
+                f"Return ONLY a JSON array of 3 strings, no other text."
+            )
+            api_payload = json.dumps({
+                'model': 'gpt-4o-mini',
+                'messages': [{'role': 'user', 'content': prompt}],
+                'temperature': 0.8,
+                'max_tokens': 1000,
+            }).encode('utf-8')
+            req = urllib.request.Request(
+                'https://api.openai.com/v1/chat/completions',
+                data=api_payload, method='POST',
+                headers={
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {ai_config.openai_key}',
+                }
+            )
+            with urllib.request.urlopen(req, timeout=30) as res:
+                result = json.loads(res.read().decode('utf-8'))
+                content = result['choices'][0]['message']['content']
+                # Try to parse as JSON array
+                copies = json.loads(content)
+                if isinstance(copies, list):
+                    svc.ai_copies_used_this_month += 1
+                    svc.save(update_fields=['ai_copies_used_this_month'])
+                    return JsonResponse({'copies': copies[:3]})
+    except Exception as exc:
+        _logger.warning('AI copy generation failed: %s', exc)
+
+    # Fallback: generate template-based copies
+    templates = {
+        'email': [
+            f"Subject: Discover {product} — Your Business Deserves Better\n\nHi {{{{name}}}},\n\nWe're excited to introduce {product}, designed to help you grow faster.\n\nGet started today and see the difference.\n\nBest regards,\nYour Team",
+            f"Subject: Special Offer on {product} — Limited Time!\n\nDear {{{{name}}}},\n\nFor a limited time, enjoy an exclusive deal on {product}.\n\nDon't miss out — this offer expires soon!\n\nWarm regards",
+            f"Subject: How {product} Can Transform Your Workflow\n\nHello {{{{name}}}},\n\nImagine saving hours every week. {product} makes it possible.\n\nTry it free for 14 days.\n\nCheers!"
+        ],
+        'sms': [
+            f"🎉 {product} is here! Get started now and boost your results. Reply STOP to opt out.",
+            f"⚡ Limited offer on {product}! Don't miss this deal. Visit our website to learn more.",
+            f"👋 Hi! Check out {product} — designed just for you. Tap to explore: [link]"
+        ],
+        'whatsapp': [
+            f"👋 Hi {{{{name}}}}!\n\nWe wanted to let you know about {product}.\n\nReply with:\n1️⃣ Learn more\n2️⃣ See pricing\n3️⃣ Talk to us",
+            f"🎉 Great news! {product} is now available.\n\nWould you like a quick demo? Just reply YES!",
+            f"⚡ Flash deal on {product}!\n\nLimited spots available. Reply NOW to claim yours."
+        ],
+        'social': [
+            f"🚀 Introducing {product}! Transform the way you work.\n\n✅ Save time\n✅ Boost productivity\n✅ Scale faster\n\n#Growth #Innovation",
+            f"💡 Did you know? {product} helps businesses like yours grow 3x faster.\n\nTry it today → [link]\n\n#Business #Success",
+            f"🔥 {product} is trending!\n\nJoin thousands of satisfied customers.\n\n👉 Link in bio\n\n#Trending #MustHave"
+        ],
+        'ad': [
+            f"🎯 {product} — The Smart Choice for Growing Businesses\n\nStart your free trial today. No credit card required.\n\nCTA: Get Started Free",
+            f"⚡ Stop wasting time. {product} automates what matters.\n\n✓ 10x faster ✓ 50% cheaper\n\nCTA: See How It Works",
+            f"🏆 Trusted by 10,000+ businesses. {product} delivers results.\n\nLimited time: 30% off your first month.\n\nCTA: Claim Your Discount"
+        ],
+    }
+    copies = templates.get(copy_type, templates['email'])
+    return JsonResponse({'copies': copies})
+
+
+@csrf_exempt
+@login_required(login_url='/login/')
+def marketing_leads_save(request):
+    """Add a new lead to the Marketing Suite lead database."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST only'}, status=405)
+
+    import json
+    from data.models import MarketingService, MarketingLead
+
+    svc = MarketingService.objects.filter(user=request.user, status='active').first()
+    if not svc:
+        return JsonResponse({'error': 'No active marketing subscription'}, status=403)
+
+    if not svc.can_add_lead():
+        return JsonResponse({'error': 'Lead storage limit reached. Upgrade your plan.'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, Exception):
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    name = data.get('name', '').strip()
+    if not name:
+        return JsonResponse({'error': 'Lead name is required'}, status=400)
+
+    lead = MarketingLead.objects.create(
+        service=svc,
+        name=name,
+        email=data.get('email', '').strip(),
+        phone=data.get('phone', '').strip(),
+        source=data.get('source', 'manual'),
+        score=min(100, max(0, int(data.get('score', 50)))),
+        notes=data.get('notes', '').strip(),
+    )
+    svc.leads_stored += 1
+    svc.save(update_fields=['leads_stored'])
+
+    return JsonResponse({'status': 'saved', 'id': lead.id})
+
+
+@csrf_exempt
+@login_required(login_url='/login/')
+def marketing_ab_test_save(request):
+    """Save a new A/B test experiment."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST only'}, status=405)
+
+    import json
+    from data.models import MarketingService, MarketingABTest
+
+    svc = MarketingService.objects.filter(user=request.user, status='active').first()
+    if not svc:
+        return JsonResponse({'error': 'No active marketing subscription'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, Exception):
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    name = data.get('name', '').strip()
+    variant_a = data.get('variant_a', '').strip()
+    variant_b = data.get('variant_b', '').strip()
+
+    if not name or not variant_a or not variant_b:
+        return JsonResponse({'error': 'All fields required'}, status=400)
+
+    ab = MarketingABTest.objects.create(
+        service=svc, name=name,
+        variant_a=variant_a, variant_b=variant_b,
+        metric=data.get('metric', 'clicks'),
+    )
+    return JsonResponse({'status': 'saved', 'id': ab.id})
+
+
+@csrf_exempt
+@login_required(login_url='/login/')
+def marketing_whatsapp_send(request):
+    """Send WhatsApp message via Business API from Marketing Dashboard."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST only'}, status=405)
+
+    import json
+    from data.models import WhatsAppMessage
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, Exception):
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    phone = data.get('phone', '').strip()
+    message = data.get('message', '').strip()
+
+    if not phone or not message:
+        return JsonResponse({'error': 'Phone and message required'}, status=400)
+
+    success, err = _send_whatsapp_message(phone, message)
+
+    # Log as WhatsAppMessage for conversation tracking
+    import re as _re
+    digits = _re.sub(r'[^\d]', '', phone)
+    WhatsAppMessage.objects.create(
+        direction='outbound',
+        phone=digits,
+        body=message,
+        message_type='text',
+        status='sent' if success else 'failed',
+        is_read=True,
+        user=request.user,
+    )
+
+    if success:
+        return JsonResponse({'ok': True, 'message': 'Message sent via WhatsApp Business API'})
+    else:
+        return JsonResponse({'ok': False, 'error': err}, status=400)
 
 
 from django.http import JsonResponse

@@ -22,15 +22,19 @@ class AuthService extends ChangeNotifier {
 
   /// Check if already authenticated on app start
   Future<void> checkAuth() async {
-    if (await api.isAuthenticated) {
-      final res = await api.get('/auth/me/');
-      if (res.success) {
-        _user = res.data;
-        _isLoggedIn = true;
-        notifyListeners();
-      } else {
-        await api.clearToken();
+    try {
+      if (await api.isAuthenticated) {
+        final res = await api.get('/auth/me/');
+        if (res.success && res.data is Map) {
+          _user = Map<String, dynamic>.from(res.data);
+          _isLoggedIn = true;
+          notifyListeners();
+        } else if (res.statusCode == 401) {
+          await api.clearToken();
+        }
       }
+    } catch (_) {
+      // Ignore network errors on startup check
     }
   }
 
@@ -40,33 +44,44 @@ class AuthService extends ChangeNotifier {
     _error = null;
     notifyListeners();
 
-    final res = await api.post('/auth/login/', body: {
-      'username': username,
-      'password': password,
-    });
+    try {
+      final res = await api.post('/auth/login/', body: {
+        'username': username,
+        'password': password,
+      });
 
-    _isLoading = false;
+      _isLoading = false;
 
-    if (res.success) {
-      await api.setToken(res.data['token']);
-      _user = {
-        'username': res.data['username'],
-        'domain': res.data['domain'],
-        'is_admin': res.data['is_admin'],
-      };
-      _isLoggedIn = true;
+      if (res.success && res.data is Map) {
+        final data = Map<String, dynamic>.from(res.data);
+        final token = data['token'];
+        if (token != null) {
+          await api.setToken(token.toString());
+        }
+        _user = {
+          'username': data['username'] ?? username,
+          'domain': data['domain'] ?? '',
+          'is_admin': data['is_admin'] ?? false,
+        };
+        _isLoggedIn = true;
 
-      // Fetch full profile
-      final meRes = await api.get('/auth/me/');
-      if (meRes.success) {
-        _user = meRes.data;
+        // Fetch full profile
+        try {
+          final meRes = await api.get('/auth/me/');
+          if (meRes.success && meRes.data is Map) {
+            _user = Map<String, dynamic>.from(meRes.data);
+          }
+        } catch (_) {}
+      } else {
+        _error = res.error ?? 'Login failed';
       }
-    } else {
-      _error = res.error ?? 'Login failed';
+    } catch (e) {
+      _isLoading = false;
+      _error = 'Connection error: $e';
     }
 
     notifyListeners();
-    return res.success;
+    return _isLoggedIn;
   }
 
   /// Logout

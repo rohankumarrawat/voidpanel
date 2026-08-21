@@ -230,6 +230,33 @@ class allemail(models.Model):
         return self.email
 
 
+class VoidMailWhitelistIP(models.Model):
+    """
+    Per-domain IP whitelist for VoidMail AI features.
+    Only requests from whitelisted IPs will see AI features
+    (AI Assistant, AI Summary, AI Suggested Reply, etc.) in VoidMail.
+    """
+    ip_address = models.GenericIPAddressField(
+        help_text="Server or client IP address to whitelist for AI features"
+    )
+    domain = models.CharField(
+        max_length=255,
+        help_text="The email domain this whitelist entry applies to"
+    )
+    label = models.CharField(
+        max_length=100, blank=True, default='',
+        help_text="Friendly label (e.g. 'Office Network', 'Home IP')"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('ip_address', 'domain')
+        verbose_name = 'VoidMail Whitelist IP'
+        verbose_name_plural = 'VoidMail Whitelist IPs'
+
+    def __str__(self):
+        return f"{self.ip_address} — {self.domain} ({self.label or 'no label'})"
+
 class cron(models.Model):
     domain = models.CharField(max_length=100)
     duratioin = models.CharField(max_length=255)
@@ -965,13 +992,25 @@ class SocialMediaAPIConfig(models.Model):
     # YouTube / Google
     google_client_id        = models.CharField(max_length=255, blank=True)
     google_client_secret    = models.CharField(max_length=255, blank=True)
+    google_api_key          = models.CharField(max_length=255, blank=True, help_text='Google Cloud API key for Places API reviews')
     # Threads (Meta)
     threads_app_id          = models.CharField(max_length=255, blank=True)
     threads_app_secret      = models.CharField(max_length=255, blank=True)
     # Feature flags
     enabled_platforms       = models.JSONField(
         default=list,
+        blank=True,
         help_text='List of enabled platform codes e.g. ["fb","ig","tw"]'
+    )
+    admin_enabled_platforms = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Platforms where Admin Master Key is enabled for 1-click login'
+    )
+    auth_modes              = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Mapping of platform code -> auth mode ("admin" | "user")'
     )
     is_active               = models.BooleanField(default=True)
     updated_at              = models.DateTimeField(auto_now=True)
@@ -987,10 +1026,11 @@ class SocialMediaAPIConfig(models.Model):
     def get(cls):
         obj, _ = cls.objects.get_or_create(pk=1)
         import requests
+        from control.models import PanelLicense
         lic = PanelLicense.objects.first()
         headers = {}
         params = {}
-        if lic:
+        if lic and lic.key:
             headers['Authorization'] = f'Bearer {lic.key}'
             headers['X-VoidPanel-License'] = lic.key
             params['license'] = lic.key
@@ -998,13 +1038,37 @@ class SocialMediaAPIConfig(models.Model):
             r = requests.get('https://voidpanel.com/api/social/platform-config/', headers=headers, params=params, timeout=5)
             if r.status_code == 200:
                 data = r.json()
-                # Only sync enabled_platforms — secrets are NEVER sent by the API.
-                # OAuth credentials stay on voidpanel.com and are used via the relay flow.
+                # Sync enabled platforms & auth modes from voidpanel.com master settings
                 obj.enabled_platforms = data.get('enabled_platforms', obj.enabled_platforms)
+                obj.admin_enabled_platforms = data.get('admin_enabled_platforms', obj.admin_enabled_platforms or [])
+                obj.auth_modes = data.get('auth_modes', obj.auth_modes or {})
                 obj.save()
         except Exception:
             pass
         return obj
+
+    def is_admin_1click(self, platform):
+        """Check if platform is configured for 1-Click login via Admin Master Key."""
+        if self.admin_enabled_platforms is not None and len(self.admin_enabled_platforms) > 0:
+            return platform in self.admin_enabled_platforms
+        if self.enabled_platforms and platform not in self.enabled_platforms:
+            return False
+        # Check if local panel admin configured keys directly
+        local_has_key = {
+            'fb': bool(self.facebook_app_id and self.facebook_app_secret),
+            'ig': bool(self.instagram_app_id and self.instagram_app_secret),
+            'tw': bool(self.twitter_api_key and self.twitter_api_secret),
+            'li': bool(self.linkedin_client_id and self.linkedin_client_secret),
+            'pi': bool(self.pinterest_app_id and self.pinterest_app_secret),
+            'tt': bool(self.tiktok_client_key and self.tiktok_client_secret),
+            'yt': bool(self.google_client_id and self.google_client_secret),
+            'th': bool(self.threads_app_id and self.threads_app_secret),
+            'gb': bool(self.google_client_id and self.google_client_secret),
+        }
+        if local_has_key.get(platform, False):
+            if (self.auth_modes or {}).get(platform) != 'user':
+                return True
+        return False
 
 
 
@@ -1045,6 +1109,7 @@ class DomainSocialAPIConfig(models.Model):
     # ── YouTube / Google ──────────────────────────────────────────
     google_client_id        = models.CharField(max_length=255, blank=True)
     google_client_secret    = models.CharField(max_length=255, blank=True)
+    google_api_key          = models.CharField(max_length=255, blank=True, help_text='Google Cloud API key for Places API reviews')
 
     # ── Threads (Meta — uses same Facebook app) ───────────────────
     # Threads uses the same Meta App ID & Secret as Facebook
@@ -1078,12 +1143,13 @@ class DomainSocialAPIConfig(models.Model):
             'tt':  bool(self.tiktok_client_key and self.tiktok_client_secret),
             'yt':  bool(self.google_client_id and self.google_client_secret),
             'th':  bool(self.facebook_app_id and self.facebook_app_secret),
+            'gb':  bool(self.google_client_id and self.google_client_secret),
         }
         return checks.get(platform, False)
 
     @property
     def configured_platforms(self):
-        return [p for p in ['fb','ig','tw','li','pi','tt','yt','th'] if self.has_platform(p)]
+        return [p for p in ['fb','ig','tw','li','pi','tt','yt','th','gb'] if self.has_platform(p)]
 
 
 # ── Marketing Hub Models ───────────────────────────────────────────────────────
@@ -1171,6 +1237,22 @@ class MarketingCampaign(models.Model):
         return f"{self.name} ({self.channel})"
 
 
+class MarketingContactGroup(models.Model):
+    user        = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='mkt_contact_groups')
+    domain      = models.CharField(max_length=253, db_index=True)
+    name        = models.CharField(max_length=200)
+    description = models.TextField(blank=True, default='')
+    color       = models.CharField(max_length=20, default='#f59e0b')
+    created_at  = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = [('domain', 'name')]
+
+    def __str__(self):
+        return f"{self.name} ({self.domain})"
+
+
 class MarketingLead(models.Model):
     SOURCE_CHOICES = [
         ('manual','Manual'),('form','Website Form'),('import','CSV Import'),
@@ -1183,6 +1265,7 @@ class MarketingLead(models.Model):
     phone    = models.CharField(max_length=30, blank=True)
     source   = models.CharField(max_length=20, choices=SOURCE_CHOICES, default='manual')
     score    = models.PositiveSmallIntegerField(default=50, help_text='0-100 lead quality score')
+    group    = models.ForeignKey(MarketingContactGroup, on_delete=models.SET_NULL, null=True, blank=True, related_name='leads')
     notes    = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -1589,6 +1672,12 @@ class SuitePlan(models.Model):
                 'rank_tracking': True, 'site_audit': True, 'reports': 'basic',
                 'api_access': False,
             }),
+            ('seo', 'starter',  'Starter',  999,  {
+                'domains': 3, 'keywords': 250, 'audits_per_month': 5,
+                'backlink_rows': 500, 'competitor_tracking': 2,
+                'rank_tracking': True, 'site_audit': True, 'reports': 'basic',
+                'api_access': False,
+            }),
             ('seo', 'standard', 'Standard', 2999, {
                 'domains': 10, 'keywords': 1000, 'audits_per_month': 30,
                 'backlink_rows': 5000, 'competitor_tracking': 10,
@@ -1601,6 +1690,20 @@ class SuitePlan(models.Model):
                 'rank_tracking': True, 'site_audit': True, 'reports': 'white_label',
                 'pdf_reports': True, 'api_access': True, 'custom_alerts': True,
             }),
+            # ─── Social Aliases for Packages ───────────────────────────────────────
+            ('social', 'business', 'Business', 2999, {
+                'accounts': 15, 'posts_per_month': 500, 'ai_captions': 100,
+                'platforms': ['instagram','facebook','twitter','linkedin','pinterest','youtube'],
+                'analytics': 'advanced', 'scheduler': True, 'csv_export': True,
+                'team_members': 3, 'custom_branding': False, 'bulk_scheduling': True,
+            }),
+            ('social', 'enterprise', 'Enterprise', 4999, {
+                'accounts': 0, 'posts_per_month': 0, 'ai_captions': 0,
+                'platforms': 'all', 'analytics': 'white_label',
+                'scheduler': True, 'csv_export': True,
+                'team_members': 0, 'custom_branding': True, 'bulk_scheduling': True,
+                'client_reporting': True, 'api_access': True,
+            }),
             # ─── Marketing Suite (INR, 20% below Indian market) ────────────────────
             ('marketing', 'starter', 'Starter', 799,  {
                 'contacts': 2000, 'emails_per_month': 15000,
@@ -1608,6 +1711,13 @@ class SuitePlan(models.Model):
                 'automation': False, 'ab_testing': False,
                 'sms_credits': 500, 'whatsapp': False,
                 'team_members': 1, 'custom_domain': False,
+            }),
+            ('marketing', 'business', 'Business', 3499, {
+                'contacts': 10000, 'emails_per_month': 100000,
+                'campaigns_per_month': 0, 'landing_pages': 30,
+                'automation': True, 'ab_testing': True,
+                'sms_credits': 2000, 'whatsapp': True,
+                'team_members': 5, 'custom_domain': True, 'advanced_segmentation': True,
             }),
             ('marketing', 'pro',     'Pro',     2499, {
                 'contacts': 10000, 'emails_per_month': 100000,
@@ -1617,6 +1727,14 @@ class SuitePlan(models.Model):
                 'team_members': 5, 'custom_domain': True, 'advanced_segmentation': True,
             }),
             ('marketing', 'agency',  'Agency',  6999, {
+                'contacts': 50000, 'emails_per_month': 500000,
+                'campaigns_per_month': 0, 'landing_pages': 0,
+                'automation': True, 'ab_testing': True,
+                'sms_credits': 0, 'whatsapp': True,
+                'team_members': 0, 'custom_domain': True,
+                'advanced_segmentation': True, 'white_label': True, 'api_access': True,
+            }),
+            ('marketing', 'enterprise', 'Enterprise', 6999, {
                 'contacts': 50000, 'emails_per_month': 500000,
                 'campaigns_per_month': 0, 'landing_pages': 0,
                 'automation': True, 'ab_testing': True,
@@ -1714,3 +1832,62 @@ class SuiteSSOToken(models.Model):
             plan_slug=plan_slug,
             expires_at=expires,
         )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  SAVED SEO DOMAINS (Per-user isolated domain profiles with metrics caching)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class SavedSEODomain(models.Model):
+    """
+    Per-user saved domain for the SEO portal.
+    Fully isolated — different users can independently save the same domain.
+    """
+    user_identifier      = models.CharField(max_length=150, db_index=True)  # Username or suite email
+    domain               = models.CharField(max_length=253, db_index=True)
+    label                = models.CharField(max_length=100, blank=True, default='')
+    is_primary           = models.BooleanField(default=False)
+    added_at             = models.DateTimeField(auto_now_add=True)
+    last_analyzed        = models.DateTimeField(null=True, blank=True)
+    cached_authority     = models.IntegerField(default=0)
+    cached_traffic       = models.IntegerField(default=0)
+    cached_keywords      = models.IntegerField(default=0)
+    cached_health_score  = models.IntegerField(default=0)
+    cached_backlinks     = models.IntegerField(default=0)
+    notes                = models.TextField(blank=True, default='')
+
+    class Meta:
+        verbose_name = 'Saved SEO Domain'
+        verbose_name_plural = 'Saved SEO Domains'
+        unique_together = ('user_identifier', 'domain')
+        ordering = ['-is_primary', '-last_analyzed', '-added_at']
+
+    def __str__(self):
+        return f"{self.user_identifier} -> {self.domain} ({'Primary' if self.is_primary else 'Project'})"
+
+
+class SEOHistorySnapshot(models.Model):
+    """
+    Historical SEO metric snapshots for tracking performance over time.
+    Enables historical trend charts (Authority, Traffic, Keywords, Health, PageSpeed).
+    """
+    user_identifier     = models.CharField(max_length=150, db_index=True)
+    domain              = models.CharField(max_length=253, db_index=True)
+    recorded_at         = models.DateTimeField(auto_now_add=True, db_index=True)
+    authority_score     = models.IntegerField(default=0)
+    organic_traffic     = models.IntegerField(default=0)
+    organic_keywords    = models.IntegerField(default=0)
+    health_score        = models.IntegerField(default=0)
+    backlinks           = models.IntegerField(default=0)
+    pagespeed_score     = models.IntegerField(default=0)
+    details_json        = models.TextField(blank=True, default='{}')
+
+    class Meta:
+        verbose_name = 'SEO History Snapshot'
+        verbose_name_plural = 'SEO History Snapshots'
+        ordering = ['-recorded_at']
+
+    def __str__(self):
+        return f"{self.domain} @ {self.recorded_at.strftime('%Y-%m-%d %H:%M')} (Auth: {self.authority_score})"
+
+

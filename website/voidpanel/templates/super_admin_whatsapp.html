@@ -1,19 +1,23 @@
 {% extends 'super_admin_base.html' %}
-{% block title %}WhatsApp Web Integration | VoidPanel Admin{% endblock %}
-{% block breadcrumb %}WhatsApp Web{% endblock %}
+{% block title %}WhatsApp Business API | VoidPanel Admin{% endblock %}
+{% block breadcrumb %}WhatsApp Business{% endblock %}
 {% block admin_content %}
 
 <div class="sa-page-header">
     <div>
-        <div class="sa-page-title">WhatsApp Web Integration</div>
-        <div class="sa-page-sub">Connect your phone via QR code scan to enable automated alerts and send sales broadcasts.</div>
+        <div class="sa-page-title">WhatsApp Business API</div>
+        <div class="sa-page-sub">Connect your verified WhatsApp Business account via the official Meta Cloud API to send automated alerts, marketing broadcasts, and receive client messages.</div>
     </div>
 </div>
 
 <!-- Main Tabs -->
 <div class="sa-tabs" style="margin-bottom: 20px;">
     <button class="sa-tab active-green" id="tabBtn-status" onclick="switchTab('status')">
-        <i class="fas fa-qrcode" style="margin-right: 6px;"></i> Connection Settings
+        <i class="fas fa-plug" style="margin-right: 6px;"></i> API Settings
+    </button>
+    <button class="sa-tab" id="tabBtn-inbox" onclick="switchTab('inbox')">
+        <i class="fas fa-inbox" style="margin-right: 6px;"></i> Inbox
+        {% if total_unread %}<span style="background:#ef4444;color:#fff;font-size:.7rem;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:6px;">{{ total_unread }}</span>{% endif %}
     </button>
     <button class="sa-tab" id="tabBtn-broadcast" onclick="switchTab('broadcast')">
         <i class="fas fa-bullhorn" style="margin-right: 6px;"></i> Bulk Broadcast
@@ -23,59 +27,132 @@
     </button>
 </div>
 
-<!-- ==================== TAB: CONNECTION SETTINGS ==================== -->
+<!-- ==================== TAB: API SETTINGS ==================== -->
 <div class="sa-card service-tab-panel" id="panel-status" style="margin-bottom: 20px;">
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 20px;">
-        <!-- Left Side: Status / QR -->
+        <!-- Left Side: API Credentials -->
         <div style="border-right: 1px solid var(--border); padding-right: 24px;">
             <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-1); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
                 <i class="fa-brands fa-whatsapp" style="color: #25d366; font-size: 1.4rem;"></i>
-                Connection Status
+                API Connection
             </div>
 
-            {% if state == 'connected' %}
+            {% if api_configured %}
             <div style="background: rgba(34, 197, 94, 0.05); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 8px; padding: 16px; margin-bottom: 20px;">
                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
                     <div style="width: 12px; height: 12px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e;"></div>
-                    <span style="font-weight: 700; color: #22c55e;">CONNECTED</span>
+                    <span style="font-weight: 700; color: #22c55e;">API CONFIGURED</span>
                 </div>
                 <div style="font-size: 0.88rem; color: var(--text-2);">
-                    Your WhatsApp account is connected. System notifications and marketing messages will be dispatched automatically using this session.
+                    Your WhatsApp Business API credentials are set. Messages will be sent via the official Meta Cloud API.
                 </div>
             </div>
-
-            <form method="POST" action="/super-admin/whatsapp/">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="logout">
-                <button type="submit" class="sa-btn red" style="width: 100%;">
-                    <i class="fas fa-right-from-bracket" style="margin-right: 6px;"></i> Disconnect Account
-                </button>
-            </form>
             {% else %}
             <div style="background: rgba(234, 179, 8, 0.05); border: 1px solid rgba(234, 179, 8, 0.2); border-radius: 8px; padding: 16px; margin-bottom: 20px;">
                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
                     <div style="width: 12px; height: 12px; border-radius: 50%; background: #eab308; box-shadow: 0 0 8px #eab308; animation: pulse 2s infinite;"></div>
-                    <span style="font-weight: 700; color: #eab308;">WAITING FOR SCAN ({{ state|upper }})</span>
+                    <span style="font-weight: 700; color: #eab308;">NOT CONFIGURED</span>
                 </div>
                 <div style="font-size: 0.88rem; color: var(--text-2);">
-                    Scan the QR code on the right with your phone's WhatsApp application (**Linked Devices** → **Link a Device**) to authenticate.
+                    Enter your WhatsApp Business API credentials below. You can get these from the
+                    <a href="https://business.facebook.com/settings/whatsapp-business-accounts" target="_blank" style="color: var(--accent); font-weight: 600;">Meta Business Dashboard</a>.
                 </div>
-            </div>
-
-            <div style="display: flex; justify-content: center; background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid var(--border); max-width: 320px; margin: 0 auto 20px auto;">
-                {% if qr_code %}
-                <img src="data:image/png;base64,{{ qr_code }}" style="width: 240px; height: 240px; display: block;" alt="WhatsApp Scan QR">
-                {% else %}
-                <div style="width: 240px; height: 240px; display: flex; align-items: center; justify-content: center; flex-direction: column; color: #000;">
-                    <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--green-2); margin-bottom: 12px;"></i>
-                    <span style="font-size: 0.8rem; font-weight: 600;">Generating QR Code...</span>
-                </div>
-                {% endif %}
             </div>
             {% endif %}
+
+            <form method="POST" action="/super-admin/whatsapp/">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_api_credentials">
+
+                <div class="sa-form-group" style="margin-bottom: 14px;">
+                    <label class="sa-label">Phone Number ID <span style="color: var(--red-2);">*</span></label>
+                    <input type="text" name="api_phone_number_id" value="{{ config.api_phone_number_id }}" class="sa-input"
+                        placeholder="e.g. 123456789012345" autocomplete="off">
+                    <span style="font-size: 0.74rem; color: var(--text-3); margin-top: 4px; display: block;">
+                        Found in Meta Business → WhatsApp → API Setup → Phone Number ID
+                    </span>
+                </div>
+
+                <div class="sa-form-group" style="margin-bottom: 14px;">
+                    <label class="sa-label">WhatsApp Business Account ID</label>
+                    <input type="text" name="api_waba_id" value="{{ config.api_waba_id }}" class="sa-input"
+                        placeholder="e.g. 123456789012345" autocomplete="off">
+                    <span style="font-size: 0.74rem; color: var(--text-3); margin-top: 4px; display: block;">
+                        Found in Meta Business → WhatsApp → Business Account Settings
+                    </span>
+                </div>
+
+                <div class="sa-form-group" style="margin-bottom: 14px;">
+                    <label class="sa-label">Permanent Access Token <span style="color: var(--red-2);">*</span></label>
+                    <div style="position: relative;">
+                        <input type="password" name="api_access_token" id="api-token-input"
+                            value="{{ config.api_access_token }}" class="sa-input"
+                            placeholder="EAAxxxxxxx..." autocomplete="off"
+                            style="padding-right: 42px;">
+                        <button type="button" onclick="toggleTokenVisibility()"
+                            style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-3); font-size: 0.9rem; padding: 4px 6px;">
+                            <i class="fas fa-eye" id="token-toggle-icon"></i>
+                        </button>
+                    </div>
+                    <span style="font-size: 0.74rem; color: var(--text-3); margin-top: 4px; display: block;">
+                        Generate a permanent token from Meta Business → System Users → Generate Token (whatsapp_business_messaging permission)
+                    </span>
+                </div>
+
+                <div class="sa-form-group" style="margin-bottom: 14px;">
+                    <label class="sa-label">Graph API Version</label>
+                    <input type="text" name="api_version" value="{{ config.api_version|default:'v20.0' }}" class="sa-input"
+                        placeholder="v20.0" autocomplete="off">
+                    <span style="font-size: 0.74rem; color: var(--text-3); margin-top: 4px; display: block;">
+                        Usually v20.0 or later. Check <a href="https://developers.facebook.com/docs/graph-api/changelog" target="_blank" style="color: var(--accent);">Meta API changelog</a> for the latest.
+                    </span>
+                </div>
+
+                <!-- Webhook Configuration -->
+                <div style="border-top: 1px solid var(--border); padding-top: 16px; margin-top: 8px; margin-bottom: 14px;">
+                    <div style="font-size: 0.92rem; font-weight: 700; color: var(--text-1); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-link" style="color: var(--sky-2);"></i>
+                        Webhook Configuration (Receive Messages)
+                    </div>
+
+                    <div class="sa-form-group" style="margin-bottom: 14px;">
+                        <label class="sa-label">Webhook Callback URL</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="text" id="webhook-url-display" class="sa-input" readonly
+                                value="{{ request.scheme }}://{{ request.get_host }}/api/whatsapp/webhook/"
+                                style="background: rgba(255,255,255,0.03); color: var(--text-2); font-family: monospace; font-size: 0.85rem;">
+                            <button type="button" onclick="copyWebhookURL()" class="sa-btn sky" style="white-space: nowrap; height: 38px;">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                        </div>
+                        <span style="font-size: 0.74rem; color: var(--text-3); margin-top: 4px; display: block;">
+                            Paste this URL into <strong>Meta Business Dashboard → WhatsApp → Configuration → Edit → Callback URL</strong>
+                        </span>
+                    </div>
+
+                    <div class="sa-form-group" style="margin-bottom: 14px;">
+                        <label class="sa-label">Webhook Verify Token</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="text" name="webhook_verify_token" id="webhook-verify-token"
+                                value="{{ config.webhook_verify_token }}" class="sa-input"
+                                placeholder="Enter a secret verify token..." autocomplete="off">
+                            <button type="button" onclick="generateVerifyToken()" class="sa-btn violet" style="white-space: nowrap; height: 38px;">
+                                <i class="fas fa-dice"></i> Generate
+                            </button>
+                        </div>
+                        <span style="font-size: 0.74rem; color: var(--text-3); margin-top: 4px; display: block;">
+                            Set this same token in <strong>Meta Business Dashboard → WhatsApp → Configuration → Edit → Verify Token</strong>. Then subscribe to <strong>messages</strong>.
+                        </span>
+                    </div>
+                </div>
+
+                <button type="submit" class="sa-btn green" style="width: 100%;">
+                    <i class="fas fa-key" style="margin-right: 6px;"></i> Save API Credentials & Webhook Config
+                </button>
+            </form>
         </div>
 
-        <!-- Right Side: Preferences -->
+        <!-- Right Side: Preferences & Test -->
         <div>
             <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-1); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
                 <i class="fas fa-gears" style="color: var(--violet-2);"></i>
@@ -88,38 +165,53 @@
 
                 <div class="sa-form-group" style="margin-bottom: 16px;">
                     <label class="sa-label" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                        <input type="checkbox" name="is_enabled" {% if config.is_enabled %}checked{% endif %} style="width: 18px; height: 18px; accent-color: #22c55e;">
+                        <input type="checkbox" name="is_enabled" {% if config.is_enabled %}checked{% endif %}
+                            style="width: 18px; height: 18px; accent-color: #22c55e;">
                         <span>Enable WhatsApp Dispatch (Global)</span>
                     </label>
                 </div>
 
                 <div class="sa-form-group" style="margin-bottom: 20px;">
-                    <label class="sa-label">Admin Whatsapp Number (For test messages)</label>
-                    <input type="text" name="phone_number" value="{{ config.phone_number }}" class="sa-input" placeholder="e.g. +91XXXXXXXXXX or 91XXXXXXXXXX">
-                    <span style="font-size: 0.74rem; color: var(--text-3); margin-top: 4px; display: block;">Must include country code (e.g. 91 for India).</span>
+                    <label class="sa-label">Admin WhatsApp Number (For fallback alerts)</label>
+                    <input type="text" name="phone_number" value="{{ config.phone_number }}" class="sa-input"
+                        placeholder="e.g. 919876543210">
+                    <span style="font-size: 0.74rem; color: var(--text-3); margin-top: 4px; display: block;">Must
+                        include country code (e.g. 91 for India). No + prefix needed.</span>
                 </div>
 
                 <div style="border-top: 1px solid var(--border); padding-top: 16px; margin-bottom: 20px;">
-                    <div style="font-size: 0.88rem; font-weight: 700; color: var(--text-2); margin-bottom: 12px;">AUTOMATED ALERTS</div>
-                    
+                    <div style="font-size: 0.88rem; font-weight: 700; color: var(--text-2); margin-bottom: 12px;">
+                        AUTOMATED ALERTS</div>
+
                     <div class="sa-form-group" style="margin-bottom: 10px;">
-                        <label class="sa-label" style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: normal;">
+                        <label class="sa-label"
+                            style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: normal;">
                             <input type="checkbox" name="alert_on_invoice_created" {% if config.alert_on_invoice_created %}checked{% endif %} style="width: 16px; height: 16px; accent-color: #22c55e;">
                             <span>Send alert on new invoice creation</span>
                         </label>
                     </div>
 
                     <div class="sa-form-group" style="margin-bottom: 10px;">
-                        <label class="sa-label" style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: normal;">
+                        <label class="sa-label"
+                            style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: normal;">
                             <input type="checkbox" name="alert_on_service_suspend" {% if config.alert_on_service_suspend %}checked{% endif %} style="width: 16px; height: 16px; accent-color: #22c55e;">
                             <span>Send alert on service suspension</span>
                         </label>
                     </div>
 
                     <div class="sa-form-group" style="margin-bottom: 10px;">
-                        <label class="sa-label" style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: normal;">
+                        <label class="sa-label"
+                            style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: normal;">
                             <input type="checkbox" name="alert_on_ticket_opened" {% if config.alert_on_ticket_opened %}checked{% endif %} style="width: 16px; height: 16px; accent-color: #22c55e;">
                             <span>Send alert when a new support ticket is opened</span>
+                        </label>
+                    </div>
+
+                    <div class="sa-form-group" style="margin-bottom: 10px;">
+                        <label class="sa-label"
+                            style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: normal;">
+                            <input type="checkbox" name="alert_on_new_purchase" {% if config.alert_on_new_purchase %}checked{% endif %} style="width: 16px; height: 16px; accent-color: #22c55e;">
+                            <span>Send alert on new purchase / order activation</span>
                         </label>
                     </div>
                 </div>
@@ -130,10 +222,11 @@
             </form>
 
             <!-- Test Message Panel -->
-            {% if state == 'connected' %}
+            {% if api_configured %}
             <div style="border-top: 1px solid var(--border); padding-top: 20px; margin-top: 24px;">
                 <div style="font-size: 0.95rem; font-weight: 700; color: var(--text-1); margin-bottom: 14px;">
-                    <i class="fas fa-paper-plane" style="color: var(--sky-2); margin-right: 6px;"></i> Send Quick Test Message
+                    <i class="fas fa-paper-plane" style="color: var(--sky-2); margin-right: 6px;"></i> Send Quick Test
+                    Message
                 </div>
                 <form method="POST" action="/super-admin/whatsapp/">
                     {% csrf_token %}
@@ -141,13 +234,17 @@
                     <div style="display: flex; gap: 10px; align-items: flex-end;">
                         <div class="sa-form-group" style="flex: 1; margin-bottom: 0;">
                             <label class="sa-label">Test Recipient Phone</label>
-                            <input type="text" name="phone_number" value="{{ config.phone_number }}" class="sa-input" required>
+                            <input type="text" name="phone_number" value="{{ config.phone_number }}" class="sa-input"
+                                placeholder="919876543210" required>
                         </div>
                         <div class="sa-form-group" style="flex: 2; margin-bottom: 0;">
                             <label class="sa-label">Message Text</label>
-                            <input type="text" name="message" value="Hello! This is a test alert from VoidPanel WhatsApp Integration." class="sa-input" required>
+                            <input type="text" name="message"
+                                value="Hello! This is a test message from VoidPanel WhatsApp Business API."
+                                class="sa-input" required>
                         </div>
-                        <button type="submit" class="sa-btn sky" style="height: 38px; margin-bottom: 0;">Send Test</button>
+                        <button type="submit" class="sa-btn sky" style="height: 38px; margin-bottom: 0;">Send
+                            Test</button>
                     </div>
                 </form>
             </div>
@@ -156,17 +253,96 @@
     </div>
 </div>
 
+<!-- ==================== TAB: INBOX ==================== -->
+<div class="sa-card service-tab-panel" id="panel-inbox" style="display:none; padding:0; overflow:hidden;">
+    <div style="display: grid; grid-template-columns: 340px 1fr; height: 600px;">
+        <!-- Conversation List -->
+        <div id="inbox-list" style="border-right: 1px solid var(--border); overflow-y: auto;">
+            <div style="padding: 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                <div style="font-weight: 700; color: var(--text-1); font-size: 0.95rem;">
+                    <i class="fas fa-inbox" style="color: #25d366; margin-right: 6px;"></i> Conversations
+                </div>
+                <button onclick="refreshInbox()" class="sa-btn sky" style="height: 28px; padding: 0 10px; font-size: .75rem;">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+            {% for conv in inbox_conversations %}
+            <div class="inbox-conv-item {% if conv.unread %}inbox-unread{% endif %}"
+                 onclick="openConversation('{{ conv.phone }}', this)"
+                 data-phone="{{ conv.phone }}">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #25d366, #128c7e); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 0.85rem; flex-shrink: 0;">
+                        {{ conv.contact_name|default:conv.phone|truncatechars:2|upper }}
+                    </div>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                            <span style="font-weight: 700; color: var(--text-1); font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                {{ conv.contact_name|default:conv.phone }}
+                            </span>
+                            {% if conv.unread %}
+                            <span style="background: #25d366; color: #fff; font-size: .65rem; font-weight: 700; padding: 2px 6px; border-radius: 10px; flex-shrink: 0;">
+                                {{ conv.unread }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div style="font-size: 0.78rem; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            {% if conv.last_direction == 'outbound' %}<i class="fas fa-reply" style="margin-right: 4px; font-size: .65rem;"></i>{% endif %}
+                            {{ conv.last_message|truncatechars:50 }}
+                        </div>
+                        <div style="font-size: 0.68rem; color: var(--text-3); margin-top: 2px;">
+                            {% if conv.username %}<i class="fas fa-user" style="margin-right: 3px;"></i>{{ conv.username }} · {% endif %}
+                            +{{ conv.phone }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div style="text-align: center; padding: 60px 20px; color: var(--text-3);">
+                <i class="fas fa-inbox" style="font-size: 2rem; display: block; margin-bottom: 12px; opacity: .4;"></i>
+                <div style="font-size: .88rem; font-weight: 600;">No conversations yet</div>
+                <div style="font-size: .78rem; margin-top: 4px;">Messages from clients will appear here once your webhook is configured.</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Chat Area -->
+        <div style="display: flex; flex-direction: column;">
+            <div id="chat-header" style="padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; min-height: 60px;">
+                <div id="chat-header-content" style="color: var(--text-3); font-size: .88rem;">
+                    <i class="fas fa-arrow-left" style="margin-right: 6px;"></i> Select a conversation to view messages
+                </div>
+            </div>
+            <div id="chat-messages" style="flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px;">
+                <!-- Messages loaded via JS -->
+            </div>
+            <div id="chat-reply" style="padding: 12px 20px; border-top: 1px solid var(--border); display: none;">
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="reply-input" class="sa-input" placeholder="Type your reply..."
+                           style="flex: 1; margin-bottom: 0;" onkeydown="if(event.key==='Enter')sendReply()">
+                    <button onclick="sendReply()" class="sa-btn green" style="height: 38px; white-space: nowrap;">
+                        <i class="fas fa-paper-plane" style="margin-right: 4px;"></i> Send
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ==================== TAB: BULK BROADCAST ==================== -->
 <div class="sa-card service-tab-panel" id="panel-broadcast" style="display:none; padding:22px;">
     <div style="max-width: 680px; margin: 0 auto;">
-        <div class="sa-card-title" style="margin-bottom: 6px;"><i class="fas fa-bullhorn" style="color: var(--amber-2);"></i> Create Mass Broadcast Message</div>
-        <div class="sa-card-count" style="margin-bottom: 24px;">Send a customized message to multiple clients. Recipients without mobile numbers registered will be skipped.</div>
+        <div class="sa-card-title" style="margin-bottom: 6px;"><i class="fas fa-bullhorn"
+                style="color: var(--amber-2);"></i> Create Mass Broadcast Message</div>
+        <div class="sa-card-count" style="margin-bottom: 24px;">Send a customized message to multiple clients.
+            Recipients without mobile numbers registered will be skipped.</div>
 
-        {% if state != 'connected' %}
-        <div style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 16px; display: flex; align-items: center; gap: 12px;">
+        {% if not api_configured %}
+        <div
+            style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 16px; display: flex; align-items: center; gap: 12px;">
             <i class="fas fa-circle-exclamation" style="font-size: 1.5rem; color: var(--red-2);"></i>
             <div style="color: var(--text-2);">
-                **Broadcast service is locked**. You must connect your WhatsApp session in the Connection Settings tab before you can dispatch broadcast campaigns.
+                <strong>Broadcast service is locked.</strong> You must configure your WhatsApp Business API credentials in the API Settings tab
+                before you can dispatch broadcast campaigns.
             </div>
         </div>
         {% else %}
@@ -185,18 +361,25 @@
 
             <div class="sa-form-group" style="margin-bottom: 18px;">
                 <label class="sa-label">Broadcast Message Content</label>
-                <textarea name="message" class="sa-input" rows="6" placeholder="Write your broadcast message here..." required></textarea>
-                <div style="display: flex; justify-content: space-between; font-size: 0.74rem; color: var(--text-3); margin-top: 6px;">
-                    <span>Use line breaks to structure text naturally. Markdown (bold *text*, italic _text_) is supported on WhatsApp.</span>
+                <textarea name="message" class="sa-input" rows="6" placeholder="Write your broadcast message here..."
+                    required></textarea>
+                <div
+                    style="display: flex; justify-content: space-between; font-size: 0.74rem; color: var(--text-3); margin-top: 6px;">
+                    <span>Use line breaks to structure text naturally. Markdown (bold *text*, italic _text_) is
+                        supported on WhatsApp.</span>
                 </div>
             </div>
 
-            <div style="background: rgba(245, 158, 11, 0.04); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 8px; padding: 14px; margin-bottom: 24px;">
-                <div style="font-weight: 700; color: var(--amber-2); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 0.88rem;">
-                    <i class="fas fa-circle-exclamation"></i> Bulk Dispatch Rate Limit Policy
+            <div
+                style="background: rgba(245, 158, 11, 0.04); border: 1px solid rgba(245, 158, 11, 0.15); border-radius: 8px; padding: 14px; margin-bottom: 24px;">
+                <div
+                    style="font-weight: 700; color: var(--amber-2); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 0.88rem;">
+                    <i class="fas fa-circle-exclamation"></i> Cloud API Rate Limit Policy
                 </div>
                 <div style="font-size: 0.8rem; color: var(--text-2); line-height: 1.4;">
-                    To protect your WhatsApp number from automatic rate-limits and spam bans, a safety delay of **800ms** is inserted between each message. The sending executes in a background thread, letting you continue using VoidPanel.
+                    To stay within Meta's Cloud API rate limits, a safety delay of
+                    <strong>800ms</strong> is inserted between each message. The sending executes in a background thread, letting you
+                    continue using VoidPanel. Check your <a href="https://business.facebook.com/" target="_blank" style="color: var(--accent);">Meta Business dashboard</a> for your current messaging tier limits.
                 </div>
             </div>
 
@@ -210,8 +393,10 @@
 
 <!-- ==================== TAB: LOGS ==================== -->
 <div class="sa-card service-tab-panel" id="panel-logs" style="display:none; padding:0; overflow:hidden;">
-    <div style="padding:16px 22px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-        <div class="sa-card-title"><i class="fas fa-list" style="color:var(--sky-2);"></i> Audit Logs (Last 20 messages)</div>
+    <div
+        style="padding:16px 22px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+        <div class="sa-card-title"><i class="fas fa-list" style="color:var(--sky-2);"></i> Audit Logs (Last 20 messages)
+        </div>
     </div>
     <div class="sa-table-wrap">
         <table class="sa-table">
@@ -233,7 +418,8 @@
                     <td>
                         {% if log.user %}
                         <div style="font-weight:700;">{{ log.user.username }}</div>
-                        <div style="font-size:0.7rem; color:var(--text-3);">ID: {{ log.user.id }} • {{ log.user.email }}</div>
+                        <div style="font-size:0.7rem; color:var(--text-3);">ID: {{ log.user.id }} • {{ log.user.email }}
+                        </div>
                         {% else %}
                         <span style="color:var(--text-3);">System Alert (Anonymous)</span>
                         {% endif %}
@@ -243,14 +429,16 @@
                             {{ log.get_msg_type_display }}
                         </span>
                     </td>
-                    <td style="max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ log.message }}">
+                    <td style="max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+                        title="{{ log.message }}">
                         {{ log.message }}
                     </td>
                     <td>
                         {% if log.status == 'sent' %}
                         <span class="sa-badge green"><i class="fas fa-circle-check"></i> Sent</span>
                         {% else %}
-                        <span class="sa-badge red" title="{{ log.error_msg }}"><i class="fas fa-triangle-exclamation"></i> Failed</span>
+                        <span class="sa-badge red" title="{{ log.error_msg }}"><i
+                                class="fas fa-triangle-exclamation"></i> Failed</span>
                         {% endif %}
                     </td>
                 </tr>
@@ -260,7 +448,8 @@
                         <div class="sa-empty">
                             <i class="fas fa-list"></i>
                             <div class="sa-empty-title">No WhatsApp messages dispatched yet</div>
-                            <div class="sa-empty-sub">Once configured, logs of sent system alerts and bulk marketing messages will appear here.</div>
+                            <div class="sa-empty-sub">Once configured, logs of sent system alerts and bulk marketing
+                                messages will appear here.</div>
                         </div>
                     </td>
                 </tr>
@@ -270,43 +459,204 @@
     </div>
 </div>
 
-<!-- Tab Switching Script -->
+<!-- Scripts -->
 <script>
-function switchTab(tabId) {
-    // Hide all panels
-    document.querySelectorAll('.service-tab-panel').forEach(p => p.style.display = 'none');
-    // Remove active style from all tab buttons
-    document.querySelectorAll('.sa-tab').forEach(b => {
-        b.classList.remove('active-green');
-    });
+    const CSRF = '{{ csrf_token }}';
+    let activePhone = null;
 
-    // Show selected panel
-    const targetPanel = document.getElementById('panel-' + tabId);
-    if(targetPanel) targetPanel.style.display = 'block';
-
-    // Highlight selected button
-    const targetBtn = document.getElementById('tabBtn-' + tabId);
-    if(targetBtn) targetBtn.classList.add('active-green');
-}
-
-// Auto-refresh QR Code page if waiting for scan
-{% if state != 'connected' %}
-setInterval(() => {
-    // Only refresh if the Connection Settings tab is active
-    const activeTab = document.getElementById('tabBtn-status');
-    if (activeTab && activeTab.classList.contains('active-green')) {
-        window.location.reload();
+    function switchTab(tabId) {
+        document.querySelectorAll('.service-tab-panel').forEach(p => p.style.display = 'none');
+        document.querySelectorAll('.sa-tab').forEach(b => b.classList.remove('active-green'));
+        const targetPanel = document.getElementById('panel-' + tabId);
+        if (targetPanel) targetPanel.style.display = 'block';
+        const targetBtn = document.getElementById('tabBtn-' + tabId);
+        if (targetBtn) targetBtn.classList.add('active-green');
     }
-}, 5000);
-{% endif %}
+
+    function toggleTokenVisibility() {
+        const input = document.getElementById('api-token-input');
+        const icon = document.getElementById('token-toggle-icon');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    }
+
+    function copyWebhookURL() {
+        const input = document.getElementById('webhook-url-display');
+        navigator.clipboard.writeText(input.value).then(() => {
+            const btn = input.nextElementSibling;
+            btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+            setTimeout(() => { btn.innerHTML = '<i class="fas fa-copy"></i> Copy'; }, 2000);
+        });
+    }
+
+    function generateVerifyToken() {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let token = 'vp_';
+        for (let i = 0; i < 32; i++) token += chars.charAt(Math.floor(Math.random() * chars.length));
+        document.getElementById('webhook-verify-token').value = token;
+    }
+
+    async function openConversation(phone, el) {
+        activePhone = phone;
+
+        // Highlight active conversation
+        document.querySelectorAll('.inbox-conv-item').forEach(i => i.classList.remove('inbox-active'));
+        if (el) el.classList.add('inbox-active');
+
+        // Remove unread badge
+        if (el) {
+            el.classList.remove('inbox-unread');
+            const badge = el.querySelector('[style*="background: #25d366"]');
+            if (badge && badge.textContent.trim()) badge.style.display = 'none';
+        }
+
+        // Load messages
+        try {
+            const r = await fetch(`/api/whatsapp/conversation/${phone}/`);
+            const d = await r.json();
+
+            // Update header
+            const header = document.getElementById('chat-header-content');
+            header.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #25d366, #128c7e); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: .8rem;">
+                        <i class="fa-brands fa-whatsapp"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight: 700; color: var(--text-1); font-size: .92rem;">+${phone}</div>
+                        <div style="font-size: .72rem; color: var(--text-3);">${d.messages.length} messages</div>
+                    </div>
+                </div>`;
+
+            // Render messages
+            const container = document.getElementById('chat-messages');
+            container.innerHTML = d.messages.map(m => {
+                const isOut = m.direction === 'outbound';
+                const time = new Date(m.timestamp).toLocaleString('en-IN', {hour:'2-digit', minute:'2-digit', day:'numeric', month:'short'});
+                const statusIcon = m.status === 'read' ? '✓✓' : m.status === 'delivered' ? '✓✓' : m.status === 'sent' ? '✓' : '';
+                return `
+                    <div style="display: flex; justify-content: ${isOut ? 'flex-end' : 'flex-start'};">
+                        <div style="max-width: 70%; padding: 10px 14px; border-radius: ${isOut ? '16px 16px 4px 16px' : '16px 16px 16px 4px'};
+                            background: ${isOut ? 'linear-gradient(135deg, rgba(34,197,94,.12), rgba(16,185,129,.08))' : 'rgba(255,255,255,.05)'};
+                            border: 1px solid ${isOut ? 'rgba(34,197,94,.2)' : 'rgba(255,255,255,.08)'};">
+                            ${!isOut && m.contact_name ? `<div style="font-size:.7rem;font-weight:700;color:#25d366;margin-bottom:3px;">${m.contact_name}</div>` : ''}
+                            <div style="font-size:.88rem;color:var(--text-1);white-space:pre-wrap;word-break:break-word;">${escapeHtml(m.body)}</div>
+                            <div style="font-size:.65rem;color:var(--text-3);margin-top:4px;text-align:${isOut?'right':'left'};">
+                                ${time} ${isOut ? `<span style="margin-left:4px;color:${m.status==='read'?'#60a5fa':'var(--text-3)'}">${statusIcon}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>`;
+            }).join('');
+
+            // Scroll to bottom
+            container.scrollTop = container.scrollHeight;
+
+            // Show reply box
+            document.getElementById('chat-reply').style.display = 'block';
+            document.getElementById('reply-input').focus();
+        } catch (err) {
+            console.error('Failed to load conversation:', err);
+        }
+    }
+
+    async function sendReply() {
+        if (!activePhone) return;
+        const input = document.getElementById('reply-input');
+        const message = input.value.trim();
+        if (!message) return;
+
+        input.value = '';
+        input.disabled = true;
+
+        try {
+            const r = await fetch('/api/whatsapp/reply/', {
+                method: 'POST',
+                headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+                body: JSON.stringify({phone: activePhone, message})
+            });
+            const d = await r.json();
+            if (d.ok) {
+                // Reload conversation
+                openConversation(activePhone);
+            } else {
+                alert('Failed to send: ' + (d.error || 'Unknown error'));
+            }
+        } catch (err) {
+            alert('Network error: ' + err.message);
+        }
+        input.disabled = false;
+        input.focus();
+    }
+
+    async function refreshInbox() {
+        try {
+            const r = await fetch('/api/whatsapp/inbox/');
+            const d = await r.json();
+            // Simple page reload for now
+            location.reload();
+        } catch(e) {
+            console.error(e);
+        }
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Auto-refresh inbox every 15 seconds
+    setInterval(async () => {
+        if (activePhone) {
+            try {
+                const r = await fetch(`/api/whatsapp/conversation/${activePhone}/`);
+                const d = await r.json();
+                if (d.messages) {
+                    const container = document.getElementById('chat-messages');
+                    const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 50;
+                    // Re-render
+                    openConversation(activePhone);
+                }
+            } catch(e) {}
+        }
+    }, 15000);
 </script>
 
 <style>
-@keyframes pulse {
-    0% { opacity: 0.4; }
-    50% { opacity: 1; }
-    100% { opacity: 0.4; }
-}
+    @keyframes pulse {
+        0% { opacity: 0.4; }
+        50% { opacity: 1; }
+        100% { opacity: 0.4; }
+    }
+    .inbox-conv-item {
+        padding: 12px 16px;
+        cursor: pointer;
+        border-bottom: 1px solid var(--border);
+        transition: background .15s;
+    }
+    .inbox-conv-item:hover {
+        background: rgba(255,255,255,.03);
+    }
+    .inbox-active {
+        background: rgba(37,211,102,.06) !important;
+        border-left: 3px solid #25d366;
+    }
+    .inbox-unread {
+        background: rgba(37,211,102,.03);
+    }
+    #chat-messages::-webkit-scrollbar { width: 6px; }
+    #chat-messages::-webkit-scrollbar-track { background: transparent; }
+    #chat-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 3px; }
+    #inbox-list::-webkit-scrollbar { width: 6px; }
+    #inbox-list::-webkit-scrollbar-track { background: transparent; }
+    #inbox-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 3px; }
 </style>
 
 {% endblock %}

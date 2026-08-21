@@ -97,10 +97,17 @@ urlpatterns = [
     path('social/<str:domain>/analytics/json/',               views.social_analytics_json, name='social_analytics_json'),
     path('social/<str:domain>/inbox/',                        views.social_inbox,          name='social_inbox'),
     path('social/<str:domain>/inbox/reply/',                  views.social_inbox_reply,    name='social_inbox_reply'),
+    path('social/<str:domain>/mentions/',                     views.social_mentions,       name='social_mentions'),
     path('social/<str:domain>/media/upload/',                 views.social_media_upload,   name='social_media_upload'),
     path('social/<str:domain>/ai/caption/',                   views.social_ai_caption,     name='social_ai_caption'),
+    path('social/<str:domain>/ai/generate/',                  views.social_ai_generate,    name='social_ai_generate'),
+    path('social/<str:domain>/ai/balance/',                   views.social_ai_balance,     name='social_ai_balance'),
     path('social/<str:domain>/export/',                       views.social_export_csv,     name='social_export_csv'),
     path('social/<str:domain>/sync-stats/<int:account_id>/', views.social_sync_stats,     name='social_sync_stats'),
+    path('social/<str:domain>/sync-all/',                    views.social_sync_all,       name='social_sync_all'),
+    path('social/<str:domain>/posts/import/',                views.social_import_posts,   name='social_import_posts'),
+    path('social/<str:domain>/post/<int:post_id>/duplicate/',views.social_post_duplicate, name='social_post_duplicate'),
+    path('social/<str:domain>/post/<int:post_id>/edit/',     views.social_post_edit,      name='social_post_edit'),
     # Social Media Standalone Portal (new tab)
     path('social-portal/<str:domain>/',                    views.social_portal_home,       name='social_portal_home'),
     path('social-portal/<str:domain>/api-config/save/',    views.social_api_config_save,   name='social_api_config_save'),
@@ -119,6 +126,10 @@ urlpatterns = [
     path('marketing/<str:domain>/sms/gateway/save/', views.marketing_sms_gateway_save, name='marketing_sms_gateway_save'),
     path('marketing/<str:domain>/sms/gateway/test/', views.marketing_sms_gateway_test, name='marketing_sms_gateway_test'),
     path('marketing/<str:domain>/settings/whatsapp/save/', views.marketing_whatsapp_config_save, name='marketing_whatsapp_config_save'),
+    path('marketing/<str:domain>/settings/whatsapp/api-test/', views.marketing_whatsapp_api_test, name='marketing_whatsapp_api_test'),
+    path('marketing/<str:domain>/webhook/whatsapp/', views.marketing_whatsapp_webhook, name='marketing_whatsapp_webhook'),
+    path('marketing/<str:domain>/webhook/whatsapp/test/', views.marketing_whatsapp_webhook_test, name='marketing_whatsapp_webhook_test'),
+    path('crm/webhook/whatsapp/', views.marketing_whatsapp_webhook_global, name='marketing_whatsapp_webhook_global'),
     path('marketing/<str:domain>/settings/whatsapp-web/status/', views.marketing_whatsapp_web_status, name='marketing_whatsapp_web_status'),
     path('marketing/<str:domain>/settings/whatsapp-web/qr-auth/', views.marketing_whatsapp_web_qr_auth, name='marketing_whatsapp_web_qr_auth'),
     path('marketing/<str:domain>/settings/whatsapp-web/simulate-connect/', views.marketing_whatsapp_web_simulate_connect, name='marketing_whatsapp_web_simulate_connect'),
@@ -145,6 +156,8 @@ urlpatterns = [
     path('marketing/<str:domain>/sms/send/', views.marketing_sms_send, name='marketing_sms_send'),
     path('marketing/<str:domain>/ai/copy/',        views.marketing_ai_copy,       name='marketing_ai_copy'),
     path('marketing/<str:domain>/leads/',          views.marketing_leads,         name='marketing_leads'),
+    path('marketing/<str:domain>/groups/',         views.marketing_groups,        name='marketing_groups'),
+    path('marketing/<str:domain>/groups/<int:group_id>/delete/', views.marketing_group_delete, name='marketing_group_delete'),
     path('marketing/<str:domain>/ab-test/save/',   views.marketing_ab_save,       name='marketing_ab_save'),
     path('marketing/<str:domain>/templates/list/', views.marketing_templates_list, name='marketing_templates_list'),
     path('marketing/<str:domain>/template/save/', views.marketing_template_save, name='marketing_template_save'),
@@ -163,6 +176,22 @@ urlpatterns = [
     path('seo-portal/<str:domain>/', views.seo_portal_home, name='seo_portal_home'),
     # Competitor Battle API
     path('seo/<str:domain>/battle/', views.seo_competitor_battle, name='seo_competitor_battle'),
+    # Keyword Research API
+    path('seo/<str:domain>/keyword-research/', views.seo_keyword_research, name='seo_keyword_research'),
+    # Saved Domains Management API (Per-user permanent domain profiles)
+    path('seo/<str:domain>/saved-domains/', views.seo_saved_domains_list, name='seo_saved_domains_list'),
+    path('seo/<str:domain>/saved-domains/add/', views.seo_saved_domains_add, name='seo_saved_domains_add'),
+    path('seo/<str:domain>/saved-domains/remove/', views.seo_saved_domains_remove, name='seo_saved_domains_remove'),
+    path('seo/<str:domain>/saved-domains/set-primary/', views.seo_saved_domains_set_primary, name='seo_saved_domains_set_primary'),
+    # Phase 5 & 6: Deep Intelligence Endpoints
+    path('seo/<str:domain>/history/', views.seo_history_snapshots, name='seo_history_snapshots'),
+    path('seo/<str:domain>/live-serp/', views.seo_live_serp_check, name='seo_live_serp_check'),
+    path('seo/<str:domain>/multipage-crawl/', views.seo_multipage_crawl, name='seo_multipage_crawl'),
+    path('seo/<str:domain>/robots-test/', views.seo_robots_test, name='seo_robots_test'),
+    path('seo/<str:domain>/compare/', views.seo_compare_domains, name='seo_compare_domains'),
+    path('seo/<str:domain>/link-graph/', views.seo_link_graph, name='seo_link_graph'),
+    path('seo/<str:domain>/cannibalization/', views.seo_cannibalization, name='seo_cannibalization'),
+    path('seo/<str:domain>/content-decay/', views.seo_content_decay, name='seo_content_decay'),
 
 
     # ── Reseller Hosting Management ────────────────────────────────────────────
@@ -214,6 +243,7 @@ urlpatterns = [
     # Suite portals — accessible via SSO or direct login
     path('suite/social/',                          views.suite_social_portal,     name='suite_social_portal'),
     path('suite/seo/',                             views.suite_seo_portal,        name='suite_seo_portal'),
+    path('suite/seo/set-domain/',                   views.suite_seo_set_domain,    name='suite_seo_set_domain'),
     path('suite/marketing/',                       views.suite_marketing_portal,  name='suite_marketing_portal'),
     # Admin — manage plans and subscriptions
     path('admin/suite/plans/',                     views.suite_admin_plans,       name='suite_admin_plans'),

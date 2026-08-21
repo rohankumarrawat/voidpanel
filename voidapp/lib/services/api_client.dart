@@ -17,11 +17,7 @@ class ApiClient {
     // This handles cases where macOS sandbox doesn't trust the full chain
     // (common with Let's Encrypt on sandboxed Flutter macOS apps).
     final ioClient = HttpClient()
-      ..badCertificateCallback = (X509Certificate cert, String host, int port) {
-        // Only trust our own VoidPanel domain
-        final uri = Uri.parse(baseUrl);
-        return host == uri.host;
-      };
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
     _httpClient = IOClient(ioClient);
   }
 

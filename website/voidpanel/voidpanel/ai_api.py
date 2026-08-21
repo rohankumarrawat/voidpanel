@@ -152,10 +152,12 @@ def _call_openai(api_key, model, system_instruction, history, user_msg):
 
 
 def _call_huggingface(api_key, model, system_instruction, history, user_msg):
-    """Route request to Hugging Face Inference API."""
-    url = "https://router.huggingface.co/v1/chat/completions"
-
-
+    """Route request to Hugging Face Inference API.
+    
+    Uses the HF Router API which automatically routes to the best
+    available Inference Provider for the given model. Falls back to
+    provider-specific endpoints if the router rejects the model.
+    """
     messages = [{'role': 'system', 'content': system_instruction}]
     for msg in history:
         role = 'user' if msg.get('role') == 'user' else 'assistant'
@@ -172,11 +174,56 @@ def _call_huggingface(api_key, model, system_instruction, history, user_msg):
         'Authorization': f'Bearer {api_key}',
         'Content-Type': 'application/json',
     }
-    resp = requests.post(url, json=payload, headers=headers, timeout=45)
-    if resp.status_code != 200:
-        raise Exception(f"Hugging Face API error {resp.status_code}: {resp.text[:300]}")
-    data = resp.json()
-    return data['choices'][0]['message']['content']
+
+    # Try the HF Router first (preferred — auto-routes to best provider)
+    endpoints = [
+        'https://router.huggingface.co/v1/chat/completions',
+        f'https://router.huggingface.co/novita/v3/openai/chat/completions',
+        f'https://router.huggingface.co/together/v1/chat/completions',
+    ]
+
+    last_error = None
+    for url in endpoints:
+        try:
+            resp = requests.post(url, json=payload, headers=headers, timeout=45)
+            if resp.status_code == 200:
+                data = resp.json()
+                return data['choices'][0]['message']['content']
+            
+            # Parse error to check if it's a "model not supported" error
+            try:
+                err_data = resp.json()
+                err_msg = err_data.get('error', {})
+                if isinstance(err_msg, dict):
+                    err_msg = err_msg.get('message', str(err_msg))
+                err_msg = str(err_msg)
+            except Exception:
+                err_msg = resp.text[:300]
+
+            # If model not supported by this provider, try next
+            if 'not supported' in err_msg.lower() or resp.status_code in (404, 422):
+                last_error = err_msg
+                continue
+            # Rate limit or auth error — don't retry other endpoints
+            if resp.status_code in (401, 403, 429):
+                raise Exception(f"Hugging Face API error {resp.status_code}: {err_msg}")
+            last_error = err_msg
+        except requests.exceptions.Timeout:
+            last_error = "Request timed out (45s)"
+            continue
+        except Exception as e:
+            if 'API error' in str(e):
+                raise
+            last_error = str(e)
+            continue
+
+    raise Exception(
+        f"Hugging Face API error: Model '{model}' could not be served. "
+        f"Last error: {last_error}. "
+        f"Please verify the model is available on HuggingFace Inference Providers, "
+        f"or try a supported model like 'Qwen/Qwen2.5-72B-Instruct', "
+        f"'meta-llama/Llama-3.1-8B-Instruct', or 'mistralai/Mistral-7B-Instruct-v0.3'."
+    )
 
 
 def _extract_tool_calls(ai_text):
@@ -290,17 +337,68 @@ def api_ai_chat(request):
 
         full_system = _build_system_prompt(system_prompt, context, tools)
 
-        # ── 3. Route to active provider ──
-        if provider == 'gemini':
-            ai_text = _call_gemini(api_key, model, full_system, history, user_msg)
-        elif provider == 'claude':
-            ai_text = _call_claude(api_key, model, full_system, history, user_msg)
-        elif provider == 'openai':
-            ai_text = _call_openai(api_key, model, full_system, history, user_msg)
-        elif provider == 'huggingface':
-            ai_text = _call_huggingface(api_key, model, full_system, history, user_msg)
-        else:
+        # ── 3. Build key list: pool keys first, then legacy single key as fallback ──
+        from data.models import AiApiKey
+        pool_keys = list(AiApiKey.get_available_keys(provider))
+
+        key_list = []
+        for pk in pool_keys:
+            key_list.append({'key': pk.api_key, 'obj': pk, 'source': 'pool'})
+
+        # Fallback: legacy single key from AiProviderConfig (only if not already in pool)
+        legacy_key = config.get_active_key() if config.is_configured else ''
+        if legacy_key:
+            pool_key_values = {pk.api_key for pk in pool_keys}
+            if legacy_key not in pool_key_values:
+                key_list.append({'key': legacy_key, 'obj': None, 'source': 'legacy'})
+
+        if not key_list:
+            return _cors_response({
+                'status': 'error',
+                'message': (
+                    f'No API keys available for {config.get_active_provider_display()}. '
+                    'All keys may be exhausted or none are configured. '
+                    'Super admin can manage keys at: voidonyx.in/super-admin/ai-keys/'
+                )
+            }, 503)
+
+        # ── 4. Try each key with failover ──
+        _call_fn = {
+            'gemini': _call_gemini,
+            'claude': _call_claude,
+            'openai': _call_openai,
+            'huggingface': _call_huggingface,
+        }.get(provider)
+
+        if not _call_fn:
             return _cors_response({'status': 'error', 'message': f'Unknown provider: {provider}'}, 500)
+
+        ai_text = None
+        last_error = None
+        for entry in key_list:
+            try:
+                ai_text = _call_fn(entry['key'], model, full_system, history, user_msg)
+                if entry['obj']:
+                    entry['obj'].record_success()
+                break
+            except Exception as ex:
+                err_str = str(ex)
+                last_error = err_str
+                # Check for rate limit / quota exhaustion
+                is_quota_error = any(q in err_str.lower() for q in ['429', 'quota', 'rate_limit', 'rate limit', 'resource_exhausted', 'overloaded'])
+                if entry['obj'] and is_quota_error:
+                    entry['obj'].mark_exhausted(err_str)
+                elif entry['obj']:
+                    entry['obj'].failed_requests += 1
+                    entry['obj'].last_error = err_str[:500]
+                    entry['obj'].save(update_fields=['failed_requests', 'last_error'])
+                continue
+
+        if ai_text is None:
+            return _cors_response({
+                'status': 'error',
+                'message': f'All {provider.title()} API keys failed. Last error: {last_error}'
+            }, 500)
 
         # ── 4. Check for tool calls in response ──
         tool_calls = _extract_tool_calls(ai_text)
