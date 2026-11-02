@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'theme/app_theme.dart';
 import 'providers/mail_provider.dart';
 import 'services/notification_service.dart';
+import 'services/push_notification_service.dart';
 import 'views/splash_screen.dart';
 import 'views/welcome_screen.dart';
 import 'views/login_screen.dart';
@@ -13,16 +14,21 @@ import 'views/email_detail_view.dart';
 import 'views/compose_view.dart';
 import 'views/voidpanel_accounts_view.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = true;
 
-  // Initialize native notification channels safely
-  try {
-    await NotificationService().initialize();
-  } catch (e) {
+  // Initialize native local notification channels non-blocking
+  NotificationService().initialize().catchError((e) {
     debugPrint('[Main] Notification init notice: $e');
-  }
+  });
+
+  // Initialize Firebase Cloud Messaging (FCM) push notifications non-blocking
+  PushNotificationService().initialize().catchError((e) {
+    debugPrint('[Main] Push Notification init notice: $e');
+  });
+
+
 
   // Prevent GoogleFont asset exceptions from crashing the app
   FlutterError.onError = (FlutterErrorDetails details) {
@@ -43,6 +49,8 @@ void main() async {
   runApp(const VoidMailApp());
 }
 
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+
 class VoidMailApp extends StatelessWidget {
   const VoidMailApp({super.key});
 
@@ -53,7 +61,9 @@ class VoidMailApp extends StatelessWidget {
       child: Consumer<MailProvider>(
         builder: (context, mailProvider, child) {
           return MaterialApp(
-            title: 'VoidMail — Powered by VoidPanel',
+            navigatorKey: appNavigatorKey,
+            title: 'VoidMail — by VoidOnyx',
+
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme(primaryColor: mailProvider.accentColor),
             darkTheme: AppTheme.darkTheme(primaryColor: mailProvider.accentColor),
@@ -73,6 +83,7 @@ class VoidMailApp extends StatelessWidget {
               '/login': (context) => const LoginScreen(),
               '/main': (context) => const MainLayout(),
               '/email_detail': (context) => const EmailDetailView(),
+              '/email-detail': (context) => const EmailDetailView(),
               '/compose': (context) => const ComposeView(),
               '/voidpanel_accounts': (context) => const VoidPanelAccountsView(),
             },

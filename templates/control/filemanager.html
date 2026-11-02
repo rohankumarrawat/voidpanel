@@ -660,10 +660,11 @@ uploadZone.addEventListener('drop', e => {
     document.getElementById('uploadFileName').textContent = files;
 });
 
-async function doUpload() {
+async function doUpload(force) {
     if(!uploadInput.files.length) { showToast('Select files first','error'); return; }
     const btn = document.getElementById('btnUpload');
-    btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading...';
+    btn.disabled = true; 
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading...';
     const prog = document.getElementById('uploadProgress');
     const bar  = document.getElementById('uploadProgressBar');
     const pctTxt = document.getElementById('uploadPercentageText');
@@ -671,54 +672,137 @@ async function doUpload() {
     bar.style.width = '0%';
     if (pctTxt) pctTxt.textContent = '0%';
 
-    const fd = new FormData();
-    Array.from(uploadInput.files).forEach(f=>fd.append('file', f));
-    fd.append('file_path', CUR_PATH);
+    const files = Array.from(uploadInput.files);
+    const totalBytesAll = files.reduce((acc, f) => acc + f.size, 0) || 1;
+    let totalBytesUploadedSoFar = 0;
+    const CHUNK_SIZE = 8 * 1024 * 1024; // 8MB chunks to bypass Cloudflare 100MB limit & prevent RAM spikes
+    const uploadUrl = window.location.pathname.startsWith('/control/') ? '/control/upload/' : "{% url 'upload_file' %}";
 
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', "{% url 'upload_file' %}", true);
-    xhr.setRequestHeader('X-CSRFToken', CSRF);
+    function uploadChunk(blob, chunkIndex, totalChunks, file, uploadId, forceFlag, onProgress) {
+        return new Promise((resolve, reject) => {
+            const fd = new FormData();
+            fd.append('file', blob, file.name);
+            fd.append('chunk_index', chunkIndex);
+            fd.append('total_chunks', totalChunks);
+            fd.append('total_size', file.size);
+            fd.append('upload_id', uploadId);
+            fd.append('file_name', file.name);
+            fd.append('file_path', CUR_PATH);
+            if (forceFlag) fd.append('force', 'true');
 
-    xhr.upload.addEventListener('progress', e => {
-        if (e.lengthComputable) {
-            const pct = Math.round((e.loaded / e.total) * 100);
-            bar.style.width = pct + '%';
-            if (pctTxt) {
-                const loadedMB = (e.loaded / (1024 * 1024)).toFixed(1);
-                const totalMB = (e.total / (1024 * 1024)).toFixed(1);
-                pctTxt.textContent = pct + '% (' + loadedMB + 'MB of ' + totalMB + 'MB)';
-            }
-        }
-    });
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', uploadUrl, true);
+            xhr.setRequestHeader('X-CSRFToken', CSRF);
+            xhr.timeout = 180000; // 3 min timeout per chunk
 
-    xhr.onload = function() {
-        if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-                const d = JSON.parse(xhr.responseText);
-                bar.style.width = '100%';
-                if (pctTxt) pctTxt.textContent = '100% (Complete)';
-                if (d.status === 'success') {
-                    showToast(d.message, 'success');
-                    closeModal('addupload');
-                    setTimeout(() => location.reload(), 600);
-                } else {
-                    showToast(d.message || 'Upload failed', 'error');
+            xhr.upload.addEventListener('progress', e => {
+                if (e.lengthComputable && onProgress) {
+                    onProgress(e.loaded);
                 }
-            } catch (e) {
-                showToast('Upload finished but server response was invalid', 'error');
+            });
+
+            xhr.onload = function() {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        const d = JSON.parse(xhr.responseText);
+                        resolve(d);
+                    } catch (e) {
+                        reject(new Error('Invalid server response format'));
+                    }
+                } else {
+                    try {
+                        const d = JSON.parse(xhr.responseText);
+                        reject(new Error(d.message || ('Server error (' + xhr.status + ')')));
+                    } catch (_) {
+                        reject(new Error('Server error (' + xhr.status + ')'));
+                    }
+                }
+            };
+
+            xhr.onerror = function() {
+                reject(new Error('Network error during upload'));
+            };
+            xhr.ontimeout = function() {
+                reject(new Error('Upload chunk timed out'));
+            };
+
+            xhr.send(fd);
+        });
+    }
+
+    try {
+        let lastMessage = '';
+        for (let fileIdx = 0; fileIdx < files.length; fileIdx++) {
+            const file = files[fileIdx];
+            const uploadId = Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+            const totalChunks = Math.max(1, Math.ceil(file.size / CHUNK_SIZE));
+            let fileUploadedBytes = 0;
+
+            for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+                const start = chunkIndex * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, file.size);
+                const chunkBlob = file.slice(start, end);
+
+                let attempts = 0;
+                const maxAttempts = 3;
+                let chunkSuccess = false;
+                let lastErr = null;
+
+                while (attempts < maxAttempts && !chunkSuccess) {
+                    attempts++;
+                    try {
+                        const d = await uploadChunk(chunkBlob, chunkIndex, totalChunks, file, uploadId, force, (chunkLoaded) => {
+                            const currentOverall = totalBytesUploadedSoFar + fileUploadedBytes + chunkLoaded;
+                            const pct = Math.min(99, Math.round((currentOverall / totalBytesAll) * 100));
+                            bar.style.width = pct + '%';
+                            if (pctTxt) {
+                                const loadedMB = (currentOverall / (1024 * 1024)).toFixed(1);
+                                const totalMB = (totalBytesAll / (1024 * 1024)).toFixed(1);
+                                pctTxt.textContent = pct + '% (' + loadedMB + 'MB of ' + totalMB + 'MB) · ' + file.name;
+                            }
+                        });
+
+                        if (d.status === 'conflict') {
+                            if (confirm((d.message || 'File already exists.') + '\n\nDo you want to overwrite it?')) {
+                                doUpload(true);
+                            }
+                            cleanup();
+                            return;
+                        }
+
+                        if (d.status === 'chunk_received' || d.status === 'success') {
+                            chunkSuccess = true;
+                            fileUploadedBytes += chunkBlob.size;
+                            if (d.message) lastMessage = d.message;
+                        } else {
+                            throw new Error(d.message || 'Upload failed');
+                        }
+                    } catch (err) {
+                        lastErr = err;
+                        if (attempts < maxAttempts) {
+                            if (pctTxt) pctTxt.textContent = `Retrying chunk ${chunkIndex + 1}/${totalChunks}... (attempt ${attempts + 1})`;
+                            await new Promise(r => setTimeout(r, 1200 * attempts));
+                        }
+                    }
+                }
+
+                if (!chunkSuccess) {
+                    throw lastErr || new Error('Upload failed after retries');
+                }
             }
-        } else {
-            showToast('Upload failed with status ' + xhr.status, 'error');
+            totalBytesUploadedSoFar += file.size;
         }
-        cleanup();
-    };
 
-    xhr.onerror = function() {
-        showToast('Network error during upload', 'error');
+        bar.style.width = '100%';
+        if (pctTxt) pctTxt.textContent = '100% (Complete)';
+        showToast(lastMessage || 'Files uploaded successfully!', 'success');
+        closeModal('addupload');
+        setTimeout(() => location.reload(), 600);
+    } catch (err) {
+        showToast(err.message || 'Network error during upload', 'error');
+    } finally {
         cleanup();
-    };
-
-    xhr.send(fd);
+    }
 
     function cleanup() {
         prog.style.display = 'none';

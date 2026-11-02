@@ -23,13 +23,17 @@ from django.conf import settings as django_settings
 
 from control.models import (
     allemail, domain as Domain, user as CtrlUser, package as Package,
-    VoidMailWhitelistIP,
+    VoidMailWhitelistIP, VoidMailUpgradeLead, VoidMailWhitelistedDomain, EmailDeviceToken,
+    VoidMailAppLogin,
 )
+from control.fcm_service import send_fcm_push_to_email, broadcast_fcm_push
+
 from userapp.decorators import (
     api_response, api_auth_required, parse_json_body, require_post
 )
 
 logger = logging.getLogger('voidpanel.userapp')
+
 
 
 @api_auth_required()
@@ -381,44 +385,381 @@ def api_email_whitelist_remove(request):
     return api_response(data={'message': f'IP {ip_address} removed from VoidMail AI whitelist.'})
 
 
-@api_auth_required()
+@csrf_exempt
 def api_email_ai_status(request):
     """
-    Check if the caller's IP is whitelisted for VoidMail AI features.
+    Check if the caller's domain or IP is whitelisted for VoidMail AI features.
 
-    Returns: { ai_enabled: true/false, voidonyx_url, license_key }
+    Returns: { ai_enabled: true/false, voidonyx_url, license_key, domain }
     """
-    ctrl_user = request.ctrl_user
-    domain_name = ctrl_user.domain
+    # Try getting domain from query params, auth session, or email body
+    domain_name = request.GET.get('domain', '').strip().lower()
+    if not domain_name and hasattr(request, 'ctrl_user') and request.ctrl_user:
+        domain_name = request.ctrl_user.domain.strip().lower()
 
-    # Get caller IP from request
     caller_ip = _get_client_ip(request)
 
-    # Check against whitelist
-    is_whitelisted = VoidMailWhitelistIP.objects.filter(
-        ip_address=caller_ip,
-        domain=domain_name,
-    ).exists()
+    # 1. Check Domain-Level Whitelist (from Superadmin 1-Click Whitelist)
+    is_domain_whitelisted = False
+    if domain_name:
+        is_domain_whitelisted = VoidMailWhitelistedDomain.objects.filter(
+            domain__iexact=domain_name,
+            is_active=True,
+        ).exists()
+
+    # 2. Check IP-Level Whitelist
+    is_ip_whitelisted = False
+    if domain_name:
+        is_ip_whitelisted = VoidMailWhitelistIP.objects.filter(
+            ip_address=caller_ip,
+            domain__iexact=domain_name,
+        ).exists()
+    else:
+        is_ip_whitelisted = VoidMailWhitelistIP.objects.filter(
+            ip_address=caller_ip,
+        ).exists()
+
+    is_whitelisted = is_domain_whitelisted or is_ip_whitelisted
 
     # VoidOnyx URL and license key for AI gateway
     voidonyx_url = 'https://voidonyx.in'
     license_key = ''
 
-    # Try to find the license key for this server
     try:
         from control.license import get_license_key
         license_key = get_license_key() or ''
     except Exception:
-        # Fallback: read from settings if available
         license_key = getattr(django_settings, 'VOIDPANEL_LICENSE_KEY', '')
 
     return api_response(data={
         'ai_enabled': is_whitelisted,
         'caller_ip': caller_ip,
         'domain': domain_name,
+        'is_domain_whitelisted': is_domain_whitelisted,
+        'is_ip_whitelisted': is_ip_whitelisted,
         'voidonyx_url': voidonyx_url,
         'license_key': license_key,
     })
+
+
+# ── VoidMail AI Upgrade Lead Capture & 1-Click Whitelist ──────────────────────
+
+@csrf_exempt
+@require_post
+def api_email_upgrade_lead_submit(request):
+    """
+    Capture an upgrade lead from a user requesting VoidMail AI access.
+    POST body: { "name": "...", "email": "...", "phone": "...", "domain": "...", "notes": "..." }
+    """
+    body = parse_json_body(request)
+    name = (body.get('name') or '').strip()
+    email_addr = (body.get('email') or '').strip().lower()
+    phone = (body.get('phone') or '').strip()
+    domain_part = (body.get('domain') or '').strip().lower()
+    notes = (body.get('notes') or '').strip()
+    caller_ip = _get_client_ip(request)
+
+    if not name or not phone:
+        return api_response(status='error', error='Name and phone number are required', code=400)
+
+    if not email_addr:
+        return api_response(status='error', error='Email address is required', code=400)
+
+    if not domain_part:
+        if '@' in email_addr:
+            domain_part = email_addr.split('@')[-1]
+        else:
+            domain_part = email_addr
+
+    # Create or update the upgrade lead
+    lead, created = VoidMailUpgradeLead.objects.update_or_create(
+        email=email_addr,
+        defaults={
+            'name': name,
+            'phone': phone,
+            'domain': domain_part,
+            'caller_ip': caller_ip,
+            'notes': notes,
+        }
+    )
+
+    logger.info(
+        '[VoidMail Lead] Captured AI upgrade request: %s (%s, phone: %s, domain: %s)',
+        name, email_addr, phone, domain_part
+    )
+
+    # Dual-write to VoidOnyx DB so superadmin can see the lead
+    try:
+        import sqlite3, pathlib, datetime
+        voidonyx_db = pathlib.Path('/home/voidpanelc091/voidpanel/db.sqlite3')
+        if voidonyx_db.exists():
+            conn = sqlite3.connect(str(voidonyx_db))
+            now_iso = datetime.datetime.now().isoformat()
+            # Check if lead already exists for this email
+            existing = conn.execute(
+                "SELECT id FROM data_voidmailaiupgradelead WHERE email = ?",
+                (email_addr,)
+            ).fetchone()
+            if existing:
+                conn.execute(
+                    "UPDATE data_voidmailaiupgradelead SET name=?, phone=?, domain=?, notes=?, updated_at=? WHERE email=?",
+                    (name, phone, domain_part, notes, now_iso, email_addr)
+                )
+            else:
+                conn.execute(
+                    "INSERT INTO data_voidmailaiupgradelead "
+                    "(name, email, phone, domain, status, notes, created_at, updated_at) "
+                    "VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)",
+                    (name, email_addr, phone, domain_part, notes, now_iso, now_iso)
+                )
+            conn.commit()
+            conn.close()
+    except Exception:
+        pass  # Non-critical — main record already saved above
+
+    return api_response(data={
+        'success': True,
+        'message': f'AI Upgrade request for {domain_part} received successfully.',
+        'lead_id': lead.id,
+        'domain': domain_part,
+        'status': lead.status,
+    })
+
+
+@csrf_exempt
+@require_post
+def api_email_upgrade_lead_whitelist(request):
+    """
+    1-Click Whitelist Action from Superadmin / Panel to instantly enable AI for a lead's domain.
+    POST body: { "lead_id": 123 } or { "domain": "example.com" }
+    """
+    body = parse_json_body(request)
+    lead_id = body.get('lead_id')
+    domain_name = (body.get('domain') or '').strip().lower()
+
+    lead = None
+    if lead_id:
+        try:
+            lead = VoidMailUpgradeLead.objects.get(id=lead_id)
+            domain_name = lead.domain.lower()
+        except VoidMailUpgradeLead.DoesNotExist:
+            return api_response(status='error', error='Lead not found', code=404)
+
+    if not domain_name:
+        return api_response(status='error', error='domain or lead_id is required', code=400)
+
+    # 1. Create or activate whitelisted domain
+    whitelisted_domain, created = VoidMailWhitelistedDomain.objects.update_or_create(
+        domain=domain_name,
+        defaults={
+            'is_active': True,
+            'lead': lead,
+            'notes': f'1-Click Whitelisted for lead {lead.name} ({lead.email})' if lead else 'Superadmin Whitelisted',
+        }
+    )
+
+    # 2. Update lead status if exists
+    if lead:
+        lead.status = 'whitelisted'
+        lead.save(update_fields=['status', 'updated_at'])
+
+    # Also update any other pending leads for this same domain
+    VoidMailUpgradeLead.objects.filter(domain__iexact=domain_name, status='pending').update(status='whitelisted')
+
+    logger.info('[VoidMail Superadmin] 1-Click Whitelisted domain: %s (AI is now active)', domain_name)
+
+    return api_response(data={
+        'success': True,
+        'message': f'Domain {domain_name} has been whitelisted and AI is now active!',
+        'domain': domain_name,
+        'is_active': True,
+    })
+
+
+
+# ── FCM Push Notification Device Registration ────────────────────────────────
+
+@csrf_exempt
+@require_post
+def api_email_device_register(request):
+    """
+    Register or update an FCM push notification token for an email account.
+    POST body: { "email": "user@domain.com", "fcm_token": "...", "platform": "android", "device_name": "Pixel 8" }
+    """
+    body = parse_json_body(request)
+    email_addr = (body.get('email') or '').strip().lower()
+    fcm_token = (body.get('fcm_token') or '').strip()
+    platform = (body.get('platform') or 'android').strip().lower()
+    device_name = (body.get('device_name') or '').strip()
+
+    if not email_addr or not fcm_token:
+        return api_response(status='error', error='email and fcm_token are required', code=400)
+
+    domain_part = email_addr.split('@')[-1] if '@' in email_addr else ''
+
+    token_obj, created = EmailDeviceToken.objects.update_or_create(
+        fcm_token=fcm_token,
+        defaults={
+            'email': email_addr,
+            'domain': domain_part,
+            'platform': platform if platform in ('android', 'ios', 'web') else 'android',
+            'device_name': device_name,
+            'is_active': True,
+        }
+    )
+
+    logger.info('[FCM] Device token %s for %s (%s)', 'registered' if created else 'updated', email_addr, platform)
+
+    # Dual-write to VoidOnyx DB so superadmin can see registered devices
+    try:
+        import sqlite3, pathlib, datetime
+        voidonyx_db = pathlib.Path('/home/voidpanelc091/voidpanel/db.sqlite3')
+        if voidonyx_db.exists():
+            conn = sqlite3.connect(str(voidonyx_db))
+            now_iso = datetime.datetime.now().isoformat()
+            conn.execute(
+                "INSERT OR REPLACE INTO data_emaildevicetoken "
+                "(email, domain, fcm_token, platform, device_name, is_active, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, 1, ?, ?)",
+                (email_addr, domain_part, fcm_token, platform, device_name, now_iso, now_iso)
+            )
+            conn.commit()
+            conn.close()
+    except Exception:
+        pass  # Non-critical — main record already saved above
+
+    return api_response(data={
+        'registered': True,
+        'email': email_addr,
+        'platform': platform,
+    }, message='Device token successfully registered for push notifications.')
+
+
+@csrf_exempt
+@require_post
+def api_email_device_unregister(request):
+    """
+    Unregister an FCM push notification token on logout/removal.
+    POST body: { "fcm_token": "..." } or { "email": "..." }
+    """
+    body = parse_json_body(request)
+    fcm_token = (body.get('fcm_token') or '').strip()
+    email_addr = (body.get('email') or '').strip().lower()
+
+    if fcm_token:
+        EmailDeviceToken.objects.filter(fcm_token=fcm_token).update(is_active=False)
+    elif email_addr:
+        EmailDeviceToken.objects.filter(email__iexact=email_addr).update(is_active=False)
+    else:
+        return api_response(status='error', error='fcm_token or email is required', code=400)
+
+    return api_response(data={'unregistered': True}, message='Device token unregistered.')
+
+
+@csrf_exempt
+@require_post
+def api_email_device_test_push(request):
+    """
+    Send a test push notification to verified devices for an email address.
+    POST body: { "email": "user@domain.com" }
+    """
+    body = parse_json_body(request)
+    email_addr = (body.get('email') or '').strip().lower()
+    if not email_addr:
+        return api_response(status='error', error='email is required', code=400)
+
+    result = send_fcm_push_to_email(
+        email_address=email_addr,
+        sender_name='VoidMail Team',
+        subject='Push Notifications Active! 🚀',
+        snippet='You will now receive instant email alerts even when VoidMail is closed.',
+        email_id='test_ping',
+    )
+    return api_response(data=result, message='Test push notification dispatched.')
+
+
+@csrf_exempt
+@require_post
+def api_email_device_broadcast_push(request):
+    """
+    Send a custom broadcast push notification to all registered devices.
+    POST body: { "title": "...", "body": "...", "domain": "" (optional) }
+    The sender_email is inferred from the session for audit safety.
+    """
+    body = parse_json_body(request)
+    title = (body.get('title') or '').strip()
+    push_body = (body.get('body') or '').strip()
+    domain_filter = (body.get('domain') or '').strip()
+    sender_email = (body.get('sender_email') or '').strip()
+
+    if not title or not push_body:
+        return api_response(error='title and body are required', status=400)
+
+    result = broadcast_fcm_push(
+        title=title,
+        body=push_body,
+        domain=domain_filter,
+        sender_email=sender_email,
+    )
+
+    logger.info('[PUSH BROADCAST] Title="%s" Body="%s" Domain="%s" Sender="%s" Result=%s',
+                title, push_body[:50], domain_filter, sender_email, result)
+
+    return api_response(data=result)
+
+
+
+@csrf_exempt
+@require_post
+def api_email_track_login(request):
+    """
+    Track an app login for analytics.
+    POST body: { "email": "...", "domain": "...", "platform": "android", "device_name": "...", "login_method": "voidpanel" }
+    """
+    body = parse_json_body(request)
+    email = (body.get('email') or '').strip()
+    domain_val = (body.get('domain') or '').strip()
+    platform = (body.get('platform') or 'android').strip()
+    device_name = (body.get('device_name') or '').strip()
+    login_method = (body.get('login_method') or 'voidpanel').strip()
+
+    if not email:
+        return api_response(error='email is required', status=400)
+
+    # Extract domain from email if not provided
+    if not domain_val and '@' in email:
+        domain_val = email.split('@')[1]
+
+    # Get client IP
+    ip = _get_client_ip(request)
+
+    VoidMailAppLogin.objects.create(
+        email=email,
+        domain=domain_val,
+        platform=platform,
+        device_name=device_name,
+        ip_address=ip,
+        login_method=login_method,
+    )
+
+    # Also write to the VoidOnyx project's DB so the super admin can see it
+    try:
+        import sqlite3, pathlib, datetime
+        voidonyx_db = pathlib.Path('/home/voidpanelc091/voidpanel/db.sqlite3')
+        if voidonyx_db.exists():
+            conn = sqlite3.connect(str(voidonyx_db))
+            conn.execute(
+                "INSERT INTO data_voidmailapplogin (email, domain, platform, device_name, ip_address, login_method, logged_in_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (email, domain_val, platform, device_name, ip, login_method, datetime.datetime.now().isoformat())
+            )
+            conn.commit()
+            conn.close()
+    except Exception:
+        pass  # Non-critical — main record already saved above
+
+    logger.info('[APP LOGIN] %s (%s) from %s via %s', email, domain_val, ip, login_method)
+
+    return api_response(data={'tracked': True})
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

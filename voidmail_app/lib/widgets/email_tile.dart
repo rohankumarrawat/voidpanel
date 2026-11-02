@@ -13,12 +13,14 @@ class EmailTile extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final VoidCallback? onStarToggle;
+  final bool isCurrentPreview;
 
   const EmailTile({
     super.key,
     required this.email,
     this.isSelected = false,
     this.isSelectionMode = false,
+    this.isCurrentPreview = false,
     this.onTap,
     this.onLongPress,
     this.onStarToggle,
@@ -63,9 +65,19 @@ class EmailTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: tileIsSelected
               ? (isDark ? const Color(0xFF2C2554) : const Color(0xFFF3F0FF))
-              : (!email.isRead
-                  ? (isDark ? const Color(0xFF16122E) : const Color(0xFFFAF9FF))
-                  : Colors.transparent),
+              : isCurrentPreview
+                  ? provider.accentColor.withValues(alpha: isDark ? 0.16 : 0.08)
+                  : (!email.isRead
+                      ? (isDark ? const Color(0xFF16122E) : const Color(0xFFFAF9FF))
+                      : Colors.transparent),
+          border: isCurrentPreview
+              ? Border(
+                  left: BorderSide(
+                    color: provider.accentColor,
+                    width: 3.5,
+                  ),
+                )
+              : null,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -76,7 +88,7 @@ class EmailTile extends StatelessWidget {
                 padding: const EdgeInsets.only(right: 12, top: 4),
                 child: Checkbox(
                   value: tileIsSelected,
-                  activeColor: const Color(0xFF6C5CE7),
+                  activeColor: provider.accentColor,
                   onChanged: (_) => provider.toggleSelection(email.id),
                 ),
               )
@@ -123,7 +135,7 @@ class EmailTile extends StatelessWidget {
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             fontWeight: !email.isRead ? FontWeight.bold : FontWeight.w600,
-                            color: isDark ? Colors.white : const Color(0xFF1E1B4B),
+                            color: isDark ? Colors.white : const Color(0xFF1C130D),
                           ),
                           overflow: TextOverflow.ellipsis,
                           maxLines: 1,
@@ -136,7 +148,7 @@ class EmailTile extends StatelessWidget {
                           fontSize: 11,
                           fontWeight: !email.isRead ? FontWeight.bold : FontWeight.normal,
                           color: !email.isRead
-                              ? const Color(0xFF6C5CE7)
+                              ? provider.accentColor
                               : (isDark ? Colors.grey[400] : const Color(0xFF9CA3AF)),
                         ),
                       ),
@@ -145,8 +157,8 @@ class EmailTile extends StatelessWidget {
                         Container(
                           width: 8,
                           height: 8,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF6C5CE7),
+                          decoration: BoxDecoration(
+                            color: provider.accentColor,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -161,15 +173,15 @@ class EmailTile extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 2),
                       child: Row(
                         children: [
-                          const SizedBox(
+                          SizedBox(
                             width: 10,
                             height: 10,
-                            child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF6C5CE7)),
+                            child: CircularProgressIndicator(strokeWidth: 1.5, color: provider.accentColor),
                           ),
                           const SizedBox(width: 6),
                           Text(
                             'Sending in background...',
-                            style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF6C5CE7), fontWeight: FontWeight.w600),
+                            style: GoogleFonts.inter(fontSize: 11, color: provider.accentColor, fontWeight: FontWeight.w600),
                           ),
                         ],
                       ),
@@ -179,27 +191,11 @@ class EmailTile extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 2),
                       child: Row(
                         children: [
-                          GestureDetector(
-                            onTap: () => provider.retrySendEmail(email),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEF4444).withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.4)),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.refresh_rounded, size: 12, color: Color(0xFFEF4444)),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Delivery Failed • Tap to Retry',
-                                    style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFEF4444), fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                            ),
+                          const Icon(Icons.error_outline_rounded, size: 12, color: Color(0xFFEF4444)),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Delivery failed (Tap to retry)',
+                            style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFEF4444), fontWeight: FontWeight.w600),
                           ),
                         ],
                       ),
@@ -214,6 +210,99 @@ class EmailTile extends StatelessWidget {
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
+
+                  // Smart Status Badges (AI Priority & Unanswered Tracker)
+                  if ((email.needsReply && !email.isAnswered) ||
+                      email.isAiPriority ||
+                      (email.priorityScore != null && email.priorityScore! >= 75) ||
+                      email.isUnwanted)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3, bottom: 3),
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          if (email.needsReply && !email.isAnswered)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEF3C7),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: const Color(0xFFF59E0B), width: 0.8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.hourglass_top_rounded, size: 10, color: Color(0xFFD97706)),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    email.urgencyLevel != null && email.urgencyLevel!.isNotEmpty
+                                        ? 'Reply Needed • ${email.urgencyLevel}'
+                                        : 'Awaiting Reply',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFFB45309),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (email.isAiPriority || (email.priorityScore != null && email.priorityScore! >= 75))
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEEF2FF),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: const Color(0xFF6366F1), width: 0.8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.bolt_rounded, size: 11, color: Color(0xFF4F46E5)),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    'AI Priority${email.priorityScore != null ? " • ${email.priorityScore}" : ""}',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF4338CA),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (email.isUnwanted)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF1F2937) : const Color(0xFFF3F4F6),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: isDark ? const Color(0xFF374151) : const Color(0xFFE5E7EB),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.filter_list_off_rounded, size: 10, color: isDark ? Colors.grey[400] : const Color(0xFF6B7280)),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'Low Priority',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? Colors.grey[400] : const Color(0xFF6B7280),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
                   const SizedBox(height: 2),
                   Row(
                     children: [
@@ -223,7 +312,7 @@ class EmailTile extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                           margin: const EdgeInsets.only(right: 6),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF6C5CE7).withValues(alpha: 0.12),
+                            color: provider.accentColor.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -231,7 +320,7 @@ class EmailTile extends StatelessWidget {
                             style: GoogleFonts.inter(
                               fontSize: 9,
                               fontWeight: FontWeight.bold,
-                              color: const Color(0xFF6C5CE7),
+                              color: provider.accentColor,
                             ),
                           ),
                         ),

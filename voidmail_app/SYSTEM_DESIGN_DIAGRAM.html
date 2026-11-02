@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>SecureMail System Design Diagram</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: #0B0F19;
+      color: #F8FAFC;
+      padding: 30px;
+      width: 1400px;
+    }
+    .header {
+      background: linear-gradient(135deg, #1E293B, #0F172A);
+      border: 1px solid #334155;
+      padding: 24px 30px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .title-h1 { font-size: 24px; font-weight: 800; color: #38BDF8; letter-spacing: -0.5px; }
+    .subtitle { font-size: 14px; color: #94A3B8; margin-top: 4px; }
+    .badge { background: #2563EB; color: white; padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 13px; }
+    
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+    .card {
+      background: #111827;
+      border: 1px solid #1F2937;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5);
+    }
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #60A5FA;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #374151;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    /* Pipeline */
+    .pipe-step {
+      background: #1F2937;
+      border: 1px solid #374151;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+    }
+    .step-tag {
+      background: #2563EB;
+      color: white;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 11px;
+    }
+    .arrow-down { text-align: center; color: #38BDF8; font-size: 16px; margin: -4px 0 6px 0; }
+    
+    /* Table / DB */
+    table.schema-tbl {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+    table.schema-tbl th, table.schema-tbl td {
+      border: 1px solid #374151;
+      padding: 8px 10px;
+      text-align: left;
+    }
+    table.schema-tbl th { background: #1E293B; color: #93C5FD; font-weight: 700; }
+    table.schema-tbl td { background: #0F172A; }
+    .pk { color: #F59E0B; font-weight: 700; }
+    .fk { color: #10B981; font-weight: 700; }
+
+    /* Use Case Box */
+    .uc-actor {
+      background: #1E293B;
+      border-left: 4px solid #38BDF8;
+      padding: 10px 14px;
+      margin-bottom: 8px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .uc-actor strong { color: #F8FAFC; }
+    .uc-list { color: #94A3B8; font-size: 12px; margin-top: 4px; }
+
+    .footer {
+      text-align: center;
+      padding: 16px;
+      background: #1E293B;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      font-size: 13px;
+      color: #94A3B8;
+    }
+    .footer strong { color: #38BDF8; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div>
+      <div class="title-h1">SecureMail: System Design & Architecture Overview</div>
+      <div class="subtitle">Cloud-Based Email Management System with Wire-Level Encryption & Anti-Spoofing</div>
+    </div>
+    <div>
+      <span class="badge">MCA-269 Minor Project</span>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- 1. Pipeline Architecture -->
+    <div class="card">
+      <div class="card-title">🛡️ 1. Defense-in-Depth Pipeline Architecture</div>
+      <div class="pipe-step">
+        <span><strong>Port 587 (Submission) & Port 25 (Relay)</strong></span>
+        <span class="step-tag">Step 1: Socket TLS 1.3</span>
+      </div>
+      <div class="arrow-down">▼</div>
+      <div class="pipe-step">
+        <span><strong>Postfix Ingestion Gateway</strong> (Rate limiting & socket termination)</span>
+        <span class="step-tag">Step 2: Postfix MTA</span>
+      </div>
+      <div class="arrow-down">▼</div>
+      <div class="pipe-step">
+        <span><strong>Milter Stream Processor</strong> (2048-bit DKIM + SPF + DMARC p=reject)</span>
+        <span class="step-tag">Step 3: Identity Verification</span>
+      </div>
+      <div class="arrow-down">▼</div>
+      <div class="pipe-step">
+        <span><strong>In-Memory Privacy Sanitizer</strong> (1x1 & 0x0 Spy Pixel Purge in RAM)</span>
+        <span class="step-tag">Step 4: Privacy Cleansing</span>
+      </div>
+      <div class="arrow-down">▼</div>
+      <div class="pipe-step">
+        <span><strong>Dovecot LMTP Delivery</strong> (Maildir single-file mailbox storage)</span>
+        <span class="step-tag">Step 5: Maildir Storage</span>
+      </div>
+      <div class="arrow-down">▼</div>
+      <div class="pipe-step">
+        <span><strong>SHA-256 Merkle Audit Ledger</strong> (Tamper-evident chained hashing)</span>
+        <span class="step-tag">Step 6: Forensic Audit</span>
+      </div>
+    </div>
+
+    <!-- 2. Database Schema (ERD) -->
+    <div class="card">
+      <div class="card-title">🗄️ 2. Database Schema & Entity Relationships (ERD)</div>
+      <table class="schema-tbl">
+        <tr><th>Table / Entity</th><th>Primary Key</th><th>Attributes / Foreign Keys</th><th>Purpose</th></tr>
+        <tr>
+          <td><strong>USER_ACCOUNT</strong></td>
+          <td class="pk">user_id (INT)</td>
+          <td>email_address (UQ), password_hash, role, created_at</td>
+          <td>Campus authentication & roles</td>
+        </tr>
+        <tr>
+          <td><strong>MAIL_MESSAGE</strong></td>
+          <td class="pk">message_id (INT)</td>
+          <td><span class="fk">sender_id</span>, <span class="fk">recipient_id</span>, subject, tls_cipher, dkim_verdict, sent_at</td>
+          <td>Encrypted message metadata</td>
+        </tr>
+        <tr>
+          <td><strong>AUDIT_BLOCK</strong></td>
+          <td class="pk">block_id (INT)</td>
+          <td><span class="fk">message_id</span>, event_type, prev_hash, current_hash, mined_at</td>
+          <td>SHA-256 Merkle hash chain</td>
+        </tr>
+        <tr>
+          <td><strong>MAILBOX_FOLDER</strong></td>
+          <td class="pk">folder_id (INT)</td>
+          <td><span class="fk">user_id</span>, folder_name (Inbox/Sent/Trash), unread_count</td>
+          <td>Dovecot Maildir sync index</td>
+        </tr>
+      </table>
+
+      <div style="margin-top: 18px; padding: 12px; background: #1E293B; border-radius: 6px; font-size: 12px; color: #CBD5E1;">
+        <strong>Relational Rules:</strong> USER_ACCOUNT (1) ➔ (N) MAIL_MESSAGE [sends/receives] ➔ (1) AUDIT_BLOCK [hashes event into Merkle chain].
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- 3. Use Case Model -->
+    <div class="card">
+      <div class="card-title">👥 3. System Use Case & Actor Model</div>
+      <div class="uc-actor">
+        <strong>Student / Faculty Member:</strong>
+        <div class="uc-list">• Login with Credentials • Compose Encrypted Email • Read Sanitized Inbound Mail • Inspect Security Badges (TLS 1.3 / DKIM)</div>
+      </div>
+      <div class="uc-actor">
+        <strong>Departmental Administrative Staff:</strong>
+        <div class="uc-list">• Dispatch Examination Circulars • Distribute Verified Offer Letters • Broadcast Announcements with 2048-bit DKIM</div>
+      </div>
+      <div class="uc-actor">
+        <strong>System & Mail Administrator:</strong>
+        <div class="uc-list">• Supervise Postfix/Dovecot Daemons • Manage Mailbox Quotas • Verify SHA-256 Merkle Audit Ledger • Configure Anti-Spoofing Policies</div>
+      </div>
+    </div>
+
+    <!-- 4. Data Flow (Level-0 & Level-1 DFD) -->
+    <div class="card">
+      <div class="card-title">🔄 4. Data Flow Architecture (DFD Level-0 & Level-1)</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; background: #0F172A; padding: 14px; border-radius: 8px; border: 1px solid #374151; line-height: 1.6;">
+        [User / Sender] ➔ <strong>(1.0 Transport Layer Verification)</strong><br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;↓ (Encrypted Socket Stream)<br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;➔ <strong>(2.0 Anti-Spoofing & Milter Gateway)</strong><br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ [Spoofed/Cleartext] ➔ Drop Packet & Return SMTP 550<br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ [Clean Stream] ➔ <strong>(3.0 In-Memory HTML Sanitizer)</strong><br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ Strip 1x1 Spy Pixels in RAM<br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ ➔ <strong>(4.0 Maildir DB Storage)</strong> ➔ Recipient Inbox<br/>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ ➔ <strong>(5.0 Merkle Ledger DB)</strong> ➔ SHA-256 Block Mine
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <strong>Author:</strong> Rohan Kumar Rawat &bull; <strong>Roll No:</strong> 02414004425 &bull; <strong>Course:</strong> MCA 3rd Semester (MCA-269) &bull; <strong>Institution:</strong> JIMS Rohini, GGSIPU Delhi
+  </div>
+
+</body>
+</html>

@@ -1,43 +1,60 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // VoidOnyx / VoidPanel Exact Purple Palette from Screenshot
-  static const Color primaryPurple = Color(0xFF6C5CE7);
-  static const Color primaryPurpleDark = Color(0xFF5A49E3);
-  static const Color primaryPurpleLight = Color(0xFF8C7CFF);
-  static const Color purpleBgTint = Color(0xFFF4F0FF);
-  static const Color purpleSurfaceTint = Color(0xFFFAF8FF);
+  // VoidMail Exact Flame Orange & Amber Glow Palette (Matching App Icon)
+  static const Color primaryOrange = Color(0xFFFF7A00);       // Vibrant Electric Flame Orange
+  static const Color primaryOrangeDark = Color(0xFFE65100);   // Deep Ember Orange
+  static const Color primaryOrangeLight = Color(0xFFFF9E3B);  // Radiant Amber Glow
+  static const Color accentAmber = Color(0xFFFFB800);         // Gold Amber Accent
+  static const Color orangeBgTint = Color(0xFFFFF7ED);        // Soft warm cream highlight
+  static const Color orangeSurfaceTint = Color(0xFFFFFBF5);   // Pure warm surface tint
 
-  // Dark Mode Palette
-  static const Color darkBg = Color(0xFF0F0C20);
-  static const Color darkCardBg = Color(0xFF1B1638);
-  static const Color darkCardBorder = Color(0xFF2C2554);
+  // Backward-compatibility aliases
+  static const Color primaryPurple = primaryOrange;
+  static const Color primaryPurpleDark = primaryOrangeDark;
+  static const Color primaryPurpleLight = primaryOrangeLight;
+  static const Color purpleBgTint = orangeBgTint;
+  static const Color purpleSurfaceTint = orangeSurfaceTint;
+
+  // Dark Mode Palette (Rich Obsidian with Warm Amber Ember Glow)
+  static const Color darkBg = Color(0xFF100B07);
+  static const Color darkCardBg = Color(0xFF1C140D);
+  static const Color darkCardBorder = Color(0xFF2E1F14);
 
   // Light Mode Palette
-  static const Color lightBg = Color(0xFFFFFFFF);
+  static const Color lightBg = Color(0xFFFAFAFA);
   static const Color lightCardBg = Color(0xFFFFFFFF);
-  static const Color lightCardBorder = Color(0xFFEFEFF6);
+  static const Color lightCardBorder = Color(0xFFF1EDE8);
 
   // Text Colors
-  static const Color textPrimary = Color(0xFF1E1B4B);
-  static const Color textSecondary = Color(0xFF6B7280);
-  static const Color textMuted = Color(0xFF9CA3AF);
+  static const Color textPrimary = Color(0xFF1C130D);
+  static const Color textSecondary = Color(0xFF6B5E55);
+  static const Color textMuted = Color(0xFF9C8F85);
 
-  // Gradient definitions matching screenshot buttons & hero cards
-  static const LinearGradient purpleGradient = LinearGradient(
-    colors: [Color(0xFF6C5CE7), Color(0xFF8C7CFF)],
+  // Gradient definitions matching the glowing 3D app icon
+  static const LinearGradient orangeGradient = LinearGradient(
+    colors: [Color(0xFFFF7A00), Color(0xFFFF9E3B)],
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
   );
 
+  static const LinearGradient flameGradient = LinearGradient(
+    colors: [Color(0xFFFF6B00), Color(0xFFFFA500)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const LinearGradient purpleGradient = orangeGradient;
+
   static const LinearGradient heroCardGradient = LinearGradient(
-    colors: [Color(0xFF0F0C20), Color(0xFF2E1C59), Color(0xFF1B1638)],
+    colors: [Color(0xFF1E1106), Color(0xFF331B09), Color(0xFF180D05)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static ThemeData lightTheme({Color? primaryColor}) {
-    final activePrimary = primaryColor ?? primaryPurple;
+    final activePrimary = primaryColor ?? primaryOrange;
+
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,

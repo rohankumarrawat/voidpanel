@@ -105,6 +105,13 @@
         <form method="POST" action="/register/" id="register-form">
             {% csrf_token %}
 
+            <!-- Anti-bot protection -->
+            <input type="hidden" name="form_ts_token" value="{{ form_ts_token|default:'' }}">
+            <div style="display:none !important; position:absolute; left:-9999px; visibility:hidden;" aria-hidden="true">
+                <input type="text" name="b_company_fax" tabindex="-1" autocomplete="new-password" value="">
+                <input type="text" name="b_partner_code" tabindex="-1" autocomplete="new-password" value="">
+            </div>
+
             <!-- Full Name -->
             <div class="form-group">
                 <label class="form-label" for="reg-full-name">Full Name</label>
@@ -138,7 +145,7 @@
             <!-- Phone Number -->
             <div class="form-group">
                 <label class="form-label" for="reg-phone">
-                    Phone Number
+                    WhatsApp Number
                     <span style="color:var(--red,#f87171);margin-left:2px;" title="Required">*</span>
                 </label>
                 <div class="phone-wrap" id="phoneWrap">
@@ -177,7 +184,7 @@
                     <input type="hidden" name="phone" id="phone-combined">
                 </div>
                 <div class="phone-hint" id="phoneHint">
-                    <i class="fas fa-circle-info"></i> Enter digits only — no spaces or dashes needed
+                    <i class="fa-brands fa-whatsapp" style="color:#22c55e;"></i> Mandatory: We will send your 6-digit OTP code to this WhatsApp number &amp; email
                 </div>
             </div>
 
@@ -285,38 +292,89 @@ function validatePhone(showError) {
     return true;
 }
 
-// On submit: combine code + number into hidden field
-document.getElementById('register-form').addEventListener('submit', function(e) {
-    const pwd     = document.getElementById('reg-password').value;
-    const confirm = document.getElementById('reg-confirm').value;
+// On submit: combine code + number into hidden field and submit via AJAX
+document.getElementById('register-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const pwd       = document.getElementById('reg-password').value;
+    const confirm   = document.getElementById('reg-confirm').value;
     const errorBox  = document.getElementById('js-error-msg');
     const errorSpan = errorBox.querySelector('span');
+    const submitBtn = document.getElementById('register-submit');
 
     function showErr(msg) {
-        e.preventDefault();
         errorSpan.textContent = msg;
-        errorBox.style.display = 'block';
+        errorBox.style.display = 'flex';
+        errorBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     if (pwd.length < 8)    { showErr('Password must be at least 8 characters.'); return; }
     if (pwd !== confirm)   { showErr('Passwords do not match.'); return; }
 
     // Phone check
-    if (!validatePhone(true)) {
-        e.preventDefault();
-        const digits = phoneInput.value.replace(/\D/g, '');
-        if (!digits) { showErr('Phone number is required.'); }
-        else         { showErr('Enter a valid phone number (7–15 digits).'); }
+    const local = phoneInput.value.replace(/\D/g, '');
+    const code = document.getElementById('phone-code').value;
+    if (!local || local.length !== 10 || (code === '+91' && !['6','7','8','9'].includes(local[0]))) {
+        showErr('Please enter a valid 10-digit mobile number for WhatsApp verification.');
+        phoneInput.focus();
+        return;
+    }
+    const uniqueDigits = new Set(local).size;
+    const dummyNumbers = ['1234567890', '9876543210', '0123456789', '9898989898', '9000000000'];
+    if (uniqueDigits < 4 || dummyNumbers.includes(local)) {
+        showErr('Please enter a valid active mobile number.');
         phoneInput.focus();
         return;
     }
 
     // Combine country code + local number into hidden field
-    const code = document.getElementById('phone-code').value;
-    const local = phoneInput.value.replace(/\D/g, '');
     document.getElementById('phone-combined').value = code + local;
 
     errorBox.style.display = 'none';
+
+    const originalBtnHtml = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
+
+    const formData = new FormData(this);
+    try {
+        const response = await fetch(this.action || window.location.pathname, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        });
+
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+            const data = await response.json();
+            if (response.ok && data.status === 'success') {
+                submitBtn.innerHTML = '<i class="fas fa-check"></i> Redirecting...';
+                window.location.href = data.redirect_url || '/register/verify/';
+                return;
+            } else {
+                showErr(data.message || data.error || 'An error occurred during registration.');
+            }
+        } else {
+            if (response.redirected) {
+                window.location.href = response.url;
+                return;
+            }
+            const text = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
+            const err = doc.querySelector('.alert-msg span') || doc.querySelector('.alert-msg');
+            if (err) showErr(err.textContent.trim());
+            else showErr('An unexpected error occurred. Please try again.');
+        }
+    } catch (err) {
+        console.error(err);
+        showErr('Network error. Please try again.');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnHtml;
+    }
 });
 </script>
 

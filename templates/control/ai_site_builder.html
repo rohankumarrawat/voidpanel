@@ -1,0 +1,3186 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <title>AI Website Studio — {{ domain }} | VoidPanel</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+    <!-- Prism.js Dark Syntax Highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css">
+    <!-- Ace Code Editor & HTML Beautifier for Professional Code Editing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ace.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/mode-html.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/theme-tomorrow_night.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.14.9/beautify-html.min.js"></script>
+
+    <script>(function(){localStorage.setItem('vp-theme','dark');document.documentElement.setAttribute('data-theme','dark');})();</script>
+
+    <style>
+        :root {
+            --bg-base: #060810;
+            --bg-surface: #0b0f1d;
+            --bg-elevated: #11172b;
+            --bg-card: #151d36;
+            --bg-input: rgba(18, 24, 46, 0.75);
+            --border: rgba(99, 102, 241, 0.2);
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --border-focus: #6366f1;
+            --accent: #6366f1;
+            --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #06b6d4 100%);
+            --accent-glow: rgba(99, 102, 241, 0.35);
+            --cyan: #06b6d4;
+            --emerald: #10b981;
+            --amber: #f59e0b;
+            --rose: #f43f5e;
+            --text-1: #f8fafc;
+            --text-2: #94a3b8;
+            --text-3: #64748b;
+            --header-h: 62px;
+            --sidebar-w: 430px;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 18px;
+            --radius-xl: 24px;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, sans-serif !important;
+            background: var(--bg-base);
+            color: var(--text-1);
+            height: 100vh;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── Top Navigation Bar ── */
+        .studio-topbar {
+            height: var(--header-h);
+            background: rgba(11, 15, 29, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            position: relative;
+            z-index: 50;
+        }
+
+        .topbar-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .brand-badge {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-md);
+            background: var(--accent-gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 1.2rem;
+            box-shadow: 0 0 24px var(--accent-glow);
+            text-decoration: none !important;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .brand-badge:hover {
+            transform: scale(1.06) rotate(-3deg);
+        }
+
+        .studio-title-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .studio-title {
+            font-size: 0.95rem;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            color: var(--text-1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* engine-chip removed */
+
+        .domain-pill {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 3px 10px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-2);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .domain-pill .pulse-live {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--emerald);
+            box-shadow: 0 0 8px var(--emerald);
+        }
+
+        /* Center: Segmented Device Switcher */
+        .device-switcher-pill {
+            display: flex;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.45);
+            border: 1px solid var(--border-subtle);
+            padding: 4px;
+            border-radius: var(--radius-md);
+            gap: 2px;
+        }
+
+        .dev-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-3);
+            padding: 6px 14px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .dev-btn:hover { color: var(--text-1); }
+        .dev-btn.active {
+            background: rgba(99, 102, 241, 0.22);
+            color: #fff;
+            border: 1px solid rgba(99, 102, 241, 0.35);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Topbar version selector & divider */
+        .topbar-version-wrap {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            padding: 4px 10px;
+        }
+        .topbar-version-select {
+            background: transparent;
+            border: none;
+            color: var(--text-2);
+            font-size: 0.77rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            outline: none;
+            appearance: none;
+            -webkit-appearance: none;
+            padding-right: 14px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2364748b'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0 center;
+        }
+        .topbar-version-select option {
+            background: #0b0f1d;
+            color: #f8fafc;
+        }
+        .topbar-divider {
+            width: 1px;
+            height: 22px;
+            background: var(--border-subtle);
+            flex-shrink: 0;
+        }
+
+        /* Topbar Actions */
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-top {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none !important;
+        }
+        .btn-top-ghost {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-2);
+            border: 1px solid var(--border-subtle);
+        }
+        .btn-top-ghost:hover {
+            background: rgba(255, 255, 255, 0.09);
+            color: var(--text-1);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+        .btn-top-publish {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #fff !important;
+            box-shadow: 0 4px 18px rgba(16, 185, 129, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .btn-top-publish:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 24px rgba(16, 185, 129, 0.6);
+        }
+
+        /* ── Workspace Layout ── */
+        .studio-workspace {
+            display: flex;
+            height: calc(100vh - var(--header-h));
+            overflow: hidden;
+            background: var(--bg-base);
+        }
+
+        /* ── Left Sidebar (Control Center) ── */
+        .studio-sidebar {
+            width: var(--sidebar-w);
+            min-width: var(--sidebar-w);
+            background: var(--bg-surface);
+            border-right: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            position: relative;
+            z-index: 40;
+            box-shadow: 10px 0 35px rgba(0, 0, 0, 0.4);
+        }
+
+        .sidebar-header {
+            padding: 18px 24px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.015);
+        }
+        .sidebar-header h2 {
+            font-size: 1rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-1);
+        }
+        .sidebar-header .sub-badge {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--text-3);
+            background: rgba(255, 255, 255, 0.04);
+            padding: 3px 8px;
+            border-radius: 6px;
+        }
+
+        .sidebar-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 22px 24px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+        }
+        .sidebar-body::-webkit-scrollbar {
+            width: 6px;
+        }
+        .sidebar-body::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        /* Presets quick-bar */
+        .presets-bar {
+            margin-bottom: 22px;
+            padding: 12px 14px;
+            background: rgba(99, 102, 241, 0.07);
+            border: 1px solid rgba(99, 102, 241, 0.18);
+            border-radius: var(--radius-md);
+        }
+        .presets-label {
+            font-size: 0.72rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #a5b4fc;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .presets-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .preset-chip {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-2);
+            font-size: 0.74rem;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .preset-chip:hover {
+            background: rgba(99, 102, 241, 0.25);
+            border-color: rgba(99, 102, 241, 0.4);
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        /* Form elements */
+        .field-group {
+            margin-bottom: 20px;
+        }
+        .field-label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.76rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            color: var(--text-2);
+            margin-bottom: 8px;
+        }
+        .field-label i {
+            margin-right: 5px;
+            color: var(--accent);
+        }
+        .field-label .helper {
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: var(--text-3);
+        }
+
+        .studio-input {
+            width: 100%;
+            background: var(--bg-input);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 12px 14px;
+            color: var(--text-1);
+            font-family: inherit;
+            font-size: 0.88rem;
+            outline: none;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .studio-input:focus {
+            border-color: var(--border-focus);
+            background: rgba(18, 24, 46, 0.95);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+        .studio-input::placeholder {
+            color: rgba(148, 163, 184, 0.45);
+        }
+        .studio-textarea {
+            min-height: 105px;
+            resize: vertical;
+            line-height: 1.5;
+        }
+
+        /* Category Chips */
+        .category-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+        }
+        .chip {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-subtle);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.76rem;
+            font-weight: 600;
+            color: var(--text-2);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+        .chip:hover {
+            color: var(--text-1);
+            border-color: rgba(99, 102, 241, 0.35);
+            background: rgba(255, 255, 255, 0.06);
+        }
+        .chip.active {
+            background: rgba(99, 102, 241, 0.2);
+            border-color: var(--accent);
+            color: #c7d2fe;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+        }
+
+        /* Theme Cards */
+        .theme-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .theme-card {
+            background: rgba(255, 255, 255, 0.025);
+            border: 1.5px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            position: relative;
+        }
+        .theme-card:hover {
+            border-color: rgba(99, 102, 241, 0.4);
+            transform: translateY(-1px);
+        }
+        .theme-card.active {
+            border-color: var(--accent);
+            background: rgba(99, 102, 241, 0.12);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2);
+        }
+        .theme-preview-dots {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 2px;
+        }
+        .theme-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        .theme-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--text-1);
+        }
+        .theme-desc {
+            font-size: 0.7rem;
+            color: var(--text-3);
+            line-height: 1.35;
+        }
+
+        /* Generate CTA Button */
+        .btn-generate {
+            width: 100%;
+            background: var(--accent-gradient);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            border-radius: var(--radius-md);
+            font-size: 0.95rem;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 8px 25px var(--accent-glow);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-generate::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.6s ease;
+        }
+        .btn-generate:hover::before {
+            left: 100%;
+        }
+        .btn-generate:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(99, 102, 241, 0.6);
+        }
+        .btn-generate:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ── State B: Copilot Chat & Enhancement ── */
+        .chat-feed {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin-bottom: 22px;
+        }
+        .chat-bubble {
+            padding: 13px 16px;
+            border-radius: var(--radius-md);
+            font-size: 0.84rem;
+            line-height: 1.55;
+            position: relative;
+        }
+        .chat-bubble.user {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(139, 92, 246, 0.25));
+            border: 1px solid rgba(99, 102, 241, 0.35);
+            color: #f1f5f9;
+            align-self: flex-end;
+            max-width: 90%;
+            border-bottom-right-radius: 4px;
+        }
+        .chat-bubble.ai {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-1);
+            align-self: flex-start;
+            max-width: 95%;
+            border-bottom-left-radius: 4px;
+        }
+
+        .quick-pills-title {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-3);
+            font-weight: 800;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .quick-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+            margin-bottom: 20px;
+        }
+        .pill-btn {
+            background: rgba(255, 255, 255, 0.035);
+            border: 1px solid var(--border-subtle);
+            padding: 7px 13px;
+            border-radius: 20px;
+            font-size: 0.76rem;
+            font-weight: 600;
+            color: var(--text-2);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+        }
+        .pill-btn:hover {
+            color: #fff;
+            background: rgba(99, 102, 241, 0.2);
+            border-color: rgba(99, 102, 241, 0.4);
+            transform: translateY(-1px);
+        }
+
+        /* Chat input dock */
+        .sidebar-dock {
+            padding: 16px 20px;
+            background: var(--bg-elevated);
+            border-top: 1px solid var(--border-subtle);
+        }
+        .dock-input-wrap {
+            display: flex;
+            gap: 10px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 4px 6px 4px 14px;
+            transition: all 0.2s;
+        }
+        .dock-input-wrap:focus-within {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+        .dock-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-1);
+            font-family: inherit;
+            font-size: 0.86rem;
+            outline: none;
+        }
+        .dock-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 8px;
+            background: var(--accent-gradient);
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .dock-btn:hover {
+            transform: scale(1.05);
+        }
+
+        /* ── Right Canvas (Virtual Browser Mockup) ── */
+        .studio-canvas {
+            flex: 1;
+            background: radial-gradient(circle at 50% 20%, rgba(99, 102, 241, 0.08) 0%, rgba(6, 8, 16, 0.98) 70%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Sleek Browser Window Shell */
+        .browser-mockup {
+            width: 100%;
+            height: 100%;
+            background: var(--bg-surface);
+            border-radius: var(--radius-lg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.05);
+            display: flex;
+            flex-direction: column;
+            transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.3s;
+            position: relative;
+        }
+
+        .browser-header {
+            height: 44px;
+            background: rgba(17, 23, 43, 0.9);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            user-select: none;
+            gap: 16px;
+        }
+
+        .browser-dots {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            min-width: 90px;
+        }
+        .dot-circle {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+        }
+        .dot-red { background: #ef4444; }
+        .dot-yellow { background: #f59e0b; }
+        .dot-green { background: #10b981; }
+
+        .browser-address-bar {
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 4px 16px;
+            font-size: 0.76rem;
+            color: var(--text-2);
+            font-family: 'JetBrains Mono', monospace;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            max-width: 440px;
+            justify-content: center;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .browser-address-bar:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+            background: rgba(0, 0, 0, 0.5);
+        }
+        .browser-address-bar i.fa-lock {
+            color: var(--emerald);
+            font-size: 0.72rem;
+        }
+
+        /* Mode Switcher: Preview vs Code */
+        .canvas-mode-switch {
+            display: flex;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            padding: 2px;
+            gap: 2px;
+        }
+        .mode-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-3);
+            font-size: 0.76rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .mode-btn:hover { color: var(--text-1); }
+        .mode-btn.active {
+            background: rgba(99, 102, 241, 0.25);
+            color: #c7d2fe;
+            border: 1px solid rgba(99, 102, 241, 0.35);
+        }
+
+        .browser-tools {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .browser-tool-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-3);
+            cursor: pointer;
+            padding: 4px;
+            transition: color 0.2s;
+            font-size: 0.82rem;
+        }
+        .browser-tool-btn:hover { color: var(--text-1); }
+
+        /* Viewport Containers */
+        .preview-wrapper {
+            flex: 1;
+            position: relative;
+            background: #fff;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .browser-mockup.tablet {
+            width: 768px;
+            height: 94%;
+            border-radius: var(--radius-xl);
+        }
+        .browser-mockup.mobile {
+            width: 385px;
+            height: 94%;
+            border-radius: 36px;
+            border: 8px solid #1e293b;
+        }
+
+        #sitePreviewFrame {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #fff;
+            display: block;
+        }
+
+        /* ── Code Editor View ── */
+        .code-editor-view {
+            flex: 1;
+            background: #090d16;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+        .code-editor-header {
+            height: 38px;
+            background: rgba(15, 23, 42, 0.85);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+        }
+        .file-tab {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #e2e8f0;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 4px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border-subtle);
+        }
+        .file-badge {
+            font-size: 0.65rem;
+            font-weight: 700;
+            background: rgba(99, 102, 241, 0.2);
+            color: #a5b4fc;
+            padding: 1px 6px;
+            border-radius: 4px;
+        }
+        .copy-code-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-2);
+            font-size: 0.74rem;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .copy-code-btn:hover {
+            background: rgba(99, 102, 241, 0.2);
+            color: #fff;
+            border-color: rgba(99, 102, 241, 0.4);
+        }
+        .btn-save-code {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff !important;
+            font-size: 0.74rem;
+            font-weight: 700;
+            padding: 5px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 2px 10px rgba(16, 185, 129, 0.35);
+        }
+        .btn-save-code:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.55);
+        }
+        .editor-dirty-badge {
+            font-size: 0.72rem;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.3);
+        }
+        #aceEditorContainer {
+            width: 100%;
+            height: 100%;
+            font-family: 'JetBrains Mono', monospace !important;
+            font-size: 13px !important;
+        }
+        .code-scroll-area {
+            flex: 1;
+            overflow: auto;
+            padding: 14px 18px;
+            font-family: 'JetBrains Mono', monospace !important;
+            font-size: 0.82rem;
+            line-height: 1.6;
+        }
+        .code-scroll-area pre {
+            margin: 0;
+            background: transparent !important;
+            padding: 0 !important;
+            font-family: inherit !important;
+        }
+        .code-scroll-area code {
+            font-family: inherit !important;
+            color: #cbd5e1;
+        }
+
+        /* ── THE AGENT EXECUTION DECK (Live Agent Terminal Loader) ── */
+        .canvas-loader {
+            display: none;
+            position: absolute;
+            inset: 0;
+            background: rgba(6, 8, 16, 0.94);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            z-index: 100;
+            flex-direction: column;
+            padding: 30px;
+            overflow: hidden;
+        }
+        .canvas-loader.active {
+            display: flex;
+        }
+
+        .agent-deck-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            margin-bottom: 20px;
+        }
+        .agent-profile {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .agent-avatar {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            background: var(--accent-gradient);
+            box-shadow: 0 0 25px var(--accent-glow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            color: #fff;
+            animation: pulseGlow 2s infinite alternate;
+        }
+        .agent-name {
+            font-size: 1rem;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: -0.01em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .agent-status-tag {
+            font-size: 0.72rem;
+            font-weight: 700;
+            background: rgba(16, 185, 129, 0.18);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            color: #34d399;
+            padding: 2px 8px;
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .agent-status-tag .blink {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 8px #10b981;
+            animation: blink 1s infinite alternate;
+        }
+        @keyframes blink { from { opacity: 0.3; } to { opacity: 1; } }
+
+        .agent-timer {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-2);
+            background: rgba(0, 0, 0, 0.4);
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--border-subtle);
+        }
+        .btn-stop-generation {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            background: rgba(239, 68, 68, 0.18);
+            border: 1px solid rgba(239, 68, 68, 0.45);
+            color: #fca5a5;
+            font-size: 0.78rem;
+            font-weight: 700;
+            padding: 6px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-stop-generation:hover {
+            background: rgba(239, 68, 68, 0.4);
+            border-color: #ef4444;
+            color: #fff;
+            transform: translateY(-1px);
+        }
+        .sidebar-busy-disabled {
+            pointer-events: none !important;
+            opacity: 0.55 !important;
+            user-select: none !important;
+        }
+
+        /* Split Workspace inside Agent Deck */
+        .agent-deck-body {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 20px;
+            overflow: hidden;
+        }
+
+        /* Left: Steps Checklist */
+        .agent-steps-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: var(--radius-md);
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .steps-card-title {
+            font-size: 0.72rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-3);
+            margin-bottom: 4px;
+        }
+        .step-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: 0.8rem;
+            color: var(--text-3);
+            transition: all 0.3s;
+        }
+        .step-item.active {
+            color: #fff;
+            font-weight: 700;
+        }
+        .step-item.done {
+            color: var(--emerald);
+        }
+        .step-icon {
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            margin-top: 1px;
+            flex-shrink: 0;
+        }
+        .step-item.active .step-icon {
+            color: var(--accent);
+            animation: spin 1.5s linear infinite;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* Right: Live Streaming Code Terminal */
+        .agent-terminal {
+            background: #080c18;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-md);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.7);
+        }
+        .terminal-topbar {
+            height: 36px;
+            background: rgba(15, 23, 42, 0.95);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 14px;
+        }
+        .term-dots {
+            display: flex;
+            gap: 6px;
+        }
+        .term-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+        }
+        .term-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.74rem;
+            color: #a5b4fc;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .term-output {
+            flex: 1;
+            padding: 16px 20px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            line-height: 1.55;
+            color: #38bdf8;
+            white-space: pre-wrap;
+            scrollbar-width: thin;
+        }
+        .cursor-blink {
+            display: inline-block;
+            width: 8px;
+            height: 15px;
+            background: #38bdf8;
+            vertical-align: middle;
+            animation: blink 0.8s infinite;
+        }
+
+        /* Click-to-edit notification banner */
+        .inline-edit-banner {
+            display: none;
+            position: absolute;
+            top: 54px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(16, 185, 129, 0.95);
+            color: #fff;
+            padding: 8px 18px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            z-index: 60;
+            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
+            align-items: center;
+            gap: 8px;
+            animation: slideDown 0.3s ease;
+        }
+        .inline-edit-banner.active {
+            display: flex;
+        }
+        @keyframes slideDown {
+            from { transform: translate(-50%, -10px); opacity: 0; }
+            to { transform: translate(-50%, 0); opacity: 1; }
+        }
+
+        /* ── DEPLOY LIVE MODAL & ANIMATED PROGRESS BAR ── */
+        .deploy-modal-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(4, 6, 14, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .deploy-modal-backdrop.active {
+            display: flex;
+            animation: fadeInModal 0.25s ease-out forwards;
+        }
+        @keyframes fadeInModal {
+            from { opacity: 0; transform: scale(0.96); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .deploy-modal-card {
+            background: linear-gradient(165deg, #0e1424 0%, #070a14 100%);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.85), 0 0 50px rgba(16, 185, 129, 0.15);
+            border-radius: 24px;
+            width: 100%;
+            max-width: 620px;
+            padding: 28px;
+            position: relative;
+            overflow: hidden;
+        }
+        .deploy-modal-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #10b981, #06b6d4, #6366f1, #10b981);
+            background-size: 200% 100%;
+            animation: headerShine 3s linear infinite;
+        }
+        @keyframes headerShine {
+            0% { background-position: 0% 0%; }
+            100% { background-position: 200% 0%; }
+        }
+
+        .deploy-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 22px;
+        }
+        .deploy-modal-brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .deploy-rocket-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(6, 182, 212, 0.2) 100%);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.35rem;
+            color: #34d399;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+            animation: rocketFloat 2s ease-in-out infinite alternate;
+        }
+        @keyframes rocketFloat {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-4px); }
+        }
+        .deploy-modal-title {
+            font-size: 1.18rem;
+            font-weight: 800;
+            color: #fff;
+            margin: 0;
+            letter-spacing: -0.01em;
+        }
+        .deploy-modal-sub {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin: 3px 0 0;
+        }
+        .deploy-close-btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #94a3b8;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .deploy-close-btn:hover {
+            background: rgba(255, 255, 255, 0.14);
+            color: #fff;
+        }
+
+        /* Progress section */
+        .deploy-progress-section {
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 16px 18px;
+            margin-bottom: 20px;
+        }
+        .deploy-progress-labels {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .deploy-stage-label {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #f1f5f9;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .spinner-inline {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(16, 185, 129, 0.25);
+            border-top-color: #10b981;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
+        }
+        .deploy-percent-number {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #34d399;
+            letter-spacing: -0.02em;
+            text-shadow: 0 0 16px rgba(16, 185, 129, 0.4);
+        }
+        .deploy-progress-track {
+            width: 100%;
+            height: 12px;
+            background: rgba(0, 0, 0, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+        }
+        .deploy-progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #10b981 0%, #06b6d4 50%, #6366f1 100%);
+            border-radius: 20px;
+            box-shadow: 0 0 16px rgba(16, 185, 129, 0.8);
+            transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+        .deploy-progress-fill::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+            animation: barShine 1.5s infinite;
+        }
+        @keyframes barShine {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* Checklist */
+        .deploy-steps-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 18px;
+        }
+        .deploy-step-row {
+            background: rgba(15, 23, 42, 0.45);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.25s ease;
+        }
+        .deploy-step-row.active {
+            background: rgba(16, 185, 129, 0.08);
+            border-color: rgba(16, 185, 129, 0.35);
+        }
+        .deploy-step-row.done {
+            background: rgba(16, 185, 129, 0.04);
+            border-color: rgba(16, 185, 129, 0.2);
+        }
+        .deploy-step-row.error {
+            background: rgba(239, 68, 68, 0.08);
+            border-color: rgba(239, 68, 68, 0.35);
+        }
+        .dep-step-icon {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            color: #64748b;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+        .deploy-step-row.active .dep-step-icon {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+        }
+        .deploy-step-row.done .dep-step-icon {
+            background: #10b981;
+            color: #fff;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+        }
+        .deploy-step-row.error .dep-step-icon {
+            background: #ef4444;
+            color: #fff;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+        }
+        .dep-step-content {
+            flex: 1;
+            min-width: 0;
+        }
+        .dep-step-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #cbd5e1;
+            line-height: 1.25;
+        }
+        .deploy-step-row.active .dep-step-title {
+            color: #fff;
+        }
+        .deploy-step-row.done .dep-step-title {
+            color: #e2e8f0;
+        }
+        .deploy-step-row.error .dep-step-title {
+            color: #fca5a5;
+        }
+        .dep-step-desc {
+            font-size: 0.71rem;
+            color: #64748b;
+            margin-top: 2px;
+        }
+        .dep-step-badge {
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            flex-shrink: 0;
+        }
+        .deploy-step-row.active .dep-step-badge {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+        }
+        .deploy-step-row.done .dep-step-badge {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+        }
+        .deploy-step-row.error .dep-step-badge {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+        }
+
+        /* Diagnostic footer */
+        .deploy-meta-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.72rem;
+            color: #64748b;
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.35);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+        .deploy-meta-bar code {
+            color: #a5b4fc;
+            font-size: 0.72rem;
+        }
+
+        /* Success & Error Cards */
+        .deploy-success-card {
+            margin-top: 18px;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.14) 0%, rgba(6, 182, 212, 0.09) 100%);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            border-radius: 16px;
+            padding: 20px;
+            animation: fadeInUp 0.3s ease-out;
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .deploy-success-icon {
+            font-size: 2.2rem;
+            color: #10b981;
+            margin-bottom: 8px;
+            text-shadow: 0 0 20px rgba(16, 185, 129, 0.6);
+        }
+        .deploy-success-info h4 {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #fff;
+            margin: 0 0 4px;
+        }
+        .deploy-success-info p {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin: 0 0 12px;
+        }
+        .deploy-live-url-box {
+            display: flex;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.45);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            border-radius: 10px;
+            padding: 7px 12px;
+            margin-bottom: 16px;
+        }
+        .deploy-live-url-box a {
+            flex: 1;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.86rem;
+            font-weight: 700;
+            color: #34d399;
+            text-decoration: none;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .deploy-live-url-box a:hover {
+            text-decoration: underline;
+        }
+        .btn-copy-url {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            padding: 4px 8px;
+            font-size: 0.9rem;
+            transition: color 0.2s;
+        }
+        .btn-copy-url:hover { color: #fff; }
+
+        .deploy-actions-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .btn-visit-live {
+            flex: 1;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #fff !important;
+            text-decoration: none !important;
+            font-weight: 800;
+            font-size: 0.88rem;
+            padding: 10px 18px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .btn-visit-live:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 26px rgba(16, 185, 129, 0.6);
+        }
+        .btn-done-close {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #cbd5e1;
+            font-weight: 700;
+            font-size: 0.85rem;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-done-close:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+        }
+
+        .deploy-error-card {
+            margin-top: 18px;
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            border-radius: 16px;
+            padding: 18px;
+            animation: fadeInUp 0.3s ease-out;
+        }
+        .deploy-error-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #fca5a5;
+            font-size: 0.88rem;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── Topbar ── -->
+<header class="studio-topbar">
+    <div class="topbar-left">
+        <a href="/control/" class="brand-badge" title="Back to Control Panel">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+        </a>
+        <div class="studio-title-wrap">
+            <div class="studio-title">VoidPanel AI Studio</div>
+            <div class="domain-pill">
+                <span class="pulse-live"></span>
+                <span>{{ domain }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Center Multi-Device Switcher -->
+    <div class="device-switcher-pill">
+        <button class="dev-btn active" onclick="setDevice('desktop', this)">
+            <i class="fa-solid fa-desktop"></i> Desktop
+        </button>
+        <button class="dev-btn" onclick="setDevice('tablet', this)">
+            <i class="fa-solid fa-tablet-screen-button"></i> Tablet
+        </button>
+        <button class="dev-btn" onclick="setDevice('mobile', this)">
+            <i class="fa-solid fa-mobile-screen"></i> Mobile
+        </button>
+    </div>
+
+    <!-- Topbar Actions -->
+    <div class="topbar-right">
+        {% if has_project %}
+            <!-- Revision Selector -->
+            <div class="topbar-version-wrap">
+                <i class="fa-solid fa-clock-rotate-left" style="color: var(--text-3); font-size: 0.75rem;"></i>
+                <select id="revisionSelector" onchange="rollbackToRevision(this.value)" class="topbar-version-select">
+                    <option value="{{ project.version }}">v{{ project.version }} (Current)</option>
+                    {% for rev in revisions %}
+                        {% if rev.version != project.version %}
+                            <option value="{{ rev.version }}">v{{ rev.version }} — {{ rev.prompt_used|truncatechars:20 }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="topbar-divider"></div>
+            <button class="btn-top btn-top-ghost" id="editInlineBtn" onclick="toggleInlineEdit()">
+                <i class="fa-solid fa-pen-to-square"></i> <span id="inlineEditText">Click-to-Edit</span>
+            </button>
+            <button class="btn-top btn-top-ghost" onclick="downloadSiteZip()">
+                <i class="fa-solid fa-download"></i> Export
+            </button>
+            <button id="btnPublishLive" class="btn-top btn-top-publish" onclick="publishLive()">
+                <i class="fa-solid fa-rocket"></i> Deploy Live
+            </button>
+        {% endif %}
+        <a href="/control/" class="btn-top btn-top-ghost">
+            <i class="fa-solid fa-xmark"></i> Exit
+        </a>
+    </div>
+</header>
+
+<!-- ── Main Workspace ── -->
+<div class="studio-workspace">
+
+    <!-- ── Left Control Sidebar ── -->
+    <aside class="studio-sidebar">
+
+        {% if not has_project %}
+            <!-- STATE A: Initial Website Generation Wizard -->
+            <div class="sidebar-header">
+                <h2>
+                    <i class="fa-solid fa-sparkles" style="color: var(--accent);"></i>
+                    Prompt Your Website
+                </h2>
+                <span class="sub-badge">~15s generation</span>
+            </div>
+
+            <div class="sidebar-body">
+                <!-- 1-Click Quick Presets Bar -->
+                <div class="presets-bar">
+                    <div class="presets-label">
+                        <i class="fa-solid fa-bolt"></i> 1-Click Starter Presets:
+                    </div>
+                    <div class="presets-chips">
+                        <div class="preset-chip" onclick="applyPreset('voidpanel')">⚡️ Voidpanel / Hosting</div>
+                        <div class="preset-chip" onclick="applyPreset('coaching')">🎓 Coaching / Institute</div>
+                        <div class="preset-chip" onclick="applyPreset('saas')">🚀 SaaS / Cloud</div>
+                        <div class="preset-chip" onclick="applyPreset('agency')">💼 Digital Agency</div>
+                    </div>
+                </div>
+
+                <form id="initialGenForm" onsubmit="handleInitialGenerate(event)">
+                    <!-- Business Name -->
+                    <div class="field-group">
+                        <label class="field-label">
+                            <span><i class="fa-solid fa-building"></i> Business / Brand Name</span>
+                        </label>
+                        <input type="text" id="bizName" class="studio-input" placeholder="e.g. Voidpanel" value="Voidpanel" required>
+                    </div>
+
+                    <!-- Category -->
+                    <div class="field-group">
+                        <label class="field-label">
+                            <span><i class="fa-solid fa-layer-group"></i> Category</span>
+                        </label>
+                        <input type="hidden" id="bizCategory" value="Tech & SaaS">
+                        <div class="category-chips">
+                            <div class="chip active" onclick="selectCategory('Tech & SaaS', this)">💻 Tech & SaaS</div>
+                            <div class="chip" onclick="selectCategory('Education & Coaching', this)">🎓 Education</div>
+                            <div class="chip" onclick="selectCategory('Digital Agency', this)">🚀 Agency</div>
+                            <div class="chip" onclick="selectCategory('Restaurant & Cafe', this)">🍽️ Restaurant</div>
+                            <div class="chip" onclick="selectCategory('Healthcare & Clinic', this)">🩺 Healthcare</div>
+                            <div class="chip" onclick="selectCategory('Real Estate', this)">🏢 Real Estate</div>
+                        </div>
+                    </div>
+
+                    <!-- Value Proposition -->
+                    <div class="field-group">
+                        <label class="field-label">
+                            <span><i class="fa-solid fa-file-lines"></i> Business Description & Features</span>
+                            <span class="helper">Be specific</span>
+                        </label>
+                        <textarea id="bizDescription" class="studio-input studio-textarea" placeholder="e.g. I wanted a website showcasing as the Best Server Control Panel Voidpanel. Give reference of Voidpanel.com." required>I wanted a website showcasing as the Best Server Control Panel Voidpanel. Give reference of Voidpanel.com with high-speed web hosting, AI builders, automated backups, and 99.99% uptime.</textarea>
+                    </div>
+
+                    <!-- Design Aesthetic & Theme -->
+                    <div class="field-group">
+                        <label class="field-label">
+                            <span><i class="fa-solid fa-palette"></i> Design Theme</span>
+                        </label>
+                        <input type="hidden" id="selectedTheme" value="modern_dark">
+                        <div class="theme-grid">
+                            <div class="theme-card active" onclick="selectTheme('modern_dark', this)">
+                                <div class="theme-preview-dots">
+                                    <span class="theme-dot" style="background: #0f172a;"></span>
+                                    <span class="theme-dot" style="background: #6366f1;"></span>
+                                    <span class="theme-dot" style="background: #06b6d4;"></span>
+                                </div>
+                                <div class="theme-title">🌌 Modern Dark</div>
+                                <div class="theme-desc">Obsidian dark mode, neon indigo accents</div>
+                            </div>
+                            <div class="theme-card" onclick="selectTheme('clean_light', this)">
+                                <div class="theme-preview-dots">
+                                    <span class="theme-dot" style="background: #ffffff; border: 1px solid #ccc;"></span>
+                                    <span class="theme-dot" style="background: #3b82f6;"></span>
+                                    <span class="theme-dot" style="background: #10b981;"></span>
+                                </div>
+                                <div class="theme-title">☀️ Clean Minimal</div>
+                                <div class="theme-desc">Crisp white, corporate typography</div>
+                            </div>
+                            <div class="theme-card" onclick="selectTheme('vibrant_startup', this)">
+                                <div class="theme-preview-dots">
+                                    <span class="theme-dot" style="background: #1e1b4b;"></span>
+                                    <span class="theme-dot" style="background: #ec4899;"></span>
+                                    <span class="theme-dot" style="background: #8b5cf6;"></span>
+                                </div>
+                                <div class="theme-title">🎨 Startup Glow</div>
+                                <div class="theme-desc">Rich gradients, glassmorphism cards</div>
+                            </div>
+                            <div class="theme-card" onclick="selectTheme('luxury_gold', this)">
+                                <div class="theme-preview-dots">
+                                    <span class="theme-dot" style="background: #0a0a0a;"></span>
+                                    <span class="theme-dot" style="background: #f59e0b;"></span>
+                                    <span class="theme-dot" style="background: #d97706;"></span>
+                                </div>
+                                <div class="theme-title">👑 Luxury Gold</div>
+                                <div class="theme-desc">Deep black, warm champagne gold</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Generate CTA Button -->
+                    <button type="submit" class="btn-generate" id="btnSubmitGenerate">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span>Generate Full Website Live</span>
+                    </button>
+                </form>
+            </div>
+
+        {% else %}
+            <!-- STATE B: AI Copilot & Iteration Chat -->
+            <div class="sidebar-header">
+                <h2>
+                    <i class="fa-solid fa-robot" style="color: var(--accent);"></i> AI Copilot
+                </h2>
+                <button onclick="toggleInitialForm()" class="btn-top btn-top-ghost" style="padding: 4px 10px; font-size: 0.74rem;">
+                    <i class="fa-solid fa-arrows-rotate"></i> Redo
+                </button>
+            </div>
+
+            <div class="sidebar-body" id="copilotScrollArea">
+                <!-- Chat Log -->
+                <div class="chat-feed" id="chatFeed">
+                    <div class="chat-bubble ai">
+                        <strong>AI Assistant:</strong> I've generated your initial responsive website for <strong>{{ project.business_name }}</strong>! What adjustments or enhancements would you like to make?
+                    </div>
+                </div>
+
+                <!-- Quick Action Chips -->
+                <div class="quick-pills-title">
+                    <i class="fa-solid fa-wand-magic"></i> Quick AI Enhancements
+                </div>
+                <div class="quick-pills">
+                    <button class="pill-btn" onclick="submitQuickEdit('Add a modern 3-column customer testimonials section with 5-star ratings and avatars')">
+                        ⭐️ + Testimonials
+                    </button>
+                    <button class="pill-btn" onclick="submitQuickEdit('Add a dynamic pricing table with 3 tiers (Starter, Pro, Enterprise) with CTA buttons')">
+                        💳 + Pricing Table
+                    </button>
+                    <button class="pill-btn" onclick="submitQuickEdit('Make the hero headline much punchier and add high-converting interactive CTA buttons')">
+                        ⚡️ Punchier Hero
+                    </button>
+                    <button class="pill-btn" onclick="submitQuickEdit('Add an interactive FAQ accordion section with 5 common questions and answers')">
+                        ❓ + FAQ Accordion
+                    </button>
+                    <button class="pill-btn" onclick="submitQuickEdit('Add a functional lead capture contact form with Name, Phone, and Message fields')">
+                        📬 + Lead Contact Form
+                    </button>
+                    <button class="pill-btn" onclick="submitQuickEdit('Change color scheme to high-contrast emerald green accents with sleek dark background')">
+                        🌿 Emerald Theme
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chat Prompt Dock -->
+            <div class="sidebar-dock">
+                <form id="copilotForm" onsubmit="handleCopilotSubmit(event)" class="dock-input-wrap">
+                    <input type="text" id="copilotPrompt" class="dock-input" placeholder="Ask AI: 'Change hero image', 'Add WhatsApp button'..." required autocomplete="off">
+                    <button type="submit" class="dock-btn" id="btnSendPrompt" title="Send to AI">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+        {% endif %}
+
+    </aside>
+
+    <!-- ── Right Interactive Canvas ── -->
+    <main class="studio-canvas">
+
+        <!-- Inline Click-to-Edit Active Banner -->
+        <div class="inline-edit-banner" id="inlineEditBanner">
+            <i class="fa-solid fa-pen-fancy"></i> Click any text inside the website to edit directly. Click "Save Changes" when done.
+        </div>
+
+        <!-- Virtual Browser Window Mockup -->
+        <div class="browser-mockup" id="browserMockup">
+            <div class="browser-header">
+                <div class="browser-dots">
+                    <span class="dot-circle dot-red"></span>
+                    <span class="dot-circle dot-yellow"></span>
+                    <span class="dot-circle dot-green"></span>
+                </div>
+
+                <!-- Center Address Bar -->
+                <div class="browser-address-bar">
+                    <i class="fa-solid fa-lock"></i>
+                    <span>https://{{ domain }}/</span>
+                    <button class="browser-tool-btn" onclick="refreshFrame()" title="Reload Preview" style="margin-left: 6px; padding: 0 4px;">
+                        <i class="fa-solid fa-rotate-right"></i>
+                    </button>
+                </div>
+
+                <!-- Right: Mode Switcher Preview vs Code -->
+                <div class="canvas-mode-switch">
+                    <button class="mode-btn active" id="btnModePreview" onclick="setCanvasMode('preview')">
+                        <i class="fa-solid fa-eye"></i> Preview
+                    </button>
+                    <button class="mode-btn" id="btnModeCode" onclick="setCanvasMode('code')">
+                        <i class="fa-solid fa-code"></i> Code
+                    </button>
+                </div>
+            </div>
+
+            <!-- Live Site Iframe View -->
+            <div class="preview-wrapper" id="previewWrapper">
+                <iframe id="sitePreviewFrame" sandbox="allow-scripts allow-forms allow-same-origin"></iframe>
+            </div>
+
+            <!-- Interactive Code Editor View -->
+            <div class="code-editor-view" id="codeWrapper" style="display: none;">
+                <div class="code-editor-header">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div class="file-tab">
+                            <i class="fa-brands fa-html5 text-danger"></i>
+                            <span>index.html</span>
+                            <span class="file-badge">HTML5 / Tailwind</span>
+                        </div>
+                        <span class="editor-dirty-badge" id="editorDirtyState">
+                            <i class="fa-solid fa-circle" style="color: var(--emerald); font-size: 7px;"></i> Synced
+                        </span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <button class="btn-save-code" onclick="saveAndApplyCode()" title="Save changes and apply directly to Live Preview (Ctrl+S / Cmd+S)">
+                            <i class="fa-solid fa-floppy-disk"></i> Save & Apply Changes
+                        </button>
+                        <button class="copy-code-btn" onclick="formatCode()" title="Format & Beautify HTML">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Format
+                        </button>
+                        <button class="copy-code-btn" onclick="copyCurrentCode()" title="Copy entire HTML code">
+                            <i class="fa-solid fa-copy"></i> Copy
+                        </button>
+                    </div>
+                </div>
+                <div id="aceEditorContainer"></div>
+            </div>
+        </div>
+
+        <!-- ── AGENT LIVE EXECUTION TERMINAL OVERLAY ── -->
+        <div class="canvas-loader" id="canvasLoader">
+            <div class="agent-deck-header">
+                <div class="agent-profile">
+                    <div class="agent-avatar">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    </div>
+                    <div>
+                        <div class="agent-name">
+                            VoidPanel Autonomous Web Architect
+                            <span class="agent-status-tag">
+                                <span class="blink"></span> Generating Code Live
+                            </span>
+                        </div>
+                        <div style="font-size: 0.78rem; color: var(--text-2); margin-top: 2px;">
+                            AI Engine • Synthesizing single-page production ready HTML5
+                        </div>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div class="agent-timer" id="agentTimerDisplay">
+                        Elapsed: 00:00s
+                    </div>
+                    <button type="button" class="btn-stop-generation" onclick="stopAndAbortGeneration()" title="Stop Generation & Return">
+                        <i class="fa-solid fa-circle-stop"></i> Stop Generation
+                    </button>
+                </div>
+            </div>
+
+            <div class="agent-deck-body">
+                <!-- Left: Execution Steps -->
+                <div class="agent-steps-card">
+                    <div class="steps-card-title">Agent Execution Plan</div>
+                    
+                    <div class="step-item active" id="step1">
+                        <div class="step-icon"><i class="fa-solid fa-circle-notch"></i></div>
+                        <div>
+                            <div>Synthesize Design Tokens</div>
+                            <div style="font-size: 0.7rem; color: var(--text-3);">Tailwind CDN, fonts & colors</div>
+                        </div>
+                    </div>
+
+                    <div class="step-item" id="step2">
+                        <div class="step-icon"><i class="fa-solid fa-circle"></i></div>
+                        <div>
+                            <div>Architect Sticky Nav & Hero</div>
+                            <div style="font-size: 0.7rem; color: var(--text-3);">Glassmorphic navbar & CTA</div>
+                        </div>
+                    </div>
+
+                    <div class="step-item" id="step3">
+                        <div class="step-icon"><i class="fa-solid fa-circle"></i></div>
+                        <div>
+                            <div>Construct Feature Grid & Proof</div>
+                            <div style="font-size: 0.7rem; color: var(--text-3);">Interactive cards & Unsplash assets</div>
+                        </div>
+                    </div>
+
+                    <div class="step-item" id="step4">
+                        <div class="step-icon"><i class="fa-solid fa-circle"></i></div>
+                        <div>
+                            <div>Embed Live Lead Capture Form</div>
+                            <div style="font-size: 0.7rem; color: var(--text-3);">AJAX submission to VoidPanel DB</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Real-time Streaming Code Window -->
+                <div class="agent-terminal">
+                    <div class="terminal-topbar">
+                        <div class="term-dots">
+                            <span class="term-dot dot-red"></span>
+                            <span class="term-dot dot-yellow"></span>
+                            <span class="term-dot dot-green"></span>
+                        </div>
+                        <div class="term-title">
+                            <i class="fa-brands fa-html5 text-warning"></i>
+                            index.html — Streaming code generation...
+                        </div>
+                        <div style="font-size: 0.7rem; color: var(--emerald);">
+                            <i class="fa-solid fa-circle-check"></i> Connected
+                        </div>
+                    </div>
+                    <div class="term-output" id="terminalLiveStream"><pre id="streamCodeOutput" style="margin: 0; padding: 0; display: inline; font-family: inherit; font-size: inherit; color: inherit; white-space: pre-wrap; word-break: break-all;"></pre><span class="cursor-blink" id="terminalCursor"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── DEPLOY LIVE PROGRESS MODAL ── -->
+        <div class="deploy-modal-backdrop" id="deployLiveModal">
+            <div class="deploy-modal-card">
+                <!-- Modal Header -->
+                <div class="deploy-modal-header">
+                    <div class="deploy-modal-brand">
+                        <div class="deploy-rocket-icon" id="deployHeaderIcon">
+                            <i class="fa-solid fa-rocket"></i>
+                        </div>
+                        <div>
+                            <h3 class="deploy-modal-title" id="deployModalTitle">Deploying Live Website</h3>
+                            <p class="deploy-modal-sub">
+                                Target Domain: <span class="font-mono" style="color: var(--emerald); font-weight: 700;">https://{{ domain }}</span>
+                            </p>
+                        </div>
+                    </div>
+                    <button type="button" class="deploy-close-btn" id="deployCloseBtn" onclick="closeDeployModal()" title="Close Modal" style="display: none;">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- Animated Progress Section -->
+                <div class="deploy-progress-section">
+                    <div class="deploy-progress-labels">
+                        <span class="deploy-stage-label" id="deployStageLabel">
+                            <span class="spinner-inline"></span> Initializing live deployment pipeline...
+                        </span>
+                        <span class="deploy-percent-number" id="deployPercentText">0%</span>
+                    </div>
+                    <div class="deploy-progress-track">
+                        <div class="deploy-progress-fill" id="deployProgressFill" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- Step-by-Step Deployment Checklist -->
+                <div class="deploy-steps-list">
+                    <!-- Step 1 -->
+                    <div class="deploy-step-row active" id="depStep1">
+                        <div class="dep-step-icon" id="depIcon1"><i class="fa-solid fa-circle-notch fa-spin"></i></div>
+                        <div class="dep-step-content">
+                            <div class="dep-step-title">Automated Safety Snapshot</div>
+                            <div class="dep-step-desc">Backup existing /public_html/index.html to .ai_site_backups/</div>
+                        </div>
+                        <div class="dep-step-badge" id="depBadge1">Running</div>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div class="deploy-step-row" id="depStep2">
+                        <div class="dep-step-icon" id="depIcon2"><i class="fa-regular fa-circle"></i></div>
+                        <div class="dep-step-content">
+                            <div class="dep-step-title">Compile Production HTML5 Bundle</div>
+                            <div class="dep-step-desc">Render responsive structure, styling, interactive scripts & SEO meta</div>
+                        </div>
+                        <div class="dep-step-badge" id="depBadge2">Pending</div>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div class="deploy-step-row" id="depStep3">
+                        <div class="dep-step-icon" id="depIcon3"><i class="fa-regular fa-circle"></i></div>
+                        <div class="dep-step-content">
+                            <div class="dep-step-title">Sync Web Document Root</div>
+                            <div class="dep-step-desc">Stream index.html to public_html with 644 Linux permissions</div>
+                        </div>
+                        <div class="dep-step-badge" id="depBadge3">Pending</div>
+                    </div>
+
+                    <!-- Step 4 -->
+                    <div class="deploy-step-row" id="depStep4">
+                        <div class="dep-step-icon" id="depIcon4"><i class="fa-regular fa-circle"></i></div>
+                        <div class="dep-step-content">
+                            <div class="dep-step-title">Web Server Routing & Health Check</div>
+                            <div class="dep-step-desc">Verify Nginx virtual host HTTP 200 response & instant propagation</div>
+                        </div>
+                        <div class="dep-step-badge" id="depBadge4">Pending</div>
+                    </div>
+                </div>
+
+                <!-- Server Diagnostic Info Bar -->
+                <div class="deploy-meta-bar">
+                    <span><i class="fa-solid fa-server" style="color: var(--accent);"></i> Web Root: <code class="font-mono">/home/.../public_html/index.html</code></span>
+                    <span id="deployTimerDisplay"><i class="fa-regular fa-clock"></i> 0.0s elapsed</span>
+                </div>
+
+                <!-- Success Banner & Actions (Hidden until 100%) -->
+                <div class="deploy-success-card" id="deploySuccessCard" style="display: none;">
+                    <div class="deploy-success-icon">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                    <div class="deploy-success-info">
+                        <h4>Your Website is Live Online!</h4>
+                        <p>Published successfully to public_html with zero downtime.</p>
+                        <div class="deploy-live-url-box">
+                            <a href="https://{{ domain }}" id="deployLiveUrlLink" target="_blank" rel="noopener noreferrer">https://{{ domain }}</a>
+                            <button type="button" class="btn-copy-url" id="btnCopyDeployUrl" onclick="copyLiveUrl()" title="Copy Link">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="deploy-actions-row">
+                        <a href="https://{{ domain }}" id="deployVisitBtn" target="_blank" rel="noopener noreferrer" class="btn-visit-live">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Live Website
+                        </a>
+                        <button type="button" class="btn-done-close" onclick="closeDeployModal()">
+                            Done
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Error Card (Hidden unless error occurs) -->
+                <div class="deploy-error-card" id="deployErrorCard" style="display: none;">
+                    <div class="deploy-error-header">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span id="deployErrorMessage">Deployment failed.</span>
+                    </div>
+                    <div class="deploy-actions-row" style="margin-top: 14px;">
+                        <button type="button" class="btn-visit-live" style="background: #ef4444;" onclick="publishLive()">
+                            <i class="fa-solid fa-rotate-right"></i> Retry Deployment
+                        </button>
+                        <button type="button" class="btn-done-close" onclick="closeDeployModal()">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+<!-- Prism.js Syntax Highlighting Script -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markup.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+
+<script>
+    // Safe toastr fallback
+    if (typeof toastr === 'undefined') {
+        window.toastr = {
+            info: function(m) { console.log('[INFO]', m); },
+            success: function(m) { console.log('[SUCCESS]', m); },
+            error: function(m) { console.error('[ERROR]', m); alert(m); },
+            warning: function(m) { console.warn('[WARNING]', m); }
+        };
+    }
+
+    // Global state
+    const DOMAIN_NAME = "{{ domain }}";
+    let CURRENT_PROJECT_ID = {% if project %}{{ project.id }}{% else %}null{% endif %};
+    let CURRENT_HTML = `{% if project and project.current_html %}{{ project.current_html|escapejs }}{% endif %}`;
+    let isInlineEditing = false;
+    let currentCanvasMode = 'preview'; // 'preview' or 'code'
+    let aceEditor = null;
+
+    // Initialize Ace Code Editor
+    function initAceEditor() {
+        if (aceEditor) return;
+        const container = document.getElementById('aceEditorContainer');
+        if (!container || !window.ace) return;
+
+        aceEditor = ace.edit("aceEditorContainer");
+        aceEditor.setTheme("ace/theme/tomorrow_night");
+        aceEditor.session.setMode("ace/mode/html");
+        aceEditor.setOptions({
+            fontSize: "13px",
+            fontFamily: "JetBrains Mono, monospace",
+            wrap: true,
+            showPrintMargin: false,
+            tabSize: 2,
+            useSoftTabs: true,
+            highlightActiveLine: true,
+            behavioursEnabled: true
+        });
+
+        // Set initial code if available
+        if (CURRENT_HTML) {
+            aceEditor.setValue(CURRENT_HTML, -1);
+        }
+
+        // Shortcut: Cmd+S / Ctrl+S to save and apply
+        aceEditor.commands.addCommand({
+            name: 'saveAndApply',
+            bindKey: {win: 'Ctrl-S', mac: 'Command-S'},
+            exec: function(editor) {
+                saveAndApplyCode();
+            }
+        });
+
+        // Track unsaved modifications
+        aceEditor.session.on('change', function() {
+            const currentVal = aceEditor.getValue();
+            const dirtyBadge = document.getElementById('editorDirtyState');
+            if (dirtyBadge) {
+                if (currentVal !== CURRENT_HTML) {
+                    dirtyBadge.innerHTML = '<i class="fa-solid fa-circle" style="color: var(--amber); font-size: 7px;"></i> Unsaved changes';
+                    dirtyBadge.style.color = 'var(--amber)';
+                } else {
+                    dirtyBadge.innerHTML = '<i class="fa-solid fa-circle" style="color: var(--emerald); font-size: 7px;"></i> Synced';
+                    dirtyBadge.style.color = 'var(--emerald)';
+                }
+            }
+        });
+    }
+
+    // Load initial HTML into preview if present, or render blueprint placeholder
+    window.addEventListener('DOMContentLoaded', () => {
+        initAceEditor();
+        if (CURRENT_HTML) {
+            renderHtmlToFrame(CURRENT_HTML);
+        } else {
+            renderInteractivePlaceholder();
+        }
+    });
+
+    function renderHtmlToFrame(html) {
+        const frame = document.getElementById('sitePreviewFrame');
+        frame.srcdoc = html;
+        CURRENT_HTML = html;
+        if (aceEditor && aceEditor.getValue() !== html) {
+            aceEditor.setValue(html || '', -1);
+            const dirtyBadge = document.getElementById('editorDirtyState');
+            if (dirtyBadge) {
+                dirtyBadge.innerHTML = '<i class="fa-solid fa-circle" style="color: var(--emerald); font-size: 7px;"></i> Synced';
+                dirtyBadge.style.color = 'var(--emerald)';
+            }
+        }
+    }
+
+    // Save and Apply edits made in Ace Editor directly to Live Preview & DB
+    function saveAndApplyCode() {
+        if (!aceEditor) return;
+        const newHtml = aceEditor.getValue().trim();
+        if (!newHtml) {
+            toastr.warning('Code is empty.');
+            return;
+        }
+
+        CURRENT_HTML = newHtml;
+        const frame = document.getElementById('sitePreviewFrame');
+        frame.srcdoc = newHtml;
+
+        const dirtyBadge = document.getElementById('editorDirtyState');
+        if (dirtyBadge) {
+            dirtyBadge.innerHTML = '<i class="fa-solid fa-circle" style="color: var(--emerald); font-size: 7px;"></i> Applied & Synced';
+            dirtyBadge.style.color = 'var(--emerald)';
+        }
+
+        toastr.success('Code applied to Live Preview!');
+
+        // Save permanently to version history if project exists
+        if (CURRENT_PROJECT_ID) {
+            const btn = document.querySelector('.btn-save-code');
+            if (btn) btn.disabled = true;
+
+            $.ajax({
+                url: '/control/api/ai-builder/save-code/',
+                type: 'POST',
+                contentType: 'application/json',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+                data: JSON.stringify({
+                    project_id: CURRENT_PROJECT_ID,
+                    html: newHtml
+                }),
+                success: function(resp) {
+                    if (btn) btn.disabled = false;
+                    if (resp.status === 'success') {
+                        toastr.info(`Saved to Version History (v${resp.version})`);
+                        const sel = document.getElementById('revisionSelector');
+                        if (sel) {
+                            const opt = document.createElement('option');
+                            opt.value = resp.version;
+                            opt.text = `Current (v${resp.version})`;
+                            sel.add(opt, 0);
+                            sel.value = resp.version;
+                        }
+                    }
+                },
+                error: function() {
+                    if (btn) btn.disabled = false;
+                }
+            });
+        }
+    }
+
+    // Auto-Format / Beautify HTML
+    function formatCode() {
+        if (!aceEditor) return;
+        const raw = aceEditor.getValue();
+        if (!raw) return;
+
+        if (window.html_beautify) {
+            const formatted = html_beautify(raw, {
+                indent_size: 2,
+                indent_char: ' ',
+                max_preserve_newlines: 1,
+                preserve_newlines: true,
+                wrap_line_length: 120
+            });
+            aceEditor.setValue(formatted, -1);
+            toastr.info('HTML formatted!');
+        } else {
+            toastr.info('Code ready.');
+        }
+    }
+
+    // Toggle Preview vs Code view
+    function setCanvasMode(mode) {
+        currentCanvasMode = mode;
+        const prevWrap = document.getElementById('previewWrapper');
+        const codeWrap = document.getElementById('codeWrapper');
+        const btnPrev = document.getElementById('btnModePreview');
+        const btnModeCode = document.getElementById('btnModeCode');
+
+        if (mode === 'code') {
+            prevWrap.style.display = 'none';
+            codeWrap.style.display = 'flex';
+            btnPrev.classList.remove('active');
+            btnModeCode.classList.add('active');
+
+            if (!aceEditor) initAceEditor();
+            if (CURRENT_HTML && (!aceEditor.getValue() || aceEditor.getValue() !== CURRENT_HTML)) {
+                aceEditor.setValue(CURRENT_HTML, -1);
+            }
+            if (aceEditor) {
+                aceEditor.resize();
+                aceEditor.focus();
+            }
+        } else {
+            // Auto-sync code edits to live preview if changed
+            if (aceEditor) {
+                const editedHtml = aceEditor.getValue().trim();
+                if (editedHtml && editedHtml !== CURRENT_HTML) {
+                    CURRENT_HTML = editedHtml;
+                    document.getElementById('sitePreviewFrame').srcdoc = CURRENT_HTML;
+                    toastr.info('Preview updated with code changes');
+                }
+            }
+            codeWrap.style.display = 'none';
+            prevWrap.style.display = 'flex';
+            btnModeCode.classList.remove('active');
+            btnPrev.classList.add('active');
+        }
+    }
+
+    function copyCurrentCode() {
+        const textToCopy = aceEditor ? aceEditor.getValue() : CURRENT_HTML;
+        if (!textToCopy) {
+            toastr.error('No code available to copy.');
+            return;
+        }
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            toastr.success('Code copied to clipboard!');
+        }).catch(() => {
+            toastr.error('Could not copy code.');
+        });
+    }
+
+    function refreshFrame() {
+        if (CURRENT_HTML) {
+            renderHtmlToFrame(CURRENT_HTML);
+            toastr.info('Preview refreshed');
+        } else {
+            renderInteractivePlaceholder();
+        }
+    }
+
+    // Interactive Blueprint Placeholder for State A
+    function renderInteractivePlaceholder() {
+        const placeholder = `
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <script src="https://cdn.tailwindcss.com"><\/script>
+                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+                <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+                <style>
+                    body { font-family: 'Plus Jakarta Sans', sans-serif; background: #070913; color: #f8fafc; overflow-x: hidden; }
+                    .glow-card { background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(255, 255, 255, 0.08); backdrop-filter: blur(12px); }
+                    .shimmer-bar { background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 100%); background-size: 200% 100%; animation: shimmer 2.2s infinite; }
+                    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+                </style>
+            </head>
+            <body class="min-h-screen flex flex-col justify-between p-6 sm:p-12 relative select-none">
+                <!-- Ambient Glow Background -->
+                <div class="absolute -top-24 -left-24 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="absolute top-1/2 -right-24 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                <!-- Skeleton Header Wireframe -->
+                <div class="w-full flex items-center justify-between py-3 px-6 rounded-2xl glow-card mb-8">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-indigo-600/30 flex items-center justify-center text-indigo-400 font-bold text-sm">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        </div>
+                        <div class="h-4 w-28 rounded-md shimmer-bar"></div>
+                    </div>
+                    <div class="hidden sm:flex items-center gap-6">
+                        <div class="h-3 w-16 rounded shimmer-bar"></div>
+                        <div class="h-3 w-16 rounded shimmer-bar"></div>
+                        <div class="h-3 w-16 rounded shimmer-bar"></div>
+                    </div>
+                    <div class="h-8 w-28 rounded-lg bg-indigo-500/20 border border-indigo-500/30"></div>
+                </div>
+
+                <!-- Center Blueprint Content -->
+                <div class="max-w-3xl mx-auto text-center my-auto py-8">
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold mb-6">
+                        <span class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
+                        VoidPanel Autonomous Web Architect
+                    </div>
+
+                    <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4 leading-tight">
+                        Your high-converting website <br>
+                        <span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-300 to-cyan-400">
+                            generated in seconds
+                        </span>
+                    </h1>
+
+                    <p class="text-slate-400 text-sm sm:text-base max-w-xl mx-auto mb-10 leading-relaxed">
+                        Fill in your business details on the left, or click a 1-click starter preset to architect full responsive HTML5, Tailwind design, and live lead capture.
+                    </p>
+
+                    <!-- Mock Skeleton Feature Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left mb-8">
+                        <div class="p-5 rounded-xl glow-card">
+                            <div class="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400 text-lg mb-3">
+                                <i class="fa-solid fa-mobile-screen"></i>
+                            </div>
+                            <h3 class="text-white text-sm font-bold mb-1">100% Responsive</h3>
+                            <p class="text-xs text-slate-400">Optimized for phones, tablets & retina desktop monitors.</p>
+                        </div>
+                        <div class="p-5 rounded-xl glow-card">
+                            <div class="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-lg mb-3">
+                                <i class="fa-solid fa-bolt"></i>
+                            </div>
+                            <h3 class="text-white text-sm font-bold mb-1">Ultra-Fast CDN</h3>
+                            <p class="text-xs text-slate-400">Tailwind CSS, Font Awesome 6, and Google Fonts loaded globally.</p>
+                        </div>
+                        <div class="p-5 rounded-xl glow-card">
+                            <div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-lg mb-3">
+                                <i class="fa-solid fa-inbox"></i>
+                            </div>
+                            <h3 class="text-white text-sm font-bold mb-1">Built-in Leads</h3>
+                            <p class="text-xs text-slate-400">Contact forms automatically save visitor inquiries to your panel.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Status -->
+                <div class="text-center text-xs text-slate-500 py-2">
+                    Ready to generate for <strong class="text-slate-300">{{ domain }}</strong> • Click <em>Generate Full Website Live</em> to begin.
+                </div>
+            </body>
+            </html>
+        `;
+        renderHtmlToFrame(placeholder);
+    }
+
+    // 1-Click Starter Presets
+    const STARTER_PRESETS = {
+        voidpanel: {
+            name: "Voidpanel",
+            cat: "Tech & SaaS",
+            desc: "I wanted a website showcasing as the Best Server Control Panel Voidpanel. Give reference of Voidpanel.com with high-speed hosting, AI site builder, automated backups, and 99.99% uptime.",
+            theme: "modern_dark"
+        },
+        coaching: {
+            name: "RKM Classes",
+            cat: "Education & Coaching",
+            desc: "Premier coaching institute for Class 9-12 Science & Commerce. Dedicated batches for Physics, Chemistry, Maths & Biology with top faculty, proven board results, study materials, and free demo classes.",
+            theme: "modern_dark"
+        },
+        saas: {
+            name: "Apex Cloud Solutions",
+            cat: "Tech & SaaS",
+            desc: "High-performance cloud management and edge deployment platform for developers. Includes 99.99% SLA uptime, automated SSL, global container orchestration, and 24/7 technical support.",
+            theme: "modern_dark"
+        },
+        agency: {
+            name: "Vanguard Creative Labs",
+            cat: "Digital Agency",
+            desc: "Full-service digital agency specializing in premium web design, SEO ranking, conversion rate optimization, and brand identity for high-growth businesses and enterprises.",
+            theme: "vibrant_startup"
+        }
+    };
+
+    function applyPreset(type) {
+        const p = STARTER_PRESETS[type];
+        if (!p) return;
+        document.getElementById('bizName').value = p.name;
+        document.getElementById('bizDescription').value = p.desc;
+
+        // Set Category
+        document.querySelectorAll('.category-chips .chip').forEach(c => {
+            if (c.innerText.includes(p.cat.split(' ')[0])) {
+                c.classList.add('active');
+            } else {
+                c.classList.remove('active');
+            }
+        });
+        document.getElementById('bizCategory').value = p.cat;
+
+        // Set Theme
+        document.querySelectorAll('.theme-grid .theme-card').forEach(t => {
+            if (t.getAttribute('onclick').includes(p.theme)) {
+                t.classList.add('active');
+            } else {
+                t.classList.remove('active');
+            }
+        });
+        document.getElementById('selectedTheme').value = p.theme;
+
+        toastr.info(`Applied ${p.name} preset!`);
+    }
+
+    // Category Selector
+    function selectCategory(cat, el) {
+        document.querySelectorAll('.category-chips .chip').forEach(c => c.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById('bizCategory').value = cat;
+    }
+
+    // Theme Selector
+    function selectTheme(theme, el) {
+        document.querySelectorAll('.theme-grid .theme-card').forEach(c => c.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById('selectedTheme').value = theme;
+    }
+
+    // Device Switcher
+    function setDevice(device, btn) {
+        document.querySelectorAll('.device-switcher-pill .dev-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const mockup = document.getElementById('browserMockup');
+        mockup.className = 'browser-mockup ' + (device === 'desktop' ? '' : device);
+    }
+
+    // ── LIVE STREAMING CODE TERMINAL SIMULATOR ──
+    let timerInterval = null;
+    let streamInterval = null;
+    let stepCheckInterval = null;
+    let elapsedSeconds = 0;
+
+    function startAgentTerminal(bizName, category) {
+        const loader = document.getElementById('canvasLoader');
+        const term = document.getElementById('terminalLiveStream');
+        const streamPre = document.getElementById('streamCodeOutput');
+        const timerDisplay = document.getElementById('agentTimerDisplay');
+        
+        loader.classList.add('active');
+        if (streamPre) streamPre.textContent = '';
+        elapsedSeconds = 0;
+        if (timerDisplay) timerDisplay.innerText = "Elapsed: 00:00s";
+
+        // Reset Steps
+        ['step1', 'step2', 'step3', 'step4'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.className = 'step-item';
+                const icon = el.querySelector('.step-icon');
+                if (icon) icon.innerHTML = '<i class="fa-solid fa-circle"></i>';
+            }
+        });
+        const s1 = document.getElementById('step1');
+        if (s1) {
+            s1.className = 'step-item active';
+            const icon = s1.querySelector('.step-icon');
+            if (icon) icon.innerHTML = '<i class="fa-solid fa-circle-notch"></i>';
+        }
+
+        // Timer
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            elapsedSeconds++;
+            const mm = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0');
+            const ss = String(elapsedSeconds % 60).padStart(2, '0');
+            if (timerDisplay) timerDisplay.innerText = `Elapsed: ${mm}:${ss}s`;
+        }, 1000);
+
+        // Step Progression
+        if (stepCheckInterval) clearInterval(stepCheckInterval);
+        stepCheckInterval = setInterval(() => {
+            if (elapsedSeconds >= 3 && document.getElementById('step1')?.classList.contains('active')) {
+                document.getElementById('step1').className = 'step-item done';
+                document.getElementById('step1').querySelector('.step-icon').innerHTML = '<i class="fa-solid fa-check"></i>';
+                document.getElementById('step2').className = 'step-item active';
+                document.getElementById('step2').querySelector('.step-icon').innerHTML = '<i class="fa-solid fa-circle-notch"></i>';
+            }
+            if (elapsedSeconds >= 7 && document.getElementById('step2')?.classList.contains('active')) {
+                document.getElementById('step2').className = 'step-item done';
+                document.getElementById('step2').querySelector('.step-icon').innerHTML = '<i class="fa-solid fa-check"></i>';
+                document.getElementById('step3').className = 'step-item active';
+                document.getElementById('step3').querySelector('.step-icon').innerHTML = '<i class="fa-solid fa-circle-notch"></i>';
+            }
+            if (elapsedSeconds >= 12 && document.getElementById('step3')?.classList.contains('active')) {
+                document.getElementById('step3').className = 'step-item done';
+                document.getElementById('step3').querySelector('.step-icon').innerHTML = '<i class="fa-solid fa-check"></i>';
+                document.getElementById('step4').className = 'step-item active';
+                document.getElementById('step4').querySelector('.step-icon').innerHTML = '<i class="fa-solid fa-circle-notch"></i>';
+            }
+        }, 1000);
+
+        // Realistic High-Speed Code Stream Generator
+        const brand = bizName || 'VoidPanel';
+        const cat = category || 'Web Services';
+        const codeLines = [
+            '<!DOCTYPE html>',
+            '<html lang="en" class="scroll-smooth">',
+            '<head>',
+            '  <meta charset="UTF-8">',
+            '  <meta name="viewport" content="width=device-width, initial-scale=1.0">',
+            `  <title>${brand} — Elite ${cat} Solutions</title>`,
+            '  <!-- CDN Integrations: Tailwind CSS & Font Awesome -->',
+            '  <script src="https://cdn.tailwindcss.com"><' + '/script>',
+            '  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">',
+            '  <link rel="preconnect" href="https://fonts.googleapis.com">',
+            '  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap" rel="stylesheet">',
+            '  <style>',
+            '    body { font-family: "Plus Jakarta Sans", sans-serif; background: #070913; color: #f8fafc; }',
+            '    .glass-card { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }',
+            '    .gold-gradient { background: linear-gradient(135deg, #f59e0b, #fbbf24, #d97706); }',
+            '  </style>',
+            '</head>',
+            '<body class="min-h-screen antialiased selection:bg-amber-500 selection:text-black">',
+            '  <!-- Navigation Bar -->',
+            '  <header class="fixed top-0 w-full z-50 backdrop-blur-xl bg-slate-900/80 border-b border-white/10">',
+            '    <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">',
+            `      <div class="flex items-center gap-3">`,
+            `        <div class="w-10 h-10 rounded-xl gold-gradient flex items-center justify-center font-black text-black text-xl shadow-lg shadow-amber-500/20">VP</div>`,
+            `        <span class="text-2xl font-black tracking-tight text-white">${brand}</span>`,
+            '      </div>',
+            '      <nav class="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-300">',
+            '        <a href="#features" class="hover:text-amber-400 transition">Features</a>',
+            '        <a href="#solutions" class="hover:text-amber-400 transition">Solutions</a>',
+            '        <a href="#testimonials" class="hover:text-amber-400 transition">Testimonials</a>',
+            '        <a href="#contact" class="hover:text-amber-400 transition">Contact</a>',
+            '      </nav>',
+            '      <div class="flex items-center gap-4">',
+            '        <a href="#contact" class="px-6 py-2.5 rounded-xl gold-gradient text-black font-extrabold text-sm shadow-xl hover:scale-105 transition">Get Started</a>',
+            '      </div>',
+            '    </div>',
+            '  </header>',
+            '  <!-- Hero Section -->',
+            '  <section class="relative pt-40 pb-28 px-6 max-w-7xl mx-auto text-center overflow-hidden">',
+            '    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold mb-8">',
+            '      <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span> Enterprise Grade Performance',
+            '    </div>',
+            `    <h1 class="text-5xl md:text-7xl font-black tracking-tight mb-8 leading-tight">`,
+            `      Next-Generation <span class="bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-600 bg-clip-text text-transparent">${brand}</span> Control Panel`,
+            '    </h1>',
+            `    <p class="text-slate-400 text-lg md:text-xl max-w-3xl mx-auto mb-12 font-medium">`,
+            '      Autonomous high-speed hosting, instant deployment, 99.99% uptime SLA, and intelligent server management in a unified interface.',
+            '    </p>',
+            '    <div class="flex flex-wrap items-center justify-center gap-4">',
+            '      <a href="#contact" class="px-8 py-4 rounded-xl gold-gradient text-black font-extrabold text-base shadow-2xl hover:shadow-amber-500/20 transition">Deploy Now &rarr;</a>',
+            '      <a href="#features" class="px-8 py-4 rounded-xl bg-slate-800/80 border border-white/10 hover:bg-slate-800 font-bold text-white text-base transition">Explore Architecture</a>',
+            '    </div>',
+            '    <!-- Metrics Counters -->',
+            '    <div class="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto mt-20 pt-12 border-t border-white/10">',
+            '      <div><div class="text-3xl md:text-4xl font-extrabold text-white">99.99%</div><div class="text-xs uppercase tracking-wider text-slate-400 mt-1 font-semibold">Uptime SLA</div></div>',
+            '      <div><div class="text-3xl md:text-4xl font-extrabold text-amber-400">10x</div><div class="text-xs uppercase tracking-wider text-slate-400 mt-1 font-semibold">Faster Provisioning</div></div>',
+            '      <div><div class="text-3xl md:text-4xl font-extrabold text-white">50K+</div><div class="text-xs uppercase tracking-wider text-slate-400 mt-1 font-semibold">Active Deployments</div></div>',
+            '      <div><div class="text-3xl md:text-4xl font-extrabold text-amber-400">&lt;2ms</div><div class="text-xs uppercase tracking-wider text-slate-400 mt-1 font-semibold">Sub-Network Latency</div></div>',
+            '    </div>',
+            '  </section>',
+            '  <!-- Core Architecture Grid -->',
+            '  <section id="features" class="py-24 px-6 max-w-7xl mx-auto">',
+            '    <div class="text-center mb-16">',
+            '      <h2 class="text-3xl md:text-5xl font-black text-white mb-4">Engineered for Unmatched Velocity</h2>',
+            '      <p class="text-slate-400 max-w-2xl mx-auto text-base">Full-stack server autonomy built from the ground up for modern developer operations.</p>',
+            '    </div>',
+            '    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">',
+            '      <div class="glass-card p-8 rounded-3xl hover:-translate-y-2 transition duration-300">',
+            '        <div class="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-2xl mb-6"><i class="fa-solid fa-server"></i></div>',
+            '        <h3 class="text-xl font-bold text-white mb-3">High-Speed Stack</h3>',
+            '        <p class="text-slate-400 text-sm leading-relaxed">Integrated Nginx, OpenLiteSpeed, Redis caching, and HTTP/3 QUIC out of the box.</p>',
+            '      </div>',
+            '      <div class="glass-card p-8 rounded-3xl hover:-translate-y-2 transition duration-300">',
+            '        <div class="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-2xl mb-6"><i class="fa-solid fa-shield-halved"></i></div>',
+            '        <h3 class="text-xl font-bold text-white mb-3">Automated Backups</h3>',
+            '        <p class="text-slate-400 text-sm leading-relaxed">Point-in-time multi-cloud snapshot replication with 1-click restore functionality.</p>',
+            '      </div>',
+            '      <div class="glass-card p-8 rounded-3xl hover:-translate-y-2 transition duration-300">',
+            '        <div class="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-2xl mb-6"><i class="fa-solid fa-robot"></i></div>',
+            '        <h3 class="text-xl font-bold text-white mb-3">Autonomous AI Architect</h3>',
+            '        <p class="text-slate-400 text-sm leading-relaxed">Generate, refine, and deploy full responsive web applications directly on your domain.</p>',
+            '      </div>',
+            '    </div>',
+            '  </section>',
+            '  <!-- Lead Capture Contact Form -->',
+            '  <section id="contact" class="py-24 px-6 max-w-3xl mx-auto">',
+            '    <div class="glass-card p-10 md:p-14 rounded-3xl text-center">',
+            '      <h2 class="text-3xl md:text-4xl font-extrabold text-white mb-4">Get Started with VoidPanel</h2>',
+            '      <p class="text-slate-400 text-sm mb-8">Deploy your high-speed hosting infrastructure in under 60 seconds.</p>',
+            '      <form class="space-y-4 text-left" onsubmit="event.preventDefault(); alert(\'Inquiry received!\');">',
+            '        <input type="text" placeholder="Full Name" required class="w-full bg-slate-800/80 rounded-xl px-5 py-3.5 border border-white/10 text-white focus:outline-none focus:border-amber-400">',
+            '        <input type="email" placeholder="Email Address" required class="w-full bg-slate-800/80 rounded-xl px-5 py-3.5 border border-white/10 text-white focus:outline-none focus:border-amber-400">',
+            '        <textarea placeholder="Tell us about your infrastructure requirements..." rows="3" class="w-full bg-slate-800/80 rounded-xl px-5 py-3.5 border border-white/10 text-white focus:outline-none focus:border-amber-400"></textarea>',
+            '        <button type="submit" class="w-full py-4 rounded-xl gold-gradient text-black font-extrabold text-base shadow-xl hover:scale-[1.01] transition">Claim Your Instance &rarr;</button>',
+            '      </form>',
+            '    </div>',
+            '  </section>',
+            '</body>',
+            '</html>'
+        ];
+
+        let lineIdx = 0;
+        if (streamInterval) clearInterval(streamInterval);
+        streamInterval = setInterval(() => {
+            if (lineIdx < codeLines.length) {
+                if (streamPre) {
+                    streamPre.textContent += codeLines[lineIdx] + '\n';
+                    term.scrollTop = term.scrollHeight;
+                }
+                lineIdx++;
+            } else {
+                // Keep streaming live AI agent thoughts so terminal never freezes while server finalizes
+                const ongoingAgentActions = [
+                    `/* [Agent Phase 2]: Synthesizing high-resolution photography assets for ${cat}... */\n`,
+                    `/* [Agent Phase 3]: Injecting responsive breakpoint rules and mobile navigation toggles... */\n`,
+                    `/* [Agent Phase 4]: Embedding dynamic lead capture form AJAX serialization... */\n`,
+                    `/* [Agent Phase 5]: Compiling Tailwind CSS utilities, typography & glassmorphism filters... */\n`,
+                    `/* [Agent Phase 6]: Validating semantic HTML5 structure & W3C compliance... */\n`,
+                    `/* [Agent Phase 7]: Finalizing production code bundle for ${brand}... */\n`
+                ];
+                const extraIdx = (lineIdx - codeLines.length) % ongoingAgentActions.length;
+                if (streamPre) {
+                    streamPre.textContent += ongoingAgentActions[extraIdx];
+                    term.scrollTop = term.scrollHeight;
+                }
+                lineIdx++;
+            }
+        }, 65);
+    }
+
+    function stopAgentTerminal() {
+        if (timerInterval) clearInterval(timerInterval);
+        if (streamInterval) clearInterval(streamInterval);
+        if (stepCheckInterval) clearInterval(stepCheckInterval);
+        const loader = document.getElementById('canvasLoader');
+        if (loader) loader.classList.remove('active');
+    }
+
+    let activeAjaxRequest = null;
+
+    function setStudioBusy(isBusy) {
+        const input = document.getElementById('copilotPrompt');
+        const sendBtn = document.getElementById('btnSendPrompt');
+        const genBtn = document.getElementById('btnSubmitGenerate');
+        const sidebar = document.querySelector('.studio-sidebar');
+        
+        if (input) input.disabled = isBusy;
+        if (sendBtn) {
+            sendBtn.disabled = isBusy;
+            sendBtn.innerHTML = isBusy ? '<i class="fa-solid fa-spinner fa-spin"></i>' : '<i class="fa-solid fa-paper-plane"></i>';
+        }
+        if (genBtn) genBtn.disabled = isBusy;
+        document.querySelectorAll('.pill-btn').forEach(b => b.disabled = isBusy);
+        
+        if (sidebar) {
+            if (isBusy) sidebar.classList.add('sidebar-busy-disabled');
+            else sidebar.classList.remove('sidebar-busy-disabled');
+        }
+    }
+
+    function stopAndAbortGeneration() {
+        if (activeAjaxRequest) {
+            activeAjaxRequest.abort();
+            activeAjaxRequest = null;
+        }
+        stopAgentTerminal();
+        setStudioBusy(false);
+        toastr.info('AI generation stopped.');
+    }
+
+    // Handle Initial Generation
+    function handleInitialGenerate(e) {
+        e.preventDefault();
+        const bizName = document.getElementById('bizName').value.trim();
+        const category = document.getElementById('bizCategory').value;
+        const desc = document.getElementById('bizDescription').value.trim();
+        const theme = document.getElementById('selectedTheme').value;
+
+        setStudioBusy(true);
+        startAgentTerminal(bizName, category);
+
+        activeAjaxRequest = $.ajax({
+            url: '/control/api/ai-builder/generate/',
+            type: 'POST',
+            contentType: 'application/json',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            data: JSON.stringify({
+                domain: DOMAIN_NAME,
+                business_name: bizName,
+                category: category,
+                description: desc,
+                theme: theme
+            }),
+            timeout: 90000,
+            success: function(resp) {
+                activeAjaxRequest = null;
+                stopAgentTerminal();
+                setStudioBusy(false);
+                if (resp.status === 'success') {
+                    CURRENT_PROJECT_ID = resp.project_id;
+                    renderHtmlToFrame(resp.html);
+                    toastr.success('Website successfully generated!');
+                    setTimeout(() => window.location.reload(), 800);
+                } else {
+                    toastr.error('Generation failed: ' + resp.message);
+                }
+            },
+            error: function(xhr, status) {
+                activeAjaxRequest = null;
+                stopAgentTerminal();
+                setStudioBusy(false);
+                if (status === 'abort') return;
+                const err = xhr.responseJSON ? xhr.responseJSON.message : (xhr.responseText ? xhr.responseText.substring(0, 150) : 'Server error');
+                toastr.error('Generation error: ' + err);
+            }
+        });
+    }
+
+    // Handle Copilot Edit Prompt
+    function handleCopilotSubmit(e) {
+        e.preventDefault();
+        const input = document.getElementById('copilotPrompt');
+        const prompt = input.value.trim();
+        if (!prompt) return;
+        submitCopilotPrompt(prompt);
+        input.value = '';
+    }
+
+    function submitQuickEdit(prompt) {
+        submitCopilotPrompt(prompt);
+    }
+
+    function submitCopilotPrompt(prompt) {
+        if (!CURRENT_PROJECT_ID) {
+            toastr.error('No project active.');
+            return;
+        }
+        if (activeAjaxRequest) {
+            toastr.warning('A request is already running. Click "Stop Generation" to cancel it first.');
+            return;
+        }
+
+        const feed = document.getElementById('chatFeed');
+        const userDiv = document.createElement('div');
+        userDiv.className = 'chat-bubble user';
+        userDiv.innerText = prompt;
+        feed.appendChild(userDiv);
+
+        const scrollArea = document.getElementById('copilotScrollArea');
+        if (scrollArea) scrollArea.scrollTop = scrollArea.scrollHeight;
+
+        setStudioBusy(true);
+        startAgentTerminal("Updating", "Modifications");
+
+        activeAjaxRequest = $.ajax({
+            url: '/control/api/ai-builder/iterate/',
+            type: 'POST',
+            contentType: 'application/json',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            data: JSON.stringify({
+                project_id: CURRENT_PROJECT_ID,
+                prompt: prompt
+            }),
+            timeout: 90000,
+            success: function(resp) {
+                activeAjaxRequest = null;
+                stopAgentTerminal();
+                setStudioBusy(false);
+                if (resp.status === 'success') {
+                    renderHtmlToFrame(resp.html);
+
+                    const aiDiv = document.createElement('div');
+                    aiDiv.className = 'chat-bubble ai';
+                    aiDiv.innerHTML = `<strong>AI Assistant:</strong> Updated to <strong>v${resp.version}</strong> with: <em>"${prompt}"</em>.`;
+                    feed.appendChild(aiDiv);
+                    if (scrollArea) scrollArea.scrollTop = scrollArea.scrollHeight;
+                    toastr.success(`Site updated to v${resp.version}!`);
+
+                    const sel = document.getElementById('revisionSelector');
+                    if (sel) {
+                        const opt = document.createElement('option');
+                        opt.value = resp.version;
+                        opt.text = `Current (v${resp.version})`;
+                        sel.add(opt, 0);
+                        sel.value = resp.version;
+                    }
+                } else {
+                    toastr.error('Update failed: ' + resp.message);
+                }
+            },
+            error: function(xhr, status) {
+                activeAjaxRequest = null;
+                stopAgentTerminal();
+                setStudioBusy(false);
+                if (status === 'abort') return;
+                const err = xhr.responseJSON ? xhr.responseJSON.message : (xhr.responseText ? xhr.responseText.substring(0, 150) : 'Server error');
+                toastr.error('AI Error: ' + err);
+            }
+        });
+    }
+
+    // Instant Revision Switcher (Uses saved revision history from DB, ZERO AI tokens used)
+    function rollbackToRevision(version) {
+        if (!version || !CURRENT_PROJECT_ID) return;
+        
+        const sel = document.getElementById('revisionSelector');
+        if (sel) sel.disabled = true;
+        toastr.info(`Restoring revision v${version} from history...`);
+
+        $.ajax({
+            url: '/control/api/ai-builder/rollback/',
+            type: 'POST',
+            contentType: 'application/json',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            data: JSON.stringify({
+                project_id: CURRENT_PROJECT_ID,
+                version: version
+            }),
+            success: function(resp) {
+                if (sel) sel.disabled = false;
+                if (resp.status === 'success') {
+                    renderHtmlToFrame(resp.html);
+                    toastr.success(`Restored v${version} (Zero AI tokens used)`);
+                } else {
+                    toastr.error(resp.message);
+                }
+            },
+            error: function() {
+                if (sel) sel.disabled = false;
+                toastr.error('Could not switch revision.');
+            }
+        });
+    }
+
+    // ── DEPLOY LIVE PIPELINE WITH INTERACTIVE PROGRESS BAR & MODAL ──
+    let deployTimerInterval = null;
+    let deployProgressInterval = null;
+
+    function closeDeployModal() {
+        const modal = document.getElementById('deployLiveModal');
+        if (modal) modal.classList.remove('active');
+        if (deployTimerInterval) clearInterval(deployTimerInterval);
+        if (deployProgressInterval) clearInterval(deployProgressInterval);
+        const btn = document.getElementById('btnPublishLive');
+        if (btn) btn.disabled = false;
+    }
+
+    function copyLiveUrl() {
+        const link = document.getElementById('deployLiveUrlLink');
+        const url = link ? link.getAttribute('href') : `https://${DOMAIN_NAME}`;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(() => {
+                const btn = document.getElementById('btnCopyDeployUrl');
+                if (btn) {
+                    btn.innerHTML = '<i class="fa-solid fa-check" style="color: var(--emerald);"></i>';
+                    setTimeout(() => { btn.innerHTML = '<i class="fa-regular fa-copy"></i>'; }, 2000);
+                }
+                toastr.success('Live domain URL copied to clipboard!');
+            }).catch(() => {
+                toastr.info(url);
+            });
+        } else {
+            prompt('Copy live website URL:', url);
+        }
+    }
+
+    function publishLive() {
+        if (!CURRENT_PROJECT_ID) {
+            toastr.error('No project generated to deploy.');
+            return;
+        }
+
+        const modal = document.getElementById('deployLiveModal');
+        const progressFill = document.getElementById('deployProgressFill');
+        const percentText = document.getElementById('deployPercentText');
+        const stageLabel = document.getElementById('deployStageLabel');
+        const timerDisplay = document.getElementById('deployTimerDisplay');
+        const successCard = document.getElementById('deploySuccessCard');
+        const errorCard = document.getElementById('deployErrorCard');
+        const closeBtn = document.getElementById('deployCloseBtn');
+        const headerIcon = document.getElementById('deployHeaderIcon');
+        const btnTop = document.getElementById('btnPublishLive');
+
+        if (btnTop) btnTop.disabled = true;
+
+        // Reset modal UI & display
+        if (modal) modal.classList.add('active');
+        if (successCard) successCard.style.display = 'none';
+        if (errorCard) errorCard.style.display = 'none';
+        if (closeBtn) closeBtn.style.display = 'none';
+        if (headerIcon) headerIcon.innerHTML = '<i class="fa-solid fa-rocket"></i>';
+
+        // Step helper
+        const setStep = (num, state, badge) => {
+            const row = document.getElementById(`depStep${num}`);
+            const icon = document.getElementById(`depIcon${num}`);
+            const b = document.getElementById(`depBadge${num}`);
+            if (!row) return;
+
+            row.className = `deploy-step-row ${state}`;
+            if (state === 'active') {
+                if (icon) icon.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+                if (b) { b.textContent = badge || 'Running'; }
+            } else if (state === 'done') {
+                if (icon) icon.innerHTML = '<i class="fa-solid fa-check"></i>';
+                if (b) { b.textContent = badge || 'Done'; }
+            } else if (state === 'error') {
+                if (icon) icon.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+                if (b) { b.textContent = badge || 'Failed'; }
+            } else {
+                if (icon) icon.innerHTML = '<i class="fa-regular fa-circle"></i>';
+                if (b) { b.textContent = badge || 'Pending'; }
+            }
+        };
+
+        setStep(1, 'active', 'Running');
+        setStep(2, 'pending');
+        setStep(3, 'pending');
+        setStep(4, 'pending');
+
+        let currentPercent = 0;
+        const setProgress = (val, text) => {
+            currentPercent = Math.min(100, Math.max(0, val));
+            if (progressFill) progressFill.style.width = `${currentPercent}%`;
+            if (percentText) percentText.textContent = `${Math.round(currentPercent)}%`;
+            if (text && stageLabel) stageLabel.innerHTML = text;
+        };
+
+        setProgress(6, '<span class="spinner-inline"></span> Initializing automated safety snapshot...');
+
+        // Elapsed time counter
+        const startTime = Date.now();
+        if (deployTimerInterval) clearInterval(deployTimerInterval);
+        deployTimerInterval = setInterval(() => {
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+            if (timerDisplay) timerDisplay.innerHTML = `<i class="fa-regular fa-clock"></i> ${elapsed}s elapsed`;
+        }, 100);
+
+        // Simulated smooth multi-stage deployment sequence
+        let serverFinished = false;
+        let serverResult = null;
+        let stageTick = 0;
+
+        if (deployProgressInterval) clearInterval(deployProgressInterval);
+        deployProgressInterval = setInterval(() => {
+            stageTick++;
+
+            if (stageTick === 4) {
+                // Step 1 done -> Step 2 active
+                setStep(1, 'done', 'Backed Up');
+                setStep(2, 'active', 'Compiling');
+                setProgress(32, '<span class="spinner-inline"></span> Compiling single-page production HTML5 bundle...');
+            } else if (stageTick === 9) {
+                // Step 2 done -> Step 3 active
+                setStep(2, 'done', 'Compiled');
+                setStep(3, 'active', 'Writing');
+                setProgress(65, '<span class="spinner-inline"></span> Syncing to document root /public_html & enforcing permissions...');
+            } else if (stageTick === 14) {
+                // Step 3 done -> Step 4 active
+                setStep(3, 'done', 'Written');
+                setStep(4, 'active', 'Verifying');
+                setProgress(88, '<span class="spinner-inline"></span> Verifying web server route & zero-downtime broadcast...');
+            } else if (stageTick > 14 && !serverFinished) {
+                if (currentPercent < 94) {
+                    setProgress(currentPercent + 1, '<span class="spinner-inline"></span> Finalizing domain broadcast...');
+                }
+            }
+
+            // Once the backend returns and we're ready
+            if (serverFinished) {
+                clearInterval(deployProgressInterval);
+                clearInterval(deployTimerInterval);
+
+                if (serverResult && serverResult.status === 'success') {
+                    setStep(1, 'done', 'Backed Up');
+                    setStep(2, 'done', 'Compiled');
+                    setStep(3, 'done', 'Written');
+                    setStep(4, 'done', 'Verified');
+
+                    setProgress(100, '<i class="fa-solid fa-circle-check" style="color: var(--emerald);"></i> Deployment Complete & Verified Live!');
+                    if (headerIcon) headerIcon.innerHTML = '<i class="fa-solid fa-circle-check" style="color: var(--emerald);"></i>';
+
+                    const liveUrl = serverResult.live_url || `https://${DOMAIN_NAME}`;
+                    const linkEl = document.getElementById('deployLiveUrlLink');
+                    const visitBtn = document.getElementById('deployVisitBtn');
+                    if (linkEl) {
+                        linkEl.href = liveUrl;
+                        linkEl.textContent = liveUrl;
+                    }
+                    if (visitBtn) visitBtn.href = liveUrl;
+
+                    if (successCard) successCard.style.display = 'block';
+                    if (closeBtn) closeBtn.style.display = 'flex';
+                    if (btnTop) {
+                        btnTop.disabled = false;
+                        btnTop.innerHTML = '<i class="fa-solid fa-check"></i> Published Live!';
+                        setTimeout(() => {
+                            btnTop.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> 🚀 Publish Live to ' + DOMAIN_NAME;
+                        }, 5000);
+                    }
+                    toastr.success(`🚀 Website successfully published live to ${liveUrl}!`);
+                } else {
+                    const errMsg = (serverResult && serverResult.message) ? serverResult.message : 'Unknown deployment error';
+                    setStep(3, 'error', 'Failed');
+                    setStep(4, 'error', 'Failed');
+                    setProgress(currentPercent, '<i class="fa-solid fa-triangle-exclamation" style="color: var(--rose);"></i> Deployment encountered an issue');
+                    const errEl = document.getElementById('deployErrorMessage');
+                    if (errEl) errEl.textContent = 'Publish failed: ' + errMsg;
+                    if (errorCard) errorCard.style.display = 'block';
+                    if (closeBtn) closeBtn.style.display = 'flex';
+                    if (btnTop) btnTop.disabled = false;
+                    toastr.error('Publish error: ' + errMsg);
+                }
+            }
+        }, 120);
+
+        // Send POST request concurrently
+        fetch('/control/api/ai-builder/publish/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ project_id: CURRENT_PROJECT_ID })
+        })
+        .then(async res => {
+            let data = null;
+            try {
+                data = await res.json();
+            } catch (e) {}
+            if (!res.ok) {
+                const msg = (data && data.message) ? data.message : `Server returned HTTP ${res.status}`;
+                throw new Error(msg);
+            }
+            return data;
+        })
+        .then(data => {
+            serverResult = data;
+            setTimeout(() => {
+                serverFinished = true;
+            }, 750);
+        })
+        .catch(err => {
+            serverResult = { status: 'error', message: err.message || 'Network request failed' };
+            serverFinished = true;
+        });
+    }
+
+    // Click-to-edit inside iframe
+    function toggleInlineEdit() {
+        const frame = document.getElementById('sitePreviewFrame');
+        const btn = document.getElementById('editInlineBtn');
+        const text = document.getElementById('inlineEditText');
+        const banner = document.getElementById('inlineEditBanner');
+        isInlineEditing = !isInlineEditing;
+
+        try {
+            const doc = frame.contentDocument || frame.contentWindow.document;
+            doc.body.contentEditable = isInlineEditing ? "true" : "false";
+
+            if (isInlineEditing) {
+                btn.classList.remove('btn-top-ghost');
+                btn.classList.add('btn-top-publish');
+                text.innerText = 'Save Changes';
+                banner.classList.add('active');
+                toastr.info('Click any text on the website to edit directly. Click "Save Changes" when done.');
+            } else {
+                btn.classList.remove('btn-top-publish');
+                btn.classList.add('btn-top-ghost');
+                text.innerText = 'Click-to-Edit';
+                banner.classList.remove('active');
+                CURRENT_HTML = "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
+                updateCodeInspector(CURRENT_HTML);
+                toastr.success('Inline edits saved in preview!');
+            }
+        } catch (e) {
+            toastr.warning('Inline editing blocked by frame security.');
+        }
+    }
+
+    // Download site HTML
+    function downloadSiteZip() {
+        if (!CURRENT_HTML) {
+            toastr.error('No site content to download.');
+            return;
+        }
+        const blob = new Blob([CURRENT_HTML], { type: 'text/html' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${DOMAIN_NAME}-index.html`;
+        a.click();
+        toastr.success('HTML exported successfully!');
+    }
+</script>
+
+</body>
+</html>

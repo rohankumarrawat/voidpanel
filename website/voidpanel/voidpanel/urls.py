@@ -111,6 +111,8 @@ urlpatterns = [
     path('super-admin/coupons/', views.super_admin_coupons),
     path('super-admin/signals/', views.super_admin_signals),
     path('super-admin/clients/', views.super_admin_clients),
+    path('super-admin/login-as/<int:user_id>/', views.super_admin_login_as_client, name='super_admin_login_as_client'),
+    path('portal/exit-impersonate/', views.exit_impersonate_client, name='exit_impersonate_client'),
     path('super-admin/billing/', views.super_admin_billing),
     path('super-admin/tickets/', views.super_admin_tickets),
     path('super-admin/tickets/<int:ticket_id>/', views.super_admin_ticket_detail),

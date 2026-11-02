@@ -34,19 +34,17 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     _controller.forward();
 
-    // Request notification permissions after first frame is safely rendered
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Request permissions and navigate once accounts are hydrated
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       NotificationService().requestPermissions();
-    });
 
-    Future.delayed(const Duration(milliseconds: 2500), () async {
-      if (!mounted) return;
       try {
         final provider = Provider.of<MailProvider>(context, listen: false);
-        // Give saved accounts a moment to load
-        if (!provider.isLoggedIn) {
-          await Future.delayed(const Duration(milliseconds: 500));
-        }
+        // Wait for saved accounts to load AND minimum 1400ms splash animation
+        await Future.wait([
+          provider.initialized,
+          Future.delayed(const Duration(milliseconds: 1400)),
+        ]);
         if (!mounted) return;
         if (provider.isLoggedIn) {
           Navigator.pushReplacementNamed(context, '/main');
@@ -61,6 +59,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       }
     });
   }
+
 
   @override
   void dispose() {
@@ -94,8 +93,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                           borderRadius: BorderRadius.circular(32),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF6C5CE7).withValues(alpha: 0.18),
-                              blurRadius: 30,
+                              color: const Color(0xFFFF7A00).withValues(alpha: 0.35),
+                              blurRadius: 32,
                               offset: const Offset(0, 12),
                             ),
                           ],
@@ -106,16 +105,16 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                             'assets/icon/google_console_icon.png',
                             width: 120,
                             height: 120,
-                            fit: BoxFit.cover,
+                            fit: BoxFit.contain,
                             errorBuilder: (context, error, stackTrace) {
                               return Image.asset(
                                 'assets/google_console_icon.png',
                                 width: 120,
                                 height: 120,
-                                fit: BoxFit.cover,
+                                fit: BoxFit.contain,
                                 errorBuilder: (context, e2, st2) {
                                   return Container(
-                                    color: const Color(0xFF6366F1),
+                                    color: const Color(0xFFFF7A00),
                                     child: const Icon(Icons.mark_email_unread_rounded, size: 64, color: Colors.white),
                                   );
                                 },
@@ -128,25 +127,27 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
                       // Title
                       Text(
-                        'VoidOnyx Mail',
+                        'VoidMail',
                         style: GoogleFonts.outfit(
-                          fontSize: 32,
+                          fontSize: 34,
                           fontWeight: FontWeight.bold,
                           color: const Color(0xFF0F172A),
                           letterSpacing: -0.5,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
 
                       // Subtitle
                       Text(
-                        'Universal Mobile Email Client',
+                        'by VoidOnyx',
                         style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFF64748B),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFFFF7A00),
                         ),
                       ),
+
+
 
                       const Spacer(),
 

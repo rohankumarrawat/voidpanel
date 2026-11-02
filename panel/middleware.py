@@ -46,42 +46,74 @@ class MarketingTenantMiddleware:
         path = request.path.strip('/')
         parts = path.split('/')
 
-        domain = None
+        # 1. Exempt public tracking pixels and webhooks from auth enforcement
+        is_public_webhook = (
+            (len(parts) >= 4 and parts[0] == 'control' and parts[1] == 'marketing' and parts[3] in ('track', 'webhook'))
+            or (len(parts) >= 3 and parts[0] == 'control' and parts[1] == 'marketing' and parts[2] == 'track')
+            or (len(parts) >= 3 and parts[0] == 'crm' and parts[1] == 'webhook')
+        )
+        if is_public_webhook:
+            return self.get_response(request)
 
-        # 1. Path contains domain directly: control/marketing/<domain>/...
+        # 2. Check if request targets control/marketing/<domain>/...
         if len(parts) >= 3 and parts[0] == 'control' and parts[1] == 'marketing':
             domain = parts[2]
-        # 2. Suite mode: control/suite/... - resolve domain from session
+            django_user = getattr(request, 'user', None)
+            is_django_auth = bool(django_user and getattr(django_user, 'is_authenticated', False))
+            su = request.session.get('suite_user')
+
+            # Scenario A: Logged in via standard Django Panel login
+            if is_django_auth:
+                # Superusers and staff can view any tenant's marketing suite
+                if django_user.is_superuser or getattr(django_user, 'is_staff', False):
+                    pass
+                else:
+                    # Regular hosting user must own the requested domain
+                    from control.models import user as CustomUser
+                    custom_usr = CustomUser.objects.filter(domain__iexact=domain).first()
+                    if not custom_usr or custom_usr.username != django_user.username:
+                        from django.http import HttpResponseForbidden
+                        return HttpResponseForbidden("Access Denied: You do not have permission to manage this domain.")
+
+            # Scenario B: Logged in via Suite Session (SaaS standalone customer)
+            elif su:
+                su_domain = (su.get('hosting_domain') or '').strip().lower()
+                su_email = (su.get('email') or '').strip().lower()
+                from control.models import user as CustomUser
+                custom_usr = CustomUser.objects.filter(domain__iexact=domain).first()
+                if su_domain == domain.lower() or (custom_usr and custom_usr.email and custom_usr.email.lower() == su_email):
+                    from django.contrib.auth import get_user_model
+                    User = get_user_model()
+                    username = f"suite_{su.get('id', 'usr')}"
+                    usr, _ = User.objects.get_or_create(
+                        username=username,
+                        defaults={'email': su_email, 'is_active': True}
+                    )
+                    request.user = usr
+                else:
+                    from django.http import HttpResponseForbidden
+                    return HttpResponseForbidden("Access Denied: You do not own this domain.")
+
+            # Scenario C: Completely unauthenticated public visitor
+            else:
+                # NEVER spoof or fabricate request.user.
+                # Immediately redirect anonymous visitors to the login page.
+                from django.shortcuts import redirect
+                return redirect(f"/?next={request.path}")
+
+        # 3. Suite mode: control/suite/... - resolve user from session if authenticated
         elif len(parts) >= 2 and parts[0] == 'control' and parts[1] == 'suite':
             su = request.session.get('suite_user')
-            if su and su.get('hosting_domain'):
-                domain = su.get('hosting_domain')
-
-        if domain:
-            from control.models import user as CustomUser, SuiteSubscription
-            from django.contrib.auth import get_user_model
-            User = get_user_model()
-            try:
-                # 1. Look up hosting user
-                custom_usr = CustomUser.objects.filter(domain=domain).first()
-                if custom_usr:
-                    owner_user = User.objects.get(username=custom_usr.username)
-                    request.user = owner_user
-                else:
-                    # 2. Look up standalone suite subscription owner
-                    sub = SuiteSubscription.objects.filter(hosting_domain=domain).first()
-                    if not sub:
-                        # Fallback to check prefix matching
-                        sub = SuiteSubscription.objects.filter(email__startswith=domain + '@').first()
-                    if sub:
-                        username = f"suite_{sub.id}"
-                        usr, _ = User.objects.get_or_create(
-                            username=username,
-                            defaults={'email': sub.email, 'is_active': True}
-                        )
-                        request.user = usr
-            except Exception:
-                pass
+            if su:
+                su_email = (su.get('email') or '').strip().lower()
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                username = f"suite_{su.get('id', 'usr')}"
+                usr, _ = User.objects.get_or_create(
+                    username=username,
+                    defaults={'email': su_email, 'is_active': True}
+                )
+                request.user = usr
 
         return self.get_response(request)
 

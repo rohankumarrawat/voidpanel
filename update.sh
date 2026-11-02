@@ -159,7 +159,8 @@ for PHP_FPM_INI in /etc/php/*/fpm/php.ini; do
     if [[ -z "$CURRENT_MEM" || "$CURRENT_MEM" -lt 512 ]]; then
         sed -i 's/^memory_limit = .*/memory_limit = 512M/' "$PHP_FPM_INI"
     fi
-    ok "PHP-FPM ini tuned at $PHP_FPM_INI"
+    sed -i 's/^;\?session\.upload_progress\.enabled.*/session.upload_progress.enabled = Off/' "$PHP_FPM_INI"
+    ok "PHP-FPM ini tuned & hardened at $PHP_FPM_INI"
 done
 # AlmaLinux/RHEL: /etc/php.ini or /etc/php-fpm.d/www.conf
 for PHP_FPM_INI in /etc/php.ini /etc/php/php.ini; do
@@ -172,7 +173,8 @@ for PHP_FPM_INI in /etc/php.ini /etc/php/php.ini; do
     if [[ -z "$CURRENT_MEM" || "$CURRENT_MEM" -lt 512 ]]; then
         sed -i 's/^memory_limit = .*/memory_limit = 512M/' "$PHP_FPM_INI"
     fi
-    ok "PHP ini tuned at $PHP_FPM_INI"
+    sed -i 's/^;\?session\.upload_progress\.enabled.*/session.upload_progress.enabled = Off/' "$PHP_FPM_INI"
+    ok "PHP ini tuned & hardened at $PHP_FPM_INI"
 done
 # Reload PHP-FPM
 for svc in php-fpm php8.1-fpm php8.2-fpm php8.3-fpm php8.0-fpm php7.4-fpm; do

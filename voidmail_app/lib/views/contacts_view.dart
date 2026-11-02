@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+
 import '../providers/mail_provider.dart';
 
 class ContactsView extends StatefulWidget {
@@ -29,16 +29,16 @@ class _ContactsViewState extends State<ContactsView> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        backgroundColor: isDark ? const Color(0xFF1B1638) : Colors.white,
+        backgroundColor: isDark ? const Color(0xFF1C140D) : Colors.white,
         title: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFF6C5CE7).withOpacity(0.1),
+                color: const Color(0xFFFF7A00).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.person_add_rounded, color: Color(0xFF6C5CE7), size: 20),
+              child: const Icon(Icons.person_add_rounded, color: Color(0xFFFF7A00), size: 20),
             ),
             const SizedBox(width: 10),
             Text('Add Contact', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18)),
@@ -52,9 +52,9 @@ class _ContactsViewState extends State<ContactsView> {
               decoration: InputDecoration(
                 hintText: 'Full Name',
                 hintStyle: GoogleFonts.inter(fontSize: 13, color: Colors.grey[400]),
-                prefixIcon: const Icon(Icons.person_rounded, color: Color(0xFF6C5CE7), size: 20),
+                prefixIcon: const Icon(Icons.person_rounded, color: Color(0xFFFF7A00), size: 20),
                 filled: true,
-                fillColor: isDark ? const Color(0xFF16122E) : const Color(0xFFF8F9FE),
+                fillColor: isDark ? const Color(0xFF130D08) : const Color(0xFFFFFBF5),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),
@@ -67,9 +67,9 @@ class _ContactsViewState extends State<ContactsView> {
               decoration: InputDecoration(
                 hintText: 'Email Address',
                 hintStyle: GoogleFonts.inter(fontSize: 13, color: Colors.grey[400]),
-                prefixIcon: const Icon(Icons.email_rounded, color: Color(0xFF6C5CE7), size: 20),
+                prefixIcon: const Icon(Icons.email_rounded, color: Color(0xFFFF7A00), size: 20),
                 filled: true,
-                fillColor: isDark ? const Color(0xFF16122E) : const Color(0xFFF8F9FE),
+                fillColor: isDark ? const Color(0xFF130D08) : const Color(0xFFFFFBF5),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),
@@ -102,7 +102,7 @@ class _ContactsViewState extends State<ContactsView> {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6C5CE7),
+              backgroundColor: const Color(0xFFFF7A00),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             ),
@@ -133,8 +133,7 @@ class _ContactsViewState extends State<ContactsView> {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<MailProvider>(context);
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Merge real IMAP contacts + manually added contacts
     final imapContacts = provider.extractedContacts;
@@ -162,14 +161,13 @@ class _ContactsViewState extends State<ContactsView> {
       return matchesSearch && matchesLetter;
     }).toList();
 
-    final today = DateFormat('EEEE, MMMM d, y').format(DateTime.now());
-
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F0C20) : const Color(0xFFFAFAFC),
+      backgroundColor: isDark ? const Color(0xFF100B07) : const Color(0xFFFAFAFA),
       body: SafeArea(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // Top Bar
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
               child: Row(
@@ -178,9 +176,21 @@ class _ContactsViewState extends State<ContactsView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Contacts', style: GoogleFonts.outfit(fontSize: 26, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF0F172A))),
-                        const SizedBox(height: 2),
-                        Text(today, style: GoogleFonts.inter(fontSize: 12, color: Colors.grey)),
+                        Text(
+                          'Contacts',
+                          style: GoogleFonts.outfit(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : const Color(0xFF1C130D),
+                          ),
+                        ),
+                        Text(
+                          '${filteredContacts.length} people',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: isDark ? Colors.grey[400] : const Color(0xFF6B5E55),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -196,11 +206,11 @@ class _ContactsViewState extends State<ContactsView> {
                     child: Container(
                       width: 40, height: 40,
                       decoration: BoxDecoration(
-                        color: _showSearch ? const Color(0xFF6C5CE7).withOpacity(0.1) : (isDark ? const Color(0xFF1B1638) : Colors.white),
+                        color: _showSearch ? const Color(0xFFFF7A00).withValues(alpha: 0.12) : (isDark ? const Color(0xFF1C140D) : Colors.white),
                         shape: BoxShape.circle,
-                        border: Border.all(color: isDark ? const Color(0xFF2C2554) : const Color(0xFFE2E8F0)),
+                        border: Border.all(color: isDark ? const Color(0xFF2E1F14) : const Color(0xFFE2E8F0)),
                       ),
-                      child: Icon(Icons.search_rounded, color: _showSearch ? const Color(0xFF6C5CE7) : const Color(0xFF475569), size: 20),
+                      child: Icon(Icons.search_rounded, color: _showSearch ? const Color(0xFFFF7A00) : const Color(0xFF475569), size: 20),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -210,9 +220,9 @@ class _ContactsViewState extends State<ContactsView> {
                     child: Container(
                       width: 40, height: 40,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [Color(0xFF6C5CE7), Color(0xFF5A49E3)]),
+                        gradient: const LinearGradient(colors: [Color(0xFFFF7A00), Color(0xFFFF9E3B)]),
                         shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: const Color(0xFF6C5CE7).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))],
+                        boxShadow: [BoxShadow(color: const Color(0xFFFF7A00).withValues(alpha: 0.35), blurRadius: 8, offset: const Offset(0, 2))],
                       ),
                       child: const Icon(Icons.add_rounded, color: Colors.white, size: 22),
                     ),

@@ -1,0 +1,3232 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoidPanel Cloud Deploy — Instant Edge Frontend Platform</title>
+    <meta name="description" content="Deploy React, Next.js, Vue, Astro, and static web apps instantly to VoidPanel Edge with free *.voidpanel.com subdomains and automated SSL.">
+    <meta name="theme-color" content="#f59e0b">
+    <link rel="shortcut icon" href="{% static 'voidpanel/favicon.png' %}" type="image/x-icon" onerror="this.href='/static/fav.png'">
+
+    <!-- Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    
+    <!-- VoidPanel Core Design System -->
+    <link rel="stylesheet" href="{% static 'voidpanel/voidpanel.css' %}?v=2.2">
+
+    <style>
+        :root {
+            /* VoidPanel Light Theme Palette */
+            --ox-bg-canvas: #f8fafc;
+            --ox-bg-subtle: #fefdf9;
+            --ox-bg-white: #ffffff;
+            --ox-border-main: #e2e8f0;
+            --ox-border-light: #edf2f7;
+            --ox-border-amber: rgba(245, 158, 11, 0.4);
+            --ox-text-title: #0f172a;
+            --ox-text-body: #334155;
+            --ox-text-muted: #64748b;
+            --ox-text-faint: #94a3b8;
+            --ox-amber-brand: #f59e0b;
+            --ox-amber-dark: #b45309;
+            --ox-amber-light: #fef3c7;
+            --ox-amber-glow: rgba(245, 158, 11, 0.15);
+            --ox-orange-brand: #ea580c;
+            --ox-emerald-brand: #10b981;
+            --ox-emerald-bg: #ecfdf5;
+            --ox-rose-brand: #f43f5e;
+            --ox-rose-bg: #fff1f2;
+            --ox-grad-brand: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+            --ox-grad-brand-hover: linear-gradient(135deg, #fbbf24 0%, #f97316 100%);
+            --ox-grad-hero: linear-gradient(165deg, #fefdf9 0%, #fff7eb 45%, #ffffff 100%);
+            --ox-shadow-card: 0 4px 20px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
+            --ox-shadow-card-hover: 0 12px 35px rgba(15, 23, 42, 0.09), 0 2px 6px rgba(15, 23, 42, 0.04);
+            --ox-shadow-amber: 0 4px 18px rgba(245, 158, 11, 0.28);
+            --ox-font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
+            --ox-font-body: 'Inter', system-ui, sans-serif;
+            --ox-font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--ox-bg-canvas);
+            color: var(--ox-text-body);
+            font-family: var(--ox-font-body);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(245, 158, 11, 0.08) 0%, transparent 60%),
+                radial-gradient(#e2e8f0 1.2px, transparent 1.2px);
+            background-size: 100% auto, 24px 24px;
+            background-position: top center, 0 0;
+            background-repeat: no-repeat, repeat;
+        }
+
+        /* ── NAVBAR (MATCHING VOIDPANEL.COM) ── */
+        .edge-nav {
+            position: sticky;
+            top: 0;
+            z-index: 999;
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--ox-border-main);
+            padding: 0 32px;
+            height: 66px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+        }
+        .nav-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--ox-text-title);
+        }
+        .nav-brand-icon {
+            width: 34px;
+            height: 34px;
+            background: var(--ox-grad-brand);
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2px;
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+        }
+        .nav-brand-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 7px;
+        }
+        .nav-brand-title {
+            font-family: var(--ox-font-display);
+            font-size: 1.15rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            color: var(--ox-text-title);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .nav-badge {
+            background: var(--ox-amber-light);
+            color: var(--ox-amber-dark);
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .nav-status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 12px;
+            color: var(--ox-text-muted);
+            padding-left: 14px;
+            border-left: 1px solid var(--ox-border-main);
+            font-weight: 500;
+        }
+        .pulse-dot {
+            width: 7px;
+            height: 7px;
+            background: var(--ox-emerald-brand);
+            border-radius: 50%;
+            box-shadow: 0 0 6px var(--ox-emerald-brand);
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .nav-link-item {
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--ox-text-body);
+            text-decoration: none;
+            transition: all 0.18s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: var(--ox-font-display);
+        }
+        .nav-link-item:hover {
+            color: var(--ox-text-title);
+            background: var(--ox-amber-light);
+        }
+        .nav-link-item.active {
+            color: var(--ox-amber-dark);
+            background: var(--ox-amber-light);
+        }
+
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .user-auth-pill {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #ffffff;
+            border: 1.5px solid var(--ox-border-main);
+            padding: 4px 14px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+        }
+        .user-avatar-dot {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--ox-grad-brand);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 11px;
+        }
+        .user-portal-link {
+            color: var(--ox-amber-dark);
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-left: 4px;
+        }
+        .user-portal-link:hover { text-decoration: underline; }
+        .user-logout-link {
+            color: var(--ox-text-faint);
+            text-decoration: none;
+            font-size: 12px;
+            margin-left: 6px;
+            transition: color 0.15s;
+        }
+        .user-logout-link:hover { color: var(--ox-rose-brand); }
+
+        .btn-light-outline {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 18px;
+            border-radius: 999px;
+            font-family: var(--ox-font-display);
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--ox-text-body);
+            background: #ffffff;
+            border: 1.5px solid var(--ox-border-main);
+            text-decoration: none;
+            transition: all 0.18s;
+        }
+        .btn-light-outline:hover {
+            border-color: #cbd5e1;
+            background: #f8fafc;
+            color: var(--ox-text-title);
+        }
+        .btn-brand-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 9px 20px;
+            border-radius: 999px;
+            font-family: var(--ox-font-display);
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #ffffff;
+            background: var(--ox-grad-brand);
+            border: none;
+            text-decoration: none;
+            box-shadow: var(--ox-shadow-amber);
+            transition: all 0.18s;
+            cursor: pointer;
+        }
+        .btn-brand-primary:hover {
+            opacity: 0.94;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 22px rgba(245, 158, 11, 0.38);
+        }
+
+        /* ── HERO SECTION ── */
+        .edge-hero {
+            padding: 56px 24px 28px;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        .hero-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 5px 14px;
+            border-radius: 999px;
+            background: var(--ox-amber-light);
+            color: var(--ox-amber-dark);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            border: 1px solid rgba(245, 158, 11, 0.28);
+            margin-bottom: 20px;
+            font-family: var(--ox-font-display);
+        }
+        .hero-title {
+            font-family: var(--ox-font-display);
+            font-size: clamp(34px, 4.4vw, 52px);
+            font-weight: 800;
+            line-height: 1.16;
+            letter-spacing: -0.035em;
+            color: var(--ox-text-title);
+            margin-bottom: 16px;
+            max-width: 920px;
+        }
+        .hero-title .text-brand {
+            background: var(--ox-grad-brand);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero-desc {
+            font-size: 16px;
+            color: var(--ox-text-body);
+            line-height: 1.7;
+            max-width: 800px;
+            margin-bottom: 32px;
+        }
+
+        /* ── PIPELINE FLOW STRIP ── */
+        .pipeline-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 22px;
+            border-radius: 14px;
+            background: #ffffff;
+            border: 1px solid var(--ox-border-main);
+            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
+            margin-bottom: 38px;
+            overflow-x: auto;
+        }
+        .pipeline-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--ox-text-body);
+            white-space: nowrap;
+            font-family: var(--ox-font-display);
+        }
+        .pipeline-item i {
+            color: var(--ox-amber-brand);
+            font-size: 14px;
+        }
+        .pipeline-divider {
+            color: var(--ox-text-faint);
+            font-size: 10px;
+        }
+
+        /* ── AUTH PROMPT BANNER ── */
+        .auth-prompt-card {
+            background: linear-gradient(135deg, #fffbeb 0%, #fff7ed 100%);
+            border: 1.5px solid rgba(245, 158, 11, 0.3);
+            border-radius: 16px;
+            padding: 20px 26px;
+            margin-bottom: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            box-shadow: 0 2px 12px rgba(245, 158, 11, 0.06);
+        }
+        .auth-prompt-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .auth-prompt-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: rgba(245, 158, 11, 0.18);
+            color: var(--ox-amber-dark);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 19px;
+            flex-shrink: 0;
+        }
+        .auth-prompt-title {
+            font-family: var(--ox-font-display);
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--ox-text-title);
+            margin-bottom: 3px;
+        }
+        .auth-prompt-text {
+            font-size: 13px;
+            color: var(--ox-text-body);
+        }
+
+        /* ── TWO-COLUMN WORKSPACE ── */
+        .workspace-grid {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 28px;
+            max-width: 1200px;
+            margin: 0 auto 60px;
+            width: 100%;
+            padding: 0 24px;
+        }
+
+        /* ── MAIN DEPLOYMENT STUDIO CARD ── */
+        .studio-card {
+            background: #ffffff;
+            border: 1px solid var(--ox-border-main);
+            border-radius: 20px;
+            box-shadow: var(--ox-shadow-card);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: box-shadow 0.2s, border-color 0.2s;
+        }
+        .studio-card:focus-within {
+            border-color: rgba(245, 158, 11, 0.5);
+            box-shadow: 0 6px 28px rgba(245, 158, 11, 0.1);
+        }
+
+        /* Tabs Navigation */
+        .studio-tabs {
+            display: flex;
+            background: #f8fafc;
+            border-bottom: 1px solid var(--ox-border-main);
+            padding: 8px;
+            gap: 6px;
+        }
+        .studio-tab-btn {
+            flex: 1;
+            padding: 12px 14px;
+            background: transparent;
+            border: none;
+            color: var(--ox-text-muted);
+            font-family: var(--ox-font-display);
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.18s;
+        }
+        .studio-tab-btn:hover {
+            color: var(--ox-text-title);
+            background: rgba(0, 0, 0, 0.03);
+        }
+        .studio-tab-btn.active {
+            background: #ffffff;
+            color: var(--ox-amber-dark);
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+            border: 1px solid var(--ox-border-light);
+        }
+
+        .studio-body {
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Form Labels & Controls */
+        .field-label-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .field-label {
+            font-family: var(--ox-font-display);
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--ox-text-title);
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .field-sub {
+            font-size: 12px;
+            color: var(--ox-text-muted);
+        }
+
+        .field-input {
+            width: 100%;
+            height: 48px;
+            background: #ffffff;
+            border: 1.5px solid var(--ox-border-main);
+            border-radius: 12px;
+            padding: 0 16px;
+            font-family: var(--ox-font-body);
+            font-size: 14px;
+            color: var(--ox-text-title);
+            outline: none;
+            transition: all 0.18s;
+        }
+        .field-input:focus {
+            border-color: var(--ox-amber-brand);
+            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+        }
+
+        /* Subdomain URL Widget */
+        .subdomain-input-box {
+            display: flex;
+            align-items: center;
+            background: #ffffff;
+            border: 1.5px solid var(--ox-border-main);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.18s;
+        }
+        .subdomain-input-box:focus-within {
+            border-color: var(--ox-amber-brand);
+            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+        }
+        .subdomain-url-prefix {
+            padding: 0 14px;
+            color: var(--ox-text-muted);
+            font-family: var(--ox-font-mono);
+            font-size: 13px;
+            background: #f8fafc;
+            border-right: 1.5px solid var(--ox-border-main);
+            height: 48px;
+            display: flex;
+            align-items: center;
+            user-select: none;
+        }
+        .subdomain-input-box input {
+            flex: 1;
+            height: 48px;
+            background: transparent;
+            border: none;
+            outline: none;
+            padding: 0 14px;
+            font-family: var(--ox-font-mono);
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--ox-text-title);
+        }
+        .subdomain-url-suffix {
+            background: var(--ox-amber-light);
+            border-left: 1.5px solid rgba(245, 158, 11, 0.25);
+            padding: 0 16px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            color: var(--ox-amber-dark);
+            font-family: var(--ox-font-mono);
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .domain-status-box {
+            margin-top: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .domain-ok { color: #059669; }
+        .domain-err { color: #e11d48; }
+        .domain-checking { color: #d97706; }
+
+        /* Framework Presets Grid */
+        .framework-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        .framework-card {
+            background: #ffffff;
+            border: 1.5px solid var(--ox-border-main);
+            border-radius: 14px;
+            padding: 15px 14px;
+            cursor: pointer;
+            transition: all 0.18s;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            position: relative;
+        }
+        .framework-card:hover {
+            border-color: rgba(245, 158, 11, 0.45);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+        }
+        .framework-card.active {
+            border-color: var(--ox-amber-brand);
+            background: linear-gradient(135deg, rgba(254, 243, 199, 0.45) 0%, rgba(254, 215, 170, 0.2) 100%);
+            box-shadow: 0 4px 16px rgba(245, 158, 11, 0.14);
+        }
+        .framework-card.active::after {
+            content: '✓';
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 18px;
+            height: 18px;
+            background: var(--ox-amber-brand);
+            color: #ffffff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 900;
+        }
+        .framework-card-top {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .framework-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: #f8fafc;
+            border: 1px solid var(--ox-border-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        .framework-name {
+            font-family: var(--ox-font-display);
+            font-size: 13px;
+            font-weight: 800;
+            color: var(--ox-text-title);
+        }
+        .framework-spec {
+            font-size: 11px;
+            color: var(--ox-text-muted);
+            line-height: 1.3;
+        }
+
+        /* Advanced Settings Drawer */
+        .drawer-btn {
+            background: #f8fafc;
+            border: 1.5px dashed var(--ox-border-main);
+            border-radius: 12px;
+            padding: 12px 18px;
+            width: 100%;
+            text-align: left;
+            color: var(--ox-text-body);
+            font-family: var(--ox-font-display);
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.18s;
+        }
+        .drawer-btn:hover {
+            border-color: #cbd5e1;
+            background: #f1f5f9;
+        }
+        .drawer-panel {
+            padding-top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .grid-half {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        /* Environment Variables */
+        .env-row-item {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .env-row-item input {
+            flex: 1;
+            height: 40px;
+            background: #ffffff;
+            border: 1.5px solid var(--ox-border-main);
+            border-radius: 8px;
+            padding: 0 12px;
+            font-family: var(--ox-font-mono);
+            font-size: 12px;
+            color: var(--ox-text-title);
+            outline: none;
+        }
+        .btn-del-env {
+            width: 40px;
+            height: 40px;
+            background: var(--ox-rose-bg);
+            border: 1px solid rgba(244, 63, 94, 0.2);
+            border-radius: 8px;
+            color: var(--ox-rose-brand);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+        .btn-del-env:hover { background: #ffe4e6; }
+        .btn-new-env {
+            background: #ffffff;
+            border: 1.5px solid var(--ox-border-main);
+            border-radius: 8px;
+            color: var(--ox-text-body);
+            font-size: 12px;
+            font-weight: 700;
+            padding: 6px 14px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.15s;
+        }
+        .btn-new-env:hover { background: #f8fafc; }
+
+        /* Master Deploy Button */
+        .btn-deploy-master {
+            height: 54px;
+            width: 100%;
+            background: var(--ox-grad-brand);
+            color: #ffffff;
+            border: none;
+            border-radius: 12px;
+            font-family: var(--ox-font-display);
+            font-size: 15px;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: var(--ox-shadow-amber);
+            transition: all 0.18s;
+            text-decoration: none;
+        }
+        .btn-deploy-master:hover:not(:disabled) {
+            background: var(--ox-grad-brand-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 26px rgba(245, 158, 11, 0.42);
+        }
+        .btn-deploy-master:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        .shortcut-badge {
+            background: rgba(0, 0, 0, 0.18);
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-family: var(--ox-font-mono);
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        /* ── RIGHT COLUMN: SIDEBAR PANELS ── */
+        .side-panels-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
+        }
+        .side-info-card {
+            background: #ffffff;
+            border: 1px solid var(--ox-border-main);
+            border-radius: 18px;
+            padding: 22px;
+            box-shadow: var(--ox-shadow-card);
+        }
+        .side-info-title {
+            font-family: var(--ox-font-display);
+            font-size: 14px;
+            font-weight: 800;
+            color: var(--ox-text-title);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Browser Mockup Frame */
+        .browser-preview-frame {
+            background: #ffffff;
+            border: 1.5px solid var(--ox-border-main);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 14px;
+            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+        }
+        .browser-top-bar {
+            background: #f8fafc;
+            border-bottom: 1px solid var(--ox-border-main);
+            padding: 9px 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .browser-dots {
+            display: flex;
+            gap: 5px;
+        }
+        .browser-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        .browser-url-pill {
+            flex: 1;
+            background: #ffffff;
+            border: 1px solid var(--ox-border-main);
+            border-radius: 6px;
+            padding: 3px 10px;
+            font-family: var(--ox-font-mono);
+            font-size: 11px;
+            color: var(--ox-amber-dark);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .browser-screen-body {
+            padding: 26px 16px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--ox-text-muted);
+            background: var(--ox-bg-subtle);
+        }
+
+        .side-spec-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 9px 0;
+            border-bottom: 1px solid var(--ox-border-light);
+            font-size: 12px;
+        }
+        .side-spec-item:last-child { border-bottom: none; }
+        .side-spec-label { color: var(--ox-text-muted); }
+        .side-spec-val { font-family: var(--ox-font-mono); font-weight: 700; color: var(--ox-text-title); }
+
+        /* Terminal CLI Box */
+        .cli-terminal-box {
+            background: #0f172a;
+            border-radius: 10px;
+            padding: 12px 14px;
+            font-family: var(--ox-font-mono);
+            font-size: 12px;
+            color: #f8fafc;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+        .btn-copy-cli {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            transition: color 0.15s;
+        }
+        .btn-copy-cli:hover { color: var(--ox-amber-brand); }
+
+        /* ── MY APPLICATIONS SECTION ── */
+        .my-deployments-section {
+            max-width: 1200px;
+            margin: 0 auto 80px;
+            width: 100%;
+            padding: 0 24px;
+        }
+        .deployments-header-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 22px;
+        }
+        .deployments-heading {
+            font-family: var(--ox-font-display);
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--ox-text-title);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .deployments-count-badge {
+            background: var(--ox-amber-light);
+            color: var(--ox-amber-dark);
+            font-size: 12px;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 999px;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .deployments-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+        }
+        .deployment-app-card {
+            background: #ffffff;
+            border: 1.5px solid var(--ox-border-main);
+            border-radius: 18px;
+            padding: 22px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: var(--ox-shadow-card);
+            transition: all 0.18s;
+        }
+        .deployment-app-card:hover {
+            border-color: rgba(245, 158, 11, 0.45);
+            transform: translateY(-2px);
+            box-shadow: var(--ox-shadow-card-hover);
+        }
+        .app-top-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .app-card-title {
+            font-family: var(--ox-font-display);
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--ox-text-title);
+            margin-bottom: 4px;
+        }
+        .app-domain-link {
+            font-family: var(--ox-font-mono);
+            font-size: 12px;
+            color: var(--ox-amber-dark);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: 600;
+        }
+        .app-domain-link:hover { text-decoration: underline; }
+
+        .app-status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 9px;
+            border-radius: 999px;
+        }
+        .status-badge-live {
+            background: var(--ox-emerald-bg);
+            color: #059669;
+            border: 1px solid #a7f3d0;
+        }
+        .status-badge-building {
+            background: var(--ox-amber-light);
+            color: var(--ox-amber-dark);
+            border: 1px solid #fde68a;
+        }
+        .status-badge-failed {
+            background: var(--ox-rose-bg);
+            color: var(--ox-rose-brand);
+            border: 1px solid #fecdd3;
+        }
+
+        .app-bottom-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-top: 1px solid var(--ox-border-light);
+            padding-top: 14px;
+            margin-top: 18px;
+            font-size: 12px;
+            color: var(--ox-text-muted);
+        }
+        .app-card-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .app-action-btn {
+            background: #f8fafc;
+            border: 1px solid var(--ox-border-main);
+            color: var(--ox-text-body);
+            padding: 5px 11px;
+            border-radius: 7px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .app-action-btn:hover {
+            background: #e2e8f0;
+            color: var(--ox-text-title);
+        }
+        .app-delete-btn:hover {
+            background: var(--ox-rose-bg);
+            color: var(--ox-rose-brand);
+            border-color: rgba(244, 63, 94, 0.3);
+        }
+
+        .empty-deployments-box {
+            grid-column: 1 / -1;
+            background: #ffffff;
+            border: 1.5px dashed var(--ox-border-main);
+            border-radius: 20px;
+            padding: 56px 24px;
+            text-align: center;
+            color: var(--ox-text-muted);
+            box-shadow: var(--ox-shadow-card);
+        }
+        .empty-deployments-box i {
+            font-size: 44px;
+            color: var(--ox-amber-brand);
+            margin-bottom: 16px;
+        }
+
+        /* ── BUILD TERMINAL MODAL ── */
+        .terminal-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .terminal-modal-frame {
+            width: 100%;
+            max-width: 820px;
+            background: #0f172a;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 18px;
+            box-shadow: 0 28px 70px rgba(0, 0, 0, 0.6);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            max-height: 88vh;
+        }
+        .terminal-modal-header {
+            background: rgba(255, 255, 255, 0.04);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .term-dots-wrap {
+            display: flex;
+            gap: 7px;
+        }
+        .t-dot {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+        }
+        .t-close { background: #ef4444; cursor: pointer; }
+        .t-min { background: #f59e0b; }
+        .t-max { background: #10b981; }
+        .term-title-text {
+            font-family: var(--ox-font-mono);
+            font-size: 13px;
+            color: #94a3b8;
+        }
+        .terminal-modal-stream {
+            padding: 22px;
+            background: #090d16;
+            font-family: var(--ox-font-mono);
+            font-size: 13px;
+            line-height: 1.65;
+            color: #e2e8f0;
+            overflow-y: auto;
+            flex: 1;
+            min-height: 360px;
+            max-height: 520px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .terminal-modal-bottom {
+            padding: 16px 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        @media (max-width: 960px) {
+            .workspace-grid { grid-template-columns: 1fr; }
+            .framework-grid { grid-template-columns: 1fr 1fr; }
+            .deployments-cards-grid { grid-template-columns: 1fr 1fr; }
+            .edge-nav { padding: 0 18px; }
+            .nav-status-indicator { display: none; }
+        }
+        @media (max-width: 640px) {
+            .framework-grid { grid-template-columns: 1fr; }
+            .deployments-cards-grid { grid-template-columns: 1fr; }
+            .auth-prompt-card { flex-direction: column; text-align: center; }
+            .auth-prompt-left { flex-direction: column; }
+            .grid-half { grid-template-columns: 1fr; }
+        }
+    
+        /* ═══════════════════════════════════════════════════════════════ */
+        /* VS CODE WEB STUDIO & FILE MANAGER STYLES                      */
+        /* ═══════════════════════════════════════════════════════════════ */
+        .vscode-modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(8px);
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .vscode-window {
+            background: #1e1e1e;
+            color: #cccccc;
+            border-radius: 14px;
+            width: 96vw;
+            max-width: 1400px;
+            height: 92vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 30px 90px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.1);
+            font-family: 'Inter', -apple-system, sans-serif;
+        }
+        .vscode-titlebar {
+            background: #252526;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            border-bottom: 1px solid #333333;
+            user-select: none;
+        }
+        .vscode-title-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .vscode-project-title {
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 14px;
+        }
+        .vscode-live-pill {
+            background: #102a20;
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 999px;
+            padding: 2px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .vscode-live-pill:hover { opacity: 0.85; }
+        .vscode-title-center {
+            font-size: 12px;
+            color: #94a3b8;
+            font-family: 'JetBrains Mono', monospace;
+            background: #1e1e1e;
+            padding: 4px 14px;
+            border-radius: 6px;
+            border: 1px solid #333333;
+        }
+        .vscode-title-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .vs-btn {
+            font-size: 12px;
+            font-weight: 700;
+            padding: 6px 14px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+            text-decoration: none;
+        }
+        .vs-btn-save {
+            background: #3b82f6;
+            color: #ffffff;
+        }
+        .vs-btn-save:hover { background: #2563eb; }
+        .vs-btn-deploy {
+            background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+            color: #ffffff;
+        }
+        .vs-btn-deploy:hover { opacity: 0.9; }
+        .vs-btn-outline {
+            background: #333333;
+            color: #e2e8f0;
+            border: 1px solid #444444;
+        }
+        .vs-btn-outline:hover { background: #3f3f46; color: #ffffff; }
+        .vs-btn-close {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 6px 10px;
+            border-radius: 6px;
+            transition: all 0.15s;
+        }
+        .vs-btn-close:hover { background: #dc2626; color: #ffffff; }
+
+        .vscode-body {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            background: #1e1e1e;
+        }
+        .vscode-sidebar {
+            width: 280px;
+            background: #252526;
+            border-right: 1px solid #333333;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+        }
+        .vscode-sidebar-header {
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #333333;
+        }
+        .sidebar-title {
+            font-size: 11px;
+            font-weight: 800;
+            color: #94a3b8;
+            letter-spacing: 0.8px;
+        }
+        .sidebar-actions {
+            display: flex;
+            gap: 6px;
+        }
+        .sidebar-actions button {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 3px 6px;
+            border-radius: 4px;
+        }
+        .sidebar-actions button:hover { background: #333333; color: #ffffff; }
+        .vscode-filetree {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+            font-size: 13px;
+        }
+        .tree-node-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px 12px;
+            cursor: pointer;
+            transition: background 0.1s;
+            color: #cccccc;
+        }
+        .tree-node-item:hover {
+            background: #2a2d2e;
+            color: #ffffff;
+        }
+        .tree-node-item.active {
+            background: #37373d;
+            color: #ffffff;
+            font-weight: 600;
+        }
+        .tree-node-left {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .tree-node-left i { width: 14px; text-align: center; }
+        .tree-del-btn {
+            display: none;
+            color: #94a3b8;
+            font-size: 11px;
+            padding: 2px 5px;
+            border-radius: 4px;
+        }
+        .tree-node-item:hover .tree-del-btn { display: inline-block; }
+        .tree-del-btn:hover { background: #dc2626; color: #ffffff; }
+
+        .vscode-main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: #1e1e1e;
+        }
+        .vscode-tabbar {
+            height: 38px;
+            background: #252526;
+            display: flex;
+            align-items: center;
+            overflow-x: auto;
+            border-bottom: 1px solid #333333;
+        }
+        .vs-tab {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 14px;
+            height: 100%;
+            background: #2d2d2d;
+            color: #94a3b8;
+            font-size: 12px;
+            cursor: pointer;
+            border-right: 1px solid #333333;
+            user-select: none;
+            transition: all 0.1s;
+        }
+        .vs-tab.active {
+            background: #1e1e1e;
+            color: #ffffff;
+            border-top: 2px solid var(--ox-amber-brand);
+            font-weight: 600;
+        }
+        .vs-tab-close {
+            font-size: 11px;
+            color: #94a3b8;
+            padding: 2px;
+            border-radius: 3px;
+        }
+        .vs-tab-close:hover { background: #444444; color: #ffffff; }
+
+        .vscode-editor-frame {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #1e1e1e;
+        }
+        .vscode-fallback-editor {
+            width: 100%;
+            height: 100%;
+            background: #1e1e1e;
+            color: #f8fafc;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            border: none;
+            outline: none;
+            padding: 16px;
+            resize: none;
+        }
+        .vscode-statusbar {
+            height: 26px;
+            background: #007acc;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+            user-select: none;
+        }
+        .status-left, .status-right {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+    </style>
+    <!-- Monaco Editor (VS Code in Browser) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js">
+        // ═══════════════════════════════════════════════════════════════
+        // GITHUB BRANCH AUTO-DETECTION
+        // ═══════════════════════════════════════════════════════════════
+        const gitRepoInput = document.getElementById('gitRepoInput');
+        const gitBranchInput = document.getElementById('gitBranchInput');
+        const gitBranchBadge = document.getElementById('gitBranchBadge');
+        const gitBranchStatus = document.getElementById('gitBranchStatus');
+        let gitInspectDebounce = null;
+
+        if (gitRepoInput) {
+            gitRepoInput.addEventListener('input', function() {
+                const url = this.value.trim();
+                clearTimeout(gitInspectDebounce);
+                if (!url || (!url.startsWith('http://') && !url.startsWith('https://'))) {
+                    if (gitBranchBadge) gitBranchBadge.style.display = 'none';
+                    if (gitBranchStatus) gitBranchStatus.innerHTML = 'Optional: Leave blank to auto-detect default branch, or change to override.';
+                    return;
+                }
+
+                if (gitBranchStatus) {
+                    gitBranchStatus.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Checking repository default branch...';
+                    gitBranchStatus.style.color = 'var(--ox-amber-dark)';
+                }
+
+                gitInspectDebounce = setTimeout(async () => {
+                    try {
+                        const res = await fetch('/deploy/api/inspect-git/?url=' + encodeURIComponent(url));
+                        const data = await res.json();
+                        if (data.status === 'ok' && data.default_branch) {
+                            if (!gitBranchInput.value || gitBranchInput.value === 'main') {
+                                gitBranchInput.value = data.default_branch;
+                            }
+                            if (gitBranchBadge) {
+                                gitBranchBadge.style.display = 'inline-flex';
+                                gitBranchBadge.innerHTML = `<i class="fa-solid fa-circle-check"></i> Auto-Detected: <b>${data.default_branch}</b>`;
+                            }
+                            if (gitBranchStatus) {
+                                gitBranchStatus.innerHTML = `✓ Default branch detected: <b>${data.default_branch}</b> (change anytime if needed)`;
+                                gitBranchStatus.style.color = '#16a34a';
+                            }
+                        }
+                    } catch(e) {
+                        if (gitBranchStatus) {
+                            gitBranchStatus.innerHTML = 'Branch will default to <b>main</b> upon deployment.';
+                            gitBranchStatus.style.color = 'var(--ox-text-muted)';
+                        }
+                    }
+                }, 400);
+            });
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // VS CODE WEB STUDIO & FILE MANAGER LOGIC
+        // ═══════════════════════════════════════════════════════════════
+        let activeStudioProjectId = null;
+        let activeStudioSubdomain = '';
+        let activeStudioLiveUrl = '';
+        let activeFilePath = '';
+        let openTabs = []; // list of {path, name, ext, dirty}
+        let monacoInstance = null;
+        let isMonacoLoaded = false;
+
+        // Initialize Monaco Editor
+        function initMonacoEditor() {
+            if (isMonacoLoaded) return;
+            if (window.monaco) {
+                monacoInstance = monaco.editor.create(document.getElementById('monacoEditorContainer'), {
+                    value: '<!-- Loading file... -->',
+                    language: 'html',
+                    theme: 'vs-dark',
+                    fontSize: 13,
+                    fontFamily: "'JetBrains Mono', 'Menlo', 'Monaco', monospace",
+                    automaticLayout: true,
+                    minimap: { enabled: true },
+                    scrollBeyondLastLine: false,
+                    tabSize: 4,
+                    wordWrap: 'on'
+                });
+                monacoInstance.onDidChangeModelContent(() => {
+                    markActiveTabDirty();
+                });
+                monacoInstance.onDidChangeCursorPosition((e) => {
+                    const posEl = document.getElementById('vscodeLineCol');
+                    if (posEl) posEl.innerText = `Ln ${e.position.lineNumber}, Col ${e.position.column}`;
+                });
+                isMonacoLoaded = true;
+            } else if (window.require) {
+                require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+                require(['vs/editor/editor.main'], function() {
+                    initMonacoEditor();
+                });
+            } else {
+                // Fallback textarea
+                document.getElementById('monacoEditorContainer').style.display = 'none';
+                document.getElementById('fallbackCodeEditor').style.display = 'block';
+                document.getElementById('fallbackCodeEditor').addEventListener('input', () => {
+                    markActiveTabDirty();
+                });
+            }
+        }
+
+        function openVsCodeStudio(projectId, projectName, subdomain, fullDomain) {
+            activeStudioProjectId = projectId;
+            activeStudioSubdomain = subdomain;
+            activeStudioLiveUrl = `https://${fullDomain}`;
+            openTabs = [];
+            activeFilePath = '';
+
+            document.getElementById('vscodeProjectTitle').innerText = projectName;
+            document.getElementById('vscodeDomainLabel').innerText = fullDomain;
+            document.getElementById('btnOpenLiveTab').href = activeStudioLiveUrl;
+            document.getElementById('vscodeStudioModal').style.display = 'flex';
+
+            initMonacoEditor();
+            refreshFileTree();
+        }
+
+        function closeVsCodeStudio() {
+            document.getElementById('vscodeStudioModal').style.display = 'none';
+        }
+
+        async function refreshFileTree() {
+            if (!activeStudioProjectId) return;
+            const treeContainer = document.getElementById('vscodeFileTreeContainer');
+            treeContainer.innerHTML = '<div style="padding: 16px; text-align: center; color: #94a3b8; font-size: 12px;"><i class="fa-solid fa-spinner fa-spin"></i> Refreshing workspace...</div>';
+
+            try {
+                const res = await fetch(`/deploy/api/project/${activeStudioProjectId}/files/`);
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    treeContainer.innerHTML = '';
+                    if (data.files && data.files.length > 0) {
+                        renderTreeNodes(data.files, treeContainer, 0);
+                        // If no active file, open first html or py or text file
+                        if (!activeFilePath) {
+                            const firstFile = findFirstFile(data.files);
+                            if (firstFile) {
+                                openProjectFile(firstFile.path, firstFile.name, firstFile.ext);
+                            }
+                        }
+                    } else {
+                        treeContainer.innerHTML = '<div style="padding: 16px; text-align: center; color: #94a3b8; font-size: 12px;">Workspace is empty. Create a file above.</div>';
+                    }
+                } else {
+                    treeContainer.innerHTML = `<div style="padding: 16px; color: #f87171; font-size: 12px;">Error: ${data.message}</div>`;
+                }
+            } catch(e) {
+                treeContainer.innerHTML = `<div style="padding: 16px; color: #f87171; font-size: 12px;">Failed to load files: ${e}</div>`;
+            }
+        }
+
+        function findFirstFile(items) {
+            for (const item of items) {
+                if (!item.is_dir) return item;
+                if (item.children) {
+                    const f = findFirstFile(item.children);
+                    if (f) return f;
+                }
+            }
+            return null;
+        }
+
+        function renderTreeNodes(nodes, container, depth) {
+            nodes.forEach(node => {
+                const row = document.createElement('div');
+                row.className = 'tree-node-item';
+                row.style.paddingLeft = (12 + depth * 14) + 'px';
+                if (node.path === activeFilePath) row.classList.add('active');
+
+                let iconHtml = '<i class="fa-regular fa-file" style="color:#94a3b8;"></i>';
+                if (node.is_dir) {
+                    iconHtml = '<i class="fa-solid fa-folder" style="color:#f59e0b;"></i>';
+                } else {
+                    const ext = node.ext.toLowerCase();
+                    if (ext === 'html') iconHtml = '<i class="fa-brands fa-html5" style="color:#f97316;"></i>';
+                    else if (ext === 'css') iconHtml = '<i class="fa-brands fa-css3-alt" style="color:#38bdf8;"></i>';
+                    else if (['js', 'jsx', 'ts', 'tsx'].includes(ext)) iconHtml = '<i class="fa-brands fa-js" style="color:#facc15;"></i>';
+                    else if (ext === 'py') iconHtml = '<i class="fa-brands fa-python" style="color:#38bdf8;"></i>';
+                    else if (ext === 'json') iconHtml = '<i class="fa-solid fa-code" style="color:#f59e0b;"></i>';
+                    else if (['png', 'jpg', 'jpeg', 'svg', 'gif', 'ico'].includes(ext)) iconHtml = '<i class="fa-solid fa-file-image" style="color:#c084fc;"></i>';
+                }
+
+                row.innerHTML = `
+                    <div class="tree-node-left">
+                        ${iconHtml}
+                        <span>${node.name}</span>
+                    </div>
+                    <div>
+                        ${!node.is_dir ? `<button type="button" class="tree-del-btn" onclick="deleteNodeAction('${node.path}', event)" title="Delete File"><i class="fa-solid fa-trash"></i></button>` : ''}
+                    </div>
+                `;
+
+                if (node.is_dir) {
+                    const childContainer = document.createElement('div');
+                    row.onclick = () => {
+                        childContainer.style.display = (childContainer.style.display === 'none') ? 'block' : 'none';
+                    };
+                    container.appendChild(row);
+                    container.appendChild(childContainer);
+                    if (node.children) renderTreeNodes(node.children, childContainer, depth + 1);
+                } else {
+                    row.onclick = () => {
+                        openProjectFile(node.path, node.name, node.ext);
+                    };
+                    container.appendChild(row);
+                }
+            });
+        }
+
+        async function openProjectFile(relPath, fileName, ext) {
+            activeFilePath = relPath;
+            document.getElementById('vscodeBreadcrumbText').innerText = relPath;
+            highlightTreeActiveNode(relPath);
+
+            // Add or activate Tab
+            let tab = openTabs.find(t => t.path === relPath);
+            if (!tab) {
+                tab = { path: relPath, name: fileName, ext: ext, dirty: false };
+                openTabs.push(tab);
+            }
+            renderTabs();
+
+            // Set language mode
+            const lang = mapExtToMonacoLang(ext);
+            const langEl = document.getElementById('vscodeLangMode');
+            if (langEl) langEl.innerText = lang.toUpperCase();
+
+            // Fetch file content
+            const stateEl = document.getElementById('vscodeSaveState');
+            if (stateEl) stateEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Reading file...';
+
+            try {
+                const res = await fetch(`/deploy/api/project/${activeStudioProjectId}/get-file/?path=${encodeURIComponent(relPath)}`);
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    setEditorContent(data.content, lang);
+                    tab.dirty = false;
+                    renderTabs();
+                    if (stateEl) stateEl.innerHTML = '<i class="fa-solid fa-check"></i> Ready';
+                } else {
+                    alert('Error opening file: ' + data.message);
+                }
+            } catch(e) {
+                alert('Connection error loading file: ' + e);
+            }
+        }
+
+        function mapExtToMonacoLang(ext) {
+            ext = (ext || '').toLowerCase();
+            if (ext === 'html') return 'html';
+            if (ext === 'css') return 'css';
+            if (['js', 'jsx'].includes(ext)) return 'javascript';
+            if (['ts', 'tsx'].includes(ext)) return 'typescript';
+            if (ext === 'py') return 'python';
+            if (ext === 'json') return 'json';
+            if (['md', 'markdown'].includes(ext)) return 'markdown';
+            if (['yml', 'yaml'].includes(ext)) return 'yaml';
+            if (ext === 'txt') return 'plaintext';
+            return 'plaintext';
+        }
+
+        function setEditorContent(code, lang) {
+            if (monacoInstance) {
+                const oldModel = monacoInstance.getModel();
+                if (oldModel) oldModel.dispose();
+                const newModel = monaco.editor.createModel(code, lang);
+                monacoInstance.setModel(newModel);
+            } else {
+                const textarea = document.getElementById('fallbackCodeEditor');
+                if (textarea) textarea.value = code;
+            }
+        }
+
+        function getEditorContent() {
+            if (monacoInstance) {
+                return monacoInstance.getValue();
+            } else {
+                return document.getElementById('fallbackCodeEditor').value;
+            }
+        }
+
+        function markActiveTabDirty() {
+            const tab = openTabs.find(t => t.path === activeFilePath);
+            if (tab && !tab.dirty) {
+                tab.dirty = true;
+                renderTabs();
+                const stateEl = document.getElementById('vscodeSaveState');
+                if (stateEl) stateEl.innerHTML = '<span style="color:#f59e0b;">● Unsaved changes</span>';
+            }
+        }
+
+        function renderTabs() {
+            const tabContainer = document.getElementById('vscodeTabBar');
+            tabContainer.innerHTML = '';
+            openTabs.forEach(tab => {
+                const tabEl = document.createElement('div');
+                tabEl.className = 'vs-tab' + (tab.path === activeFilePath ? ' active' : '');
+                tabEl.innerHTML = `
+                    <span>${tab.name}${tab.dirty ? ' ●' : ''}</span>
+                    <span class="vs-tab-close" onclick="closeTab('${tab.path}', event)"><i class="fa-solid fa-xmark"></i></span>
+                `;
+                tabEl.onclick = () => {
+                    if (tab.path !== activeFilePath) {
+                        openProjectFile(tab.path, tab.name, tab.ext);
+                    }
+                };
+                tabContainer.appendChild(tabEl);
+            });
+        }
+
+        function closeTab(path, e) {
+            e.stopPropagation();
+            openTabs = openTabs.filter(t => t.path !== path);
+            if (activeFilePath === path) {
+                if (openTabs.length > 0) {
+                    const next = openTabs[openTabs.length - 1];
+                    openProjectFile(next.path, next.name, next.ext);
+                } else {
+                    activeFilePath = '';
+                    setEditorContent('', 'plaintext');
+                    document.getElementById('vscodeBreadcrumbText').innerText = 'No file open';
+                }
+            }
+            renderTabs();
+        }
+
+        function highlightTreeActiveNode(path) {
+            document.querySelectorAll('.tree-node-item').forEach(el => {
+                el.classList.remove('active');
+            });
+            // Re-render will highlight row
+        }
+
+        async function saveCurrentFile() {
+            if (!activeStudioProjectId || !activeFilePath) return;
+            const content = getEditorContent();
+            const stateEl = document.getElementById('vscodeSaveState');
+            if (stateEl) stateEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+
+            try {
+                const res = await fetch(`/deploy/api/project/${activeStudioProjectId}/save-file/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({ path: activeFilePath, content: content })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    const tab = openTabs.find(t => t.path === activeFilePath);
+                    if (tab) tab.dirty = false;
+                    renderTabs();
+                    if (stateEl) stateEl.innerHTML = `<i class="fa-solid fa-check" style="color:#10b981;"></i> Saved at ${data.saved_at}`;
+                } else {
+                    alert('Error saving: ' + data.message);
+                }
+            } catch(e) {
+                alert('Save failed: ' + e);
+            }
+        }
+
+        async function saveAndRedeployLive() {
+            if (!activeStudioProjectId) return;
+            const btn = document.getElementById('btnSaveAndDeploy');
+            const origText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Deploying...';
+
+            // 1. Save current file first
+            if (activeFilePath) {
+                await saveCurrentFile();
+            }
+
+            // 2. Call redeploy live sync
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+            try {
+                const res = await fetch(`/deploy/api/project/${activeStudioProjectId}/redeploy-live/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    const stateEl = document.getElementById('vscodeSaveState');
+                    if (stateEl) stateEl.innerHTML = `<span style="color:#34d399;"><i class="fa-solid fa-circle-check"></i> Published Live!</span>`;
+                    alert(`🚀 Changes successfully deployed to ${data.live_url}`);
+                } else {
+                    alert('Redeploy note: ' + data.message);
+                }
+            } catch(e) {
+                alert('Deploy error: ' + e);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origText;
+            }
+        }
+
+        async function createNewFilePrompt() {
+            const name = prompt('Enter new file name (e.g. style.css or src/app.js):');
+            if (!name || !name.trim()) return;
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+            try {
+                const res = await fetch(`/deploy/api/project/${activeStudioProjectId}/create-node/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({ path: name.trim(), type: 'file' })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    refreshFileTree();
+                    openProjectFile(name.trim(), name.split('/').pop(), name.split('.').pop());
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch(e) {
+                alert('Error creating file: ' + e);
+            }
+        }
+
+        async function createNewFolderPrompt() {
+            const name = prompt('Enter new folder name (e.g. assets or static):');
+            if (!name || !name.trim()) return;
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+            try {
+                const res = await fetch(`/deploy/api/project/${activeStudioProjectId}/create-node/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({ path: name.trim(), type: 'dir' })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    refreshFileTree();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch(e) {
+                alert('Error creating folder: ' + e);
+            }
+        }
+
+        async function deleteNodeAction(path, e) {
+            e.stopPropagation();
+            if (!confirm(`Delete "${path}"? This cannot be undone.`)) return;
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+            try {
+                const res = await fetch(`/deploy/api/project/${activeStudioProjectId}/delete-node/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({ path: path })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    closeTab(path, e);
+                    refreshFileTree();
+                } else {
+                    alert('Delete failed: ' + data.message);
+                }
+            } catch(e) {
+                alert('Delete error: ' + e);
+            }
+        }
+
+        // Global hotkey: Ctrl+S / Cmd+S in VS Code Studio
+        window.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                const modal = document.getElementById('vscodeStudioModal');
+                if (modal && modal.style.display !== 'none') {
+                    e.preventDefault();
+                    saveCurrentFile();
+                }
+            }
+        });
+
+    </script>
+</head>
+<body>
+
+    <!-- ── NAVBAR ── -->
+    <header class="edge-nav">
+        <div class="nav-left">
+            <a href="/" class="nav-brand">
+                <div class="nav-brand-icon">
+                    <img src="{% static 'voidpanel/logo_emblem.png' %}" alt="VoidPanel Logo" class="nav-brand-img" onerror="this.src='/static/fav.png'">
+                </div>
+                <span class="nav-brand-title">VoidPanel <span class="nav-badge">Edge Deploy</span></span>
+            </a>
+            <div class="nav-status-indicator">
+                <span class="pulse-dot"></span>
+                <span>Anycast Edge Active</span>
+            </div>
+        </div>
+
+        <nav class="nav-links">
+            <a href="/" class="nav-link-item"><i class="fa fa-arrow-left"></i> VoidPanel Home</a>
+            <a href="#projects" class="nav-link-item">Deployments</a>
+            <a href="/pricing/" class="nav-link-item">Hosting</a>
+            <a href="/docs/" class="nav-link-item">Documentation</a>
+        </nav>
+
+        <div class="nav-actions">
+            {% if is_authenticated or user.is_authenticated or request.user.is_authenticated %}
+                <div class="user-auth-pill">
+                    <div class="user-avatar-dot">{{ user.username|slice:":1"|upper }}</div>
+                    <span>{{ user.first_name|default:user.username }}</span>
+                    <a href="/portal/" class="user-portal-link" title="Open VoidPanel Portal"><i class="fa fa-gauge"></i> Portal</a>
+                    <a href="/logout/?next=/deploy/" class="user-logout-link" title="Sign Out"><i class="fa fa-right-from-bracket"></i></a>
+                </div>
+            {% else %}
+                <a href="/login/?next=/deploy/" class="btn-light-outline">Log In</a>
+                <a href="/register/?next=/deploy/" class="btn-brand-primary">Create Account <i class="fa fa-arrow-right"></i></a>
+            {% endif %}
+        </div>
+    </header>
+
+    <!-- ── HERO BANNER ── -->
+    <section class="edge-hero">
+        <div class="hero-tag">
+            <i class="fa-solid fa-bolt"></i> Global Frontend Edge &bull; Instant Subdomains
+        </div>
+        <h1 class="hero-title">
+            Deploy frontend applications to the <span class="text-brand">VoidPanel Edge.</span>
+        </h1>
+        <p class="hero-desc">
+            Connect your Git repository or launch from production-ready starter templates.
+            Automated wildcard SSL, zero cold-start delivery, and custom <code style="color:var(--ox-amber-dark); font-family:var(--ox-font-mono); font-weight:700;">*.voidpanel.com</code> subdomains directly connected to your VoidPanel account.
+        </p>
+
+        <!-- Pipeline Bar -->
+        <div class="pipeline-card">
+            <div class="pipeline-item"><i class="fa-solid fa-code-commit"></i> Source Code / Preset</div>
+            <i class="fa-solid fa-chevron-right pipeline-divider"></i>
+            <div class="pipeline-item"><i class="fa-solid fa-cube"></i> Ephemeral Build Sandbox</div>
+            <i class="fa-solid fa-chevron-right pipeline-divider"></i>
+            <div class="pipeline-item"><i class="fa-solid fa-shield-halved"></i> Automated TLS 1.3</div>
+            <i class="fa-solid fa-chevron-right pipeline-divider"></i>
+            <div class="pipeline-item"><i class="fa-solid fa-network-wired"></i> Global Anycast CDN</div>
+            <i class="fa-solid fa-chevron-right pipeline-divider"></i>
+            <div class="pipeline-item" style="color: var(--ox-amber-dark); font-weight:700;"><i class="fa-solid fa-globe"></i> *.voidpanel.com Live</div>
+        </div>
+
+        {% if not is_authenticated and not user.is_authenticated and not request.user.is_authenticated %}
+        <!-- AUTH NOTICE BANNER -->
+        <div class="auth-prompt-card">
+            <div class="auth-prompt-left">
+                <div class="auth-prompt-icon"><i class="fa fa-lock"></i></div>
+                <div>
+                    <div class="auth-prompt-title">Sign in to claim and manage permanent deployments</div>
+                    <div class="auth-prompt-text">Your edge deployments will connect seamlessly with your official VoidPanel portal profile for domain routing and analytics.</div>
+                </div>
+            </div>
+            <div style="display:flex; gap:10px; flex-shrink:0;">
+                <a href="/login/?next=/deploy/" class="btn-light-outline">Sign In</a>
+                <a href="/register/?next=/deploy/" class="btn-brand-primary">Create Free Account</a>
+            </div>
+        </div>
+        {% endif %}
+    </section>
+
+    <!-- ── WORKSPACE STUDIO ── -->
+    <main class="workspace-grid">
+        <!-- LEFT: PRIMARY DEPLOYMENT STUDIO -->
+        <div class="studio-card">
+            <!-- Mode Tabs Header -->
+            <div class="studio-tabs">
+                <button type="button" class="studio-tab-btn active" onclick="switchDeployMode('templates', this)">
+                    <i class="fa-solid fa-shapes"></i> Starter Presets
+                </button>
+                <button type="button" class="studio-tab-btn" onclick="switchDeployMode('git', this)">
+                    <i class="fa-brands fa-github"></i> Git Repository
+                </button>
+                <button type="button" class="studio-tab-btn" onclick="switchDeployMode('html', this)">
+                    <i class="fa-solid fa-file-code"></i> Instant HTML5
+                </button>
+            </div>
+
+            <div class="studio-body">
+                <form id="deployStudioForm" onsubmit="handleDeploymentSubmit(event)">
+                    {% csrf_token %}
+
+                    <!-- 1. PROJECT NAME -->
+                    <div>
+                        <div class="field-label-row">
+                            <label class="field-label" for="projectNameInput"><i class="fa-regular fa-folder" style="color:var(--ox-amber-brand);"></i> Project Name</label>
+                            <span class="field-sub">Human-readable application name</span>
+                        </div>
+                        <input type="text" id="projectNameInput" class="field-input" placeholder="e.g. My Next Portfolio" required oninput="handleProjectNameInput(this.value)">
+                    </div>
+
+                    <!-- 2. SUBDOMAIN SELECTOR -->
+                    <div>
+                        <div class="field-label-row">
+                            <label class="field-label" for="subdomainInput"><i class="fa-solid fa-globe" style="color:var(--ox-amber-brand);"></i> Edge Subdomain URL</label>
+                            <span class="field-sub">Hosted permanently on *.voidpanel.com</span>
+                        </div>
+                        <div class="subdomain-input-box">
+                            <span class="subdomain-url-prefix">https://</span>
+                            <input type="text" id="subdomainInput" placeholder="my-portfolio" required oninput="handleSubdomainCheck(this.value)">
+                            <span class="subdomain-url-suffix">.voidpanel.com</span>
+                        </div>
+                        <div id="subdomainStatusIndicator" class="domain-status-box"></div>
+                    </div>
+
+                    <!-- 3. MODE: TEMPLATES (DEFAULT) -->
+                    <div id="modeTemplatesSection">
+                        <div class="field-label-row">
+                            <label class="field-label"><i class="fa-solid fa-layer-group" style="color:var(--ox-amber-brand);"></i> Framework Preset</label>
+                            <span class="field-sub">Pre-configured with production bundles</span>
+                        </div>
+                        <div class="framework-grid">
+                            <!-- React Vite -->
+                            <div class="framework-card active" onclick="selectFrameworkPreset('react_vite', this)">
+                                <div class="framework-card-top">
+                                    <div class="framework-icon" style="color: #0284c7;">⚛️</div>
+                                    <div>
+                                        <div class="framework-name">React 18 + Vite</div>
+                                        <div class="framework-spec">Vite 5 &bull; SPA Bundle</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Next.js Static -->
+                            <div class="framework-card" onclick="selectFrameworkPreset('nextjs_static', this)">
+                                <div class="framework-card-top">
+                                    <div class="framework-icon" style="color: #0f172a;">▲</div>
+                                    <div>
+                                        <div class="framework-name">Next.js Static</div>
+                                        <div class="framework-spec">SSG &bull; Optimized Export</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Vue 3 -->
+                            <div class="framework-card" onclick="selectFrameworkPreset('vue', this)">
+                                <div class="framework-card-top">
+                                    <div class="framework-icon" style="color: #10b981;">💚</div>
+                                    <div>
+                                        <div class="framework-name">Vue 3 (Vite)</div>
+                                        <div class="framework-spec">Composition API</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Astro -->
+                            <div class="framework-card" onclick="selectFrameworkPreset('astro', this)">
+                                <div class="framework-card-top">
+                                    <div class="framework-icon" style="color: #ea580c;">🚀</div>
+                                    <div>
+                                        <div class="framework-name">Astro</div>
+                                        <div class="framework-spec">Content-first Islands</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- SvelteKit -->
+                            <div class="framework-card" onclick="selectFrameworkPreset('svelte', this)">
+                                <div class="framework-card-top">
+                                    <div class="framework-icon" style="color: #f97316;">🔥</div>
+                                    <div>
+                                        <div class="framework-name">Svelte / SvelteKit</div>
+                                        <div class="framework-spec">Ultra-lean Compiler</div>
+                                    </div>
+                                </div>
+                            </div>
+                                                        <!-- Python Django Preset -->
+                            <div class="framework-card" onclick="selectFrameworkPreset('django', this)">
+                                <div class="framework-card-top">
+                                    <div class="framework-icon" style="color: #0c4b33;">🐍</div>
+                                    <div>
+                                        <div class="framework-name">Python (Django)</div>
+                                        <div class="framework-spec">Django 5.x &bull; Full-Stack</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Node.js Backend Preset -->
+                            <div class="framework-card" onclick="selectFrameworkPreset('node_backend', this)">
+                                <div class="framework-card-top">
+                                    <div class="framework-icon" style="color: #16a34a;">🟢</div>
+                                    <div>
+                                        <div class="framework-name">Node.js (API / Server)</div>
+                                        <div class="framework-spec">Node 20 &bull; Express / API Daemon</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- HTML Static -->
+                            <div class="framework-card" onclick="selectFrameworkPreset('html_static', this)">
+                                <div class="framework-card-top">
+                                    <div class="framework-icon" style="color: #ea580c;">🌐</div>
+                                    <div>
+                                        <div class="framework-name">Clean HTML5 / CSS</div>
+                                        <div class="framework-spec">Instant Zero-Build</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. MODE: GIT REPO (HIDDEN INITIALLY) -->
+                    <div id="modeGitSection" style="display: none;">
+                        <div style="margin-bottom: 16px;">
+                            <div class="field-label-row">
+                                <label class="field-label"><i class="fa-brands fa-github" style="color:var(--ox-amber-brand);"></i> Git Repository HTTPS URL</label>
+                                <span class="field-sub">Public repository or token URL</span>
+                            </div>
+                            <input type="url" id="gitRepoInput" class="field-input" placeholder="https://github.com/username/my-frontend-app">
+                        </div>
+                        <div class="grid-half">
+                            <div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                    <label class="field-label" style="font-size: 13px; margin: 0;">Production Branch</label>
+                                    <span id="gitBranchBadge" style="font-size: 11px; font-weight: 700; color: #16a34a; display: none;">
+                                        <i class="fa-solid fa-circle-check"></i> Auto-Detected
+                                    </span>
+                                </div>
+                                <input type="text" id="gitBranchInput" class="field-input" placeholder="Auto-detected (e.g. main/master)">
+                                <div id="gitBranchStatus" style="font-size: 11px; margin-top: 5px; color: var(--ox-text-muted);">
+                                    Optional: Leave blank to auto-detect default branch, or change to override.
+                                </div>
+                            </div>
+                            <div>
+                                <label class="field-label" style="font-size: 13px; margin-bottom: 6px;">Framework Type</label>
+                                <select id="gitFrameworkSelect" class="field-input">
+                                    <option value="auto">Auto-Detect Framework</option>
+                                    <option value="django">Python (Django)</option>
+                                    <option value="node_backend">Node.js (API / Express / Fastify)</option>
+                                    <option value="react_vite">React (Vite)</option>
+                                    <option value="nextjs_static">Next.js</option>
+                                    <option value="vue">Vue 3</option>
+                                    <option value="html_static">Static HTML5</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. MODE: HTML (HIDDEN INITIALLY) -->
+                    <div id="modeHtmlSection" style="display: none;">
+                        <div style="background: #f8fafc; border: 1.5px solid var(--ox-border-main); border-radius: 12px; padding: 18px;">
+                            <h4 style="font-size: 14px; font-weight: 800; margin-bottom: 6px; color: var(--ox-text-title);">Direct Static Deployment</h4>
+                            <p style="font-size: 13px; color: var(--ox-text-body); line-height: 1.5;">
+                                Deploys an ultra-fast, zero-overhead HTML5/CSS landing page bundle with optimized Nginx kernel caching and instant Let's Encrypt SSL.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 4. ENVIRONMENT VARIABLES & SETTINGS DRAWER -->
+                    <div style="margin-top: 6px;">
+                        <button type="button" class="drawer-btn" onclick="toggleAdvancedDrawer()">
+                            <span><i class="fa-solid fa-sliders" style="margin-right: 8px; color: var(--ox-amber-brand);"></i> Environment Variables &amp; Project Settings (Optional)</span>
+                            <i id="drawerChevron" class="fa-solid fa-chevron-down"></i>
+                        </button>
+                        <div id="advancedDrawer" class="drawer-panel" style="display: none;">
+                            <!-- Root Directory for Monorepos -->
+                            <div>
+                                <div class="field-label-row">
+                                    <label class="field-label" style="font-size: 13px; margin-bottom: 4px;"><i class="fa-solid fa-folder-tree" style="color:var(--ox-amber-brand); margin-right:4px;"></i> Root Directory (Optional)</label>
+                                </div>
+                                <input type="text" id="customRootDir" class="field-input" placeholder="./ (Leave blank unless your app code lives in a subfolder)">
+                                <div style="font-size: 11px; color: var(--ox-text-muted); margin-top: 4px;">Subfolder where app source code lives (for monorepos e.g. <code>frontend</code> or <code>client</code>). Defaults to repository root.</div>
+                            </div>
+
+                            <!-- Environment Variables -->
+                            <div>
+                                <div class="field-label-row">
+                                    <label class="field-label" style="font-size: 13px;"><i class="fa-solid fa-key" style="color:var(--ox-amber-brand);"></i> Environment Variables (.env)</label>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button type="button" class="btn-new-env" onclick="toggleEnvBulkPaste()"><i class="fa-solid fa-file-code"></i> Paste .env</button>
+                                        <button type="button" class="btn-new-env" onclick="addEnvRow()"><i class="fa fa-plus"></i> Add Variable</button>
+                                    </div>
+                                </div>
+
+                                <!-- Bulk Paste .env Textarea (Collapsible) -->
+                                <div id="envBulkWrap" style="display: none; margin-bottom: 10px;">
+                                    <textarea id="envBulkText" class="field-input" rows="4" style="height: auto; padding: 10px; font-family: var(--ox-font-mono); font-size: 12px;" placeholder="DATABASE_URL=postgres://...&#10;SECRET_KEY=mysecret&#10;API_KEY=xyz123"></textarea>
+                                    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px;">
+                                        <button type="button" class="btn-new-env" onclick="applyBulkEnv()"><i class="fa-solid fa-check"></i> Parse &amp; Append</button>
+                                    </div>
+                                </div>
+
+                                <div id="envVarsContainer"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 5. MASTER SUBMIT BUTTON -->
+                    {% if is_authenticated or user.is_authenticated or request.user.is_authenticated %}
+                    <button type="submit" id="btnDeploySubmit" class="btn-deploy-master" disabled>
+                        <i class="fa-solid fa-rocket"></i>
+                        <span>Deploy to VoidPanel Edge</span>
+                        <span class="shortcut-badge">⌘ Enter</span>
+                    </button>
+                    {% else %}
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <a href="/login/?next=/deploy/" class="btn-deploy-master" style="text-decoration: none; display: flex; justify-content: center; align-items: center; gap: 10px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);">
+                            <i class="fa-solid fa-lock" style="color: var(--ox-amber-brand);"></i>
+                            <span>Sign In or Register to Deploy</span>
+                            <span class="shortcut-badge" style="background: rgba(255,255,255,0.15);">Members Only</span>
+                        </a>
+                        <div style="font-size: 12px; color: var(--ox-text-muted); text-align: center;">
+                            Only registered users can deploy. <a href="/register/?next=/deploy/" style="color: var(--ox-amber-dark); font-weight: 700; text-decoration: none;">Create a free account</a> to get instant edge access.
+                        </div>
+                    </div>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+
+        <!-- RIGHT: LIVE ARCHITECTURE & SIDEBAR -->
+        <aside class="side-panels-wrap">
+            <!-- LIVE PREVIEW CARD -->
+            <div class="side-info-card">
+                <div class="side-info-title"><i class="fa-solid fa-desktop" style="color:var(--ox-amber-brand);"></i> Edge Live Route Preview</div>
+                <div class="browser-preview-frame">
+                    <div class="browser-top-bar">
+                        <div class="browser-dots">
+                            <span class="browser-dot" style="background:#ef4444;"></span>
+                            <span class="browser-dot" style="background:#f59e0b;"></span>
+                            <span class="browser-dot" style="background:#10b981;"></span>
+                        </div>
+                        <div class="browser-url-pill" id="previewUrlPill">https://[your-subdomain].voidpanel.com</div>
+                    </div>
+                    <div class="browser-screen-body">
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size: 26px; color: var(--ox-amber-brand); margin-bottom: 8px; display: block;"></i>
+                        <span id="previewStatusText">Awaiting project configuration</span>
+                    </div>
+                </div>
+
+                <div class="side-spec-item">
+                    <span class="side-spec-label">DNS Routing</span>
+                    <span class="side-spec-val">*.voidpanel.com Anycast</span>
+                </div>
+                <div class="side-spec-item">
+                    <span class="side-spec-label">TLS Certificate</span>
+                    <span class="side-spec-val" style="color: #059669;">Auto Wildcard SSL</span>
+                </div>
+                <div class="side-spec-item">
+                    <span class="side-spec-label">Idle Memory</span>
+                    <span class="side-spec-val" style="color: var(--ox-amber-dark);">0 MB (Static Sendfile)</span>
+                </div>
+                <div class="side-spec-item">
+                    <span class="side-spec-label">Global CDN</span>
+                    <span class="side-spec-val">VoidPanel Core Network</span>
+                </div>
+            </div>
+
+            <!-- AUTOMATED ARCHITECTURE ADVANTAGE CARD -->
+            <div class="side-info-card">
+                <div class="side-info-title"><i class="fa-solid fa-bolt" style="color:var(--ox-amber-brand);"></i> Automated Edge Architecture</div>
+                <p style="font-size: 13px; color: var(--ox-text-muted); line-height: 1.5; margin-bottom: 14px;">
+                    Zero server configuration required. VoidPanel handles build orchestration, process supervision, reverse proxying, and SSL provisioning automatically.
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 9px; font-size: 12px; color: var(--ox-text-body);">
+                        <i class="fa-solid fa-circle-check" style="color: #10b981; font-size: 14px;"></i>
+                        <span>Automatic Framework Detection</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 9px; font-size: 12px; color: var(--ox-text-body);">
+                        <i class="fa-solid fa-circle-check" style="color: #10b981; font-size: 14px;"></i>
+                        <span>Zero-Downtime Atomic Swaps</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 9px; font-size: 12px; color: var(--ox-text-body);">
+                        <i class="fa-solid fa-circle-check" style="color: #10b981; font-size: 14px;"></i>
+                        <span>Instant Anycast Edge Routing</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 9px; font-size: 12px; color: var(--ox-text-body);">
+                        <i class="fa-solid fa-circle-check" style="color: #10b981; font-size: 14px;"></i>
+                        <span>Automated Wildcard TLS / SSL</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- ── ACTIVE DEPLOYMENTS SECTION ── -->
+    <section class="my-deployments-section" id="projects">
+        <div class="deployments-header-bar">
+            <h2 class="deployments-heading">
+                <i class="fa-solid fa-layer-group" style="color: var(--ox-amber-brand);"></i>
+                Active Edge Deployments
+            </h2>
+            <span class="deployments-count-badge">
+                {% if is_authenticated or user.is_authenticated or request.user.is_authenticated %}{{ total_deployments }} Project{{ total_deployments|pluralize }}{% else %}Members Only{% endif %}
+            </span>
+        </div>
+
+        <div class="deployments-cards-grid" id="projectsGridContainer">
+            {% if is_authenticated or user.is_authenticated or request.user.is_authenticated %}
+                {% for p in projects %}
+                <div class="deployment-app-card" id="projectCard-{{ p.id }}">
+                    <div class="app-top-row">
+                        <div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <div class="app-card-title">{{ p.name }}</div>
+                                <span style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; color:#16a34a; background:rgba(22,163,74,0.08); padding:2px 8px; border-radius:6px; border:1px solid rgba(22,163,74,0.2);" title="Let's Encrypt Wildcard HTTPS active">
+                                    <i class="fa-solid fa-lock" style="font-size:9px;"></i> SSL Active
+                                </span>
+                            </div>
+                            <a href="https://{{ p.full_domain }}" target="_blank" class="app-domain-link">
+                                https://{{ p.full_domain }} <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px;"></i>
+                            </a>
+                        </div>
+                        <span class="app-status-badge status-badge-{{ p.status }}">
+                            <i class="fa-solid fa-circle" style="font-size: 6px;"></i> {{ p.status|capfirst }}
+                        </span>
+                    </div>
+
+                    <div class="app-bottom-meta">
+                        <span><i class="fa-solid fa-cube"></i> {{ p.get_framework_display }} &bull; {{ p.disk_usage_mb }} MB</span>
+                        <div class="app-card-actions">
+                            <button type="button" class="app-action-btn" style="color:var(--ox-text-title); font-weight:700; border-color:var(--ox-border-main); background:#ffffff;" onclick="openVsCodeStudio({{ p.id }}, '{{ p.name|escapejs }}', '{{ p.subdomain|escapejs }}', '{{ p.full_domain|escapejs }}')" title="Open In-Browser VS Code Editor & File Manager">
+                                <i class="fa-solid fa-code" style="color:var(--ox-amber-brand);"></i> VS Code Editor
+                            </button>
+                            <button type="button" class="app-action-btn" onclick="executeRedeploy({{ p.id }})" title="Rebuild and deploy"><i class="fa-solid fa-rotate"></i> Redeploy</button>
+                            <button type="button" class="app-action-btn app-delete-btn" onclick="executeDeleteProject({{ p.id }}, '{{ p.name }}')" title="Delete project"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-deployments-box">
+                    <i class="fa-solid fa-cloud"></i>
+                    <h3 style="color:var(--ox-text-title); font-size:17px; font-weight:800; margin-bottom:6px;">No projects deployed yet</h3>
+                    <p style="font-size:13px; max-width: 480px; margin: 0 auto 18px;">
+                        Choose a starter preset above or import a Git repository to launch your first frontend site on *.voidpanel.com!
+                    </p>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-deployments-box">
+                    <i class="fa-solid fa-lock"></i>
+                    <h3 style="color:var(--ox-text-title); font-size:17px; font-weight:800; margin-bottom:6px;">Connect with VoidPanel to view your deployments</h3>
+                    <p style="font-size:13px; margin-bottom:18px;">Sign in to access your deployed applications and manage domains.</p>
+                    <a href="/login/?next=/deploy/" class="btn-brand-primary" style="display:inline-flex;">Sign In with VoidPanel</a>
+                </div>
+            {% endif %}
+        </div>
+    </section>
+
+    <!-- ── BUILD TERMINAL MODAL ── -->
+    <div id="buildTerminalModal" class="terminal-modal-overlay">
+        <div class="terminal-modal-frame">
+            <div class="terminal-modal-header">
+                <div class="term-dots-wrap">
+                    <span class="t-dot t-close" onclick="closeBuildTerminal()"></span>
+                    <span class="t-dot t-min"></span>
+                    <span class="t-dot t-max"></span>
+                </div>
+                <div class="term-title-text" id="termTitleLabel">voidpanel-edge: build initialized</div>
+                <button type="button" onclick="closeBuildTerminal()" style="background:none; border:none; color:#64748b; cursor:pointer;"><i class="fa fa-times"></i></button>
+            </div>
+            <div class="terminal-modal-stream" id="termOutputLogs">Connecting to VoidPanel build daemon...\n</div>
+            <div class="terminal-modal-bottom">
+                <span id="termStatusBadge" style="font-weight: 700; font-size: 13px; color: var(--ox-amber-brand);">
+                    <i class="fa-solid fa-spinner fa-spin"></i> Building Application...
+                </span>
+                <button type="button" id="btnOpenLiveSite" class="btn-brand-primary" style="display:none;" onclick="openCompletedLiveSite()">
+                    Visit Live Site <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+        <!-- ── VS CODE WEB STUDIO & FILE MANAGER MODAL ── -->
+    <div id="vscodeStudioModal" class="vscode-modal-overlay" style="display:none;">
+        <div class="vscode-window">
+            <div class="vscode-titlebar">
+                <div class="vscode-title-left">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M17.5 2.5L7 10.5L3.5 7.5L2 9L5.5 12L2 15L3.5 16.5L7 13.5L17.5 21.5L22 19.5V4.5L17.5 2.5ZM17.5 17L9.5 12L17.5 7V17Z" fill="#007ACC"/>
+                    </svg>
+                    <span class="vscode-project-title" id="vscodeProjectTitle">Studio</span>
+                    <span class="vscode-live-pill" id="vscodeLivePill" onclick="window.open(activeStudioLiveUrl, '_blank')">
+                        <i class="fa-solid fa-circle" style="font-size:7px; color:#10b981;"></i> <span id="vscodeDomainLabel">app.voidpanel.com</span>
+                    </span>
+                </div>
+                <div class="vscode-title-center" id="vscodeActiveBreadcrumb">
+                    <i class="fa-regular fa-file-code"></i> <span id="vscodeBreadcrumbText">index.html</span>
+                </div>
+                <div class="vscode-title-right">
+                    <button type="button" class="vs-btn vs-btn-save" id="btnSaveFile" onclick="saveCurrentFile()" title="Save (Ctrl+S / ⌘S)">
+                        <i class="fa-solid fa-floppy-disk"></i> Save
+                    </button>
+                    <button type="button" class="vs-btn vs-btn-deploy" id="btnSaveAndDeploy" onclick="saveAndRedeployLive()" title="Save and immediately update live edge website">
+                        <i class="fa-solid fa-bolt"></i> Save & Re-deploy
+                    </button>
+                    <a href="#" target="_blank" class="vs-btn vs-btn-outline" id="btnOpenLiveTab">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Visit Live
+                    </a>
+                    <button type="button" class="vs-btn-close" onclick="closeVsCodeStudio()" title="Close Editor">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="vscode-body">
+                <!-- Left Sidebar: Explorer -->
+                <div class="vscode-sidebar">
+                    <div class="vscode-sidebar-header">
+                        <span class="sidebar-title">EXPLORER</span>
+                        <div class="sidebar-actions">
+                            <button type="button" onclick="createNewFilePrompt()" title="New File"><i class="fa-solid fa-file-circle-plus"></i></button>
+                            <button type="button" onclick="createNewFolderPrompt()" title="New Folder"><i class="fa-solid fa-folder-plus"></i></button>
+                            <button type="button" onclick="refreshFileTree()" title="Refresh Files"><i class="fa-solid fa-rotate-right"></i></button>
+                        </div>
+                    </div>
+                    <div class="vscode-filetree" id="vscodeFileTreeContainer">
+                        <div style="padding: 16px; text-align: center; color: #94a3b8; font-size: 12px;">
+                            <i class="fa-solid fa-spinner fa-spin"></i> Loading project files...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Main Area: Tabs + Editor + Status -->
+                <div class="vscode-main-area">
+                    <div class="vscode-tabbar" id="vscodeTabBar"></div>
+                    <div class="vscode-editor-frame">
+                        <div id="monacoEditorContainer" style="width: 100%; height: 100%;"></div>
+                        <textarea id="fallbackCodeEditor" class="vscode-fallback-editor" style="display:none;" spellcheck="false"></textarea>
+                    </div>
+                    <div class="vscode-statusbar">
+                        <div class="status-left">
+                            <span id="vscodeLangMode">HTML</span>
+                            <span id="vscodeLineCol">Ln 1, Col 1</span>
+                            <span>UTF-8</span>
+                            <span>Spaces: 4</span>
+                        </div>
+                        <div class="status-right">
+                            <span id="vscodeSaveState"><i class="fa-solid fa-check"></i> Ready</span>
+                            <span><i class="fa-solid fa-shield-halved" style="color:#10b981;"></i> Wildcard SSL Active</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ── SCRIPTS & LOGIC ── -->
+    <script>
+        const IS_AUTHENTICATED = {% if is_authenticated or user.is_authenticated or request.user.is_authenticated %}true{% else %}false{% endif %};
+        let activeDeployMode = 'templates';
+        let currentFrameworkPreset = 'react_vite';
+        let isSubdomainClaimable = false;
+        let logStreamInterval = null;
+        let finalLiveUrl = '';
+        let subdomainDebounceTimer = null;
+
+        // Switch deployment modes: Templates | Git | HTML
+        function switchDeployMode(mode, btnEl) {
+            activeDeployMode = mode;
+            document.querySelectorAll('.studio-tab-btn').forEach(b => b.classList.remove('active'));
+            if (btnEl) btnEl.classList.add('active');
+
+            document.getElementById('modeTemplatesSection').style.display = (mode === 'templates') ? 'block' : 'none';
+            document.getElementById('modeGitSection').style.display = (mode === 'git') ? 'block' : 'none';
+            document.getElementById('modeHtmlSection').style.display = (mode === 'html') ? 'block' : 'none';
+        }
+
+        // Framework preset selector
+        function selectFrameworkPreset(framework, cardEl) {
+            currentFrameworkPreset = framework;
+            document.querySelectorAll('.framework-card').forEach(c => c.classList.remove('active'));
+            if (cardEl) cardEl.classList.add('active');
+        }
+
+        // Auto slugify project name into subdomain
+        function handleProjectNameInput(value) {
+            const slug = value.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/--+/g, '-').replace(/^-|-$/g, '');
+            const subInput = document.getElementById('subdomainInput');
+            if (!subInput.dataset.manuallyEdited) {
+                subInput.value = slug;
+                handleSubdomainCheck(slug);
+            }
+        }
+
+        // Real-time subdomain checker
+        function handleSubdomainCheck(val) {
+            const subInput = document.getElementById('subdomainInput');
+            subInput.dataset.manuallyEdited = "true";
+            const feedbackEl = document.getElementById('subdomainStatusIndicator');
+            const previewPill = document.getElementById('previewUrlPill');
+            const previewStatus = document.getElementById('previewStatusText');
+            const deployBtn = document.getElementById('btnDeploySubmit');
+
+            clearTimeout(subdomainDebounceTimer);
+
+            if (!val || val.length < 3) {
+                feedbackEl.innerHTML = '<span class="domain-err"><i class="fa-solid fa-circle-xmark"></i> Subdomain must be at least 3 characters.</span>';
+                previewPill.innerText = `https://[subdomain].voidpanel.com`;
+                previewStatus.innerText = 'Subdomain required';
+                isSubdomainClaimable = false;
+                if (deployBtn) deployBtn.disabled = true;
+                return;
+            }
+
+            previewPill.innerText = `https://${val}.voidpanel.com`;
+            previewStatus.innerText = `Checking ${val}.voidpanel.com...`;
+            feedbackEl.innerHTML = '<span class="domain-checking"><i class="fa-solid fa-spinner fa-spin"></i> Checking availability...</span>';
+
+            subdomainDebounceTimer = setTimeout(() => {
+                fetch(`/api/check-subdomain/?subdomain=${encodeURIComponent(val)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.available) {
+                            feedbackEl.innerHTML = `<span class="domain-ok"><i class="fa-solid fa-circle-check"></i> ${data.full_domain} is available!</span>`;
+                            previewStatus.innerText = `✓ Ready to deploy on ${data.full_domain}`;
+                            isSubdomainClaimable = true;
+                            if (deployBtn) deployBtn.disabled = !IS_AUTHENTICATED;
+                        } else {
+                            feedbackEl.innerHTML = `<span class="domain-err"><i class="fa-solid fa-circle-xmark"></i> ${data.message}</span>`;
+                            previewStatus.innerText = `✕ Domain not available`;
+                            isSubdomainClaimable = false;
+                            if (deployBtn) deployBtn.disabled = true;
+                        }
+                    })
+                    .catch(() => {
+                        feedbackEl.innerHTML = '<span class="domain-err">Network error checking subdomain.</span>';
+                        isSubdomainClaimable = false;
+                        if (deployBtn) deployBtn.disabled = true;
+                    });
+            }, 280);
+        }
+
+        // Toggle advanced configuration drawer
+        function toggleAdvancedDrawer() {
+            const drawer = document.getElementById('advancedDrawer');
+            const chevron = document.getElementById('drawerChevron');
+            if (drawer.style.display === 'none' || !drawer.style.display) {
+                drawer.style.display = 'flex';
+                chevron.classList.replace('fa-chevron-down', 'fa-chevron-up');
+            } else {
+                drawer.style.display = 'none';
+                chevron.classList.replace('fa-chevron-up', 'fa-chevron-down');
+            }
+        }
+
+        // Toggle Bulk Paste .env input
+        function toggleEnvBulkPaste() {
+            const wrap = document.getElementById('envBulkWrap');
+            if (wrap) {
+                wrap.style.display = (wrap.style.display === 'none' || !wrap.style.display) ? 'block' : 'none';
+            }
+        }
+
+        // Apply Bulk .env contents
+        function applyBulkEnv() {
+            const text = document.getElementById('envBulkText').value;
+            const lines = text.split('\n');
+            let count = 0;
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line || line.startsWith('#')) return;
+                const eqIdx = line.indexOf('=');
+                if (eqIdx > 0) {
+                    const key = line.substring(0, eqIdx).trim();
+                    const val = line.substring(eqIdx + 1).trim();
+                    if (key) {
+                        addEnvRow(key, val);
+                        count++;
+                    }
+                }
+            });
+            document.getElementById('envBulkText').value = '';
+            document.getElementById('envBulkWrap').style.display = 'none';
+        }
+
+        // Add Environment Variable Row
+        function addEnvRow(defaultKey = '', defaultVal = '') {
+            const container = document.getElementById('envVarsContainer');
+            const row = document.createElement('div');
+            row.className = 'env-row-item';
+            const k = (defaultKey || '').replace(/"/g, '&quot;');
+            const v = (defaultVal || '').replace(/"/g, '&quot;');
+            row.innerHTML = `
+                <input type="text" placeholder="KEY e.g. VITE_API_URL" class="env-key" value="${k}">
+                <input type="text" placeholder="VALUE e.g. https://api.mysite.com" class="env-val" value="${v}">
+                <button type="button" class="btn-del-env" onclick="this.parentElement.remove()"><i class="fa fa-trash"></i></button>
+            `;
+            container.appendChild(row);
+        }
+
+        // Collect Environment Variables
+        function getEnvironmentVariables() {
+            const envs = {};
+            document.querySelectorAll('#envVarsContainer .env-row-item').forEach(row => {
+                const k = row.querySelector('.env-key').value.trim();
+                const v = row.querySelector('.env-val').value.trim();
+                if (k) envs[k] = v;
+            });
+            return envs;
+        }
+
+        // Form Submit Handler
+        function handleDeploymentSubmit(e) {
+            e.preventDefault();
+            if (!IS_AUTHENTICATED) {
+                window.location.href = '/login/?next=/deploy/';
+                return;
+            }
+            if (!isSubdomainClaimable) return;
+
+            const name = document.getElementById('projectNameInput').value.trim();
+            const subdomain = document.getElementById('subdomainInput').value.trim().toLowerCase();
+            const deployBtn = document.getElementById('btnDeploySubmit');
+
+            deployBtn.disabled = true;
+            deployBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Initializing Sandbox...';
+
+            let framework = currentFrameworkPreset;
+            if (activeDeployMode === 'git') {
+                framework = document.getElementById('gitFrameworkSelect').value;
+            } else if (activeDeployMode === 'html') {
+                framework = 'html_static';
+            }
+
+            const payload = {
+                name: name,
+                subdomain: subdomain,
+                source_type: (activeDeployMode === 'git') ? 'git' : 'template',
+                git_repo: (activeDeployMode === 'git') ? document.getElementById('gitRepoInput').value.trim() : '',
+                git_branch: (activeDeployMode === 'git') ? document.getElementById('gitBranchInput').value.trim() : 'main',
+                framework: framework,
+                root_directory: document.getElementById('customRootDir') ? document.getElementById('customRootDir').value.trim() : '',
+                install_command: '',
+                build_command: '',
+                start_command: '',
+                output_directory: '',
+                env_vars: getEnvironmentVariables()
+            };
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+
+            fetch('/api/create/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success || data.status === 'success') {
+                    finalLiveUrl = `https://${data.full_domain}`;
+                    openBuildTerminal(data.full_domain);
+                    streamBuildLogs(data.build_id);
+                } else {
+                    if (data.auth_required) {
+                        window.location.href = data.login_url || "/login/?next=/deploy/";
+                        return;
+                    }
+                    alert('Deployment Failed: ' + (data.message || data.error || 'Server error'));
+                    deployBtn.disabled = false;
+                    deployBtn.innerHTML = '<i class="fa-solid fa-rocket"></i> Deploy to VoidPanel Edge';
+                }
+            })
+            .catch(err => {
+                alert('Connection failure: ' + err);
+                deployBtn.disabled = false;
+                deployBtn.innerHTML = '<i class="fa-solid fa-rocket"></i> Deploy to VoidPanel Edge';
+            });
+        }
+
+        // Terminal Modal Handlers
+        function openBuildTerminal(domain) {
+            document.getElementById('buildTerminalModal').style.display = 'flex';
+            document.getElementById('termTitleLabel').innerText = `voidpanel-edge: ${domain}`;
+            document.getElementById('termOutputLogs').innerText = `⚡ Initializing isolated ephemeral build sandbox for ${domain}...\n`;
+            document.getElementById('btnOpenLiveSite').style.display = 'none';
+        }
+
+        function closeBuildTerminal() {
+            document.getElementById('buildTerminalModal').style.display = 'none';
+            if (logStreamInterval) clearInterval(logStreamInterval);
+            location.reload();
+        }
+
+        function streamBuildLogs(buildId) {
+            const logsEl = document.getElementById('termOutputLogs');
+            const badgeEl = document.getElementById('termStatusBadge');
+            const liveBtn = document.getElementById('btnOpenLiveSite');
+
+            logStreamInterval = setInterval(() => {
+                fetch(`/api/build/${buildId}/status/`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.logs) {
+                            logsEl.innerText = data.logs;
+                            logsEl.scrollTop = logsEl.scrollHeight;
+                        }
+
+                        if (data.status === 'success') {
+                            clearInterval(logStreamInterval);
+                            badgeEl.innerHTML = '<span style="color:#059669;"><i class="fa-solid fa-circle-check"></i> Deployed Live on VoidPanel Edge!</span>';
+                            liveBtn.style.display = 'inline-flex';
+                        } else if (data.status === 'failed') {
+                            clearInterval(logStreamInterval);
+                            badgeEl.innerHTML = '<span style="color:#e11d48;"><i class="fa-solid fa-circle-xmark"></i> Build Encountered Errors</span>';
+                        }
+                    });
+            }, 1400);
+        }
+
+        function openCompletedLiveSite() {
+            if (finalLiveUrl) window.open(finalLiveUrl, '_blank');
+        }
+
+        // Redeploy project
+        function executeRedeploy(projectId) {
+            if (!confirm('Rebuild and publish this project?')) return;
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+
+            fetch(`/api/redeploy/${projectId}/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success || data.status === 'success') {
+                    openBuildTerminal('Rebuilding app...');
+                    streamBuildLogs(data.build_id);
+                } else {
+                    alert('Error: ' + (data.message || data.error));
+                }
+            });
+        }
+
+        // Delete project
+        function executeDeleteProject(projectId, name) {
+            if (!confirm(`Are you sure you want to delete ${name}? This will remove the live website and subdomain.`)) return;
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+
+            fetch(`/api/project/${projectId}/delete/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const card = document.getElementById(`projectCard-${projectId}`);
+                    if (card) card.remove();
+                    location.reload();
+                } else {
+                    alert('Delete failed: ' + data.error);
+                }
+            });
+        }
+
+        // Copy CLI snippet
+        function copyCliSnippet(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Copied to clipboard: ' + text);
+            });
+        }
+
+        // Keyboard Shortcut: Cmd/Ctrl + Enter to deploy
+        document.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                const btn = document.getElementById('btnDeploySubmit');
+                if (btn && !btn.disabled) {
+                    btn.click();
+                }
+            }
+        });
+    
+        // ═══════════════════════════════════════════════════════════════
+        // GITHUB BRANCH AUTO-DETECTION
+        // ═══════════════════════════════════════════════════════════════
+        const gitRepoInput = document.getElementById('gitRepoInput');
+        const gitBranchInput = document.getElementById('gitBranchInput');
+        const gitBranchBadge = document.getElementById('gitBranchBadge');
+        const gitBranchStatus = document.getElementById('gitBranchStatus');
+        let gitInspectDebounce = null;
+
+        if (gitRepoInput) {
+            gitRepoInput.addEventListener('input', function() {
+                const url = this.value.trim();
+                clearTimeout(gitInspectDebounce);
+                if (!url || (!url.startsWith('http://') && !url.startsWith('https://'))) {
+                    if (gitBranchBadge) gitBranchBadge.style.display = 'none';
+                    if (gitBranchStatus) gitBranchStatus.innerHTML = 'Optional: Leave blank to auto-detect default branch, or change to override.';
+                    return;
+                }
+
+                if (gitBranchStatus) {
+                    gitBranchStatus.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Checking repository default branch...';
+                    gitBranchStatus.style.color = 'var(--ox-amber-dark)';
+                }
+
+                gitInspectDebounce = setTimeout(async () => {
+                    try {
+                        const res = await fetch('/deploy/api/inspect-git/?url=' + encodeURIComponent(url));
+                        const data = await res.json();
+                        if (data.status === 'ok' && data.default_branch) {
+                            if (!gitBranchInput.value || gitBranchInput.value === 'main') {
+                                gitBranchInput.value = data.default_branch;
+                            }
+                            if (gitBranchBadge) {
+                                gitBranchBadge.style.display = 'inline-flex';
+                                gitBranchBadge.innerHTML = `<i class="fa-solid fa-circle-check"></i> Auto-Detected: <b>${data.default_branch}</b>`;
+                            }
+                            if (gitBranchStatus) {
+                                gitBranchStatus.innerHTML = `✓ Default branch detected: <b>${data.default_branch}</b> (change anytime if needed)`;
+                                gitBranchStatus.style.color = '#16a34a';
+                            }
+                        }
+                    } catch(e) {
+                        if (gitBranchStatus) {
+                            gitBranchStatus.innerHTML = 'Branch will default to <b>main</b> upon deployment.';
+                            gitBranchStatus.style.color = 'var(--ox-text-muted)';
+                        }
+                    }
+                }, 400);
+            });
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // VS CODE WEB STUDIO & FILE MANAGER LOGIC
+        // ═══════════════════════════════════════════════════════════════
+        let activeStudioProjectId = null;
+        let activeStudioSubdomain = '';
+        let activeStudioLiveUrl = '';
+        let activeFilePath = '';
+        let openTabs = []; // list of {path, name, ext, dirty}
+        let monacoInstance = null;
+        let isMonacoLoaded = false;
+
+        // Initialize Monaco Editor
+        function initMonacoEditor() {
+            if (isMonacoLoaded) return;
+            if (window.monaco) {
+                monacoInstance = monaco.editor.create(document.getElementById('monacoEditorContainer'), {
+                    value: '<!-- Loading file... -->',
+                    language: 'html',
+                    theme: 'vs-dark',
+                    fontSize: 13,
+                    fontFamily: "'JetBrains Mono', 'Menlo', 'Monaco', monospace",
+                    automaticLayout: true,
+                    minimap: { enabled: true },
+                    scrollBeyondLastLine: false,
+                    tabSize: 4,
+                    wordWrap: 'on'
+                });
+                monacoInstance.onDidChangeModelContent(() => {
+                    markActiveTabDirty();
+                });
+                monacoInstance.onDidChangeCursorPosition((e) => {
+                    const posEl = document.getElementById('vscodeLineCol');
+                    if (posEl) posEl.innerText = `Ln ${e.position.lineNumber}, Col ${e.position.column}`;
+                });
+                isMonacoLoaded = true;
+            } else if (window.require) {
+                require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+                require(['vs/editor/editor.main'], function() {
+                    initMonacoEditor();
+                });
+            } else {
+                // Fallback textarea
+                document.getElementById('monacoEditorContainer').style.display = 'none';
+                document.getElementById('fallbackCodeEditor').style.display = 'block';
+                document.getElementById('fallbackCodeEditor').addEventListener('input', () => {
+                    markActiveTabDirty();
+                });
+            }
+        }
+
+        function openVsCodeStudio(projectId, projectName, subdomain, fullDomain) {
+            activeStudioProjectId = projectId;
+            activeStudioSubdomain = subdomain;
+            activeStudioLiveUrl = `https://${fullDomain}`;
+            openTabs = [];
+            activeFilePath = '';
+
+            document.getElementById('vscodeProjectTitle').innerText = projectName;
+            document.getElementById('vscodeDomainLabel').innerText = fullDomain;
+            document.getElementById('btnOpenLiveTab').href = activeStudioLiveUrl;
+            document.getElementById('vscodeStudioModal').style.display = 'flex';
+
+            initMonacoEditor();
+            refreshFileTree();
+        }
+
+        function closeVsCodeStudio() {
+            document.getElementById('vscodeStudioModal').style.display = 'none';
+        }
+
+        async function refreshFileTree() {
+            if (!activeStudioProjectId) return;
+            const treeContainer = document.getElementById('vscodeFileTreeContainer');
+            treeContainer.innerHTML = '<div style="padding: 16px; text-align: center; color: #94a3b8; font-size: 12px;"><i class="fa-solid fa-spinner fa-spin"></i> Refreshing workspace...</div>';
+
+            try {
+                const res = await fetch(`/deploy/api/project/${activeStudioProjectId}/files/`);
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    treeContainer.innerHTML = '';
+                    if (data.files && data.files.length > 0) {
+                        renderTreeNodes(data.files, treeContainer, 0);
+                        // If no active file, open first html or py or text file
+                        if (!activeFilePath) {
+                            const firstFile = findFirstFile(data.files);
+                            if (firstFile) {
+                                openProjectFile(firstFile.path, firstFile.name, firstFile.ext);
+                            }
+                        }
+                    } else {
+                        treeContainer.innerHTML = '<div style="padding: 16px; text-align: center; color: #94a3b8; font-size: 12px;">Workspace is empty. Create a file above.</div>';
+                    }
+                } else {
+                    treeContainer.innerHTML = `<div style="padding: 16px; color: #f87171; font-size: 12px;">Error: ${data.message}</div>`;
+                }
+            } catch(e) {
+                treeContainer.innerHTML = `<div style="padding: 16px; color: #f87171; font-size: 12px;">Failed to load files: ${e}</div>`;
+            }
+        }
+
+        function findFirstFile(items) {
+            for (const item of items) {
+                if (!item.is_dir) return item;
+                if (item.children) {
+                    const f = findFirstFile(item.children);
+                    if (f) return f;
+                }
+            }
+            return null;
+        }
+
+        function renderTreeNodes(nodes, container, depth) {
+            nodes.forEach(node => {
+                const row = document.createElement('div');
+                row.className = 'tree-node-item';
+                row.style.paddingLeft = (12 + depth * 14) + 'px';
+                if (node.path === activeFilePath) row.classList.add('active');
+
+                let iconHtml = '<i class="fa-regular fa-file" style="color:#94a3b8;"></i>';
+                if (node.is_dir) {
+                    iconHtml = '<i class="fa-solid fa-folder" style="color:#f59e0b;"></i>';
+                } else {
+                    const ext = node.ext.toLowerCase();
+                    if (ext === 'html') iconHtml = '<i class="fa-brands fa-html5" style="color:#f97316;"></i>';
+                    else if (ext === 'css') iconHtml = '<i class="fa-brands fa-css3-alt" style="color:#38bdf8;"></i>';
+                    else if (['js', 'jsx', 'ts', 'tsx'].includes(ext)) iconHtml = '<i class="fa-brands fa-js" style="color:#facc15;"></i>';
+                    else if (ext === 'py') iconHtml = '<i class="fa-brands fa-python" style="color:#38bdf8;"></i>';
+                    else if (ext === 'json') iconHtml = '<i class="fa-solid fa-code" style="color:#f59e0b;"></i>';
+                    else if (['png', 'jpg', 'jpeg', 'svg', 'gif', 'ico'].includes(ext)) iconHtml = '<i class="fa-solid fa-file-image" style="color:#c084fc;"></i>';
+                }
+
+                row.innerHTML = `
+                    <div class="tree-node-left">
+                        ${iconHtml}
+                        <span>${node.name}</span>
+                    </div>
+                    <div>
+                        ${!node.is_dir ? `<button type="button" class="tree-del-btn" onclick="deleteNodeAction('${node.path}', event)" title="Delete File"><i class="fa-solid fa-trash"></i></button>` : ''}
+                    </div>
+                `;
+
+                if (node.is_dir) {
+                    const childContainer = document.createElement('div');
+                    row.onclick = () => {
+                        childContainer.style.display = (childContainer.style.display === 'none') ? 'block' : 'none';
+                    };
+                    container.appendChild(row);
+                    container.appendChild(childContainer);
+                    if (node.children) renderTreeNodes(node.children, childContainer, depth + 1);
+                } else {
+                    row.onclick = () => {
+                        openProjectFile(node.path, node.name, node.ext);
+                    };
+                    container.appendChild(row);
+                }
+            });
+        }
+
+        async function openProjectFile(relPath, fileName, ext) {
+            activeFilePath = relPath;
+            document.getElementById('vscodeBreadcrumbText').innerText = relPath;
+            highlightTreeActiveNode(relPath);
+
+            // Add or activate Tab
+            let tab = openTabs.find(t => t.path === relPath);
+            if (!tab) {
+                tab = { path: relPath, name: fileName, ext: ext, dirty: false };
+                openTabs.push(tab);
+            }
+            renderTabs();
+
+            // Set language mode
+            const lang = mapExtToMonacoLang(ext);
+            const langEl = document.getElementById('vscodeLangMode');
+            if (langEl) langEl.innerText = lang.toUpperCase();
+
+            // Fetch file content
+            const stateEl = document.getElementById('vscodeSaveState');
+            if (stateEl) stateEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Reading file...';
+
+            try {
+                const res = await fetch(`/deploy/api/project/${activeStudioProjectId}/get-file/?path=${encodeURIComponent(relPath)}`);
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    setEditorContent(data.content, lang);
+                    tab.dirty = false;
+                    renderTabs();
+                    if (stateEl) stateEl.innerHTML = '<i class="fa-solid fa-check"></i> Ready';
+                } else {
+                    alert('Error opening file: ' + data.message);
+                }
+            } catch(e) {
+                alert('Connection error loading file: ' + e);
+            }
+        }
+
+        function mapExtToMonacoLang(ext) {
+            ext = (ext || '').toLowerCase();
+            if (ext === 'html') return 'html';
+            if (ext === 'css') return 'css';
+            if (['js', 'jsx'].includes(ext)) return 'javascript';
+            if (['ts', 'tsx'].includes(ext)) return 'typescript';
+            if (ext === 'py') return 'python';
+            if (ext === 'json') return 'json';
+            if (['md', 'markdown'].includes(ext)) return 'markdown';
+            if (['yml', 'yaml'].includes(ext)) return 'yaml';
+            if (ext === 'txt') return 'plaintext';
+            return 'plaintext';
+        }
+
+        function setEditorContent(code, lang) {
+            if (monacoInstance) {
+                const oldModel = monacoInstance.getModel();
+                if (oldModel) oldModel.dispose();
+                const newModel = monaco.editor.createModel(code, lang);
+                monacoInstance.setModel(newModel);
+            } else {
+                const textarea = document.getElementById('fallbackCodeEditor');
+                if (textarea) textarea.value = code;
+            }
+        }
+
+        function getEditorContent() {
+            if (monacoInstance) {
+                return monacoInstance.getValue();
+            } else {
+                return document.getElementById('fallbackCodeEditor').value;
+            }
+        }
+
+        function markActiveTabDirty() {
+            const tab = openTabs.find(t => t.path === activeFilePath);
+            if (tab && !tab.dirty) {
+                tab.dirty = true;
+                renderTabs();
+                const stateEl = document.getElementById('vscodeSaveState');
+                if (stateEl) stateEl.innerHTML = '<span style="color:#f59e0b;">● Unsaved changes</span>';
+            }
+        }
+
+        function renderTabs() {
+            const tabContainer = document.getElementById('vscodeTabBar');
+            tabContainer.innerHTML = '';
+            openTabs.forEach(tab => {
+                const tabEl = document.createElement('div');
+                tabEl.className = 'vs-tab' + (tab.path === activeFilePath ? ' active' : '');
+                tabEl.innerHTML = `
+                    <span>${tab.name}${tab.dirty ? ' ●' : ''}</span>
+                    <span class="vs-tab-close" onclick="closeTab('${tab.path}', event)"><i class="fa-solid fa-xmark"></i></span>
+                `;
+                tabEl.onclick = () => {
+                    if (tab.path !== activeFilePath) {
+                        openProjectFile(tab.path, tab.name, tab.ext);
+                    }
+                };
+                tabContainer.appendChild(tabEl);
+            });
+        }
+
+        function closeTab(path, e) {
+            e.stopPropagation();
+            openTabs = openTabs.filter(t => t.path !== path);
+            if (activeFilePath === path) {
+                if (openTabs.length > 0) {
+                    const next = openTabs[openTabs.length - 1];
+                    openProjectFile(next.path, next.name, next.ext);
+                } else {
+                    activeFilePath = '';
+                    setEditorContent('', 'plaintext');
+                    document.getElementById('vscodeBreadcrumbText').innerText = 'No file open';
+                }
+            }
+            renderTabs();
+        }
+
+        function highlightTreeActiveNode(path) {
+            document.querySelectorAll('.tree-node-item').forEach(el => {
+                el.classList.remove('active');
+            });
+            // Re-render will highlight row
+        }
+
+        async function saveCurrentFile() {
+            if (!activeStudioProjectId || !activeFilePath) return;
+            const content = getEditorContent();
+            const stateEl = document.getElementById('vscodeSaveState');
+            if (stateEl) stateEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+
+            try {
+                const res = await fetch(`/deploy/api/project/${activeStudioProjectId}/save-file/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({ path: activeFilePath, content: content })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    const tab = openTabs.find(t => t.path === activeFilePath);
+                    if (tab) tab.dirty = false;
+                    renderTabs();
+                    if (stateEl) stateEl.innerHTML = `<i class="fa-solid fa-check" style="color:#10b981;"></i> Saved at ${data.saved_at}`;
+                } else {
+                    alert('Error saving: ' + data.message);
+                }
+            } catch(e) {
+                alert('Save failed: ' + e);
+            }
+        }
+
+        async function saveAndRedeployLive() {
+            if (!activeStudioProjectId) return;
+            const btn = document.getElementById('btnSaveAndDeploy');
+            const origText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Deploying...';
+
+            // 1. Save current file first
+            if (activeFilePath) {
+                await saveCurrentFile();
+            }
+
+            // 2. Call redeploy live sync
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+            try {
+                const res = await fetch(`/deploy/api/project/${activeStudioProjectId}/redeploy-live/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    const stateEl = document.getElementById('vscodeSaveState');
+                    if (stateEl) stateEl.innerHTML = `<span style="color:#34d399;"><i class="fa-solid fa-circle-check"></i> Published Live!</span>`;
+                    alert(`🚀 Changes successfully deployed to ${data.live_url}`);
+                } else {
+                    alert('Redeploy note: ' + data.message);
+                }
+            } catch(e) {
+                alert('Deploy error: ' + e);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origText;
+            }
+        }
+
+        async function createNewFilePrompt() {
+            const name = prompt('Enter new file name (e.g. style.css or src/app.js):');
+            if (!name || !name.trim()) return;
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+            try {
+                const res = await fetch(`/deploy/api/project/${activeStudioProjectId}/create-node/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({ path: name.trim(), type: 'file' })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    refreshFileTree();
+                    openProjectFile(name.trim(), name.split('/').pop(), name.split('.').pop());
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch(e) {
+                alert('Error creating file: ' + e);
+            }
+        }
+
+        async function createNewFolderPrompt() {
+            const name = prompt('Enter new folder name (e.g. assets or static):');
+            if (!name || !name.trim()) return;
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+            try {
+                const res = await fetch(`/deploy/api/project/${activeStudioProjectId}/create-node/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({ path: name.trim(), type: 'dir' })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    refreshFileTree();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch(e) {
+                alert('Error creating folder: ' + e);
+            }
+        }
+
+        async function deleteNodeAction(path, e) {
+            e.stopPropagation();
+            if (!confirm(`Delete "${path}"? This cannot be undone.`)) return;
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+            try {
+                const res = await fetch(`/deploy/api/project/${activeStudioProjectId}/delete-node/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({ path: path })
+                });
+                const data = await res.json();
+                if (data.status === 'ok') {
+                    closeTab(path, e);
+                    refreshFileTree();
+                } else {
+                    alert('Delete failed: ' + data.message);
+                }
+            } catch(e) {
+                alert('Delete error: ' + e);
+            }
+        }
+
+        // Global hotkey: Ctrl+S / Cmd+S in VS Code Studio
+        window.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                const modal = document.getElementById('vscodeStudioModal');
+                if (modal && modal.style.display !== 'none') {
+                    e.preventDefault();
+                    saveCurrentFile();
+                }
+            }
+        });
+
+    </script>
+</body>
+</html>

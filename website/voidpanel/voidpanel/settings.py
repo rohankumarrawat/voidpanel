@@ -186,7 +186,7 @@ DEFAULT_FROM_EMAIL  = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@voidpanel.co
 
 # VoidPanel provisioning bridge
 VOIDPANEL_API_URL = os.environ.get('VOIDPANEL_API_URL', 'http://178.18.250.134:8080')
-VOIDPANEL_API_KEY = os.environ.get('VOIDPANEL_API_KEY', '39a605a414acf7beef9d58d8d15f3a4f9045b4646b7d031ecfc99e8f072fa091')
+VOIDPANEL_API_KEY = os.environ.get('VOIDPANEL_API_KEY', 'v4DYvx0zFc13fLkCYPW72gPn0ThyNvDFvoe8cBWcZ1S4LeaiOZb5aA')
 
 # ── SaaS Provisioning Keys (move to env vars in production) ───────────────────
 HRMS_SAAS_API_URL = os.environ.get('HRMS_SAAS_API_URL', 'https://hrms.voidpanel.com')

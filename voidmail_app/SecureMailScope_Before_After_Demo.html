@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SecureMailScope | Sovereign Zero-Trust Email Security Simulation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root {
+      --bg: #0A0E1A;
+      --card-bg: #121829;
+      --card-border: #1E293B;
+      --accent-red: #EF4444;
+      --accent-green: #10B981;
+      --accent-blue: #3B82F6;
+      --accent-purple: #8B5CF6;
+      --text-main: #F8FAFC;
+      --text-muted: #94A3B8;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* ── HEADER & CONTROLS ── */
+    header {
+      padding: 18px 32px;
+      background: rgba(18, 24, 41, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1.5px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #10B981, #059669);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      color: white;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+    }
+    .brand-title {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+    }
+    .brand-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn {
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 700;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #10B981, #059669);
+      color: white;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+    }
+    .btn-secondary {
+      background: var(--card-bg);
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+    }
+    .btn-secondary:hover {
+      background: #1E293B;
+    }
+
+    /* ── DUAL ARENA COMPARISON ── */
+    .arena-container {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      padding: 24px 32px;
+      max-width: 1600px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    @media (max-width: 1024px) {
+      .arena-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Column Cards */
+    .arena-column {
+      background: var(--card-bg);
+      border-radius: 20px;
+      border: 2px solid var(--card-border);
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      transition: border-color 0.3s;
+    }
+    .arena-column.bad-side {
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+    .arena-column.good-side {
+      border-color: rgba(16, 185, 129, 0.4);
+    }
+
+    .column-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .column-tag {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 6px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .tag-bad {
+      background: rgba(239, 68, 68, 0.15);
+      color: #F87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .tag-good {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34D399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .column-title {
+      font-size: 20px;
+      font-weight: 800;
+      margin-top: 4px;
+    }
+
+    /* ── FLOW PIPELINE STAGES ── */
+    .pipeline {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      flex: 1;
+      position: relative;
+    }
+
+    .node {
+      background: #0B0F19;
+      border: 1.5px solid var(--card-border);
+      border-radius: 14px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+    }
+    .node.active-packet {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.35);
+      transform: scale(1.02);
+    }
+    .node.compromised {
+      border-color: var(--accent-red) !important;
+      background: rgba(239, 68, 68, 0.08) !important;
+      box-shadow: 0 0 25px rgba(239, 68, 68, 0.4);
+      animation: pulse-red 1s infinite alternate;
+    }
+    .node.protected {
+      border-color: var(--accent-green) !important;
+      background: rgba(16, 185, 129, 0.08) !important;
+      box-shadow: 0 0 25px rgba(16, 185, 129, 0.4);
+      animation: pulse-green 1s infinite alternate;
+    }
+
+    @keyframes pulse-red {
+      0% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.2); }
+      100% { box-shadow: 0 0 30px rgba(239, 68, 68, 0.5); }
+    }
+    @keyframes pulse-green {
+      0% { box-shadow: 0 0 10px rgba(16, 185, 129, 0.2); }
+      100% { box-shadow: 0 0 30px rgba(16, 185, 129, 0.5); }
+    }
+
+    .node-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .node-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: #1E293B;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: #94A3B8;
+      flex-shrink: 0;
+      transition: all 0.3s;
+    }
+    .node-name {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+    .node-desc {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      font-family: var(--font-mono);
+    }
+
+    .node-badge {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+    }
+    .badge-gray { background: #1E293B; color: #94A3B8; }
+    .badge-red { background: #7F1D1D; color: #FCA5A5; }
+    .badge-green { background: #064E3B; color: #6EE7B7; }
+    .badge-purple { background: #4C1D95; color: #C4B5FD; }
+
+    /* Animated Connector Lines */
+    .connector {
+      width: 2px;
+      height: 16px;
+      background: var(--card-border);
+      margin-left: 42px;
+      position: relative;
+    }
+    .connector::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -2px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #475569;
+      opacity: 0.5;
+    }
+
+    /* Final Outcome Banner */
+    .outcome-banner {
+      margin-top: 20px;
+      border-radius: 14px;
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: all 0.3s;
+    }
+    .outcome-bad {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1.5px solid rgba(239, 68, 68, 0.3);
+      color: #F87171;
+    }
+    .outcome-good {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1.5px solid rgba(16, 185, 129, 0.3);
+      color: #34D399;
+    }
+    .outcome-icon {
+      font-size: 28px;
+    }
+    .outcome-title {
+      font-size: 15px;
+      font-weight: 800;
+    }
+    .outcome-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    /* Live Terminal Log */
+    .log-box {
+      margin-top: 16px;
+      background: #060911;
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      height: 75px;
+      overflow-y: auto;
+      color: #94A3B8;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .log-entry {
+      display: flex;
+      gap: 8px;
+    }
+    .log-time { color: #64748B; }
+
+    /* Footer / Pitch Helper Note */
+    footer {
+      padding: 16px 32px;
+      background: var(--card-bg);
+      border-top: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12.5px;
+      color: var(--text-muted);
+    }
+    .speech-cheat {
+      color: #F8FAFC;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-logo"><i class="fa-solid fa-shield-halved"></i></div>
+      <div>
+        <div class="brand-title">SecureMailScope · Live Architecture Comparison</div>
+        <div class="brand-subtitle">Minor Project · Department of Computer Science & Engineering</div>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="btn btn-secondary" onclick="resetSim()"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+      <button class="btn btn-primary" id="btn-run" onclick="toggleSim()"><i class="fa-solid fa-play"></i> Run Simulation</button>
+    </div>
+  </header>
+
+  <div class="arena-container">
+
+    <!-- LEFT COLUMN: BEFORE (Standard Tech / Gmail / Outlook) -->
+    <div class="arena-column bad-side" id="col-bad">
+      <div class="column-header">
+        <div>
+          <span class="column-tag tag-bad">Current Reality · 1982 Legacy Architecture</span>
+          <div class="column-title">Standard Email (Google / Microsoft)</div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">ENCRYPTION MODE</div>
+          <div style="font-size: 13px; font-weight: 800; color: #F87171;">Opportunistic (Optional)</div>
+        </div>
+      </div>
+
+      <div class="pipeline">
+        <!-- Node 1: Sender -->
+        <div class="node" id="bad-node-1">
+          <div class="node-left">
+            <div class="node-icon"><i class="fa-solid fa-user-shield"></i></div>
+            <div>
+              <div class="node-name">1. Outbound Defense Email</div>
+              <div class="node-desc">"Flight Radar & Base Coordinates"</div>
+            </div>
+          </div>
+          <span class="node-badge badge-gray" id="bad-badge-1">READY</span>
+        </div>
+
+        <div class="connector"></div>
+
+        <!-- Node 2: Public Wire Transmission -->
+        <div class="node" id="bad-node-2">
+          <div class="node-left">
+            <div class="node-icon"><i class="fa-solid fa-network-wired"></i></div>
+            <div>
+              <div class="node-name">2. Public Telco Hop (BGP / Fiber)</div>
+              <div class="node-desc">Negotiating STARTTLS connection</div>
+            </div>
+          </div>
+          <span class="node-badge badge-gray" id="bad-badge-2">WAITING</span>
+        </div>
+
+        <div class="connector"></div>
+
+        <!-- Node 3: Attacker Interception -->
+        <div class="node" id="bad-node-3">
+          <div class="node-left">
+            <div class="node-icon"><i class="fa-solid fa-user-ninja"></i></div>
+            <div>
+              <div class="node-name">3. Man-in-the-Middle Attack</div>
+              <div class="node-desc">Attacker strips STARTTLS packet</div>
+            </div>
+          </div>
+          <span class="node-badge badge-gray" id="bad-badge-3">PASSIVE</span>
+        </div>
+
+        <div class="connector"></div>
+
+        <!-- Node 4: Plaintext Downgrade -->
+        <div class="node" id="bad-node-4">
+          <div class="node-left">
+            <div class="node-icon"><i class="fa-solid fa-lock-open"></i></div>
+            <div>
+              <div class="node-name">4. Silent Plaintext Fallback</div>
+              <div class="node-desc">Server transmits raw readable text</div>
+            </div>
+          </div>
+          <span class="node-badge badge-gray" id="bad-badge-4">PORT 25</span>
+        </div>
+
+        <div class="connector"></div>
+
+        <!-- Node 5: Destination Ingestion -->
+        <div class="node" id="bad-node-5">
+          <div class="node-left">
+            <div class="node-icon"><i class="fa-solid fa-inbox"></i></div>
+            <div>
+              <div class="node-name">5. Recipient Inbox Ingestion</div>
+              <div class="node-desc">Email delivered with NO tamper alarm</div>
+            </div>
+          </div>
+          <span class="node-badge badge-gray" id="bad-badge-5">DELIVERED</span>
+        </div>
+      </div>
+
+      <div class="log-box" id="bad-log">
+        <div class="log-entry"><span class="log-time">[00.00ms]</span> System idle. Ready for simulation.</div>
+      </div>
+
+      <div class="outcome-banner outcome-bad" id="bad-outcome" style="opacity: 0.4;">
+        <div class="outcome-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <div>
+          <div class="outcome-title" id="bad-outcome-title">Security Vulnerability Active</div>
+          <div class="outcome-desc" id="bad-outcome-desc">Standard email allows silent plaintext downgrade and quantum harvesting.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: AFTER (SecureMailScope Sovereign Defense) -->
+    <div class="arena-column good-side" id="col-good">
+      <div class="column-header">
+        <div>
+          <span class="column-tag tag-good">SecureMailScope · Sovereign Innovation</span>
+          <div class="column-title">11-Layer Sovereign Security Pipeline</div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">ENCRYPTION MODE</div>
+          <div style="font-size: 13px; font-weight: 800; color: #34D399;">Mandatory TLS 1.3 + PQC</div>
+        </div>
+      </div>
+
+      <div class="pipeline">
+        <!-- Node 1: Quanta Ingestion -->
+        <div class="node" id="good-node-1">
+          <div class="node-left">
+            <div class="node-icon"><i class="fa-solid fa-bolt"></i></div>
+            <div>
+              <div class="node-name">1. Quanta C-Engine (Layer 5)</div>
+              <div class="node-desc">Ultra-fast heuristic scan in 0.39ms</div>
+            </div>
+          </div>
+          <span class="node-badge badge-gray" id="good-badge-1">READY</span>
+        </div>
+
+        <div class="connector"></div>
+
+        <!-- Node 2: Wire Enforcer -->
+        <div class="node" id="good-node-2">
+          <div class="node-left">
+            <div class="node-icon"><i class="fa-solid fa-shield-halved"></i></div>
+            <div>
+              <div class="node-name">2. Strict Wire Security (Layers 1–4)</div>
+              <div class="node-desc">Forced TLS 1.3 · DANE & MTA-STS Lock</div>
+            </div>
+          </div>
+          <span class="node-badge badge-gray" id="good-badge-2">ENFORCED</span>
+        </div>
+
+        <div class="connector"></div>
+
+        <!-- Node 3: Attacker Interception Block -->
+        <div class="node" id="good-node-3">
+          <div class="node-left">
+            <div class="node-icon"><i class="fa-solid fa-hand"></i></div>
+            <div>
+              <div class="node-name">3. Attack Interception & Kill</div>
+              <div class="node-desc">Downgrade rejected in 12ms flat!</div>
+            </div>
+          </div>
+          <span class="node-badge badge-gray" id="good-badge-3">GUARDING</span>
+        </div>
+
+        <div class="connector"></div>
+
+        <!-- Node 4: PQC & AI Stylometry -->
+        <div class="node" id="good-node-4">
+          <div class="node-left">
+            <div class="node-icon"><i class="fa-solid fa-brain"></i></div>
+            <div>
+              <div class="node-name">4. PQC Kyber-768 & AI Stylometry</div>
+              <div class="node-desc">Quantum vault + 128D Writing DNA</div>
+            </div>
+          </div>
+          <span class="node-badge badge-gray" id="good-badge-4">AI LAYER 11</span>
+        </div>
+
+        <div class="connector"></div>
+
+        <!-- Node 5: Blockchain & Delivery -->
+        <div class="node" id="good-node-5">
+          <div class="node-left">
+            <div class="node-icon"><i class="fa-solid fa-cubes"></i></div>
+            <div>
+              <div class="node-name">5. BSA 2023 Merkle Audit Seal</div>
+              <div class="node-desc">Court-admissible tamperproof block</div>
+            </div>
+          </div>
+          <span class="node-badge badge-gray" id="good-badge-5">VERIFIED</span>
+        </div>
+      </div>
+
+      <div class="log-box" id="good-log">
+        <div class="log-entry"><span class="log-time">[00.00ms]</span> SecureMailScope pipeline armed and ready.</div>
+      </div>
+
+      <div class="outcome-banner outcome-good" id="good-outcome" style="opacity: 0.4;">
+        <div class="outcome-icon"><i class="fa-solid fa-circle-check"></i></div>
+        <div>
+          <div class="outcome-title" id="good-outcome-title">100% Sovereign Immunity</div>
+          <div class="outcome-desc" id="good-outcome-desc">Zero plaintext leakage · Quantum-safe · Immutable digital evidence.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <div>
+      <span style="color: #64748B;">Spoken Script for Judges:</span>
+      <span class="speech-cheat">"Standard email sends an open postcard. SecureMailScope turns it into an armored bank truck."</span>
+    </div>
+    <div style="font-family: var(--font-mono); font-size: 11.5px; color: #10B981;">
+      Grade A+ (100/100) TLS 1.3 · Quanta 0.39ms · Kyber-768
+    </div>
+  </footer>
+
+  <script>
+    let isRunning = false;
+    let simTimer = null;
+
+    function resetSim() {
+      isRunning = false;
+      clearTimeout(simTimer);
+      document.getElementById('btn-run').innerHTML = '<i class="fa-solid fa-play"></i> Run Simulation';
+
+      // Reset Bad side
+      for (let i = 1; i <= 5; i++) {
+        const node = document.getElementById(`bad-node-${i}`);
+        node.className = 'node';
+        document.getElementById(`bad-badge-${i}`).className = 'node-badge badge-gray';
+      }
+      document.getElementById('bad-badge-1').innerText = 'READY';
+      document.getElementById('bad-badge-2').innerText = 'WAITING';
+      document.getElementById('bad-badge-3').innerText = 'PASSIVE';
+      document.getElementById('bad-badge-4').innerText = 'PORT 25';
+      document.getElementById('bad-badge-5').innerText = 'DELIVERED';
+      document.getElementById('bad-outcome').style.opacity = '0.4';
+      document.getElementById('bad-log').innerHTML = '<div class="log-entry"><span class="log-time">[00.00ms]</span> System idle. Ready for simulation.</div>';
+
+      // Reset Good side
+      for (let i = 1; i <= 5; i++) {
+        const node = document.getElementById(`good-node-${i}`);
+        node.className = 'node';
+        document.getElementById(`good-badge-${i}`).className = 'node-badge badge-gray';
+      }
+      document.getElementById('good-badge-1').innerText = 'READY';
+      document.getElementById('good-badge-2').innerText = 'ENFORCED';
+      document.getElementById('good-badge-3').innerText = 'GUARDING';
+      document.getElementById('good-badge-4').innerText = 'AI LAYER 11';
+      document.getElementById('good-badge-5').innerText = 'VERIFIED';
+      document.getElementById('good-outcome').style.opacity = '0.4';
+      document.getElementById('good-log').innerHTML = '<div class="log-entry"><span class="log-time">[00.00ms]</span> SecureMailScope pipeline armed and ready.</div>';
+    }
+
+    function toggleSim() {
+      if (isRunning) {
+        resetSim();
+      } else {
+        runSimulation();
+      }
+    }
+
+    function addLog(side, text) {
+      const logBox = document.getElementById(`${side}-log`);
+      const now = (Math.random() * 10 + 2).toFixed(2);
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `<span class="log-time">[+${now}ms]</span> <span>${text}</span>`;
+      logBox.appendChild(entry);
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    function runSimulation() {
+      resetSim();
+      isRunning = true;
+      document.getElementById('btn-run').innerHTML = '<i class="fa-solid fa-stop"></i> Stop Simulation';
+
+      // Step 1: Outbound Dispatch
+      document.getElementById('bad-node-1').classList.add('active-packet');
+      document.getElementById('good-node-1').classList.add('active-packet');
+      document.getElementById('bad-badge-1').className = 'node-badge badge-purple';
+      document.getElementById('good-badge-1').className = 'node-badge badge-purple';
+      document.getElementById('bad-badge-1').innerText = 'DISPATCHED';
+      document.getElementById('good-badge-1').innerText = 'QUANTA (0.39ms)';
+      addLog('bad', 'Outbound secret email dispatched via standard SMTP.');
+      addLog('good', 'Quanta C-Engine scanned header in 0.39ms (17x faster).');
+
+      // Step 2: Transmission & TLS Check (after 1.2s)
+      simTimer = setTimeout(() => {
+        document.getElementById('bad-node-1').classList.remove('active-packet');
+        document.getElementById('good-node-1').classList.remove('active-packet');
+
+        document.getElementById('bad-node-2').classList.add('active-packet');
+        document.getElementById('good-node-2').classList.add('active-packet');
+        document.getElementById('bad-badge-2').innerText = 'OPTIONAL TLS';
+        document.getElementById('good-badge-2').innerText = 'MANDATORY TLS 1.3';
+        document.getElementById('good-badge-2').className = 'node-badge badge-green';
+        addLog('bad', 'Connecting to hop. Opportunistic encryption negotiated.');
+        addLog('good', 'Wire security enforced: Strict TLS 1.3 + MTA-STS policy.');
+
+        // Step 3: Attack Happens (after 2.4s)
+        simTimer = setTimeout(() => {
+          document.getElementById('bad-node-2').classList.remove('active-packet');
+          document.getElementById('good-node-2').classList.remove('active-packet');
+
+          // BAD SIDE: Attacker intercepts and strips TLS
+          document.getElementById('bad-node-3').classList.add('compromised');
+          document.getElementById('bad-badge-3').className = 'node-badge badge-red';
+          document.getElementById('bad-badge-3').innerText = 'TLS STRIPPED!';
+          addLog('bad', 'ATTACK: Hacker stripped STARTTLS header in transit!');
+
+          // GOOD SIDE: Attack is immediately blocked
+          document.getElementById('good-node-3').classList.add('protected');
+          document.getElementById('good-badge-3').className = 'node-badge badge-green';
+          document.getElementById('good-badge-3').innerText = 'BLOCKED (12ms)';
+          addLog('good', 'DEFENSE: Downgrade attack blocked in 12ms. Unencrypted wire killed!');
+
+          // Step 4: Outcome on payload (after 3.6s)
+          simTimer = setTimeout(() => {
+            // BAD SIDE: Downgrades to plaintext
+            document.getElementById('bad-node-4').classList.add('compromised');
+            document.getElementById('bad-badge-4').className = 'node-badge badge-red';
+            document.getElementById('bad-badge-4').innerText = 'RAW PLAINTEXT';
+            addLog('bad', 'LEAK: Message transmitted in clear, unencrypted text!');
+
+            // GOOD SIDE: PQC & AI Stylometry
+            document.getElementById('good-node-4').classList.add('protected');
+            document.getElementById('good-badge-4').className = 'node-badge badge-green';
+            document.getElementById('good-badge-4').innerText = 'KYBER-768 LOCKED';
+            addLog('good', 'PQC: Kyber-768 quantum ciphertext sealed + Aadhaar masked.');
+
+            // Step 5: Final Delivery & Outcome (after 4.8s)
+            simTimer = setTimeout(() => {
+              // BAD SIDE: Critical Failure
+              document.getElementById('bad-node-5').classList.add('compromised');
+              document.getElementById('bad-badge-5').className = 'node-badge badge-red';
+              document.getElementById('bad-badge-5').innerText = 'COMPROMISED';
+              document.getElementById('bad-outcome').style.opacity = '1';
+              document.getElementById('bad-outcome-title').innerText = 'CRITICAL SECURITY BREACH';
+              document.getElementById('bad-outcome-desc').innerText = 'Foreign intelligence captured secrets. Ready for quantum cracking.';
+              addLog('bad', 'CRITICAL FAILURE: Defense secrets compromised in transit.');
+
+              // GOOD SIDE: Sovereign Win
+              document.getElementById('good-node-5').classList.add('protected');
+              document.getElementById('good-badge-5').className = 'node-badge badge-green';
+              document.getElementById('good-badge-5').innerText = 'BLOCKCHAIN RECORDED';
+              document.getElementById('good-outcome').style.opacity = '1';
+              document.getElementById('good-outcome-title').innerText = 'SOVEREIGN VICTORY (100% SECURE)';
+              document.getElementById('good-outcome-desc').innerText = 'Zero leak. 128D AI confirmed sender. Tamperproof BSA 2023 proof sealed.';
+              addLog('good', 'SUCCESS: 11-layer defense verified. Full immunity achieved.');
+
+              document.getElementById('btn-run').innerHTML = '<i class="fa-solid fa-rotate-left"></i> Replay Simulation';
+              isRunning = false;
+            }, 1200);
+
+          }, 1200);
+
+        }, 1200);
+
+      }, 1200);
+    }
+  </script>
+</body>
+</html>

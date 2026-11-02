@@ -19,21 +19,29 @@ def _send_new_chat_notification(session):
     user_display = session.user.email if session.user else f"{session.guest_name} ({session.guest_email})"
     user_type = "Registered Member ✅" if session.user else "Guest Visitor 👤"
     
+    phone_display = session.guest_phone or "Not provided"
+    if session.user and not session.guest_phone:
+        try:
+            phone_display = session.user.customer_profile.phone or "Not provided"
+        except Exception:
+            pass
+
     html_body = f"""
     <div style="font-family:Inter,Arial,sans-serif;max-width:580px;margin:auto;background:#070d18;color:#e2eaf6;border-radius:14px;overflow:hidden;border:1px solid rgba(89,196,188,0.3);">
         <div style="background:linear-gradient(135deg,#59c4bc,#3de0d5);padding:24px 28px;">
             <h2 style="margin:0;color:#041a18;font-size:1.3rem;">💬 New Live Chat Request</h2>
-            <p style="margin:6px 0 0;color:rgba(4,26,24,0.75);font-size:0.9rem;">Someone needs support on VoidPanel</p>
+            <p style="margin:6px 0 0;color:rgba(4,26,24,0.75);font-size:0.9rem;">Someone needs support on VoidOnyx / VoidPanel</p>
         </div>
         <div style="padding:28px;">
             <table style="width:100%;border-collapse:collapse;">
                 <tr><td style="padding:8px 0;color:#7a9ab5;font-size:0.82rem;width:130px;">Session ID</td><td style="color:#59c4bc;font-weight:700;">#{session.id}</td></tr>
                 <tr><td style="padding:8px 0;color:#7a9ab5;font-size:0.82rem;">User</td><td style="color:#e2eaf6;font-weight:600;">{user_display}</td></tr>
+                <tr><td style="padding:8px 0;color:#7a9ab5;font-size:0.82rem;">Phone / WhatsApp</td><td style="color:#38bdf8;font-weight:700;font-size:0.95rem;">{phone_display}</td></tr>
                 <tr><td style="padding:8px 0;color:#7a9ab5;font-size:0.82rem;">Type</td><td style="color:#e2eaf6;">{user_type}</td></tr>
                 <tr><td style="padding:8px 0;color:#7a9ab5;font-size:0.82rem;">Started</td><td style="color:#e2eaf6;">{session.created_at.strftime('%B %d, %Y at %H:%M UTC')}</td></tr>
             </table>
             <div style="margin-top:24px;text-align:center;">
-                <a href="https://voidpanel.com/super-admin/livechat/{session.id}/" style="display:inline-block;padding:12px 28px;background:#59c4bc;color:#041a18;font-weight:700;border-radius:8px;text-decoration:none;font-size:0.9rem;">
+                <a href="https://voidonyx.in/super-admin/livechat/{session.id}/" style="display:inline-block;padding:12px 28px;background:#59c4bc;color:#041a18;font-weight:700;border-radius:8px;text-decoration:none;font-size:0.9rem;">
                     🎯 Open Session &rarr;
                 </a>
             </div>
@@ -94,12 +102,217 @@ def _send_new_chat_notification(session):
         pass
 
 
+ADMIN_WHATSAPP_NUMBER = '919220953819'
+
+
+def _send_whatsapp_template(to_phone, template_name, parameters, language='en'):
+    """
+    Send an approved Meta WhatsApp template message.
+    Bypasses the 24-hour customer window and delivers 24/7.
+    parameters: list of string values for {{1}}, {{2}}, etc.
+    """
+    import urllib.request
+    import json
+    import re as _re
+
+    try:
+        from data.models import WhatsAppConfig
+        config = WhatsAppConfig.objects.filter(id=1).first()
+    except Exception:
+        config = None
+
+    if not config or not config.api_phone_number_id or not config.api_access_token:
+        return False, 'WhatsApp API credentials not configured'
+
+    digits = _re.sub(r'[^\d]', '', to_phone)
+    if len(digits) == 10:
+        digits = '91' + digits
+
+    api_ver = config.api_version or 'v20.0'
+    url = f'https://graph.facebook.com/{api_ver}/{config.api_phone_number_id}/messages'
+
+    payload = {
+        'messaging_product': 'whatsapp',
+        'recipient_type': 'individual',
+        'to': digits,
+        'type': 'template',
+        'template': {
+            'name': template_name,
+            'language': {'code': language},
+            'components': [
+                {
+                    'type': 'body',
+                    'parameters': [{'type': 'text', 'text': str(p)} for p in parameters]
+                }
+            ]
+        }
+    }
+
+    data = json.dumps(payload).encode('utf-8')
+    req = urllib.request.Request(
+        url, data=data, method='POST',
+        headers={
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {config.api_access_token}',
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=30) as res:
+            body = json.loads(res.read().decode('utf-8'))
+            if body.get('messages'):
+                return True, ''
+            return False, body.get('error', {}).get('message', 'Unknown API response')
+    except urllib.error.HTTPError as exc:
+        try:
+            err_body = json.loads(exc.read().decode('utf-8'))
+            err_msg = err_body.get('error', {}).get('message', str(exc))
+        except Exception:
+            err_msg = str(exc)
+        return False, err_msg
+    except Exception as exc:
+        return False, str(exc)
+
+
+def _send_chat_whatsapp_alert(session, event_type='new_chat'):
+    """
+    Send WhatsApp notification to admin (9220953819) via WhatsApp Business Cloud API.
+    - 'new_chat': Sends approved Meta template 'admin_new_livechat_alert' (delivers 24/7).
+    - 'no_agent': Sends approved Meta template 'live_chat_busy_followup' to customer.
+    """
+    from voidpanel.views import _send_whatsapp_message
+    from data.models import WhatsAppLog
+
+    if session.user:
+        user_name = session.user.get_full_name() or session.user.username
+        user_email = session.user.email or '(No email on file)'
+        user_type = "Registered User ✅"
+    else:
+        user_name = session.guest_name or 'Guest'
+        user_email = session.guest_email or '(No email provided)'
+        user_type = "Guest Visitor 👤"
+
+    phone = session.guest_phone or 'Not provided'
+
+    if event_type == 'new_chat':
+        # 1. Primary: Send approved Meta Template 'admin_new_livechat_alert' (delivers 24/7)
+        # Parameters: {{1}}=Name, {{2}}=Email, {{3}}=Phone, {{4}}=Session ID
+        ok, err = _send_whatsapp_template(
+            ADMIN_WHATSAPP_NUMBER,
+            'admin_new_livechat_alert',
+            [user_name, user_email, phone, str(session.id)]
+        )
+        msg_logged = f"[Template: admin_new_livechat_alert] New Chat #{session.id} | {user_name} | {user_email} | {phone}"
+
+        # 2. Fallback: Free-form text if template fails
+        if not ok:
+            admin_msg = (
+                f"🔔 *New Live Chat Started!* 💬\n\n"
+                f"A user has just opened a live chat support session:\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
+                f"👤 *Name:* {user_name}\n"
+                f"📧 *Email:* {user_email}\n"
+                f"📱 *Phone:* {phone}\n"
+                f"🏷️ *Account:* {user_type}\n"
+                f"🆔 *Session ID:* #{session.id}\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"👉 *Join Chat Now:*\n"
+                f"https://voidonyx.in/super-admin/livechat/{session.id}/\n\n"
+                f"⏱️ _Please join within 2 minutes to assist the customer!_"
+            )
+            ok, err = _send_whatsapp_message(ADMIN_WHATSAPP_NUMBER, admin_msg)
+            msg_logged = admin_msg
+
+        try:
+            WhatsAppLog.objects.create(
+                user=session.user,
+                phone_to=ADMIN_WHATSAPP_NUMBER,
+                message=msg_logged,
+                msg_type='alert',
+                status='sent' if ok else 'failed',
+                error_msg='' if ok else err,
+            )
+        except Exception:
+            pass
+
+    elif event_type == 'no_agent':
+        # 1. Alert to Admin (2-minute timeout warning)
+        admin_msg = (
+            f"⏰ *Missed Live Chat (2-Min Timeout)*\n\n"
+            f"No agent was able to join Session #{session.id} within 2 minutes.\n\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"👤 *Name:* {user_name}\n"
+            f"📧 *Email:* {user_email}\n"
+            f"📱 *Phone:* {phone}\n"
+            f"🏷️ *Account:* {user_type}\n"
+            f"🆔 *Session ID:* #{session.id}\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"👉 *Open Chat to Reply:*\n"
+            f"https://voidonyx.in/super-admin/livechat/{session.id}/"
+        )
+        try:
+            ok, err = _send_whatsapp_message(ADMIN_WHATSAPP_NUMBER, admin_msg)
+            WhatsAppLog.objects.create(
+                user=session.user,
+                phone_to=ADMIN_WHATSAPP_NUMBER,
+                message=admin_msg,
+                msg_type='alert',
+                status='sent' if ok else 'failed',
+                error_msg='' if ok else err,
+            )
+        except Exception:
+            pass
+
+        # 2. Confirmation WhatsApp to Customer via approved template 'live_chat_busy_followup'
+        if session.guest_phone:
+            # Parameters: {{1}}=Name, {{2}}=Session ID
+            c_ok, c_err = _send_whatsapp_template(
+                session.guest_phone,
+                'live_chat_busy_followup',
+                [user_name, str(session.id)]
+            )
+            c_logged = f"[Template: live_chat_busy_followup] Follow-up for #{session.id} to {user_name}"
+
+            if not c_ok:
+                client_msg = (
+                    f"Hi {user_name}! 👋\n\n"
+                    f"We're sorry we couldn't connect with you immediately in live chat! 😔\n\n"
+                    f"Our support team has received your request and contact details. An agent will get back to you as soon as possible via WhatsApp or email.\n\n"
+                    f"━━━━━━━━━━━━━━━━━━━━\n"
+                    f"📋 *Support Ticket Ref:* #{session.id}\n"
+                    f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                    f"Feel free to reply directly to this message if you have more details to share.\n\n"
+                    f"Thank you for reaching out to VoidOnyx! ⭐\n"
+                    f"— *VoidOnyx Support Team*"
+                )
+                c_ok, c_err = _send_whatsapp_message(session.guest_phone, client_msg)
+                c_logged = client_msg
+
+            try:
+                WhatsAppLog.objects.create(
+                    user=session.user,
+                    phone_to=session.guest_phone,
+                    message=c_logged,
+                    msg_type='alert',
+                    status='sent' if c_ok else 'failed',
+                    error_msg='' if c_ok else c_err,
+                )
+            except Exception:
+                pass
+
+
 def _send_transcript_email(session):
     """Send a richly formatted HTML transcript email with any file attachments."""
     history_qs = session.messages.order_by('timestamp')
 
     user_display = session.user.email if session.user else f"{session.guest_name} ({session.guest_email})"
     user_email = session.user.email if session.user else session.guest_email
+    phone_display = session.guest_phone or "Not provided"
+    if session.user and not session.guest_phone:
+        try:
+            phone_display = session.user.customer_profile.phone or "Not provided"
+        except Exception:
+            pass
     agent_email = session.assigned_agent.email if session.assigned_agent else None
     agent_name = session.assigned_agent.username if session.assigned_agent else 'Unassigned'
 
@@ -139,6 +352,7 @@ def _send_transcript_email(session):
         <div style="padding:20px 28px;">
             <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
                 <tr><td style="padding:6px 0;color:#7a9ab5;font-size:0.8rem;width:120px;">User</td><td style="color:#e2eaf6;font-weight:600;">{user_display}</td></tr>
+                <tr><td style="padding:6px 0;color:#7a9ab5;font-size:0.8rem;">Phone</td><td style="color:#59c4bc;font-weight:700;">{phone_display}</td></tr>
                 <tr><td style="padding:6px 0;color:#7a9ab5;font-size:0.8rem;">Agent</td><td style="color:#e2eaf6;">{agent_name}</td></tr>
                 <tr><td style="padding:6px 0;color:#7a9ab5;font-size:0.8rem;">Started</td><td style="color:#e2eaf6;">{session.created_at.strftime('%B %d, %Y at %H:%M UTC')}</td></tr>
                 <tr><td style="padding:6px 0;color:#7a9ab5;font-size:0.8rem;">Closed</td><td style="color:#e2eaf6;">{session.updated_at.strftime('%B %d, %Y at %H:%M UTC')}</td></tr>
@@ -210,12 +424,13 @@ def chat_start(request):
         reg_phone = guest_phone
         if not reg_phone:
             try:
-                raw = request.user.customer_profile.phone or ''
-                digits_only = ''.join(filter(str.isdigit, raw))
+                cp = getattr(request.user, 'customer_profile', None)
+                raw = (cp.phone if cp else '') or ''
+                digits_only = ''.join(filter(str.isdigit, str(raw)))
                 if len(digits_only) == 10:
                     reg_phone = '+91' + digits_only
                 elif digits_only:
-                    reg_phone = '+' + digits_only if not raw.startswith('+') else raw
+                    reg_phone = '+' + digits_only if not str(raw).startswith('+') else str(raw)
             except Exception:
                 pass
         session = LiveChatSession.objects.create(
@@ -224,8 +439,9 @@ def chat_start(request):
             status='active'
         )
     else:
-        if not guest_name or not guest_email:
-            return JsonResponse({'error': 'Name and Email are required to start a chat.'}, status=400)
+        # Guest users MUST provide Full Name, Email, and Phone Number
+        if not guest_name or not guest_email or not guest_phone:
+            return JsonResponse({'error': 'Full Name, Email Address, and Phone Number are required to start a chat.'}, status=400)
         session = LiveChatSession.objects.create(
             guest_name=guest_name,
             guest_email=guest_email,
@@ -233,7 +449,9 @@ def chat_start(request):
             status='active'
         )
 
-    _send_new_chat_notification(session)
+    import threading
+    threading.Thread(target=_send_new_chat_notification, args=(session,), daemon=True).start()
+    threading.Thread(target=_send_chat_whatsapp_alert, args=(session, 'new_chat'), daemon=True).start()
 
     return JsonResponse({'status': 'ok', 'session_id': session.id})
 
@@ -460,50 +678,24 @@ def chat_no_agent(request, session_id):
         except Exception:
             pass
 
-    # ── Send WhatsApp to the client if we have their phone ───────────────────
-    def _send_client_whatsapp():
-        if not client_phone:
-            return
-        from data.models import WhatsAppConfig, WhatsAppLog
-        try:
-            config = WhatsAppConfig.objects.filter(id=1).first()
-            if not config or not config.is_enabled:
-                return
-            wa_msg = (
-                f"Hi {user_display}! 👋\n\n"
-                f"We're sorry we missed you! 😔\n\n"
-                f"Our support team is currently busy assisting other clients, but *we haven't forgotten about you!* 🙏\n\n"
-                f"━━━━━━━━━━━━━━━━━━━━\n"
-                f"📋 *Your Support Request*\n"
-                f"Session Ref: *#{session.id}*\n"
-                f"━━━━━━━━━━━━━━━━━━━━\n\n"
-                f"✅ *What happens next?*\n"
-                f"• Our team has been notified immediately\n"
-                f"• A support agent will reach out to you shortly\n"
-                f"• You can also email us at contact@voidpanel.com\n\n"
-                f"We truly appreciate your patience and value your time! ⭐\n\n"
-                f"— *VoidPanel Support Team* 🛡️\n"
-                f"voidpanel.com"
-            )
-            from voidpanel.views import _call_wa_api
-            res = _call_wa_api('send', method='POST', payload={'to': client_phone, 'message': wa_msg})
-            is_ok = res.get('ok') or res.get('success') or False
-            WhatsAppLog.objects.create(
-                user=session.user,
-                phone_to=client_phone,
-                message=wa_msg,
-                msg_type='alert',
-                status='sent' if is_ok else 'failed',
-                error_msg='' if is_ok else res.get('error', 'API error'),
-            )
-        except Exception:
-            pass
+    # Post beautiful reassuring agent message in the live chat stream
+    busy_text = (
+        "🙏 Sorry, we are currently assisting other customers! "
+        "Our team has received your details and message. An agent will get back to you shortly via WhatsApp or email. "
+        "Feel free to leave any additional questions or details here in the meantime!"
+    )
+    LiveChatMessage.objects.create(
+        session=session,
+        sender_type='agent',
+        msg_type='text',
+        content=busy_text
+    )
 
     import threading
     threading.Thread(target=_send_missed_chat_email, daemon=True).start()
-    threading.Thread(target=_send_client_whatsapp, daemon=True).start()
+    threading.Thread(target=_send_chat_whatsapp_alert, args=(session, 'no_agent'), daemon=True).start()
 
-    return JsonResponse({'status': 'ok', 'notified': True})
+    return JsonResponse({'status': 'ok', 'notified': True, 'message': busy_text})
 
 
 @csrf_exempt

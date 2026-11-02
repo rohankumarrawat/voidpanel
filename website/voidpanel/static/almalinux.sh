@@ -390,7 +390,7 @@ WorkingDirectory=${PROJECT_DIR}
 EnvironmentFile=${PROJECT_DIR}/.env
 Environment=PYTHONPATH=${PROJECT_DIR}
 Environment=DJANGO_SETTINGS_MODULE=panel.settings
-ExecStart=${VENV_DIR}/bin/daphne -b 0.0.0.0 -p 8081 panel.asgi:application
+ExecStart=${VENV_DIR}/bin/daphne -b 127.0.0.1 -p 8081 panel.asgi:application
 Restart=always
 RestartSec=5s
 
@@ -1188,6 +1188,7 @@ EOF
     touch /etc/dovecot/users
     chown vmail:vmail /etc/dovecot/users
     chmod 660 /etc/dovecot/users
+    usermod -aG vmail nginx 2>/dev/null || usermod -aG vmail www-data 2>/dev/null || true
 
     # ── OpenDKIM configuration ─────────────────────────────────────────────────
     status_msg "Configuring OpenDKIM"

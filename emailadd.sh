@@ -26,9 +26,14 @@ fi
 
 echo "Creating Mailbox at $BASEDIR..."
 mkdir -p "$BASEDIR/Maildir/cur" "$BASEDIR/Maildir/new" "$BASEDIR/Maildir/tmp"
+# Ensure vmail owns the mail tree and group vmail has read/write/execute permissions (775)
 chown -R vmail:vmail "$FILEDIR"
 chmod -R 775 "$FILEDIR"
-chmod -R 700 "$BASEDIR"
+chmod -R 775 "$BASEDIR"
+
+# Set SGID bit on directories so all newly created subdirectories/files inherit group vmail
+find "$BASEDIR" -type d -exec chmod 2775 {} + 2>/dev/null || true
+find "$BASEDIR" -type f -exec chmod 664 {} + 2>/dev/null || true
 
 # Global Dovecot user registry
 TOUCH_FILE="/etc/dovecot/users"

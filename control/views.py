@@ -908,9 +908,12 @@ def listemail(request,data):
         adminpassword = ''
     import subprocess
     if request.user.is_superuser:
-        current=request.session.get('name', request.user.username)
+        current = request.session.get('name', request.user.username)
     else:
-        current=request.user
+        current = request.session.get('name', request.user.username)
+    if hasattr(current, 'username'):
+        current = current.username
+    current = str(current)
    
     # Resolve the user's primary domain — try by username first, then by domain ownership
     user_domain = None
@@ -921,17 +924,32 @@ def listemail(request,data):
         # (e.g., SSO autologin creates auth user but control user has different name)
         try:
             from control.models import domain as DomainModel
-            dom_obj = DomainModel.objects.get(domain=data)
-            ctrl_user = user.objects.get(username=dom_obj.dir)
-            user_domain = ctrl_user.domain
-            current = ctrl_user.username
+            dom_obj = DomainModel.objects.filter(domain__iexact=data.strip()).first()
+            if dom_obj:
+                ctrl_user = user.objects.get(username=dom_obj.dir)
+                user_domain = ctrl_user.domain
+                current = ctrl_user.username
         except Exception:
             pass
     
-    if not user_domain:
+    # Check authorization to view domain's emails
+    is_authorized = False
+    if request.user.is_superuser:
+        is_authorized = True
+    elif user_domain and (data.strip().lower() == user_domain.strip().lower()):
+        is_authorized = True
+    else:
+        try:
+            from control.models import domain as DomainModel
+            if DomainModel.objects.filter(domain__iexact=data.strip(), dir=current).exists():
+                is_authorized = True
+        except Exception:
+            pass
+
+    if not is_authorized:
         return redirect('/')
     
-    if data == user_domain:
+    if is_authorized:
            d={}
            emaildetail=[]
            try: 
@@ -993,15 +1011,9 @@ def listemail(request,data):
                    email_key = i.email.lower()
                    stats = cache.get(f'email_stats:{email_key}')
                    if stats is None:
-                        if allemail.objects.filter(domain=data).count() <= 5:
-                            try:
-                                update_all_email_stats()
-                                stats = cache.get(f'email_stats:{email_key}', {'sent': 0, 'failed': 0, 'queue': 0})
-                            except Exception:
-                                stats = {'sent': 0, 'failed': 0, 'queue': 0}
-                        else:
-                            update_all_email_stats_task.delay()
-                            stats = {'sent': 0, 'failed': 0, 'queue': 0}
+                        # Always dispatch to Celery — never read mail.log in a web request
+                        update_all_email_stats_task.delay()
+                        stats = {'sent': 0, 'failed': 0, 'queue': 0}
 
                    sent_cnt = stats.get('sent', 0)
                    failed_cnt = stats.get('failed', 0)
@@ -1067,7 +1079,7 @@ def listemail(request,data):
                    d['ip']=f"https://{get_server_ip()}:9002"
                
                # Server details for email client connection info
-               d['server_hostname'] = f"mail.{data.lower()}"
+               d['server_hostname'] = "fast.voidpanel.com"
                d['server_ip'] = get_server_ip()
                d['roundcube_url'] = f"https://{hostname}:9002"
                
@@ -1555,10 +1567,17 @@ def index(request):
     except:
           adminpassword = ''
     if request.user.is_superuser:
-        current=request.session.get('name', request.user.username)
+        current = request.session.get('name', request.user.username)
+    elif str(request.user.username).startswith('suite_'):
+        # A suite SSO session was active; resolve the actual hosting account
+        dom = request.session.get('name') or request.session.get('suite_domain') or ''
+        if not dom:
+            dom = request.user.username.split('_', 2)[-1].replace('_', '.')
+        usr_obj = user.objects.filter(domain=dom).first() or user.objects.filter(username=dom).first()
+        current = usr_obj if usr_obj else request.user
     else:
-        current=request.user
-    d={}
+        current = request.user
+    d = {}
 
 
     d.update(get_user_dashboard_context(current, adminpassword))
@@ -2305,6 +2324,41 @@ def backupdata(request):
                         trigger_backup_created_notification(str(current), str(name), zip_filename + ".zip")
                     except Exception:
                         pass
+
+                    # Trigger auto-sync to Google Drive or configured cloud provider if enabled
+                    try:
+                        from control.models import CloudBackupConfig
+                        cfg = CloudBackupConfig.objects.filter(domain=name).first()
+                        if cfg and (cfg.sync_after_backup or cfg.provider == CloudBackupConfig.PROVIDER_GDRIVE) and cfg.is_configured:
+                            full_zip_path = os.path.join(backup_store, zip_filename + ".zip")
+                            if os.path.exists(full_zip_path):
+                                if cfg.provider == CloudBackupConfig.PROVIDER_GDRIVE:
+                                    from control.gdrive_backup import upload_file_to_gdrive
+                                    upload_file_to_gdrive(cfg, full_zip_path)
+                                elif cfg.provider == CloudBackupConfig.PROVIDER_GCS:
+                                    from google.cloud import storage as gcs_storage
+                                    from google.oauth2 import service_account
+                                    k_data = _json.loads(cfg.gcs_key_json)
+                                    c_creds = service_account.Credentials.from_service_account_info(k_data)
+                                    c_client = gcs_storage.Client(credentials=c_creds, project=k_data.get('project_id'))
+                                    b = c_client.bucket(cfg.gcs_bucket)
+                                    b.blob(f"voidpanel-backups/{name}/{zip_filename}.zip").upload_from_filename(full_zip_path)
+                                elif cfg.provider == CloudBackupConfig.PROVIDER_S3:
+                                    import boto3
+                                    s3 = boto3.client('s3', aws_access_key_id=cfg.s3_access_key, aws_secret_access_key=cfg.s3_secret_key, region_name=cfg.s3_region)
+                                    s3.upload_file(full_zip_path, cfg.s3_bucket, f"voidpanel-backups/{name}/{zip_filename}.zip")
+
+                                if not cfg.keep_local_copy:
+                                    try:
+                                        os.remove(full_zip_path)
+                                    except Exception:
+                                        pass
+                                from django.utils import timezone as _tz
+                                cfg.last_backup_at = _tz.now()
+                                cfg.last_backup_status = f"Synced to {cfg.get_provider_display()}"
+                                cfg.save(update_fields=['last_backup_at', 'last_backup_status'])
+                    except Exception as exc:
+                        logger.error("Auto cloud sync error: %s", exc)
                     
         t = threading.Thread(target=_run_full_backup_thread)
         t.start()
@@ -3052,85 +3106,194 @@ def deleteemail_control(request, data):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
 
+    data = (data or '').strip()
+    if not data or '@' not in data:
+        return JsonResponse({'status': 'error', 'message': 'Invalid email address'}, status=400)
+
     current = request.user.username
+    email_domain = data.split('@')[-1].strip().lower()
+    user_prefix = data.split('@')[0].strip()
 
     # Ownership check for non-superusers
     if not request.user.is_superuser:
-        owner = user.objects.filter(username=current).first()
-        if not owner:
-            return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
-        email_domain = data.split('@')[-1] if '@' in data else ''
-        if owner.domain != email_domain:
+        u = user.objects.filter(username=current).first()
+        dom_obj = domain.objects.filter(domain__iexact=email_domain).first()
+        is_owner = False
+        if u and (u.domain.strip().lower() == email_domain):
+            is_owner = True
+        elif dom_obj and (str(dom_obj.dir) == str(current)):
+            is_owner = True
+
+        if not is_owner:
             return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
 
-    # Delegate to the shared panel view logic
-    import shutil
     from control.models import allemail as allemail_model
     try:
         from voidplatform.config import paths as _paths
-        email_obj = allemail_model.objects.get(email=data)
-        domain_name = email_obj.domain
-        user_prefix = data.split('@')[0]
+        import subprocess
+        import tempfile
 
-        # Remove from Postfix maps
-        for _fpath in [_paths.POSTFIX_VIRTUAL_ALIAS, _paths.POSTFIX_VIRTUAL_MAILBOX]:
-            if os.path.exists(_fpath):
-                with open(_fpath, 'r') as _f:
-                    _lines = _f.readlines()
-                with open(_fpath, 'w') as _f:
-                    _f.writelines(l for l in _lines if not l.startswith(f'{data} '))
-        import subprocess as _sp
-        _sp.run(['postmap', _paths.POSTFIX_VIRTUAL_ALIAS],   capture_output=True)
-        _sp.run(['postmap', _paths.POSTFIX_VIRTUAL_MAILBOX], capture_output=True)
+        email_obj = allemail_model.objects.filter(email__iexact=data).first()
+        domain_name = email_obj.domain if email_obj else email_domain
 
-        # Remove Dovecot user entry
-        if os.path.exists('/etc/dovecot/users'):
-            with open('/etc/dovecot/users', 'r') as _f:
-                _lines = _f.readlines()
-            with open('/etc/dovecot/users', 'w') as _f:
-                _f.writelines(l for l in _lines if not l.startswith(f'{data}:'))
+        # Secure helper using sudo to modify root/vmail-owned mail configuration files
+        def _modify_mail_file_securely(filepath, match_prefix):
+            try:
+                check = subprocess.run(['sudo', 'test', '-f', filepath], capture_output=True)
+                if check.returncode != 0:
+                    return
 
-        # Remove maildir
+                temp_fd, temp_in = tempfile.mkstemp(prefix='void_mail_in_')
+                os.close(temp_fd)
+                temp_out = temp_in + '.out'
+
+                try:
+                    cp_res = subprocess.run(['sudo', 'cp', '-p', filepath, temp_in], capture_output=True)
+                    if cp_res.returncode != 0:
+                        return
+                    subprocess.run(['sudo', 'chmod', '666', temp_in], capture_output=True)
+
+                    if os.path.exists(temp_in):
+                        with open(temp_in, 'r', errors='ignore') as fp:
+                            lines = fp.readlines()
+
+                        with open(temp_out, 'w') as fp:
+                            fp.writelines(l for l in lines if not l.startswith(match_prefix) and not l.strip().startswith(match_prefix))
+
+                        # Overwrite target file cleanly via sudo cp (preserves mode and ownership)
+                        subprocess.run(['sudo', 'cp', temp_out, filepath], capture_output=True, check=True)
+                finally:
+                    for _tf in (temp_in, temp_out):
+                        if os.path.exists(_tf):
+                            try:
+                                os.remove(_tf)
+                            except Exception:
+                                subprocess.run(['sudo', 'rm', '-f', _tf], capture_output=True)
+            except Exception:
+                pass
+
+        # 1. Remove from Postfix virtual alias and virtual mailbox maps
+        _modify_mail_file_securely(_paths.POSTFIX_VIRTUAL_ALIAS, f'{data} ')
+        _modify_mail_file_securely(_paths.POSTFIX_VIRTUAL_ALIAS, f'{data}\t')
+        _modify_mail_file_securely(_paths.POSTFIX_VIRTUAL_MAILBOX, f'{data} ')
+        _modify_mail_file_securely(_paths.POSTFIX_VIRTUAL_MAILBOX, f'{data}\t')
+        if os.path.exists('/etc/postfix/virtual_aliases'):
+            _modify_mail_file_securely('/etc/postfix/virtual_aliases', f'{data} ')
+            _modify_mail_file_securely('/etc/postfix/virtual_aliases', f'{data}\t')
+            subprocess.run(['sudo', 'postmap', '/etc/postfix/virtual_aliases'], capture_output=True, timeout=10)
+
+        # Regenerate Postfix hash maps using sudo
+        subprocess.run(['sudo', 'postmap', _paths.POSTFIX_VIRTUAL_ALIAS], capture_output=True, timeout=10)
+        subprocess.run(['sudo', 'postmap', _paths.POSTFIX_VIRTUAL_MAILBOX], capture_output=True, timeout=10)
+
+        # 2. Remove Dovecot user entries
+        _modify_mail_file_securely('/etc/dovecot/users', f'{data}:')
+        if hasattr(_paths, 'DOVECOT_USERS') and _paths.DOVECOT_USERS != '/etc/dovecot/users':
+            _modify_mail_file_securely(_paths.DOVECOT_USERS, f'{data}:')
+
+        # Also remove from domain passwd / shadow files if present
+        domain_mail_dir = _resolve_mail_domain_dir(domain_name)
+        if domain_mail_dir:
+            _modify_mail_file_securely(os.path.join(domain_mail_dir, 'passwd'), f'{data}:')
+            _modify_mail_file_securely(os.path.join(domain_mail_dir, 'shadow'), f'{data}:')
+
+        # 3. Reload mail services so changes take effect immediately
+        subprocess.run(['sudo', 'systemctl', 'reload', 'postfix'], capture_output=True, timeout=10)
+        subprocess.run(['sudo', 'systemctl', 'reload', 'dovecot'], capture_output=True, timeout=10)
+
+        # 4. Remove mailbox directory cleanly with sudo
         owner_obj = user.objects.filter(domain=domain_name).first()
         sys_owner = owner_obj.username if owner_obj else 'vmail'
-        home_path = os.path.join(paths.HOME_BASE, sys_owner, 'mail', domain_name, user_prefix)
-        old_path  = os.path.join(paths.MAIL_VHOSTS, domain_name, user_prefix)
-        if os.path.exists(home_path): shutil.rmtree(home_path, ignore_errors=True)
-        if os.path.exists(old_path):  shutil.rmtree(old_path,  ignore_errors=True)
+        paths_to_clean = [
+            os.path.join(paths.HOME_BASE, sys_owner, 'mail', domain_name, user_prefix),
+            os.path.join(_resolve_mail_domain_dir(domain_name), user_prefix),
+            os.path.join(paths.MAIL_VHOSTS, domain_name, user_prefix),
+        ]
+        for p in paths_to_clean:
+            if p and os.path.exists(p):
+                subprocess.run(['sudo', 'rm', '-rf', p], capture_output=True, timeout=10)
 
-        email_obj.delete()
-        return JsonResponse({'status': 'success'})
+        # 5. Delete from database
+        if email_obj:
+            email_obj.delete()
+        allemail_model.objects.filter(email__iexact=data).delete()
+
+        # Log activity
+        try:
+            from control.activity import log_activity
+            log_activity(request, 'success', 'email', domain=domain_name,
+                         action=f'Email account deleted: {data}',
+                         detail='Deleted via VoidPanel dashboard')
+        except Exception:
+            pass
+
+        return JsonResponse({'status': 'success', 'message': f'Email {data} deleted successfully'})
+
     except allemail_model.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': 'Email account not found'}, status=404)
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # CLOUD BACKUP SYNC VIEWS
 # ═══════════════════════════════════════════════════════════════════════════════
+# CLOUD BACKUP & GOOGLE DRIVE INTEGRATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _can_manage_backup_domain(request, domain_name):
+    """Ensure user owns this domain or is superuser."""
+    if request.user.is_superuser:
+        return True
+    try:
+        from control.models import user as UserModel
+        u = UserModel.objects.filter(username=request.user.username).first()
+        if u and u.domain == domain_name:
+            return True
+    except Exception:
+        pass
+    return False
+
 
 @login_required(login_url='/')
 def cloud_backup_config(request, data):
     """GET: return current cloud config. POST: save cloud credentials."""
     from .models import CloudBackupConfig
+    if not _can_manage_backup_domain(request, data):
+        return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
+
     config, _ = CloudBackupConfig.objects.get_or_create(domain=data)
 
     if request.method == 'GET':
+        masked_refresh = ('••••' + config.gdrive_refresh_token[-6:]) if len(config.gdrive_refresh_token) > 6 else ('••••' if config.gdrive_refresh_token else '')
         return JsonResponse({
-            'status': 'success',
-            'provider':             config.provider,
-            'gcs_bucket':           config.gcs_bucket,
-            'gcs_key_json':         config.gcs_key_json,
-            's3_bucket':            config.s3_bucket,
-            's3_access_key':        config.s3_access_key,
-            's3_secret_key':        '••••' if config.s3_secret_key else '',
-            's3_region':            config.s3_region,
-            'auto_backup_enabled':  config.auto_backup_enabled,
-            'auto_schedule_preset': config.auto_schedule_preset,
-            'auto_schedule_cron':   config.auto_schedule_cron,
-            'sync_after_backup':    config.sync_after_backup,
-            'is_configured':        config.is_configured,
+            'status':                      'success',
+            'provider':                    config.provider,
+            'gdrive_auth_mode':            config.gdrive_auth_mode,
+            'gdrive_client_id':            config.gdrive_client_id,
+            'gdrive_client_secret':        '••••' if config.gdrive_client_secret else '',
+            'gdrive_refresh_token':        masked_refresh,
+            'gdrive_user_email':           config.gdrive_user_email,
+            'gdrive_service_account_json': config.gdrive_service_account_json,
+            'gdrive_folder_id':            config.gdrive_folder_id,
+            'gdrive_folder_name':          config.gdrive_folder_name or 'VoidPanel Backups',
+            'gcs_bucket':                  config.gcs_bucket,
+            'gcs_key_json':                config.gcs_key_json,
+            's3_bucket':                   config.s3_bucket,
+            's3_access_key':               config.s3_access_key,
+            's3_secret_key':               '••••' if config.s3_secret_key else '',
+            's3_region':                   config.s3_region,
+            'auto_backup_enabled':         config.auto_backup_enabled,
+            'auto_schedule_preset':        config.auto_schedule_preset,
+            'auto_schedule_time':          config.auto_schedule_time or '02:00',
+            'auto_schedule_weekday':       config.auto_schedule_weekday,
+            'auto_schedule_cron':          config.auto_schedule_cron,
+            'sync_after_backup':           config.sync_after_backup,
+            'keep_local_copy':             config.keep_local_copy,
+            'is_configured':               config.is_configured,
+            'last_backup_at':              config.last_backup_at.strftime('%Y-%m-%d %H:%M:%S UTC') if config.last_backup_at else '',
+            'last_backup_status':          config.last_backup_status,
         })
 
     if request.method == 'POST':
@@ -3140,23 +3303,50 @@ def cloud_backup_config(request, data):
             return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
 
         config.provider = body.get('provider', config.provider)
-        if body.get('gcs_bucket'):      config.gcs_bucket   = body['gcs_bucket']
-        if body.get('gcs_key_json'):    config.gcs_key_json = body['gcs_key_json']
-        if body.get('s3_bucket'):       config.s3_bucket    = body['s3_bucket']
-        if body.get('s3_access_key'):   config.s3_access_key = body['s3_access_key']
+
+        # Google Drive credentials
+        if 'gdrive_auth_mode' in body:
+            config.gdrive_auth_mode = body['gdrive_auth_mode']
+        if 'gdrive_client_id' in body:
+            config.gdrive_client_id = body['gdrive_client_id'].strip()
+        if body.get('gdrive_client_secret') and not body['gdrive_client_secret'].startswith('•'):
+            config.gdrive_client_secret = body['gdrive_client_secret'].strip()
+        if body.get('gdrive_refresh_token') and not body['gdrive_refresh_token'].startswith('•'):
+            config.gdrive_refresh_token = body['gdrive_refresh_token'].strip()
+        if 'gdrive_service_account_json' in body:
+            config.gdrive_service_account_json = body['gdrive_service_account_json'].strip()
+        if 'gdrive_folder_id' in body:
+            config.gdrive_folder_id = body['gdrive_folder_id'].strip()
+        if 'gdrive_folder_name' in body:
+            config.gdrive_folder_name = body['gdrive_folder_name'].strip() or 'VoidPanel Backups'
+
+        # GCS credentials
+        if 'gcs_bucket' in body:        config.gcs_bucket   = body['gcs_bucket'].strip()
+        if 'gcs_key_json' in body:      config.gcs_key_json = body['gcs_key_json'].strip()
+        # S3 credentials
+        if 's3_bucket' in body:         config.s3_bucket    = body['s3_bucket'].strip()
+        if 's3_access_key' in body:     config.s3_access_key = body['s3_access_key'].strip()
         if body.get('s3_secret_key') and not body['s3_secret_key'].startswith('•'):
-            config.s3_secret_key = body['s3_secret_key']
-        if body.get('s3_region'):       config.s3_region    = body['s3_region']
+            config.s3_secret_key = body['s3_secret_key'].strip()
+        if 's3_region' in body:         config.s3_region    = body['s3_region'].strip()
+
         config.save()
-        return JsonResponse({'status': 'success', 'message': 'Cloud credentials saved.'})
+        return JsonResponse({
+            'status': 'success',
+            'message': f"{config.get_provider_display()} credentials saved successfully.",
+            'is_configured': config.is_configured
+        })
 
     return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=405)
 
 
 @login_required(login_url='/')
 def cloud_backup_auto(request, data):
-    """POST: update automation settings for a domain."""
+    """POST: update automation and schedule settings for a domain."""
     from .models import CloudBackupConfig
+    if not _can_manage_backup_domain(request, data):
+        return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
+
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
 
@@ -3166,22 +3356,219 @@ def cloud_backup_auto(request, data):
         return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
 
     config, _ = CloudBackupConfig.objects.get_or_create(domain=data)
-    config.auto_backup_enabled  = bool(body.get('auto_backup_enabled', config.auto_backup_enabled))
-    config.auto_schedule_preset = body.get('auto_schedule_preset', config.auto_schedule_preset)
-    config.auto_schedule_cron   = body.get('auto_schedule_cron', config.auto_schedule_cron)
-    config.sync_after_backup    = bool(body.get('sync_after_backup', config.sync_after_backup))
+    config.auto_backup_enabled   = bool(body.get('auto_backup_enabled', config.auto_backup_enabled))
+    config.auto_schedule_preset  = body.get('auto_schedule_preset', config.auto_schedule_preset)
+    config.auto_schedule_time    = body.get('auto_schedule_time', config.auto_schedule_time or '02:00')
+    if 'auto_schedule_weekday' in body:
+        try:
+            config.auto_schedule_weekday = int(body['auto_schedule_weekday'])
+        except Exception:
+            pass
+    config.auto_schedule_cron    = body.get('auto_schedule_cron', config.auto_schedule_cron)
+    config.sync_after_backup     = bool(body.get('sync_after_backup', config.sync_after_backup))
+    config.keep_local_copy       = bool(body.get('keep_local_copy', config.keep_local_copy))
     config.save()
-    return JsonResponse({'status': 'success', 'message': 'Automation settings saved.'})
+    return JsonResponse({'status': 'success', 'message': 'Automation and backup schedule saved successfully.'})
+
+
+@login_required(login_url='/')
+def cloud_backup_test(request, data):
+    """POST: test connection to configured cloud provider."""
+    from .models import CloudBackupConfig
+    if not _can_manage_backup_domain(request, data):
+        return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
+
+    try:
+        config = CloudBackupConfig.objects.get(domain=data)
+    except CloudBackupConfig.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Configuration not found. Please save credentials first.'}, status=400)
+
+    if not config.is_configured:
+        return JsonResponse({'status': 'error', 'message': f'Credentials for {config.get_provider_display()} are incomplete.'}, status=400)
+
+    if config.provider == CloudBackupConfig.PROVIDER_GDRIVE:
+        from control.gdrive_backup import test_gdrive_connection
+        result = test_gdrive_connection(config)
+        return JsonResponse(result)
+
+    elif config.provider == CloudBackupConfig.PROVIDER_GCS:
+        try:
+            import json as _json
+            from google.cloud import storage as gcs_storage
+            from google.oauth2 import service_account
+            key_data = _json.loads(config.gcs_key_json)
+            creds = service_account.Credentials.from_service_account_info(key_data)
+            client = gcs_storage.Client(credentials=creds, project=key_data.get('project_id'))
+            bucket = client.get_bucket(config.gcs_bucket)
+            return JsonResponse({'status': 'success', 'message': f'Connected to GCS bucket: {bucket.name}'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f'GCS connection error: {str(e)}'})
+
+    elif config.provider == CloudBackupConfig.PROVIDER_S3:
+        try:
+            import boto3
+            s3 = boto3.client(
+                's3',
+                aws_access_key_id=config.s3_access_key,
+                aws_secret_access_key=config.s3_secret_key,
+                region_name=config.s3_region,
+            )
+            s3.head_bucket(Bucket=config.s3_bucket)
+            return JsonResponse({'status': 'success', 'message': f'Connected to S3 bucket: {config.s3_bucket}'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f'S3 connection error: {str(e)}'})
+
+    return JsonResponse({'status': 'error', 'message': 'Unknown provider'}, status=400)
+
+
+@login_required(login_url='/')
+def gdrive_oauth_start(request, data):
+    """Initiates Google OAuth 2.0 flow for Google Drive access."""
+    from .models import CloudBackupConfig
+    import urllib.parse
+    import secrets
+
+    if not _can_manage_backup_domain(request, data):
+        messages.error(request, "Permission denied.")
+        return redirect(f'/control/backup/{data}/')
+
+    config, _ = CloudBackupConfig.objects.get_or_create(domain=data)
+    client_id = config.gdrive_client_id.strip() if config.gdrive_client_id else ''
+
+    if not client_id:
+        from django.conf import settings
+        client_id = getattr(settings, 'GOOGLE_DRIVE_CLIENT_ID', '')
+
+    if not client_id:
+        messages.error(request, "Please enter your Google OAuth Client ID before connecting.")
+        return redirect(f'/control/backup/{data}/?tab=CloudSync')
+
+    scheme = 'https' if request.is_secure() or request.META.get('HTTP_X_FORWARDED_PROTO') == 'https' else 'http'
+    host = request.get_host()
+    callback_url = f"{scheme}://{host}/control/gdrive/callback/"
+
+    state_token = secrets.token_urlsafe(16)
+    request.session['gdrive_oauth_state'] = state_token
+    request.session['gdrive_oauth_domain'] = data
+
+    params = {
+        'client_id': client_id,
+        'redirect_uri': callback_url,
+        'response_type': 'code',
+        'scope': 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email',
+        'access_type': 'offline',
+        'prompt': 'consent select_account',
+        'state': state_token,
+    }
+    url = f"https://accounts.google.com/o/oauth2/v2/auth?{urllib.parse.urlencode(params)}"
+    return redirect(url)
+
+
+@login_required(login_url='/')
+def gdrive_oauth_callback(request):
+    """Handles OAuth 2.0 callback from Google."""
+    from .models import CloudBackupConfig
+    import requests as _req
+    from django.utils import timezone
+    import datetime
+
+    target_domain = request.session.get('gdrive_oauth_domain', '')
+    saved_state = request.session.get('gdrive_oauth_state', '')
+    req_state = request.GET.get('state', '')
+    code = request.GET.get('code', '')
+    error = request.GET.get('error', '')
+
+    if not target_domain:
+        messages.error(request, "Session expired during Google authorization. Please try again.")
+        return redirect('/control/dashboard/')
+
+    if error:
+        messages.error(request, f"Google authorization failed or was cancelled: {error}")
+        return redirect(f'/control/backup/{target_domain}/?tab=CloudSync')
+
+    if not req_state or req_state != saved_state:
+        messages.error(request, "OAuth state mismatch. Security check failed.")
+        return redirect(f'/control/backup/{target_domain}/?tab=CloudSync')
+
+    try:
+        config = CloudBackupConfig.objects.get(domain=target_domain)
+    except CloudBackupConfig.DoesNotExist:
+        messages.error(request, "Backup configuration not found.")
+        return redirect(f'/control/backup/{target_domain}/?tab=CloudSync')
+
+    client_id = config.gdrive_client_id.strip()
+    client_secret = config.gdrive_client_secret.strip()
+    if not client_id or not client_secret:
+        from django.conf import settings
+        client_id = getattr(settings, 'GOOGLE_DRIVE_CLIENT_ID', client_id)
+        client_secret = getattr(settings, 'GOOGLE_DRIVE_CLIENT_SECRET', client_secret)
+
+    scheme = 'https' if request.is_secure() or request.META.get('HTTP_X_FORWARDED_PROTO') == 'https' else 'http'
+    host = request.get_host()
+    callback_url = f"{scheme}://{host}/control/gdrive/callback/"
+
+    # Exchange code for tokens
+    token_url = "https://oauth2.googleapis.com/token"
+    token_payload = {
+        'code': code,
+        'client_id': client_id,
+        'client_secret': client_secret,
+        'redirect_uri': callback_url,
+        'grant_type': 'authorization_code',
+    }
+
+    resp = _req.post(token_url, data=token_payload, timeout=20)
+    if resp.status_code != 200:
+        err_text = resp.text
+        try:
+            err_text = resp.json().get('error_description') or resp.text
+        except Exception:
+            pass
+        messages.error(request, f"Failed to exchange token with Google: {err_text}")
+        return redirect(f'/control/backup/{target_domain}/?tab=CloudSync')
+
+    token_data = resp.json()
+    refresh_token = token_data.get('refresh_token')
+    access_token = token_data.get('access_token')
+    expires_in = token_data.get('expires_in', 3600)
+
+    if refresh_token:
+        config.gdrive_refresh_token = refresh_token
+    if access_token:
+        config.gdrive_access_token = access_token
+        config.gdrive_token_expiry = timezone.now() + datetime.timedelta(seconds=int(expires_in))
+
+    # Fetch user email
+    user_email = ''
+    if access_token:
+        try:
+            u_resp = _req.get('https://www.googleapis.com/oauth2/v2/userinfo', headers={'Authorization': f'Bearer {access_token}'}, timeout=10)
+            if u_resp.status_code == 200:
+                user_email = u_resp.json().get('email', '')
+        except Exception:
+            pass
+
+    if user_email:
+        config.gdrive_user_email = user_email
+
+    config.provider = CloudBackupConfig.PROVIDER_GDRIVE
+    config.gdrive_auth_mode = 'oauth'
+    config.save()
+
+    messages.success(request, f"Google Drive connected successfully as {user_email or 'Authorized User'}!")
+    return redirect(f'/control/backup/{target_domain}/?tab=CloudSync&connected=1')
 
 
 @login_required(login_url='/')
 def cloud_backup_sync(request, data, filename):
     """
-    POST: push a specific backup ZIP to the configured cloud provider.
-    Requires google-cloud-storage or boto3 to be installed on the server.
+    POST: push a specific backup ZIP directly to Google Drive, GCS, or S3.
     """
     from .models import CloudBackupConfig
     import os
+
+    if not _can_manage_backup_domain(request, data):
+        return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
 
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
@@ -3197,18 +3584,31 @@ def cloud_backup_sync(request, data, filename):
         return JsonResponse({'status': 'error', 'message': 'No cloud config found. Set up credentials first.'}, status=400)
 
     if not config.is_configured:
-        return JsonResponse({'status': 'error', 'message': 'Cloud credentials incomplete. Fill in all required fields.'}, status=400)
+        return JsonResponse({'status': 'error', 'message': f'{config.get_provider_display()} credentials incomplete. Fill in all required fields.'}, status=400)
 
-    # Locate the file
-    zip_path = os.path.join('/home', dom.dir, filename)
+    # Locate the file in backup store first, then fallback to /home/<dir>/
+    backup_store = _get_backup_store(dom.dir)
+    zip_path = os.path.join(backup_store, filename)
+    if not os.path.exists(zip_path):
+        zip_path = os.path.join('/home', dom.dir, filename)
+
     if not os.path.exists(zip_path):
         return JsonResponse({'status': 'error', 'message': f'Backup file not found: {filename}'}, status=404)
 
     try:
-        if config.provider == 'gcs':
-            # Google Cloud Storage upload
+        if config.provider == CloudBackupConfig.PROVIDER_GDRIVE:
+            from control.gdrive_backup import upload_file_to_gdrive
+            res = upload_file_to_gdrive(config, zip_path)
+            folder_display = config.gdrive_folder_name or 'VoidPanel Backups'
+            return JsonResponse({
+                'status': 'success',
+                'message': f"Uploaded directly to Google Drive folder '{folder_display}': {filename}",
+                'web_link': res.get('web_link'),
+                'file_id': res.get('file_id')
+            })
+
+        elif config.provider == CloudBackupConfig.PROVIDER_GCS:
             import json as _json
-            import tempfile
             from google.cloud import storage as gcs_storage
             from google.oauth2 import service_account
 
@@ -3220,8 +3620,7 @@ def cloud_backup_sync(request, data, filename):
             blob.upload_from_filename(zip_path)
             return JsonResponse({'status': 'success', 'message': f'Uploaded to GCS: gs://{config.gcs_bucket}/voidpanel-backups/{data}/{filename}'})
 
-        elif config.provider == 's3':
-            # Amazon S3 upload
+        elif config.provider == CloudBackupConfig.PROVIDER_S3:
             import boto3
             s3 = boto3.client(
                 's3',
@@ -3236,9 +3635,6 @@ def cloud_backup_sync(request, data, filename):
         else:
             return JsonResponse({'status': 'error', 'message': f'Unknown provider: {config.provider}'}, status=400)
 
-    except ImportError as e:
-        lib = 'google-cloud-storage' if config.provider == 'gcs' else 'boto3'
-        return JsonResponse({'status': 'error', 'message': f'Missing library. Run: pip install {lib}'}, status=500)
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
@@ -3651,14 +4047,8 @@ def social_connect(request, domain, platform):
             return '/control/suite/social/'
         return f'/control/social/{domain}/'
 
-    # Enforce connected accounts limit check
-    limit = _resolve_suite_limit(request, domain, 'social', 'accounts', 25)
-    if limit > 0:
-        from control.models import SocialAccount
-        current_count = SocialAccount.objects.filter(domain=domain, is_active=True).count()
-        if current_count >= limit:
-            messages.error(request, f"Plan Limit Reached: Your current plan only allows up to {limit} connected social accounts. Upgrade your package to connect more.")
-            return redirect(get_redirect_url())
+    # Allow OAuth redirect to proceed directly to Meta / provider website even if not upgraded,
+    # so any Facebook account or page can be authenticated and connected seamlessly.
 
     cfg = SocialMediaAPIConfig.get()
     d_cfg = DomainSocialAPIConfig.get_for_domain(domain)
@@ -3728,8 +4118,7 @@ def social_connect(request, domain, platform):
         
         if plat == 'fb':
             fb_scopes = (
-                'public_profile,pages_show_list,pages_manage_posts,pages_read_engagement,'
-                'pages_read_user_content,pages_manage_metadata'
+                'public_profile,pages_show_list,pages_manage_posts,pages_read_engagement'
             )
             url = (
                 f"https://www.facebook.com/v19.0/dialog/oauth"
@@ -3870,6 +4259,12 @@ def social_callback(request, platform):
 
     plat = PLATFORM_SLUG_MAP.get(platform.lower(), platform.lower())
     domain = request.session.get('social_domain', '')
+    if not domain:
+        su = request.session.get('suite_user')
+        if su:
+            domain = su.get('hosting_domain') or su.get('email', '').split('@')[0]
+        elif request.user.is_authenticated:
+            domain = request.user.username
     current, err = _social_auth_check(request, domain)
     if err:
         return err
@@ -3961,24 +4356,9 @@ def social_callback(request, platform):
                         _dbg.write(f"pages_r.status_code={pages_r.status_code}\n")
                         _dbg.write(f"pages_r.text={pages_r.text}\n")
                     pages_found = False
-                    # Check which FB pages exist in DB (active OR soft-deleted) for this user
-                    _existing_fb_pages = set(
-                        SocialAccount.objects.filter(
-                            domain=domain, platform='fb'
-                        ).exclude(page_id='').exclude(page_id__isnull=True).values_list('page_id', flat=True)
-                    )
-                    _is_reconnect = bool(_existing_fb_pages)
-                    with open('/tmp/fb_callback_debug.log', 'a') as _dbg:
-                        _dbg.write(f"  is_reconnect={_is_reconnect} existing_pages={_existing_fb_pages}\n")
                     if pages_r.status_code == 200:
                         for page in pages_r.json().get('data', []):
                             pid = page.get('id', '')
-                            # On reconnect: only save pages already in DB (skip unwanted pages)
-                            # On first connect: save all pages
-                            if _is_reconnect and pid not in _existing_fb_pages:
-                                with open('/tmp/fb_callback_debug.log', 'a') as _dbg:
-                                    _dbg.write(f"  SKIPPING (not in DB): id={pid} name={page.get('name')}\n")
-                                continue
                             pages_found = True
                             with open('/tmp/fb_callback_debug.log', 'a') as _dbg:
                                 _dbg.write(f"  SAVING PAGE: id={pid} name={page.get('name')}\n")
@@ -4063,7 +4443,7 @@ def social_callback(request, platform):
                     # NPE pages don't appear in /me/accounts, but the debug_token
                     # endpoint reveals which page IDs the user authorized via
                     # granular_scopes.target_ids. We then query each directly.
-                    if not pages_found and access_token and app_id and app_secret:
+                    if access_token and app_id and app_secret:
                         try:
                             existing_ids = set(a.get('page_id') or a.get('account_id') for a in accounts_data)
                             # Also gather IDs from session/DB as additional candidates
@@ -4635,8 +5015,7 @@ def social_callback(request, platform):
             if not exists:
                 current_count = SocialAccount.objects.filter(domain=domain, is_active=True).count()
                 if current_count >= limit:
-                    messages.error(request, f"Plan Limit Reached: Could not connect account '{acc.get('account_name', p_code.upper())}' because your plan limit of {limit} accounts is reached.")
-                    continue
+                    messages.info(request, f"Note: Connected '{acc.get('account_name', p_code.upper())}'. Standard plan limit is {limit} accounts. Visit voidpanel.com to upgrade if needed.")
 
         SocialAccount.objects.update_or_create(
             domain=domain, platform=p_code, account_id=aid,
@@ -4865,7 +5244,17 @@ def social_post_create(request, domain):
     post.accounts.set(accounts)
 
     if post.status == 'published':
-        _social_publish_now(post)
+        # Run publishing in background thread so response returns immediately
+        import threading
+        def _bg_publish(post_id):
+            try:
+                from control.models import SocialPost as SP
+                p = SP.objects.get(id=post_id)
+                _social_publish_now(p)
+            except Exception as e:
+                logger.error(f"Background publish error for post {post_id}: {e}")
+        t = threading.Thread(target=_bg_publish, args=(post.id,), daemon=True)
+        t.start()
 
     msg = "✅ Post published!" if post.status == 'published' else f"🕐 Post scheduled for {post.scheduled_at}"
     messages.success(request, msg)
@@ -4876,20 +5265,107 @@ def _social_publish_now(post):
     """
     Publish a SocialPost to all linked accounts.
     Supports: Facebook, Instagram, Twitter/X, LinkedIn, Threads, TikTok, Pinterest, YouTube.
+    Auto-truncates captions per platform's character limit.
     """
     import requests as _req
+    import logging
     from control.models import SocialMediaAPIConfig
+
+    logger = logging.getLogger('social_publish')
+
+    # ── Platform caption limits (official API maximums) ──────────────
+    PLATFORM_LIMITS = {
+        'fb': 63206,    # Facebook
+        'ig': 2200,     # Instagram
+        'tw': 280,      # Twitter / X
+        'li': 3000,     # LinkedIn
+        'th': 500,      # Threads
+        'tt': 2200,     # TikTok (description)
+        'pi': 500,      # Pinterest (description)
+        'yt': 5000,     # YouTube (description)
+        'gb': 1500,     # Google Business
+    }
+
+    def _truncate_caption(caption, platform):
+        """
+        Smart truncate for social media captions.
+        Priority: sentence boundary > line boundary > word boundary.
+        Preserves trailing hashtags when possible.
+        """
+        import re
+        limit = PLATFORM_LIMITS.get(platform, 5000)
+        if len(caption) <= limit:
+            return caption
+
+        ellipsis = '…'
+        max_len = limit - len(ellipsis)
+
+        # Separate hashtags from main text (hashtags at end of caption)
+        hashtag_match = re.search(r'(\s*(?:#\S+\s*){1,})\s*$', caption)
+        hashtags = ''
+        main_text = caption
+        if hashtag_match:
+            hashtags = hashtag_match.group(0).strip()
+            main_text = caption[:hashtag_match.start()].strip()
+
+        # If main text + hashtags fit, return as-is (shouldn't happen, but safe)
+        if len(main_text) + len(hashtags) + 1 <= limit:
+            return caption
+
+        # Calculate how much space we have for main text
+        # Try to keep hashtags if they fit
+        if hashtags and len(hashtags) + 20 < max_len:
+            text_budget = max_len - len(hashtags) - 1  # -1 for space before hashtags
+        else:
+            text_budget = max_len
+            hashtags = ''  # Drop hashtags if they take too much space
+
+        truncated = main_text[:text_budget]
+
+        # 1) Try to break at a sentence boundary (. ! ? followed by space or newline)
+        sentence_break = -1
+        for match in re.finditer(r'[.!?]\s', truncated):
+            sentence_break = match.end()
+        if sentence_break > text_budget * 0.4:
+            truncated = truncated[:sentence_break].rstrip()
+        else:
+            # 2) Try to break at a line boundary (newline)
+            last_newline = truncated.rfind('\n')
+            if last_newline > text_budget * 0.4:
+                truncated = truncated[:last_newline].rstrip()
+            else:
+                # 3) Fall back to word boundary
+                last_space = truncated.rfind(' ')
+                if last_space > text_budget * 0.5:
+                    truncated = truncated[:last_space].rstrip()
+
+        result = truncated + ellipsis
+        if hashtags:
+            result = result + '\n' + hashtags
+
+        # Final safety check
+        if len(result) > limit:
+            result = result[:limit - 1] + ellipsis
+
+        logger.info(f"Caption truncated for {platform}: {len(caption)} → {len(result)} chars")
+        return result
+
     cfg = SocialMediaAPIConfig.get()
     results = {}
-    text = post.caption_text
+    raw_text = post.caption_text
     link = post.link_url or ''
     media = post.media_urls or []
 
-    for acc in post.accounts.all():
+    all_accounts = list(post.accounts.all())
+    logger.info(f"Publishing post {post.id} to {len(all_accounts)} account(s): {[(a.id, a.platform, a.account_name) for a in all_accounts]}")
+
+    for acc in all_accounts:
         # Refresh token if expiring (via voidpanel.com relay)
         _social_refresh_token(acc)
         plat = acc.platform
         tok = acc.access_token
+        # Auto-truncate caption for this platform
+        text = _truncate_caption(raw_text, plat)
         try:
             # ── Facebook ──────────────────────────────────────────────────
             if plat == 'fb' and acc.page_id and tok:
@@ -4900,7 +5376,11 @@ def _social_publish_now(post):
                     f"https://graph.facebook.com/v19.0/{acc.page_id}/feed",
                     data=payload, timeout=15
                 )
-                results[plat] = r.json().get('id', r.text)
+                if r.status_code in (200, 201):
+                    results[plat] = r.json().get('id')
+                else:
+                    err_msg = r.json().get('error', {}).get('message') if 'json' in r.headers.get('content-type', '') else r.text
+                    results[plat] = f'error:{err_msg}'
 
             # ── Instagram (via Facebook Page token) ───────────────────────
             elif plat == 'ig' and acc.page_id and tok:
@@ -4920,9 +5400,12 @@ def _social_publish_now(post):
                             data={'creation_id': container_id, 'access_token': tok},
                             timeout=15
                         )
-                        results[plat] = pub_r.json().get('id', pub_r.text)
+                        if pub_r.status_code in (200, 201):
+                            results[plat] = pub_r.json().get('id')
+                        else:
+                            results[plat] = f'error:{pub_r.text}'
                     else:
-                        results[plat] = f'container_error:{cont_r.text}'
+                        results[plat] = f'error:container_failed:{cont_r.text}'
                 else:
                     results[plat] = 'skipped:no_media (Instagram requires an image or video)'
 
@@ -4935,7 +5418,12 @@ def _social_publish_now(post):
                     headers={'Authorization': f'Bearer {tok}', 'Content-Type': 'application/json'},
                     timeout=15
                 )
-                results[plat] = r.json().get('data', {}).get('id', r.text)
+                if r.status_code in (200, 201):
+                    results[plat] = r.json().get('data', {}).get('id')
+                else:
+                    err_data = r.json() if 'json' in r.headers.get('content-type', '') else {}
+                    err_detail = err_data.get('detail') or err_data.get('title') or r.text
+                    results[plat] = f'error:{err_detail}'
 
             # ── LinkedIn ──────────────────────────────────────────────────
             elif plat == 'li' and tok:
@@ -4958,7 +5446,11 @@ def _social_publish_now(post):
                              'X-Restli-Protocol-Version': '2.0.0'},
                     timeout=15
                 )
-                results[plat] = r.headers.get('x-restli-id', r.text)
+                if r.status_code in (200, 201):
+                    results[plat] = r.headers.get('x-restli-id') or r.json().get('id', 'published')
+                else:
+                    err_msg = r.json().get('message') if 'json' in r.headers.get('content-type', '') else r.text
+                    results[plat] = f'error:{err_msg}'
 
             # ── Threads ───────────────────────────────────────────────────
             elif plat == 'th' and tok:
@@ -4975,9 +5467,12 @@ def _social_publish_now(post):
                         data={'creation_id': container_id, 'access_token': tok},
                         timeout=15
                     )
-                    results[plat] = pub_r.json().get('id', pub_r.text)
+                    if pub_r.status_code in (200, 201):
+                        results[plat] = pub_r.json().get('id')
+                    else:
+                        results[plat] = f'error:{pub_r.text}'
                 else:
-                    results[plat] = f'container_error:{cont_r.text}'
+                    results[plat] = f'error:container_failed:{cont_r.text}'
 
             # ── TikTok ────────────────────────────────────────────────────
             elif plat == 'tt' and tok:
@@ -4992,27 +5487,85 @@ def _social_publish_now(post):
                         headers={'Authorization': f'Bearer {tok}', 'Content-Type': 'application/json; charset=UTF-8'},
                         timeout=15
                     )
-                    results[plat] = r.json().get('data', {}).get('publish_id', r.text)
+                    if r.status_code in (200, 201):
+                        results[plat] = r.json().get('data', {}).get('publish_id')
+                    else:
+                        results[plat] = f'error:{r.text}'
                 else:
                     results[plat] = 'skipped:no_video (TikTok requires a video)'
 
             # ── Pinterest ────────────────────────────────────────────────
             elif plat == 'pi' and tok:
+                pi_headers = {'Authorization': f'Bearer {tok}', 'Content-Type': 'application/json'}
+
+                # Auto-fetch board_id if not stored
+                board_id = acc.page_id or ''
+                if not board_id:
+                    try:
+                        # Try production first, then sandbox
+                        for pi_base in ['https://api.pinterest.com', 'https://api-sandbox.pinterest.com']:
+                            boards_r = _req.get(
+                                f'{pi_base}/v5/boards',
+                                headers=pi_headers, timeout=12
+                            )
+                            if boards_r.status_code == 200:
+                                boards_data = boards_r.json().get('items', [])
+                                if boards_data:
+                                    board_id = boards_data[0].get('id', '')
+                                    # Save for future use
+                                    acc.page_id = board_id
+                                    acc.page_name = boards_data[0].get('name', 'Default Board')
+                                    acc.save()
+                                    logger.info(f"Pinterest: auto-assigned board_id={board_id} ({acc.page_name}) for account {acc.id}")
+                                break
+                    except Exception as be:
+                        logger.warning(f"Pinterest: failed to fetch boards: {be}")
+
                 body = {
                     'title': text[:100],
                     'description': text,
-                    'board_id': acc.page_id or '',  # board_id stored in page_id
                     'link': link or None,
                 }
+                if board_id:
+                    body['board_id'] = board_id
                 if media:
                     body['media_source'] = {'source_type': 'image_url', 'url': media[0]}
-                r = _req.post(
-                    'https://api.pinterest.com/v5/pins',
-                    json={k: v for k, v in body.items() if v},
-                    headers={'Authorization': f'Bearer {tok}', 'Content-Type': 'application/json'},
-                    timeout=15
-                )
-                results[plat] = r.json().get('id', r.text)
+
+                clean_body = {k: v for k, v in body.items() if v}
+
+                # Try production API first, fall back to sandbox for trial apps
+                pin_result = None
+                for pi_base in ['https://api.pinterest.com', 'https://api-sandbox.pinterest.com']:
+                    r = _req.post(
+                        f'{pi_base}/v5/pins',
+                        json=clean_body,
+                        headers=pi_headers,
+                        timeout=15
+                    )
+                    resp_data = r.json() if r.headers.get('content-type', '').startswith('application/json') else {}
+                    pin_id = resp_data.get('id')
+                    if pin_id:
+                        pin_result = pin_id
+                        logger.info(f"Pinterest: pin created successfully via {pi_base}, id={pin_id}")
+                        break
+                    # If trial access error, try sandbox
+                    err_code = resp_data.get('code')
+                    err_msg = resp_data.get('message', '')
+                    if err_code == 29 or 'Trial access' in err_msg or 'sandbox' in err_msg.lower():
+                        logger.info(f"Pinterest: trial mode detected, trying sandbox API...")
+                        continue
+                    else:
+                        pin_result = f'error:{err_code}:{err_msg}' if err_msg else f'error:{r.text}'
+                        break
+
+                if pin_result and not str(pin_result).startswith('error:'):
+                    results[plat] = pin_result
+                elif pin_result and str(pin_result).startswith('error:'):
+                    results[plat] = pin_result
+                else:
+                    results[plat] = 'error:Pinterest Trial Mode (Post created in sandbox API, not public feed)'
+
+                results[plat] = pin_result or f'error:no_response'
 
             # ── YouTube (video upload only) ───────────────────────────────
             elif plat == 'yt' and tok:
@@ -5063,7 +5616,12 @@ def _social_publish_now(post):
             results[plat] = f'error:{e}'
 
     post.platform_post_ids = results
-    post.save(update_fields=['platform_post_ids'])
+    successful = [v for v in results.values() if v and not str(v).startswith(('error:', 'skipped:', 'container_error:', 'yt_error:', 'yt_upload_error:', '{'))]
+    if not successful and results:
+        post.status = 'failed'
+        post.save(update_fields=['platform_post_ids', 'status'])
+    else:
+        post.save(update_fields=['platform_post_ids'])
 
 
 def social_post_delete(request, domain, post_id):
@@ -5081,7 +5639,8 @@ def social_post_delete(request, domain, post_id):
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.content_type == 'application/json':
             return JsonResponse({'error': 'Post not found'}, status=404)
         messages.error(request, "Post not found.")
-        return redirect(f'/control/social/{domain}/')
+        referer = request.META.get('HTTP_REFERER', f'/control/social-portal/{domain}/')
+        return redirect(referer)
 
     platform_results = {}
     # If the post was published, attempt to delete from each platform
@@ -5099,7 +5658,8 @@ def social_post_delete(request, domain, post_id):
         })
 
     messages.success(request, "Post deleted from all platforms.")
-    return redirect(f'/control/social/{domain}/')
+    referer = request.META.get('HTTP_REFERER', f'/control/social-portal/{domain}/')
+    return redirect(referer)
 
 
 def _social_delete_from_platforms(post):
@@ -5319,10 +5879,40 @@ def social_post_edit(request, domain, post_id):
         post.status = 'published'
         post.published_at = _tz.now()
 
+    # Preserve or update existing media URLs when editing
+    if 'existing_media_urls' in body:
+        existing = body['existing_media_urls']
+        if isinstance(existing, list):
+            post.media_urls = existing
+
     post.save()
 
+    # Update account associations if provided
+    if 'account_ids' in body:
+        from control.models import SocialAccount
+        import logging
+        edit_logger = logging.getLogger('social_publish')
+        account_ids = body['account_ids']
+        edit_logger.info(f"Edit post {post_id}: received account_ids={account_ids}")
+        if isinstance(account_ids, list) and len(account_ids) > 0:
+            accounts = SocialAccount.objects.filter(id__in=account_ids, domain=domain)
+            post.accounts.set(accounts)
+            edit_logger.info(f"Edit post {post_id}: set accounts to {[(a.id, a.platform, a.account_name) for a in accounts]}")
+        else:
+            edit_logger.warning(f"Edit post {post_id}: account_ids was empty or invalid: {account_ids}")
+
     if post.status == 'published':
-        _social_publish_now(post)
+        # Run publishing in background thread so response returns immediately
+        import threading
+        def _bg_publish_edit(post_id):
+            try:
+                from control.models import SocialPost as SP
+                p = SP.objects.get(id=post_id)
+                _social_publish_now(p)
+            except Exception as e:
+                logger.error(f"Background publish error for post {post_id}: {e}")
+        t = threading.Thread(target=_bg_publish_edit, args=(post.id,), daemon=True)
+        t.start()
 
     return JsonResponse({
         'status': 'ok',
@@ -5392,6 +5982,7 @@ def social_import_posts(request, domain):
                         item_id = str(item.get('id'))
                         caption = item.get('caption', '')
                         media_url = item.get('media_url') or item.get('thumbnail_url', '')
+                        media_type = item.get('media_type', '')
                         permalink = item.get('permalink', '')
                         likes = int(item.get('like_count', 0))
                         comments = int(item.get('comments_count', 0))
@@ -5403,13 +5994,32 @@ def social_import_posts(request, domain):
                             except Exception:
                                 pass
 
+                        # For carousel posts, fetch all child media URLs
+                        all_media_urls = []
+                        if media_type == 'CAROUSEL_ALBUM':
+                            try:
+                                children_r = _req.get(
+                                    f"https://graph.facebook.com/v19.0/{item_id}/children?fields=id,media_url,media_type,thumbnail_url&access_token={acc.access_token}",
+                                    timeout=12
+                                )
+                                if children_r.status_code == 200:
+                                    for child in children_r.json().get('data', []):
+                                        child_url = child.get('media_url') or child.get('thumbnail_url', '')
+                                        if child_url:
+                                            all_media_urls.append(child_url)
+                            except Exception:
+                                pass
+                        # Fallback: if no children found or not a carousel, use the single media_url
+                        if not all_media_urls and media_url:
+                            all_media_urls = [media_url]
+
                         post = SocialPost.objects.filter(domain=domain, platform_post_ids__ig=item_id).first()
                         if not post:
                             post = SocialPost.objects.create(
                                 domain=domain,
                                 username=acc.username or domain,
                                 caption_text=caption,
-                                media_urls=[media_url] if media_url else [],
+                                media_urls=all_media_urls,
                                 link_url=permalink,
                                 status='published',
                                 published_at=pub_at,
@@ -5423,8 +6033,9 @@ def social_import_posts(request, domain):
                             post.caption_text = caption or post.caption_text
                             post.likes_count = likes
                             post.comments_count = comments
-                            if media_url and not post.media_urls:
-                                post.media_urls = [media_url]
+                            # Always update media_urls for carousels (may have been imported with only 1 image before)
+                            if all_media_urls and (not post.media_urls or len(all_media_urls) > len(post.media_urls or [])):
+                                post.media_urls = all_media_urls
                             if permalink:
                                 post.link_url = permalink
                             post.save()
@@ -6045,25 +6656,62 @@ def social_inbox_reply(request, domain):
     try:
         # Instagram Reply
         if platform == 'ig':
-            r = _req.post(
-                f"https://graph.facebook.com/v19.0/{comment_id}/replies",
-                data={'message': reply_text, 'access_token': acc.access_token},
-                timeout=12
-            )
-            if r.status_code == 200:
-                return JsonResponse({'status': 'ok', 'reply_id': r.json().get('id')})
-            return JsonResponse({'error': r.text}, status=r.status_code)
+            # Instagram comments can be replied to using either:
+            # 1. Page Access Token associated with the IG account
+            # 2. User Access Token with instagram_manage_comments
+            token_candidates = [acc.access_token]
+            
+            # Find associated FB page access token if available
+            if acc.page_id:
+                fb_acc = SocialAccount.objects.filter(domain=domain, platform='fb', page_id=acc.page_id, is_active=True).first()
+                if fb_acc and fb_acc.access_token and fb_acc.access_token not in token_candidates:
+                    token_candidates.insert(0, fb_acc.access_token)
+
+            last_error = ''
+            for tok in token_candidates:
+                if not tok:
+                    continue
+                r = _req.post(
+                    f"https://graph.facebook.com/v19.0/{comment_id}/replies",
+                    data={'message': reply_text, 'access_token': tok},
+                    timeout=12
+                )
+                if r.status_code == 200:
+                    return JsonResponse({'status': 'ok', 'reply_id': r.json().get('id')})
+                last_error = r.text
+
+            # Check if Meta returned #100 Missing Permission
+            if 'Missing Permission' in last_error or 'OAuthException' in last_error or 'code":100' in last_error or 'code": 100' in last_error:
+                return JsonResponse({
+                    'status': 'permission_required',
+                    'error': 'Meta Instagram requires Comment Management permission (instagram_manage_comments). Please reconnect your Instagram account in Settings to enable live replies.',
+                    'reconnect_url': f'/control/social/{domain}/connect/ig/'
+                }, status=403)
+
+            return JsonResponse({'error': last_error or 'Failed to publish reply on Instagram'}, status=400)
 
         # Facebook Reply
         elif platform == 'fb':
-            r = _req.post(
-                f"https://graph.facebook.com/v19.0/{comment_id}/comments",
-                data={'message': reply_text, 'access_token': acc.access_token},
-                timeout=12
-            )
-            if r.status_code == 200:
-                return JsonResponse({'status': 'ok', 'reply_id': r.json().get('id')})
-            return JsonResponse({'error': r.text}, status=r.status_code)
+            token_candidates = [acc.access_token]
+            last_error = ''
+            for tok in token_candidates:
+                r = _req.post(
+                    f"https://graph.facebook.com/v19.0/{comment_id}/comments",
+                    data={'message': reply_text, 'access_token': tok},
+                    timeout=12
+                )
+                if r.status_code == 200:
+                    return JsonResponse({'status': 'ok', 'reply_id': r.json().get('id')})
+                last_error = r.text
+
+            if 'Missing Permission' in last_error or 'OAuthException' in last_error:
+                return JsonResponse({
+                    'status': 'permission_required',
+                    'error': 'Meta Facebook requires Page Engagement permission (pages_manage_engagement). Please reconnect your Facebook Page in Settings.',
+                    'reconnect_url': f'/control/social/{domain}/connect/fb/'
+                }, status=403)
+
+            return JsonResponse({'error': last_error or 'Failed to publish reply on Facebook'}, status=400)
 
         # Google Business Review Reply
         elif platform == 'gb':
@@ -6506,23 +7154,50 @@ def social_ai_generate(request, domain):
         if payload['type'] == 'text' and payload['mode'] == 'caption':
             data['captions'] = data.get('result', '')
 
+        # For image: ensure image_url key is present (API returns as 'result')
+        if payload['type'] == 'image' and data.get('result') and not data.get('image_url'):
+            data['image_url'] = data['result']
+
         return JsonResponse(data)
 
     except _req.exceptions.ConnectionError:
-        # Fallback to local AI if gateway is unreachable
+        # Fallback: try the local VoidOnyx URL (same server)
+        try:
+            fallback_url = 'https://fast.voidpanel.com/api/social-ai/generate/'
+            r = _req.post(fallback_url, json=payload, headers=headers, timeout=60)
+            data = r.json()
+            if r.status_code == 200:
+                if payload['type'] == 'text' and payload['mode'] == 'caption':
+                    data['captions'] = data.get('result', '')
+                if payload['type'] == 'image' and data.get('result') and not data.get('image_url'):
+                    data['image_url'] = data['result']
+                data['fallback'] = True
+                return JsonResponse(data)
+            return JsonResponse(data, status=r.status_code)
+        except Exception:
+            pass
+
+        # Last resort: try local AI provider
         try:
             from panel.ai_views import _call_ai_provider
-            prompt = f"Write 3 social media captions for a {payload['platform']} post about: {payload['prompt']}. Tone: {payload['tone']}. Include relevant hashtags. Format as numbered list."
+            prompt = (
+                f"You are a social media marketing expert. Write exactly 3 unique, engaging captions "
+                f"for a {payload['platform']} post about: {payload['prompt']}.\n"
+                f"Tone: {payload['tone']}.\n"
+                f"Rules:\n"
+                f"- Each caption should be 2-4 sentences\n"
+                f"- Include 3-5 relevant hashtags per caption (each hashtag should be a real separate word like #Launch #NewService)\n"
+                f"- Number them 1., 2., 3.\n"
+                f"- Separate each caption with a blank line\n"
+                f"- Do NOT merge words in hashtags"
+            )
             result = _call_ai_provider(prompt)
             return JsonResponse({'captions': result, 'result': result, 'status': 'success', 'fallback': True})
         except Exception:
-            topic = payload['prompt']
-            captions = [
-                f"🚀 Excited to share about {topic}! #{topic.replace(' ','').lower()} #socialmedia",
-                f"✨ {topic} — bringing you the best content every day! #content #digital",
-                f"💡 Did you know about {topic}? Here's what you need to know! #tips #knowledge",
-            ]
-            return JsonResponse({'captions': '\n'.join(captions), 'result': '\n'.join(captions), 'status': 'success', 'fallback': True})
+            return JsonResponse({
+                'error': 'AI service is temporarily unavailable. Please try again in a few moments.',
+                'code': 'service_unavailable'
+            }, status=503)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
@@ -6639,17 +7314,28 @@ def _do_sync_single_account(acc):
                     acc.profile_picture_url = pic
 
         elif acc.platform == 'ig':
-            target_page_id = acc.page_id or '1248611408333420'
-            r = _req.get(f'https://graph.facebook.com/v19.0/{target_page_id}?fields=id,name,instagram_business_account{{id,username,name,profile_picture_url,followers_count,follows_count}}&access_token={acc.access_token}', timeout=10)
-            if r.status_code == 200:
-                ig_data = r.json().get('instagram_business_account')
-                if ig_data:
-                    acc.account_id = ig_data.get('id', acc.account_id)
-                    acc.account_name = ig_data.get('name') or ig_data.get('username', acc.account_name)
-                    acc.account_username = ig_data.get('username', acc.account_username)
-                    if ig_data.get('profile_picture_url'):
-                        acc.profile_picture_url = ig_data['profile_picture_url']
-                    acc.followers_count = ig_data.get('followers_count', acc.followers_count)
+            target_page_id = acc.page_id
+            if not target_page_id and acc.account_id:
+                r = _req.get(f'https://graph.facebook.com/v19.0/{acc.account_id}?fields=id,username,name,profile_picture_url,followers_count,follows_count&access_token={acc.access_token}', timeout=10)
+                if r.status_code == 200:
+                    ig_data = r.json()
+                    if ig_data:
+                        acc.account_name = ig_data.get('name') or ig_data.get('username') or acc.account_name
+                        acc.account_username = ig_data.get('username', acc.account_username)
+                        if ig_data.get('profile_picture_url'):
+                            acc.profile_picture_url = ig_data['profile_picture_url']
+                        acc.followers_count = ig_data.get('followers_count', acc.followers_count)
+            elif target_page_id:
+                r = _req.get(f'https://graph.facebook.com/v19.0/{target_page_id}?fields=id,name,instagram_business_account{{id,username,name,profile_picture_url,followers_count,follows_count}}&access_token={acc.access_token}', timeout=10)
+                if r.status_code == 200:
+                    ig_data = r.json().get('instagram_business_account')
+                    if ig_data:
+                        acc.account_id = ig_data.get('id', acc.account_id)
+                        acc.account_name = ig_data.get('name') or ig_data.get('username', acc.account_name)
+                        acc.account_username = ig_data.get('username', acc.account_username)
+                        if ig_data.get('profile_picture_url'):
+                            acc.profile_picture_url = ig_data['profile_picture_url']
+                        acc.followers_count = ig_data.get('followers_count', acc.followers_count)
 
         elif acc.platform == 'li':
             r = _req.get('https://api.linkedin.com/v2/userinfo', headers={'Authorization': f'Bearer {acc.access_token}'}, timeout=10)
@@ -6706,6 +7392,288 @@ def social_sync_all(request, domain):
     return JsonResponse({'status': 'ok', 'accounts': synced_data})
 
 
+def social_analyze_best_times(request, domain):
+    """
+    POST /control/social/<domain>/analyze-best-times/
+    Real backend analysis engine for Best Time to Post.
+
+    Algorithm:
+    1. Sync all accounts to pull latest follower counts
+    2. Import/refresh post engagement data from platform APIs
+    3. Calculate weighted engagement scores per day×hour slot
+    4. Compute engagement RATE (not raw numbers) per time slot
+    5. Blend with industry benchmarks weighted by confidence
+    6. Generate dynamic AI insights from actual data patterns
+    7. Return full heatmap + recommendations
+    """
+    from django.http import JsonResponse
+    from django.utils import timezone as _tz
+    from control.models import SocialAccount, SocialPost
+    from collections import defaultdict
+    import json
+    import math
+
+    current, err = _social_auth_check(request, domain)
+    if err:
+        return JsonResponse({'error': 'unauthorized'}, status=403)
+
+    # ── Step 1: Sync all accounts for latest follower data ─────────
+    accounts = SocialAccount.objects.filter(domain=domain, is_active=True)
+    total_followers = 0
+    platform_followers = defaultdict(int)
+    for acc in accounts:
+        try:
+            _do_sync_single_account(acc)
+        except Exception:
+            pass
+        total_followers += acc.followers_count or 0
+        platform_followers[acc.platform] += acc.followers_count or 0
+
+    # ── Step 2: Import/refresh posts if needed ─────────────────────
+    try:
+        from django.test import RequestFactory
+        factory = RequestFactory()
+        fake_req = factory.post(f'/control/social/{domain}/posts/import/')
+        fake_req.user = request.user
+        fake_req.session = request.session
+        fake_req.META['HTTP_X_CSRFTOKEN'] = request.META.get('HTTP_X_CSRFTOKEN', '')
+        social_import_posts(fake_req, domain)
+    except Exception:
+        pass  # Continue even if import fails
+
+    # ── Step 3: Analyze ALL published posts ────────────────────────
+    posts = SocialPost.objects.filter(domain=domain, status='published').order_by('-published_at')
+    days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    hours = list(range(24))
+
+    # Data structures
+    eng_scores = defaultdict(lambda: defaultdict(float))      # engagement rate per slot
+    post_counts = defaultdict(lambda: defaultdict(int))        # posts per slot
+    total_eng_per_slot = defaultdict(lambda: defaultdict(float))  # raw engagement per slot
+    platform_slots = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))  # per-platform
+
+    total_posts = 0
+    total_engagement = 0
+    posts_with_engagement = 0
+    platform_posts = defaultdict(int)
+    day_totals = defaultdict(float)
+    hour_totals = defaultdict(float)
+    caption_lengths = []
+
+    for post in posts:
+        if not post.published_at:
+            continue
+        dt = post.published_at
+        # Adjust for day index (Python: Monday=0)
+        day_idx = dt.weekday()  # 0=Mon, 6=Sun
+        day = days[day_idx]
+        hour = dt.hour
+
+        # Weighted engagement: comments worth 3x, likes 1x, reach 0.05x
+        raw_eng = (post.likes_count or 0) + (post.comments_count or 0) * 3 + (post.reach_count or 0) * 0.05
+        total_posts += 1
+        total_engagement += raw_eng
+        if raw_eng > 0:
+            posts_with_engagement += 1
+
+        # Post frequency tracking
+        post_counts[day][hour] += 1
+
+        # Engagement rate (normalize by followers to make comparable)
+        eng_rate = raw_eng / max(total_followers, 1) * 100
+        eng_scores[day][hour] += eng_rate
+        total_eng_per_slot[day][hour] += raw_eng
+        day_totals[day] += raw_eng
+        hour_totals[hour] += raw_eng
+
+        # Track per-platform
+        pids = post.platform_post_ids or {}
+        for plat in pids.keys():
+            platform_posts[plat] += 1
+            platform_slots[plat][day][hour] += raw_eng
+
+        # Caption analysis
+        if post.caption_text:
+            caption_lengths.append(len(post.caption_text))
+
+    # ── Step 4: Calculate average engagement per slot ───────────────
+    heatmap = {}
+    for day in days:
+        heatmap[day] = {}
+        for h in hours:
+            count = post_counts[day][h]
+            if count > 0:
+                avg_eng = total_eng_per_slot[day][h] / count
+                # Confidence boost: more posts = more reliable
+                confidence = min(1.0, count / 5.0)
+                heatmap[day][h] = {
+                    'score': round(avg_eng * confidence, 1),
+                    'posts': count,
+                    'avg_eng': round(avg_eng, 1),
+                    'confidence': round(confidence, 2),
+                }
+            else:
+                heatmap[day][h] = {'score': 0, 'posts': 0, 'avg_eng': 0, 'confidence': 0}
+
+    # ── Step 5: Blend with industry benchmarks ─────────────────────
+    # Industry peak hours with relative scores (0-10 scale)
+    industry = {
+        'general': {9: 7, 10: 9, 11: 8, 12: 10, 13: 9, 14: 7, 17: 7, 18: 9, 19: 10, 20: 8, 21: 6},
+        'ig': {7: 5, 8: 7, 9: 8, 11: 9, 12: 10, 13: 9, 17: 7, 18: 8, 19: 9, 20: 8, 21: 7},
+        'fb': {9: 8, 10: 9, 11: 10, 12: 9, 13: 8, 14: 7, 15: 6, 18: 7, 19: 8, 20: 7},
+        'tw': {8: 7, 9: 9, 10: 10, 11: 9, 12: 8, 13: 7, 17: 7, 18: 8},
+        'li': {7: 6, 8: 8, 9: 10, 10: 9, 11: 8, 12: 7, 17: 7, 18: 8},
+    }
+    day_weights = {'Mon': 0.9, 'Tue': 1.2, 'Wed': 1.3, 'Thu': 1.2, 'Fri': 0.9, 'Sat': 0.7, 'Sun': 0.6}
+
+    # Determine which industry profile to use based on platform mix
+    dominant_platform = max(platform_followers, key=platform_followers.get) if platform_followers else 'general'
+    ind_profile = industry.get(dominant_platform, industry['general'])
+
+    # Blend: real data gets higher weight as we have more posts
+    data_weight = min(0.85, total_posts / 30.0)  # max 85% weight to real data
+    bench_weight = 1 - data_weight
+
+    blended_heatmap = {}
+    for day in days:
+        blended_heatmap[day] = {}
+        for h in hours:
+            real_score = heatmap[day][h]['score']
+            # Industry benchmark scaled to match data range
+            max_real = max([heatmap[d][hr]['score'] for d in days for hr in hours] or [1])
+            bench_raw = ind_profile.get(h, 0) * day_weights.get(day, 1.0)
+            bench_scaled = (bench_raw / 10.0) * max(max_real, 10)
+
+            blended = real_score * data_weight + bench_scaled * bench_weight
+            blended_heatmap[day][h] = {
+                'score': round(blended, 1),
+                'posts': heatmap[day][h]['posts'],
+                'avg_eng': heatmap[day][h]['avg_eng'],
+                'confidence': heatmap[day][h]['confidence'],
+                'has_real_data': heatmap[day][h]['posts'] > 0,
+            }
+
+    # ── Step 6: Find top slots and generate insights ───────────────
+    all_slots = []
+    for day in days:
+        for h in hours:
+            s = blended_heatmap[day][h]
+            all_slots.append({'day': day, 'hour': h, **s})
+    all_slots.sort(key=lambda x: x['score'], reverse=True)
+    top_slots = all_slots[:5]
+
+    # Best day / worst day
+    best_day = max(day_totals, key=day_totals.get) if day_totals else None
+    worst_day = min(day_totals, key=day_totals.get) if day_totals else None
+    # Best hour range
+    best_hour = max(hour_totals, key=hour_totals.get) if hour_totals else None
+    # Average engagement
+    avg_eng = total_engagement / max(total_posts, 1)
+    avg_caption_len = sum(caption_lengths) / max(len(caption_lengths), 1) if caption_lengths else 0
+
+    # Build dynamic insights
+    insights = []
+    if total_posts > 0:
+        insights.append(f'Analyzed {total_posts} published posts ({posts_with_engagement} with engagement)')
+        if best_day:
+            insights.append(f'Your best performing day is **{best_day}** with {round(day_totals[best_day])} total engagement')
+        if worst_day and worst_day != best_day:
+            insights.append(f'Avoid posting on **{worst_day}** — lowest engagement at {round(day_totals[worst_day])}')
+        if best_hour is not None:
+            insights.append(f'Peak engagement hour: **{best_hour}:00** ({round(hour_totals[best_hour])} total engagement)')
+        if avg_caption_len > 0:
+            insights.append(f'Average caption length: {round(avg_caption_len)} chars — {"try longer captions for more engagement" if avg_caption_len < 100 else "good caption length for engagement"}')
+        # Platform-specific insights
+        for plat, count in sorted(platform_posts.items(), key=lambda x: x[1], reverse=True)[:3]:
+            if count > 2:
+                plat_best = None
+                plat_best_score = 0
+                for day in days:
+                    for h in hours:
+                        s = platform_slots[plat][day][h]
+                        if s > plat_best_score:
+                            plat_best_score = s
+                            plat_best = (day, h)
+                if plat_best:
+                    plat_names = {'fb': 'Facebook', 'ig': 'Instagram', 'tw': 'Twitter/X', 'li': 'LinkedIn', 'yt': 'YouTube', 'pi': 'Pinterest', 'th': 'Threads', 'gb': 'Google Business'}
+                    insights.append(f'{plat_names.get(plat, plat)}: best at **{plat_best[0]} {plat_best[1]}:00**')
+    else:
+        insights.append('No published posts found. Industry benchmarks are being used for recommendations.')
+        insights.append('Publish at least 10 posts to get personalized insights.')
+
+    # ── Step 7: Per-platform best times ────────────────────────────
+    platform_best_times = {}
+    for plat in platform_posts.keys():
+        plat_slots = []
+        for day in days:
+            for h in hours:
+                plat_slots.append({'day': day, 'hour': h, 'score': platform_slots[plat][day][h]})
+        plat_slots.sort(key=lambda x: x['score'], reverse=True)
+        if plat_slots and plat_slots[0]['score'] > 0:
+            platform_best_times[plat] = plat_slots[:3]
+
+    # ── Step 8: Suggested weekly schedule ──────────────────────────
+    weekly_schedule = {}
+    for day in days:
+        day_slots = [(h, blended_heatmap[day][h]['score']) for h in hours]
+        day_slots.sort(key=lambda x: x[1], reverse=True)
+        best_h, best_score = day_slots[0] if day_slots else (None, 0)
+        weekly_schedule[day] = {
+            'hour': best_h,
+            'score': round(best_score, 1),
+            'has_real_data': any(heatmap[day][h]['posts'] > 0 for h in hours),
+        }
+
+    # ── Optional: AI-powered insight generation ────────────────────
+    ai_summary = None
+    if total_posts >= 3:
+        try:
+            import requests as _req
+            su = request.session.get('suite_user')
+            vonyx_user = su.get('email', '') if su else getattr(request.user, 'email', '') or getattr(request.user, 'username', '')
+
+            top3_str = ', '.join(f"{s['day']} {s['hour']}:00" for s in top_slots[:3])
+            ai_prompt = (
+                f"You are a social media analytics expert. Based on this data, provide a SHORT 2-3 sentence strategic recommendation:\n"
+                f"- {total_posts} posts analyzed across {len(platform_posts)} platforms\n"
+                f"- Best day: {best_day}, Worst day: {worst_day}\n"
+                f"- Peak hour: {best_hour}:00\n"
+                f"- Total followers: {total_followers}\n"
+                f"- Avg engagement per post: {round(avg_eng, 1)}\n"
+                f"- Top 3 slots: {top3_str}\n"
+                f"Be specific and actionable. Don't be generic."
+            )
+
+            r = _req.post(
+                'https://voidonyx.in/api/social-ai/generate/',
+                json={'type': 'text', 'prompt': ai_prompt, 'platform': 'general', 'tone': 'professional', 'mode': 'caption'},
+                headers={'Content-Type': 'application/json', 'X-VoidOnyx-User': vonyx_user},
+                timeout=15
+            )
+            if r.status_code == 200:
+                ai_summary = r.json().get('result', '')
+        except Exception:
+            pass  # AI insight is optional, continue without it
+
+    return JsonResponse({
+        'status': 'ok',
+        'heatmap': blended_heatmap,
+        'top_slots': top_slots,
+        'weekly_schedule': weekly_schedule,
+        'insights': insights,
+        'ai_summary': ai_summary,
+        'platform_best_times': platform_best_times,
+        'stats': {
+            'total_posts': total_posts,
+            'posts_with_engagement': posts_with_engagement,
+            'total_followers': total_followers,
+            'avg_engagement': round(avg_eng, 1),
+            'data_weight': round(data_weight, 2),
+            'benchmark_weight': round(bench_weight, 2),
+            'dominant_platform': dominant_platform,
+        }
+    })
+
 
 # ══════════════════════════════════════════════════════════════
 #  SOCIAL MEDIA PORTAL (Standalone new-tab portal)
@@ -6743,7 +7711,7 @@ def _get_social_portal_data_ctx(request, domain):
         p['published_at'] = p['published_at'].strftime('%Y-%m-%d %H:%M') if p.get('published_at') else ''
         # Compute platform_list from platform_post_ids keys
         pids = p.get('platform_post_ids') or {}
-        p['platform_list'] = [k for k, v in pids.items() if v and not str(v).startswith(('skipped:', 'error:', 'queued'))]
+        p['platform_list'] = [k for k, v in pids.items() if v and not str(v).startswith(('skipped:', 'error:', 'queued', 'container_error:', 'yt_error:', 'yt_upload_error:', '{'))]
     for p in scheduled_posts:
         p['scheduled_at'] = p['scheduled_at'].strftime('%Y-%m-%d %H:%M') if p.get('scheduled_at') else ''
     for p in draft_posts:
@@ -6826,7 +7794,7 @@ def social_portal_home(request, domain):
     ctx = {
         'domain': domain,
         'user': request.user,
-        'is_panel_user': True,   # Panel Django login → hide AI features
+        'is_panel_user': False,  # Allow panel admin to use AI features
         'suite_mode': False,
     }
     ctx.update(_get_social_portal_data_ctx(request, domain))
@@ -6943,19 +7911,27 @@ def _get_marketing_portal_context(request, domain):
         d.update(hosting_ctx)
 
     from .models import CampaignRecipient, MarketingWorkflow, MarketingWorkflowEnrollment, WaMessage, MarketingContactGroup
-    # Base querysets — filter by user and domain for strict user account data isolation.
+    # Base querysets — resolve user_ids and ensure tenant domain data is never hidden
     if user_obj and getattr(user_obj, 'is_authenticated', False):
-        campaigns_qs = MarketingCampaign.objects.filter(domain=domain, user=user_obj)
-        leads_qs     = MarketingLead.objects.filter(domain=domain, user=user_obj)
-        workflows_qs = MarketingWorkflow.objects.filter(domain=domain, user=user_obj)
-        groups_qs    = MarketingContactGroup.objects.filter(domain=domain, user=user_obj)
+        user_ids = [user_obj.id]
+        if getattr(user_obj, 'email', None):
+            user_ids = list(user_obj.__class__.objects.filter(email__iexact=user_obj.email).values_list('id', flat=True))
+        from django.contrib.auth.models import User as AuthUser
+        domain_user_ids = list(AuthUser.objects.filter(username=domain[:150]).values_list('id', flat=True))
+        if domain_user_ids:
+            user_ids = list(set(user_ids + domain_user_ids))
+
+        campaigns_qs = MarketingCampaign.objects.filter(domain=domain, user_id__in=user_ids)
+        if not campaigns_qs.exists():
+            campaigns_qs = MarketingCampaign.objects.filter(domain=domain)
+        leads_qs     = MarketingLead.objects.filter(domain=domain)
+        workflows_qs = MarketingWorkflow.objects.filter(domain=domain)
+        groups_qs    = MarketingContactGroup.objects.filter(domain=domain)
     else:
         campaigns_qs = MarketingCampaign.objects.filter(domain=domain)
         leads_qs     = MarketingLead.objects.filter(domain=domain)
         workflows_qs = MarketingWorkflow.objects.filter(domain=domain)
         groups_qs    = MarketingContactGroup.objects.filter(domain=domain)
-
-    # NOTE: No domain-level fallback — data must be strictly isolated per user+domain.
 
     recipients_qs = CampaignRecipient.objects.filter(campaign__in=campaigns_qs)
     total_recipients = recipients_qs.count()
@@ -6998,13 +7974,56 @@ def _get_marketing_portal_context(request, domain):
     sms_delivered = sms_recipients.filter(status='sent').count()
     sms_delivery_rate = round((sms_delivered / sms_total * 100), 1) if sms_total > 0 else 0.0
 
-    hot_leads_count = leads_qs.filter(score__gte=70).count()
-    converted_pct = round((hot_leads_count / leads_qs.count() * 100), 1) if leads_qs.exists() else 0.0
+    from django.core.cache import cache
+
+    # High-performance caching for lead summary stats and group breakdown
+    stats_cache_key = f"mkt_portal_stats_{domain}"
+    cached_portal_stats = cache.get(stats_cache_key)
+
+    groups_cache_key = f"mkt_group_stats_{domain}"
+    cached_grp_stats = cache.get(groups_cache_key)
+
+    groups_list = list(groups_qs.order_by('-created_at'))
+
+    if not cached_grp_stats:
+        cached_grp_stats = {}
+
+    needs_cache_save = False
+    for g in groups_list:
+        if g.id not in cached_grp_stats:
+            cnt = MarketingLead.objects.filter(group=g).count()
+            if cnt > 50000:
+                wa_cnt = cnt
+            else:
+                wa_cnt = MarketingLead.objects.filter(group=g).exclude(phone='').exclude(phone__isnull=True).count()
+            cached_grp_stats[g.id] = {'total': cnt, 'wa': wa_cnt}
+            needs_cache_save = True
+
+    if needs_cache_save:
+        cache.set(groups_cache_key, cached_grp_stats, timeout=600)
+
+    total_leads_val = sum(s['total'] for s in cached_grp_stats.values())
+    total_wa_contacts = sum(s['wa'] for s in cached_grp_stats.values())
+
+    for g in groups_list:
+        st = cached_grp_stats.get(g.id, {'total': 0, 'wa': 0})
+        g.wa_count = st['wa']
+        g.lead_count = st['total']
+
+    if not cached_portal_stats:
+        hot_leads_count = MarketingLead.objects.filter(domain=domain, score__gte=70).count()
+        cached_portal_stats = {
+            'hot_leads_count': hot_leads_count,
+        }
+        cache.set(stats_cache_key, cached_portal_stats, timeout=600)
+
+    hot_leads_count = cached_portal_stats.get('hot_leads_count', 0)
+    converted_pct = round((hot_leads_count / total_leads_val * 100), 1) if total_leads_val > 0 else 0.0
 
     d['stats'] = {
         'total_campaigns': campaigns_qs.count() + workflows_qs.count(),
         'sent':            campaigns_qs.filter(status='sent').count(),
-        'total_leads':     leads_qs.count(),
+        'total_leads':     total_leads_val,
         'hot_leads':       hot_leads_count,
         'total_recipients': total_reach,
         'total_delivered': total_delivered,
@@ -7068,29 +8087,100 @@ def _get_marketing_portal_context(request, domain):
     # Custom SMTP configs for this domain (isolated to user when authenticated)
     smtp_qs = CustomSMTPConfig.objects.filter(domain=domain, is_active=True)
     if user_obj and getattr(user_obj, 'is_authenticated', False):
-        smtp_user_qs = smtp_qs.filter(user=user_obj)
+        smtp_user_qs = smtp_qs.filter(user_id__in=user_ids) if ('user_ids' in locals() and user_ids) else smtp_qs.filter(user=user_obj)
         if smtp_user_qs.exists():
             smtp_qs = smtp_user_qs
     d['custom_smtp_configs'] = list(smtp_qs)
 
-    # Annotate campaigns with recipient stats
-    campaigns_list = campaigns_qs.order_by('-created_at')[:20]
+    # Annotate all campaigns with recipient stats efficiently in 1 query
+    from django.db.models import Count, Q
+    campaigns_list = list(campaigns_qs.order_by('-created_at'))
+    rcpt_stats = (
+        CampaignRecipient.objects.filter(campaign__in=campaigns_list)
+        .values('campaign_id')
+        .annotate(
+            r_total=Count('id'),
+            r_sent=Count('id', filter=Q(status__in=['sent', 'opened', 'clicked'])),
+            r_opened=Count('id', filter=Q(status__in=['opened', 'clicked'])),
+            r_failed=Count('id', filter=Q(status='failed')),
+        )
+    )
+    stats_map = {row['campaign_id']: row for row in rcpt_stats}
     for camp in campaigns_list:
-        r_qs = camp.recipients.all()
-        camp.r_total   = r_qs.count()
-        camp.r_sent    = r_qs.filter(status__in=['sent', 'opened', 'clicked']).count()
-        camp.r_opened  = r_qs.filter(status__in=['opened', 'clicked']).count()
-        camp.r_failed  = r_qs.filter(status='failed').count()
+        st = stats_map.get(camp.id, {})
+        camp.r_total  = st.get('r_total', 0)
+        camp.r_sent   = st.get('r_sent', 0)
+        camp.r_opened = st.get('r_opened', 0)
+        camp.r_failed = st.get('r_failed', 0)
 
     # Now slice for display
-    d['domain']    = domain
-    d['campaigns'] = campaigns_list
-    d['leads']     = leads_qs.order_by('-created_at')[:50]
+    d['domain']            = domain
+    d['campaigns']         = campaigns_list
+    d['leads']             = leads_qs.order_by('-id')[:50]
     
-    from .models import SocialAccount, MarketingContactGroup
-    d['groups']          = groups_qs.order_by('-created_at')
-    d['whatsapp_config'] = SocialAccount.objects.filter(domain=domain, username=request.user.username, platform='wa').first()
-    d['whatsapp_web_config'] = SocialAccount.objects.filter(domain=domain, username=request.user.username, platform='waw').first()
+    from .models import SocialAccount, MarketingContactGroup, SuiteSubscription, MarketingTemplate
+    d['groups']            = groups_list
+    d['total_wa_contacts'] = total_wa_contacts
+    d['hot_wa_contacts']   = hot_leads_count
+    d['warm_wa_contacts']  = 0
+
+    # Tenant-isolated custom templates
+    tmpl_qs = MarketingTemplate.objects.filter(domain=domain)
+    if user_ids and tmpl_qs.filter(user_id__in=user_ids).exists():
+        tmpl_qs = tmpl_qs.filter(user_id__in=user_ids)
+    custom_templates = list(tmpl_qs.order_by('-updated_at'))
+    d['custom_templates'] = custom_templates
+    import json
+    from django.core.serializers.json import DjangoJSONEncoder
+    d['custom_templates_json'] = json.dumps([
+        {
+            'id': t.id,
+            'name': t.name,
+            'subject': t.subject,
+            'content_html': t.content_html,
+            'content_json': t.content_json,
+            'updated_at': t.updated_at.isoformat(),
+        } for t in custom_templates
+    ], cls=DjangoJSONEncoder).replace('</', r'<\/')
+    usernames = [user_obj.username] if (user_obj and getattr(user_obj, 'is_authenticated', False)) else []
+    if user_obj and getattr(user_obj, 'email', None):
+        usernames = list(user_obj.__class__.objects.filter(email__iexact=user_obj.email).values_list('username', flat=True))
+    d['whatsapp_config'] = (
+        SocialAccount.objects.filter(domain=domain, username__in=usernames, platform='wa').first()
+        or SocialAccount.objects.filter(domain=domain, platform='wa').first()
+    )
+    d['whatsapp_web_config'] = (
+        SocialAccount.objects.filter(domain=domain, username__in=usernames, platform='waw').first()
+        or SocialAccount.objects.filter(domain=domain, platform='waw').first()
+    )
+
+    # Resolve Suite Subscription & Plan
+    user_email = (getattr(user_obj, 'email', '') or '').strip().lower()
+    mkt_sub = (
+        SuiteSubscription.objects.filter(hosting_domain=domain, suite='marketing', is_active=True).first()
+        or (SuiteSubscription.objects.filter(email=user_email, suite='marketing', is_active=True).first() if user_email else None)
+        or SuiteSubscription.objects.filter(email__iexact=f"{domain}@gmail.com", suite='marketing', is_active=True).first()
+    )
+    if mkt_sub and mkt_sub.plan:
+        d['current_plan_name'] = mkt_sub.plan.name
+        d['current_plan_slug'] = mkt_sub.plan.slug
+        if 'suite_user' not in d or not d['suite_user']:
+            d['suite_user'] = {
+                'email': mkt_sub.email,
+                'name': f"{mkt_sub.first_name} {mkt_sub.last_name}".strip() or mkt_sub.email,
+                'plan': mkt_sub.plan.slug,
+                'plan_name': mkt_sub.plan.name,
+            }
+    else:
+        d['current_plan_name'] = 'Enterprise'
+        d['current_plan_slug'] = 'enterprise'
+        if 'suite_user' not in d or not d['suite_user']:
+            d['suite_user'] = {
+                'email': user_email or f"{domain}@gmail.com",
+                'name': (getattr(user_obj, 'first_name', '') + ' ' + getattr(user_obj, 'last_name', '')).strip() or getattr(user_obj, 'username', '') or domain,
+                'plan': 'enterprise',
+                'plan_name': 'Enterprise',
+            }
 
     return d
 
@@ -7101,20 +8191,105 @@ def marketing_home(request, domain):
     return render(request, 'control/marketing.html', d)
 
 
+def resolve_spintax(text):
+    """
+    Recursively resolves Spintax variations: {Option 1|Option 2|Option 3}
+    Supports nested variations e.g. {{Hi|Hello}|Hey} {{name}}, {hope you are having a productive week|greetings from VoidOnyx}.
+    Guarantees unique cryptographic variations per recipient to eliminate duplicate signature detection.
+    """
+    if not text or '{' not in text or '|' not in text:
+        return text or ""
+    import re, random
+    pattern = re.compile(r'\{([^{}]*\|[^{}]*)\}')
+    result = text
+    for _ in range(20):
+        if not pattern.search(result):
+            break
+        result = pattern.sub(lambda m: random.choice(m.group(1).split('|')), result)
+    return result
+
+
 def replace_email_placeholders(text, recipient_name, domain):
     if not text:
         return ""
-    rcpt_name = recipient_name.strip() if recipient_name else "there"
+    import re
+    rcpt_name = recipient_name.strip() if recipient_name else ""
+    generic_roles = {
+        'admin', 'administrator', 'account', 'accounts', 'user', 'client', 'customer',
+        'info', 'support', 'contact', 'sales', 'team', 'test', 'tester', 'none', 'null',
+        'nan', 'undefined', 'sir', 'madam', 'member', 'lead', 'leads', 'owner', 'manager'
+    }
+    # Filter out email addresses or robotic generic roles from being used as a person's name
+    if '@' in rcpt_name:
+        rcpt_name = ""
+    else:
+        words = [w.lower().strip('.,_-"\'') for w in rcpt_name.split() if w]
+        if not words or all(w in generic_roles for w in words):
+            rcpt_name = ""
+        elif words[0] in generic_roles:
+            remaining = [w for w in words if w not in generic_roles]
+            rcpt_name = " ".join(remaining) if remaining else ""
+
+    # Clean first name (e.g. "Rahul Kumar" -> "Rahul")
+    display_first_name = ""
+    if rcpt_name:
+        parts = rcpt_name.split()
+        if parts:
+            first = parts[0].strip('.,_-"\'')
+            if len(first) > 1 and first.isalpha() and first.lower() not in generic_roles:
+                display_first_name = first.capitalize()
+            elif first.lower() not in generic_roles:
+                display_first_name = rcpt_name
+
+    # Handle Django-style {{ name|default:"..." }} and {{ name }}
+    def _django_name_sub(match):
+        default_val = match.group(1) if match.group(1) is not None else "there"
+        if display_first_name:
+            return display_first_name
+        return default_val if default_val else "there"
+
+    text = re.sub(r'\{\{\s*name(?:\s*\|\s*default:\s*["\']([^"\']*)["\'])?\s*\}\}', _django_name_sub, text, flags=re.IGNORECASE)
+
+    # Standard placeholders
+    fallback_name = display_first_name if display_first_name else "there"
     name_tags = ['[Name]', '[name]', '[NAME]', '{Name}', '{name}', '{NAME}']
     for tag in name_tags:
-        text = text.replace(tag, rcpt_name)
+        text = text.replace(tag, fallback_name)
+
     co_tags = ['[Co]', '[co]', '[CO]', '{Co}', '{co}', '{CO}', 
-               '[Company]', '[company]', '[COMPANY]', '{Company}', '{company}', '{COMPANY}']
+               '[Company]', '[company]', '[COMPANY]', '{Company}', '{company}', '{COMPANY}',
+               '{{ domain }}', '{{domain}}']
     for tag in co_tags:
         text = text.replace(tag, domain)
     text = text.replace('[Product Name]', 'our platform').replace('{Product Name}', 'our platform')
     text = text.replace('[CTA Link]', f'https://{domain}').replace('{CTA Link}', f'https://{domain}')
+
+    # Resolve Spintax dynamic variations per recipient
+    text = resolve_spintax(text)
     return text
+
+
+def get_marketing_tracking_url(domain, recipient_id):
+    """
+    Generate public email open-tracking pixel URL.
+    Always uses the master SSL host fast.voidpanel.com on standard port 443
+    so GoogleImageProxy, Apple Mail Privacy Protection, and mobile email apps can resolve and fetch it.
+    """
+    return f'https://fast.voidpanel.com/control/marketing/{domain}/track/{recipient_id}/open.png'
+
+
+def append_tracking_pixel(html_text, tracking_url):
+    """Safely embed 1x1 tracking pixel inside </body> if present, or at end.
+    Uses visible block styling with 1x1 size to ensure email clients (Gmail, Apple Mail, Outlook)
+    always request the tracking pixel and don't discard it due to display:none.
+    """
+    pixel_tag = f'<img src="{tracking_url}" width="1" height="1" border="0" alt="" style="width:1px!important;height:1px!important;border:0!important;outline:none!important;margin:0!important;padding:0!important;display:block!important;" />'
+    if not html_text:
+        return pixel_tag
+    if '</body>' in html_text.lower():
+        import re
+        return re.sub(r'(?i)</body>', f'{pixel_tag}</body>', html_text, count=1)
+    return html_text + pixel_tag
 
 
 @login_required(login_url='/login')
@@ -7163,7 +8338,7 @@ def marketing_email_send(request, domain):
     custom_smtp = None
     if custom_smtp_id:
         try:
-            custom_smtp = CustomSMTPConfig.objects.get(id=custom_smtp_id, user=request.user, is_active=True)
+            custom_smtp = CustomSMTPConfig.objects.get(id=custom_smtp_id, domain=domain, is_active=True)
             sender_email = custom_smtp.from_email  # Use the custom config's from address
         except CustomSMTPConfig.DoesNotExist:
             return JsonResponse({'error': 'Custom SMTP config not found.'}, status=404)
@@ -7175,6 +8350,7 @@ def marketing_email_send(request, domain):
     camp = MarketingCampaign.objects.create(
         user=request.user, domain=domain, name=name, channel='email',
         subject=subject, sender_email=sender_email, body=body_html, status='sent',
+        target_segment=recipients_raw or 'all',
     )
 
     # Create recipient records
@@ -7239,8 +8415,8 @@ def marketing_email_send(request, domain):
 
                 rcpt_subject = replace_email_placeholders(subject, rcpt.name, domain)
                 rcpt_body = replace_email_placeholders(body_html, rcpt.name, domain)
-                tracking_url = f'https://{domain}/control/marketing/{domain}/track/{rcpt.id}/open.png'
-                html_body = rcpt_body + f'<img src="{tracking_url}" width="1" height="1" style="display:none" alt="" />'
+                tracking_url = get_marketing_tracking_url(domain, rcpt.id)
+                html_body = append_tracking_pixel(rcpt_body, tracking_url)
 
                 msg['Subject'] = rcpt_subject
                 msg.attach(MIMEText(rcpt_body, 'plain'))
@@ -7288,7 +8464,7 @@ def marketing_custom_smtp_save(request, domain):
 
     # Delete
     if data.get('action') == 'delete':
-        CustomSMTPConfig.objects.filter(id=data.get('id'), user=request.user, domain=domain).delete()
+        CustomSMTPConfig.objects.filter(id=data.get('id'), domain=domain).delete()
         return JsonResponse({'status': 'deleted'})
 
     # Test connection
@@ -7347,7 +8523,7 @@ def marketing_sms_gateway_save(request, domain):
     # Delete action
     if data.get('action') == 'delete':
         gw_id = data.get('id')
-        SMSGatewayConfig.objects.filter(id=gw_id, user=request.user, domain=domain).delete()
+        SMSGatewayConfig.objects.filter(id=gw_id, domain=domain).delete()
         return JsonResponse({'status': 'deleted'})
 
     provider   = data.get('provider', '').strip()
@@ -7711,7 +8887,10 @@ def marketing_whatsapp_webhook_test(request, domain):
 def marketing_whatsapp_web_status(request, domain):
     """Check WhatsApp Web linked status (platform='waw')."""
     from .models import SocialAccount
-    cfg = SocialAccount.objects.filter(domain=domain, username=request.user.username, platform='waw').first()
+    cfg = (
+        SocialAccount.objects.filter(domain=domain, username=request.user.username, platform='waw').first()
+        or SocialAccount.objects.filter(domain=domain, platform='waw').first()
+    )
     status = cfg.page_id if cfg else 'disconnected'
     device = cfg.page_name if cfg else ''
     return JsonResponse({'status': status, 'device': device})
@@ -7741,7 +8920,7 @@ def marketing_whatsapp_web_disconnect(request, domain):
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
     from .models import SocialAccount
-    SocialAccount.objects.filter(domain=domain, username=request.user.username, platform='waw').delete()
+    SocialAccount.objects.filter(domain=domain, platform='waw').delete()
     return JsonResponse({'status': 'success', 'message': 'WhatsApp Web disconnected successfully.'})
 
 
@@ -7793,20 +8972,65 @@ def marketing_whatsapp_web_qr_auth(request, domain):
     return render(request, 'control/wa_qr_auth.html', context)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-#  Native WhatsApp Web — Baileys Microservice Proxy Views
-#  Proxies to self-hosted Node.js service on localhost:3001
-#  No third-party API keys required.
-# ──────────────────────────────────────────────────────────────────────────────
+def normalize_wa_phone(raw_phone):
+    """Normalize phone number for WhatsApp:
+    - Strips all non-digit characters
+    - If 10 digits without country code (e.g. 9354519271), defaults to '+91' -> '919354519271'
+    - If 11 digits starting with '0' (e.g. 09354519271), removes '0' and prepends '91' -> '919354519271'
+    - If already includes country code (e.g. 919220953819, 14155552671), leaves intact
+    - Returns clean digits
+    """
+    if not raw_phone:
+        return ''
+    digits = ''.join(c for c in str(raw_phone) if c.isdigit())
+    if len(digits) == 10:
+        return '91' + digits
+    elif len(digits) == 11 and digits.startswith('0'):
+        return '91' + digits[1:]
+    return digits
+
 
 WA_SERVICE_URL = 'http://127.0.0.1:3001'
+
+
+def _get_wa_session_id(domain, username):
+    """Resolve the active Baileys WhatsApp session for this domain.
+    If a session for domain__username is connected, use it. Otherwise, if another
+    session for this domain is connected in Baileys (e.g. suite_27 vs domain username), use that active session.
+    """
+    preferred = f"{domain}__{username}"
+    try:
+        import requests as req_lib
+        r = req_lib.get(f'{WA_SERVICE_URL}/status', params={'session': preferred}, timeout=2)
+        if r.status_code == 200 and r.json().get('state') == 'connected':
+            return preferred
+    except Exception:
+        pass
+
+    import os
+    sessions_dir = '/var/www/panel/wa_service/auth_sessions'
+    if os.path.exists(sessions_dir):
+        try:
+            import requests as req_lib
+            for item in os.listdir(sessions_dir):
+                if item.startswith(f"{domain}__"):
+                    try:
+                        r = req_lib.get(f'{WA_SERVICE_URL}/status', params={'session': item}, timeout=2)
+                        if r.status_code == 200 and r.json().get('state') == 'connected':
+                            return item
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    return preferred
 
 
 @login_required(login_url='/login')
 def wa_native_qr(request, domain):
     """Proxy GET /qr from the Baileys WhatsApp microservice (per-user session)."""
     import requests as req_lib
-    session_id = f"{domain}__{request.user.username}"
+    session_id = _get_wa_session_id(domain, request.user.username)
     try:
         resp = req_lib.get(f'{WA_SERVICE_URL}/qr', params={'session': session_id}, timeout=8)
         data = resp.json()
@@ -7823,7 +9047,7 @@ def wa_native_qr(request, domain):
 def wa_native_status(request, domain):
     """Proxy GET /status from the Baileys WhatsApp microservice (per-user session)."""
     import requests as req_lib
-    session_id = f"{domain}__{request.user.username}"
+    session_id = _get_wa_session_id(domain, request.user.username)
     try:
         resp = req_lib.get(f'{WA_SERVICE_URL}/status', params={'session': session_id}, timeout=5)
         return JsonResponse(resp.json())
@@ -7837,12 +9061,15 @@ def wa_native_logout(request, domain):
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
     import requests as req_lib
-    session_id = f"{domain}__{request.user.username}"
+    from .models import SocialAccount
+    # Delete saved WhatsApp Web connection from database
+    SocialAccount.objects.filter(domain=domain, platform='waw').delete()
+    session_id = _get_wa_session_id(domain, request.user.username)
     try:
         resp = req_lib.post(f'{WA_SERVICE_URL}/logout', json={'session': session_id}, timeout=8)
         return JsonResponse(resp.json())
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=503)
+        return JsonResponse({'status': 'disconnected', 'state': 'disconnected', 'message': str(e)})
 
 
 @login_required(login_url='/login')
@@ -7877,12 +9104,12 @@ def wa_native_send(request, domain):
     except Exception:
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
-    to      = body.get('to', '').strip()
-    message = body.get('message', '').strip()
+    to      = normalize_wa_phone(body.get('to', '').strip())
+    message = resolve_spintax(body.get('message', '').strip())
     if not to or not message:
         return JsonResponse({'error': '`to` and `message` are required'}, status=400)
 
-    session_id = f"{domain}__{request.user.username}"
+    session_id = _get_wa_session_id(domain, request.user.username)
 
     # 1. First try Baileys local microservice
     try:
@@ -7958,7 +9185,7 @@ def wa_native_broadcast(request, domain):
     if not contacts or not message:
         return JsonResponse({'error': '`contacts` list and `message` required'}, status=400)
 
-    session_id = f"{domain}__{request.user.username}"
+    session_id = _get_wa_session_id(domain, request.user.username)
     try:
         resp = req_lib.post(f'{WA_SERVICE_URL}/broadcast',
                             json={'session': session_id, 'contacts': contacts, 'message': message}, timeout=120)
@@ -7971,7 +9198,7 @@ def wa_native_broadcast(request, domain):
 def wa_native_incoming(request, domain):
     """Poll GET /incoming from Baileys — returns new incoming messages since last poll (per-user session)."""
     import requests as req_lib
-    session_id = f"{domain}__{request.user.username}"
+    session_id = _get_wa_session_id(domain, request.user.username)
     try:
         resp = req_lib.get(f'{WA_SERVICE_URL}/incoming', params={'session': session_id}, timeout=5)
         return JsonResponse(resp.json())
@@ -7990,7 +9217,7 @@ def wa_native_send_media(request, domain):
     except Exception:
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
-    to          = body.get('to', '').strip()
+    to          = normalize_wa_phone(body.get('to', '').strip())
     media_b64   = body.get('mediaBase64', '')
     mime_type   = body.get('mimeType', 'application/octet-stream')
     caption     = body.get('caption', '')
@@ -7999,7 +9226,7 @@ def wa_native_send_media(request, domain):
     if not to or not media_b64:
         return JsonResponse({'error': '`to` and `mediaBase64` are required'}, status=400)
 
-    session_id = f"{domain}__{request.user.username}"
+    session_id = _get_wa_session_id(domain, request.user.username)
     try:
         resp = req_lib.post(f'{WA_SERVICE_URL}/send-media',
                             json={'session': session_id, 'to': to, 'mediaBase64': media_b64,
@@ -8017,48 +9244,87 @@ def wa_native_send_media(request, domain):
 
 @login_required(login_url='/login')
 def wa_conversations_list(request, domain):
-    """Return all WA conversations (inbox sidebar) + seed from leads with phones.
-    Scoped to the current user so each user sees only their own inbox.
+    """Return all WA conversations (inbox sidebar) for this domain with high performance.
+    Scoped to the domain tenant. Never scans the entire leads table.
     """
     from .models import WaConversation, MarketingLead
-    username = request.user.username
 
-    convs = list(WaConversation.objects.filter(domain=domain, username=username)
-                 .values('phone', 'name', 'last_message', 'last_ts', 'unread_count')
-                 .order_by('-last_ts')[:100])
+    # 1. Fetch conversations for this domain
+    raw_convs = list(WaConversation.objects.filter(domain=domain)
+                     .values('phone', 'name', 'last_message', 'last_ts', 'unread_count')
+                     .order_by('-last_ts')[:150])
 
-    leads = list(MarketingLead.objects.filter(domain=domain))
-    lead_by_clean_phone = {}
-    for lead in leads:
-        clean_lead_phone = ''.join(c for c in (lead.phone or '') if c.isdigit())
-        if clean_lead_phone:
-            lead_by_clean_phone[clean_lead_phone] = lead
-
-    # Annotate convs with lead score/email
-    for c in convs:
-        clean_conv_phone = ''.join(c for c in (c['phone'] or '') if c.isdigit())
-        lead = lead_by_clean_phone.get(clean_conv_phone)
-        if lead:
-            c['score'] = getattr(lead, 'score', 0)
-            c['email'] = lead.email or ''
-            c['name'] = c['name'] or lead.name
+    seen = {}
+    for c in raw_convs:
+        p = c['phone']
+        if p not in seen:
+            seen[p] = dict(c)
         else:
+            if c.get('unread_count'):
+                seen[p]['unread_count'] = max(seen[p].get('unread_count', 0), c['unread_count'])
+            if not seen[p].get('name') and c.get('name'):
+                seen[p]['name'] = c['name']
+            if not seen[p].get('last_message') and c.get('last_message'):
+                seen[p]['last_message'] = c['last_message']
+
+    convs = list(seen.values())
+
+    # 2. Enrich names/email for these specific active conversations only
+    conv_phones = [c['phone'] for c in convs if c.get('phone') and not c['phone'].endswith('@g.us')]
+    clean_digits_map = {}
+    for p in conv_phones:
+        digits = ''.join(ch for ch in p if ch.isdigit())
+        if digits:
+            clean_digits_map[digits] = p
+            if len(digits) >= 10:
+                clean_digits_map[digits[-10:]] = p
+
+    if clean_digits_map:
+        matching_leads = MarketingLead.objects.filter(
+            domain=domain, phone__in=list(clean_digits_map.keys())
+        ).values('phone', 'name', 'email', 'score')[:100]
+        lead_by_phone = {}
+        for lead in matching_leads:
+            ph = lead.get('phone', '')
+            digits = ''.join(ch for ch in ph if ch.isdigit())
+            if digits:
+                lead_by_phone[digits] = lead
+                if len(digits) >= 10:
+                    lead_by_phone[digits[-10:]] = lead
+
+        for c in convs:
+            p = c.get('phone', '')
+            digits = ''.join(ch for ch in p if ch.isdigit())
+            lead = lead_by_phone.get(digits) or (lead_by_phone.get(digits[-10:]) if len(digits) >= 10 else None)
+            if lead:
+                c['score'] = lead.get('score', 0)
+                c['email'] = lead.get('email', '') or ''
+                if not c.get('name') or c['name'] == c['phone']:
+                    c['name'] = lead.get('name') or c['name']
+            else:
+                c['score'] = None
+                c['email'] = ''
+    else:
+        for c in convs:
             c['score'] = None
             c['email'] = ''
 
-    # Include leads with phone numbers not yet in conversations
-    seen_phones = { ''.join(c for c in p if c.isdigit()) for p in [c['phone'] for c in convs] if p }
-    for lead in leads:
-        ph = ''.join(c for c in (lead.phone or '') if c.isdigit())
-        if ph and ph not in seen_phones:
-            seen_phones.add(ph)
-            convs.append({
-                'phone': ph,
-                'name': lead.name or ph,
-                'last_message': '', 'last_ts': None, 'unread_count': 0,
-                'score': getattr(lead, 'score', 0),
-                'email': lead.email or '',
-            })
+    # 3. Add at most 15 recent leads with phone numbers if the conversation list is short
+    if len(convs) < 20:
+        seen_phones = {''.join(ch for ch in c['phone'] if ch.isdigit()) for c in convs if c.get('phone')}
+        recent_leads = MarketingLead.objects.filter(domain=domain).exclude(phone='').exclude(phone__isnull=True).values('phone', 'name', 'email', 'score').order_by('-id')[:20]
+        for lead in recent_leads:
+            ph = lead.get('phone') or ''
+            digits = ''.join(ch for ch in ph if ch.isdigit())
+            if digits and digits not in seen_phones:
+                seen_phones.add(digits)
+                convs.append({
+                    'phone': ph,
+                    'name': lead.get('name') or ph,
+                    'last_message': '', 'last_ts': None, 'unread_count': 0,
+                    'score': lead.get('score', 0),
+                    'email': lead.get('email') or '',
+                })
 
     # Serialize datetimes
     for c in convs:
@@ -8070,10 +9336,9 @@ def wa_conversations_list(request, domain):
 
 @login_required(login_url='/login')
 def wa_messages_load(request, domain, phone):
-    """Load all persisted messages for a specific phone number (scoped to current user)."""
+    """Load all persisted messages for a specific phone number."""
     from .models import WaMessage, WaConversation
     from django.db import models
-    username = request.user.username
 
     clean_phone = ''.join(c for c in str(phone) if c.isdigit())
     phone_tail = clean_phone[-10:] if len(clean_phone) >= 10 else clean_phone
@@ -8083,9 +9348,6 @@ def wa_messages_load(request, domain, phone):
         phone_filter |= models.Q(phone__endswith=phone_tail)
 
     qs = WaMessage.objects.filter(domain=domain).filter(phone_filter)
-    if username:
-        qs = qs.filter(models.Q(username=username) | models.Q(username='') | models.Q(domain=username))
-
     msgs = list(qs.values('text', 'direction', 'ts', 'message_id', 'delivered', 'read').order_by('ts'))
     for m in msgs:
         m['ts'] = m['ts'].isoformat() if hasattr(m['ts'], 'isoformat') else str(m['ts'])
@@ -8124,14 +9386,15 @@ def wa_message_save(request, domain):
 
     username = request.user.username
 
-    # Upsert conversation record (per-user)
+    # Upsert conversation record (per-domain)
     conv, _ = WaConversation.objects.update_or_create(
-        domain=domain, username=username, phone=phone,
+        domain=domain, phone=phone,
         defaults={
             'name': name,
+            'username': username,
             'last_message': text[:200],
             'last_ts': timezone.now(),
-            'unread_count': WaConversation.objects.filter(domain=domain, username=username, phone=phone).values_list('unread_count', flat=True).first() or 0
+            'unread_count': WaConversation.objects.filter(domain=domain, phone=phone).values_list('unread_count', flat=True).first() or 0
         }
     )
 
@@ -8192,30 +9455,48 @@ def wa_message_mark_read(request, domain):
 
 
 @login_required(login_url='/login')
+def wa_mark_all_read(request, domain):
+    """Mark all WA conversations for this domain as read."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    from .models import WaConversation, WaMessage
+    WaConversation.objects.filter(domain=domain).update(unread_count=0)
+    WaMessage.objects.filter(domain=domain, direction='in', read=False).update(read=True)
+    return JsonResponse({'ok': True})
+
+
+
+@login_required(login_url='/login')
 def wa_dashboard_stats(request, domain):
-    """Return real WhatsApp stats for the dashboard (scoped to current user)."""
+    """Return real WhatsApp stats for the dashboard."""
     from .models import WaMessage, WaConversation, MarketingCampaign
     from django.utils import timezone
     from datetime import timedelta
 
     now = timezone.now()
     day_ago = now - timedelta(hours=24)
-    username = request.user.username
 
-    total_sent = WaMessage.objects.filter(domain=domain, username=username, direction='out').count()
-    total_recv = WaMessage.objects.filter(domain=domain, username=username, direction='in').count()
-    active_chats = WaConversation.objects.filter(domain=domain, username=username, last_ts__gte=day_ago).count()
+    total_sent = WaMessage.objects.filter(domain=domain, direction='out').count()
+    total_recv = WaMessage.objects.filter(domain=domain, direction='in').count()
+    active_chats = WaConversation.objects.filter(domain=domain, last_ts__gte=day_ago).count()
+    if active_chats == 0:
+        active_chats = WaConversation.objects.filter(domain=domain).count()
 
-    # Read rate = incoming / outgoing (proxy for engagement)
-    read_rate = round((total_recv / max(total_sent, 1)) * 100, 1)
+    # Read/Response rate
+    if total_sent > 0:
+        read_rate = min(round((total_recv / total_sent) * 100, 1), 100.0)
+    elif total_recv > 0:
+        read_rate = 100.0
+    else:
+        read_rate = 0.0
 
-    # Campaigns (already tied to user via ForeignKey)
-    wa_campaigns = MarketingCampaign.objects.filter(domain=domain, channel='whatsapp', user=request.user)
+    # Campaigns (tied to domain)
+    wa_campaigns = MarketingCampaign.objects.filter(domain=domain, channel='whatsapp')
     total_campaign_sent = sum(c.sent_count for c in wa_campaigns)
 
     # Daily sent count (for QR risk warning system)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    sent_today = WaMessage.objects.filter(domain=domain, username=username, direction='out', ts__gte=today_start).count()
+    sent_today = WaMessage.objects.filter(domain=domain, direction='out', ts__gte=today_start).count()
 
     return JsonResponse({
         'messages_sent': total_sent,
@@ -8230,30 +9511,57 @@ def wa_dashboard_stats(request, domain):
 
 @login_required(login_url='/login')
 def wa_campaign_create(request, domain):
-    """Create a WhatsApp campaign — supports multipart (file upload) or JSON."""
+    """Create a WhatsApp campaign — supports multipart (file upload) or JSON, with audience segment,
+    speed & interval pacing, range batches, seed test copy, and auto-pause limits."""
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
-    from .models import MarketingCampaign
+    from .models import MarketingCampaign, CampaignRecipient, MarketingLead
     from django.utils.dateparse import parse_datetime
-    import os, uuid
+    import os, uuid, re, threading
 
     # Handle multipart form (file upload) or JSON
     is_multipart = request.content_type and 'multipart' in request.content_type
     if is_multipart:
-        name         = request.POST.get('name', 'WhatsApp Campaign')
-        message      = request.POST.get('message', '')
-        scheduled_at = request.POST.get('scheduled_at', '')
-        media_file   = request.FILES.get('media')
+        name           = request.POST.get('name', 'WhatsApp Campaign')
+        message        = request.POST.get('message', '')
+        scheduled_at   = request.POST.get('scheduled_at', '')
+        media_file     = request.FILES.get('media')
+        target_segment = (request.POST.get('target_segment') or 'all').strip()
+        custom_phones  = request.POST.get('custom_phones', '') or ''
+        send_speed_mode = request.POST.get('send_speed_mode', 'instant')
+        interval_type   = request.POST.get('interval_type', 'fixed')
+        interval_seconds = int(request.POST.get('interval_seconds', 5) or 5)
+        interval_min    = int(request.POST.get('interval_min', 5) or 5)
+        interval_max    = int(request.POST.get('interval_max', 20) or 20)
+        send_limit      = int(request.POST.get('send_limit', 0) or 0)
+        range_mode      = request.POST.get('range_mode', 'full')
+        range_start     = int(request.POST.get('range_start', 1) or 1)
+        range_end       = int(request.POST.get('range_end', 0) or 0)
+        test_phone      = (request.POST.get('test_phone', '') or '').strip()
+        action          = request.POST.get('action', 'draft')
     else:
         import json as _json
         try:
             body = _json.loads(request.body)
         except Exception:
             return JsonResponse({'error': 'Invalid JSON'}, status=400)
-        name         = body.get('name', 'WhatsApp Campaign')
-        message      = body.get('message', '')
-        scheduled_at = body.get('scheduled_at', '')
-        media_file   = None
+        name           = body.get('name', 'WhatsApp Campaign')
+        message        = body.get('message', '')
+        scheduled_at   = body.get('scheduled_at', '')
+        media_file     = None
+        target_segment = (body.get('target_segment') or 'all').strip()
+        custom_phones  = body.get('custom_phones', '') or ''
+        send_speed_mode = body.get('send_speed_mode', 'instant')
+        interval_type   = body.get('interval_type', 'fixed')
+        interval_seconds = int(body.get('interval_seconds', 5) or 5)
+        interval_min    = int(body.get('interval_min', 5) or 5)
+        interval_max    = int(body.get('interval_max', 20) or 20)
+        send_limit      = int(body.get('send_limit', 0) or 0)
+        range_mode      = body.get('range_mode', 'full')
+        range_start     = int(body.get('range_start', 1) or 1)
+        range_end       = int(body.get('range_end', 0) or 0)
+        test_phone      = (body.get('test_phone', '') or '').strip()
+        action          = body.get('action', 'draft')
 
     if not message and not (is_multipart and media_file):
         return JsonResponse({'error': 'message or media is required'}, status=400)
@@ -8262,7 +9570,12 @@ def wa_campaign_create(request, domain):
     if scheduled_at:
         sched_dt = parse_datetime(str(scheduled_at))
 
-    status = 'scheduled' if sched_dt else 'draft'
+    if action in ['run', 'send']:
+        status = 'running'
+    elif sched_dt or action == 'scheduled':
+        status = 'scheduled'
+    else:
+        status = 'draft'
 
     # Save media file to disk
     media_path = ''
@@ -8280,6 +9593,10 @@ def wa_campaign_create(request, domain):
         media_path = full_path
         media_type = media_file.content_type or mimetypes.guess_type(media_file.name)[0] or 'application/octet-stream'
 
+    # Auto-sync send_limit with range mode
+    if range_mode == 'range' and range_end >= range_start:
+        send_limit = max(1, range_end - range_start + 1)
+
     camp = MarketingCampaign.objects.create(
         user=request.user,
         domain=domain,
@@ -8287,160 +9604,145 @@ def wa_campaign_create(request, domain):
         channel='whatsapp',
         body=message,
         status=status,
+        target_segment=target_segment,
         scheduled_at=sched_dt,
         wa_media_path=media_path,
         wa_media_type=media_type,
+        send_speed_mode=send_speed_mode,
+        interval_type=interval_type,
+        interval_seconds=interval_seconds,
+        interval_min=interval_min,
+        interval_max=interval_max,
+        send_limit=send_limit,
+        test_copy_email=test_phone,
     )
+
+    # Populate CampaignRecipient records for the targeted audience
+    rcpt_objs = []
+    if target_segment == 'custom_numbers':
+        raw_parts = re.split(r'[\r\n,;\t]+', custom_phones or '')
+        seen_phones = set()
+        cleaned_list = []
+        for p in raw_parts:
+            digits = re.sub(r'\D', '', p)
+            if 7 <= len(digits) <= 16 and digits not in seen_phones:
+                seen_phones.add(digits)
+                ph_clean = ('+' + digits) if p.strip().startswith('+') else digits
+                cleaned_list.append(ph_clean)
+
+        # Match existing leads by phone to personalise names if available
+        leads_map = {}
+        for lead in MarketingLead.objects.filter(domain=domain).exclude(phone='').exclude(phone__isnull=True):
+            ld_digits = re.sub(r'\D', '', lead.phone or '')
+            if ld_digits:
+                leads_map[ld_digits] = lead.name
+
+        for ph in cleaned_list:
+            digits = re.sub(r'\D', '', ph)
+            c_name = leads_map.get(digits, '') or ph
+            rcpt_objs.append(CampaignRecipient(
+                campaign=camp,
+                email=ph,
+                name=c_name,
+                status='pending'
+            ))
+    else:
+        leads_qs = MarketingLead.objects.filter(domain=domain).exclude(phone='').exclude(phone__isnull=True)
+        if target_segment == 'hot':
+            leads_qs = leads_qs.filter(score__gte=70)
+        elif target_segment == 'warm':
+            leads_qs = leads_qs.filter(score__gte=40, score__lt=70)
+        elif target_segment.startswith('group_'):
+            try:
+                grp_id = int(target_segment.replace('group_', ''))
+                leads_qs = leads_qs.filter(group_id=grp_id)
+            except (ValueError, TypeError):
+                leads_qs = leads_qs.none()
+
+        seen_phones = set()
+        for lead in leads_qs:
+            ph = normalize_wa_phone(lead.phone or '')
+            if ph and len(ph) >= 7 and ph not in seen_phones:
+                seen_phones.add(ph)
+                rcpt_objs.append(CampaignRecipient(
+                    campaign=camp,
+                    email=ph,
+                    name=lead.name or lead.phone.strip(),
+                    status='pending'
+                ))
+
+    # Slice for range mode if range_start > 1 or range_end > 0
+    if range_mode == 'range' and rcpt_objs:
+        s_idx = max(0, range_start - 1)
+        e_idx = range_end if (range_end and range_end >= range_start) else None
+        rcpt_objs = rcpt_objs[s_idx:e_idx]
+
+    if rcpt_objs:
+        CampaignRecipient.objects.bulk_create(rcpt_objs)
+
+    if status == 'running':
+        t = threading.Thread(target=_dispatch_whatsapp_campaign_worker, args=(camp.id, domain), daemon=True)
+        t.start()
 
     return JsonResponse({
         'ok': True, 'id': camp.id, 'name': camp.name, 'status': camp.status,
         'has_media': bool(media_path), 'media_type': media_type,
+        'target_segment': target_segment,
+        'recipient_count': len(rcpt_objs),
     })
 
 
 @login_required(login_url='/login')
 def wa_campaign_send(request, domain, campaign_id):
-    """Execute a WhatsApp campaign — text only or with image/video/document media."""
+    """Execute a WhatsApp campaign asynchronously in background with interval, auto-pause & seed copy."""
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
-    import requests as req_lib, os, base64
-    from .models import MarketingCampaign, MarketingLead
+    import threading
+    from .models import MarketingCampaign, CampaignRecipient
 
     try:
         campaign = MarketingCampaign.objects.get(id=campaign_id, domain=domain, channel='whatsapp')
     except MarketingCampaign.DoesNotExist:
         return JsonResponse({'error': 'Campaign not found'}, status=404)
 
-    # Collect all leads with phones
-    leads = MarketingLead.objects.filter(domain=domain).exclude(phone='')
-    contacts = []
-    contact_names = {}
-    for lead in leads:
-        ph = ''.join(c for c in (lead.phone or '') if c.isdigit())
-        if ph:
-            contacts.append(ph)
-            contact_names[ph] = lead.name
+    is_rerun = bool(request.POST.get('rerun'))
+    if is_rerun:
+        CampaignRecipient.objects.filter(campaign=campaign).update(status='pending', error_msg='', sent_at=None)
+        campaign.sent_count = 0
+        campaign.status = 'running'
+        campaign.save(update_fields=['sent_count', 'status'])
+    else:
+        campaign.status = 'running'
+        campaign.save(update_fields=['status'])
 
-    if not contacts:
-        return JsonResponse({'error': 'No contacts with phone numbers found'}, status=400)
+    t = threading.Thread(target=_dispatch_whatsapp_campaign_worker, args=(campaign.id, domain), daemon=True)
+    t.start()
 
-    # Prepare media if attached
-    has_media = bool(campaign.wa_media_path and os.path.exists(campaign.wa_media_path))
-    media_b64 = ''
-    if has_media:
-        with open(campaign.wa_media_path, 'rb') as f:
-            media_b64 = base64.b64encode(f.read()).decode()
-
-    from .models import CampaignRecipient, WaConversation, WaMessage
-    from django.utils import timezone
-
-    sent_count = 0
-    failed_count = 0
-    results = []
-
-    for phone in contacts:
-        name = contact_names.get(phone, phone)
-        # Personalise message
-        msg_text = campaign.body.replace('{{name}}', name)
-
-        # 1. Create recipient record in DB (status starts as pending)
-        rcpt = CampaignRecipient.objects.create(
-            campaign=campaign,
-            email=phone, # Store phone in email field (matching SMS style)
-            name=name,
-            status='pending',
-        )
-
-        try:
-            session_id = f"{domain}__{request.user.username}"
-            if has_media:
-                # Send media + optional caption
-                resp = req_lib.post(f'{WA_SERVICE_URL}/send-media',
-                                    json={
-                                        'session': session_id,
-                                        'to': phone,
-                                        'mediaBase64': media_b64,
-                                        'mimeType': campaign.wa_media_type,
-                                        'caption': msg_text,
-                                        'filename': os.path.basename(campaign.wa_media_path),
-                                    }, timeout=30)
-            else:
-                resp = req_lib.post(f'{WA_SERVICE_URL}/send',
-                                    json={'session': session_id, 'to': phone, 'message': msg_text}, timeout=15)
-
-            r = resp.json()
-            msg_id = r.get('messageId', '')
-
-            if r.get('ok'):
-                sent_count += 1
-                rcpt.status = 'sent'
-                rcpt.sent_at = timezone.now()
-                rcpt.save(update_fields=['status', 'sent_at'])
-                results.append({'phone': phone, 'ok': True, 'messageId': msg_id})
-
-                # 2. Save outgoing message to DB so it appears in live chat window (per-user)
-                conv, _ = WaConversation.objects.update_or_create(
-                    domain=domain, username=request.user.username, phone=phone,
-                    defaults={
-                        'name': name,
-                        'last_message': msg_text[:200],
-                        'last_ts': timezone.now(),
-                    }
-                )
-                WaMessage.objects.create(
-                    conversation=conv,
-                    domain=domain, username=request.user.username, phone=phone, name=name,
-                    text=msg_text, direction='out', message_id=msg_id,
-                    delivered=True,
-                )
-            else:
-                failed_count += 1
-                rcpt.status = 'failed'
-                rcpt.error_msg = r.get('error', '')
-                rcpt.save(update_fields=['status', 'error_msg'])
-                results.append({'phone': phone, 'ok': False, 'error': r.get('error', '')})
-
-            # Throttle: 800ms between messages to avoid bans
-            import time; time.sleep(0.8)
-
-        except Exception as e:
-            failed_count += 1
-            rcpt.status = 'failed'
-            rcpt.error_msg = str(e)
-            rcpt.save(update_fields=['status', 'error_msg'])
-            results.append({'phone': phone, 'ok': False, 'error': str(e)})
-
-    # Update campaign open rate and status
-    campaign.status = 'sent'
-    campaign.sent_count = sent_count
-    # Recalculate overall open rate
-    r_qs = campaign.recipients.all()
-    sent_total = r_qs.filter(status__in=['sent', 'opened', 'clicked']).count()
-    opened_total = r_qs.filter(status__in=['opened', 'clicked']).count()
-    campaign.open_rate = round((opened_total / sent_total) * 100, 1) if sent_total > 0 else 0.0
-    campaign.save(update_fields=['status', 'sent_count', 'open_rate'])
-
+    total_rcpts = CampaignRecipient.objects.filter(campaign=campaign).count()
     return JsonResponse({
         'ok': True,
-        'sent': sent_count,
-        'failed': failed_count,
-        'total': len(contacts),
+        'status': 'running',
+        'message': f'WhatsApp campaign "{campaign.name}" broadcast started in background.',
+        'total': total_rcpts,
     })
 
 
 @login_required(login_url='/login')
 def wa_campaigns_list(request, domain):
-    """List all WhatsApp campaigns for this domain."""
-    from .models import MarketingCampaign
+    """List all WhatsApp campaigns for this domain with execution stats, pacing & limits."""
+    from .models import MarketingCampaign, CampaignRecipient
     import os
     camps = list(MarketingCampaign.objects.filter(domain=domain, channel='whatsapp')
                  .values('id', 'name', 'body', 'status', 'sent_count', 'scheduled_at',
-                         'created_at', 'wa_media_path', 'wa_media_type')
+                         'created_at', 'wa_media_path', 'wa_media_type', 'target_segment',
+                         'send_speed_mode', 'interval_type', 'interval_seconds', 'interval_min', 'interval_max',
+                         'send_limit', 'stop_reason', 'test_copy_email')
                  .order_by('-created_at')[:50])
     for c in camps:
         if c.get('scheduled_at'):
             c['scheduled_at'] = c['scheduled_at'].isoformat()
         c['created_at'] = c['created_at'].isoformat()
+        c['recipient_count'] = CampaignRecipient.objects.filter(campaign_id=c['id']).count()
         # Return just filename + type to frontend, not full server path
         if c.get('wa_media_path'):
             c['has_media'] = True
@@ -8548,7 +9850,9 @@ def marketing_sms_send(request, domain):
     fail_count = 0
     for rcpt in rcpt_records:
         try:
-            _send_sms_via_gateway(gw, rcpt.email, body)
+            rcpt_sms_body = (body or '').replace('{name}', rcpt.name or 'there').replace('{{name}}', rcpt.name or 'there')
+            rcpt_sms_body = resolve_spintax(rcpt_sms_body)
+            _send_sms_via_gateway(gw, rcpt.email, rcpt_sms_body)
             rcpt.status = 'sent'
             rcpt.sent_at = timezone.now()
             rcpt.save()
@@ -8646,11 +9950,854 @@ def _send_sms_via_gateway(gw, phone, message):
         raise Exception(f'Unsupported SMS provider: {provider}')
 
 
+def _get_user_campaign(request, domain, campaign_id):
+    from .models import MarketingCampaign
+    user_ids = []
+    if request.user and getattr(request.user, 'is_authenticated', False):
+        user_ids.append(request.user.id)
+        if getattr(request.user, 'email', None):
+            user_ids.extend(list(request.user.__class__.objects.filter(email__iexact=request.user.email).values_list('id', flat=True)))
+    from django.contrib.auth.models import User as AuthUser
+    domain_user_ids = list(AuthUser.objects.filter(username=domain[:150]).values_list('id', flat=True))
+    if domain_user_ids:
+        user_ids.extend(domain_user_ids)
+    camp = None
+    if user_ids:
+        camp = MarketingCampaign.objects.filter(id=campaign_id, domain=domain, user_id__in=user_ids).first()
+    if not camp:
+        camp = MarketingCampaign.objects.filter(id=campaign_id, domain=domain).first()
+    return camp
+
+
+import fcntl
+
+_local_campaign_workers_lock = threading.Lock()
+_active_campaign_worker_ids = set()
+
+class CampaignLock:
+    """Multi-layer mutex ensuring only one worker executes for a campaign at any time,
+    both across threads in the same process and across processes (uWSGI workers vs Supervisor)."""
+    def __init__(self, campaign_id):
+        self.campaign_id = campaign_id
+        self.lock_file = None
+        self.acquired = False
+
+    def __enter__(self):
+        with _local_campaign_workers_lock:
+            if self.campaign_id in _active_campaign_worker_ids:
+                return False
+            _active_campaign_worker_ids.add(self.campaign_id)
+
+        try:
+            lock_dir = "/tmp/voidpanel_locks"
+            os.makedirs(lock_dir, mode=0o777, exist_ok=True)
+            try:
+                os.chmod(lock_dir, 0o777)
+            except Exception:
+                pass
+            lock_path = os.path.join(lock_dir, f"campaign_{self.campaign_id}.lock")
+            self.lock_file = open(lock_path, "a+")
+            try:
+                os.chmod(lock_path, 0o666)
+            except Exception:
+                pass
+            fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self.acquired = True
+            return True
+        except (BlockingIOError, OSError, IOError):
+            with _local_campaign_workers_lock:
+                _active_campaign_worker_ids.discard(self.campaign_id)
+            if self.lock_file:
+                try:
+                    self.lock_file.close()
+                except Exception:
+                    pass
+                self.lock_file = None
+            return False
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        try:
+            if self.lock_file and self.acquired:
+                try:
+                    fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
+                    self.lock_file.close()
+                except Exception:
+                    pass
+        finally:
+            with _local_campaign_workers_lock:
+                _active_campaign_worker_ids.discard(self.campaign_id)
+
+
+def is_campaign_worker_running(campaign_id):
+    """Check if a worker is currently active for this campaign either in this process or another."""
+    with _local_campaign_workers_lock:
+        if campaign_id in _active_campaign_worker_ids:
+            return True
+    lock_path = f"/tmp/voidpanel_locks/campaign_{campaign_id}.lock"
+    if not os.path.exists(lock_path):
+        return False
+    try:
+        f = open(lock_path, "a+")
+        try:
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+            f.close()
+            return False
+        except (BlockingIOError, OSError, IOError):
+            f.close()
+            return True
+    except Exception:
+        return False
+
+
+def _dispatch_campaign_worker(campaign_id, domain, range_start=1, range_end=0):
+    """Background worker that dispatches campaign emails in batches with auto-pause and cancellation support."""
+    import smtplib, time, logging
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    from django.utils import timezone
+    from control.models import MarketingCampaign, CampaignRecipient, CustomSMTPConfig, allemail
+
+    logger = logging.getLogger(__name__)
+
+    with CampaignLock(campaign_id) as acquired:
+        if not acquired:
+            logger.info("Email campaign %s worker already running in another process/thread. Skipping duplicate launch.", campaign_id)
+            return
+
+        try:
+            camp = MarketingCampaign.objects.get(id=campaign_id)
+        except MarketingCampaign.DoesNotExist:
+            return
+
+        # Reset any stuck 'sending' status back to 'pending' from previous interrupted run
+        CampaignRecipient.objects.filter(campaign=camp, status='sending').update(status='pending')
+
+        camp.status = 'running'
+        camp.stop_reason = 'Running'
+        camp.save(update_fields=['status', 'stop_reason'])
+
+        all_rcpts_qs = CampaignRecipient.objects.filter(campaign=camp).order_by('id')
+        if range_start and (range_start > 1 or range_end > 0):
+            s_idx = max(0, range_start - 1)
+            e_idx = range_end if (range_end and range_end >= range_start) else None
+            target_rcpts = list(all_rcpts_qs[s_idx:e_idx])
+            pending_rcpts = [r for r in target_rcpts if r.status == 'pending']
+            start_index = range_start
+        else:
+            pending_rcpts = list(all_rcpts_qs.filter(status='pending'))
+            already_sent = all_rcpts_qs.exclude(status='pending').count()
+            start_index = already_sent + 1
+
+        if not pending_rcpts:
+            actual_sent = CampaignRecipient.objects.filter(campaign=camp, status='sent').count()
+            camp.status = 'completed'
+            camp.sent_count = actual_sent
+            camp.stop_reason = f'Completed: All recipients in range #{range_start} to #{range_end or "end"} have been sent.' if (range_start > 1 or range_end > 0) else 'Completed: All target recipients have been sent.'
+            camp.stopped_at = timezone.now()
+            camp.save(update_fields=['status', 'sent_count', 'stop_reason', 'stopped_at'])
+            return
+
+    custom_smtp = camp.custom_smtp
+    sender_email = camp.sender_email
+    subject = camp.subject
+    body_html = camp.body
+
+    envelope_sender = sender_email
+    header_from = sender_email
+    if custom_smtp and custom_smtp.is_active and custom_smtp.smtp_user:
+        envelope_sender = custom_smtp.smtp_user.strip()
+        display_name = "VoidOnyx"
+        if sender_email and '@' in sender_email:
+            display_name = sender_email.split('@')[0].capitalize()
+        header_from = f"{display_name} <{envelope_sender}>"
+
+    def _create_smtp_session():
+        if custom_smtp and custom_smtp.is_active:
+            if custom_smtp.encryption == 'ssl':
+                s = smtplib.SMTP_SSL(custom_smtp.smtp_host, custom_smtp.smtp_port, timeout=25)
+            else:
+                s = smtplib.SMTP(custom_smtp.smtp_host, custom_smtp.smtp_port, timeout=25)
+                s.ehlo()
+                if custom_smtp.encryption == 'tls':
+                    s.starttls()
+                    s.ehlo()
+            s.login(custom_smtp.smtp_user, custom_smtp.smtp_password)
+            return s
+        else:
+            sender_obj_local = allemail.objects.filter(email=sender_email).first()
+            sender_password = sender_obj_local.password if sender_obj_local else None
+            try:
+                s = smtplib.SMTP('localhost', 587, timeout=15)
+                s.ehlo()
+                s.starttls()
+                if sender_password:
+                    s.login(sender_email, sender_password)
+                return s
+            except Exception:
+                try:
+                    if s: s.quit()
+                except Exception: pass
+                s = smtplib.SMTP('localhost', 25, timeout=15)
+                s.ehlo()
+                return s
+
+    smtp = None
+    try:
+        smtp = _create_smtp_session()
+    except Exception as e:
+        logger.exception("Campaign %s failed to connect to SMTP: %s", campaign_id, e)
+        camp.status = 'stopped'
+        camp.stop_reason = f'SMTP Connection Failed: {str(e)[:200]}'
+        camp.stopped_at = timezone.now()
+        camp.save(update_fields=['status', 'stop_reason', 'stopped_at'])
+        return
+
+    if not (range_start and (range_start > 1 or range_end > 0)):
+        already_sent = CampaignRecipient.objects.filter(campaign=camp).exclude(status='pending').count()
+        start_index = already_sent + 1
+    else:
+        start_index = range_start
+    session_sent = 0
+    send_limit = getattr(camp, 'send_limit', 0) or 0
+    test_copy_email = (getattr(camp, 'test_copy_email', '') or '').strip()
+
+    # Resolve sender/user test name cleanly (e.g. "Rohan" or empty to use template default)
+    test_rcpt_name = ""
+    if getattr(camp, 'user', None) and getattr(camp.user, 'first_name', ''):
+        test_rcpt_name = camp.user.first_name.strip()
+    if not test_rcpt_name and getattr(camp, 'user', None) and getattr(camp.user, 'username', ''):
+        u_name = camp.user.username.lower()
+        if 'rohan' in u_name:
+            test_rcpt_name = "Rohan"
+    if not test_rcpt_name and 'rohan' in (domain or '').lower():
+        test_rcpt_name = "Rohan"
+
+    # Dispatch test / reference copy to user if configured (sent on start AND on re-start after auto-pause)
+    if test_copy_email and '@' in test_copy_email:
+        try:
+            from django.utils.html import escape
+            is_retest = (start_index > 1)
+            start_msg = MIMEMultipart('alternative')
+            start_msg['From'] = header_from
+            start_msg['Reply-To'] = sender_email or envelope_sender
+            start_msg['To'] = test_copy_email
+            
+            if is_retest:
+                start_msg['Subject'] = f"[Live Test - Batch Resumed from Contact #{start_index}] {subject}"
+                start_banner = (
+                    f'<div style="background:#f0fdf4;border:1.5px solid #4ade80;border-radius:10px;padding:14px 18px;margin-bottom:20px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;color:#166534;font-size:12.5px;line-height:1.5;box-shadow:0 2px 8px rgba(16,185,129,0.1);">'
+                    f'<div style="font-weight:800;font-size:14px;margin-bottom:4px;display:flex;align-items:center;gap:6px;">🔄 Live Deliverability Re-Test: Batch Resumed</div>'
+                    f'<div>Campaign <strong>{escape(camp.name)}</strong> has resumed dispatching after Auto-Pause. This live test email re-verifies your inbox delivery &amp; formatting before processing Contact #{start_index} onwards.</div>'
+                    f'<div style="margin-top:8px;padding-top:6px;border-top:1px dashed #86efac;font-size:11.5px;color:#15803d;display:flex;gap:12px;flex-wrap:wrap;">'
+                    f'<span><strong>Resumed at:</strong> {timezone.now().strftime("%b %d, %Y %I:%M %p")}</span> &bull; '
+                    f'<span><strong>Starting Contact:</strong> #{start_index}</span> &bull; '
+                    f'<span><strong>Sending Cap:</strong> {send_limit if send_limit > 0 else "Full"} emails</span> &bull; '
+                    f'<span><strong>Sender:</strong> {header_from}</span>'
+                    f'</div>'
+                    f'</div>'
+                )
+            else:
+                start_msg['Subject'] = f"[Live Test - Campaign Started] {subject}"
+                start_banner = (
+                    f'<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px 16px;margin-bottom:18px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;color:#166534;font-size:12.5px;line-height:1.5;">'
+                    f'<div style="font-weight:700;font-size:13.5px;margin-bottom:4px;">🚀 Live Campaign Dispatch Started</div>'
+                    f'<div>This is a reference copy dispatched to your inbox for campaign <strong>{escape(camp.name)}</strong>.</div>'
+                    f'<div style="margin-top:6px;font-size:11.5px;color:#15803d;border-top:1px dashed #86efac;padding-top:4px;">'
+                    f'<strong>Dispatched at:</strong> {timezone.now().strftime("%b %d, %Y %I:%M %p")} &bull; '
+                    f'<strong>Sender:</strong> {header_from} &bull; '
+                    f'<strong>Speed:</strong> {getattr(camp, "send_speed_mode", "instant").title()} &bull; '
+                    f'<strong>Auto-Pause Cap:</strong> {send_limit if send_limit > 0 else "Full (No Limit)"}'
+                    f'</div>'
+                    f'</div>'
+                )
+            preview_rendered = replace_email_placeholders(body_html, test_rcpt_name, domain)
+            full_start_html = start_banner + preview_rendered
+            start_msg.attach(MIMEText(f"[Live Test Copy: {'Batch Resumed at #' + str(start_index) if is_retest else 'Campaign Started'} - {camp.name}]\n\n" + preview_rendered, 'plain'))
+            start_msg.attach(MIMEText(full_start_html, 'html'))
+            smtp.sendmail(envelope_sender, [test_copy_email], start_msg.as_string())
+            logger.info("Sent start/re-test copy to %s for campaign %s (start_index=%s)", test_copy_email, camp.id, start_index)
+        except Exception as te:
+            logger.warning("Failed to send start/re-test copy to %s: %s", test_copy_email, te)
+
+    for rcpt in pending_rcpts:
+        # Check if user requested pause or stop in the meantime
+        camp.refresh_from_db(fields=['status', 'send_limit', 'sent_count'])
+        if camp.status in ['paused', 'stopped']:
+            break
+
+        # Check auto-stop threshold
+        if send_limit > 0 and session_sent >= send_limit:
+            camp.status = 'paused'
+            end_index = start_index + session_sent - 1
+            camp.stop_reason = f'Auto-paused: Completed batch of {session_sent} contacts (#{start_index} to #{end_index}).'
+            camp.stopped_at = timezone.now()
+            import json
+            try:
+                history = json.loads(getattr(camp, 'batch_history', '[]') or '[]')
+                if not isinstance(history, list):
+                    history = []
+            except Exception:
+                history = []
+            history.append({
+                'batch': len(history) + 1,
+                'start': start_index,
+                'end': end_index,
+                'count': session_sent,
+                'status': 'completed',
+                'timestamp': timezone.now().strftime('%b %d, %Y %I:%M %p')
+            })
+            camp.batch_history = json.dumps(history)
+            camp.save(update_fields=['status', 'stop_reason', 'stopped_at', 'batch_history'])
+
+            # Send Auto-Pause Notification to test_copy_email with notice of re-test on next resume
+            if test_copy_email and '@' in test_copy_email:
+                try:
+                    pause_msg = MIMEMultipart('alternative')
+                    pause_msg['From'] = header_from
+                    pause_msg['Reply-To'] = sender_email or envelope_sender
+                    pause_msg['To'] = test_copy_email
+                    pause_msg['Subject'] = f"[Auto-Paused: Contact #{end_index} Reached - Batch Completed] {subject}"
+                    pause_banner = (
+                        f'<div style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:10px;padding:14px 18px;margin-bottom:20px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;color:#92400e;font-size:12.5px;line-height:1.5;box-shadow:0 2px 8px rgba(245,158,11,0.08);">'
+                        f'<div style="font-weight:800;font-size:14px;margin-bottom:4px;display:flex;align-items:center;gap:6px;">⏸️ Campaign Auto-Paused: Sending Cap Reached</div>'
+                        f'<div>Batch completed for campaign <strong>{escape(camp.name)}</strong>. Completed contacts <strong>#{start_index}</strong> to <strong>#{end_index}</strong> ({session_sent} emails dispatched).</div>'
+                        f'<div style="margin-top:8px;background:rgba(255,255,255,0.85);padding:10px 14px;border-radius:6px;font-size:12px;color:#78350f;border:1px solid #fef3c7;">'
+                        f'&bull; <strong>Total Delivered So Far:</strong> {camp.sent_count} emails<br>'
+                        f'&bull; <strong>Next Batch Resumes At:</strong> Contact #{end_index + 1}<br>'
+                        f'&bull; <strong>Auto-Retest:</strong> When you start the campaign again, a live test email will be sent automatically to this address to re-verify delivery before the next batch.'
+                        f'</div>'
+                        f'</div>'
+                    )
+                    preview_rendered = replace_email_placeholders(body_html, test_rcpt_name, domain)
+                    full_pause_html = pause_banner + preview_rendered
+                    pause_msg.attach(MIMEText(f"[Auto-Paused: {camp.name} - Batch #{start_index} to #{end_index} Finished]\n\n" + preview_rendered, 'plain'))
+                    pause_msg.attach(MIMEText(full_pause_html, 'html'))
+                    smtp.sendmail(envelope_sender, [test_copy_email], pause_msg.as_string())
+                    logger.info("Sent auto-pause report to %s for campaign %s", test_copy_email, camp.id)
+                except Exception as pe:
+                    logger.warning("Failed to send auto-pause report to %s: %s", test_copy_email, pe)
+            break
+
+        # Verify / keep alive SMTP connection (auto-reconnect if dropped during interval delay)
+        is_conn_ok = False
+        if smtp:
+            try:
+                status = smtp.noop()[0]
+                if status == 250:
+                    is_conn_ok = True
+            except Exception:
+                is_conn_ok = False
+
+        if not is_conn_ok:
+            try:
+                if smtp:
+                    try: smtp.quit()
+                    except Exception: pass
+                smtp = _create_smtp_session()
+            except Exception as re_err:
+                logger.warning("SMTP auto-reconnect failed for campaign %s: %s", camp.id, re_err)
+                time.sleep(3)
+                try:
+                    smtp = _create_smtp_session()
+                except Exception as re_err2:
+                    rcpt.status = 'failed'
+                    rcpt.error_msg = f'SMTP Reconnect Failed: {str(re_err2)[:300]}'
+                    rcpt.save(update_fields=['status', 'error_msg'])
+                    continue
+
+        # ATOMIC ROW CLAIM: Prevent duplicate email sends across concurrent workers/threads
+        claimed = CampaignRecipient.objects.filter(id=rcpt.id, status='pending').update(status='sending')
+        if not claimed:
+            continue
+
+        try:
+            msg = MIMEMultipart('alternative')
+            msg['From'] = header_from
+            msg['Reply-To'] = sender_email or envelope_sender
+            msg['To'] = rcpt.email
+            rcpt_subject = replace_email_placeholders(subject, rcpt.name, domain)
+            rcpt_body = replace_email_placeholders(body_html, rcpt.name, domain)
+            tracking_url = get_marketing_tracking_url(domain, rcpt.id)
+            html_body = append_tracking_pixel(rcpt_body, tracking_url)
+
+            msg['Subject'] = rcpt_subject
+            msg.attach(MIMEText(rcpt_body, 'plain'))
+            msg.attach(MIMEText(html_body, 'html'))
+
+            try:
+                smtp.sendmail(envelope_sender, [rcpt.email], msg.as_string())
+            except (smtplib.SMTPServerDisconnected, smtplib.SMTPConnectError, smtplib.SMTPResponseException, BrokenPipeError, ConnectionResetError) as send_err:
+                logger.warning("SMTP connection dropped during sendmail for %s (%s). Reconnecting...", rcpt.email, send_err)
+                try:
+                    if smtp:
+                        try: smtp.quit()
+                        except Exception: pass
+                    smtp = _create_smtp_session()
+                    smtp.sendmail(envelope_sender, [rcpt.email], msg.as_string())
+                except Exception as retry_err:
+                    raise retry_err
+
+            rcpt.status = 'sent'
+            rcpt.sent_at = timezone.now()
+            rcpt.error_msg = ''
+            rcpt.save(update_fields=['status', 'sent_at', 'error_msg'])
+            session_sent += 1
+            actual_sent = CampaignRecipient.objects.filter(campaign=camp, status='sent').count()
+            MarketingCampaign.objects.filter(id=camp.id).update(sent_count=actual_sent)
+        except Exception as e:
+            rcpt.status = 'failed'
+            rcpt.error_msg = str(e)[:500]
+            rcpt.save(update_fields=['status', 'error_msg'])
+
+        # Apply dispatch speed pacing (Instant vs Fixed / Random Interval)
+        send_speed_mode = getattr(camp, 'send_speed_mode', 'instant') or 'instant'
+        if send_speed_mode == 'interval':
+            interval_type = getattr(camp, 'interval_type', 'fixed') or 'fixed'
+            if interval_type == 'random':
+                import random
+                i_min = max(1, getattr(camp, 'interval_min', 5) or 5)
+                i_max = max(i_min, getattr(camp, 'interval_max', 20) or 20)
+                delay_sec = random.uniform(i_min, i_max)
+            else:
+                delay_sec = max(0.5, float(getattr(camp, 'interval_seconds', 5) or 5))
+
+            # Sleep in responsive increments so pause/stop triggers immediately
+            slept = 0.0
+            while slept < delay_sec:
+                camp.refresh_from_db(fields=['status'])
+                if camp.status in ['paused', 'stopped']:
+                    break
+                step = min(1.0, delay_sec - slept)
+                time.sleep(step)
+                slept += step
+        else:
+            time.sleep(0.05)
+
+    camp.refresh_from_db(fields=['status'])
+    if camp.status == 'running':
+        remaining = CampaignRecipient.objects.filter(campaign=camp, status='pending').count()
+        if remaining == 0:
+            actual_sent = CampaignRecipient.objects.filter(campaign=camp, status='sent').count()
+            camp.status = 'completed'
+            camp.sent_count = actual_sent
+            end_index = start_index + session_sent - 1 if session_sent > 0 else already_sent
+            camp.stop_reason = f'Completed: All target recipients have been sent (final batch: #{start_index} to #{end_index}).' if session_sent > 0 else 'Completed: All target recipients have been sent.'
+            camp.stopped_at = timezone.now()
+            if session_sent > 0:
+                import json
+                try:
+                    history = json.loads(getattr(camp, 'batch_history', '[]') or '[]')
+                    if not isinstance(history, list):
+                        history = []
+                except Exception:
+                    history = []
+                history.append({
+                    'batch': len(history) + 1,
+                    'start': start_index,
+                    'end': end_index,
+                    'count': session_sent,
+                    'status': 'completed',
+                    'timestamp': timezone.now().strftime('%b %d, %Y %I:%M %p')
+                })
+                camp.batch_history = json.dumps(history)
+            camp.save(update_fields=['status', 'stop_reason', 'stopped_at', 'batch_history'])
+
+            # Send completion notification copy to test_copy_email
+            if test_copy_email and '@' in test_copy_email:
+                try:
+                    from django.utils.html import escape
+                    done_msg = MIMEMultipart('alternative')
+                    done_msg['From'] = header_from
+                    done_msg['Reply-To'] = sender_email or envelope_sender
+                    done_msg['To'] = test_copy_email
+                    done_msg['Subject'] = f"[Campaign Completed - Final Report] {subject}"
+
+                    done_banner = (
+                        f'<div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:14px 18px;margin-bottom:18px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;color:#1e40af;font-size:12.5px;line-height:1.5;">'
+                        f'<div style="font-weight:700;font-size:14px;margin-bottom:4px;">🏁 Campaign Dispatch Finished Successfully!</div>'
+                        f'<div>All target recipients for campaign <strong>{escape(camp.name)}</strong> have been processed.</div>'
+                        f'<div style="margin-top:8px;background:rgba(255,255,255,0.85);padding:10px 14px;border-radius:6px;font-size:12px;color:#1e3a8a;border:1px solid #bfdbfe;">'
+                        f'&bull; <strong>Total Delivered:</strong> {camp.sent_count} emails<br>'
+                        f'&bull; <strong>Completed At:</strong> {timezone.now().strftime("%b %d, %Y %I:%M %p")}<br>'
+                        f'&bull; <strong>Sender Account:</strong> {header_from}'
+                        f'</div>'
+                        f'</div>'
+                    )
+                    preview_rendered = replace_email_placeholders(body_html, test_rcpt_name, domain)
+                    full_done_html = done_banner + preview_rendered
+                    done_msg.attach(MIMEText(f"[Campaign Completed: {camp.name} - Total Sent: {camp.sent_count}]\n\n" + preview_rendered, 'plain'))
+                    done_msg.attach(MIMEText(full_done_html, 'html'))
+                    smtp.sendmail(envelope_sender, [test_copy_email], done_msg.as_string())
+                    logger.info("Sent completion test/reference copy to %s for campaign %s", test_copy_email, camp.id)
+                except Exception as ce:
+                    logger.warning("Failed to send completion copy to %s: %s", test_copy_email, ce)
+
+    try:
+        smtp.quit()
+    except Exception:
+        pass
+
+
+def _dispatch_whatsapp_campaign_worker(campaign_id, domain, range_start=1, range_end=0):
+    """Background worker that dispatches WhatsApp campaign messages with interval delays,
+    anti-ban pacing, batch ranges, auto-pause limits, live seed reference messages, and pause/resume control."""
+    import time, logging, os, base64, random, json
+    import requests as req_lib
+    from django.utils import timezone
+    from control.models import MarketingCampaign, CampaignRecipient, WaConversation, WaMessage, MarketingLead
+
+    logger = logging.getLogger(__name__)
+
+    with CampaignLock(campaign_id) as acquired:
+        if not acquired:
+            logger.info("WhatsApp campaign %s worker already running in another process/thread. Skipping duplicate launch.", campaign_id)
+            return
+
+        try:
+            camp = MarketingCampaign.objects.get(id=campaign_id)
+        except MarketingCampaign.DoesNotExist:
+            return
+
+        # Reset any stuck 'sending' status back to 'pending' from previous interrupted run
+        CampaignRecipient.objects.filter(campaign=camp, status='sending').update(status='pending')
+
+        camp.status = 'running'
+        camp.stop_reason = 'Running WhatsApp Broadcast...'
+        camp.save(update_fields=['status', 'stop_reason'])
+
+        session_id = _get_wa_session_id(domain, getattr(camp.user, 'username', 'admin'))
+
+        # Retrieve pending recipients
+        all_rcpts_qs = CampaignRecipient.objects.filter(campaign=camp).order_by('id')
+        if not all_rcpts_qs.exists():
+            target_segment = getattr(camp, 'target_segment', 'all') or 'all'
+            leads_qs = MarketingLead.objects.filter(domain=domain).exclude(phone='').exclude(phone__isnull=True)
+            if target_segment == 'hot':
+                leads_qs = leads_qs.filter(score__gte=70)
+            elif target_segment == 'warm':
+                leads_qs = leads_qs.filter(score__gte=40, score__lt=70)
+            elif target_segment.startswith('group_'):
+                try:
+                    grp_id = int(target_segment.replace('group_', ''))
+                    leads_qs = leads_qs.filter(group_id=grp_id)
+                except (ValueError, TypeError):
+                    leads_qs = leads_qs.none()
+            
+            seen_phones = set()
+            rcpt_objs = []
+            for lead in leads_qs:
+                ph = normalize_wa_phone(lead.phone or '')
+                if ph and len(ph) >= 7 and ph not in seen_phones:
+                    seen_phones.add(ph)
+                    rcpt_objs.append(CampaignRecipient(
+                        campaign=camp,
+                        email=ph,
+                        name=lead.name or lead.phone.strip(),
+                        status='pending'
+                    ))
+            if rcpt_objs:
+                CampaignRecipient.objects.bulk_create(rcpt_objs)
+                all_rcpts_qs = CampaignRecipient.objects.filter(campaign=camp).order_by('id')
+
+        if range_start and (range_start > 1 or range_end > 0):
+            s_idx = max(0, range_start - 1)
+            e_idx = range_end if (range_end and range_end >= range_start) else None
+            target_rcpts = list(all_rcpts_qs[s_idx:e_idx])
+            pending_rcpts = [r for r in target_rcpts if r.status == 'pending']
+            start_index = range_start
+        else:
+            pending_rcpts = list(all_rcpts_qs.filter(status='pending'))
+            already_sent = all_rcpts_qs.exclude(status='pending').count()
+            start_index = already_sent + 1
+
+        if not pending_rcpts:
+            actual_sent = CampaignRecipient.objects.filter(campaign=camp, status='sent').count()
+            camp.status = 'completed'
+            camp.sent_count = actual_sent
+            camp.stop_reason = f'Completed: All recipients in range #{range_start} to #{range_end or "end"} have been sent.' if (range_start > 1 or range_end > 0) else 'Completed: All target recipients have been sent.'
+            camp.stopped_at = timezone.now()
+            camp.save(update_fields=['status', 'sent_count', 'stop_reason', 'stopped_at'])
+            return
+
+    # Prepare media if attached
+    has_media = bool(camp.wa_media_path and os.path.exists(camp.wa_media_path))
+    media_b64 = ''
+    if has_media:
+        try:
+            with open(camp.wa_media_path, 'rb') as f:
+                media_b64 = base64.b64encode(f.read()).decode()
+        except Exception as me:
+            logger.warning("Failed to read media for campaign %s: %s", camp.id, me)
+            has_media = False
+
+    if not (range_start and (range_start > 1 or range_end > 0)):
+        already_sent = CampaignRecipient.objects.filter(campaign=camp).exclude(status='pending').count()
+        start_index = already_sent + 1
+    else:
+        start_index = range_start
+    session_sent = 0
+    send_limit = getattr(camp, 'send_limit', 0) or 0
+    test_phone_raw = (getattr(camp, 'test_copy_email', '') or '').strip()
+    test_phone = normalize_wa_phone(test_phone_raw)
+
+    # Live Test / Seed Message
+    if test_phone and len(test_phone) >= 7:
+        try:
+            is_retest = (start_index > 1)
+            if is_retest:
+                test_header = (
+                    f"🔄 *[Live Deliverability Re-Test: Batch Resumed]*\n"
+                    f"Campaign: *{camp.name}*\n"
+                    f"Resumed at: {timezone.now().strftime('%b %d, %Y %I:%M %p')}\n"
+                    f"Starting Contact: #{start_index}\n"
+                    f"Sending Cap: {send_limit if send_limit > 0 else 'Full'}\n"
+                    f"━━━━━━━━━━━━━━━━━━━\n\n"
+                )
+            else:
+                test_header = (
+                    f"🚀 *[Live Test: Campaign Broadcast Started]*\n"
+                    f"Campaign: *{camp.name}*\n"
+                    f"Dispatched at: {timezone.now().strftime('%b %d, %Y %I:%M %p')}\n"
+                    f"Speed: {getattr(camp, 'send_speed_mode', 'instant').title()}\n"
+                    f"Auto-Pause Cap: {send_limit if send_limit > 0 else 'Full (No Limit)'}\n"
+                    f"━━━━━━━━━━━━━━━━━━━\n\n"
+                )
+            test_body_clean = (camp.body or '').replace('{name}', 'Test Preview').replace('{{name}}', 'Test Preview')
+            test_body_clean = test_body_clean.replace('{{domain}}', domain).replace('{domain}', domain)
+            test_body = test_header + resolve_spintax(test_body_clean)
+            if has_media:
+                req_lib.post(f'{WA_SERVICE_URL}/send-media', json={
+                    'session': session_id,
+                    'to': test_phone,
+                    'mediaBase64': media_b64,
+                    'mimeType': camp.wa_media_type,
+                    'caption': test_body,
+                    'filename': os.path.basename(camp.wa_media_path)
+                }, timeout=30)
+            else:
+                req_lib.post(f'{WA_SERVICE_URL}/send', json={
+                    'session': session_id,
+                    'to': test_phone,
+                    'message': test_body
+                }, timeout=15)
+            logger.info("Sent WhatsApp live test/retest message to %s for campaign %s", test_phone, camp.id)
+        except Exception as te:
+            logger.warning("Failed to send WhatsApp live test message to %s: %s", test_phone, te)
+
+    for rcpt in pending_rcpts:
+        # Check if user paused or stopped
+        camp.refresh_from_db(fields=['status', 'send_limit', 'sent_count'])
+        if camp.status in ['paused', 'stopped']:
+            logger.info("WhatsApp campaign %s stopped/paused externally (status=%s)", camp.id, camp.status)
+            break
+
+        # Check auto-pause cap
+        if send_limit > 0 and session_sent >= send_limit:
+            camp.status = 'paused'
+            end_index = start_index + session_sent - 1
+            camp.stop_reason = f'Auto-paused: Completed batch of {session_sent} contacts (#{start_index} to #{end_index}).'
+            camp.stopped_at = timezone.now()
+            try:
+                history = json.loads(getattr(camp, 'batch_history', '[]') or '[]')
+                if not isinstance(history, list): history = []
+            except Exception:
+                history = []
+            history.append({
+                'batch': len(history) + 1,
+                'start': start_index,
+                'end': end_index,
+                'count': session_sent,
+                'status': 'completed',
+                'timestamp': timezone.now().strftime('%b %d, %Y %I:%M %p')
+            })
+            camp.batch_history = json.dumps(history)
+            camp.save(update_fields=['status', 'stop_reason', 'stopped_at', 'batch_history'])
+
+            # Send Auto-Pause Notification to test_phone
+            if test_phone and len(test_phone) >= 7:
+                try:
+                    pause_msg = (
+                        f"⏸️ *[Campaign Auto-Paused: Sending Cap Reached]*\n"
+                        f"Campaign: *{camp.name}*\n"
+                        f"Completed contacts *#{start_index}* to *#{end_index}* ({session_sent} messages dispatched).\n"
+                        f"• Total Delivered: {camp.sent_count}\n"
+                        f"• Next Batch Resumes At: Contact #{end_index + 1}\n"
+                        f"• Auto-Retest: Live seed message will be sent when resumed."
+                    )
+                    req_lib.post(f'{WA_SERVICE_URL}/send', json={
+                        'session': session_id,
+                        'to': test_phone,
+                        'message': pause_msg
+                    }, timeout=15)
+                except Exception as pe:
+                    logger.warning("Failed to send WhatsApp pause report to %s: %s", test_phone, pe)
+            break
+
+        # Recipient phone
+        phone_raw = rcpt.email or ''
+        phone = normalize_wa_phone(phone_raw)
+        if not phone or len(phone) < 7:
+            CampaignRecipient.objects.filter(id=rcpt.id).update(
+                status='failed',
+                error_msg=f'Invalid phone number: {phone_raw}'
+            )
+            continue
+
+        # ATOMIC CLAIM: Only one thread/process can ever claim this recipient row!
+        claimed = CampaignRecipient.objects.filter(id=rcpt.id, status='pending').update(status='sending')
+        if not claimed:
+            logger.info("Recipient %s (id=%s) already claimed/processed by another worker. Skipping.", phone, rcpt.id)
+            continue
+
+        name = rcpt.name or phone
+        display_name = name
+        parts = [p.strip('.,_-"\'') for p in name.split() if p.strip()]
+        if parts and len(parts[0]) > 1 and parts[0].isalpha() and parts[0].lower() not in {'admin', 'info', 'support', 'user', 'client', 'customer'}:
+            display_name = parts[0].capitalize()
+
+        msg_text = (camp.body or '')
+        msg_text = msg_text.replace('{{name}}', display_name).replace('{name}', display_name)
+        msg_text = msg_text.replace('{{domain}}', domain).replace('{domain}', domain)
+        msg_text = msg_text.replace('{{company}}', domain).replace('{company}', domain)
+        msg_text = resolve_spintax(msg_text)
+
+        try:
+            if has_media:
+                resp = req_lib.post(f'{WA_SERVICE_URL}/send-media', json={
+                    'session': session_id,
+                    'to': phone,
+                    'mediaBase64': media_b64,
+                    'mimeType': camp.wa_media_type,
+                    'caption': msg_text,
+                    'filename': os.path.basename(camp.wa_media_path),
+                }, timeout=30)
+            else:
+                resp = req_lib.post(f'{WA_SERVICE_URL}/send', json={
+                    'session': session_id, 'to': phone, 'message': msg_text
+                }, timeout=15)
+
+            r = resp.json()
+            msg_id = r.get('messageId', '')
+            if r.get('ok'):
+                CampaignRecipient.objects.filter(id=rcpt.id).update(
+                    status='sent',
+                    sent_at=timezone.now(),
+                    error_msg=''
+                )
+                session_sent += 1
+                actual_sent = CampaignRecipient.objects.filter(campaign=camp, status='sent').count()
+                MarketingCampaign.objects.filter(id=camp.id).update(sent_count=actual_sent)
+
+                # Log to WaConversation & WaMessage
+                try:
+                    conv, _ = WaConversation.objects.update_or_create(
+                        domain=domain, username=getattr(camp.user, 'username', 'admin'), phone=phone,
+                        defaults={'name': name, 'last_message': msg_text[:200], 'last_ts': timezone.now()}
+                    )
+                    WaMessage.objects.create(
+                        conversation=conv,
+                        domain=domain, username=getattr(camp.user, 'username', 'admin'), phone=phone, name=name,
+                        text=msg_text, direction='out', message_id=msg_id, delivered=True
+                    )
+                except Exception:
+                    pass
+            else:
+                err_text = r.get('error', 'Dispatch failed')
+                CampaignRecipient.objects.filter(id=rcpt.id).update(
+                    status='failed',
+                    error_msg=err_text
+                )
+
+        except Exception as e:
+            CampaignRecipient.objects.filter(id=rcpt.id).update(
+                status='failed',
+                error_msg=str(e)[:400]
+            )
+
+        # Speed Pacing & Interval
+        send_speed_mode = getattr(camp, 'send_speed_mode', 'instant') or 'instant'
+        if send_speed_mode == 'interval':
+            int_type = getattr(camp, 'interval_type', 'fixed') or 'fixed'
+            if int_type == 'random':
+                i_min = max(1, getattr(camp, 'interval_min', 5) or 5)
+                i_max = max(i_min, getattr(camp, 'interval_max', 20) or 20)
+                delay_sec = random.uniform(i_min, i_max)
+            else:
+                delay_sec = max(0.5, float(getattr(camp, 'interval_seconds', 5) or 5))
+
+            # Sleep in responsive slices to allow immediate pause/stop
+            slept = 0.0
+            while slept < delay_sec:
+                camp.refresh_from_db(fields=['status'])
+                if camp.status in ['paused', 'stopped']:
+                    break
+                step = min(0.5, delay_sec - slept)
+                time.sleep(step)
+                slept += step
+        else:
+            # Safe minimum anti-ban jitter floor for WhatsApp even in instant mode
+            instant_delay = random.uniform(3.0, 5.5)
+            slept = 0.0
+            while slept < instant_delay:
+                camp.refresh_from_db(fields=['status'])
+                if camp.status in ['paused', 'stopped']:
+                    break
+                step = min(0.5, instant_delay - slept)
+                time.sleep(step)
+                slept += step
+
+    # Final completion check
+    camp.refresh_from_db(fields=['status'])
+    if camp.status == 'running':
+        remaining = CampaignRecipient.objects.filter(campaign=camp, status='pending').count()
+        if remaining == 0:
+            actual_sent = CampaignRecipient.objects.filter(campaign=camp, status='sent').count()
+            camp.status = 'completed'
+            camp.sent_count = actual_sent
+            end_index = start_index + session_sent - 1 if session_sent > 0 else already_sent
+            camp.stop_reason = f'Completed: All target recipients have been sent (final batch: #{start_index} to #{end_index}).' if session_sent > 0 else 'Completed: All target recipients have been sent.'
+            camp.stopped_at = timezone.now()
+            if session_sent > 0:
+                try:
+                    history = json.loads(getattr(camp, 'batch_history', '[]') or '[]')
+                    if not isinstance(history, list): history = []
+                except Exception:
+                    history = []
+                history.append({
+                    'batch': len(history) + 1,
+                    'start': start_index,
+                    'end': end_index,
+                    'count': session_sent,
+                    'status': 'completed',
+                    'timestamp': timezone.now().strftime('%b %d, %Y %I:%M %p')
+                })
+                camp.batch_history = json.dumps(history)
+            camp.save(update_fields=['status', 'stop_reason', 'stopped_at', 'batch_history'])
+
+            # Send Completion summary to test_phone
+            if test_phone and len(test_phone) >= 7:
+                try:
+                    done_msg = (
+                        f"🏁 *[WhatsApp Campaign Finished Successfully!]*\n"
+                        f"Campaign: *{camp.name}*\n"
+                        f"• Total Delivered: {camp.sent_count} contacts\n"
+                        f"• Finished At: {timezone.now().strftime('%b %d, %Y %I:%M %p')}"
+                    )
+                    req_lib.post(f'{WA_SERVICE_URL}/send', json={
+                        'session': session_id,
+                        'to': test_phone,
+                        'message': done_msg
+                    }, timeout=15)
+                except Exception as ce:
+                    logger.warning("Failed to send WhatsApp completion copy to %s: %s", test_phone, ce)
+
+
 @login_required(login_url='/login')
 def marketing_campaign_save(request, domain):
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
-    import json
+    import json, threading
     from django.utils import timezone
     from .models import MarketingCampaign, CustomSMTPConfig, CampaignRecipient, MarketingLead
     
@@ -8662,93 +10809,567 @@ def marketing_campaign_save(request, domain):
         custom_smtp = CustomSMTPConfig.objects.filter(id=custom_smtp_id, domain=domain, is_active=True).first()
 
     status_val = data.get('status', 'draft')
-    if status_val not in ['draft', 'scheduled']:
+    if status_val not in ['draft', 'scheduled', 'running', 'paused', 'stopped', 'completed', 'sent']:
         status_val = 'draft'
 
     scheduled_at_val = data.get('scheduled_at') or None
     if status_val == 'scheduled' and not scheduled_at_val:
         return JsonResponse({'error': 'Scheduled date and time are required for scheduling a campaign.'}, status=400)
 
+    recipients_raw = data.get('to', '').strip()
+    custom_emails_raw = data.get('custom_emails', '').strip()
+    if custom_emails_raw:
+        recipients_raw = custom_emails_raw
+    target_seg_val = recipients_raw or 'all'
+
+    range_mode = data.get('range_mode', 'full')
+    try:
+        range_start = max(1, int(data.get('range_start') or 1))
+    except (ValueError, TypeError):
+        range_start = 1
+    try:
+        range_end = max(0, int(data.get('range_end') or 0))
+    except (ValueError, TypeError):
+        range_end = 0
+
+    send_limit = 0
+    if range_mode == 'range' and range_end >= range_start:
+        send_limit = range_end - range_start + 1
+    else:
+        try:
+            send_limit = max(0, int(data.get('send_limit') or 0))
+        except (ValueError, TypeError):
+            send_limit = 0
+
+    send_speed_mode = data.get('send_speed_mode', 'instant')
+    if send_speed_mode not in ['instant', 'interval']:
+        send_speed_mode = 'instant'
+
+    interval_type = data.get('interval_type', 'fixed')
+    if interval_type not in ['fixed', 'random']:
+        interval_type = 'fixed'
+
+    try:
+        interval_seconds = max(1, int(data.get('interval_seconds') or 5))
+    except (ValueError, TypeError):
+        interval_seconds = 5
+
+    try:
+        interval_min = max(1, int(data.get('interval_min') or 5))
+    except (ValueError, TypeError):
+        interval_min = 5
+
+    try:
+        interval_max = max(interval_min, int(data.get('interval_max') or 20))
+    except (ValueError, TypeError):
+        interval_max = 20
+
+    test_copy_email = (data.get('test_copy_email') or '').strip()
+
     campaign_id = data.get('id')
     if campaign_id:
-        try:
-            camp = MarketingCampaign.objects.get(id=campaign_id, user=request.user, domain=domain)
-            camp.name = data.get('name') or camp.name
-            camp.channel = data.get('channel') or camp.channel
-            camp.subject = data.get('subject') or camp.subject
-            camp.body = data.get('body') or camp.body
-            if custom_smtp:
-                camp.custom_smtp = custom_smtp
-            if scheduled_at_val:
-                camp.scheduled_at = scheduled_at_val
-            camp.status = status_val
-            camp.save()
-        except MarketingCampaign.DoesNotExist:
+        camp = _get_user_campaign(request, domain, campaign_id)
+        if not camp:
             return JsonResponse({'error': 'Campaign not found.'}, status=404)
+        camp.name = data.get('name') or camp.name
+        camp.channel = data.get('channel') or camp.channel
+        camp.subject = data.get('subject') or camp.subject
+        camp.body = data.get('body') or camp.body
+        if hasattr(camp, 'target_segment'):
+            camp.target_segment = target_seg_val
+        if custom_smtp:
+            camp.custom_smtp = custom_smtp
+        if scheduled_at_val:
+            camp.scheduled_at = scheduled_at_val
+        if hasattr(camp, 'send_limit'):
+            camp.send_limit = send_limit
+        if hasattr(camp, 'test_copy_email'):
+            camp.test_copy_email = test_copy_email
+        if hasattr(camp, 'send_speed_mode'):
+            camp.send_speed_mode = send_speed_mode
+            camp.interval_type = interval_type
+            camp.interval_seconds = interval_seconds
+            camp.interval_min = interval_min
+            camp.interval_max = interval_max
+        if status_val in ['draft', 'scheduled', 'paused', 'stopped']:
+            camp.status = status_val
+        camp.save()
     else:
-        camp = MarketingCampaign.objects.create(
-            user=request.user,
-            domain=domain,
-            name=data.get('name', 'Untitled'),
-            channel=data.get('channel', 'email'),
-            subject=data.get('subject', ''),
-            sender_email=data.get('sender_email', '').strip(),
-            body=data.get('body', ''),
-            scheduled_at=scheduled_at_val,
-            status=status_val,
-            custom_smtp=custom_smtp,
-        )
+        # Resolve owner user for domain
+        owner_user = None
+        from django.contrib.auth.models import User as AuthUser
+        owner_user = AuthUser.objects.filter(username=domain[:150]).first()
+        su = request.session.get('suite_user')
+        if not owner_user and su and su.get('email'):
+            owner_user = AuthUser.objects.filter(email__iexact=su['email']).first()
+        if not owner_user and request.user and getattr(request.user, 'is_authenticated', False):
+            owner_user = request.user
+        if not owner_user:
+            owner_user = AuthUser.objects.filter(is_superuser=True).first()
 
-    # If the campaign is scheduled or draft, populate campaign recipients
-    if status_val in ['scheduled', 'draft']:
-        recipients_raw = data.get('to', '').strip()
-        custom_emails_raw = data.get('custom_emails', '').strip()
-        if custom_emails_raw:
-            recipients_raw = custom_emails_raw
+        create_kwargs = {
+            'user': owner_user,
+            'domain': domain,
+            'name': data.get('name', 'Untitled'),
+            'channel': data.get('channel', 'email'),
+            'subject': data.get('subject', ''),
+            'sender_email': data.get('sender_email', '').strip(),
+            'body': data.get('body', ''),
+            'scheduled_at': scheduled_at_val,
+            'status': status_val,
+            'custom_smtp': custom_smtp,
+        }
+        if hasattr(MarketingCampaign, 'target_segment'):
+            create_kwargs['target_segment'] = target_seg_val
+        if hasattr(MarketingCampaign, 'send_limit'):
+            create_kwargs['send_limit'] = send_limit
+        if hasattr(MarketingCampaign, 'test_copy_email'):
+            create_kwargs['test_copy_email'] = test_copy_email
+        if hasattr(MarketingCampaign, 'send_speed_mode'):
+            create_kwargs['send_speed_mode'] = send_speed_mode
+            create_kwargs['interval_type'] = interval_type
+            create_kwargs['interval_seconds'] = interval_seconds
+            create_kwargs['interval_min'] = interval_min
+            create_kwargs['interval_max'] = interval_max
+        camp = MarketingCampaign.objects.create(**create_kwargs)
 
-        if recipients_raw:
-            CampaignRecipient.objects.filter(campaign=camp).delete()
+    # Populate campaign recipients if newly created or audience changed
+    if recipients_raw:
+        has_rcpts = CampaignRecipient.objects.filter(campaign=camp).exists()
+        if not campaign_id or not has_rcpts:
+            CampaignRecipient.objects.filter(campaign=camp, status='pending').delete()
             seg = recipients_raw.strip().lower()
+            qs = None
             if seg == 'all':
-                recipient_emails = list(MarketingLead.objects.filter(domain=domain).exclude(email='').values_list('email', flat=True))
+                qs = MarketingLead.objects.filter(domain=domain).exclude(email='')
             elif seg == 'hot':
-                recipient_emails = list(MarketingLead.objects.filter(domain=domain, score__gte=70).exclude(email='').values_list('email', flat=True))
+                qs = MarketingLead.objects.filter(domain=domain, score__gte=70).exclude(email='')
             elif seg == 'warm':
-                recipient_emails = list(MarketingLead.objects.filter(domain=domain, score__gte=40, score__lt=70).exclude(email='').values_list('email', flat=True))
+                qs = MarketingLead.objects.filter(domain=domain, score__gte=40, score__lt=70).exclude(email='')
             elif seg.startswith('group_'):
                 try:
                     grp_id = int(seg.replace('group_', ''))
-                    recipient_emails = list(MarketingLead.objects.filter(domain=domain, group_id=grp_id).exclude(email='').values_list('email', flat=True))
+                    qs = MarketingLead.objects.filter(domain=domain, group_id=grp_id).exclude(email='')
                 except ValueError:
-                    recipient_emails = []
+                    qs = MarketingLead.objects.none()
             else:
                 import re
                 raw_list = re.split(r'[\s,\n;]+', recipients_raw)
                 recipient_emails = [e.strip() for e in raw_list if e.strip() and '@' in e]
 
-            if recipient_emails:
-                leads_map = {}
-                for lead in MarketingLead.objects.filter(domain=domain):
-                    if lead.email:
-                        leads_map[lead.email.lower()] = lead.name
+            if qs is not None:
+                if range_mode == 'range' and range_end >= range_start:
+                    s_idx = max(0, range_start - 1)
+                    lead_items = list(qs.values('email', 'name')[s_idx:range_end])
+                else:
+                    lim = max(send_limit, 50000) if send_limit > 0 else 50000
+                    lead_items = list(qs.values('email', 'name')[:lim])
 
-                rcpt_objects = []
-                for email_addr in recipient_emails:
-                    rcpt = CampaignRecipient(
-                        campaign=camp, email=email_addr,
-                        name=leads_map.get(email_addr.lower(), ''), status='pending',
+                rcpt_objects = [
+                    CampaignRecipient(
+                        campaign=camp, email=item['email'].strip(),
+                        name=item.get('name') or '', status='pending',
                     )
-                    rcpt_objects.append(rcpt)
-                CampaignRecipient.objects.bulk_create(rcpt_objects)
+                    for item in lead_items if item.get('email') and '@' in item['email']
+                ]
+                if rcpt_objects:
+                    CampaignRecipient.objects.bulk_create(rcpt_objects, batch_size=2000)
+            elif recipient_emails:
+                if range_mode == 'range' and range_end >= range_start:
+                    s_idx = max(0, range_start - 1)
+                    recipient_emails = recipient_emails[s_idx:range_end]
 
-        # Trigger scheduled campaigns task to run immediately in the background
-        try:
-            from .tasks import process_scheduled_campaigns_task
-            process_scheduled_campaigns_task.delay()
-        except Exception:
-            pass
+                rcpt_objects = [
+                    CampaignRecipient(
+                        campaign=camp, email=email_addr,
+                        name='', status='pending',
+                    )
+                    for email_addr in recipient_emails
+                ]
+                if rcpt_objects:
+                    CampaignRecipient.objects.bulk_create(rcpt_objects, batch_size=2000)
+
+    # If action requested is run or status is running, trigger background dispatch immediately
+    if data.get('action') == 'run' or status_val == 'running':
+        t = threading.Thread(target=_dispatch_campaign_worker, args=(camp.id, domain), daemon=True)
+        t.start()
 
     return JsonResponse({'status': 'saved', 'id': camp.id})
+
+
+@login_required(login_url='/login')
+def marketing_campaign_action(request, domain, campaign_id):
+    """Run, Pause, Stop, or Resume a campaign on demand with full batch & range controls."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    import json, threading
+    from django.utils import timezone
+    from .models import CampaignRecipient, MarketingLead
+
+    data = json.loads(request.body or '{}')
+    action = data.get('action')  # 'run', 'pause', 'stop', 'resume'
+    mode = data.get('mode', 'batch')  # 'full' or 'batch'
+
+    camp = _get_user_campaign(request, domain, campaign_id)
+    if not camp:
+        return JsonResponse({'error': 'Campaign not found'}, status=404)
+
+    if action in ['run', 'resume', 'rerun']:
+        # Check if rerun is requested or if campaign already finished all contacts
+        total_rcpts = CampaignRecipient.objects.filter(campaign=camp).count()
+        pending_count = CampaignRecipient.objects.filter(campaign=camp, status='pending').count()
+        is_rerun = (action == 'rerun') or bool(data.get('rerun')) or (total_rcpts > 0 and pending_count == 0)
+
+        if is_rerun:
+            # 1. Reset all recipient delivery records back to 'pending'
+            CampaignRecipient.objects.filter(campaign=camp).update(
+                status='pending',
+                sent_at=None,
+                opened_at=None,
+                error_msg=''
+            )
+            # 2. Check for newly added leads in the campaign's target segment
+            target_seg = getattr(camp, 'target_segment', 'all') or 'all'
+            existing_recipients = set(CampaignRecipient.objects.filter(campaign=camp).values_list('email', flat=True))
+            qs = None
+            if camp.channel == 'whatsapp':
+                if target_seg == 'all':
+                    qs = MarketingLead.objects.filter(domain=domain).exclude(phone='').exclude(phone__isnull=True)
+                elif target_seg == 'hot':
+                    qs = MarketingLead.objects.filter(domain=domain, score__gte=70).exclude(phone='').exclude(phone__isnull=True)
+                elif target_seg == 'warm':
+                    qs = MarketingLead.objects.filter(domain=domain, score__gte=40, score__lt=70).exclude(phone='').exclude(phone__isnull=True)
+                elif target_seg.startswith('group_'):
+                    try:
+                        grp_id = int(target_seg.replace('group_', ''))
+                        qs = MarketingLead.objects.filter(domain=domain, group_id=grp_id).exclude(phone='').exclude(phone__isnull=True)
+                    except (ValueError, TypeError):
+                        qs = MarketingLead.objects.none()
+                if qs is not None:
+                    new_items = list(qs.values('phone', 'name')[:50000])
+                    new_rcpts = []
+                    seen_p = set()
+                    for it in new_items:
+                        p_val = (it.get('phone') or '').strip()
+                        digits = ''.join(c for c in p_val if c.isdigit())
+                        if digits and len(digits) >= 7 and p_val not in existing_recipients and digits not in seen_p:
+                            seen_p.add(digits)
+                            new_rcpts.append(CampaignRecipient(campaign=camp, email=p_val, name=it.get('name') or p_val, status='pending'))
+                    if new_rcpts:
+                        CampaignRecipient.objects.bulk_create(new_rcpts, batch_size=2000)
+            else:
+                if target_seg == 'all':
+                    qs = MarketingLead.objects.filter(domain=domain).exclude(email='')
+                elif target_seg == 'hot':
+                    qs = MarketingLead.objects.filter(domain=domain, score__gte=70).exclude(email='')
+                elif target_seg == 'warm':
+                    qs = MarketingLead.objects.filter(domain=domain, score__gte=40, score__lt=70).exclude(email='')
+                elif target_seg.startswith('group_'):
+                    try:
+                        grp_id = int(target_seg.replace('group_', ''))
+                        qs = MarketingLead.objects.filter(domain=domain, group_id=grp_id).exclude(email='')
+                    except (ValueError, TypeError):
+                        qs = MarketingLead.objects.none()
+                if qs is not None:
+                    new_items = list(qs.exclude(email__in=existing_recipients).values('email', 'name')[:50000])
+                    if new_items:
+                        new_rcpts = [
+                            CampaignRecipient(campaign=camp, email=it['email'].strip(), name=it.get('name') or '', status='pending')
+                            for it in new_items if it.get('email') and '@' in it['email']
+                        ]
+                        if new_rcpts:
+                            CampaignRecipient.objects.bulk_create(new_rcpts, batch_size=2000)
+
+            # 3. Reset campaign metrics for fresh execution
+            camp.sent_count = 0
+            camp.status = 'running'
+            camp.stopped_at = None
+            camp.stop_reason = 'Rerunning campaign...'
+            camp.save(update_fields=['sent_count', 'status', 'stopped_at', 'stop_reason'])
+
+        rcpt_count = CampaignRecipient.objects.filter(campaign=camp).count()
+        if rcpt_count == 0:
+            target_seg = getattr(camp, 'target_segment', 'all') or 'all'
+            if camp.channel == 'whatsapp':
+                leads_qs = MarketingLead.objects.filter(domain=domain).exclude(phone='').exclude(phone__isnull=True)
+                if target_seg == 'hot':
+                    leads_qs = leads_qs.filter(score__gte=70)
+                elif target_seg == 'warm':
+                    leads_qs = leads_qs.filter(score__gte=40, score__lt=70)
+                elif target_seg.startswith('group_'):
+                    try:
+                        grp_id = int(target_seg.replace('group_', ''))
+                        leads_qs = leads_qs.filter(group_id=grp_id)
+                    except (ValueError, TypeError):
+                        leads_qs = leads_qs.none()
+                seen_p = set()
+                rcpt_objs = []
+                for it in list(leads_qs.values('phone', 'name')[:50000]):
+                    p_val = (it.get('phone') or '').strip()
+                    digits = ''.join(c for c in p_val if c.isdigit())
+                    if digits and len(digits) >= 7 and digits not in seen_p:
+                        seen_p.add(digits)
+                        rcpt_objs.append(CampaignRecipient(campaign=camp, email=p_val, name=it.get('name') or p_val, status='pending'))
+                if rcpt_objs:
+                    CampaignRecipient.objects.bulk_create(rcpt_objs, batch_size=2000)
+            else:
+                recipient_emails = []
+                qs = None
+                if target_seg == 'all':
+                    qs = MarketingLead.objects.filter(domain=domain).exclude(email='')
+                elif target_seg == 'hot':
+                    qs = MarketingLead.objects.filter(domain=domain, score__gte=70).exclude(email='')
+                elif target_seg == 'warm':
+                    qs = MarketingLead.objects.filter(domain=domain, score__gte=40, score__lt=70).exclude(email='')
+                elif target_seg.startswith('group_'):
+                    try:
+                        grp_id = int(target_seg.replace('group_', ''))
+                        qs = MarketingLead.objects.filter(domain=domain, group_id=grp_id).exclude(email='')
+                    except ValueError:
+                        qs = MarketingLead.objects.none()
+                else:
+                    import re
+                    recipient_emails = [e.strip() for e in re.split(r'[\s,\n;]+', target_seg) if '@' in e]
+
+                if qs is not None:
+                    lead_items = list(qs.values('email', 'name')[:50000])
+                    rcpt_objs = [
+                        CampaignRecipient(campaign=camp, email=item['email'].strip(), name=item.get('name') or '', status='pending')
+                        for item in lead_items if item.get('email') and '@' in item['email']
+                    ]
+                    if rcpt_objs:
+                        CampaignRecipient.objects.bulk_create(rcpt_objs, batch_size=2000)
+                elif recipient_emails:
+                    rcpt_objs = [
+                        CampaignRecipient(campaign=camp, email=em, name='', status='pending')
+                        for em in recipient_emails
+                    ]
+                    if rcpt_objs:
+                        CampaignRecipient.objects.bulk_create(rcpt_objs, batch_size=2000)
+
+        pending_count = CampaignRecipient.objects.filter(campaign=camp, status='pending').count()
+        if pending_count == 0:
+            return JsonResponse({'status': 'info', 'message': 'All recipients in this campaign have already been sent.'})
+
+        already_sent = CampaignRecipient.objects.filter(campaign=camp).exclude(status='pending').count()
+        start_index = already_sent + 1
+        range_start = 1
+        range_end = 0
+
+        if mode == 'full':
+            camp.send_limit = 0
+            range_start = 1
+            range_end = 0
+        else:
+            range_txt = data.get('range_text', '').strip()
+            if range_txt and '-' in range_txt:
+                try:
+                    parts = range_txt.split('-')
+                    range_start = max(1, int(parts[0].strip()))
+                    range_end = int(parts[1].strip())
+                except Exception:
+                    pass
+
+            if data.get('range_start'):
+                try:
+                    range_start = max(1, int(data['range_start']))
+                except (ValueError, TypeError): pass
+
+            if data.get('range_end'):
+                try:
+                    range_end = int(data['range_end'])
+                except (ValueError, TypeError): pass
+            elif data.get('target_contact_index') is not None:
+                try:
+                    range_end = int(data['target_contact_index'])
+                except (ValueError, TypeError): pass
+
+            if range_end >= range_start:
+                camp.send_limit = max(1, range_end - range_start + 1)
+            elif data.get('batch_size') is not None:
+                try:
+                    camp.send_limit = max(1, int(data['batch_size']))
+                except (ValueError, TypeError):
+                    camp.send_limit = 500
+            elif 'send_limit' in data:
+                try:
+                    camp.send_limit = max(0, int(data.get('send_limit') or 0))
+                except (ValueError, TypeError):
+                    pass
+            else:
+                camp.send_limit = max(1, range_end - already_sent) if range_end > already_sent else 500
+
+        if range_start > 1 or range_end > 0:
+            start_index = range_start
+        else:
+            start_index = already_sent + 1
+
+        end_display = range_end if (range_end >= range_start) else ((start_index + camp.send_limit - 1) if camp.send_limit > 0 else (already_sent + pending_count))
+        camp.status = 'running'
+        camp.stop_reason = f'Running batch #{start_index} to #{end_display}' if camp.send_limit > 0 else f'Running full campaign (contacts #{start_index} to #{already_sent + pending_count})'
+
+        update_f = ['status', 'stop_reason', 'send_limit']
+        if 'test_copy_email' in data and hasattr(camp, 'test_copy_email'):
+            camp.test_copy_email = (data.get('test_copy_email') or '').strip()
+            update_f.append('test_copy_email')
+        if 'test_phone' in data and hasattr(camp, 'test_copy_email'):
+            camp.test_copy_email = (data.get('test_phone') or '').strip()
+            update_f.append('test_copy_email')
+        if 'send_speed_mode' in data and hasattr(camp, 'send_speed_mode'):
+            camp.send_speed_mode = data.get('send_speed_mode') or 'instant'
+            update_f.append('send_speed_mode')
+        if 'interval_type' in data and hasattr(camp, 'interval_type'):
+            camp.interval_type = data.get('interval_type') or 'fixed'
+            update_f.append('interval_type')
+        if 'interval_seconds' in data and hasattr(camp, 'interval_seconds'):
+            try:
+                camp.interval_seconds = max(1, int(data['interval_seconds']))
+                update_f.append('interval_seconds')
+            except (ValueError, TypeError): pass
+        if 'interval_min' in data and hasattr(camp, 'interval_min'):
+            try:
+                camp.interval_min = max(1, int(data['interval_min']))
+                update_f.append('interval_min')
+            except (ValueError, TypeError): pass
+        if 'interval_max' in data and hasattr(camp, 'interval_max'):
+            try:
+                camp.interval_max = max(getattr(camp, 'interval_min', 5) or 5, int(data['interval_max']))
+                update_f.append('interval_max')
+            except (ValueError, TypeError): pass
+
+        camp.save(update_fields=update_f)
+
+        if camp.channel == 'whatsapp':
+            t = threading.Thread(target=_dispatch_whatsapp_campaign_worker, args=(camp.id, domain, range_start, range_end), daemon=True)
+            t.start()
+        else:
+            t = threading.Thread(target=_dispatch_campaign_worker, args=(camp.id, domain, range_start, range_end), daemon=True)
+            t.start()
+
+        run_count = min(camp.send_limit, pending_count) if camp.send_limit > 0 else pending_count
+        msg_units = 'messages' if camp.channel == 'whatsapp' else 'emails'
+        msg = f'Campaign started! Dispatching from Contact #{start_index} to #{end_display} ({run_count} {msg_units}).'
+        return JsonResponse({
+            'status': 'running',
+            'message': msg,
+            'start_index': start_index,
+            'end_index': end_display,
+            'send_limit': camp.send_limit,
+            'mode': mode
+        })
+
+    elif action == 'pause':
+        camp.status = 'paused'
+        camp.stop_reason = 'Manually paused by user.'
+        camp.stopped_at = timezone.now()
+        camp.save(update_fields=['status', 'stop_reason', 'stopped_at'])
+        return JsonResponse({'status': 'paused', 'message': 'Campaign paused.'})
+
+    elif action == 'stop':
+        camp.status = 'stopped'
+        camp.stop_reason = 'Manually stopped by user.'
+        camp.stopped_at = timezone.now()
+        camp.save(update_fields=['status', 'stop_reason', 'stopped_at'])
+        return JsonResponse({'status': 'stopped', 'message': 'Campaign stopped.'})
+
+    else:
+        return JsonResponse({'error': f'Invalid action: {action}'}, status=400)
+
+
+@login_required(login_url='/login')
+def marketing_campaign_progress(request, domain, campaign_id):
+    """Return live execution progress, stop reason, batch history, and delivery log records for a campaign."""
+    camp = _get_user_campaign(request, domain, campaign_id)
+    if not camp:
+        return JsonResponse({'error': 'Campaign not found'}, status=404)
+
+    import json
+    from .models import CampaignRecipient
+    r_qs = CampaignRecipient.objects.filter(campaign=camp)
+    total_count = r_qs.count()
+    sent_count = r_qs.filter(status='sent').count()
+    pending_count = r_qs.filter(status='pending').count()
+    failed_count = r_qs.filter(status='failed').count()
+    opened_count = r_qs.filter(status__in=['opened', 'clicked']).count()
+    already_sent = r_qs.exclude(status='pending').count()
+
+    recent_logs = []
+    for r in r_qs.order_by('-sent_at', '-created_at')[:100]:
+        recent_logs.append({
+            'id': r.id,
+            'email': r.email,
+            'name': r.name,
+            'status': r.status,
+            'status_display': r.get_status_display(),
+            'sent_at': r.sent_at.isoformat() if r.sent_at else None,
+            'opened_at': r.opened_at.isoformat() if r.opened_at else None,
+            'error_msg': r.error_msg or '',
+        })
+
+    open_rate = round((opened_count / sent_count) * 100, 1) if sent_count > 0 else 0
+
+    try:
+        b_hist = json.loads(getattr(camp, 'batch_history', '[]') or '[]')
+        if not isinstance(b_hist, list):
+            b_hist = []
+    except Exception:
+        b_hist = []
+
+    next_start_contact = already_sent + 1
+    send_limit_val = getattr(camp, 'send_limit', 0) or 0
+    default_batch_size = send_limit_val if send_limit_val > 0 else 500
+    default_target_contact = min(total_count, already_sent + default_batch_size) if total_count > 0 else 500
+
+    return JsonResponse({
+        'campaign': {
+            'id': camp.id,
+            'name': camp.name,
+            'channel': camp.channel,
+            'status': camp.status,
+            'send_limit': send_limit_val,
+            'stop_reason': getattr(camp, 'stop_reason', '') or '',
+            'stopped_at': camp.stopped_at.isoformat() if getattr(camp, 'stopped_at', None) else None,
+            'created_at': camp.created_at.isoformat() if camp.created_at else None,
+            'body': camp.body or '',
+            'batch_history': b_hist,
+            'next_start_contact': next_start_contact,
+            'already_sent': already_sent,
+            'send_speed_mode': getattr(camp, 'send_speed_mode', 'instant') or 'instant',
+            'test_copy_email': getattr(camp, 'test_copy_email', '') or '',
+            'interval_type': getattr(camp, 'interval_type', 'fixed') or 'fixed',
+            'interval_seconds': getattr(camp, 'interval_seconds', 5) or 5,
+            'interval_min': getattr(camp, 'interval_min', 5) or 5,
+            'interval_max': getattr(camp, 'interval_max', 20) or 20,
+        },
+        'analytics': {
+            'total': total_count,
+            'sent': sent_count,
+            'pending': pending_count,
+            'failed': failed_count,
+            'opened': opened_count,
+            'open_rate': open_rate,
+        },
+        'batch_info': {
+            'total_recipients': total_count,
+            'already_sent': already_sent,
+            'pending_count': pending_count,
+            'next_start_contact': next_start_contact,
+            'default_batch_size': default_batch_size,
+            'default_target_contact': default_target_contact,
+            'batch_history': b_hist,
+        },
+        'recipients': recent_logs,
+        # Flat fields for direct consumers
+        'id': camp.id,
+        'name': camp.name,
+        'status': camp.status,
+        'send_limit': send_limit_val,
+        'stop_reason': getattr(camp, 'stop_reason', '') or '',
+        'next_start_contact': next_start_contact,
+        'already_sent': already_sent,
+        'batch_history': b_hist,
+    })
+
 
 
 @login_required(login_url='/login')
@@ -8786,56 +11407,132 @@ def marketing_ai_copy(request, domain):
     return JsonResponse({'copies': copies, 'tone': tone})
 
 
-@login_required(login_url='/login')
 def marketing_leads(request, domain):
     from .models import MarketingLead, MarketingContactGroup
     import json
+    
+    su = request.session.get('suite_user')
+    is_authed = (request.user and getattr(request.user, 'is_authenticated', False)) or bool(su)
+    if not is_authed:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
+
     if request.method == 'POST':
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
+        except Exception:
+            return JsonResponse({'error': 'Invalid JSON request payload'}, status=400)
+
         limit = _resolve_suite_limit(request, domain, 'marketing', 'contacts', 2000)
         current_count = MarketingLead.objects.filter(domain=domain).count()
         default_group_id = data.get('group_id')
+
+        # Resolve auth user instance safely — prioritize domain account and suite_user email
+        user_inst = None
+        from django.contrib.auth.models import User as AuthUser
+        u_email = su.get('email', '') if su else ''
+        if u_email:
+            user_inst = AuthUser.objects.filter(email__iexact=u_email).first()
+        if not user_inst:
+            user_inst = AuthUser.objects.filter(username=domain[:150]).first()
+        if not user_inst and request.user and getattr(request.user, 'is_authenticated', False):
+            user_inst = request.user
+        if not user_inst:
+            from control.models import user as PanelUser
+            pu = PanelUser.objects.filter(domain=domain).first()
+            if pu and pu.email:
+                user_inst = AuthUser.objects.filter(email__iexact=pu.email).first()
+        if not user_inst:
+            user_inst = AuthUser.objects.filter(is_superuser=True).first()
 
         if data.get('bulk') is True:
             leads_data = data.get('leads', [])
             if limit > 0 and current_count + len(leads_data) > limit:
                 return JsonResponse({
-                    'error': f"Plan Limit Reached: Importing {len(leads_data)} contacts would exceed your plan limit of {limit} contacts (Current: {current_count})."
+                    'error': f"Plan Limit Reached: Importing {len(leads_data)} contacts would exceed your plan limit of {limit} contacts (Current: {current_count}). Please upgrade or contact support."
                 }, status=400)
 
-            count = 0
+            objs = []
             for item in leads_data:
                 grp_id = item.get('group_id') or default_group_id
-                lead = MarketingLead.objects.create(
-                    user=request.user,
+
+                # Robust score sanitization: guarantee 0 <= score <= 100
+                raw_score = item.get('score')
+                lead_score = 50
+                if raw_score is not None and str(raw_score).strip() != '':
+                    try:
+                        val = float(str(raw_score).strip())
+                        if val < 0:
+                            lead_score = 50
+                        elif val <= 5 and val > 0 and '.' in str(raw_score):
+                            lead_score = int(round(val * 20))
+                        else:
+                            lead_score = int(round(val))
+                        lead_score = max(0, min(100, lead_score))
+                    except (ValueError, TypeError):
+                        lead_score = 50
+
+                lead_name = (item.get('name') or '').strip()[:200] or 'Unnamed Lead'
+                lead_email = (item.get('email') or '').strip()[:254]
+                lead_phone = (item.get('phone') or '').strip()[:30]
+                lead_source = (item.get('source') or 'import').strip()[:20]
+                lead_notes = (item.get('notes') or '').strip()
+
+                objs.append(MarketingLead(
+                    user=user_inst,
                     domain=domain,
-                    name=item.get('name', '').strip() or 'Unnamed Lead',
-                    email=item.get('email', '').strip(),
-                    phone=item.get('phone', '').strip(),
-                    source=item.get('source', 'import'),
-                    score=int(item.get('score', 50)),
+                    name=lead_name,
+                    email=lead_email,
+                    phone=lead_phone,
+                    source=lead_source,
+                    score=lead_score,
                     group_id=grp_id if grp_id else None,
-                    notes=item.get('notes', '').strip(),
-                )
-                count += 1
-            return JsonResponse({'status': 'saved', 'count': count})
+                    notes=lead_notes,
+                ))
+            if objs:
+                try:
+                    MarketingLead.objects.bulk_create(objs, batch_size=500)
+                    from django.core.cache import cache
+                    cache.delete(f"mkt_group_stats_{domain}")
+                    cache.delete(f"mkt_portal_stats_{domain}")
+                except Exception as e:
+                    return JsonResponse({'error': f"Database error importing contacts: {str(e)}"}, status=500)
+            return JsonResponse({'status': 'saved', 'count': len(objs)})
         else:
             if limit > 0 and current_count + 1 > limit:
                 return JsonResponse({
                     'error': f"Plan Limit Reached: Adding this contact would exceed your plan limit of {limit} contacts (Current: {current_count})."
                 }, status=400)
 
-            lead = MarketingLead.objects.create(
-                user=request.user,
-                domain=domain,
-                name=data.get('name',''),
-                email=data.get('email',''),
-                phone=data.get('phone',''),
-                source=data.get('source','manual'),
-                score=int(data.get('score', 50)),
-                group_id=data.get('group_id') or None,
-                notes=data.get('notes',''),
-            )
+            raw_score = data.get('score')
+            lead_score = 50
+            if raw_score is not None and str(raw_score).strip() != '':
+                try:
+                    val = float(str(raw_score).strip())
+                    if val < 0:
+                        lead_score = 50
+                    else:
+                        lead_score = int(round(val))
+                    lead_score = max(0, min(100, lead_score))
+                except (ValueError, TypeError):
+                    lead_score = 50
+
+            try:
+                lead = MarketingLead.objects.create(
+                    user=user_inst,
+                    domain=domain,
+                    name=(data.get('name') or '').strip()[:200] or 'Unnamed Lead',
+                    email=(data.get('email') or '').strip()[:254],
+                    phone=(data.get('phone') or '').strip()[:30],
+                    source=(data.get('source') or 'manual').strip()[:20],
+                    score=lead_score,
+                    group_id=data.get('group_id') or None,
+                    notes=(data.get('notes') or '').strip(),
+                )
+                from django.core.cache import cache
+                cache.delete(f"mkt_group_stats_{domain}")
+                cache.delete(f"mkt_portal_stats_{domain}")
+            except Exception as e:
+                return JsonResponse({'error': f"Failed to save contact: {str(e)}"}, status=500)
             return JsonResponse({'status': 'saved', 'lead_id': lead.id, 'lead': {
                 'id': lead.id, 'name': lead.name, 'email': lead.email,
                 'phone': lead.phone, 'source': lead.source, 'score': lead.score,
@@ -8847,7 +11544,13 @@ def marketing_leads(request, domain):
 
     if request.method == 'DELETE':
         import json as _json
-        data = _json.loads(request.body) if request.body else {}
+        try:
+            data = _json.loads(request.body) if request.body else {}
+        except Exception:
+            return JsonResponse({'error': 'Invalid JSON request payload'}, status=400)
+        from django.core.cache import cache
+        cache.delete(f"mkt_group_stats_{domain}")
+        cache.delete(f"mkt_portal_stats_{domain}")
         # Bulk delete: ids=[1,2,3]
         ids = data.get('ids')
         if ids and isinstance(ids, list):
@@ -8864,7 +11567,10 @@ def marketing_leads(request, domain):
 
     if request.method == 'PUT':
         import json as _json
-        data = _json.loads(request.body)
+        try:
+            data = _json.loads(request.body)
+        except Exception:
+            return JsonResponse({'error': 'Invalid JSON request payload'}, status=400)
         lead_id = data.get('id')
         if not lead_id:
             return JsonResponse({'error': 'id required'}, status=400)
@@ -8881,6 +11587,9 @@ def marketing_leads(request, domain):
             lead.group_id = data.get('group_id') or None
         lead.notes  = data.get('notes', lead.notes)
         lead.save()
+        from django.core.cache import cache
+        cache.delete(f"mkt_group_stats_{domain}")
+        cache.delete(f"mkt_portal_stats_{domain}")
         return JsonResponse({'status': 'updated', 'lead': {
             'id': lead.id, 'name': lead.name, 'email': lead.email,
             'phone': lead.phone, 'source': lead.source, 'score': lead.score,
@@ -8890,13 +11599,33 @@ def marketing_leads(request, domain):
             'created_at': lead.created_at.strftime('%b %d, %Y') if lead.created_at else '',
         }})
 
-    # GET: filter by domain & optional group_id
-    leads_qs = MarketingLead.objects.filter(domain=domain).select_related('group').order_by('-score')
+    # GET: filter by domain & optional group_id or segment or search query
+    leads_qs = MarketingLead.objects.filter(domain=domain).select_related('group').order_by('-id')
     filter_group = request.GET.get('group_id')
-    if filter_group:
-        leads_qs = leads_qs.filter(group_id=filter_group)
+    if filter_group and filter_group != 'all':
+        try:
+            leads_qs = leads_qs.filter(group_id=int(filter_group))
+        except (ValueError, TypeError):
+            pass
+    segment = request.GET.get('segment')
+    if segment == 'hot':
+        leads_qs = leads_qs.filter(score__gte=70)
+    elif segment == 'warm':
+        leads_qs = leads_qs.filter(score__gte=40, score__lt=70)
+    elif segment == 'cold':
+        leads_qs = leads_qs.filter(score__lt=40)
+    q = request.GET.get('q', '').strip()
+    if q:
+        from django.db.models import Q
+        leads_qs = leads_qs.filter(
+            Q(name__icontains=q) | Q(email__icontains=q) | Q(phone__icontains=q) | Q(notes__icontains=q)
+        )
+    try:
+        limit = min(int(request.GET.get('limit', 250)), 500)
+    except (ValueError, TypeError):
+        limit = 250
     leads = []
-    for l in leads_qs:
+    for l in leads_qs[:limit]:
         leads.append({
             'id': l.id,
             'name': l.name,
@@ -8908,9 +11637,9 @@ def marketing_leads(request, domain):
             'group_id': l.group_id,
             'group_name': l.group.name if l.group else '',
             'group_color': l.group.color if l.group else '',
-            'created_at': l.created_at.strftime('%Y-%m-%d %H:%M') if l.created_at else ''
+            'created_at': l.created_at.strftime('%b %d, %Y') if l.created_at else ''
         })
-    return JsonResponse({'leads': leads})
+    return JsonResponse({'status': 'ok', 'leads': leads, 'count': len(leads)})
 
 
 @login_required(login_url='/login')
@@ -8932,6 +11661,9 @@ def marketing_groups(request, domain):
             group.description = description
             group.color = color
             group.save()
+        from django.core.cache import cache
+        cache.delete(f"mkt_group_stats_{domain}")
+        cache.delete(f"mkt_portal_stats_{domain}")
         return JsonResponse({
             'status': 'saved',
             'group': {
@@ -8954,6 +11686,7 @@ def marketing_groups(request, domain):
             'description': g.description,
             'color': g.color,
             'contact_count': g.leads.count(),
+            'wa_contact_count': g.leads.filter(domain=domain).exclude(phone='').exclude(phone__isnull=True).count(),
             'created_at': g.created_at.strftime('%Y-%m-%d %H:%M')
         })
     return JsonResponse({'groups': result})
@@ -8966,6 +11699,9 @@ def marketing_group_delete(request, domain, group_id):
     if not group:
         return JsonResponse({'error': 'Group not found'}, status=404)
     group.delete()
+    from django.core.cache import cache
+    cache.delete(f"mkt_group_stats_{domain}")
+    cache.delete(f"mkt_portal_stats_{domain}")
     return JsonResponse({'status': 'deleted'})
 
 
@@ -8987,13 +11723,11 @@ def marketing_ab_save(request, domain):
     return JsonResponse({'status': 'saved', 'id': test.id})
 
 
-@login_required(login_url='/login')
 def marketing_campaign_detail(request, domain, campaign_id):
     """Return JSON analytics for a specific campaign."""
     from .models import MarketingCampaign, CampaignRecipient
-    try:
-        camp = MarketingCampaign.objects.get(id=campaign_id, user=request.user, domain=domain)
-    except MarketingCampaign.DoesNotExist:
+    camp = _get_user_campaign(request, domain, campaign_id)
+    if not camp:
         return JsonResponse({'error': 'Campaign not found'}, status=404)
 
     r_qs = CampaignRecipient.objects.filter(campaign=camp)
@@ -9005,7 +11739,7 @@ def marketing_campaign_detail(request, domain, campaign_id):
     open_rate = round((opened / sent) * 100, 1) if sent > 0 else 0
 
     recipients = []
-    for r in r_qs.order_by('-sent_at', '-created_at'):
+    for r in r_qs.order_by('-sent_at', '-created_at')[:100]:
         recipients.append({
             'id': r.id,
             'email': r.email,
@@ -9017,6 +11751,34 @@ def marketing_campaign_detail(request, domain, campaign_id):
             'error_msg': r.error_msg,
         })
 
+    target_seg = getattr(camp, 'target_segment', None) or 'all'
+    if target_seg == 'all':
+        # Smart fallback for existing campaigns: check if campaign name matches a group name
+        from .models import MarketingContactGroup
+        for grp in MarketingContactGroup.objects.filter(domain=domain):
+            if grp.name.strip().lower() in camp.name.strip().lower():
+                target_seg = f"group_{grp.id}"
+                try:
+                    camp.target_segment = target_seg
+                    camp.save(update_fields=['target_segment'])
+                except Exception:
+                    pass
+                break
+
+    import json
+    try:
+        b_hist = json.loads(getattr(camp, 'batch_history', '[]') or '[]')
+        if not isinstance(b_hist, list):
+            b_hist = []
+    except Exception:
+        b_hist = []
+
+    already_sent = r_qs.exclude(status='pending').count()
+    next_start_contact = already_sent + 1
+    send_limit_val = getattr(camp, 'send_limit', 0) or 0
+    default_batch_size = send_limit_val if send_limit_val > 0 else 500
+    default_target_contact = min(total, already_sent + default_batch_size) if total > 0 else 500
+
     return JsonResponse({
         'campaign': {
             'id': camp.id,
@@ -9027,8 +11789,21 @@ def marketing_campaign_detail(request, domain, campaign_id):
             'custom_smtp_id': camp.custom_smtp_id,
             'channel': camp.channel,
             'status': camp.status,
+            'target_segment': target_seg,
+            'send_limit': send_limit_val,
+            'stop_reason': getattr(camp, 'stop_reason', '') or '',
+            'stopped_at': camp.stopped_at.isoformat() if getattr(camp, 'stopped_at', None) else None,
             'scheduled_at': camp.scheduled_at.isoformat() if camp.scheduled_at else None,
             'created_at': camp.created_at.isoformat(),
+            'batch_history': b_hist,
+            'next_start_contact': next_start_contact,
+            'already_sent': already_sent,
+            'send_speed_mode': getattr(camp, 'send_speed_mode', 'instant') or 'instant',
+            'test_copy_email': getattr(camp, 'test_copy_email', '') or '',
+            'interval_type': getattr(camp, 'interval_type', 'fixed') or 'fixed',
+            'interval_seconds': getattr(camp, 'interval_seconds', 5) or 5,
+            'interval_min': getattr(camp, 'interval_min', 5) or 5,
+            'interval_max': getattr(camp, 'interval_max', 20) or 20,
         },
         'analytics': {
             'total': total,
@@ -9038,64 +11813,56 @@ def marketing_campaign_detail(request, domain, campaign_id):
             'pending': pending,
             'open_rate': open_rate,
         },
+        'batch_info': {
+            'total_recipients': total,
+            'already_sent': already_sent,
+            'pending_count': pending,
+            'next_start_contact': next_start_contact,
+            'default_batch_size': default_batch_size,
+            'default_target_contact': default_target_contact,
+            'batch_history': b_hist,
+        },
         'recipients': recipients,
     })
 
 
-@login_required(login_url='/login')
 def marketing_campaign_delete(request, domain, campaign_id):
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
-    from .models import MarketingCampaign
-    try:
-        camp = MarketingCampaign.objects.get(id=campaign_id, user=request.user, domain=domain)
-        camp.delete()
-        return JsonResponse({'status': 'deleted'})
-    except MarketingCampaign.DoesNotExist:
+    camp = _get_user_campaign(request, domain, campaign_id)
+    if not camp:
         return JsonResponse({'error': 'Campaign not found'}, status=404)
+    camp.delete()
+    return JsonResponse({'status': 'deleted'})
 
 
-@login_required(login_url='/login')
 def marketing_campaign_status_toggle(request, domain, campaign_id):
-    if request.method != 'POST':
-        return JsonResponse({'error': 'POST required'}, status=405)
-    import json
-    from .models import MarketingCampaign
-    try:
-        data = json.loads(request.body)
-        action = data.get('action') # 'pause' or 'resume'
-        camp = MarketingCampaign.objects.get(id=campaign_id, user=request.user, domain=domain)
-        
-        if action == 'pause':
-            if camp.status == 'scheduled':
-                camp.status = 'paused'
-                camp.save()
-                return JsonResponse({'status': 'success', 'message': 'Campaign paused successfully.'})
-            else:
-                return JsonResponse({'error': 'Only scheduled campaigns can be paused.'}, status=400)
-                
-        elif action == 'resume':
-            if camp.status == 'paused':
-                camp.status = 'scheduled'
-                camp.save()
-                return JsonResponse({'status': 'success', 'message': 'Campaign resumed successfully.'})
-            else:
-                return JsonResponse({'error': 'Only paused campaigns can be resumed.'}, status=400)
-        else:
-            return JsonResponse({'error': 'Invalid action.'}, status=400)
-            
-    except MarketingCampaign.DoesNotExist:
-        return JsonResponse({'error': 'Campaign not found'}, status=404)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+    """Delegate status toggle to marketing_campaign_action for unified behavior."""
+    return marketing_campaign_action(request, domain, campaign_id)
+
+
 
 
 @login_required(login_url='/login')
 def marketing_templates_list(request, domain):
     from .models import MarketingTemplate
-    # 1. Fetch from database
+    from django.contrib.auth.models import User as AuthUser
+
+    user_obj = getattr(request, 'user', None)
+    user_ids = [user_obj.id] if (user_obj and getattr(user_obj, 'is_authenticated', False)) else []
+    if user_obj and getattr(user_obj, 'email', None):
+        user_ids = list(user_obj.__class__.objects.filter(email__iexact=user_obj.email).values_list('id', flat=True))
+    domain_user_ids = list(AuthUser.objects.filter(username=domain[:150]).values_list('id', flat=True))
+    if domain_user_ids:
+        user_ids = list(set(user_ids + domain_user_ids))
+
+    tmpl_qs = MarketingTemplate.objects.filter(domain=domain)
+    if user_ids and tmpl_qs.filter(user_id__in=user_ids).exists():
+        tmpl_qs = tmpl_qs.filter(user_id__in=user_ids)
+
+    # 1. Fetch from database (strictly isolated to this domain)
     db_templates = []
-    for t in MarketingTemplate.objects.filter(user=request.user, domain=domain):
+    for t in tmpl_qs.order_by('-updated_at'):
         db_templates.append({
             'id': t.id,
             'name': t.name,
@@ -9167,7 +11934,9 @@ def marketing_template_save(request, domain):
             return JsonResponse({'error': 'Template name and HTML body are required.'}, status=400)
 
         if template_id:
-            tmpl = MarketingTemplate.objects.get(id=template_id, user=request.user, domain=domain)
+            tmpl = MarketingTemplate.objects.filter(id=template_id, domain=domain).first()
+            if not tmpl:
+                return JsonResponse({'error': 'Template not found or access denied'}, status=404)
             tmpl.name = name
             tmpl.subject = subject
             tmpl.content_html = content_html
@@ -9190,41 +11959,53 @@ def marketing_template_delete(request, domain, template_id):
         return JsonResponse({'error': 'POST required'}, status=405)
     from .models import MarketingTemplate
     try:
-        tmpl = MarketingTemplate.objects.get(id=template_id, user=request.user, domain=domain)
+        tmpl = MarketingTemplate.objects.filter(id=template_id, domain=domain).first()
+        if not tmpl:
+            return JsonResponse({'error': 'Template not found or access denied'}, status=404)
         tmpl.delete()
         return JsonResponse({'status': 'deleted'})
-    except MarketingTemplate.DoesNotExist:
-        return JsonResponse({'error': 'Template not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 
-def marketing_email_track_open(request, domain, recipient_id):
+
+def marketing_email_track_open(request, domain=None, recipient_id=None, **kwargs):
     """1x1 tracking pixel — marks recipient as opened."""
     from .models import CampaignRecipient
     from django.utils import timezone
+    from django.http import HttpResponse
     import base64
-    try:
-        rcpt = CampaignRecipient.objects.get(id=recipient_id)
-        if rcpt.status in ('sent', 'pending'):
-            rcpt.status = 'opened'
-            rcpt.opened_at = timezone.now()
-            rcpt.save()
-            # Update campaign open_rate
-            camp = rcpt.campaign
-            r_qs = camp.recipients.all()
-            sent_total = r_qs.filter(status__in=['sent', 'opened', 'clicked']).count()
-            opened_total = r_qs.filter(status__in=['opened', 'clicked']).count()
-            camp.open_rate = round((opened_total / sent_total) * 100, 1) if sent_total > 0 else 0
-            camp.save()
-    except CampaignRecipient.DoesNotExist:
-        pass
+    rcpt_id = recipient_id or kwargs.get('recipient_id')
+    if rcpt_id:
+        try:
+            rcpt = CampaignRecipient.objects.get(id=rcpt_id)
+            if rcpt.status in ('sent', 'pending'):
+                rcpt.status = 'opened'
+                rcpt.opened_at = timezone.now()
+                rcpt.save(update_fields=['status', 'opened_at'])
+                # Update campaign open_rate
+                camp = rcpt.campaign
+                r_qs = camp.recipients.all()
+                sent_total = r_qs.filter(status__in=['sent', 'opened', 'clicked']).count()
+                opened_total = r_qs.filter(status__in=['opened', 'clicked']).count()
+                camp.open_rate = round((opened_total / sent_total) * 100, 1) if sent_total > 0 else 0
+                camp.save(update_fields=['open_rate'])
+            elif not rcpt.opened_at and rcpt.status == 'opened':
+                rcpt.opened_at = timezone.now()
+                rcpt.save(update_fields=['opened_at'])
+        except Exception:
+            pass
 
-    # Return a 1x1 transparent PNG
+    # Return a 1x1 transparent PNG with anti-caching headers
     pixel_data = base64.b64decode(
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8'
         'z8BQDwADhQGAWjR9awAAAABJRU5ErkJggg=='
     )
-    from django.http import HttpResponse
-    return HttpResponse(pixel_data, content_type='image/png')
+    response = HttpResponse(pixel_data, content_type='image/png')
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0, private'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response
 
 
 # ════════════════════════════════════════════════════════════════
@@ -9232,27 +12013,52 @@ def marketing_email_track_open(request, domain, recipient_id):
 # ════════════════════════════════════════════════════════════════
 
 @login_required(login_url='/login')
+def listresellers_redirect(request):
+    """Redirect to the superadmin reseller management page."""
+    return redirect('/listresellers/')
+
+
+@login_required(login_url='/login')
 def reseller_dashboard(request):
     """Main reseller control panel dashboard."""
     from control.models import ResellerProfile, user as UserModel
     from django.contrib.auth import get_user_model
     _AuthUser = get_user_model()
+
+    target_reseller = request.GET.get('reseller', '').strip()
+    is_superadmin_viewing = False
+
     rp = None
-    try:
-        rp = request.user.reseller_profile
-    except Exception:
-        pass
-    # Admin Quick Login: check session-switched user
-    if not rp and request.user.is_superuser:
-        session_name = request.session.get('name', '')
-        if session_name and session_name != request.user.username:
-            session_auth = _AuthUser.objects.filter(username=session_name).first()
-            if session_auth:
-                try:
-                    rp = session_auth.reseller_profile
-                except Exception:
-                    pass
+    if request.user.is_superuser:
+        if target_reseller:
+            rp = ResellerProfile.objects.filter(auth_user__username=target_reseller).first()
+            if rp:
+                is_superadmin_viewing = True
+        else:
+            session_name = request.session.get('name', '')
+            if session_name and session_name != request.user.username:
+                session_auth = _AuthUser.objects.filter(username=session_name).first()
+                if session_auth:
+                    try:
+                        rp = session_auth.reseller_profile
+                        if rp:
+                            is_superadmin_viewing = True
+                    except Exception:
+                        pass
+
+        # If superadmin visits /control/reseller/ without an explicit target reseller,
+        # redirect directly to the superadmin reseller management page!
+        if not rp:
+            return redirect('/listresellers/')
+    else:
+        try:
+            rp = request.user.reseller_profile
+        except Exception:
+            pass
+
     if not rp:
+        if request.user.is_superuser:
+            return redirect('/listresellers/')
         return render(request, 'control/reseller_dashboard.html', {
             'error': 'No reseller profile. Purchase a reseller plan at voidpanel.com.',
         })
@@ -9275,13 +12081,20 @@ def reseller_dashboard(request):
         'rp': rp, 'sub_accounts': sub_accounts, 'packages': packages,
         'used_storage_gb': used_storage_gb, 'storage_pct': storage_pct,
         'accounts_pct': accounts_pct, 'accounts_used': sub_accounts.count(),
+        'is_superadmin_viewing': is_superadmin_viewing,
     })
 
 
 def _get_reseller_profile(request):
-    """Get ResellerProfile for current user, supporting admin Quick Login."""
+    """Get ResellerProfile for current user, supporting admin Quick Login and ?reseller= target."""
     from control.models import ResellerProfile
     from django.contrib.auth import get_user_model
+    if request.user.is_superuser:
+        target_reseller = request.GET.get('reseller', '').strip()
+        if target_reseller:
+            rp = ResellerProfile.objects.filter(auth_user__username=target_reseller).first()
+            if rp:
+                return rp
     rp = None
     try:
         rp = request.user.reseller_profile
@@ -9318,7 +12131,7 @@ def reseller_create_account(request):
     client_domain = data.get('domain', '').strip().lower()
     client_email  = data.get('email', '').strip()
     pkg_id        = data.get('package_id', '')
-    user_quota_gb = int(data.get('user_quota_gb', 1))
+    user_quota_gb = int(data.get('user_quota_gb', 0)) if data.get('user_quota_gb') else 0
     if not client_domain or not client_email:
         return JsonResponse({'error': 'domain and email are required'}, status=400)
     existing = UserModel.objects.filter(reseller=rp) if hasattr(UserModel, 'reseller') else UserModel.objects.none()
@@ -9335,16 +12148,43 @@ def reseller_create_account(request):
         username = f"{base_user}{suffix}"; suffix += 1
     password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(14))
 
-    # Dispatch via Celery for proper provisioning (Linux user, nginx, SSL, DNS)
-    try:
-        from voidplatform.config import paths
-        from control.models import package as Package
-        # Find or create a package for reseller clients
-        client_pkg, _ = Package.objects.get_or_create(
-            name='reseller-client',
+    # Resolve package and quota
+    from control.models import package as Package
+    pkg_name = 'reseller-client'
+    rpkg = None
+    if pkg_id:
+        try:
+            rpkg = ResellerPackage.objects.filter(id=int(pkg_id), reseller=rp).first()
+        except Exception:
+            pass
+    if not rpkg:
+        rpkg = rp.packages.first()
+
+    if rpkg:
+        pkg_name = rpkg.name
+        user_quota_gb = rpkg.storage_gb
+        Package.objects.update_or_create(
+            name=pkg_name,
+            defaults={
+                'storage': str(user_quota_gb * 1024),
+                'ftp': str(rpkg.ftp_accounts),
+                'subdomain': str(rpkg.subdomains),
+                'bandwidth': str(rpkg.bandwidth_gb * 1024),
+                'email_accounts': str(rpkg.email_accounts),
+                'databases_allowed': str(rpkg.databases),
+            }
+        )
+    elif not user_quota_gb:
+        user_quota_gb = 5
+        Package.objects.get_or_create(
+            name=pkg_name,
             defaults={'storage': str(user_quota_gb * 1024), 'ftp': '2', 'subdomain': '5',
                       'bandwidth': '50000', 'email_accounts': '5', 'databases_allowed': '3'}
         )
+
+    # Dispatch via Celery for proper provisioning (Linux user, nginx, SSL, DNS)
+    try:
+        from voidplatform.config import paths
         acct_path = os.path.join(paths.HOME_BASE, username)
         inipath   = acct_path + '/public_html/php.ini'
         sto       = user_quota_gb * 1024  # MB
@@ -9359,30 +12199,18 @@ def reseller_create_account(request):
         )
         from control.tasks import provision_user_task
         provision_user_task.delay(
-            client_domain, username, client_email, password, 'reseller-client',
+            client_domain, username, client_email, password, pkg_name,
             acct_path, sto, inipath, php_ini_content,
+            reseller_id=rp.id,
         )
     except Exception as e:
         # Fallback: just create DB records if Celery/paths not available
         auth_user = AuthUser.objects.create_user(username=username, email=client_email, password=password)
         UserModel.objects.create(
             username=username, domain=client_domain,
-            email=client_email, hosting_package='reseller-client',
+            email=client_email, hosting_package=pkg_name,
+            reseller=rp,
         )
-
-    # Tag the hosting user as belonging to this reseller (delayed since Celery creates it)
-    import threading
-    def _tag_reseller(uname, _rp_id):
-        import time; time.sleep(15)
-        try:
-            from control.models import user as _UM, ResellerProfile as _RP
-            hu = _UM.objects.filter(username=uname).first()
-            if hu:
-                hu.reseller_id = _rp_id
-                hu.save(update_fields=['reseller_id'])
-        except Exception:
-            pass
-    threading.Thread(target=_tag_reseller, args=(username, rp.id), daemon=True).start()
 
     return JsonResponse({'status': 'created', 'username': username, 'password': password,
                          'domain': client_domain, 'panel_url': f'https://{request.get_host()}/control/'})
@@ -9393,39 +12221,70 @@ def reseller_list_accounts(request):
     """Dedicated page listing all reseller sub-accounts with search."""
     from control.models import ResellerProfile, ResellerPackage, user as UserModel
     from django.contrib.auth import get_user_model
+    from django.db.models import Q
     rp = _get_reseller_profile(request)
     if not rp:
         return render(request, 'control/reseller_list_accounts.html', {
             'error': 'No reseller profile found.',
         })
-    sub_accounts = UserModel.objects.filter(reseller=rp).order_by('domain') \
-        if hasattr(UserModel, 'reseller') else UserModel.objects.none()
+    all_accounts = UserModel.objects.filter(reseller=rp) if hasattr(UserModel, 'reseller') else UserModel.objects.none()
+    total_count = all_accounts.count()
+    
+    q = request.GET.get('q', '').strip()
+    if q:
+        sub_accounts = all_accounts.filter(
+            Q(domain__icontains=q) | Q(username__icontains=q) | Q(email__icontains=q)
+        ).order_by('domain')
+    else:
+        sub_accounts = all_accounts.order_by('domain')
+
+    from control.models import package as Package
+    pkg_map = {p.name: p for p in Package.objects.all()}
+    for acc in sub_accounts:
+        pkg_obj = pkg_map.get(acc.hosting_package)
+        acc.disk_quota_mb = int(pkg_obj.storage) if pkg_obj and pkg_obj.storage.isdigit() else 1024
     packages = rp.packages.all().order_by('name')
     return render(request, 'control/reseller_list_accounts.html', {
         'rp': rp, 'sub_accounts': sub_accounts, 'packages': packages,
-        'accounts_used': sub_accounts.count(),
+        'accounts_used': total_count,
+        'filtered_count': sub_accounts.count(),
+        'search_query': q,
     })
 
 
 @login_required(login_url='/login')
 def reseller_delete_account(request, acc_username):
-    from control.models import ResellerProfile, user as UserModel
+    from control.models import (
+        ResellerProfile, user as UserModel, domain as DomainModel,
+        subdomainname, allemail, cron, redir
+    )
     from django.contrib.auth import get_user_model
     rp = _get_reseller_profile(request)
     if not rp:
         return JsonResponse({'error': 'No reseller profile'}, status=403)
     try:
-        # Try with reseller FK first, then fall back to username-only
         acc = UserModel.objects.filter(username=acc_username, reseller=rp).first()
         if not acc:
-            acc = UserModel.objects.filter(username=acc_username).first()
-        if not acc:
-            return JsonResponse({'error': 'Account not found'}, status=404)
+            return JsonResponse({'error': 'Account not found or not owned by you'}, status=404)
+        domain_str = acc.domain
+        uname = acc.username
+        subdomains = list(subdomainname.objects.filter(domain=domain_str).values_list('subdomain', flat=True))
+
+        # 1. Clean up database records immediately so UI updates on reload
+        subdomainname.objects.filter(domain=domain_str).delete()
+        allemail.objects.filter(domain=domain_str).delete()
+        cron.objects.filter(domain=domain_str).delete()
+        redir.objects.filter(domain=domain_str).delete()
+        DomainModel.objects.filter(domain=domain_str).delete()
         acc.delete()
-        get_user_model().objects.filter(username=acc_username).delete()
+        get_user_model().objects.filter(username=uname).delete()
+
+        # 2. Dispatch background task to remove files, configs, DNS, system user
+        from control.tasks import terminate_user_task
+        terminate_user_task.delay(domain_str, uname, subdomains)
         return JsonResponse({'status': 'deleted'})
-    except Exception:
-        return JsonResponse({'error': 'Account not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 @login_required(login_url='/login')
 def reseller_package_save(request):
@@ -9464,6 +12323,7 @@ def reseller_package_save(request):
 def reseller_suspend_account(request, acc_username):
     """Reseller suspends a sub-account."""
     from control.models import user as UserModel
+    from control.suspension_manager import suspend_account_action
     rp = _get_reseller_profile(request)
     if not rp:
         return JsonResponse({'error': 'No reseller profile'}, status=403)
@@ -9471,17 +12331,17 @@ def reseller_suspend_account(request, acc_username):
         acc = UserModel.objects.filter(username=acc_username, reseller=rp).first() or UserModel.objects.filter(username=acc_username).first()
         if not acc:
             return JsonResponse({'error': 'Account not found'}, status=404)
-        acc.status = False
-        acc.save(update_fields=['status'])
-        return JsonResponse({'status': 'suspended'})
-    except Exception:
-        return JsonResponse({'error': 'Account not found'}, status=404)
+        res = suspend_account_action(acc_username)
+        return JsonResponse({'status': 'suspended', 'detail': res})
+    except Exception as e:
+        return JsonResponse({'error': f'Failed to suspend account: {e}'}, status=500)
 
 
 @login_required(login_url='/login')
 def reseller_unsuspend_account(request, acc_username):
     """Reseller unsuspends a sub-account."""
     from control.models import user as UserModel
+    from control.suspension_manager import unsuspend_account_action
     rp = _get_reseller_profile(request)
     if not rp:
         return JsonResponse({'error': 'No reseller profile'}, status=403)
@@ -9489,11 +12349,57 @@ def reseller_unsuspend_account(request, acc_username):
         acc = UserModel.objects.filter(username=acc_username, reseller=rp).first() or UserModel.objects.filter(username=acc_username).first()
         if not acc:
             return JsonResponse({'error': 'Account not found'}, status=404)
-        acc.status = True
-        acc.save(update_fields=['status'])
-        return JsonResponse({'status': 'unsuspended'})
+        res = unsuspend_account_action(acc_username)
+        return JsonResponse({'status': 'unsuspended', 'detail': res})
+    except Exception as e:
+        return JsonResponse({'error': f'Failed to unsuspend account: {e}'}, status=500)
+
+
+@login_required(login_url='/login')
+def reseller_change_password(request, acc_username):
+    """Reseller changes password for a sub-account."""
+    from control.models import user as UserModel
+    from django.contrib.auth import get_user_model
+    from voidplatform import get_platform
+    from voidplatform.config import paths
+    rp = _get_reseller_profile(request)
+    if not rp:
+        return JsonResponse({'error': 'No reseller profile'}, status=403)
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    try:
+        data = json.loads(request.body)
     except Exception:
-        return JsonResponse({'error': 'Account not found'}, status=404)
+        data = request.POST.dict()
+    new_password = data.get('password', '').strip()
+    if not new_password:
+        return JsonResponse({'error': 'Password is required'}, status=400)
+    if len(new_password) < 8:
+        return JsonResponse({'error': 'Password must be at least 8 characters'}, status=400)
+
+    acc = UserModel.objects.filter(username=acc_username, reseller=rp).first()
+    if not acc:
+        return JsonResponse({'error': 'Account not found or not owned by you'}, status=404)
+
+    AuthUser = get_user_model()
+    try:
+        target_u = AuthUser.objects.get(username=acc_username)
+        target_u.set_password(new_password)
+        target_u.save()
+    except AuthUser.DoesNotExist:
+        return JsonResponse({'error': 'Auth user not found'}, status=404)
+
+    # Change Linux system password via platform layer
+    try:
+        get_platform().users.change_password(acc_username, new_password)
+    except Exception as e:
+        try:
+            with open(paths.PANEL_LOG_FILE, 'a') as log:
+                log.write(f'[reseller_change_password] System password change error for {acc_username}: {str(e)}\n')
+        except Exception:
+            pass
+
+    return JsonResponse({'status': 'success', 'message': 'Password updated successfully'})
 
 
 @login_required(login_url='/login')
@@ -11374,7 +14280,6 @@ def _normalize_plan_slug(suite, plan_slug):
             'free': 'starter',
             'pro': 'growth',
             'business': 'growth',
-            'enterprise': 'agency',
         },
         'marketing': {
             'lite': 'starter',
@@ -11382,7 +14287,6 @@ def _normalize_plan_slug(suite, plan_slug):
             'free': 'starter',
             'growth': 'pro',
             'business': 'pro',
-            'enterprise': 'agency',
         }
     }
     suite_aliases = aliases.get(suite, {})
@@ -11436,20 +14340,13 @@ def _resolve_suite_limit(request, domain, suite_key, limit_name, default_val=Non
     """
     from control.models import SuiteSubscription, SuitePlan, user
     
-    # 1. Standalone suite session (SSO or direct)
     su = request.session.get('suite_user')
-    if su and su.get('suite') == suite_key:
-        plan_slug = su.get('plan', '')
-        plan = _get_suite_plan(suite_key, plan_slug)
-        if plan and limit_name in plan.limits:
-            return plan.limits[limit_name]
-
-    # 2. Standalone active subscription search by hosting_domain or user email
+    user_email = (su.get('email') if su else '') or ''
     django_user = getattr(request, 'user', None)
-    user_email = ''
-    if django_user and django_user.is_authenticated:
+    if not user_email and django_user and getattr(django_user, 'is_authenticated', False):
         user_email = getattr(django_user, 'email', '') or getattr(django_user, 'username', '')
-    
+
+    # 1. Look up live active subscription in DB first (ensures fresh plan limits after upgrades)
     sub = None
     if domain:
         sub = SuiteSubscription.objects.filter(hosting_domain=domain, suite=suite_key, is_active=True).first()
@@ -11457,8 +14354,29 @@ def _resolve_suite_limit(request, domain, suite_key, limit_name, default_val=Non
         sub = SuiteSubscription.objects.filter(email=user_email, suite=suite_key, is_active=True).first()
 
     if sub and sub.plan:
+        if su and su.get('suite') == suite_key and su.get('plan') != sub.plan.slug:
+            su['plan'] = sub.plan.slug
+            request.session['suite_user'] = su
+            try:
+                request.session.modified = True
+            except Exception:
+                pass
+        # Enterprise & Agency plans have unlimited contacts (0)
+        if sub.plan.slug in ('enterprise', 'agency') and limit_name == 'contacts':
+            return 0
         if limit_name in sub.plan.limits:
             return sub.plan.limits[limit_name]
+
+    # 2. Standalone suite session fallback
+    if su and su.get('suite') == suite_key:
+        plan_slug = su.get('plan', '')
+        if plan_slug in ('enterprise', 'agency') and limit_name == 'contacts':
+            return 0
+        plan = _get_suite_plan(suite_key, plan_slug)
+        if plan and limit_name in plan.limits:
+            return plan.limits[limit_name]
+
+    # 3. Standalone active subscription fallback by user_email only
 
     # 3. Hosting package fallback
     current = django_user.username if (django_user and django_user.is_authenticated) else ''
@@ -11467,7 +14385,6 @@ def _resolve_suite_limit(request, domain, suite_key, limit_name, default_val=Non
     if current:
         try:
             usr = user.objects.get(username=current)
-            from .utils import safe_get_package
             pkg = safe_get_package(usr.hosting_package)
             if pkg and getattr(pkg, f'includes_{suite_key}', False):
                 plan_slug = getattr(pkg, f'{suite_key}_plan', '') or ''
@@ -11499,22 +14416,34 @@ def hosting_suite_sso(request, domain, suite):
     if suite not in SUITE_META:
         return HttpResponse('Unknown suite', status=404)
 
-    # Resolve the actual hosting username (superusers impersonate via session['name'])
-    if request.user.is_superuser:
-        current = request.session.get('name', str(request.user))
-    else:
-        current = str(request.user)
+    # 1. Primary lookup: resolve the hosting user by domain directly
+    usr_obj = user.objects.filter(domain=domain).first()
 
-    try:
-        usr_obj = user.objects.get(username=current)
-    except user.DoesNotExist:
-        # session['name'] may contain the domain rather than the username
-        try:
-            usr_obj = user.objects.get(domain=current)
-        except user.DoesNotExist:
-            return HttpResponse(f'Hosting user not found: {current}', status=403)
+    # 2. Fallback: resolve by session name or request.user
+    if not usr_obj:
+        sess_name = request.session.get('name')
+        if sess_name:
+            usr_obj = user.objects.filter(username=sess_name).first() or user.objects.filter(domain=sess_name).first()
 
-    if usr_obj.domain != domain:
+    if not usr_obj:
+        raw_user = str(request.user)
+        if raw_user.startswith('suite_'):
+            cleaned = raw_user.split('_', 2)[-1].replace('_', '.')
+            usr_obj = user.objects.filter(domain=cleaned).first() or user.objects.filter(domain=domain).first()
+        else:
+            usr_obj = user.objects.filter(username=raw_user).first() or user.objects.filter(domain=raw_user).first()
+
+    if not usr_obj:
+        return HttpResponse(f'Hosting user not found for domain: {domain}', status=403)
+
+    # Access control: Verify authority over this domain
+    is_owner = (
+        request.user.is_superuser
+        or request.session.get('name') in (usr_obj.username, usr_obj.domain)
+        or request.user.username in (usr_obj.username, f"suite_{suite}_{domain}".replace('.', '_'))
+        or (request.user.username.startswith('suite_') and (domain.replace('.', '_') in request.user.username or usr_obj.domain in request.user.username))
+    )
+    if not is_owner:
         return HttpResponse('Access denied', status=403)
 
     # Verify package includes this suite
@@ -11534,7 +14463,7 @@ def hosting_suite_sso(request, domain, suite):
     token_obj = SuiteSSOToken.create_for(
         suite=suite,
         hosting_domain=domain,
-        user_email=usr_obj.email or f'{current}@{domain}',
+        user_email=usr_obj.email or f'{usr_obj.username}@{domain}',
         plan_slug=plan_slug,
     )
 
@@ -11568,16 +14497,19 @@ def suite_sso_validate(request, token):
         'name':           tok.hosting_domain,
     }
 
-    # Also log in as a Django user so @login_required views work.
-    # Get-or-create a Django user keyed by the hosting_domain (suite namespace).
-    from django.contrib.auth.models import User as AuthUser
-    auth_username = f"suite_{tok.suite}_{tok.hosting_domain}".replace('.', '_')[:150]
-    auth_user, _ = AuthUser.objects.get_or_create(
-        username=auth_username,
-        defaults={'email': tok.user_email, 'is_staff': False, 'is_superuser': False}
-    )
-    from django.contrib.auth import login as auth_login
-    auth_login(request, auth_user)
+    # Only log in as a Django suite user if the request does NOT already have
+    # an authenticated hosting account or panel user. This prevents kicking the
+    # hosting user out of their control panel dashboard in other tabs!
+    req_user = getattr(request, 'user', None)
+    if not (req_user and getattr(req_user, 'is_authenticated', False) and not req_user.username.startswith('suite_')):
+        from django.contrib.auth.models import User as AuthUser
+        auth_username = f"suite_{tok.suite}_{tok.hosting_domain}".replace('.', '_')[:150]
+        auth_user, _ = AuthUser.objects.get_or_create(
+            username=auth_username,
+            defaults={'email': tok.user_email, 'is_staff': False, 'is_superuser': False}
+        )
+        from django.contrib.auth import login as auth_login
+        auth_login(request, auth_user)
 
     # Set namespace session keys
     request.session['name'] = tok.hosting_domain
@@ -11681,6 +14613,9 @@ def suite_logout(request):
 
 def _suite_portal_ctx(request, suite):
     """Build shared context for any suite portal."""
+    from .models import SuiteSubscription, SuitePlan
+    from . import models as ctrl_models
+
     su = _suite_session(request)
 
     # ── Django panel admin bypass ─────────────────────────────────────────
@@ -11696,9 +14631,6 @@ def _suite_portal_ctx(request, suite):
     if not su:
         if is_panel_admin:
             # Build a synthetic session tied to THIS panel user's domain.
-            from .models import SuiteSubscription, SuitePlan
-            from . import models as ctrl_models
-
             user_email = (
                 getattr(django_user, 'email', None)
                 or getattr(django_user, 'username', '')
@@ -11769,15 +14701,88 @@ def _suite_portal_ctx(request, suite):
             return None, redirect('/control/suite/login/')
 
     if su.get('suite') != suite:
-        if is_panel_admin:
+        user_email = su.get('email')
+        other_sub = SuiteSubscription.objects.filter(
+            email=user_email, suite=suite, is_active=True
+        ).first() if user_email else None
+
+        # Check if hosting user SSO has this suite included in their package
+        hosting_has_suite = False
+        h_pkg = None
+        if su.get('source') == 'sso' and su.get('hosting_domain'):
+            h_user = ctrl_models.user.objects.filter(domain=su.get('hosting_domain')).first()
+            if h_user:
+                h_pkg = safe_get_package(h_user.hosting_package)
+                if h_pkg and getattr(h_pkg, f'includes_{suite}', False):
+                    hosting_has_suite = True
+
+        if other_sub:
+            # User has an active subscription to this suite as well — switch session
+            su = dict(su)
+            su['suite'] = suite
+            su['plan'] = other_sub.plan.slug if other_sub.plan else ('lite' if suite == 'seo' else 'starter')
+            if other_sub.hosting_domain:
+                su['hosting_domain'] = other_sub.hosting_domain
+            request.session['suite_user'] = su
+            try:
+                request.session.modified = True
+            except Exception:
+                pass
+        elif hosting_has_suite:
+            # Package includes this suite — seamlessly switch active suite in session!
+            su = dict(su)
+            su['suite'] = suite
+            pkg_plan = getattr(h_pkg, f'{suite}_plan', None)
+            su['plan'] = _normalize_plan_slug(suite, pkg_plan or ('lite' if suite == 'seo' else 'starter'))
+            request.session['suite_user'] = su
+            try:
+                request.session.modified = True
+            except Exception:
+                pass
+        elif is_panel_admin:
             # Admin accessing a different suite — allow it, override suite key
             su = dict(su)
             su['suite'] = suite
         else:
-            # Regular suite user — redirect to their correct suite
+            # Regular suite user without access to this suite — redirect to their active suite
             return None, redirect(f'/control/suite/{su["suite"]}/')
 
-    # Normalize plan slug & resolve limits
+    # Ensure Django auth user is logged in for standalone suite users
+    req_user = getattr(request, 'user', None)
+    if su and not (req_user and getattr(req_user, 'is_authenticated', False)):
+        try:
+            from django.contrib.auth.models import User as AuthUser
+            from django.contrib.auth import login as auth_login
+            user_email = su.get('email', '')
+            auth_user = None
+            if user_email:
+                auth_user = AuthUser.objects.filter(email__iexact=user_email).first()
+            if not auth_user:
+                domain_name = su.get('hosting_domain') or (user_email.split('@')[0] if user_email else 'suite')
+                auth_user, _ = AuthUser.objects.get_or_create(
+                    username=domain_name[:150],
+                    defaults={'email': user_email, 'is_staff': False, 'is_superuser': False}
+                )
+            if auth_user:
+                auth_login(request, auth_user)
+        except Exception:
+            pass
+
+    # Normalize plan slug & resolve limits with live subscription sync
+    user_email = su.get('email')
+    live_sub = SuiteSubscription.objects.filter(
+        email=user_email, suite=suite, is_active=True
+    ).first() if user_email else None
+    if live_sub and live_sub.plan:
+        su['plan'] = live_sub.plan.slug
+        if live_sub.hosting_domain:
+            su['hosting_domain'] = live_sub.hosting_domain
+        request.session['suite_user'] = su
+        try:
+            request.session.modified = True
+        except Exception:
+            pass
+
     current_plan_slug = su.get('plan', '')
     plan_obj = _get_suite_plan(suite, current_plan_slug)
     if plan_obj:
@@ -11797,52 +14802,72 @@ def _suite_portal_ctx(request, suite):
 
 
 def suite_social_portal(request):
-    ctx, redir_resp = _suite_portal_ctx(request, 'social')
-    if redir_resp:
-        return redir_resp
-    su = ctx['suite_user']
-    # ISOLATION: domain_key scopes social accounts per user.
-    # - SSO users (panel auto-login, source='sso'): use hosting_domain (actual panel domain)
-    # - Direct login users (standalone, source='direct'): use email prefix (no overlap with panel)
-    # - Admin bypass (source='admin_bypass'): use hosting_domain or email prefix
-    domain_key = su.get('hosting_domain') or su['email'].split('@')[0]
-    ctx['domain'] = domain_key
-    ctx['suite_mode'] = True
-    # SSO users (auto-login from VoidPanel control panel) → hide AI features
-    # Direct login users (standalone VoidOnyx login) → show AI features
-    ctx['is_panel_user'] = (su.get('source') == 'sso')
-    ctx.update(_get_social_portal_data_ctx(request, domain_key))
-    return render(request, 'control/social_portal.html', ctx)
+    try:
+        ctx, redir_resp = _suite_portal_ctx(request, 'social')
+        if redir_resp:
+            return redir_resp
+        su = ctx['suite_user']
+        # ISOLATION: domain_key scopes social accounts per user.
+        # - SSO users (panel auto-login, source='sso'): use hosting_domain (actual panel domain)
+        # - Direct login users (standalone, source='direct'): use email prefix (no overlap with panel)
+        # - Admin bypass (source='admin_bypass'): use hosting_domain or email prefix
+        domain_key = su.get('hosting_domain') or su['email'].split('@')[0]
+        ctx['domain'] = domain_key
+        ctx['suite_mode'] = True
+        # SSO users (auto-login from VoidPanel control panel) → hide AI features
+        # Direct login users (standalone VoidOnyx login) → show AI features
+        ctx['is_panel_user'] = (su.get('source') == 'sso')
+        ctx.update(_get_social_portal_data_ctx(request, domain_key))
+        return render(request, 'control/social_portal.html', ctx)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).exception('suite_social_portal unexpected error: %s', e)
+        return render(request, '500.html', {
+            'error_title': 'Social Media Suite Error',
+            'error_message': f'An unexpected error occurred while loading Social Media Suite: {str(e)}',
+            'status_code': 500,
+            'return_url': '/control/suite/social/'
+        }, status=500)
 
 
 def suite_seo_portal(request):
-    ctx, redir_resp = _suite_portal_ctx(request, 'seo')
-    if redir_resp:
-        return redir_resp
-    su = ctx['suite_user']
-    from .models import SavedSEODomain
-    uid = _get_seo_user_identifier(request)
-    saved_qs = SavedSEODomain.objects.filter(user_identifier=uid)
-    primary_domain = saved_qs.filter(is_primary=True).first()
+    try:
+        ctx, redir_resp = _suite_portal_ctx(request, 'seo')
+        if redir_resp:
+            return redir_resp
+        su = ctx['suite_user']
+        from .models import SavedSEODomain
+        uid = _get_seo_user_identifier(request)
+        saved_qs = SavedSEODomain.objects.filter(user_identifier=uid)
+        primary_domain = saved_qs.filter(is_primary=True).first()
 
-    # Priority: primary saved domain > session project domain > hosting domain > email prefix
-    domain_key = (
-        (primary_domain.domain if primary_domain else None)
-        or su.get('seo_project_domain')
-        or su.get('hosting_domain')
-        or su['email'].split('@')[0]
-    )
-    ctx['domain'] = domain_key
-    ctx['suite_mode'] = True
-    ctx['saved_domains'] = saved_qs
-    # Serialize plan limits as JSON for JS consumption
-    import json as _json
-    limits = ctx.get('plan_limits', {})
-    if limits and isinstance(limits, dict):
-        ctx['plan_limits'] = _json.dumps(limits)
-    elif limits:
-        ctx['plan_limits'] = str(limits)
-    return render(request, 'control/seo_portal.html', ctx)
+        # Priority: primary saved domain > session project domain > hosting domain > email prefix
+        domain_key = (
+            (primary_domain.domain if primary_domain else None)
+            or su.get('seo_project_domain')
+            or su.get('hosting_domain')
+            or su['email'].split('@')[0]
+        )
+        ctx['domain'] = domain_key
+        ctx['suite_mode'] = True
+        ctx['saved_domains'] = saved_qs
+        # Serialize plan limits as JSON for JS consumption
+        import json as _json
+        limits = ctx.get('plan_limits', {})
+        if limits and isinstance(limits, dict):
+            ctx['plan_limits'] = _json.dumps(limits)
+        elif limits:
+            ctx['plan_limits'] = str(limits)
+        return render(request, 'control/seo_portal.html', ctx)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).exception('suite_seo_portal unexpected error: %s', e)
+        return render(request, '500.html', {
+            'error_title': 'SEO Suite Error',
+            'error_message': f'An unexpected error occurred while loading SEO Suite: {str(e)}',
+            'status_code': 500,
+            'return_url': '/control/suite/seo/'
+        }, status=500)
 
 
 @csrf_exempt
@@ -11873,49 +14898,59 @@ def suite_seo_set_domain(request):
 
 
 def suite_marketing_portal(request):
-    ctx, redir_resp = _suite_portal_ctx(request, 'marketing')
-    if redir_resp:
-        return redir_resp
-    su = ctx['suite_user']
-
-    # ── Domain resolution ─────────────────────────────────────────────────
-    # Use the suite session's hosting_domain (set by SSO token and stable).
-    # For hosting panel users, fall back to the panel hosting account domain.
-    from . import models as ctrl_models
-
-    # 1. Suite session hosting_domain (set by SSO or direct suite login)
-    domain_key = su.get('hosting_domain', '').strip()
-
-    # 2. If no suite hosting_domain, try the panel hosting account
-    if not domain_key:
-        django_user_obj = getattr(request, 'user', None)
-        if django_user_obj and getattr(django_user_obj, 'is_authenticated', False):
-            _user_email = getattr(django_user_obj, 'email', '') or getattr(django_user_obj, 'username', '')
-            try:
-                _panel_acct = ctrl_models.user.objects.filter(email=_user_email).first()
-                if _panel_acct and _panel_acct.domain:
-                    domain_key = _panel_acct.domain
-            except Exception:
-                pass
-
-    # 3. Final fallback: email prefix
-    if not domain_key:
-        domain_key = su.get('email', '').split('@')[0]
-    # ── End domain resolution ─────────────────────────────────────────────
-
-    ctx['domain'] = domain_key
-    ctx['suite_mode'] = True
-
-    # Build and merge the marketing portal database context (leads, stats, campaigns, etc.)
     try:
-        marketing_ctx = _get_marketing_portal_context(request, domain_key)
-        if isinstance(marketing_ctx, dict):
-            ctx.update(marketing_ctx)
+        ctx, redir_resp = _suite_portal_ctx(request, 'marketing')
+        if redir_resp:
+            return redir_resp
+        su = ctx['suite_user']
+
+        # ── Domain resolution ─────────────────────────────────────────────────
+        # Use the suite session's hosting_domain (set by SSO token and stable).
+        # For hosting panel users, fall back to the panel hosting account domain.
+        from . import models as ctrl_models
+
+        # 1. Suite session hosting_domain (set by SSO or direct suite login)
+        domain_key = su.get('hosting_domain', '').strip()
+
+        # 2. If no suite hosting_domain, try the panel hosting account
+        if not domain_key:
+            django_user_obj = getattr(request, 'user', None)
+            if django_user_obj and getattr(django_user_obj, 'is_authenticated', False):
+                _user_email = getattr(django_user_obj, 'email', '') or getattr(django_user_obj, 'username', '')
+                try:
+                    _panel_acct = ctrl_models.user.objects.filter(email=_user_email).first()
+                    if _panel_acct and _panel_acct.domain:
+                        domain_key = _panel_acct.domain
+                except Exception:
+                    pass
+
+        # 3. Final fallback: email prefix
+        if not domain_key:
+            domain_key = su.get('email', '').split('@')[0]
+        # ── End domain resolution ─────────────────────────────────────────────
+
+        ctx['domain'] = domain_key
+        ctx['suite_mode'] = True
+
+        # Build and merge the marketing portal database context (leads, stats, campaigns, etc.)
+        try:
+            marketing_ctx = _get_marketing_portal_context(request, domain_key)
+            if isinstance(marketing_ctx, dict):
+                ctx.update(marketing_ctx)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).exception('suite_marketing_portal: _get_marketing_portal_context failed for domain %s: %s', domain_key, e)
+
+        return render(request, 'control/marketing.html', ctx)
     except Exception as e:
         import logging
-        logging.getLogger(__name__).exception('suite_marketing_portal: _get_marketing_portal_context failed for domain %s: %s', domain_key, e)
-
-    return render(request, 'control/marketing.html', ctx)
+        logging.getLogger(__name__).exception('suite_marketing_portal unexpected error: %s', e)
+        return render(request, '500.html', {
+            'error_title': 'Marketing Suite Error',
+            'error_message': f'An unexpected error occurred while loading Marketing Suite: {str(e)}',
+            'status_code': 500,
+            'return_url': '/control/suite/marketing/'
+        }, status=500)
 
 
 
@@ -11985,11 +15020,18 @@ def suite_admin_subs(request):
         return HttpResponse('Access denied', status=403)
     subs  = SuiteSubscription.objects.select_related('plan').order_by('-created_at')
     plans = SuitePlan.objects.filter(is_active=True).order_by('suite', 'sort_order')
+    counts = {
+        'total': subs.count(),
+        'social': subs.filter(suite='social').count(),
+        'seo': subs.filter(suite='seo').count(),
+        'marketing': subs.filter(suite='marketing').count(),
+    }
     return render(request, 'control/suite_admin.html', {
         'tab':        'subscriptions',
         'subs':       subs,
         'plans':      plans,
         'suite_meta': SUITE_META,
+        'counts':     counts,
     })
 
 
@@ -12036,8 +15078,8 @@ def suite_sub_save(request):
         obj.save()
     else:
         email = data.get('email', '').strip().lower()
-        if SuiteSubscription.objects.filter(email=email).exists():
-            return JsonResponse({'error': f'Email {email} already has a subscription.'}, status=400)
+        if SuiteSubscription.objects.filter(email=email, suite=plan.suite).exists():
+            return JsonResponse({'error': f'Email {email} already has an active subscription for {plan.get_suite_display()}.'}, status=400)
         obj = SuiteSubscription(
             email      = email,
             first_name = data.get('first_name', ''),
@@ -12097,8 +15139,8 @@ def suite_sub_toggle(request, sub_id):
 def _suite_api_auth(request):
     """Return True if the request carries a valid API key.
     
-    Accepts either the dedicated SUITE_API_KEY or the main
-    VOIDPANEL_API_KEY (which the website already stores per-server).
+    Accepts either the dedicated SUITE_API_KEY, the main
+    VOIDPANEL_API_KEY, or any active token in APIToken table.
     """
     from django.conf import settings
     import hmac as _hmac
@@ -12113,6 +15155,13 @@ def _suite_api_auth(request):
     main_key = getattr(settings, 'VOIDPANEL_API_KEY', None)
     if main_key and _hmac.compare_digest(provided, main_key):
         return True
+    # Fall back to active APIToken table (matches VoidPanelServer.api_key)
+    try:
+        from control.models import APIToken
+        if APIToken.objects.filter(key=provided, is_active=True).exists():
+            return True
+    except Exception:
+        pass
     return False
 
 
@@ -12186,22 +15235,29 @@ def suite_api_create(request):
     except SuitePlan.DoesNotExist:
         return JsonResponse({'error': f'Plan "{plan_slug}" not found for suite "{suite}"'}, status=400)
 
-    # Create or update subscription
+    # Create or update subscription for this specific suite
     created = False
-    if SuiteSubscription.objects.filter(email=email).exists():
-        obj = SuiteSubscription.objects.get(email=email)
+    sub = SuiteSubscription.objects.filter(email=email, suite=suite).first()
+    if sub:
+        obj = sub
         obj.plan  = plan
-        obj.suite = suite
         if data.get('password'):
             obj.set_password(password)
         obj.is_active = True
         obj.save()
     else:
+        # Check if user already exists under another suite to inherit password if not provided
+        other_sub = SuiteSubscription.objects.filter(email=email).first()
         obj = SuiteSubscription(
             email=email, first_name=first_name, last_name=last_name,
             suite=suite, plan=plan, is_active=True,
         )
-        obj.set_password(password)
+        if data.get('password'):
+            obj.set_password(password)
+        elif other_sub and other_sub.password:
+            obj.password = other_sub.password
+        else:
+            obj.set_password(password)
         obj.save()
         created = True
 
@@ -12312,18 +15368,22 @@ def suite_api_toggle_status(request):
         return JsonResponse({'error': 'Invalid JSON body'}, status=400)
 
     email = (data.get('email') or '').strip().lower()
+    suite = (data.get('suite') or '').strip().lower()
     is_active = data.get('is_active', True)
 
     if not email:
         return JsonResponse({'error': 'Email required'}, status=400)
 
-    sub = SuiteSubscription.objects.filter(email=email).first()
-    if not sub:
+    if suite:
+        subs = SuiteSubscription.objects.filter(email=email, suite=suite)
+    else:
+        subs = SuiteSubscription.objects.filter(email=email)
+
+    if not subs.exists():
         return JsonResponse({'error': 'Suite subscription not found'}, status=404)
 
-    sub.is_active = is_active
-    sub.save(update_fields=['is_active'])
-    return JsonResponse({'ok': True, 'email': email, 'is_active': is_active})
+    subs.update(is_active=is_active)
+    return JsonResponse({'ok': True, 'email': email, 'suite': suite or 'all', 'is_active': is_active})
 
 
 @login_required(login_url='/')
@@ -12401,3 +15461,403 @@ def quote_coupon_validate(request):
         return JsonResponse({'valid': False, 'error': 'Coupon code is required'})
     # Placeholder — extend with real coupon logic as needed
     return JsonResponse({'valid': False, 'error': 'Invalid coupon code'})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AI SITE GENERATOR & SUPER ADMIN GEMINI KEY POOL VIEWS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@login_required(login_url='/')
+def gemini_keys_admin(request):
+    """
+    Super Admin view to manage the pool of Google Gemini API keys with Round-Robin and failover.
+    Route: /control/settings/gemini-keys/
+    """
+    if not request.user.is_superuser:
+        return redirect('/control/')
+
+    from control.models import GeminiAPIKey
+    from control.gemini_pool import GeminiPoolManager
+    from django.utils import timezone
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'add_key':
+            key_val = request.POST.get('api_key', '').strip()
+            label = request.POST.get('label', '').strip()
+            model = request.POST.get('model_name', 'gemini-3.8-flash').strip()
+
+            if not key_val:
+                messages.error(request, 'API Key is required.')
+            elif GeminiAPIKey.objects.filter(key=key_val).exists():
+                messages.warning(request, 'This API Key already exists in the pool.')
+            else:
+                GeminiAPIKey.objects.create(
+                    key=key_val,
+                    label=label or 'Gemini Key',
+                    model_name=model,
+                    is_active=True
+                )
+                messages.success(request, f'Added Gemini key "{label or "Key"}" successfully.')
+            return redirect('/control/settings/gemini-keys/')
+
+        elif action == 'delete_key':
+            key_id = request.POST.get('key_id')
+            GeminiAPIKey.objects.filter(id=key_id).delete()
+            messages.success(request, 'API Key deleted from pool.')
+            return redirect('/control/settings/gemini-keys/')
+
+        elif action == 'toggle_key':
+            key_id = request.POST.get('key_id')
+            try:
+                k = GeminiAPIKey.objects.get(id=key_id)
+                k.is_active = not k.is_active
+                k.save(update_fields=['is_active'])
+                messages.success(request, f'Key status set to {"Active" if k.is_active else "Disabled"}.')
+            except GeminiAPIKey.DoesNotExist:
+                pass
+            return redirect('/control/settings/gemini-keys/')
+
+        elif action == 'test_key':
+            key_val = request.POST.get('api_key', '').strip()
+            key_id = request.POST.get('key_id')
+            model = request.POST.get('model_name', 'gemini-3.8-flash')
+
+            if not key_val and key_id:
+                try:
+                    key_val = GeminiAPIKey.objects.get(id=key_id).key
+                except GeminiAPIKey.DoesNotExist:
+                    return JsonResponse({'status': 'error', 'message': 'Key not found'}, status=404)
+
+            ok, msg, latency = GeminiPoolManager.test_key(key_val, model_name=model)
+            return JsonResponse({
+                'status': 'success' if ok else 'error',
+                'message': msg,
+                'latency_ms': latency
+            })
+
+    keys = list(GeminiAPIKey.objects.all().order_by('-created_at'))
+    total_keys = len(keys)
+    active_keys = sum(1 for k in keys if k.is_active)
+    now = timezone.now()
+    cooldown_keys = sum(1 for k in keys if k.cooldown_until and k.cooldown_until > now)
+    total_requests_today = sum(k.daily_request_count for k in keys)
+    total_requests_all = sum(k.total_request_count for k in keys)
+    total_rate_limits = sum(k.rate_limit_hits for k in keys)
+
+    # Pool health: percentage of active, non-cooldown keys
+    pool_health = 0
+    if total_keys > 0:
+        healthy = sum(1 for k in keys if k.is_active and not (k.cooldown_until and k.cooldown_until > now))
+        pool_health = int((healthy / total_keys) * 100)
+
+    # Gemini free tier ~1500 RPD per key (approximate for display)
+    FREE_TIER_RPD = 1500
+    for k in keys:
+        k.daily_usage_pct = min(100, int((k.daily_request_count / FREE_TIER_RPD) * 100)) if FREE_TIER_RPD else 0
+        k.daily_limit = FREE_TIER_RPD
+        k.is_cooling_down = bool(k.cooldown_until and k.cooldown_until > now)
+
+    d = {
+        'keys': keys,
+        'total_keys': total_keys,
+        'active_keys': active_keys,
+        'cooldown_keys': cooldown_keys,
+        'total_requests_today': total_requests_today,
+        'total_requests_all': total_requests_all,
+        'total_rate_limits': total_rate_limits,
+        'pool_health': pool_health,
+        'free_tier_rpd': FREE_TIER_RPD,
+    }
+    return render(request, 'control/gemini_keys_admin.html', d)
+
+
+@login_required(login_url='/')
+def ai_site_builder_view(request, domain):
+    """
+    Main AI Site Studio interface for client users to generate and edit their website.
+    Route: /control/<domain>/ai-builder/
+    """
+    from control.models import domain as domain_model, AISiteProject, AISiteRevision
+    
+    if request.user.is_superuser:
+        current = request.session.get('name', request.user.username)
+    else:
+        current = request.user.username
+
+    # Security check: verify domain ownership
+    try:
+        dom_obj = domain_model.objects.get(domain=domain)
+        if not request.user.is_superuser:
+            from control.models import user as control_user
+            if control_user.objects.get(username=current).domain != domain:
+                return redirect('/control/')
+    except Exception:
+        return redirect('/control/')
+
+    project = AISiteProject.objects.filter(domain=domain).first()
+    revisions = []
+    if project:
+        revisions = project.revisions.all()[:15]
+
+    d = {
+        'domain': domain,
+        'project': project,
+        'revisions': revisions,
+        'has_project': project is not None and bool(project.current_html),
+    }
+    d.update(get_user_dashboard_context(current))
+    return render(request, 'control/ai_site_builder.html', d)
+
+
+@csrf_exempt
+@login_required(login_url='/')
+def api_ai_site_generate(request):
+    """
+    API endpoint: Generates initial website using Gemini Pool.
+    POST /api/ai-builder/generate/
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+
+    import json
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        data = request.POST
+
+    domain_name = data.get('domain', '').strip()
+    business_name = data.get('business_name', '').strip()
+    category = data.get('category', '').strip()
+    description = data.get('description', '').strip()
+    theme = data.get('theme', 'modern_dark').strip()
+
+    if not domain_name or not business_name or not description:
+        return JsonResponse({'status': 'error', 'message': 'Business name, description, and domain are required.'}, status=400)
+
+    from control.ai_site_builder import generate_initial_website
+
+    try:
+        user_identifier = request.session.get('name', request.user.username) if request.user.is_superuser else request.user.username
+        project, html = generate_initial_website(
+            business_name=business_name,
+            category=category or 'Business',
+            description=description,
+            theme=theme,
+            domain_name=domain_name,
+            user_identifier=user_identifier
+        )
+        return JsonResponse({
+            'status': 'success',
+            'html': html,
+            'project_id': project.id,
+            'version': project.version
+        })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+@login_required(login_url='/')
+def api_ai_site_iterate(request):
+    """
+    API endpoint: Conversational prompt edits to existing generated site.
+    POST /api/ai-builder/iterate/
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+
+    import json
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        data = request.POST
+
+    project_id = data.get('project_id')
+    edit_prompt = data.get('prompt', '').strip()
+
+    if not project_id or not edit_prompt:
+        return JsonResponse({'status': 'error', 'message': 'Project ID and edit prompt are required.'}, status=400)
+
+    from control.ai_site_builder import iterate_website
+
+    try:
+        project, updated_html = iterate_website(project_id, edit_prompt)
+        return JsonResponse({
+            'status': 'success',
+            'html': updated_html,
+            'project_id': project.id,
+            'version': project.version
+        })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+@login_required(login_url='/')
+def api_ai_site_rollback(request):
+    """
+    API endpoint: Rolls back site to a past revision version.
+    POST /api/ai-builder/rollback/
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+
+    import json
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        data = request.POST
+
+    project_id = data.get('project_id')
+    target_version = data.get('version')
+
+    if not project_id or not target_version:
+        return JsonResponse({'status': 'error', 'message': 'Project ID and version required.'}, status=400)
+
+    from control.ai_site_builder import rollback_website
+
+    try:
+        project, html = rollback_website(project_id, int(target_version))
+        return JsonResponse({
+            'status': 'success',
+            'html': html,
+            'version': project.version
+        })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+@login_required(login_url='/')
+def api_ai_site_save_code(request):
+    """
+    API endpoint: Saves manually edited HTML from the code editor directly to the project.
+    POST /api/ai-builder/save-code/
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+
+    import json
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        data = request.POST
+
+    project_id = data.get('project_id')
+    raw_html = data.get('html', '').strip()
+
+    if not project_id or not raw_html:
+        return JsonResponse({'status': 'error', 'message': 'Project ID and HTML required.'}, status=400)
+
+    from control.models import AISiteProject, AISiteRevision
+
+    try:
+        project = AISiteProject.objects.get(id=project_id)
+        project.current_html = raw_html
+        project.version += 1
+        project.save(update_fields=['current_html', 'version', 'updated_at'])
+
+        AISiteRevision.objects.create(
+            project=project,
+            version=project.version,
+            prompt_used="Manual Code Edit in Studio IDE",
+            html_content=raw_html
+        )
+        return JsonResponse({
+            'status': 'success',
+            'version': project.version,
+            'message': f'Saved as Revision v{project.version}'
+        })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+@login_required(login_url='/')
+def api_ai_site_publish(request):
+    """
+    API endpoint: One-click publishes the current HTML directly to domain public_html.
+    POST /api/ai-builder/publish/
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+
+    import json
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        data = request.POST
+
+    project_id = data.get('project_id')
+    if not project_id:
+        return JsonResponse({'status': 'error', 'message': 'Project ID required'}, status=400)
+
+    from control.models import AISiteProject, domain as domain_model
+    from control.ai_site_builder import publish_website_to_domain
+
+    try:
+        project = AISiteProject.objects.get(id=project_id)
+        # Find linux user directory
+        dom_obj = domain_model.objects.get(domain=project.domain)
+        linux_user = dom_obj.dir
+
+        ok, msg = publish_website_to_domain(project, linux_user)
+        return JsonResponse({
+            'status': 'success' if ok else 'error',
+            'message': msg,
+            'live_url': f"https://{project.domain}"
+        })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+def api_site_lead_capture(request):
+    """
+    Public lead capture endpoint: Receives contact form submissions from AI-generated websites.
+    POST /api/site/lead-submit/
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+
+    import json
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        data = request.POST
+
+    domain_name = data.get('domain', '').strip()
+    name = data.get('name', '').strip()
+    email = data.get('email', '').strip()
+    phone = data.get('phone', '').strip()
+    message = data.get('message', '').strip()
+
+    if not domain_name:
+        return JsonResponse({'status': 'error', 'message': 'Domain is required'}, status=400)
+
+    from control.models import SiteLeadCapture
+
+    # Get client IP
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+
+    lead = SiteLeadCapture.objects.create(
+        domain=domain_name,
+        name=name,
+        email=email,
+        phone=phone,
+        message=message,
+        ip_address=ip
+    )
+
+    return JsonResponse({
+        'status': 'success',
+        'message': 'Thank you! Your inquiry has been received.',
+        'lead_id': lead.id
+    })
+

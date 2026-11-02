@@ -27,6 +27,7 @@ import makeWASocket, {
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
   isJidBroadcast,
+  Browsers,
 } from '@whiskeysockets/baileys';
 import express from 'express';
 import cors from 'cors';
@@ -43,6 +44,36 @@ const PORT = 3001;
 const logger = pino({ level: 'silent' });
 
 // ── Per-session state store ────────────────────────────────────────────────────
+// In-memory message store to fulfill retry receipts (fixes "Waiting for this message. This may take a while")
+const messageStore = new Map();
+
+function storeMessage(keyId, message) {
+  if (!keyId || !message) return;
+  messageStore.set(keyId, message);
+  if (messageStore.size > 2500) {
+    const oldestKey = messageStore.keys().next().value;
+    messageStore.delete(oldestKey);
+  }
+}
+
+/**
+ * Recursively resolves Spintax variations: {Option 1|Option 2|Option 3}
+ * Generates unique payload variations to prevent duplicate cryptographic signature detection.
+ */
+function resolveSpintax(text) {
+  if (!text || typeof text !== 'string' || !text.includes('{') || !text.includes('|')) return text || '';
+  const pattern = /\{([^{}]*\|[^{}]*)\}/;
+  let result = text;
+  for (let i = 0; i < 20; i++) {
+    if (!pattern.test(result)) break;
+    result = result.replace(pattern, (_, choices) => {
+      const options = choices.split('|');
+      return options[Math.floor(Math.random() * options.length)];
+    });
+  }
+  return result;
+}
+
 // sessions Map: sessionId → { state, socket, qr, reconnectTimer, incomingQueue, receiptsQueue }
 const sessions = new Map();
 
@@ -170,7 +201,18 @@ app.post('/send', async (req, res) => {
   const jid = digits.includes('@') ? digits : `${digits}@s.whatsapp.net`;
 
   try {
-    const result = await s.socket.sendMessage(jid, { text: message });
+    // 1. Presence subscribe & brief typing indicator for anti-ban & signal handshake
+    try { await s.socket.presenceSubscribe(jid); } catch (_) {}
+    try { await s.socket.sendPresenceUpdate('composing', jid); } catch (_) {}
+    await new Promise(r => setTimeout(r, 600 + Math.floor(Math.random() * 500)));
+    try { await s.socket.sendPresenceUpdate('paused', jid); } catch (_) {}
+
+    // 2. Dispatch message (resolves spintax for unique payload per message)
+    const textToSend = resolveSpintax(message);
+    const result = await s.socket.sendMessage(jid, { text: textToSend });
+    if (result?.key?.id && result?.message) {
+      storeMessage(result.key.id, result.message);
+    }
     return res.json({ ok: true, messageId: result?.key?.id, to: jid });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
@@ -195,9 +237,18 @@ app.post('/broadcast', async (req, res) => {
   for (const to of contacts) {
     const digits = String(to).replace(/\D/g, '');
     const jid = `${digits}@s.whatsapp.net`;
+    const resolvedText = resolveSpintax(message);
     try {
-      const r = await s.socket.sendMessage(jid, { text: message });
-      results.push({ to, ok: true, messageId: r?.key?.id });
+      try { await s.socket.presenceSubscribe(jid); } catch (_) {}
+      try { await s.socket.sendPresenceUpdate('composing', jid); } catch (_) {}
+      await new Promise(r => setTimeout(r, 500 + Math.floor(Math.random() * 400)));
+      try { await s.socket.sendPresenceUpdate('paused', jid); } catch (_) {}
+
+      const r = await s.socket.sendMessage(jid, { text: resolvedText });
+      if (r?.key?.id && r?.message) {
+        storeMessage(r.key.id, r.message);
+      }
+      results.push({ to, ok: true, messageId: r?.key?.id, text: resolvedText });
       await new Promise(resolve => setTimeout(resolve, 800));
     } catch (err) {
       results.push({ to, ok: false, error: err.message });
@@ -227,15 +278,24 @@ app.post('/send-media', async (req, res) => {
   const buffer = Buffer.from(mediaBase64, 'base64');
 
   try {
+    try { await s.socket.presenceSubscribe(jid); } catch (_) {}
+    try { await s.socket.sendPresenceUpdate('composing', jid); } catch (_) {}
+    await new Promise(r => setTimeout(r, 600 + Math.floor(Math.random() * 500)));
+    try { await s.socket.sendPresenceUpdate('paused', jid); } catch (_) {}
+
     let msgPayload;
+    const resolvedCaption = resolveSpintax(caption || '');
     if (mimeType.startsWith('image/')) {
-      msgPayload = { image: buffer, caption: caption || '', mimetype: mimeType };
+      msgPayload = { image: buffer, caption: resolvedCaption, mimetype: mimeType };
     } else if (mimeType.startsWith('video/')) {
-      msgPayload = { video: buffer, caption: caption || '', mimetype: mimeType };
+      msgPayload = { video: buffer, caption: resolvedCaption, mimetype: mimeType };
     } else {
-      msgPayload = { document: buffer, mimetype: mimeType, fileName: filename || 'file', caption: caption || '' };
+      msgPayload = { document: buffer, mimetype: mimeType, fileName: filename || 'file', caption: resolvedCaption };
     }
     const result = await s.socket.sendMessage(jid, msgPayload);
+    if (result?.key?.id && result?.message) {
+      storeMessage(result.key.id, result.message);
+    }
     return res.json({ ok: true, messageId: result?.key?.id });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
@@ -260,6 +320,7 @@ async function startSession(sessionId) {
   const sock = makeWASocket({
     version,
     logger,
+    browser: Browsers.macOS('Desktop'),
     printQRInTerminal: false,
     auth: {
       creds: state.creds,
@@ -267,7 +328,14 @@ async function startSession(sessionId) {
     },
     generateHighQualityLinkPreview: false,
     shouldIgnoreJid: jid => isJidBroadcast(jid),
-    getMessage: async () => undefined,
+    getMessage: async (key) => {
+      if (key?.id && messageStore.has(key.id)) {
+        return messageStore.get(key.id);
+      }
+      return undefined;
+    },
+    syncFullHistory: false,
+    markOnlineOnConnect: true,
   });
 
   s.socket = sock;
@@ -324,8 +392,14 @@ async function startSession(sessionId) {
     }
   });
 
-  // Incoming messages
+  // Incoming messages & retry store
   sock.ev.on('messages.upsert', async ({ messages: msgs, type }) => {
+    for (const msg of msgs) {
+      if (msg.key?.id && msg.message) {
+        storeMessage(msg.key.id, msg.message);
+      }
+    }
+
     if (type !== 'notify') return;
 
     for (const msg of msgs) {

@@ -610,18 +610,146 @@
 <div id="tabCloudSync" class="vp-tab-panel" style="display:none;">
   <div class="vp-glass-panel">
     <div class="vp-panel-header">
-      <h2 class="vp-panel-title"><i class="fa fa-cloud" style="color:#6366f1;"></i> Cloud Sync Credentials</h2>
+      <h2 class="vp-panel-title">
+        <i class="fab fa-google-drive" style="color:#34d399;"></i> Cloud Storage & Google Drive
+      </h2>
       <div id="cloudConfigStatus"></div>
     </div>
-    <div style="display:flex;gap:12px;margin-bottom:20px;">
-      <button onclick="setProvider('gcs')" id="providerGcs" class="vp-btn-primary" style="width:auto;padding:10px 20px;">
-        <i class="fab fa-google"></i> Google Cloud
+
+    <!-- Provider Selection Buttons -->
+    <div style="display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;">
+      <button onclick="setProvider('gdrive')" id="providerGdrive" class="vp-btn-primary" style="width:auto;padding:10px 22px;display:inline-flex;align-items:center;gap:8px;">
+        <i class="fab fa-google-drive"></i> Google Drive
       </button>
-      <button onclick="setProvider('s3')" id="providerS3" class="vp-btn-ghost" style="padding:10px 20px;">
+      <button onclick="setProvider('gcs')" id="providerGcs" class="vp-btn-ghost" style="padding:10px 20px;display:inline-flex;align-items:center;gap:8px;">
+        <i class="fab fa-google"></i> Google Cloud Storage
+      </button>
+      <button onclick="setProvider('s3')" id="providerS3" class="vp-btn-ghost" style="padding:10px 20px;display:inline-flex;align-items:center;gap:8px;">
         <i class="fab fa-aws"></i> Amazon S3
       </button>
     </div>
-    <div id="gcsFields">
+
+    <!-- ══════════════ GOOGLE DRIVE SECTION ══════════════ -->
+    <div id="gdriveFields">
+      <!-- Connection Status Card -->
+      <div id="gdriveStatusConnected" style="display:none;background:linear-gradient(135deg,rgba(16,185,129,0.15) 0%,rgba(5,150,105,0.08) 100%);border:1px solid rgba(16,185,129,0.3);border-radius:14px;padding:18px;margin-bottom:22px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(16,185,129,0.2);display:flex;align-items:center;justify-content:center;">
+              <i class="fab fa-google-drive" style="font-size:1.6rem;color:#34d399;"></i>
+            </div>
+            <div>
+              <div style="font-weight:700;color:#fff;font-size:1rem;display:flex;align-items:center;gap:8px;">
+                <span>Google Drive Connected</span>
+                <span style="background:rgba(16,185,129,0.25);color:#34d399;font-size:0.75rem;padding:2px 8px;border-radius:20px;border:1px solid rgba(16,185,129,0.4);">Active</span>
+              </div>
+              <div style="font-size:0.84rem;color:#cbd5e1;margin-top:2px;" id="gdriveAccountEmail">Connected Account</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;">
+            <button onclick="testConnection()" class="vp-btn-ghost" style="padding:8px 16px;font-size:0.84rem;border-color:rgba(16,185,129,0.4);color:#6ee7b7;">
+              <i class="fa fa-plug"></i> Test Access
+            </button>
+            <button onclick="disconnectGdrive()" class="vp-btn-danger" style="padding:8px 16px;font-size:0.84rem;">
+              <i class="fa fa-unlink"></i> Disconnect
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="gdriveStatusNotConnected" style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:14px;padding:18px;margin-bottom:22px;">
+        <div style="display:flex;align-items:center;gap:14px;">
+          <div style="width:44px;height:44px;border-radius:10px;background:rgba(99,102,241,0.2);display:flex;align-items:center;justify-content:center;">
+            <i class="fab fa-google-drive" style="font-size:1.6rem;color:#818cf8;"></i>
+          </div>
+          <div>
+            <div style="font-weight:700;color:#fff;font-size:1rem;">Google Drive Ready to Connect</div>
+            <div style="font-size:0.84rem;color:#94a3b8;margin-top:2px;">Backups will be transferred directly to your Google Drive on the defined schedule.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Auth Method Selector -->
+      <div style="margin-bottom:18px;">
+        <label style="color:#94a3b8;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:8px;">Connection Method</label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button onclick="setGdriveAuthMode('oauth')" id="authModeOauth" class="vp-btn-primary" style="width:auto;padding:8px 18px;font-size:.85rem;">
+            <i class="fa fa-key"></i> OAuth 2.0 (Personal & Workspace)
+          </button>
+          <button onclick="setGdriveAuthMode('service_account')" id="authModeSa" class="vp-btn-ghost" style="padding:8px 18px;font-size:.85rem;">
+            <i class="fa fa-file-code"></i> Service Account JSON
+          </button>
+        </div>
+      </div>
+
+      <!-- OAuth Mode Fields -->
+      <div id="gdriveOauthWrap">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+          <div>
+            <label style="color:#94a3b8;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;">Google OAuth Client ID</label>
+            <input type="text" id="gdriveClientId" placeholder="123456789-xxx.apps.googleusercontent.com" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#f1f5f9;font-size:.88rem;outline:none;font-family:monospace;">
+          </div>
+          <div>
+            <label style="color:#94a3b8;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;">Google OAuth Client Secret</label>
+            <input type="password" id="gdriveClientSecret" placeholder="••••••••••••••••" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#f1f5f9;font-size:.88rem;outline:none;font-family:monospace;">
+          </div>
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <button onclick="startGoogleOAuth()" class="vp-btn-primary" style="width:auto;padding:10px 24px;background:linear-gradient(135deg,#059669,#10b981);">
+              <i class="fab fa-google"></i> Connect / Authorize with Google Drive
+            </button>
+            <button onclick="toggleManualToken()" class="vp-btn-ghost" style="padding:10px 18px;font-size:.85rem;">
+              <i class="fa fa-sliders-h"></i> Enter Refresh Token Manually
+            </button>
+          </div>
+        </div>
+
+        <div id="manualTokenWrap" style="display:none;margin-bottom:16px;background:rgba(255,255,255,0.02);padding:14px;border-radius:10px;border:1px solid rgba(255,255,255,0.05);">
+          <label style="color:#94a3b8;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;">Google OAuth Refresh Token</label>
+          <input type="password" id="gdriveRefreshToken" placeholder="Paste 1//0xxxx refresh token..." style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#f1f5f9;font-size:.85rem;outline:none;font-family:monospace;">
+          <div style="font-size:0.78rem;color:#64748b;margin-top:4px;">Used automatically when connecting via 1-click button above, or paste an existing token.</div>
+        </div>
+
+        <!-- Setup Instructions Card -->
+        <details style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px 16px;margin-bottom:18px;">
+          <summary style="font-size:0.85rem;color:#818cf8;cursor:pointer;font-weight:600;"><i class="fa fa-info-circle"></i> How to get Google OAuth credentials in 2 minutes</summary>
+          <div style="font-size:0.82rem;color:#94a3b8;margin-top:10px;line-height:1.6;">
+            1. Open <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" style="color:#60a5fa;text-decoration:underline;">Google Cloud Console</a> and enable the <strong>Google Drive API</strong>.<br>
+            2. Go to <strong>Credentials</strong> &rarr; <strong>Create Credentials</strong> &rarr; <strong>OAuth client ID</strong> (Application type: <em>Web application</em>).<br>
+            3. In <strong>Authorized redirect URIs</strong>, add: <code style="background:rgba(0,0,0,0.3);color:#fbbf24;padding:2px 6px;border-radius:4px;user-select:all;" id="redirectUriBox">https://{{ request.get_host }}/control/gdrive/callback/</code><br>
+            4. Paste your Client ID and Client Secret above and click <strong>Authorize with Google Drive</strong>!
+          </div>
+        </details>
+      </div>
+
+      <!-- Service Account Mode Fields -->
+      <div id="gdriveSaWrap" style="display:none;">
+        <div style="margin-bottom:14px;">
+          <label style="color:#94a3b8;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;">Google Cloud Service Account JSON Key</label>
+          <textarea id="gdriveSaJson" rows="6" placeholder='Paste full service account JSON key content here...' style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#f1f5f9;font-size:.78rem;font-family:monospace;outline:none;resize:vertical;"></textarea>
+          <div style="font-size:0.78rem;color:#64748b;margin-top:4px;">Tip: Create a folder in your Google Drive and share it with the service account email (with Editor permission).</div>
+        </div>
+      </div>
+
+      <!-- Common Google Drive Settings -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;">
+        <div>
+          <label style="color:#94a3b8;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;">Google Drive Folder Name</label>
+          <input type="text" id="gdriveFolderName" placeholder="VoidPanel Backups" value="VoidPanel Backups" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#f1f5f9;font-size:.9rem;outline:none;">
+          <div style="font-size:0.75rem;color:#64748b;margin-top:4px;">Auto-created in your Drive if not found</div>
+        </div>
+        <div>
+          <label style="color:#94a3b8;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;">Custom Folder ID (Optional)</label>
+          <input type="text" id="gdriveFolderId" placeholder="Leave empty for auto 'VoidPanel Backups'" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#f1f5f9;font-size:.9rem;outline:none;font-family:monospace;">
+          <div style="font-size:0.75rem;color:#64748b;margin-top:4px;">Target specific Drive folder ID (from Drive URL)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ GCS SECTION ══════════════ -->
+    <div id="gcsFields" style="display:none;">
       <div style="margin-bottom:14px;">
         <label style="color:#94a3b8;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;">GCS Bucket Name</label>
         <input type="text" id="gcsBucket" placeholder="my-backup-bucket" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#f1f5f9;font-size:.9rem;outline:none;">
@@ -631,6 +759,8 @@
         <textarea id="gcsKeyJson" rows="6" placeholder='Paste full service account JSON here...' style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#f1f5f9;font-size:.78rem;font-family:monospace;outline:none;resize:vertical;"></textarea>
       </div>
     </div>
+
+    <!-- ══════════════ S3 SECTION ══════════════ -->
     <div id="s3Fields" style="display:none;">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
         <div>
@@ -657,128 +787,282 @@
         </div>
       </div>
     </div>
-    <div style="display:flex;gap:10px;margin-top:8px;">
-      <button onclick="saveCloudConfig()" class="vp-btn-primary" style="width:auto;padding:10px 24px;"><i class="fa fa-save"></i> Save Credentials</button>
+
+    <!-- Actions -->
+    <div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap;">
+      <button onclick="saveCloudConfig()" class="vp-btn-primary" style="width:auto;padding:10px 24px;">
+        <i class="fa fa-save"></i> Save Credentials
+      </button>
+      <button onclick="testConnection()" class="vp-btn-ghost" style="padding:10px 20px;">
+        <i class="fa fa-plug"></i> Test Connection
+      </button>
     </div>
   </div>
 </div>
 
+<!-- AUTOMATION TAB PANEL -->
 <div id="tabAutomation" class="vp-tab-panel" style="display:none;">
   <div class="vp-glass-panel">
     <div class="vp-panel-header">
-      <h2 class="vp-panel-title"><i class="fa fa-clock" style="color:#f59e0b;"></i> Automation Settings</h2>
+      <h2 class="vp-panel-title"><i class="fa fa-clock" style="color:#f59e0b;"></i> Server Automated Backup Scheduler</h2>
+      <div id="autoStatusBadge"></div>
     </div>
     <div style="display:grid;gap:20px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:16px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid rgba(255,255,255,0.06);">
+      <!-- Toggle Auto-Backup -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:18px;background:rgba(255,255,255,0.03);border-radius:14px;border:1px solid rgba(255,255,255,0.06);">
         <div>
-          <div style="font-weight:600;color:#f1f5f9;margin-bottom:4px;">Enable Auto-Backup</div>
-          <div style="font-size:.82rem;color:#64748b;">Automatically create backups on a schedule</div>
+          <div style="font-weight:600;color:#f1f5f9;font-size:1rem;margin-bottom:4px;">Enable Automated Server Backup</div>
+          <div style="font-size:.82rem;color:#94a3b8;">The server will automatically generate a full website backup at the scheduled time.</div>
         </div>
-        <label style="position:relative;display:inline-block;width:52px;height:28px;cursor:pointer;">
+        <label style="position:relative;display:inline-block;width:54px;height:30px;cursor:pointer;">
           <input type="checkbox" id="autoEnabled" onchange="updateAutoSettings()" style="opacity:0;width:0;height:0;">
-          <span style="position:absolute;inset:0;background:#334155;border-radius:28px;transition:.3s;" id="autoSlider"></span>
+          <span style="position:absolute;inset:0;background:#334155;border-radius:30px;transition:.3s;" id="autoSlider"></span>
         </label>
       </div>
-      <div style="padding:16px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid rgba(255,255,255,0.06);">
-        <div style="font-weight:600;color:#f1f5f9;margin-bottom:12px;">Backup Schedule</div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <button onclick="setSchedule('daily')" id="schedDaily" class="vp-btn-primary" style="width:auto;padding:8px 18px;font-size:.85rem;">Daily 2AM</button>
-          <button onclick="setSchedule('weekly')" id="schedWeekly" class="vp-btn-ghost" style="padding:8px 18px;font-size:.85rem;">Weekly</button>
-          <button onclick="setSchedule('custom')" id="schedCustom" class="vp-btn-ghost" style="padding:8px 18px;font-size:.85rem;">Custom</button>
+
+      <!-- Schedule Preset & Time -->
+      <div style="padding:18px;background:rgba(255,255,255,0.03);border-radius:14px;border:1px solid rgba(255,255,255,0.06);">
+        <div style="font-weight:600;color:#f1f5f9;margin-bottom:14px;">Backup Frequency</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+          <button onclick="setSchedule('daily')" id="schedDaily" class="vp-btn-primary" style="width:auto;padding:8px 20px;font-size:.85rem;">Daily</button>
+          <button onclick="setSchedule('weekly')" id="schedWeekly" class="vp-btn-ghost" style="padding:8px 20px;font-size:.85rem;">Weekly</button>
+          <button onclick="setSchedule('custom')" id="schedCustom" class="vp-btn-ghost" style="padding:8px 20px;font-size:.85rem;">Custom Cron</button>
         </div>
+
+        <!-- Time Picker for Daily / Weekly -->
+        <div id="standardTimeWrap" style="display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center;background:rgba(255,255,255,0.02);padding:14px;border-radius:10px;">
+          <div id="weekdaySelectWrap" style="display:none;">
+            <label style="color:#94a3b8;font-size:0.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;">Day of Week</label>
+            <select id="autoWeekday" style="background:#1e293b;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 12px;color:#f1f5f9;font-size:.88rem;outline:none;">
+              <option value="0">Every Sunday</option>
+              <option value="1">Every Monday</option>
+              <option value="2">Every Tuesday</option>
+              <option value="3">Every Wednesday</option>
+              <option value="4">Every Thursday</option>
+              <option value="5">Every Friday</option>
+              <option value="6">Every Saturday</option>
+            </select>
+          </div>
+          <div>
+            <label style="color:#94a3b8;font-size:0.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;">Run Time (UTC)</label>
+            <select id="autoTime" style="background:#1e293b;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 14px;color:#f1f5f9;font-size:.88rem;outline:none;">
+              <option value="00:00">12:00 AM (00:00 UTC)</option>
+              <option value="01:00">01:00 AM (01:00 UTC)</option>
+              <option value="02:00" selected>02:00 AM (02:00 UTC) - Recommended</option>
+              <option value="03:00">03:00 AM (03:00 UTC)</option>
+              <option value="04:00">04:00 AM (04:00 UTC)</option>
+              <option value="05:00">05:00 AM (05:00 UTC)</option>
+              <option value="06:00">06:00 AM (06:00 UTC)</option>
+              <option value="12:00">12:00 PM (12:00 UTC)</option>
+              <option value="18:00">06:00 PM (18:00 UTC)</option>
+            </select>
+          </div>
+        </div>
+
         <div id="customCronWrap" style="margin-top:12px;display:none;">
+          <label style="color:#94a3b8;font-size:0.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:6px;">Cron Expression</label>
           <input type="text" id="customCron" placeholder="0 2 * * *" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 14px;color:#f1f5f9;font-size:.9rem;outline:none;font-family:monospace;width:260px;">
-          <div style="font-size:.75rem;color:#64748b;margin-top:4px;">Standard cron expression (UTC)</div>
+          <div style="font-size:.75rem;color:#64748b;margin-top:4px;">Standard cron expression in UTC (min hour day month weekday)</div>
         </div>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:16px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid rgba(255,255,255,0.06);">
+
+      <!-- Auto-Sync to Cloud -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:18px;background:rgba(255,255,255,0.03);border-radius:14px;border:1px solid rgba(255,255,255,0.06);">
         <div>
-          <div style="font-weight:600;color:#f1f5f9;margin-bottom:4px;">Auto-Sync to Cloud</div>
-          <div style="font-size:.82rem;color:#64748b;">Push every new backup to cloud immediately after creation</div>
+          <div style="font-weight:600;color:#f1f5f9;font-size:1rem;margin-bottom:4px;display:flex;align-items:center;gap:8px;">
+            <i class="fab fa-google-drive" style="color:#34d399;"></i> Direct Upload to Google Drive / Cloud
+          </div>
+          <div style="font-size:.82rem;color:#94a3b8;">Push every scheduled backup directly to your connected Google Drive upon completion.</div>
         </div>
-        <label style="position:relative;display:inline-block;width:52px;height:28px;cursor:pointer;">
-          <input type="checkbox" id="autoSync" onchange="updateAutoSettings()" style="opacity:0;width:0;height:0;">
-          <span style="position:absolute;inset:0;background:#334155;border-radius:28px;transition:.3s;" id="syncSlider"></span>
+        <label style="position:relative;display:inline-block;width:54px;height:30px;cursor:pointer;">
+          <input type="checkbox" id="autoSync" onchange="updateAutoSettings()" checked style="opacity:0;width:0;height:0;">
+          <span style="position:absolute;inset:0;background:#6366f1;border-radius:30px;transition:.3s;" id="syncSlider"></span>
         </label>
       </div>
-      <button onclick="saveAutoSettings()" class="vp-btn-primary" style="width:auto;padding:10px 24px;"><i class="fa fa-save"></i> Save Automation</button>
+
+      <!-- Keep Local Copy Toggle -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:18px;background:rgba(255,255,255,0.03);border-radius:14px;border:1px solid rgba(255,255,255,0.06);">
+        <div>
+          <div style="font-weight:600;color:#f1f5f9;font-size:1rem;margin-bottom:4px;">Keep Local Copy on Server</div>
+          <div style="font-size:.82rem;color:#94a3b8;">Retain a copy on local disk after Google Drive upload. Turn off to save server hosting quota.</div>
+        </div>
+        <label style="position:relative;display:inline-block;width:54px;height:30px;cursor:pointer;">
+          <input type="checkbox" id="keepLocalCopy" onchange="updateAutoSettings()" checked style="opacity:0;width:0;height:0;">
+          <span style="position:absolute;inset:0;background:#6366f1;border-radius:30px;transition:.3s;" id="keepLocalSlider"></span>
+        </label>
+      </div>
+
+      <!-- Last Backup Status Info -->
+      <div id="lastBackupStatusWrap" style="padding:14px 18px;background:rgba(255,255,255,0.02);border-radius:12px;border:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div style="font-size:0.85rem;color:#94a3b8;">
+          <i class="fa fa-history" style="margin-right:6px;color:#818cf8;"></i>
+          <strong>Last Automated Run:</strong> <span id="lastBackupTime" style="color:#cbd5e1;">Never executed yet</span>
+        </div>
+        <div id="lastBackupMsg" style="font-size:0.8rem;color:#10b981;font-weight:500;"></div>
+      </div>
+
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <button onclick="saveAutoSettings()" class="vp-btn-primary" style="width:auto;padding:10px 24px;">
+          <i class="fa fa-save"></i> Save Automation Schedule
+        </button>
+      </div>
     </div>
   </div>
 </div>
 
 <script>
 var DOMAIN_CLOUD = '{{domain}}';
-var activeProvider = 'gcs';
+var activeProvider = 'gdrive';
+var activeGdriveAuthMode = 'oauth';
 var activeSchedule = 'daily';
 const CSRF = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-// Tabs
+// Tab switcher
 function showTab(tab) {
   document.querySelectorAll('.vp-tab-panel').forEach(p => p.style.display='none');
   document.querySelectorAll('.vp-tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab'+tab).style.display='block';
-  document.getElementById('tabBtn'+tab).classList.add('active');
+  const target = document.getElementById('tab' + tab);
+  const btn = document.getElementById('tabBtn' + tab);
+  if (target) target.style.display = 'block';
+  if (btn) btn.classList.add('active');
 }
 
 // Provider toggle
 function setProvider(p) {
   activeProvider = p;
-  document.getElementById('gcsFields').style.display = p==='gcs'?'block':'none';
-  document.getElementById('s3Fields').style.display  = p==='s3'?'block':'none';
-  document.getElementById('providerGcs').className = p==='gcs'?'vp-btn-primary':'vp-btn-ghost';
-  document.getElementById('providerS3').className  = p==='s3'?'vp-btn-primary':'vp-btn-ghost';
-  document.getElementById('providerGcs').style = p==='gcs'?'width:auto;padding:10px 20px;':'padding:10px 20px;';
-  document.getElementById('providerS3').style  = p==='s3'?'width:auto;padding:10px 20px;':'padding:10px 20px;';
+  document.getElementById('gdriveFields').style.display = p === 'gdrive' ? 'block' : 'none';
+  document.getElementById('gcsFields').style.display    = p === 'gcs' ? 'block' : 'none';
+  document.getElementById('s3Fields').style.display     = p === 's3' ? 'block' : 'none';
+
+  ['Gdrive', 'Gcs', 'S3'].forEach(name => {
+    const el = document.getElementById('provider' + name);
+    if (el) {
+      const match = (name.toLowerCase() === p);
+      el.className = match ? 'vp-btn-primary' : 'vp-btn-ghost';
+      el.style = match ? 'width:auto;padding:10px 22px;display:inline-flex;align-items:center;gap:8px;' : 'padding:10px 20px;display:inline-flex;align-items:center;gap:8px;';
+    }
+  });
+}
+
+// Google Drive Auth Mode toggle
+function setGdriveAuthMode(mode) {
+  activeGdriveAuthMode = mode;
+  document.getElementById('gdriveOauthWrap').style.display = mode === 'oauth' ? 'block' : 'none';
+  document.getElementById('gdriveSaWrap').style.display    = mode === 'service_account' ? 'block' : 'none';
+  document.getElementById('authModeOauth').className = mode === 'oauth' ? 'vp-btn-primary' : 'vp-btn-ghost';
+  document.getElementById('authModeSa').className    = mode === 'service_account' ? 'vp-btn-primary' : 'vp-btn-ghost';
+}
+
+function toggleManualToken() {
+  const el = document.getElementById('manualTokenWrap');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 
 // Schedule toggle
 function setSchedule(s) {
   activeSchedule = s;
-  ['daily','weekly','custom'].forEach(x => {
-    document.getElementById('sched'+x.charAt(0).toUpperCase()+x.slice(1)).className = x===s?'vp-btn-primary':'vp-btn-ghost';
-    if(x===s && x!='daily') document.getElementById('sched'+x.charAt(0).toUpperCase()+x.slice(1)).style='width:auto;padding:8px 18px;font-size:.85rem;';
-    else document.getElementById('sched'+x.charAt(0).toUpperCase()+x.slice(1)).style='padding:8px 18px;font-size:.85rem;';
+  ['daily', 'weekly', 'custom'].forEach(x => {
+    const btn = document.getElementById('sched' + x.charAt(0).toUpperCase() + x.slice(1));
+    if (btn) {
+      btn.className = x === s ? 'vp-btn-primary' : 'vp-btn-ghost';
+      btn.style = x === s ? 'width:auto;padding:8px 20px;font-size:.85rem;' : 'padding:8px 20px;font-size:.85rem;';
+    }
   });
-  document.getElementById('customCronWrap').style.display = s==='custom'?'block':'none';
+  document.getElementById('standardTimeWrap').style.display = s === 'custom' ? 'none' : 'grid';
+  document.getElementById('weekdaySelectWrap').style.display = s === 'weekly' ? 'block' : 'none';
+  document.getElementById('customCronWrap').style.display   = s === 'custom' ? 'block' : 'none';
 }
 
 // Toggle slider style
 function styleToggle(inputId, sliderId, checked) {
-  document.getElementById(sliderId).style.background = checked ? '#6366f1' : '#334155';
+  const slider = document.getElementById(sliderId);
+  if (slider) slider.style.background = checked ? '#6366f1' : '#334155';
 }
 
-document.getElementById('autoEnabled').addEventListener('change', function() { styleToggle('autoEnabled','autoSlider',this.checked); });
-document.getElementById('autoSync').addEventListener('change', function() { styleToggle('autoSync','syncSlider',this.checked); });
+document.getElementById('autoEnabled').addEventListener('change', function() { styleToggle('autoEnabled', 'autoSlider', this.checked); });
+document.getElementById('autoSync').addEventListener('change', function() { styleToggle('autoSync', 'syncSlider', this.checked); });
+document.getElementById('keepLocalCopy').addEventListener('change', function() { styleToggle('keepLocalCopy', 'keepLocalSlider', this.checked); });
 
 // Load existing config
 async function loadCloudConfig() {
   try {
-    const r = await fetch('/control/cloud-backup-config/'+DOMAIN_CLOUD+'/');
+    const r = await fetch('/control/cloud-backup-config/' + DOMAIN_CLOUD + '/');
     const d = await r.json();
-    if(d.status==='success') {
-      setProvider(d.provider||'gcs');
-      document.getElementById('gcsBucket').value   = d.gcs_bucket||'';
-      document.getElementById('gcsKeyJson').value  = d.gcs_key_json||'';
-      document.getElementById('s3Bucket').value    = d.s3_bucket||'';
-      document.getElementById('s3AccessKey').value = d.s3_access_key||'';
-      document.getElementById('s3SecretKey').value = d.s3_secret_key||'';
-      if(d.s3_region) document.getElementById('s3Region').value = d.s3_region;
-      document.getElementById('autoEnabled').checked = d.auto_backup_enabled;
-      document.getElementById('autoSync').checked    = d.sync_after_backup;
-      styleToggle('autoEnabled','autoSlider', d.auto_backup_enabled);
-      styleToggle('autoSync','syncSlider', d.sync_after_backup);
-      if(d.auto_schedule_preset) setSchedule(d.auto_schedule_preset);
-      if(d.auto_schedule_cron) document.getElementById('customCron').value = d.auto_schedule_cron;
-      if(d.is_configured) document.getElementById('cloudConfigStatus').innerHTML = '<span style="color:#10b981;font-size:.8rem;font-weight:600;"><i class="fa fa-check-circle"></i> Configured</span>';
+    if (d.status === 'success') {
+      setProvider(d.provider || 'gdrive');
+      if (d.gdrive_auth_mode) setGdriveAuthMode(d.gdrive_auth_mode);
+
+      // Google Drive
+      document.getElementById('gdriveClientId').value     = d.gdrive_client_id || '';
+      document.getElementById('gdriveClientSecret').value = d.gdrive_client_secret || '';
+      document.getElementById('gdriveRefreshToken').value = d.gdrive_refresh_token || '';
+      document.getElementById('gdriveSaJson').value       = d.gdrive_service_account_json || '';
+      document.getElementById('gdriveFolderId').value     = d.gdrive_folder_id || '';
+      document.getElementById('gdriveFolderName').value   = d.gdrive_folder_name || 'VoidPanel Backups';
+
+      // Status card
+      if (d.provider === 'gdrive' && d.is_configured) {
+        document.getElementById('gdriveStatusConnected').style.display = 'block';
+        document.getElementById('gdriveStatusNotConnected').style.display = 'none';
+        const email = d.gdrive_user_email || 'Authorized Google Account';
+        document.getElementById('gdriveAccountEmail').innerHTML = '<i class="fa fa-envelope" style="margin-right:6px;"></i> ' + email;
+      } else {
+        document.getElementById('gdriveStatusConnected').style.display = 'none';
+        document.getElementById('gdriveStatusNotConnected').style.display = 'block';
+      }
+
+      // GCS & S3
+      document.getElementById('gcsBucket').value   = d.gcs_bucket || '';
+      document.getElementById('gcsKeyJson').value  = d.gcs_key_json || '';
+      document.getElementById('s3Bucket').value    = d.s3_bucket || '';
+      document.getElementById('s3AccessKey').value = d.s3_access_key || '';
+      document.getElementById('s3SecretKey').value = d.s3_secret_key || '';
+      if (d.s3_region) document.getElementById('s3Region').value = d.s3_region;
+
+      // Automation
+      document.getElementById('autoEnabled').checked = Boolean(d.auto_backup_enabled);
+      document.getElementById('autoSync').checked    = Boolean(d.sync_after_backup);
+      document.getElementById('keepLocalCopy').checked = Boolean(d.keep_local_copy);
+      styleToggle('autoEnabled', 'autoSlider', d.auto_backup_enabled);
+      styleToggle('autoSync', 'syncSlider', d.sync_after_backup);
+      styleToggle('keepLocalCopy', 'keepLocalSlider', d.keep_local_copy);
+
+      if (d.auto_schedule_preset) setSchedule(d.auto_schedule_preset);
+      if (d.auto_schedule_time) document.getElementById('autoTime').value = d.auto_schedule_time;
+      if (d.auto_schedule_weekday !== undefined) document.getElementById('autoWeekday').value = d.auto_schedule_weekday;
+      if (d.auto_schedule_cron) document.getElementById('customCron').value = d.auto_schedule_cron;
+
+      if (d.last_backup_at) {
+        document.getElementById('lastBackupTime').textContent = d.last_backup_at;
+        document.getElementById('lastBackupMsg').textContent = d.last_backup_status || '';
+      }
+
+      const statusEl = document.getElementById('cloudConfigStatus');
+      if (statusEl) {
+        if (d.is_configured) {
+          statusEl.innerHTML = '<span style="color:#10b981;font-size:.84rem;font-weight:600;"><i class="fa fa-check-circle"></i> Configured</span>';
+        } else {
+          statusEl.innerHTML = '<span style="color:#f59e0b;font-size:.84rem;font-weight:600;"><i class="fa fa-exclamation-circle"></i> Setup Needed</span>';
+        }
+      }
     }
-  } catch(e){}
+  } catch (e) {
+    console.error("Failed to load cloud config:", e);
+  }
 }
 loadCloudConfig();
 
-// Save credentials
+// Save cloud credentials
 async function saveCloudConfig() {
   const body = {
     provider: activeProvider,
+    gdrive_auth_mode: activeGdriveAuthMode,
+    gdrive_client_id: document.getElementById('gdriveClientId').value,
+    gdrive_client_secret: document.getElementById('gdriveClientSecret').value,
+    gdrive_refresh_token: document.getElementById('gdriveRefreshToken').value,
+    gdrive_service_account_json: document.getElementById('gdriveSaJson').value,
+    gdrive_folder_id: document.getElementById('gdriveFolderId').value,
+    gdrive_folder_name: document.getElementById('gdriveFolderName').value,
     gcs_bucket: document.getElementById('gcsBucket').value,
     gcs_key_json: document.getElementById('gcsKeyJson').value,
     s3_bucket: document.getElementById('s3Bucket').value,
@@ -786,37 +1070,124 @@ async function saveCloudConfig() {
     s3_secret_key: document.getElementById('s3SecretKey').value,
     s3_region: document.getElementById('s3Region').value,
   };
-  const r = await fetch('/control/cloud-backup-config/'+DOMAIN_CLOUD+'/', {
-    method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF}, body:JSON.stringify(body)
-  });
-  const d = await r.json();
-  showToast(d.message, d.status==='success'?'success':'error');
+
+  try {
+    const r = await fetch('/control/cloud-backup-config/' + DOMAIN_CLOUD + '/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    showToast(d.message, d.status === 'success' ? 'success' : 'error');
+    if (d.status === 'success') loadCloudConfig();
+  } catch (e) {
+    showToast('Failed to save cloud credentials.', 'error');
+  }
 }
 
-// Save automation
+// Start Google OAuth flow
+async function startGoogleOAuth() {
+  // First save any entered Client ID & Secret
+  await saveCloudConfig();
+  const clientId = document.getElementById('gdriveClientId').value.trim();
+  if (!clientId) {
+    showToast('Please enter your Google OAuth Client ID first.', 'error');
+    document.getElementById('gdriveClientId').focus();
+    return;
+  }
+  window.location.href = '/control/gdrive/oauth/' + DOMAIN_CLOUD + '/';
+}
+
+// Test Connection
+async function testConnection() {
+  showToast('Testing connection to ' + activeProvider.toUpperCase() + '...', 'info');
+  try {
+    const r = await fetch('/control/cloud-backup-test/' + DOMAIN_CLOUD + '/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF }
+    });
+    const d = await r.json();
+    if (d.status === 'success') {
+      showToast('✅ ' + (d.message || 'Connected successfully!'), 'success');
+      loadCloudConfig();
+    } else {
+      showToast('❌ ' + (d.message || 'Connection test failed.'), 'error');
+    }
+  } catch (e) {
+    showToast('Connection test failed. Check network or credentials.', 'error');
+  }
+}
+
+// Disconnect Google Drive
+async function disconnectGdrive() {
+  if (!confirm('Are you sure you want to disconnect Google Drive?')) return;
+  document.getElementById('gdriveRefreshToken').value = '';
+  document.getElementById('gdriveSaJson').value = '';
+  await saveCloudConfig();
+  showToast('Google Drive disconnected.', 'info');
+  loadCloudConfig();
+}
+
+// Save automation schedule
 async function saveAutoSettings() {
   const body = {
     auto_backup_enabled: document.getElementById('autoEnabled').checked,
     auto_schedule_preset: activeSchedule,
+    auto_schedule_time: document.getElementById('autoTime').value,
+    auto_schedule_weekday: document.getElementById('autoWeekday').value,
     auto_schedule_cron: document.getElementById('customCron').value,
     sync_after_backup: document.getElementById('autoSync').checked,
+    keep_local_copy: document.getElementById('keepLocalCopy').checked,
   };
-  const r = await fetch('/control/cloud-backup-auto/'+DOMAIN_CLOUD+'/', {
-    method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF}, body:JSON.stringify(body)
-  });
-  const d = await r.json();
-  showToast(d.message, d.status==='success'?'success':'error');
+
+  try {
+    const r = await fetch('/control/cloud-backup-auto/' + DOMAIN_CLOUD + '/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    showToast(d.message, d.status === 'success' ? 'success' : 'error');
+  } catch (e) {
+    showToast('Failed to save automation settings.', 'error');
+  }
 }
 
-// Sync a specific file to cloud
+// Sync a specific backup file to cloud
 async function syncToCloud(filename) {
-  showToast('Uploading '+filename+' to cloud...', 'info');
-  const r = await fetch('/control/cloud-backup-sync/'+DOMAIN_CLOUD+'/'+filename+'/', {
-    method:'POST', headers:{'X-CSRFToken':CSRF}
-  });
-  const d = await r.json();
-  showToast(d.message, d.status==='success'?'success':'error');
+  showToast('Syncing ' + filename + ' to Google Drive / Cloud...', 'info');
+  try {
+    const r = await fetch('/control/cloud-backup-sync/' + DOMAIN_CLOUD + '/' + filename + '/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF }
+    });
+    const d = await r.json();
+    if (d.status === 'success') {
+      let msg = d.message;
+      if (d.web_link) {
+        msg += ` <a href="${d.web_link}" target="_blank" style="color:#60a5fa;text-decoration:underline;margin-left:6px;"><i class="fab fa-google-drive"></i> Open in Drive</a>`;
+      }
+      showToast(msg, 'success');
+    } else {
+      showToast(d.message || 'Sync failed.', 'error');
+    }
+  } catch (e) {
+    showToast('Sync failed: Network error', 'error');
+  }
 }
+
+// Auto open tab if specified in URL query
+(function checkUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get('tab');
+  if (tab === 'CloudSync' || tab === 'Automation') {
+    showTab(tab);
+  }
+  if (params.get('connected') === '1') {
+    showTab('CloudSync');
+    showToast('🎉 Google Drive connected successfully!', 'success');
+  }
+})();
 </script>
 
             </div><!-- /container-fluid -->

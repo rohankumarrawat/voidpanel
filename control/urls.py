@@ -20,6 +20,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from . import views
 from django.contrib.auth.decorators import login_required
+from panel.views import upload_file as panel_upload_file
 
 
 urlpatterns = [
@@ -43,6 +44,7 @@ urlpatterns = [
      path('delete_backup/', views.delete_backup, name='delete_backup'),
      path('download_backup/<str:filename>/', views.download_backup, name='download_backup'),
      path('filemanager/', views.filemanager, name='filemanager'),
+     path('upload/', panel_upload_file, name='control_upload_file'),
      path('upload/<path:file_path>/', views.upload_files),
      path('dbconnect/<str:data>/', views.dbconnect, name='dbconnect'),
      path('fulldbwizard/<str:data>/', views.fulldbwizard, name='fulldbwizard'),
@@ -73,10 +75,13 @@ urlpatterns = [
     path('runsslfordomain1/', views.runsslfordoamin1, name='runsslfordoamin1'),
 
 
-    # Cloud Backup Sync
+    # Cloud Backup Sync & Google Drive
     path('cloud-backup-config/<str:data>/', views.cloud_backup_config, name='cloud_backup_config'),
     path('cloud-backup-sync/<str:data>/<str:filename>/', views.cloud_backup_sync, name='cloud_backup_sync'),
     path('cloud-backup-auto/<str:data>/', views.cloud_backup_auto, name='cloud_backup_auto'),
+    path('cloud-backup-test/<str:data>/', views.cloud_backup_test, name='cloud_backup_test'),
+    path('gdrive/oauth/<str:data>/', views.gdrive_oauth_start, name='gdrive_oauth_start'),
+    path('gdrive/callback/', views.gdrive_oauth_callback, name='gdrive_oauth_callback'),
 
     # One-Click App Installer
     path('app-installer/install/', views.app_installer_install, name='app_installer_install'),
@@ -105,6 +110,7 @@ urlpatterns = [
     path('social/<str:domain>/export/',                       views.social_export_csv,     name='social_export_csv'),
     path('social/<str:domain>/sync-stats/<int:account_id>/', views.social_sync_stats,     name='social_sync_stats'),
     path('social/<str:domain>/sync-all/',                    views.social_sync_all,       name='social_sync_all'),
+    path('social/<str:domain>/analyze-best-times/',          views.social_analyze_best_times, name='social_analyze_best_times'),
     path('social/<str:domain>/posts/import/',                views.social_import_posts,   name='social_import_posts'),
     path('social/<str:domain>/post/<int:post_id>/duplicate/',views.social_post_duplicate, name='social_post_duplicate'),
     path('social/<str:domain>/post/<int:post_id>/edit/',     views.social_post_edit,      name='social_post_edit'),
@@ -122,7 +128,10 @@ urlpatterns = [
     path('marketing/<str:domain>/campaign/<int:campaign_id>/', views.marketing_campaign_detail, name='marketing_campaign_detail'),
     path('marketing/<str:domain>/campaign/<int:campaign_id>/delete/', views.marketing_campaign_delete, name='marketing_campaign_delete'),
     path('marketing/<str:domain>/campaign/<int:campaign_id>/toggle-status/', views.marketing_campaign_status_toggle, name='marketing_campaign_status_toggle'),
+    path('marketing/<str:domain>/campaign/<int:campaign_id>/action/', views.marketing_campaign_action, name='marketing_campaign_action'),
+    path('marketing/<str:domain>/campaign/<int:campaign_id>/progress/', views.marketing_campaign_progress, name='marketing_campaign_progress'),
     path('marketing/<str:domain>/track/<int:recipient_id>/open.png', views.marketing_email_track_open, name='marketing_email_track_open'),
+    path('marketing/track/<int:recipient_id>/open.png', views.marketing_email_track_open, name='marketing_email_track_open_universal'),
     path('marketing/<str:domain>/sms/gateway/save/', views.marketing_sms_gateway_save, name='marketing_sms_gateway_save'),
     path('marketing/<str:domain>/sms/gateway/test/', views.marketing_sms_gateway_test, name='marketing_sms_gateway_test'),
     path('marketing/<str:domain>/settings/whatsapp/save/', views.marketing_whatsapp_config_save, name='marketing_whatsapp_config_save'),
@@ -148,6 +157,7 @@ urlpatterns = [
     path('marketing/<str:domain>/wa/messages/<str:phone>/', views.wa_messages_load, name='wa_messages_load'),
     path('marketing/<str:domain>/wa/message/save/', views.wa_message_save, name='wa_message_save'),
     path('marketing/<str:domain>/wa/message/mark-read/', views.wa_message_mark_read, name='wa_message_mark_read'),
+    path('marketing/<str:domain>/wa/mark-all-read/', views.wa_mark_all_read, name='wa_mark_all_read'),
     path('marketing/<str:domain>/wa/stats/', views.wa_dashboard_stats, name='wa_dashboard_stats'),
     path('marketing/<str:domain>/wa/campaigns/', views.wa_campaigns_list, name='wa_campaigns_list'),
     path('marketing/<str:domain>/wa/campaign/create/', views.wa_campaign_create, name='wa_campaign_create'),
@@ -195,12 +205,15 @@ urlpatterns = [
 
 
     # ── Reseller Hosting Management ────────────────────────────────────────────
+    path('listresellers/',                             views.listresellers_redirect,   name='ctrl_listresellers'),
+    path('resellers/',                                 views.listresellers_redirect,   name='ctrl_resellers'),
     path('reseller/',                                  views.reseller_dashboard,       name='reseller_dashboard'),
     path('reseller/accounts/',                         views.reseller_list_accounts,   name='reseller_list_accounts'),
     path('reseller/create-account/',                   views.reseller_create_account,  name='reseller_create_account'),
     path('reseller/delete-account/<str:acc_username>/',views.reseller_delete_account,  name='reseller_delete_account'),
     path('reseller/suspend-account/<str:acc_username>/',views.reseller_suspend_account, name='reseller_suspend_account'),
     path('reseller/unsuspend-account/<str:acc_username>/',views.reseller_unsuspend_account, name='reseller_unsuspend_account'),
+    path('reseller/change-password/<str:acc_username>/',views.reseller_change_password, name='reseller_change_password'),
     path('reseller/package/save/',                     views.reseller_package_save,    name='reseller_package_save'),
     path('reseller/package/delete/<int:pkg_id>/',      views.reseller_package_delete,  name='reseller_package_delete'),
     path('api/reseller/provision/',                    views.reseller_api_provision,   name='reseller_api_provision'),
@@ -258,7 +271,16 @@ urlpatterns = [
     path('api/suite/create-account/',              views.suite_api_create,        name='suite_api_create'),
     path('api/suite/sso-token/',                   views.suite_api_sso_token,     name='suite_api_sso_token'),
     path('api/suite/plans/',                       views.suite_api_plans,         name='suite_api_plans'),
-    path('api/suite/toggle-status/',               views.suite_api_toggle_status, name='suite_api_toggle_status'),
+    # ── AI Site Generator (Prompt-to-Live Website) ──────────────────────────────
+    path('settings/gemini-keys/',                  views.gemini_keys_admin,       name='gemini_keys_admin'),
+    path('ai-builder/<str:domain>/',               views.ai_site_builder_view,    name='ai_site_builder'),
+    path('<str:domain>/ai-builder/',               views.ai_site_builder_view,    name='ai_site_builder_alt'),
+    path('api/ai-builder/generate/',               views.api_ai_site_generate,    name='api_ai_site_generate'),
+    path('api/ai-builder/iterate/',                views.api_ai_site_iterate,     name='api_ai_site_iterate'),
+    path('api/ai-builder/rollback/',               views.api_ai_site_rollback,    name='api_ai_site_rollback'),
+    path('api/ai-builder/publish/',                views.api_ai_site_publish,     name='api_ai_site_publish'),
+    path('api/ai-builder/save-code/',              views.api_ai_site_save_code,   name='api_ai_site_save_code'),
+    path('api/site/lead-submit/',                  views.api_site_lead_capture,   name='api_site_lead_capture'),
 ]
 
 

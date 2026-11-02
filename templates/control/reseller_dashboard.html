@@ -69,14 +69,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 </style></head>
 <body class="font-nunito active-dark-mode">
 <div id="wrapper" class="theme-cyan">
+  {% if is_superadmin_viewing %}
+  <div style="background:linear-gradient(90deg, #7c3aed, #4f46e5); color:#fff; padding:12px 24px; font-size:.88rem; display:flex; align-items:center; justify-content:space-between; z-index:999999; position:relative; box-shadow:0 4px 12px rgba(0,0,0,0.3);">
+      <div style="display:flex;align-items:center;gap:10px;">
+          <i class="fa fa-shield" style="font-size:1.1rem;color:#facc15;"></i>
+          <span>Super Admin Mode: Viewing Reseller Dashboard for <strong>{{ rp.auth_user.username }}</strong> {% if rp.company_name %}({{ rp.company_name }}){% endif %}</span>
+      </div>
+      <a href="/listresellers/" style="color:#fff; text-decoration:none; background:rgba(255,255,255,0.2); padding:6px 14px; border-radius:8px; font-weight:700; font-size:.82rem; transition:background .2s;">
+          <i class="fa fa-arrow-left" style="margin-right:6px;"></i> Return to Manage Resellers
+      </a>
+  </div>
+  {% endif %}
   {% include 'control/navbar.html' %}
   <!-- Reseller-only sidebar: only Packages, Users, Dashboard -->
   <aside id="vp-sidebar">
     <div id="vp-sidebar-inner">
       <div class="vp-sidebar-user">
-        <div class="vp-sidebar-user-avatar" style="background:linear-gradient(135deg,#a855f7,#6366f1);">{{ request.user|stringformat:"s"|first|upper }}</div>
+        <div class="vp-sidebar-user-avatar" style="background:linear-gradient(135deg,#a855f7,#6366f1);">{{ rp.auth_user.username|default:request.user|stringformat:"s"|first|upper }}</div>
         <div class="vp-sidebar-user-info">
-          <div class="vp-sidebar-username">{{ request.user }}</div>
+          <div class="vp-sidebar-username">{{ rp.auth_user.username|default:request.user }}</div>
           <div style="font-size:.7rem;color:#a855f7;font-weight:700;margin-top:2px;">🏪 RESELLER</div>
         </div>
       </div>
@@ -160,12 +171,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 <div class="card" id="clientAccounts">
   <div class="card-head">
     <i class="fa-solid fa-users"></i> Client Accounts
-    <span style="margin-left:auto;font-weight:400;font-size:.75rem;color:#64748b;">{{ accounts_used }} of {{ rp.max_accounts }} slots</span>
+    <span style="margin-left:auto;font-weight:400;font-size:.75rem;color:#64748b;" id="dashAccountsCountBadge">{{ accounts_used }} of {{ rp.max_accounts }} slots</span>
   </div>
   {% if sub_accounts %}
+  <div class="search-container">
+    <div class="search-box">
+      <i class="fa-solid fa-magnifying-glass search-icon"></i>
+      <input type="text" id="dashSearchInput" placeholder="Search accounts by domain, username, or email..." oninput="onDashSearchInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();filterDashRows();}">
+      <button type="button" class="btn-clear" id="btnDashClear" onclick="clearDashSearch()" style="display:none;" title="Clear search"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <button type="button" class="btn-search" id="btnDashSearch" onclick="filterDashRows()"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+    <span class="count-badge" id="dashFilterCountBadge" style="display:none;"></span>
+  </div>
   <div class="tbl-head"><div>Domain</div><div>Username</div><div>Status</div><div style="text-align:right;">Actions</div></div>
   {% for acc in sub_accounts %}
-  <div class="tbl-row">
+  <div class="tbl-row" data-search="{{ acc.domain }} {{ acc.username }} {{ acc.email }}">
     <div style="display:flex;align-items:center;gap:10px;">
       <div class="tbl-icon"><i class="fa-solid fa-globe"></i></div>
       <div><div style="font-weight:700;color:#fff;font-size:.84rem;">{{ acc.domain }}</div><div style="font-size:.7rem;color:#475569;">{{ acc.email }}</div></div>
@@ -173,7 +193,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
     <div style="font-size:.82rem;color:#94a3b8;font-family:monospace;">{{ acc.username }}</div>
     <div>{% if acc.status %}<span class="st-badge st-active"><i class="fa-solid fa-circle" style="font-size:.35rem;vertical-align:middle;margin-right:3px;"></i>Active</span>{% else %}<span class="st-badge st-suspended"><i class="fa-solid fa-circle" style="font-size:.35rem;vertical-align:middle;margin-right:3px;"></i>Suspended</span>{% endif %}</div>
     <div style="display:flex;gap:5px;justify-content:flex-end;flex-wrap:wrap;">
-      <a href="/loginuser/?user={{ acc.username }}" class="act-btn act-login" title="Login as {{ acc.username }}"><i class="fa-solid fa-right-to-bracket"></i></a>
+      <a href="/loginuser/?user={{ acc.username }}" target="_blank" rel="noopener noreferrer" class="act-btn act-login" title="Login as {{ acc.username }} in new tab"><i class="fa-solid fa-right-to-bracket"></i></a>
+      <button class="act-btn act-key" title="Change Password" onclick="openChangePassModal('{{ acc.username }}', '{{ acc.domain }}')"><i class="fa-solid fa-key"></i></button>
       {% if acc.status %}<button class="act-btn act-warn" title="Suspend" onclick="suspendAccount('{{ acc.username }}')"><i class="fa-solid fa-pause"></i></button>{% else %}<button class="act-btn act-ok" title="Unsuspend" onclick="unsuspendAccount('{{ acc.username }}')"><i class="fa-solid fa-play"></i></button>{% endif %}
       <button class="act-btn act-danger" title="Terminate" onclick="terminateAccount('{{ acc.username }}','{{ acc.domain }}')"><i class="fa-solid fa-trash"></i></button>
     </div>
@@ -239,10 +260,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
   <div class="form-group"><label class="form-label">Client Domain</label><input id="accDomain" class="inp" placeholder="clientsite.com"></div>
   <div class="form-group"><label class="form-label">Client Email</label><input id="accEmail" class="inp" type="email" placeholder="client@example.com"></div>
   <div class="form-group"><label class="form-label">Hosting Package</label><div class="select-wrap"><select id="accPkg" class="inp sel"><option value="">— Select a Package —</option>{% for pkg in packages %}<option value="{{ pkg.id }}">{{ pkg.name }} — {{ pkg.storage_gb }}GB / {{ pkg.email_accounts }} emails</option>{% endfor %}</select><i class="fa-solid fa-chevron-down sel-arrow"></i></div></div>
-  <div class="form-group"><label class="form-label">Storage Quota (GB)</label><input id="accQuota" class="inp" type="number" value="5" min="1" max="{{ rp.storage_quota_gb }}"></div>
   <div id="accMsg" class="msg-box" style="display:none;"></div>
   <div id="accResult" class="result-box" style="display:none;"></div>
   <div style="display:flex;gap:10px;"><button class="btn-p" id="btnCreateAcc" onclick="createAccount()"><i class="fa-solid fa-check"></i> Create Account</button><button class="btn-g" onclick="closeModal('createAccModal')">Cancel</button></div>
+</div></div>
+
+<!-- CHANGE PASSWORD MODAL -->
+<div id="changePassModal" class="modal-overlay"><div class="modal-box">
+  <div class="modal-title"><i class="fa-solid fa-key" style="color:var(--pk);"></i> Change Password</div>
+  <div style="font-size:.82rem;color:#94a3b8;margin-bottom:14px;">Update password for client account: <strong id="cpUsername" style="color:#fff;"></strong> (<span id="cpDomain" style="color:#64748b;"></span>)</div>
+  <input type="hidden" id="cpUserVal">
+  <div class="form-group">
+    <label class="form-label">New Password</label>
+    <div style="display:flex;gap:8px;">
+      <input id="cpPassword" class="inp" type="text" placeholder="Enter new password (min 8 chars)" style="flex:1;">
+      <button type="button" class="btn-g" onclick="generateCPPass()" title="Generate random password" style="white-space:nowrap;"><i class="fa-solid fa-dice"></i> Generate</button>
+    </div>
+  </div>
+  <div id="cpMsg" class="msg-box" style="display:none;"></div>
+  <div style="display:flex;gap:10px;margin-top:16px;">
+    <button class="btn-p" id="btnChangePass" onclick="submitChangePass()"><i class="fa-solid fa-check"></i> Update Password</button>
+    <button class="btn-g" onclick="closeModal('changePassModal')">Cancel</button>
+  </div>
 </div></div>
 
 <div id="createPkgModal" class="modal-overlay"><div class="modal-box">
@@ -261,11 +300,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 </div></div>
 
 <style>
+.search-container{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;}
+.search-box{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:6px 14px;flex:1;min-width:240px;transition:all .2s;}
+.search-box:focus-within{border-color:var(--pk);box-shadow:0 0 0 3px rgba(167,139,250,.15);background:rgba(255,255,255,.06);}
+.search-box i.search-icon{color:#64748b;font-size:.9rem;}
+.search-box input{background:none;border:none;outline:none;color:#e2e8f0;font-size:.9rem;flex:1;padding:6px 0;}
+.search-box input::placeholder{color:#64748b;}
+.btn-search{background:linear-gradient(135deg,#8b5cf6,#6366f1);border:none;border-radius:10px;padding:9px 20px;color:#fff;font-weight:700;font-size:.85rem;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(99,102,241,.25);transition:all .18s;white-space:nowrap;}
+.btn-search:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(99,102,241,.35);opacity:.95;}
+.btn-search:active{transform:translateY(0);}
+.btn-clear{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:8px;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;color:#94a3b8;cursor:pointer;transition:all .15s;}
+.btn-clear:hover{background:rgba(248,113,113,.15);color:#f87171;border-color:rgba(248,113,113,.3);}
+.count-badge{background:rgba(167,139,250,.12);color:var(--pk);font-size:.75rem;font-weight:700;padding:3px 10px;border-radius:20px;margin-left:auto;}
 .st-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;}
 .st-active{background:rgba(52,211,153,.1);color:#34d399;border:1px solid rgba(52,211,153,.2);}
 .st-suspended{background:rgba(248,113,113,.1);color:#f87171;border:1px solid rgba(248,113,113,.2);}
 .act-btn{width:30px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.08);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;font-size:.72rem;transition:all .15s;}
 .act-login{background:rgba(99,102,241,.12);color:#a5b4fc;border-color:rgba(99,102,241,.2);}.act-login:hover{background:rgba(99,102,241,.25);color:#fff;}
+.act-key{background:rgba(167,139,250,.1);color:#c084fc;border-color:rgba(167,139,250,.2);}.act-key:hover{background:rgba(167,139,250,.25);color:#fff;}
 .act-warn{background:rgba(251,191,36,.08);color:#fbbf24;border-color:rgba(251,191,36,.2);}.act-warn:hover{background:rgba(251,191,36,.2);color:#fff;}
 .act-ok{background:rgba(52,211,153,.08);color:#34d399;border-color:rgba(52,211,153,.2);}.act-ok:hover{background:rgba(52,211,153,.2);color:#fff;}
 .act-danger{background:rgba(248,113,113,.08);color:#f87171;border-color:rgba(248,113,113,.15);}.act-danger:hover{background:rgba(248,113,113,.2);color:#fff;}
@@ -301,13 +353,104 @@ function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function showMsg(id,msg,ok){const el=document.getElementById(id);el.style.display='block';el.style.background=ok?'rgba(52,211,153,.08)':'rgba(248,113,113,.08)';el.style.border=ok?'1px solid rgba(52,211,153,.2)':'1px solid rgba(248,113,113,.2)';el.style.color=ok?'#34d399':'#f87171';el.innerHTML=(ok?'<i class="fa-solid fa-circle-check"></i> ':'<i class="fa-solid fa-triangle-exclamation"></i> ')+msg;}
 
+function onDashSearchInput(){
+  const val = document.getElementById('dashSearchInput').value;
+  const btnClear = document.getElementById('btnDashClear');
+  if(btnClear) btnClear.style.display = val.length > 0 ? 'inline-flex' : 'none';
+  filterDashRows();
+}
+
+function filterDashRows(){
+  const q = (document.getElementById('dashSearchInput').value || '').trim().toLowerCase();
+  let count = 0;
+  let total = 0;
+  const container = document.getElementById('clientAccounts');
+  if(!container) return;
+  container.querySelectorAll('.tbl-row').forEach(r=>{
+    total++;
+    const s = (r.dataset.search || '').toLowerCase();
+    const show = !q || s.includes(q);
+    r.style.display = show ? '' : 'none';
+    if(show) count++;
+  });
+  const filterBadge = document.getElementById('dashFilterCountBadge');
+  if(filterBadge){
+    if(q){
+      filterBadge.style.display = 'inline-block';
+      filterBadge.textContent = count + ' of ' + total + ' accounts';
+    } else {
+      filterBadge.style.display = 'none';
+    }
+  }
+  const btnClear = document.getElementById('btnDashClear');
+  if(btnClear) btnClear.style.display = q.length > 0 ? 'inline-flex' : 'none';
+}
+
+function clearDashSearch(){
+  const input = document.getElementById('dashSearchInput');
+  input.value = '';
+  document.getElementById('btnDashClear').style.display = 'none';
+  filterDashRows();
+  input.focus();
+}
+
 async function createAccount(){
-  const btn=document.getElementById('btnCreateAcc'),d_=document.getElementById('accDomain').value.trim(),e_=document.getElementById('accEmail').value.trim(),p_=document.getElementById('accPkg').value,q_=document.getElementById('accQuota').value;
+  const btn=document.getElementById('btnCreateAcc'),d_=document.getElementById('accDomain').value.trim(),e_=document.getElementById('accEmail').value.trim(),p_=document.getElementById('accPkg').value;
   if(!d_||!e_){showMsg('accMsg','Domain and email are required.',false);return;}
   btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Creating...';
-  try{const r=await fetch('/control/reseller/create-account/',{method:'POST',headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},body:JSON.stringify({domain:d_,email:e_,package_id:p_,user_quota_gb:q_})});const d=await r.json();
+  try{const r=await fetch('/control/reseller/create-account/',{method:'POST',headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},body:JSON.stringify({domain:d_,email:e_,package_id:p_})});const d=await r.json();
   if(d.status==='created'){document.getElementById('accResult').style.display='block';document.getElementById('accResult').innerHTML=`<div style="font-weight:800;color:#34d399;margin-bottom:8px;"><i class="fa-solid fa-circle-check"></i> Account Created!</div><div><span style="color:#64748b;">Domain:</span> <strong>${d.domain}</strong></div><div><span style="color:#64748b;">Username:</span> <code style="background:rgba(255,255,255,.06);padding:2px 8px;border-radius:6px;">${d.username}</code></div><div><span style="color:#64748b;">Password:</span> <code style="background:rgba(251,191,36,.1);color:#fbbf24;padding:2px 8px;border-radius:6px;">${d.password}</code></div><div style="margin-top:6px;font-size:.75rem;color:#475569;"><i class="fa-solid fa-clock"></i> Provisioning (~15s). Page will refresh.</div>`;btn.innerHTML='<i class="fa-solid fa-check"></i> Done!';setTimeout(()=>location.reload(),4000);}
   else{showMsg('accMsg',d.error||'Error',false);btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-check"></i> Create Account';}}catch(e){showMsg('accMsg','Network error',false);btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-check"></i> Create Account';}}
+
+function openChangePassModal(username, domain){
+  document.getElementById('cpUserVal').value = username;
+  document.getElementById('cpUsername').textContent = username;
+  document.getElementById('cpDomain').textContent = domain;
+  document.getElementById('cpPassword').value = '';
+  document.getElementById('cpMsg').style.display = 'none';
+  openModal('changePassModal');
+}
+
+function generateCPPass(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*';
+  let p = '';
+  for(let i=0; i<14; i++){ p += chars.charAt(Math.floor(Math.random() * chars.length)); }
+  document.getElementById('cpPassword').value = p;
+}
+
+async function submitChangePass(){
+  const u = document.getElementById('cpUserVal').value;
+  const p = document.getElementById('cpPassword').value.trim();
+  const btn = document.getElementById('btnChangePass');
+  if(!p || p.length < 8){
+    showMsg('cpMsg', 'Password must be at least 8 characters.', false);
+    return;
+  }
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Updating...';
+  try {
+    const r = await fetch('/control/reseller/change-password/' + encodeURIComponent(u) + '/', {
+      method: 'POST',
+      headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+      credentials: 'same-origin',
+      body: JSON.stringify({password: p})
+    });
+    const d = await r.json();
+    if(d.status === 'success'){
+      showMsg('cpMsg', 'Password updated successfully!', true);
+      btn.innerHTML = '<i class="fa-solid fa-check"></i> Done';
+      setTimeout(() => { closeModal('changePassModal'); btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-check"></i> Update Password'; }, 1800);
+    } else {
+      showMsg('cpMsg', d.error || d.message || 'Failed to update password', false);
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-check"></i> Update Password';
+    }
+  } catch(e) {
+    showMsg('cpMsg', 'Network error: ' + e.message, false);
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> Update Password';
+  }
+}
 
 async function savePackage(){const n=document.getElementById('pkgName').value.trim();if(!n){showMsg('pkgMsg','Name required.',false);return;}const r=await fetch('/control/reseller/package/save/',{method:'POST',headers:{'X-CSRFToken':CSRF,'Content-Type':'application/json'},body:JSON.stringify({name:n,storage_gb:document.getElementById('pkgStorage').value,bandwidth_gb:document.getElementById('pkgBw').value,email_accounts:document.getElementById('pkgEmails').value,databases:document.getElementById('pkgDbs').value,subdomains:document.getElementById('pkgSubs').value,ftp_accounts:document.getElementById('pkgFtp').value})});const d=await r.json();if(d.status==='saved'){showMsg('pkgMsg','Package saved!',true);setTimeout(()=>location.reload(),1000);}else showMsg('pkgMsg',d.error||'Error',false);}
 

@@ -1124,7 +1124,9 @@ def create_mysql_user(username,password,passw):
 
         if connection.is_connected():
             cursor = connection.cursor()
-            cursor.execute("CREATE USER %s@'localhost' IDENTIFIED BY %s", (username, password))
+            cursor.execute("CREATE USER IF NOT EXISTS %s@'localhost' IDENTIFIED BY %s", (username, password))
+            cursor.execute("FLUSH PRIVILEGES")
+            connection.commit()
             return True
 
     except (Error, ValueError) as e:
@@ -1277,6 +1279,8 @@ def get_database_privileges_with_filter(passw, filter_string):
 def revoke_mysql_user_privileges(username, database, passw):
     connection = None
     try:
+        _validate_sql_identifier(username)
+        _validate_sql_identifier(database)
         connection = mysql.connector.connect(
             host="localhost",
             user="root",
@@ -1284,7 +1288,13 @@ def revoke_mysql_user_privileges(username, database, passw):
         )
         if connection.is_connected():
             cursor = connection.cursor()
-            cursor.execute(f"REVOKE ALL PRIVILEGES ON `{database}`.* FROM '{username}'@'localhost'")
+            cursor.execute("SELECT Host FROM mysql.user WHERE User = %s", (username,))
+            hosts = [row[0] for row in cursor.fetchall()]
+            if not hosts:
+                hosts = ['localhost']
+            for host in hosts:
+                cursor.execute(f"REVOKE ALL PRIVILEGES ON `{database}`.* FROM %s@%s", (username, host))
+            cursor.execute("FLUSH PRIVILEGES")
             connection.commit()
             return True
         return False
@@ -1335,7 +1345,13 @@ def delete_mysql_user(username, passw):
 
         if connection.is_connected():
             cursor = connection.cursor()
-            cursor.execute("DROP USER IF EXISTS %s@'localhost'", (username,))
+            cursor.execute("SELECT Host FROM mysql.user WHERE User = %s", (username,))
+            hosts = [row[0] for row in cursor.fetchall()]
+            if not hosts:
+                hosts = ['localhost']
+            for host in hosts:
+                cursor.execute("DROP USER IF EXISTS %s@%s", (username, host))
+            cursor.execute("FLUSH PRIVILEGES")
             connection.commit()
             return True
 
@@ -1397,9 +1413,17 @@ def grant_mysql_user_privileges(username, database, privileges, admin_password):
 
         if connection.is_connected():
             cursor = connection.cursor()
+            # Find all hosts this user is defined for (e.g. 'localhost', '127.0.0.1', '%')
+            cursor.execute("SELECT Host FROM mysql.user WHERE User = %s", (username,))
+            hosts = [row[0] for row in cursor.fetchall()]
+            if not hosts:
+                hosts = ['localhost']
+
             privileges_string = ', '.join(p.upper().strip() for p in privileges)
-            grant_privileges_query = f"GRANT {privileges_string} ON `{database}`.* TO %s@'localhost'"
-            cursor.execute(grant_privileges_query, (username,))
+            for host in hosts:
+                grant_privileges_query = f"GRANT {privileges_string} ON `{database}`.* TO %s@%s"
+                cursor.execute(grant_privileges_query, (username, host))
+            cursor.execute("FLUSH PRIVILEGES")
             connection.commit()
             return True
 

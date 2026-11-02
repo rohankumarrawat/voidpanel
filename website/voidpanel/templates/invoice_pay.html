@@ -3,466 +3,1388 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Invoice {{ invoice.invoice_number }} | VoidPanel</title>
+    <title>Tax Invoice #{{ invoice.invoice_number }} — VoidOnyx Cloud</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Pay your VoidPanel invoice {{ invoice.invoice_number }} securely online.">
+    <meta name="description" content="Official Tax Invoice {{ invoice.invoice_number }} — VoidOnyx Cloud Technologies">
     <link rel="shortcut icon" href="/static/fav.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
     <link rel="stylesheet" href="/static/assets/css/void-modern.css">
+
     <style>
-        .pay-page {
+        :root {
+            --inv-bg: #f8fafc;
+            --inv-card: #ffffff;
+            --inv-text: #0f172a;
+            --inv-muted: #64748b;
+            --inv-border: #e2e8f0;
+            --inv-border-subtle: #f1f5f9;
+            --inv-brand: #2563eb;
+            --inv-brand-dark: #1d4ed8;
+            --inv-brand-light: #eff6ff;
+            --inv-amber: #f59e0b;
+            --inv-amber-dark: #d97706;
+            --inv-amber-light: #fffbeb;
+            --inv-green: #10b981;
+            --inv-green-dark: #059669;
+            --inv-green-light: #ecfdf5;
+            --inv-red: #ef4444;
+            --inv-red-light: #fef2f2;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--inv-bg);
+            color: var(--inv-text);
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* ── Page Canvas Background with subtle dot grid ── */
+        .inv-page-wrapper {
             min-height: 100vh;
-            padding: 108px 20px 60px;
-            background:
-                radial-gradient(circle at 80% 10%, rgba(37,99,235,0.08), transparent 28%),
-                radial-gradient(circle at 10% 90%, rgba(34,197,94,0.04), transparent 26%),
-                #f8fafc;
+            padding: 24px 20px 80px;
+            background-color: #f8fafc;
+            background-image: 
+                radial-gradient(circle at 15% 10%, rgba(37,99,235,0.05), transparent 40%),
+                radial-gradient(circle at 85% 15%, rgba(245,158,11,0.05), transparent 35%),
+                radial-gradient(#cbd5e1 0.75px, transparent 0.75px);
+            background-size: 100% 100%, 100% 100%, 20px 20px;
         }
-        .pay-grid {
-            max-width: 980px; margin: 0 auto;
-            display: grid; grid-template-columns: minmax(0,1fr) 360px;
-            gap: 24px;
+
+        /* ── 2-Column Responsive Layout ── */
+        .inv-container-2col {
+            max-width: 1340px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 390px;
+            gap: 28px;
+            align-items: start;
         }
-        .glass-surface {
+
+        .inv-col-main {
+            min-width: 0;
+        }
+
+        /* ── Sticky Sidebar for Immediate Zero-Scroll Payment ── */
+        .inv-col-sidebar {
+            position: sticky;
+            top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* ── Top Navigation Link ── */
+        .sidebar-back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            border-radius: 10px;
             background: #ffffff;
-            border: 1px solid var(--border-subtle);
-            border-radius: 24px; padding: 28px 30px;
-            box-shadow: 0 10px 30px rgba(15,23,42,0.05);
+            border: 1px solid var(--inv-border);
+            color: var(--inv-muted);
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.82rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px rgba(15,23,42,0.03);
+            width: fit-content;
         }
-        .inv-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
-        .inv-title { font-size: 1.7rem; font-weight: 800; color: var(--text-primary); }
-        .inv-number { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; font-family: monospace; }
-        .status-badge {
-            display: inline-flex; align-items: center; gap: 7px;
-            padding: 7px 15px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+        .sidebar-back-link:hover {
+            color: var(--inv-text);
+            border-color: #cbd5e1;
+            transform: translateX(-2px);
         }
-        .status-paid    { background: rgba(22,163,74,0.08); color: #16a34a; border: 1px solid rgba(22,163,74,0.15); }
-        .status-unpaid  { background: rgba(217,119,6,0.08); color: #d97706; border: 1px solid rgba(217,119,6,0.15); }
-        .status-overdue { background: rgba(220,38,38,0.08); color: #dc2626; border: 1px solid rgba(220,38,38,0.15); }
-        .line-row { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--border-subtle); }
-        .line-row:last-child { border: none; }
-        .line-desc { color: var(--text-secondary); }
-        .line-amount { color: var(--text-primary); font-weight: 700; }
-        .total-row { display: flex; justify-content: space-between; padding: 20px 0 0; }
-        .total-label { color: var(--text-secondary); font-size: 0.95rem; }
-        .total-value { color: var(--text-primary); font-size: 2.2rem; font-weight: 900; }
-        .meta-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border-subtle); }
-        .meta-key { color: var(--text-muted); font-size: 0.75rem; margin-bottom: 3px; }
-        .meta-val { color: var(--text-primary); font-weight: 600; font-size: 0.9rem; }
- 
-        /* ── Pay Button ── */
+
+        /* ── Sidebar Actions & Quick Pay Card ── */
+        .sidebar-card {
+            background: #ffffff;
+            border-radius: 20px;
+            border: 1px solid var(--inv-border);
+            box-shadow: 0 10px 30px -5px rgba(15,23,42,0.06), 0 0 0 1px rgba(15,23,42,0.02);
+            padding: 24px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .sidebar-card-stripe {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #2563eb 0%, #4f46e5 50%, #f59e0b 100%);
+        }
+
+        .pay-amount-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 18px 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .pay-amount-lbl {
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+        .pay-amount-val {
+            font-size: 2.1rem;
+            font-weight: 900;
+            color: #0f172a;
+            letter-spacing: -0.02em;
+            line-height: 1.1;
+            margin-bottom: 6px;
+        }
+        .pay-status-sub {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+
+        /* Action Buttons */
         .rzp-pay-btn {
-            width: 100%; padding: 16px; border-radius: 16px; border: none; cursor: pointer;
+            width: 100%;
+            padding: 15px 18px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
             background: linear-gradient(135deg, #2563eb, #1d4ed8);
-            color: #fff; font-size: 1rem; font-weight: 800;
-            display: flex; align-items: center; justify-content: center; gap: 10px;
-            font-family: inherit; transition: all 0.2s;
-            box-shadow: 0 8px 24px rgba(37,99,235,0.25);
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-family: inherit;
+            box-shadow: 0 6px 20px rgba(37,99,235,0.28);
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .rzp-pay-btn:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 12px 32px rgba(37,99,235,0.35); }
-        .rzp-pay-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
-        .rzp-label {
-            font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; opacity: 0.75;
-            display: block; text-align: center; margin-top: 6px; color: var(--text-secondary);
+        .rzp-pay-btn:hover {
+            opacity: 0.95;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 28px rgba(37,99,235,0.36);
         }
- 
-        /* ── Secondary / bank ── */
-        .bank-section { margin-top: 14px; }
-        .pay-method {
-            padding: 16px 18px; border-radius: 16px;
-            border: 1px solid var(--border-subtle);
-            background: #ffffff; margin-bottom: 10px;
-        }
-        .pay-method-title { color: var(--text-primary); font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; font-size: 0.88rem; }
-        .pay-method p { color: var(--text-secondary); line-height: 1.7; margin: 0; font-size: 0.82rem; }
-        .pay-method code { background: rgba(37,99,235,0.08); padding: 2px 7px; border-radius: 5px; color: #2563eb; }
- 
-        /* ── Admin ── */
-        .admin-panel { background: rgba(22,163,74,0.06); border: 1px solid rgba(22,163,74,0.18); border-radius: 16px; padding: 18px; margin-top: 14px; }
-        .btn-confirm {
-            width: 100%; padding: 13px; border-radius: 12px; border: none; cursor: pointer;
-            background: linear-gradient(135deg, #22c55e, #16a34a);
-            color: #ffffff; font-size: 0.9rem; font-weight: 700;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-            font-family: inherit; transition: opacity .2s;
-        }
-        .btn-confirm:hover { opacity: 0.88; }
- 
-        /* ── Success / paid state ── */
-        .paid-success {
-            text-align: center; padding: 20px 0;
-            background: rgba(22,163,74,0.04); border-radius: 16px;
-        }
- 
-        /* ── Quick links ── */
-        .ql-link {
-            display: flex; align-items: center; gap: 10px;
-            padding: 11px 14px; border-radius: 12px;
-            background: rgba(15,23,42,0.03); border: 1px solid rgba(15,23,42,0.06);
-            color: var(--text-secondary); margin-bottom: 8px; transition: background 0.15s;
-        }
-        .ql-link:hover { background: rgba(15,23,42,0.06); color: var(--text-primary); }255,0.06); color: var(--text-primary); }
 
-        /* ── Toast ── */
-        #payToast {
-            position: fixed; bottom: 24px; right: 24px; z-index: 9999;
-            display: flex; align-items: center; gap: 12px;
-            padding: 14px 20px; border-radius: 14px;
-            background: rgba(8,14,24,0.96); backdrop-filter: blur(16px);
-            border: 1px solid rgba(34,197,94,0.3);
-            color: var(--text-primary); font-size: 0.86rem; font-weight: 600;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-            transform: translateX(120%); transition: transform 0.35s cubic-bezier(.34,1.56,.64,1);
+        .action-grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 16px;
         }
-        #payToast.show { transform: translateX(0); }
-        #payToast.error { border-color: rgba(239,68,68,0.3); }
+        .action-tool-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            padding: 9px 12px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            background: #ffffff;
+            border: 1px solid var(--inv-border);
+            color: #334155;
+            text-decoration: none;
+            transition: all 0.15s ease;
+            font-family: inherit;
+        }
+        .action-tool-btn:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+            color: var(--inv-brand);
+            transform: translateY(-1px);
+        }
 
-        .message-banner { margin-bottom: 16px; padding: 12px 14px; border-radius: 12px; background: rgba(89,196,188,0.08); border: 1px solid rgba(89,196,188,0.2); color: var(--text-primary); font-size:0.85rem; }
-        .provision-error-banner {
-            display: none;
-            margin-top: 14px; padding: 16px 18px; border-radius: 14px;
-            background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25);
-            color: var(--text-primary);
+        .promo-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
         }
-        .provision-error-banner .peb-title { font-weight: 800; color: #fca5a5; margin-bottom: 6px; font-size: 0.9rem; }
-        .provision-error-banner .peb-msg { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 12px; }
-        @media (max-width: 800px) { .pay-grid { grid-template-columns: 1fr; } .meta-grid { grid-template-columns: 1fr 1fr; } }
+        .promo-input {
+            flex: 1;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid #cbd5e1;
+            font-size: 0.82rem;
+            font-family: inherit;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+        .promo-input:focus {
+            outline: none;
+            border-color: var(--inv-brand);
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+        }
+        .promo-btn {
+            padding: 10px 16px;
+            border-radius: 10px;
+            border: 1px solid #cbd5e1;
+            background: #f8fafc;
+            color: #334155;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .promo-btn:hover {
+            background: #e2e8f0;
+        }
+
+        /* ── Official A4 Document Sheet ── */
+        .invoice-sheet {
+            background: var(--inv-card);
+            border-radius: 20px;
+            border: 1px solid var(--inv-border);
+            box-shadow: 0 16px 40px -15px rgba(15,23,42,0.06), 0 0 0 1px rgba(15,23,42,0.02);
+            position: relative;
+            overflow: hidden;
+            padding: 40px 46px;
+        }
+
+        .invoice-stripe {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #2563eb 0%, #4f46e5 50%, #f59e0b 100%);
+        }
+
+        /* ── Header Section ── */
+        .inv-head-grid {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 24px;
+            margin-bottom: 28px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--inv-border-subtle);
+        }
+
+        .brand-block {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+        }
+
+        .brand-logo-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 16px rgba(234,88,12,0.22);
+            flex-shrink: 0;
+        }
+        .brand-logo-icon img {
+            width: 30px;
+            height: 30px;
+            object-fit: contain;
+        }
+
+        .brand-info h1 {
+            font-size: 1.45rem;
+            font-weight: 800;
+            margin: 0 0 2px;
+            color: var(--inv-text);
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+        }
+        .brand-company-name {
+            font-size: 0.82rem;
+            color: #475569;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        .brand-meta {
+            font-size: 0.78rem;
+            color: var(--inv-muted);
+            line-height: 1.55;
+        }
+        .brand-meta strong {
+            color: #334155;
+            font-weight: 700;
+        }
+
+        .inv-doc-title-box {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .inv-doc-title {
+            font-size: 1.7rem;
+            font-weight: 900;
+            color: #0f172a;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            margin: 0 0 3px;
+            line-height: 1;
+        }
+
+        .inv-doc-number {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--inv-brand);
+            margin-bottom: 8px;
+            display: inline-block;
+            letter-spacing: 0.01em;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ── Modern Status Chips ── */
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 5px 14px;
+            border-radius: 999px;
+            font-size: 0.74rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .chip-paid {
+            background: var(--inv-green-light);
+            color: var(--inv-green-dark);
+            border: 1px solid rgba(16,185,129,0.3);
+        }
+        .chip-paid .status-dot {
+            background: var(--inv-green-dark);
+            box-shadow: 0 0 6px rgba(16,185,129,0.6);
+        }
+
+        .chip-unpaid {
+            background: var(--inv-amber-light);
+            color: #b45309;
+            border: 1px solid rgba(245,158,11,0.35);
+        }
+        .chip-unpaid .status-dot {
+            background: #f59e0b;
+            box-shadow: 0 0 8px rgba(245,158,11,0.7);
+            animation: pulse-dot 2s infinite;
+        }
+
+        .chip-overdue {
+            background: var(--inv-red-light);
+            color: var(--inv-red);
+            border: 1px solid rgba(239,68,68,0.3);
+        }
+        .chip-overdue .status-dot {
+            background: var(--inv-red);
+            animation: pulse-dot 1.5s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.35); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+
+        /* ── Billed To & Service Details Grid ── */
+        .inv-parties-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 28px;
+        }
+
+        .party-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 18px 20px;
+            box-shadow: 0 1px 3px rgba(15,23,42,0.02);
+        }
+
+        .party-label {
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: #64748b;
+            letter-spacing: 0.08em;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .party-label i {
+            color: var(--inv-brand);
+            font-size: 0.78rem;
+        }
+
+        .party-name {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: var(--inv-text);
+            margin-bottom: 6px;
+            letter-spacing: -0.01em;
+        }
+
+        .party-detail-list {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+        .party-detail-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .party-detail-row strong {
+            color: #334155;
+            font-weight: 700;
+            min-width: 55px;
+        }
+
+        .dates-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+        }
+        .dates-table tr {
+            border-bottom: 1px dashed #f1f5f9;
+        }
+        .dates-table tr:last-child {
+            border-bottom: none;
+        }
+        .dates-table td {
+            padding: 6px 0;
+        }
+        .dates-table .lbl {
+            color: #64748b;
+            font-weight: 600;
+            width: 44%;
+        }
+        .dates-table .val {
+            color: var(--inv-text);
+            font-weight: 700;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            font-size: 0.84rem;
+        }
+
+        /* ── Items Table ── */
+        .inv-table-wrap {
+            margin-bottom: 26px;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(15,23,42,0.02);
+        }
+
+        .inv-items-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.84rem;
+        }
+
+        .inv-items-table thead th {
+            background: #f8fafc;
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: #64748b;
+            letter-spacing: 0.06em;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .inv-items-table tbody td {
+            padding: 16px 16px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: top;
+            color: #334155;
+        }
+        .inv-items-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .item-idx {
+            font-weight: 700;
+            color: #94a3b8;
+            font-size: 0.8rem;
+        }
+
+        .item-name {
+            font-weight: 800;
+            color: var(--inv-text);
+            font-size: 0.92rem;
+            margin-bottom: 4px;
+            letter-spacing: -0.01em;
+        }
+        .item-desc {
+            font-size: 0.78rem;
+            color: #64748b;
+            line-height: 1.5;
+        }
+
+        .item-pill-badge {
+            display: inline-block;
+            background: #f1f5f9;
+            color: #475569;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            border: 1px solid #e2e8f0;
+        }
+
+        /* ── Totals & Financial Section ── */
+        .inv-calc-grid {
+            display: grid;
+            grid-template-columns: 1fr 310px;
+            gap: 22px;
+            margin-bottom: 28px;
+            align-items: start;
+        }
+
+        .words-and-notes {
+            background: #fbfcfe;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 18px 20px;
+            position: relative;
+        }
+
+        .words-lbl {
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: #64748b;
+            letter-spacing: 0.06em;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .words-val {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #1e293b;
+            line-height: 1.55;
+            margin-bottom: 10px;
+        }
+
+        .tax-disclaimer {
+            font-size: 0.75rem;
+            color: #64748b;
+            line-height: 1.55;
+            padding-top: 8px;
+            border-top: 1px dashed #e2e8f0;
+        }
+        .tax-disclaimer strong {
+            color: #334155;
+        }
+
+        /* Paid Seal Stamp */
+        .paid-stamp-box {
+            margin-top: 16px;
+            display: inline-block;
+        }
+
+        .paid-rubber-stamp {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 20px;
+            border: 2.5px double #059669;
+            border-radius: 10px;
+            color: #059669;
+            transform: rotate(-3deg);
+            background: rgba(16,185,129,0.05);
+            box-shadow: 0 4px 12px rgba(5,150,105,0.08);
+        }
+        .stamp-top {
+            font-size: 0.62rem;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+        .stamp-main {
+            font-size: 1.15rem;
+            font-weight: 900;
+            letter-spacing: 0.08em;
+            line-height: 1.1;
+            margin: 2px 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .stamp-date {
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+
+        /* Financial summary card inside sheet */
+        .calc-summary-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 18px 20px;
+            box-shadow: 0 1px 3px rgba(15,23,42,0.02);
+        }
+
+        .calc-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            font-size: 0.82rem;
+            color: #64748b;
+        }
+        .calc-row .val {
+            font-weight: 700;
+            color: #1e293b;
+            font-variant-numeric: tabular-nums;
+        }
+        .calc-row.tax-row {
+            color: var(--inv-brand);
+            font-size: 0.8rem;
+            background: rgba(37,99,235,0.04);
+            margin: 2px -8px;
+            padding: 6px 8px;
+            border-radius: 6px;
+        }
+        .calc-row.tax-row .val {
+            color: var(--inv-brand);
+        }
+
+        .calc-divider {
+            height: 1px;
+            background: #e2e8f0;
+            margin: 10px 0;
+        }
+
+        .calc-row.total-row {
+            padding: 8px 0 4px;
+        }
+        .calc-row.total-row .lbl {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: var(--inv-text);
+        }
+        .calc-row.total-row .val {
+            font-size: 1.4rem;
+            font-weight: 900;
+            color: var(--inv-text);
+            letter-spacing: -0.02em;
+        }
+
+        .calc-row.paid-row {
+            color: var(--inv-green-dark);
+            font-weight: 700;
+            font-size: 0.82rem;
+        }
+        .calc-row.paid-row .val {
+            color: var(--inv-green-dark);
+        }
+
+        .calc-row.due-row {
+            padding: 8px 0 0;
+            border-top: 1px dashed #cbd5e1;
+            margin-top: 5px;
+        }
+        .calc-row.due-row .lbl {
+            font-weight: 800;
+            color: #334155;
+            font-size: 0.88rem;
+        }
+        .calc-row.due-row .val {
+            font-size: 1.15rem;
+            font-weight: 900;
+            color: {% if invoice.status == 'paid' %}var(--inv-green-dark){% else %}#dc2626{% endif %};
+        }
+
+        /* ── Official Footer & Legal ── */
+        .inv-footer {
+            padding-top: 22px;
+            border-top: 1px solid var(--inv-border-subtle);
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .legal-notice {
+            font-size: 0.73rem;
+            color: #94a3b8;
+            line-height: 1.55;
+        }
+        .legal-notice p {
+            margin: 0 0 2px;
+        }
+
+        .signature-box {
+            text-align: right;
+        }
+        .sig-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 12px;
+            border-radius: 8px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #475569;
+        }
+
+        /* ── Print Stylesheet ── */
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 8mm 10mm;
+            }
+            body, html {
+                background: #ffffff !important;
+                color: #0f172a !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            #voidonyxBrandBar, header, footer, .inv-col-sidebar, #payToast, .no-print, [id*="chat"], [class*="chat"], .livechat-badge {
+                display: none !important;
+            }
+            .inv-page-wrapper {
+                padding: 0 !important;
+                background: #ffffff !important;
+            }
+            .inv-container-2col {
+                display: block !important;
+                max-width: 100% !important;
+            }
+            .inv-col-main {
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+            .invoice-sheet {
+                box-shadow: none !important;
+                border: none !important;
+                padding: 10px 0 !important;
+                max-width: 100% !important;
+                border-radius: 0 !important;
+            }
+            .invoice-stripe {
+                display: none !important;
+            }
+            .party-card, .words-and-notes, .calc-summary-card, .inv-table-wrap {
+                background: #ffffff !important;
+                border: 1px solid #cbd5e1 !important;
+                box-shadow: none !important;
+            }
+            .inv-items-table thead th {
+                background: #f1f5f9 !important;
+                color: #334155 !important;
+            }
+            .paid-rubber-stamp {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+
+        /* ── Responsive adjustments for tablet / mobile ── */
+        @media (max-width: 1080px) {
+            .inv-container-2col {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            .inv-col-sidebar {
+                position: static;
+                order: -1; /* Placed at the top on mobile so payment is also zero-scroll! */
+            }
+            .inv-page-wrapper {
+                padding: 16px 12px 60px;
+            }
+            .invoice-sheet {
+                padding: 24px 18px;
+                border-radius: 16px;
+            }
+            .inv-head-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+            .inv-doc-title-box {
+                text-align: left;
+                align-items: flex-start;
+            }
+            .inv-parties-grid {
+                grid-template-columns: 1fr;
+                gap: 14px;
+            }
+            .inv-calc-grid {
+                grid-template-columns: 1fr;
+                gap: 18px;
+            }
+            .inv-footer {
+                grid-template-columns: 1fr;
+            }
+            .signature-box {
+                text-align: left;
+            }
+        }
     </style>
 </head>
 <body>
 {% include 'header.html' %}
-<main class="pay-page">
-    <div class="pay-grid">
-        <!-- Invoice Details -->
-        <div class="glass-surface">
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="message-banner"><i class="fas fa-info-circle" style="margin-right:6px;"></i>{{ message }}</div>
-                {% endfor %}
-            {% endif %}
 
-            <div class="inv-header">
-                <div>
-                    <div class="inv-title">Invoice</div>
-                    <div class="inv-number">{{ invoice.invoice_number }}</div>
-                </div>
-                <span class="status-badge status-{{ invoice.status }}">
-                    {% if invoice.status == 'paid' %}<i class="fas fa-check-circle"></i>
-                    {% elif invoice.status == 'overdue' %}<i class="fas fa-triangle-exclamation"></i>
-                    {% else %}<i class="fas fa-clock"></i>{% endif %}
-                    {{ invoice.get_status_display }}
-                </span>
-            </div>
+<div class="inv-page-wrapper">
 
-            <!-- Line items -->
-            <div class="line-row">
-                <div>
-                    <div style="color:var(--text-primary);font-weight:600;">{{ invoice.description }}</div>
-                    {% if order %}
-                    <div style="color:var(--text-muted);font-size:0.8rem;margin-top:3px;">{{ order.package.name }} — {{ order.billing_cycle|title }} Plan</div>
-                    {% endif %}
-                    {% if domain_order %}
-                    <div style="color:var(--text-muted);font-size:0.8rem;margin-top:3px;">Domain: {{ domain_order.domain_name }} ({{ domain_order.years }} yr)</div>
-                    {% endif %}
-                </div>
-                <div class="line-amount">₹{{ invoice.total }}</div>
-            </div>
+    <!-- ── 2-Column Responsive Layout ── -->
+    <div class="inv-container-2col">
 
-            <div class="total-row">
-                <div class="total-label">Total Due</div>
-                <div class="total-value">₹{{ invoice.total }}</div>
-            </div>
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <!-- LEFT COLUMN: Official Tax Invoice Document                -->
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <div class="inv-col-main">
+            <div class="invoice-sheet">
+                <div class="invoice-stripe"></div>
 
-            <div class="meta-grid">
-                <div>
-                    <div class="meta-key">Invoice Date</div>
-                    <div class="meta-val">{{ invoice.created_at|date:"M d, Y" }}</div>
+                <!-- ── Header Grid ── -->
+                <div class="inv-head-grid">
+                    <!-- Brand & Issuer Details -->
+                    <div class="brand-block">
+                        <div class="brand-logo-icon">
+                            <img src="{% static 'voidonyx/logo_emblem.png' %}" alt="VoidOnyx Logo" onerror="this.onerror=null; this.src='/static/fav.png';">
+                        </div>
+                        <div class="brand-info">
+                            <h1>VoidOnyx</h1>
+                            <div class="brand-company-name">VoidOnyx Cloud Technologies Pvt. Ltd.</div>
+                            <div class="brand-meta">
+                                <strong>GSTIN:</strong> 07ABCFV6322K1ZZ &bull; <strong>State:</strong> Delhi (07)<br>
+                                <strong>SAC Code:</strong> 998315 (Internet & Cloud Hosting Services)<br>
+                                <strong>Billing Support:</strong> billing@voidonyx.in &bull; <strong>Website:</strong> https://voidonyx.in
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tax Invoice Details & Status -->
+                    <div class="inv-doc-title-box">
+                        <div class="inv-doc-title">Tax Invoice</div>
+                        <div class="inv-doc-number">#{{ invoice.invoice_number }}</div>
+                        <div>
+                            {% if invoice.status == 'paid' %}
+                                <span class="status-chip chip-paid"><span class="status-dot"></span> Paid in Full</span>
+                            {% elif invoice.status == 'overdue' %}
+                                <span class="status-chip chip-overdue"><span class="status-dot"></span> Overdue</span>
+                            {% else %}
+                                <span class="status-chip chip-unpaid"><span class="status-dot"></span> Unpaid</span>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <div class="meta-key">Due Date</div>
-                    <div class="meta-val" style="{% if invoice.status == 'overdue' %}color:#fca5a5;{% endif %}">{{ invoice.due_date|date:"M d, Y" }}</div>
+
+                <!-- ── Parties & Metadata Grid ── -->
+                <div class="inv-parties-grid">
+                    <!-- Billed To -->
+                    <div class="party-card">
+                        <div class="party-label"><i class="fas fa-user-check"></i> Billed To (Customer)</div>
+                        <div class="party-name">{{ invoice.user.get_full_name|default:invoice.user.username }}</div>
+                        <div class="party-detail-list">
+                            <div class="party-detail-row">
+                                <strong>Email:</strong> <span>{{ invoice.user.email }}</span>
+                            </div>
+                            <div class="party-detail-row">
+                                <strong>Client ID:</strong> <span style="background:#f1f5f9;padding:1px 7px;border-radius:5px;font-weight:700;color:#334155;">CUST-{{ invoice.user.id }}</span>
+                            </div>
+                            <div class="party-detail-row">
+                                <strong>Country:</strong> <span>India &bull; <strong>Place of Supply:</strong> Delhi (07)</span>
+                            </div>
+                            <div class="party-detail-row" style="margin-top:3px;">
+                                <span style="display:inline-flex;align-items:center;gap:5px;font-size:0.75rem;font-weight:700;color:#059669;background:#ecfdf5;padding:2px 8px;border-radius:5px;">
+                                    <i class="fas fa-check-circle"></i> Active Verified Customer
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dates & Order Context -->
+                    <div class="party-card">
+                        <div class="party-label"><i class="fas fa-calendar-alt"></i> Invoice Schedule &amp; Details</div>
+                        <table class="dates-table">
+                            <tr>
+                                <td class="lbl">Invoice Date:</td>
+                                <td class="val">{{ invoice.created_at|date:"d M Y" }}</td>
+                            </tr>
+                            <tr>
+                                <td class="lbl">Due Date:</td>
+                                <td class="val">{{ invoice.due_date|date:"d M Y" }}</td>
+                            </tr>
+                            {% if invoice.paid_date or invoice.status == 'paid' %}
+                            <tr>
+                                <td class="lbl">Payment Date:</td>
+                                <td class="val" style="color:var(--inv-green-dark);font-weight:800;">
+                                    {{ invoice.paid_date|date:"d M Y"|default:invoice.created_at|date:"d M Y" }}
+                                </td>
+                            </tr>
+                            {% endif %}
+                            <tr>
+                                <td class="lbl">Billing Currency:</td>
+                                <td class="val">INR (₹ Indian Rupee)</td>
+                            </tr>
+                            <tr>
+                                <td class="lbl">Service Domain:</td>
+                                <td class="val">
+                                    <span style="color:var(--inv-brand);font-weight:800;background:rgba(37,99,235,0.06);padding:2px 7px;border-radius:5px;">
+                                        {% if order %}{{ order.domain }}{% elif domain_order %}{{ domain_order.domain_name }}{% else %}voidonyx.in{% endif %}
+                                    </span>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
                 </div>
-                {% if invoice.paid_date %}
-                <div>
-                    <div class="meta-key">Paid On</div>
-                    <div class="meta-val" style="color:#86efac;">{{ invoice.paid_date|date:"M d, Y" }}</div>
+
+                <!-- ── Line Items Table ── -->
+                <div class="inv-table-wrap">
+                    <table class="inv-items-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;">#</th>
+                                <th>Item &amp; Description</th>
+                                <th style="width: 90px;">SAC</th>
+                                <th style="width: 105px;">Term</th>
+                                <th style="width: 50px; text-align: center;">Qty</th>
+                                <th style="width: 110px; text-align: right;">Unit Price</th>
+                                <th style="width: 120px; text-align: right;">Taxable</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="item-idx">01</td>
+                                <td>
+                                    <div class="item-name">{{ invoice.description }}</div>
+                                    <div class="item-desc">
+                                        {% if order %}
+                                            <strong style="color:#0f172a;">{{ order.package.name }}</strong> &bull; High-Performance NVMe Cloud &bull; Automated Backups &bull; Free SSL &bull; Supercharged Stack (Free Lifetime KhataBook &amp; HRMS)
+                                        {% elif domain_order %}
+                                            <strong style="color:#0f172a;">Domain Registration</strong> &bull; {{ domain_order.domain_name }} ({{ domain_order.years }} Year) &bull; DNS Zone Management &bull; WHOIS Privacy Protection
+                                        {% else %}
+                                            Enterprise Cloud Infrastructure &amp; Hosting Services
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td><span class="item-pill-badge">998315</span></td>
+                                <td>
+                                    <span class="item-pill-badge">
+                                        {% if order and order.billing_cycle %}{{ order.billing_cycle|title }}{% else %}Annual{% endif %}
+                                    </span>
+                                </td>
+                                <td style="text-align: center; font-weight: 700; color: #0f172a;">1</td>
+                                <td style="text-align: right; font-weight: 600; color: #475569; font-variant-numeric: tabular-nums;">₹{{ invoice.subtotal }}</td>
+                                <td style="text-align: right; font-weight: 800; color: #0f172a; font-variant-numeric: tabular-nums;">₹{{ invoice.subtotal }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
-                {% else %}
-                <div>
-                    <div class="meta-key">Bill To</div>
-                    <div class="meta-val">{{ invoice.user.get_full_name|default:invoice.user.username }}</div>
+
+                <!-- ── Calculations & Stamp Section ── -->
+                <div class="inv-calc-grid">
+                    <!-- Left: Notes & Paid Rubber Stamp -->
+                    <div class="words-and-notes">
+                        <div class="words-lbl"><i class="fas fa-info-circle" style="color:var(--inv-brand);"></i> Tax Details &amp; Legal Classification</div>
+                        <div class="words-val">
+                            Supply Category: Domestic Taxable B2C Service &bull; Reverse Charge (RCM): No
+                        </div>
+
+                        <div class="tax-disclaimer">
+                            GST is calculated at 18.00% (9% CGST + 9% SGST) in compliance with Chapter 99 of the GST Tariff.
+                        </div>
+
+                        {% if invoice.status == 'paid' %}
+                        <div class="paid-stamp-box">
+                            <div class="paid-rubber-stamp">
+                                <span class="stamp-top">Official Receipt</span>
+                                <span class="stamp-main"><i class="fas fa-check-circle"></i>PAID</span>
+                                <span class="stamp-date">{{ invoice.paid_date|date:"d-M-Y"|default:invoice.created_at|date:"d-M-Y" }} &bull; VOIDONYX CLOUD</span>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Right: Exact Financial Summary -->
+                    <div class="calc-summary-card">
+                        <div class="calc-row">
+                            <span class="lbl">Taxable Subtotal:</span>
+                            <span class="val">₹{{ invoice.subtotal }}</span>
+                        </div>
+
+                        <div class="calc-row tax-row">
+                            <span class="lbl">CGST (9%):</span>
+                            <span class="val">+₹{{ invoice.cgst_amount }}</span>
+                        </div>
+
+                        <div class="calc-row tax-row">
+                            <span class="lbl">SGST (9%):</span>
+                            <span class="val">+₹{{ invoice.sgst_amount }}</span>
+                        </div>
+
+                        <div class="calc-row" style="font-weight:700;color:#334155;">
+                            <span class="lbl">Total GST (18%):</span>
+                            <span class="val" style="color:var(--inv-brand);font-weight:800;">+₹{{ invoice.gst_amount }}</span>
+                        </div>
+
+                        <div class="calc-divider"></div>
+
+                        <div class="calc-row total-row">
+                            <span class="lbl">Grand Total:</span>
+                            <span class="val">₹{{ invoice.total }}</span>
+                        </div>
+
+                        {% if invoice.status == 'paid' %}
+                        <div class="calc-row paid-row">
+                            <span class="lbl"><i class="fas fa-circle-check"></i> Amount Received:</span>
+                            <span class="val">₹{{ invoice.total }}</span>
+                        </div>
+                        <div class="calc-row due-row">
+                            <span class="lbl">Balance Due:</span>
+                            <span class="val">₹0.00</span>
+                        </div>
+                        {% else %}
+                        <div class="calc-row paid-row" style="color:#64748b;">
+                            <span class="lbl">Amount Received:</span>
+                            <span class="val" style="color:#64748b;">₹0.00</span>
+                        </div>
+                        <div class="calc-row due-row">
+                            <span class="lbl">Amount Due:</span>
+                            <span class="val">₹{{ invoice.total }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
-                {% endif %}
+
+                <!-- ── Official Legal Footer ── -->
+                <div class="inv-footer">
+                    <div class="legal-notice">
+                        <p><strong>Terms &amp; Notes:</strong> All hosting packages include 99.9% Uptime SLA.</p>
+                        <p>This is a computer-generated tax invoice issued under Section 31 of the CGST Act, 2017. No physical signature is required.</p>
+                    </div>
+                    <div class="signature-box">
+                        <div class="sig-badge">
+                            <i class="fas fa-shield-halved" style="color:var(--inv-brand);"></i> Verified Digital Invoice
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Payment Actions -->
-        <div>
-            {% if invoice.status != 'paid' %}
-            <div class="glass-surface" style="margin-bottom:14px;">
-                <div style="font-weight:800;color:var(--text-primary);margin-bottom:18px;font-size:0.95rem;">
-                    <i class="fas fa-lock" style="color:#6366f1;margin-right:8px;"></i>Secure Payment
-                </div>
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <!-- RIGHT COLUMN: Sticky Payment & Quick Checkout Sidebar     -->
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <div class="inv-col-sidebar no-print">
 
-                {% if profile and profile.balance_funds > 0 or profile.balance_chips > 0 %}
-                <div style="background:rgba(89,196,188,0.06); border:1px solid rgba(89,196,188,0.2); border-radius:16px; padding:18px; margin-bottom:18px;">
-                    <div style="font-weight:800;color:#14b8a6;margin-bottom:12px;font-size:0.9rem;display:flex;align-items:center;gap:8px;">
-                        <i class="fas fa-wallet"></i> Pay with Wallet Funds
-                    </div>
-                    <div style="font-size:0.82rem;color:var(--text-secondary);line-height:1.6;margin-bottom:14px;">
-                        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-                            <span>Available Funds:</span>
-                            <strong style="color:var(--text-primary);">₹{{ profile.balance_funds }}</strong>
-                        </div>
-                        <div style="display:flex;justify-content:space-between;">
-                            <span>Available Credits:</span>
-                            <strong style="color:var(--text-primary);">{{ profile.balance_chips }} Chips</strong>
-                        </div>
-                    </div>
-                    <button type="button" class="rzp-pay-btn" id="walletPayBtn" onclick="payWithWallet()" style="background:linear-gradient(135deg, #0d9488, #0f766e);box-shadow:0 6px 18px rgba(13,148,136,0.25);">
-                        <i class="fas fa-wallet"></i> Pay ₹{{ invoice.total }} with Wallet
+            <a href="/portal/invoices/" class="sidebar-back-link">
+                <i class="fas fa-arrow-left"></i> Back to Invoices
+            </a>
+
+            <!-- Main Sticky Checkout Card -->
+            <div class="sidebar-card">
+                <div class="sidebar-card-stripe"></div>
+
+                <!-- Document Tools -->
+                <div class="action-grid-2">
+                    <button type="button" onclick="window.print()" class="action-tool-btn" title="Print Invoice">
+                        <i class="fas fa-print"></i> Print
+                    </button>
+                    <button type="button" onclick="window.print()" class="action-tool-btn" title="Download as PDF">
+                        <i class="fas fa-file-pdf" style="color:#ef4444;"></i> Save PDF
                     </button>
                 </div>
-                {% endif %}
 
-                <!-- ── Promo Code ── -->
-                <div id="promoSection" style="background:rgba(139,92,246,0.06); border:1px solid rgba(139,92,246,0.2); border-radius:16px; padding:18px; margin-bottom:18px;">
-                    <div style="font-weight:800;color:#a78bfa;margin-bottom:12px;font-size:0.9rem;display:flex;align-items:center;gap:8px;">
-                        <i class="fas fa-tag"></i> Have a Promo Code?
+                <!-- Amount Payable Box -->
+                <div class="pay-amount-box">
+                    <div class="pay-amount-lbl">
+                        {% if invoice.status == 'paid' %}Total Paid{% else %}Total Amount Due{% endif %}
                     </div>
-                    <div style="display:flex;gap:8px;" id="promoInputRow">
-                        <input type="text" id="promoCodeInput" placeholder="Enter code" maxlength="30"
-                            style="flex:1;padding:10px 14px;border-radius:10px;border:1px solid rgba(139,92,246,0.3);background:rgba(255,255,255,0.04);color:var(--text-primary);font-size:0.88rem;font-weight:700;text-transform:uppercase;outline:none;">
-                        <button type="button" id="promoApplyBtn" onclick="applyPromoCode()"
-                            style="padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;font-weight:700;font-size:0.85rem;cursor:pointer;white-space:nowrap;">
-                            Apply
+                    <div class="pay-amount-val">₹{{ invoice.total }}</div>
+                    <div class="pay-status-sub">
+                        {% if invoice.status == 'paid' %}
+                            <span style="color:#059669;"><i class="fas fa-check-circle"></i> Settled in Full</span>
+                        {% elif invoice.status == 'overdue' %}
+                            <span style="color:#dc2626;"><i class="fas fa-triangle-exclamation"></i> Overdue Since {{ invoice.due_date|date:"d M" }}</span>
+                        {% else %}
+                            <span style="color:#b45309;"><i class="fas fa-clock"></i> Due by {{ invoice.due_date|date:"d M Y" }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if invoice.status != 'paid' %}
+                    <!-- Provisioning Error Banner -->
+                    <div class="provision-error-banner" id="provisionErrorBanner" style="display:none;margin-bottom:14px;padding:12px 14px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:10px;">
+                        <div class="peb-title" style="font-weight:800;color:#ef4444;font-size:0.8rem;margin-bottom:4px;"><i class="fas fa-triangle-exclamation"></i> Provisioning Error</div>
+                        <div class="peb-msg" id="provisionErrorMsg" style="font-size:0.78rem;color:#475569;"></div>
+                    </div>
+
+                    <!-- Instant Razorpay Pay Button -->
+                    {% if razorpay_on %}
+                    <button class="rzp-pay-btn" id="rzpPayBtn" onclick="initiateRazorpayPayment()">
+                        <i class="fas fa-lock"></i> Pay ₹{{ invoice.total }} Now
+                    </button>
+                    <div style="text-align:center;font-size:0.73rem;color:#64748b;margin:10px 0 16px;line-height:1.4;">
+                        <i class="fas fa-shield-halved" style="color:#10b981;"></i> UPI (GPay, PhonePe, Paytm) &bull; Cards &bull; NetBanking
+                    </div>
+                    {% endif %}
+
+                    <!-- Wallet Pay Option -->
+                    {% if profile and profile.balance_funds > 0 or profile.balance_chips > 0 %}
+                    <div style="background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.25); border-radius:12px; padding:14px; margin-bottom:16px;">
+                        <div style="font-weight:800;color:var(--inv-green-dark);margin-bottom:4px;font-size:0.85rem;display:flex;align-items:center;gap:6px;">
+                            <i class="fas fa-wallet"></i> Pay with Wallet Balance
+                        </div>
+                        <div style="font-size:0.78rem;color:#475569;margin-bottom:10px;">
+                            Available: <strong style="color:#0f172a;">₹{{ profile.balance_funds }}</strong>
+                        </div>
+                        <button class="rzp-pay-btn" id="walletPayBtn" onclick="payWithWallet()" style="background:linear-gradient(135deg, #10b981, #059669);box-shadow:0 6px 16px rgba(16,185,129,0.25);padding:12px;font-size:0.9rem;">
+                            <i class="fas fa-wallet"></i> Pay ₹{{ invoice.total }} with Wallet
                         </button>
                     </div>
-                    <div id="promoResult" style="margin-top:10px;display:none;"></div>
-                </div>
+                    {% endif %}
 
-                {% if razorpay_on %}
-                <!-- ── Razorpay Checkout ── -->
-                <!-- Provisioning Error Banner (shown by JS if account creation fails after payment) -->
-                <div class="provision-error-banner" id="provisionErrorBanner">
-                    <div class="peb-title"><i class="fas fa-triangle-exclamation"></i> Account Creation Failed</div>
-                    <div class="peb-msg" id="provisionErrorMsg"></div>
-                    <div style="font-size:0.8rem;color:var(--text-muted);padding:10px;background:rgba(0,0,0,0.2);border-radius:8px;margin-bottom:10px;">
-                        ✅ <strong>Your payment was received</strong> — invoice <code>{{ invoice.invoice_number }}</code> is marked paid.
-                        However, we could not automatically create your hosting account.
+                    <!-- Promo Code Accordion -->
+                    <div style="padding-top:14px;border-top:1px solid #f1f5f9;">
+                        <div style="font-size:0.78rem;font-weight:700;color:#475569;margin-bottom:6px;">Have a Promo Coupon?</div>
+                        <div class="promo-row" id="promoInputRow">
+                            <input type="text" id="promoCodeInput" class="promo-input" placeholder="COUPON CODE" maxlength="30">
+                            <button type="button" id="promoApplyBtn" class="promo-btn" onclick="applyPromoCode()">Apply</button>
+                        </div>
+                        <div id="promoResult" style="margin-top:6px;display:none;"></div>
                     </div>
-                    <a href="/portal/ticket/new/" style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:10px;background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.25);font-size:0.82rem;font-weight:700;">
-                        <i class="fas fa-headset"></i> Open Support Ticket
-                    </a>
-                </div>
 
-                <button class="rzp-pay-btn" id="rzpPayBtn" onclick="initiateRazorpayPayment()">
-                    <i class="fas fa-credit-card"></i>
-                    Pay ₹{{ invoice.total }} Now
-                </button>
-                <span class="rzp-label">
-                    <i class="fas fa-shield-halved" style="margin-right:3px;"></i>
-                    Secured by Razorpay · UPI · Cards · Net Banking · Wallets
-                </span>
-
-                <div style="display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--text-muted);font-size:0.78rem;">
-                    <div style="flex:1;height:1px;background:rgba(255,255,255,0.06);"></div>
-                    or
-                    <div style="flex:1;height:1px;background:rgba(255,255,255,0.06);"></div>
-                </div>
-                {% endif %}
-
-                <!-- ── Bank / UPI fallback ── -->
-                <div class="bank-section">
-                    <div class="pay-method">
-                        <div class="pay-method-title"><i class="fas fa-building-columns" style="color:#59c4bc;"></i> Bank Transfer / UPI</div>
-                        <p>UPI ID: <code>9354519271@kotak811</code><br>Or Send to: <code>billing@voidpanel.com</code><br>Reference: <code>{{ invoice.invoice_number }}</code><br>Amount: <code>₹{{ invoice.total }}</code></p>
+                    <!-- Direct UPI Transfer Details -->
+                    <div style="margin-top:16px;padding-top:14px;border-top:1px solid #f1f5f9;font-size:0.78rem;color:#64748b;">
+                        <div style="font-weight:800;color:#0f172a;margin-bottom:4px;"><i class="fas fa-building-columns" style="color:var(--inv-brand);"></i> Direct UPI Payment:</div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;background:#f8fafc;border:1px solid #e2e8f0;padding:6px 10px;border-radius:8px;margin-top:6px;">
+                            <span style="font-weight:700;color:#2563eb;">9354519271@kotak811</span>
+                            <span onclick="navigator.clipboard.writeText('9354519271@kotak811');showToast('UPI ID copied!');" style="cursor:pointer;color:#64748b;font-size:0.72rem;font-weight:700;display:inline-flex;align-items:center;gap:3px;" title="Copy"><i class="fas fa-copy"></i> Copy</span>
+                        </div>
                     </div>
-                    <div class="pay-method">
-                        <div class="pay-method-title"><i class="fas fa-envelope" style="color:#818cf8;"></i> Email Confirmation</div>
-                        <p>After payment, email your UTR/transaction ID to <code>billing@voidpanel.com</code></p>
-                    </div>
-                </div>
 
-                {% if request.user.is_superuser %}
-                <div class="admin-panel">
-                    <div class="pay-method-title" style="color:#4ade80;"><i class="fas fa-shield-check"></i> Admin: Manual Confirmation</div>
-                    <p style="color:var(--text-secondary);font-size:0.8rem;margin:0 0 12px;">Mark invoice as paid and trigger provisioning immediately.</p>
-                    <form method="POST">
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="mark_paid">
-                        <button type="submit" class="btn-confirm"><i class="fas fa-check"></i> Mark Paid & Provision</button>
-                    </form>
-                </div>
+                    <!-- Superadmin Mark Paid Button -->
+                    {% if request.user.is_superuser %}
+                    <div style="margin-top:16px;padding-top:14px;border-top:1px solid #f1f5f9;">
+                        <form method="POST">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="mark_paid">
+                            <button type="submit" style="width:100%;padding:9px;border-radius:10px;background:#10b981;color:#fff;border:none;font-weight:700;font-size:0.8rem;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+                                <i class="fas fa-check"></i> Admin: Mark as Paid
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+
+                {% else %}
+                    <!-- When Paid: Settlement Confirmation -->
+                    <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:16px;text-align:center;color:#065f46;">
+                        <i class="fas fa-circle-check" style="font-size:2rem;color:#059669;margin-bottom:6px;"></i>
+                        <div style="font-weight:800;font-size:0.95rem;">Payment Settled</div>
+                        <div style="font-size:0.76rem;color:#047857;margin-top:4px;">
+                            Thank you! Your services are active and running.
+                        </div>
+                    </div>
                 {% endif %}
             </div>
 
-            {% else %}
-            <div class="glass-surface" style="margin-bottom:14px;background:rgba(74,222,128,0.04);border-color:rgba(74,222,128,0.18);">
-                <div class="paid-success">
-                    <i class="fas fa-circle-check" style="color:#86efac;font-size:2.8rem;margin-bottom:14px;display:block;"></i>
-                    <div style="color:var(--text-primary);font-weight:800;font-size:1.1rem;">Payment Received!</div>
-                    <div style="color:var(--text-secondary);margin-top:8px;font-size:0.84rem;line-height:1.6;">Your hosting account is being provisioned.<br>You'll receive an email once it's live.</div>
+            <!-- Help & Support Snippet -->
+            <div style="padding:12px 16px;background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;font-size:0.76rem;color:#64748b;display:flex;align-items:center;gap:10px;">
+                <i class="fas fa-headset" style="font-size:1.1rem;color:#f59e0b;"></i>
+                <div>
+                    Questions? <a href="/portal/ticket/new/" style="color:var(--inv-brand);font-weight:700;text-decoration:none;">Open Ticket</a> or write to <strong>billing@voidonyx.in</strong>
                 </div>
             </div>
-            {% endif %}
 
-            <!-- Quick Links -->
-            <div class="glass-surface">
-                <div style="font-weight:700;color:var(--text-primary);margin-bottom:12px;font-size:0.88rem;">Quick Links</div>
-                <a href="/portal/" class="ql-link"><i class="fas fa-gauge-high" style="color:#59c4bc;"></i> Back to Dashboard</a>
-                <a href="/portal/ticket/new/" class="ql-link"><i class="fas fa-life-ring" style="color:#818cf8;"></i> Open Support Ticket</a>
-            </div>
         </div>
+
     </div>
-</main>
+
+</div>
+
 {% include 'footer.html' %}
 
-<!-- Razorpay SDK -->
+<!-- Razorpay Checkout SDK -->
 {% if razorpay_on %}
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 {% endif %}
 
-<!-- Toast -->
-<div id="payToast"></div>
+<!-- Toast Notification -->
+<div id="payToast" style="position:fixed;bottom:24px;right:24px;z-index:9999;display:none;align-items:center;gap:10px;padding:12px 20px;border-radius:12px;background:#0f172a;color:#fff;font-size:0.85rem;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,0.3);"></div>
 
 <script>
-const INVOICE_ID   = {{ invoice.id }};
-const INVOICE_TOTAL = {{ invoice.total }};
-const RAZORPAY_ON  = {% if razorpay_on %}true{% else %}false{% endif %};
+const INVOICE_ID     = {{ invoice.id }};
+const INVOICE_TOTAL  = {{ invoice.total }};
+const INVOICE_NUMBER = "{{ invoice.invoice_number }}";
+const USER_NAME      = "{{ request.user.username }}";
+const USER_EMAIL     = "{{ request.user.email }}";
 
-function showToast(msg, type='success') {
-    const el = document.getElementById('payToast');
-    const icon = type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-check';
-    const color = type === 'error' ? '#f87171' : '#86efac';
-    el.innerHTML = `<i class="fas ${icon}" style="color:${color};font-size:1.1rem;"></i> ${msg}`;
-    el.className = `show ${type === 'error' ? 'error' : ''}`;
-    setTimeout(() => { el.className = ''; }, 5000);
+function showToast(msg, type = 'success') {
+    const t = document.getElementById('payToast');
+    if (!t) return;
+    t.textContent = msg;
+    t.style.display = 'flex';
+    t.style.background = type === 'error' ? '#dc2626' : '#0f172a';
+    t.style.border = type === 'error' ? '1px solid #ef4444' : '1px solid #334155';
+    setTimeout(() => { t.style.display = 'none'; }, 4000);
+}
+
+function getCookie(name) {
+    let v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return v ? v.pop() : '';
 }
 
 async function initiateRazorpayPayment() {
-    if (!RAZORPAY_ON) { showToast('Payment gateway not configured.', 'error'); return; }
-
     const btn = document.getElementById('rzpPayBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Preparing payment…';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Connecting Gateway…';
+    }
 
     try {
         const r = await fetch('/api/payment/razorpay/create-order/', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-            body: JSON.stringify({ invoice_id: INVOICE_ID })
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify({ invoice_id: INVOICE_ID }),
         });
-        const d = await r.json();
-        if (d.error) { showToast(d.error, 'error'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-credit-card"></i> Pay ₹' + INVOICE_TOTAL + ' Now'; return; }
+        const orderData = await r.json();
+
+        if (orderData.error) {
+            showToast(orderData.error, 'error');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-lock"></i> Pay ₹' + INVOICE_TOTAL + ' Now';
+            }
+            return;
+        }
 
         const options = {
-            key:          d.key_id,
-            amount:       d.amount,
-            currency:     d.currency,
-            name:         d.name,
-            description:  d.description,
-            order_id:     d.order_id,
-            prefill:      d.prefill,
-            hidden:       { contact: true },
-            theme:        { color: '#6366f1' },
+            key:         orderData.key || orderData.key_id,
+            amount:      orderData.amount,
+            currency:    orderData.currency || 'INR',
+            name:        'VoidOnyx Cloud',
+            description: 'Invoice ' + INVOICE_NUMBER,
+            order_id:    orderData.order_id,
+            prefill:     orderData.prefill || {
+                name:    USER_NAME,
+                email:   USER_EMAIL,
+            },
+            theme: { color: '#2563eb' },
             modal: {
                 ondismiss: function() {
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-credit-card"></i> Pay ₹' + INVOICE_TOTAL + ' Now';
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-lock"></i> Pay ₹' + INVOICE_TOTAL + ' Now';
+                    }
                 }
             },
-            handler: async function(resp) {
-                btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Verifying payment…';
+            handler: async function(response) {
+                if (btn) {
+                    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Verifying & Provisioning…';
+                }
                 try {
                     const vr = await fetch('/api/payment/razorpay/verify/', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken'),
+                        },
                         body: JSON.stringify({
-                            razorpay_order_id:   resp.razorpay_order_id,
-                            razorpay_payment_id: resp.razorpay_payment_id,
-                            razorpay_signature:  resp.razorpay_signature,
-                            invoice_id:          INVOICE_ID
-                        })
+                            razorpay_order_id:   response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature:  response.razorpay_signature,
+                            invoice_id:          INVOICE_ID,
+                        }),
                     });
                     const vd = await vr.json();
-                    if (vd.ok) {
-                        // Check provision outcome
-                        const ps = vd.provision || 'na';
-                        if (ps === 'ok' || ps === 'na') {
-                            showToast('🎉 Payment successful! Your account is being set up…');
-                            setTimeout(() => { window.location = '/portal/order-complete/?invoice=' + INVOICE_ID; }, 1800);
-                        } else {
-                            // Payment OK but provisioning failed — show error banner
-                            btn.disabled = false;
-                            btn.innerHTML = '<i class="fas fa-credit-card"></i> Pay ₹' + INVOICE_TOTAL + ' Now';
-                            showProvisionError(vd.provision_message || 'Account creation failed. Please contact support.');
-                        }
+
+                    if (vd.status === 'ok') {
+                        showToast('🎉 Payment successful! Setting up your services…');
+                        setTimeout(() => { window.location = '/portal/order-complete/?invoice=' + INVOICE_ID; }, 1800);
                     } else {
-                        showToast(vd.error || 'Verification failed. Contact support.', 'error');
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="fas fa-credit-card"></i> Pay ₹' + INVOICE_TOTAL + ' Now';
+                        showToast(vd.error || 'Verification failed. Contact billing support.', 'error');
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fas fa-lock"></i> Pay ₹' + INVOICE_TOTAL + ' Now';
+                        }
                     }
                 } catch(e) {
                     showToast('Network error during verification.', 'error');
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-credit-card"></i> Pay ₹' + INVOICE_TOTAL + ' Now';
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-lock"></i> Pay ₹' + INVOICE_TOTAL + ' Now';
+                    }
                 }
             }
         };
 
         const rzp = new Razorpay(options);
         rzp.on('payment.failed', function(resp) {
-            showToast('Payment failed: ' + (resp.error.description || 'Unknown error'), 'error');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-credit-card"></i> Pay ₹' + INVOICE_TOTAL + ' Now';
+            showToast('Payment failed: ' + (resp.error.description || 'Transaction cancelled'), 'error');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-lock"></i> Pay ₹' + INVOICE_TOTAL + ' Now';
+            }
         });
         rzp.open();
 
     } catch(e) {
-        showToast('Could not connect to payment gateway.', 'error');
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-credit-card"></i> Pay ₹' + INVOICE_TOTAL + ' Now';
+        showToast('Could not initialize payment gateway.', 'error');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-lock"></i> Pay ₹' + INVOICE_TOTAL + ' Now';
+        }
     }
-}
-
-function showProvisionError(message) {
-    const banner = document.getElementById('provisionErrorBanner');
-    const msgEl  = document.getElementById('provisionErrorMsg');
-    if (banner && msgEl) {
-        msgEl.textContent = message;
-        banner.style.display = 'block';
-        banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-    showToast('⚠️ Payment received, but account setup failed. See details below.', 'error');
 }
 
 async function payWithWallet() {
     const btn = document.getElementById('walletPayBtn');
     if (!btn) return;
     btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processing payment…';
-    
+    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processing Wallet Deduction…';
+
     try {
         const r = await fetch('/api/payment/wallet/pay/', {
             method: 'POST',
             credentials: 'same-origin',
-            headers: { 
-                'Content-Type': 'application/json', 
-                'X-CSRFToken': getCookie('csrftoken') 
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
             },
-            body: JSON.stringify({ invoice_id: INVOICE_ID })
+            body: JSON.stringify({
+                invoice_id: INVOICE_ID,
+                autopay: true,
+                auto_renew: true
+            })
         });
-        
-        // If the server redirected us to login, the response will be HTML not JSON
-        const contentType = r.headers.get('content-type') || '';
-        if (!contentType.includes('application/json')) {
-            showToast('Session expired. Please refresh and try again.', 'error');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-wallet"></i> Pay ₹' + INVOICE_TOTAL + ' with Wallet';
-            return;
-        }
-        
+
         const d = await r.json();
         if (d.error) {
             showToast(d.error, 'error');
@@ -470,19 +1392,14 @@ async function payWithWallet() {
             btn.innerHTML = '<i class="fas fa-wallet"></i> Pay ₹' + INVOICE_TOTAL + ' with Wallet';
             return;
         }
-        
-        showToast('🎉 Invoice paid successfully using wallet!');
+
+        showToast('🎉 Invoice paid successfully using wallet balance!');
         setTimeout(() => { window.location = '/portal/order-complete/?invoice=' + INVOICE_ID; }, 1800);
     } catch(e) {
         showToast('Network error during wallet payment.', 'error');
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-wallet"></i> Pay ₹' + INVOICE_TOTAL + ' with Wallet';
     }
-}
-
-function getCookie(name) {
-    let v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
-    return v ? v.pop() : '';
 }
 
 async function applyPromoCode() {
@@ -493,12 +1410,12 @@ async function applyPromoCode() {
 
     if (!code) {
         result.style.display = 'block';
-        result.innerHTML = '<div style="color:#f87171;font-size:0.82rem;font-weight:600;"><i class="fas fa-exclamation-circle"></i> Please enter a coupon code</div>';
+        result.innerHTML = '<div style="color:#ef4444;font-size:0.78rem;font-weight:700;"><i class="fas fa-exclamation-circle"></i> Enter promo code</div>';
         return;
     }
 
     btn.disabled = true;
-    btn.textContent = 'Applying...';
+    btn.textContent = 'Applying…';
     result.style.display = 'none';
 
     try {
@@ -514,36 +1431,25 @@ async function applyPromoCode() {
 
         if (data.error) {
             result.style.display = 'block';
-            result.innerHTML = '<div style="color:#f87171;font-size:0.82rem;font-weight:600;"><i class="fas fa-exclamation-circle"></i> ' + data.error + '</div>';
+            result.innerHTML = '<div style="color:#ef4444;font-size:0.78rem;font-weight:700;"><i class="fas fa-exclamation-circle"></i> ' + data.error + '</div>';
             btn.disabled = false;
             btn.textContent = 'Apply';
             return;
         }
 
-        // Success — show discount and reload page
         result.style.display = 'block';
-        result.innerHTML = '<div style="color:#4ade80;font-size:0.85rem;font-weight:700;padding:10px;background:rgba(74,222,128,0.08);border-radius:10px;">' +
-            '<i class="fas fa-check-circle"></i> Coupon <strong>' + data.coupon_code + '</strong> applied! ' +
-            '<span style="text-decoration:line-through;color:#94a3b8;">₹' + data.original_total + '</span> → ' +
-            '<strong style="color:#4ade80;">₹' + data.new_total + '</strong> ' +
-            '(-' + data.discount_label + ')' +
-            '</div>';
+        result.innerHTML = '<div style="color:#10b981;font-size:0.8rem;font-weight:700;padding:6px 10px;background:rgba(16,185,129,0.08);border-radius:6px;">' +
+            '<i class="fas fa-check-circle"></i> Applied! <span style="text-decoration:line-through;color:#94a3b8;">₹' + data.original_total + '</span> → <strong>₹' + data.new_total + '</strong></div>';
 
-        // Hide input row after success
-        document.getElementById('promoInputRow').style.display = 'none';
-
-        // Reload page after 2s to update all payment buttons
-        setTimeout(() => { window.location.reload(); }, 2000);
-
+        setTimeout(() => { window.location.reload(); }, 1800);
     } catch(e) {
         result.style.display = 'block';
-        result.innerHTML = '<div style="color:#f87171;font-size:0.82rem;font-weight:600;"><i class="fas fa-exclamation-circle"></i> Network error. Please try again.</div>';
+        result.innerHTML = '<div style="color:#ef4444;font-size:0.78rem;font-weight:700;"><i class="fas fa-exclamation-circle"></i> Network error</div>';
         btn.disabled = false;
         btn.textContent = 'Apply';
     }
 }
 
-// Enter key to apply promo
 document.getElementById('promoCodeInput')?.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') { e.preventDefault(); applyPromoCode(); }
 });

@@ -36,7 +36,22 @@ class _CalendarViewState extends State<CalendarView> {
         });
       }
     } catch (e) {
-      debugPrint('[Calendar] Error loading events: $e');
+      debugPrint('[Calendar] Cache notice: $e');
+    }
+
+    // Sync live with VoidPanel backend
+    try {
+      if (!mounted) return;
+      final provider = Provider.of<MailProvider>(context, listen: false);
+      final liveEvents = await provider.apiService.fetchCalendarEvents();
+      if (liveEvents.isNotEmpty && mounted) {
+        setState(() {
+          _events = liveEvents;
+        });
+        _saveEvents();
+      }
+    } catch (e) {
+      debugPrint('[Calendar] Live sync notice: $e');
     }
   }
 
@@ -50,18 +65,22 @@ class _CalendarViewState extends State<CalendarView> {
     }
   }
 
-  void _deleteEvent(String id) {
+  void _deleteEvent(String id) async {
+    final provider = Provider.of<MailProvider>(context, listen: false);
     setState(() {
       _events.removeWhere((e) => e.id == id);
     });
     _saveEvents();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Event deleted'),
-        behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: 2),
-      ),
-    );
+    await provider.apiService.deleteCalendarEvent(id);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Event deleted'),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   void _showAddEventDialog() {
@@ -100,31 +119,38 @@ class _CalendarViewState extends State<CalendarView> {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 final title = titleCtrl.text.trim();
                 final time = timeCtrl.text.trim();
                 if (title.isNotEmpty) {
+                  final newEvent = EventItem(
+                    id: 'event-${DateTime.now().millisecondsSinceEpoch}',
+                    title: title,
+                    location: 'VoidMeet Virtual Room',
+                    startTime: time,
+                    endTime: '11:00 AM',
+                    indicatorColor: const Color(0xFFFF7A00),
+                    date: _selectedDate,
+                    meetingUrl: 'https://meet.voidonyx.com/room-${DateTime.now().millisecondsSinceEpoch % 10000}',
+                  );
                   setState(() {
-                    _events.add(
-                      EventItem(
-                        id: 'event-${DateTime.now().millisecondsSinceEpoch}',
-                        title: title,
-                        location: 'Calendar Event',
-                        startTime: time,
-                        endTime: '11:00 AM',
-                        indicatorColor: const Color(0xFF6C5CE7),
-                        date: _selectedDate,
-                      ),
-                    );
+                    _events.add(newEvent);
                   });
                   _saveEvents();
                   Navigator.pop(context);
+                  final provider = Provider.of<MailProvider>(context, listen: false);
+                  await provider.apiService.saveCalendarEvent({
+                    'title': title,
+                    'start_time': _selectedDate.toIso8601String(),
+                    'meeting_type': 'video',
+                  });
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6C5CE7),
+                backgroundColor: const Color(0xFFFF7A00),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
+
               child: const Text('Save Event', style: TextStyle(color: Colors.white)),
             ),
           ],
@@ -138,7 +164,7 @@ class _CalendarViewState extends State<CalendarView> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final now = DateTime.now();
-    final monthYearStr = DateFormat('MMMM yyyy').format(_selectedDate);
+
 
     // Filter events for selected date
     final dayEvents = _events.where((e) {
@@ -148,56 +174,76 @@ class _CalendarViewState extends State<CalendarView> {
     }).toList();
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F0C20) : const Color(0xFFF9FAFD),
+      backgroundColor: isDark ? const Color(0xFF100B07) : const Color(0xFFFAFAFA),
+
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Top Bar Header Title & Quick Actions matching Design Image
+              // 1. Top Bar Header Title & Quick Actions
               Row(
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Calendar',
-                        style: GoogleFonts.outfit(
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Friday, August 7, 2026',
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          color: isDark ? Colors.grey[400] : const Color(0xFF64748B),
-                        ),
-                      ),
-                    ],
+                  Builder(
+                    builder: (drawerCtx) => IconButton(
+                      icon: const Icon(Icons.menu_rounded),
+                      tooltip: 'Navigation Menu',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                      onPressed: () => Scaffold.of(drawerCtx).openDrawer(),
+                    ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Calendar',
+                            style: GoogleFonts.outfit(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : const Color(0xFF0F172A),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          DateFormat('EEEE, MMMM d').format(now),
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: isDark ? Colors.grey[400] : const Color(0xFF64748B),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   // Search Button
                   Container(
-                    width: 40,
-                    height: 40,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
                       color: isDark ? const Color(0xFF1B1638) : Colors.white,
                       shape: BoxShape.circle,
                       border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
-                    child: const Icon(Icons.search_rounded, color: Color(0xFF475569), size: 20),
+                    child: const Icon(Icons.search_rounded, color: Color(0xFF475569), size: 18),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   // Plus Add Event Button
                   GestureDetector(
                     onTap: _showAddEventDialog,
                     child: Container(
-                      width: 40,
-                      height: 40,
+                      width: 36,
+                      height: 36,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
@@ -206,22 +252,22 @@ class _CalendarViewState extends State<CalendarView> {
                         boxShadow: [
                           BoxShadow(
                             color: const Color(0xFF6366F1).withOpacity(0.35),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
                           ),
                         ],
                       ),
-                      child: const Icon(Icons.add_rounded, color: Colors.white, size: 22),
+                      child: const Icon(Icons.add_rounded, color: Colors.white, size: 20),
                     ),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
 
-              // 2. Date Selector Container Card matching Design Image
+              // 2. Date Selector Container Card
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF1B1638) : Colors.white,
                   borderRadius: BorderRadius.circular(20),
@@ -232,31 +278,50 @@ class _CalendarViewState extends State<CalendarView> {
                 ),
                 child: Column(
                   children: [
-                    // Header: August 2026 dropdown, Today, < >
+                    // Header: Month dropdown, Today, < >
                     Row(
                       children: [
-                        Text('August 2026', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 15)),
-                        const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: Color(0xFF6366F1)),
-                        const Spacer(),
+                        Flexible(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  DateFormat('MMMM yyyy').format(_selectedDate),
+                                  style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 2),
+                              const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: Color(0xFF6366F1)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
                           decoration: BoxDecoration(
                             color: const Color(0xFFEEF2FF),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text('Today', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF4338CA))),
                         ),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.chevron_left_rounded, size: 20, color: Color(0xFF94A3B8)),
-                        const SizedBox(width: 4),
-                        const Icon(Icons.chevron_right_rounded, size: 20, color: Color(0xFF94A3B8)),
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: () => setState(() => _selectedDate = _selectedDate.subtract(const Duration(days: 7))),
+                          child: const Icon(Icons.chevron_left_rounded, size: 20, color: Color(0xFF94A3B8)),
+                        ),
+                        const SizedBox(width: 2),
+                        GestureDetector(
+                          onTap: () => setState(() => _selectedDate = _selectedDate.add(const Duration(days: 7))),
+                          child: const Icon(Icons.chevron_right_rounded, size: 20, color: Color(0xFF94A3B8)),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
 
-                    // Date Strip matching Screenshot (TUE 4, WED 5, THU 6, FRI 7 active, SAT 8, SUN 9 red, MON 10)
+                    // Date Strip with Expanded columns (proportional, 0 overflow)
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: List.generate(7, (i) {
                         final day = now.add(Duration(days: i - 3));
                         final isSelected = day.day == _selectedDate.day &&
@@ -265,46 +330,51 @@ class _CalendarViewState extends State<CalendarView> {
                         final dayName = DateFormat('EEE').format(day).toUpperCase();
                         final isSunday = day.weekday == DateTime.sunday;
 
-                        return GestureDetector(
-                          onTap: () => setState(() => _selectedDate = day),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isSelected ? const Color(0xFF6366F1) : Colors.transparent,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Column(
-                              children: [
-                                Text(
-                                  dayName,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: isSelected
-                                        ? Colors.white
-                                        : (isSunday ? Colors.redAccent : (isDark ? Colors.grey[400] : const Color(0xFF64748B))),
+                        return Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _selectedDate = day),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isSelected ? const Color(0xFF6366F1) : Colors.transparent,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    dayName,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : (isSunday ? Colors.redAccent : (isDark ? Colors.grey[400] : const Color(0xFF64748B))),
+                                    ),
+                                    maxLines: 1,
                                   ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${day.day}',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: isSelected
-                                        ? Colors.white
-                                        : (isSunday ? Colors.redAccent : (isDark ? Colors.white : const Color(0xFF0F172A))),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${day.day}',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : (isSunday ? Colors.redAccent : (isDark ? Colors.white : const Color(0xFF0F172A))),
+                                    ),
+                                    maxLines: 1,
                                   ),
-                                ),
-                                if (isSelected) ...[
-                                  const SizedBox(height: 2),
-                                  Container(
-                                    width: 4,
-                                    height: 4,
-                                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                                  ),
+                                  if (isSelected) ...[
+                                    const SizedBox(height: 2),
+                                    Container(
+                                      width: 4,
+                                      height: 4,
+                                      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                                    ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
                           ),
                         );

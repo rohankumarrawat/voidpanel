@@ -32,12 +32,29 @@ class NotificationService {
           debugPrint('[NotificationService] Notification tapped: ${response.payload}');
         },
       );
+
+      // Explicitly create High-Priority Notification Channel for Android 8.0+
+      final androidImplementation =
+          _notificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      if (androidImplementation != null) {
+        const incomingChannel = AndroidNotificationChannel(
+          'voidmail_incoming_channel',
+          'Incoming Mail Alerts',
+          description: 'High-priority notifications for new incoming emails',
+          importance: Importance.max,
+          enableVibration: true,
+          playSound: true,
+        );
+        await androidImplementation.createNotificationChannel(incomingChannel);
+      }
+
       _isInitialized = true;
-      debugPrint('[NotificationService] Initialized successfully.');
+      debugPrint('[NotificationService] Initialized successfully with high-priority channel.');
     } catch (e) {
       debugPrint('[NotificationService] Initialization error: $e');
     }
   }
+
 
   Future<void> requestPermissions() async {
     try {

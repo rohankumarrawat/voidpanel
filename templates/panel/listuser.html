@@ -65,29 +65,46 @@
         .page-header .breadcrumb-item+.breadcrumb-item::before { color:var(--text-dim); }
 
         /* Stats row */
-        .stats-row { display:flex; gap:16px; margin-bottom:24px; flex-wrap:wrap; }
+        .stats-row { display:flex; gap:14px; margin-bottom:24px; flex-wrap:wrap; }
         .stat-card {
-            flex:1; min-width:140px;
+            flex:1; min-width:130px;
             background:var(--glass-bg);
             border:1px solid var(--glass-border);
             border-radius:14px;
-            padding:18px 20px;
-            display:flex; align-items:center; gap:14px;
+            padding:16px 18px;
+            display:flex; align-items:center; gap:12px;
+            transition:all .2s ease;
+        }
+        .stat-card.clickable {
+            cursor: pointer;
+            user-select: none;
+        }
+        .stat-card.clickable:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            border-color: var(--neon);
+        }
+        .stat-card.active-filter {
+            border-color: var(--neon) !important;
+            background: rgba(0, 229, 255, 0.08) !important;
+            box-shadow: 0 0 0 2px var(--neon) !important;
         }
         .stat-icon {
             width:42px; height:42px; border-radius:10px;
             display:flex; align-items:center; justify-content:center;
             font-size:1.1rem;
+            flex-shrink:0;
         }
         .stat-icon.cyan   { background:rgba(0,229,255,.12); color:var(--neon); border:1px solid rgba(0,229,255,.2); }
         .stat-icon.purple { background:rgba(168,85,247,.12); color:#a855f7; border:1px solid rgba(168,85,247,.2); }
         .stat-icon.green  { background:rgba(34,197,94,.12); color:#22c55e; border:1px solid rgba(34,197,94,.2); }
         .stat-icon.amber  { background:rgba(245,158,11,.12); color:#f59e0b; border:1px solid rgba(245,158,11,.2); }
+        .stat-icon.red    { background:rgba(244,63,94,.12); color:#f43f5e; border:1px solid rgba(244,63,94,.2); }
         
         html[data-theme="light"] .stat-icon.cyan { background: rgba(79, 70, 229, 0.1); color: var(--neon); border-color: rgba(79, 70, 229, 0.2); }
         html[data-theme="light"] .stat-icon.purple { background: rgba(124, 58, 237, 0.1); color: var(--neon-purple); border-color: rgba(124, 58, 237, 0.2); }
 
-        .stat-val { font-size:1.5rem; font-weight:700; color:var(--text-main); line-height:1; }
+        .stat-val { font-size:1.45rem; font-weight:700; color:var(--text-main); line-height:1; }
         .stat-lbl { font-size:.72rem; color:var(--text-dim); margin-top:3px; }
 
         /* Glass table card */
@@ -99,21 +116,108 @@
         }
         .card-toolbar {
             display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;
-            padding:20px 24px;
+            padding:18px 22px;
             border-bottom:1px solid var(--border-subtle);
         }
         .card-toolbar-title { font-size:1rem; font-weight:600; color:var(--text-main); }
+        .search-container-box { display:flex; align-items:center; gap:8px; }
         .search-wrap { position:relative; }
         .search-wrap i { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--neon); opacity:0.6; font-size:.82rem; }
         .search-wrap input {
             background:var(--input-bg); border:1px solid var(--input-border);
             border-radius:10px; color:var(--text-main); font-size:.84rem;
-            padding:8px 14px 8px 34px; outline:none; width:230px;
+            padding:8px 14px 8px 34px; outline:none; width:220px;
             font-family:'Inter',sans-serif;
             transition:border-color .2s, box-shadow .2s;
         }
         .search-wrap input::placeholder { color:rgba(150,170,210,.4); }
         .search-wrap input:focus { border-color:var(--neon); box-shadow:0 0 0 3px rgba(0,229,255,.1); }
+
+        .btn-search-act {
+            background:linear-gradient(135deg,var(--neon),var(--neon-purple));
+            border:none; border-radius:10px; padding:8px 15px; color:#fff;
+            font-weight:600; font-size:.8rem; cursor:pointer; display:inline-flex;
+            align-items:center; gap:6px; transition:all .18s;
+        }
+        .btn-search-act:hover { opacity:.9; box-shadow:0 4px 12px rgba(99,102,241,.25); }
+        .btn-clear-search {
+            background:var(--strength-bg); border:1px solid var(--border-subtle);
+            border-radius:8px; width:28px; height:28px; display:inline-flex;
+            align-items:center; justify-content:center; color:var(--text-dim);
+            cursor:pointer; transition:all .15s;
+        }
+        .btn-clear-search:hover { color:#ef4444; border-color:rgba(239,68,68,.3); }
+
+        /* Secondary Filter Row */
+        .filter-toolbar-row {
+            display:flex; align-items:center; justify-content:space-between;
+            gap:12px; flex-wrap:wrap; padding:12px 22px;
+            background:rgba(255,255,255,.015); border-bottom:1px solid var(--border-subtle);
+        }
+        .filter-pills-wrap { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+        .filter-pill {
+            background:var(--input-bg); border:1px solid var(--input-border);
+            color:var(--text-dim); padding:5px 12px; border-radius:999px;
+            font-size:.76rem; font-weight:600; cursor:pointer; transition:all .18s ease;
+            display:inline-flex; align-items:center; gap:6px; user-select:none;
+        }
+        .filter-pill:hover { color:var(--text-main); border-color:var(--neon); background:rgba(0,229,255,.05); }
+        .filter-pill.active {
+            background:linear-gradient(135deg,var(--neon),var(--neon-purple));
+            color:#fff !important; border-color:transparent;
+            box-shadow:0 2px 10px rgba(0,229,255,.25);
+        }
+        .filter-pill .count {
+            background:rgba(255,255,255,.18); color:inherit;
+            padding:1px 6px; border-radius:20px; font-size:.68rem; font-weight:700;
+        }
+        .filter-pill:not(.active) .count {
+            background:rgba(0,0,0,.08); color:var(--text-dim);
+        }
+        html[data-theme="dark"] .filter-pill:not(.active) .count {
+            background:rgba(255,255,255,.08);
+        }
+
+        .filter-selects-wrap { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+        .filter-dropdown {
+            background:var(--input-bg); border:1px solid var(--input-border);
+            color:var(--text-main); padding:6px 12px; border-radius:8px;
+            font-size:.76rem; font-weight:500; outline:none; cursor:pointer;
+            transition:border-color .2s;
+        }
+        .filter-dropdown:focus { border-color:var(--neon); }
+
+        .btn-audit {
+            display:inline-flex; align-items:center; gap:7px;
+            background:rgba(168,85,247,.12); color:var(--neon-purple);
+            border:1px solid rgba(168,85,247,.3); border-radius:10px;
+            padding:8px 16px; font-size:.8rem; font-weight:600; cursor:pointer;
+            transition:all .2s ease; white-space:nowrap;
+        }
+        .btn-audit:hover {
+            background:linear-gradient(135deg,var(--neon-purple),#8b5cf6);
+            color:#fff; border-color:transparent;
+            box-shadow:0 4px 14px rgba(168,85,247,.3);
+        }
+
+        /* Status & Verification Badges */
+        .badge-tag {
+            display:inline-flex; align-items:center; gap:4px;
+            padding:2px 8px; border-radius:6px; font-size:.68rem; font-weight:600;
+            border:1px solid; white-space:nowrap; line-height:1.4;
+        }
+        .badge-dom-live {
+            background:rgba(34,197,94,.12); color:#22c55e; border-color:rgba(34,197,94,.25);
+        }
+        .badge-dom-inactive {
+            background:rgba(244,63,94,.12); color:#f43f5e; border-color:rgba(244,63,94,.25);
+        }
+        .badge-verified {
+            background:rgba(14,165,233,.12); color:#0ea5e9; border-color:rgba(14,165,233,.25);
+        }
+        .badge-unverified {
+            background:rgba(245,158,11,.12); color:#f59e0b; border-color:rgba(245,158,11,.25);
+        }
 
         .btn-add {
             display:inline-flex; align-items:center; gap:7px;
@@ -350,32 +454,53 @@
 
             <!-- Stats -->
             <div class="stats-row">
-                <div class="stat-card">
+                <div class="stat-card clickable active-filter" data-filter="all" onclick="setQuickFilter('all')" title="Show all accounts">
                     <div class="stat-icon cyan"><i class="fa fa-users"></i></div>
                     <div>
-                        <div class="stat-val" id="totalCount">{{ domain|length }}</div>
+                        <div class="stat-val" id="totalCount">{{ stat_total|default:domain|length }}</div>
                         <div class="stat-lbl">Total Users</div>
                     </div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card clickable" data-filter="acc-active" onclick="setQuickFilter('acc-active')" title="Filter active accounts">
                     <div class="stat-icon green"><i class="fa fa-check-circle"></i></div>
                     <div>
-                        <div class="stat-val" id="activeCount">—</div>
-                        <div class="stat-lbl">Active</div>
+                        <div class="stat-val" id="activeCount">{{ stat_active|default:"—" }}</div>
+                        <div class="stat-lbl">Active Accounts</div>
                     </div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card clickable" data-filter="acc-suspended" onclick="setQuickFilter('acc-suspended')" title="Filter suspended accounts">
                     <div class="stat-icon amber"><i class="fa fa-pause-circle"></i></div>
                     <div>
-                        <div class="stat-val" id="suspendedCount">—</div>
+                        <div class="stat-val" id="suspendedCount">{{ stat_suspended|default:"—" }}</div>
                         <div class="stat-lbl">Suspended</div>
                     </div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-icon purple"><i class="fa fa-cube"></i></div>
+                <div class="stat-card clickable" data-filter="dom-active" onclick="setQuickFilter('dom-active')" title="Filter domains live on this server">
+                    <div class="stat-icon cyan" style="background:rgba(34,197,94,.12);color:#22c55e;border-color:rgba(34,197,94,.2);"><i class="fa fa-globe"></i></div>
                     <div>
-                        <div class="stat-val">{{ package|length }}</div>
-                        <div class="stat-lbl">Packages</div>
+                        <div class="stat-val" id="domActiveCount">{{ stat_dom_active|default:"0" }}</div>
+                        <div class="stat-lbl">Live Domains</div>
+                    </div>
+                </div>
+                <div class="stat-card clickable" data-filter="dom-inactive" onclick="setQuickFilter('dom-inactive')" title="Filter inactive or external domains">
+                    <div class="stat-icon red"><i class="fa fa-unlink"></i></div>
+                    <div>
+                        <div class="stat-val" id="domInactiveCount">{{ stat_dom_inactive|default:"0" }}</div>
+                        <div class="stat-lbl">Inactive Domains</div>
+                    </div>
+                </div>
+                <div class="stat-card clickable" data-filter="email-verified" onclick="setQuickFilter('email-verified')" title="Filter verified real emails">
+                    <div class="stat-icon purple" style="background:rgba(14,165,233,.12);color:#0ea5e9;border-color:rgba(14,165,233,.2);"><i class="fa fa-shield"></i></div>
+                    <div>
+                        <div class="stat-val" id="emailVerifiedCount">{{ stat_email_verified|default:"0" }}</div>
+                        <div class="stat-lbl">Verified Emails</div>
+                    </div>
+                </div>
+                <div class="stat-card clickable" data-filter="email-unverified" onclick="setQuickFilter('email-unverified')" title="Filter unverified/fake emails">
+                    <div class="stat-icon amber"><i class="fa fa-exclamation-triangle"></i></div>
+                    <div>
+                        <div class="stat-val" id="emailUnverifiedCount">{{ stat_email_unverified|default:"0" }}</div>
+                        <div class="stat-lbl">Unverified Emails</div>
                     </div>
                 </div>
             </div>
@@ -383,14 +508,59 @@
             <!-- Table card -->
             <div class="glass-card">
                 <div class="card-toolbar">
-                    {% if is_reseller_filter %}
-                    <div class="card-toolbar-title"><i class="fa fa-crown" style="color:#f59e0b;margin-right:8px;"></i>Reseller Accounts</div>
-                    {% else %}
-                    <div class="card-toolbar-title"><i class="fa fa-users" style="color:var(--neon);margin-right:8px;"></i>All Users</div>
-                    {% endif %}
-                    <div class="search-wrap">
-                        <i class="fa fa-search"></i>
-                        <input id="searchInput" onkeyup="searchTable();" placeholder="Search user or domain…" type="text">
+                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                        {% if is_reseller_filter %}
+                        <div class="card-toolbar-title"><i class="fa fa-crown" style="color:#f59e0b;margin-right:8px;"></i>Reseller Accounts</div>
+                        {% else %}
+                        <div class="card-toolbar-title"><i class="fa fa-users" style="color:var(--neon);margin-right:8px;"></i>All Users</div>
+                        {% endif %}
+                        <span id="filteredResultsBadge" style="font-size:.75rem;padding:3px 10px;border-radius:20px;background:rgba(0,229,255,.08);color:var(--neon);font-weight:600;">{{ domain|length }} accounts</span>
+                    </div>
+
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                        <button type="button" class="btn-audit" id="btnAuditAll" onclick="runDomainAudit()" title="Run automatic audit for all domains & emails (scheduled every 10 days)">
+                            <i class="fa fa-refresh" id="auditIcon"></i> Verify All Domains (10-Day Sync)
+                        </button>
+                        <div class="search-container-box">
+                            <div class="search-wrap">
+                                <i class="fa fa-search"></i>
+                                <input id="searchInput" oninput="onSearchChange();" onkeydown="if(event.key==='Enter'){event.preventDefault();applyAllFilters();}" placeholder="Search user, domain, or email…" type="text">
+                            </div>
+                            <button type="button" class="btn-search-act" onclick="applyAllFilters()"><i class="fa fa-search"></i> Search</button>
+                            <button type="button" class="btn-clear-search" id="btnClearSearch" onclick="clearSearch()" style="display:none;" title="Clear search"><i class="fa fa-times"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Secondary Filter Bar -->
+                <div class="filter-toolbar-row">
+                    <div class="filter-pills-wrap">
+                        <span style="font-size:.72rem;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-right:4px;">Quick:</span>
+                        <button type="button" class="filter-pill active" data-pill="all" onclick="setQuickFilter('all')">All <span class="count" id="pillCountAll">{{ domain|length }}</span></button>
+                        <button type="button" class="filter-pill" data-pill="acc-active" onclick="setQuickFilter('acc-active')"><i class="fa fa-circle" style="font-size:.45rem;color:#22c55e;"></i> Active</button>
+                        <button type="button" class="filter-pill" data-pill="acc-suspended" onclick="setQuickFilter('acc-suspended')"><i class="fa fa-circle" style="font-size:.45rem;color:#f59e0b;"></i> Suspended</button>
+                        <button type="button" class="filter-pill" data-pill="dom-active" onclick="setQuickFilter('dom-active')"><i class="fa fa-globe" style="color:#22c55e;"></i> Live on Server</button>
+                        <button type="button" class="filter-pill" data-pill="dom-inactive" onclick="setQuickFilter('dom-inactive')"><i class="fa fa-unlink" style="color:#f43f5e;"></i> Inactive Domain</button>
+                        <button type="button" class="filter-pill" data-pill="email-verified" onclick="setQuickFilter('email-verified')"><i class="fa fa-check-circle" style="color:#0ea5e9;"></i> Verified</button>
+                        <button type="button" class="filter-pill" data-pill="email-unverified" onclick="setQuickFilter('email-unverified')"><i class="fa fa-exclamation-triangle" style="color:#f59e0b;"></i> Unverified</button>
+                    </div>
+
+                    <div class="filter-selects-wrap">
+                        <select class="filter-dropdown" id="selAccStatus" onchange="applyAllFilters()">
+                            <option value="">Account: All</option>
+                            <option value="active">Active Accounts</option>
+                            <option value="suspended">Suspended Accounts</option>
+                        </select>
+                        <select class="filter-dropdown" id="selDomStatus" onchange="applyAllFilters()">
+                            <option value="">Domain: All</option>
+                            <option value="active">Live on Server</option>
+                            <option value="inactive">Inactive / External</option>
+                        </select>
+                        <select class="filter-dropdown" id="selEmailStatus" onchange="applyAllFilters()">
+                            <option value="">Email: All</option>
+                            <option value="verified">Verified (Real)</option>
+                            <option value="unverified">Unverified (Unreal)</option>
+                        </select>
                     </div>
                 </div>
 
@@ -456,7 +626,9 @@
                             <tr>
                                 <th>User</th>
                                 <th>Email</th>
-                                <th>Status</th>
+                                <th>Account</th>
+                                <th>Domain Live</th>
+                                <th>Verification</th>
                                 <th>Quick Login</th>
                                 <th>Activity</th>
                                 <th>Package</th>
@@ -469,22 +641,60 @@
                         </thead>
                         <tbody id="domainTableBody">
                             {% for i in domain %}
-                            <tr data-status="{% if i.status %}active{% else %}suspended{% endif %}">
+                            <tr data-status="{% if i.status %}active{% else %}suspended{% endif %}"
+                                data-dom-status="{% if i.is_domain_active %}active{% else %}inactive{% endif %}"
+                                data-email-status="{% if i.is_email_verified %}verified{% else %}unverified{% endif %}"
+                                data-search="{{ i.username }} {{ i.domain }} {{ i.email }} {{ i.domain_ip|default:'' }}">
                                 <td>
                                     <div class="user-cell">
                                         <div class="user-avatar">{{ i.username|slice:":1"|upper }}</div>
                                         <div>
                                             <div class="user-name c_name">{{ i.username }}</div>
-                                            <div class="user-domain">{{ i.domain }}</div>
+                                            <div class="user-domain">
+                                                <a href="http://{{ i.domain }}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none;">
+                                                    {{ i.domain }} <i class="fa fa-external-link" style="font-size:.62rem;opacity:.5;"></i>
+                                                </a>
+                                            </div>
                                         </div>
                                     </div>
                                 </td>
-                                <td><span class="email-cell">{{ i.email }}</span></td>
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:6px;">
+                                        <span class="email-cell">{{ i.email }}</span>
+                                        {% if i.is_email_verified %}
+                                        <i class="fa fa-check-circle" style="color:#0ea5e9;font-size:.78rem;" title="{{ i.email_status_msg|default:'Real email verified' }}"></i>
+                                        {% else %}
+                                        <i class="fa fa-exclamation-triangle" style="color:#f59e0b;font-size:.78rem;" title="{{ i.email_status_msg|default:'Unverified / unreal email' }}"></i>
+                                        {% endif %}
+                                    </div>
+                                </td>
                                 <td>
                                     {% if i.status %}
                                     <span class="status-badge active"><span class="dot"></span>Active</span>
                                     {% else %}
                                     <span class="status-badge suspended"><span class="dot"></span>Suspended</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if i.is_domain_active %}
+                                    <span class="badge-tag badge-dom-live" title="{{ i.domain_status_msg|default:'Live on server' }}">
+                                        <i class="fa fa-globe"></i> Live
+                                    </span>
+                                    {% else %}
+                                    <span class="badge-tag badge-dom-inactive" title="{{ i.domain_status_msg|default:'Inactive or not pointed to server' }}">
+                                        <i class="fa fa-unlink"></i> Inactive
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if i.is_email_verified %}
+                                    <span class="badge-tag badge-verified" title="{{ i.email_status_msg|default:'Real email domain' }}">
+                                        <i class="fa fa-check-circle"></i> Verified
+                                    </span>
+                                    {% else %}
+                                    <span class="badge-tag badge-unverified" title="{{ i.email_status_msg|default:'Unreal / invalid email' }}">
+                                        <i class="fa fa-exclamation-triangle"></i> Unverified
+                                    </span>
                                     {% endif %}
                                 </td>
                                 <td>
@@ -555,7 +765,7 @@
                                 </td>
                             </tr>
                             {% empty %}
-                            <tr><td colspan="11">
+                            <tr><td colspan="13">
                                 <div class="empty-state">
                                     <i class="fa fa-users"></i>
                                     <p>No users found. <a href="/adduser/" style="color:var(--neon);">Add your first user →</a></p>
@@ -742,21 +952,167 @@
 </div>
 
 <script>
-    /* ── Stats calculation ── */
-    (function(){
+    /* ── Quick filters & Searching ── */
+    let currentQuickFilter = 'all';
+
+    function setQuickFilter(filter) {
+        currentQuickFilter = filter;
+        
+        // Update pills active state
+        document.querySelectorAll('.filter-pill').forEach(p => {
+            p.classList.toggle('active', p.dataset.pill === filter);
+        });
+        
+        // Update stat cards active-filter state
+        document.querySelectorAll('.stat-card.clickable').forEach(c => {
+            c.classList.toggle('active-filter', c.dataset.filter === filter);
+        });
+        
+        // Synchronize dropdowns if applicable
+        const selAcc = document.getElementById('selAccStatus');
+        const selDom = document.getElementById('selDomStatus');
+        const selEmail = document.getElementById('selEmailStatus');
+        
+        if (filter === 'all') {
+            if (selAcc) selAcc.value = '';
+            if (selDom) selDom.value = '';
+            if (selEmail) selEmail.value = '';
+        } else if (filter === 'acc-active') {
+            if (selAcc) selAcc.value = 'active';
+        } else if (filter === 'acc-suspended') {
+            if (selAcc) selAcc.value = 'suspended';
+        } else if (filter === 'dom-active') {
+            if (selDom) selDom.value = 'active';
+        } else if (filter === 'dom-inactive') {
+            if (selDom) selDom.value = 'inactive';
+        } else if (filter === 'email-verified') {
+            if (selEmail) selEmail.value = 'verified';
+        } else if (filter === 'email-unverified') {
+            if (selEmail) selEmail.value = 'unverified';
+        }
+        
+        applyAllFilters();
+    }
+
+    function onSearchChange() {
+        const q = (document.getElementById('searchInput')?.value || '').trim();
+        const btnClear = document.getElementById('btnClearSearch');
+        if (btnClear) btnClear.style.display = q.length > 0 ? 'inline-flex' : 'none';
+        applyAllFilters();
+    }
+
+    function clearSearch() {
+        const input = document.getElementById('searchInput');
+        if (input) input.value = '';
+        const btnClear = document.getElementById('btnClearSearch');
+        if (btnClear) btnClear.style.display = 'none';
+        applyAllFilters();
+        if (input) input.focus();
+    }
+
+    function applyAllFilters() {
+        const q = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
+        const accFilter = (document.getElementById('selAccStatus')?.value || '').toLowerCase();
+        const domFilter = (document.getElementById('selDomStatus')?.value || '').toLowerCase();
+        const emailFilter = (document.getElementById('selEmailStatus')?.value || '').toLowerCase();
+        
+        let visibleCount = 0;
+        let totalCount = 0;
+        
+        document.querySelectorAll('#domainTableBody tr[data-status]').forEach(row => {
+            totalCount++;
+            const rowAcc = (row.dataset.status || '').toLowerCase();
+            const rowDom = (row.dataset.domStatus || '').toLowerCase();
+            const rowEmail = (row.dataset.emailStatus || '').toLowerCase();
+            const rowSearch = (row.dataset.search || row.textContent || '').toLowerCase();
+            
+            let match = true;
+            
+            // Quick filter check
+            if (currentQuickFilter === 'acc-active' && rowAcc !== 'active') match = false;
+            if (currentQuickFilter === 'acc-suspended' && rowAcc !== 'suspended') match = false;
+            if (currentQuickFilter === 'dom-active' && rowDom !== 'active') match = false;
+            if (currentQuickFilter === 'dom-inactive' && rowDom !== 'inactive') match = false;
+            if (currentQuickFilter === 'email-verified' && rowEmail !== 'verified') match = false;
+            if (currentQuickFilter === 'email-unverified' && rowEmail !== 'unverified') match = false;
+            
+            // Dropdown checks
+            if (accFilter && rowAcc !== accFilter) match = false;
+            if (domFilter && rowDom !== domFilter) match = false;
+            if (emailFilter && rowEmail !== emailFilter) match = false;
+            
+            // Search text check
+            if (q && !rowSearch.includes(q)) match = false;
+            
+            row.style.display = match ? '' : 'none';
+            if (match) visibleCount++;
+        });
+        
+        const badge = document.getElementById('filteredResultsBadge');
+        if (badge) {
+            if (q || currentQuickFilter !== 'all' || accFilter || domFilter || emailFilter) {
+                badge.textContent = `${visibleCount} of ${totalCount} accounts`;
+            } else {
+                badge.textContent = `${totalCount} accounts`;
+            }
+        }
+    }
+
+    /* ── Automated Verification / Domain Audit ── */
+    async function runDomainAudit() {
+        const btn = document.getElementById('btnAuditAll');
+        const icon = document.getElementById('auditIcon');
+        if (btn) btn.disabled = true;
+        if (icon) icon.classList.add('fa-spin');
+        
+        showResult('⏳', '#0ea5e9', 'Auditing accounts... Verifying domain server usage & checking email MX records. This will take a few seconds.');
+        
+        try {
+            const csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
+            const res = await fetch('/api/admin/audit-accounts/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrf,
+                    'Content-Type': 'application/json'
+                }
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                const s = data.stats;
+                showResult('✓', '#22c55e', `Audit Finished!\n• Live Domains: ${s.domain_active}\n• Inactive Domains: ${s.domain_inactive}\n• Verified Emails: ${s.email_verified}\n• Unverified Emails: ${s.email_unverified}\nReloading...`);
+                setTimeout(() => location.reload(), 2200);
+            } else {
+                showResult('✕', '#ef4444', data.message || 'Audit failed.');
+                if (btn) btn.disabled = false;
+                if (icon) icon.classList.remove('fa-spin');
+            }
+        } catch(e) {
+            showResult('✕', '#ef4444', 'Network error during audit: ' + e.message);
+            if (btn) btn.disabled = false;
+            if (icon) icon.classList.remove('fa-spin');
+        }
+    }
+
+    /* ── Dynamic Stats Calculation on Page Load ── */
+    (function recalculateDynamicStats(){
         const rows = document.querySelectorAll('#domainTableBody tr[data-status]');
-        let active = 0, suspended = 0;
-        rows.forEach(r => { r.dataset.status === 'active' ? active++ : suspended++; });
-        document.getElementById('activeCount').textContent = active;
-        document.getElementById('suspendedCount').textContent = suspended;
+        let active = 0, suspended = 0, domActive = 0, domInactive = 0, emailVerif = 0, emailUnverif = 0;
+        rows.forEach(r => {
+            if (r.dataset.status === 'active') active++; else suspended++;
+            if (r.dataset.domStatus === 'active') domActive++; else domInactive++;
+            if (r.dataset.emailStatus === 'verified') emailVerif++; else emailUnverif++;
+        });
+        const elAct = document.getElementById('activeCount'); if (elAct) elAct.textContent = active;
+        const elSusp = document.getElementById('suspendedCount'); if (elSusp) elSusp.textContent = suspended;
+        const elDomAct = document.getElementById('domActiveCount'); if (elDomAct) elDomAct.textContent = domActive;
+        const elDomInact = document.getElementById('domInactiveCount'); if (elDomInact) elDomInact.textContent = domInactive;
+        const elEmailVerif = document.getElementById('emailVerifiedCount'); if (elEmailVerif) elEmailVerif.textContent = emailVerif;
+        const elEmailUnverif = document.getElementById('emailUnverifiedCount'); if (elEmailUnverif) elEmailUnverif.textContent = emailUnverif;
+        const pillAll = document.getElementById('pillCountAll'); if (pillAll) pillAll.textContent = rows.length;
     })();
 
-    /* ── Search ── */
     function searchTable() {
-        const q = document.getElementById('searchInput').value.toLowerCase();
-        document.querySelectorAll('#domainTableBody tr[data-status]').forEach(row => {
-            row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
-        });
+        applyAllFilters();
     }
 
     /* ── Modal helpers ── */
@@ -777,12 +1133,12 @@
     }
     function openSuspend(domain) {
         document.getElementById('susp-domain').textContent = domain;
-        document.getElementById('susp-link').href = '/suspend/' + domain;
+        document.getElementById('susp-link').href = '/suspend/' + encodeURIComponent(domain) + '/';
         openModal('modal-suspend');
     }
     function openTerminate(domain) {
         document.getElementById('term-domain').textContent = domain;
-        document.getElementById('term-link').href = '/terminate/' + domain;
+        document.getElementById('term-link').href = '/terminate/' + encodeURIComponent(domain) + '/';
         openModal('modal-terminate');
     }
     function openShellToggle(username, currentlyEnabled) {

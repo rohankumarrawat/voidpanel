@@ -70,11 +70,13 @@ class ServerConfig {
     String password = '',
     required String domain,
   }) {
-    final host = domain.isNotEmpty ? 'mail.$domain' : 'mail.voidpanel.com';
+    final host = (domain == 'voidonyx.com' || domain == 'voidonyx.in' || domain == 'voidpanel.com')
+        ? 'fast.voidpanel.com'
+        : (domain.isNotEmpty ? 'mail.$domain' : 'fast.voidpanel.com');
     final email = username.contains('@') ? username : '$username@$domain';
     return ServerConfig(
       providerName: 'VoidPanel Host',
-      serverUrl: serverUrl,
+      serverUrl: serverUrl.isNotEmpty ? serverUrl : 'https://mail.voidonyx.in',
       username: username,
       password: password,
       email: email,
@@ -83,6 +85,24 @@ class ServerConfig {
       imapPort: 993,
       imapSsl: true,
       smtpHost: host,
+      smtpPort: 465,
+      smtpSsl: true,
+      smtpUsername: email,
+    );
+  }
+
+  factory ServerConfig.demo({String email = 'demo@voidonyx.com'}) {
+    return ServerConfig(
+      providerName: 'VoidOnyx Sovereign Demo',
+      serverUrl: 'https://mail.voidonyx.in',
+      username: email,
+      password: 'DemoPassword2026!',
+      email: email,
+      domain: 'voidonyx.com',
+      imapHost: 'fast.voidpanel.com',
+      imapPort: 993,
+      imapSsl: true,
+      smtpHost: 'fast.voidpanel.com',
       smtpPort: 465,
       smtpSsl: true,
       smtpUsername: email,

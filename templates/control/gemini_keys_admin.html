@@ -1,0 +1,1335 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Gemini AI Key Pool — VoidPanel Super Admin</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="Manage multi-key Gemini AI pool with round-robin failover for VoidPanel AI generation.">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+
+    <script>(function(){localStorage.setItem('vp-theme','dark');document.documentElement.setAttribute('data-theme','dark');})();</script>
+
+    <style>
+        :root {
+            --bg: #050810;
+            --bg-pattern: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99,102,241,0.12) 0%, transparent 60%);
+            --surface: rgba(12, 16, 32, 0.85);
+            --surface-card: rgba(15, 20, 42, 0.92);
+            --surface-elevated: rgba(20, 27, 55, 0.95);
+            --border: rgba(99, 102, 241, 0.15);
+            --border-subtle: rgba(255, 255, 255, 0.06);
+            --border-hover: rgba(99, 102, 241, 0.35);
+            --accent: #6366f1;
+            --accent-2: #8b5cf6;
+            --accent-glow: rgba(99, 102, 241, 0.3);
+            --cyan: #06b6d4;
+            --cyan-glow: rgba(6, 182, 212, 0.25);
+            --green: #10b981;
+            --green-glow: rgba(16, 185, 129, 0.25);
+            --amber: #f59e0b;
+            --amber-glow: rgba(245, 158, 11, 0.2);
+            --red: #ef4444;
+            --red-glow: rgba(239, 68, 68, 0.2);
+            --text-1: #f1f5f9;
+            --text-2: #94a3b8;
+            --text-3: #64748b;
+            --text-4: #475569;
+            --radius-xl: 20px;
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --radius-sm: 8px;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+            background: var(--bg);
+            background-image: var(--bg-pattern);
+            background-attachment: fixed;
+            color: var(--text-1);
+            min-height: 100vh;
+            padding-bottom: 80px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ─── Layout ─── */
+        .pool-wrap {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 28px 20px;
+        }
+
+        /* ─── Nav Breadcrumb ─── */
+        .pool-nav {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 24px;
+            font-size: 0.8rem;
+            color: var(--text-3);
+        }
+        .pool-nav a {
+            color: var(--text-3);
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+        .pool-nav a:hover { color: var(--accent); }
+        .pool-nav i { font-size: 0.65rem; }
+
+        /* ─── Hero Section ─── */
+        .pool-hero {
+            position: relative;
+            background: linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(6,182,212,0.04) 50%, rgba(139,92,246,0.06) 100%);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            padding: 32px 36px;
+            margin-bottom: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 24px;
+            overflow: hidden;
+            box-shadow: 0 8px 40px -12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        .pool-hero::before {
+            content: '';
+            position: absolute;
+            top: -60%;
+            right: -20%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .hero-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            position: relative;
+            z-index: 1;
+        }
+        .hero-icon-wrap {
+            width: 60px;
+            height: 60px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, var(--accent), var(--cyan));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: #fff;
+            box-shadow: 0 0 30px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.2);
+            flex-shrink: 0;
+            animation: heroGlow 3s ease-in-out infinite alternate;
+        }
+        @keyframes heroGlow {
+            0% { box-shadow: 0 0 20px var(--accent-glow); }
+            100% { box-shadow: 0 0 40px var(--accent-glow), 0 0 60px rgba(6,182,212,0.15); }
+        }
+        .hero-text h1 {
+            font-size: 1.45rem;
+            font-weight: 800;
+            color: var(--text-1);
+            margin: 0 0 6px;
+            letter-spacing: -0.025em;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .hero-text p {
+            font-size: 0.84rem;
+            color: var(--text-2);
+            margin: 0;
+            max-width: 580px;
+            line-height: 1.6;
+        }
+        .hero-badge {
+            background: rgba(99,102,241,0.12);
+            border: 1px solid rgba(99,102,241,0.25);
+            color: #a5b4fc;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+        .hero-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ─── Stat Dashboard ─── */
+        .stat-dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 22px 20px;
+            transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--border-hover);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+        }
+        .stat-card:hover::before { opacity: 1; }
+        .stat-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }
+        .stat-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+        .stat-trend {
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .stat-trend.up { background: rgba(16,185,129,0.1); color: #34d399; }
+        .stat-trend.warning { background: rgba(245,158,11,0.1); color: #fbbf24; }
+        .stat-trend.neutral { background: rgba(148,163,184,0.08); color: var(--text-3); }
+        .stat-val {
+            font-size: 1.65rem;
+            font-weight: 800;
+            color: var(--text-1);
+            line-height: 1;
+            margin-bottom: 5px;
+            letter-spacing: -0.02em;
+        }
+        .stat-lbl {
+            font-size: 0.73rem;
+            color: var(--text-3);
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+
+        /* ─── Pool Health Ring ─── */
+        .health-ring-wrap {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .health-ring {
+            position: relative;
+            width: 56px;
+            height: 56px;
+            flex-shrink: 0;
+        }
+        .health-ring svg { transform: rotate(-90deg); }
+        .health-ring .ring-bg {
+            fill: none;
+            stroke: rgba(255,255,255,0.06);
+            stroke-width: 5;
+        }
+        .health-ring .ring-fill {
+            fill: none;
+            stroke-width: 5;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1);
+        }
+        .health-pct {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.78rem;
+            font-weight: 800;
+            color: var(--text-1);
+        }
+
+        /* ─── Glass Panel ─── */
+        .glass-panel {
+            background: var(--surface-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-xl);
+            padding: 0;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+            margin-bottom: 28px;
+            overflow: hidden;
+        }
+        .panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 22px 28px;
+            border-bottom: 1px solid var(--border-subtle);
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .panel-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text-1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0;
+        }
+        .panel-subtitle {
+            font-size: 0.78rem;
+            color: var(--text-3);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .panel-body {
+            padding: 0;
+        }
+
+        /* ─── Key Cards Grid ─── */
+        .key-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 16px;
+            padding: 24px;
+        }
+        .key-card {
+            background: var(--surface-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 22px;
+            transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+            position: relative;
+            overflow: hidden;
+        }
+        .key-card:hover {
+            border-color: var(--border-hover);
+            box-shadow: 0 8px 32px rgba(99,102,241,0.08);
+            transform: translateY(-2px);
+        }
+        .key-card-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .key-identity {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+            min-width: 0;
+        }
+        .key-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+        .key-avatar.active { background: rgba(16,185,129,0.12); color: #34d399; }
+        .key-avatar.cooldown { background: rgba(245,158,11,0.12); color: #fbbf24; }
+        .key-avatar.disabled { background: rgba(239,68,68,0.1); color: #f87171; }
+        .key-name {
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: var(--text-1);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .key-model {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: #22d3ee;
+            background: rgba(6,182,212,0.08);
+            border: 1px solid rgba(6,182,212,0.15);
+            padding: 1px 7px;
+            border-radius: 5px;
+            margin-top: 3px;
+            display: inline-block;
+        }
+
+        /* Status pill */
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            white-space: nowrap;
+        }
+        .status-pill.ready {
+            background: rgba(16,185,129,0.1);
+            color: #34d399;
+            border: 1px solid rgba(16,185,129,0.2);
+        }
+        .status-pill.ready i { animation: pulse-dot 2s infinite; }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        .status-pill.cooldown {
+            background: rgba(245,158,11,0.1);
+            color: #fbbf24;
+            border: 1px solid rgba(245,158,11,0.2);
+        }
+        .status-pill.disabled {
+            background: rgba(239,68,68,0.08);
+            color: #f87171;
+            border: 1px solid rgba(239,68,68,0.15);
+        }
+
+        /* Key hash display */
+        .key-hash {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: #cbd5e1;
+            background: rgba(0,0,0,0.25);
+            padding: 6px 10px;
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(255,255,255,0.04);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .key-hash code {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #94a3b8;
+        }
+        .key-hash .copy-btn {
+            background: none;
+            border: none;
+            color: var(--text-3);
+            cursor: pointer;
+            font-size: 0.72rem;
+            padding: 2px;
+            transition: color 0.15s;
+            flex-shrink: 0;
+        }
+        .key-hash .copy-btn:hover { color: var(--accent); }
+
+        /* ─── Usage Progress Bar ─── */
+        .usage-section {
+            margin-bottom: 16px;
+        }
+        .usage-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+        .usage-label {
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-3);
+        }
+        .usage-value {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-2);
+        }
+        .usage-value span { color: var(--text-1); font-size: 0.85rem; }
+        .usage-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+        }
+        .usage-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 1.2s cubic-bezier(0.4,0,0.2,1);
+            position: relative;
+        }
+        .usage-bar-fill.low { background: linear-gradient(90deg, #10b981, #34d399); }
+        .usage-bar-fill.mid { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+        .usage-bar-fill.high { background: linear-gradient(90deg, #ef4444, #f87171); }
+        .usage-bar-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%);
+            animation: shimmer 2.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* ─── Key Stats Row ─── */
+        .key-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .key-stat {
+            text-align: center;
+            padding: 10px 6px;
+            background: rgba(0,0,0,0.15);
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(255,255,255,0.03);
+        }
+        .key-stat-val {
+            font-size: 1rem;
+            font-weight: 800;
+            color: var(--text-1);
+            line-height: 1;
+            margin-bottom: 3px;
+        }
+        .key-stat-lbl {
+            font-size: 0.65rem;
+            color: var(--text-4);
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+        }
+
+        /* ─── Key Actions ─── */
+        .key-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(255,255,255,0.04);
+        }
+        .key-actions .btn-act {
+            flex: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 10px;
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+            font-weight: 600;
+            border: 1px solid rgba(255,255,255,0.06);
+            background: rgba(255,255,255,0.03);
+            color: var(--text-2);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        .key-actions .btn-act:hover {
+            background: rgba(255,255,255,0.07);
+            color: var(--text-1);
+            border-color: rgba(255,255,255,0.12);
+        }
+        .key-actions .btn-act.test:hover { color: #22d3ee; border-color: rgba(6,182,212,0.3); }
+        .key-actions .btn-act.toggle-on:hover { color: #fbbf24; border-color: rgba(245,158,11,0.3); }
+        .key-actions .btn-act.toggle-off:hover { color: #34d399; border-color: rgba(16,185,129,0.3); }
+        .key-actions .btn-act.delete:hover { color: #f87171; border-color: rgba(239,68,68,0.3); }
+
+        /* ─── Buttons ─── */
+        .btn-vp {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 22px;
+            border-radius: var(--radius-sm);
+            font-size: 0.84rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
+            text-decoration: none !important;
+            font-family: 'Inter', sans-serif;
+        }
+        .btn-vp-primary {
+            background: linear-gradient(135deg, var(--accent), #4f46e5);
+            color: #fff !important;
+            box-shadow: 0 4px 16px rgba(99,102,241,0.35);
+        }
+        .btn-vp-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px rgba(99,102,241,0.5);
+            color: #fff !important;
+        }
+        .btn-vp-ghost {
+            background: rgba(255,255,255,0.04);
+            color: var(--text-2) !important;
+            border: 1px solid var(--border-subtle);
+        }
+        .btn-vp-ghost:hover {
+            background: rgba(255,255,255,0.08);
+            color: var(--text-1) !important;
+            border-color: rgba(255,255,255,0.12);
+        }
+
+        /* ─── Empty State ─── */
+        .empty-state {
+            text-align: center;
+            padding: 60px 24px;
+        }
+        .empty-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(6,182,212,0.08));
+            border: 1px solid rgba(99,102,241,0.15);
+            color: var(--accent);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            animation: float 3s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+        .empty-state h3 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-1);
+            margin-bottom: 8px;
+        }
+        .empty-state p {
+            font-size: 0.85rem;
+            color: var(--text-2);
+            max-width: 460px;
+            margin: 0 auto 24px;
+            line-height: 1.6;
+        }
+
+        /* ─── Architecture Card ─── */
+        .arch-card {
+            background: linear-gradient(135deg, rgba(99,102,241,0.06) 0%, rgba(6,182,212,0.03) 100%);
+            border: 1px solid rgba(99,102,241,0.15);
+            border-radius: var(--radius-lg);
+            padding: 22px 26px;
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+        }
+        .arch-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: rgba(6,182,212,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--cyan);
+            font-size: 1.15rem;
+            flex-shrink: 0;
+        }
+        .arch-content h4 {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text-1);
+            margin: 0 0 6px;
+        }
+        .arch-content p {
+            font-size: 0.8rem;
+            color: var(--text-2);
+            margin: 0;
+            line-height: 1.6;
+        }
+        .arch-content code {
+            color: var(--cyan);
+            background: rgba(0,0,0,0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.78rem;
+        }
+
+        /* ─── Modal ─── */
+        .vp-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(3,6,15,0.88);
+            backdrop-filter: blur(10px);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .vp-modal.active { display: flex; }
+        .vp-modal-content {
+            background: var(--surface-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            width: 100%;
+            max-width: 520px;
+            padding: 32px;
+            box-shadow: 0 25px 80px rgba(0,0,0,0.6), 0 0 60px rgba(99,102,241,0.08);
+            animation: modalSlide 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes modalSlide {
+            0% { transform: translateY(16px) scale(0.97); opacity: 0; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+        .modal-title {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--text-1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .modal-close {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.06);
+            color: var(--text-3);
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-size: 0.85rem;
+        }
+        .modal-close:hover { background: rgba(255,255,255,0.08); color: var(--text-1); }
+
+        /* ─── Form ─── */
+        .form-group { margin-bottom: 20px; }
+        .form-group label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-2);
+            margin-bottom: 8px;
+        }
+        .form-input {
+            width: 100%;
+            background: rgba(0,0,0,0.3);
+            border: 1.5px solid rgba(255,255,255,0.07);
+            border-radius: var(--radius-sm);
+            padding: 12px 16px;
+            color: var(--text-1);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.88rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .form-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+            background: rgba(0,0,0,0.4);
+        }
+        .form-input::placeholder { color: var(--text-4); }
+        .form-hint {
+            font-size: 0.72rem;
+            color: var(--text-4);
+            margin-top: 6px;
+            line-height: 1.4;
+        }
+        .form-hint a { color: var(--cyan); text-decoration: underline; }
+
+        /* ─── Alert ─── */
+        .vp-alert {
+            padding: 14px 20px;
+            border-radius: var(--radius-md);
+            margin-bottom: 20px;
+            font-size: 0.84rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: slideDown 0.3s ease;
+        }
+        @keyframes slideDown {
+            0% { transform: translateY(-8px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        .vp-alert.success { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2); color: #34d399; }
+        .vp-alert.error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: #f87171; }
+        .vp-alert.warning { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2); color: #fbbf24; }
+        .vp-alert .close-alert {
+            margin-left: auto;
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            opacity: 0.6;
+            font-size: 1rem;
+        }
+
+        /* ─── Responsive ─── */
+        @media (max-width: 768px) {
+            .pool-wrap { padding: 16px 12px; }
+            .pool-hero { padding: 24px 20px; }
+            .hero-text h1 { font-size: 1.2rem; }
+            .stat-dashboard { grid-template-columns: repeat(2, 1fr); }
+            .key-cards { grid-template-columns: 1fr; padding: 16px; }
+            .key-stats { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 480px) {
+            .stat-dashboard { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="pool-wrap">
+
+    <!-- ── Breadcrumb ── -->
+    <nav class="pool-nav">
+        <a href="/panel/"><i class="fa-solid fa-house"></i> Panel</a>
+        <i class="fa-solid fa-chevron-right"></i>
+        <a href="/control/">Control Center</a>
+        <i class="fa-solid fa-chevron-right"></i>
+        <span style="color: var(--text-2);">Gemini AI Keys</span>
+    </nav>
+
+    <!-- ── Alerts ── -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="vp-alert {% if message.tags == 'error' %}error{% elif message.tags == 'warning' %}warning{% else %}success{% endif %}">
+                <i class="fa-solid {% if message.tags == 'error' %}fa-circle-xmark{% elif message.tags == 'warning' %}fa-triangle-exclamation{% else %}fa-circle-check{% endif %}"></i>
+                {{ message }}
+                <button class="close-alert" onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- ── Hero ── -->
+    <div class="pool-hero">
+        <div class="hero-left">
+            <div class="hero-icon-wrap">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </div>
+            <div class="hero-text">
+                <h1>
+                    Gemini AI Pool
+                    <span class="hero-badge">Round-Robin Failover</span>
+                </h1>
+                <p>
+                    Multi-key load balancer with automatic 429 failover. VoidPanel rotates through your pool seamlessly, ensuring zero client disruption during AI generation.
+                </p>
+            </div>
+        </div>
+        <div class="hero-actions">
+            <button class="btn-vp btn-vp-primary" onclick="openAddKeyModal()">
+                <i class="fa-solid fa-plus"></i> Add Key
+            </button>
+            <a href="/panel/" class="btn-vp btn-vp-ghost">
+                <i class="fa-solid fa-arrow-left"></i> Panel
+            </a>
+        </div>
+    </div>
+
+    <!-- ── Dashboard Stats ── -->
+    <div class="stat-dashboard">
+        <!-- Pool Health Ring -->
+        <div class="stat-card">
+            <div class="stat-top">
+                <div class="stat-icon" style="background: rgba(99,102,241,0.1); color: #818cf8;">
+                    <i class="fa-solid fa-heart-pulse"></i>
+                </div>
+                {% if pool_health >= 80 %}
+                    <span class="stat-trend up"><i class="fa-solid fa-arrow-up"></i> Healthy</span>
+                {% elif pool_health >= 50 %}
+                    <span class="stat-trend warning"><i class="fa-solid fa-minus"></i> Moderate</span>
+                {% else %}
+                    <span class="stat-trend neutral"><i class="fa-solid fa-arrow-down"></i> Low</span>
+                {% endif %}
+            </div>
+            <div class="health-ring-wrap">
+                <div class="health-ring">
+                    <svg width="56" height="56" viewBox="0 0 56 56">
+                        <circle class="ring-bg" cx="28" cy="28" r="23"/>
+                        <circle class="ring-fill" cx="28" cy="28" r="23"
+                            stroke="{% if pool_health >= 80 %}#10b981{% elif pool_health >= 50 %}#f59e0b{% else %}#ef4444{% endif %}"
+                            stroke-dasharray="144.51"
+                            stroke-dashoffset="144.51"
+                            data-pct="{{ pool_health }}" />
+                    </svg>
+                    <div class="health-pct">{{ pool_health }}%</div>
+                </div>
+                <div>
+                    <div style="font-size: 0.88rem; font-weight: 700; color: var(--text-1); margin-bottom: 2px;">Pool Health</div>
+                    <div class="stat-lbl">Active & Available</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Keys -->
+        <div class="stat-card">
+            <div class="stat-top">
+                <div class="stat-icon" style="background: rgba(139,92,246,0.1); color: #a78bfa;">
+                    <i class="fa-solid fa-key"></i>
+                </div>
+                <span class="stat-trend neutral"><i class="fa-solid fa-layer-group"></i> Pool</span>
+            </div>
+            <div class="stat-val">{{ total_keys }}</div>
+            <div class="stat-lbl">Total Keys</div>
+        </div>
+
+        <!-- Active Keys -->
+        <div class="stat-card">
+            <div class="stat-top">
+                <div class="stat-icon" style="background: rgba(16,185,129,0.1); color: #34d399;">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <span class="stat-trend up"><i class="fa-solid fa-circle"></i> Online</span>
+            </div>
+            <div class="stat-val">{{ active_keys }}</div>
+            <div class="stat-lbl">Active Keys</div>
+        </div>
+
+        <!-- Today's Requests -->
+        <div class="stat-card">
+            <div class="stat-top">
+                <div class="stat-icon" style="background: rgba(6,182,212,0.1); color: #22d3ee;">
+                    <i class="fa-solid fa-bolt"></i>
+                </div>
+                <span class="stat-trend neutral"><i class="fa-solid fa-clock"></i> Today</span>
+            </div>
+            <div class="stat-val">{{ total_requests_today }}</div>
+            <div class="stat-lbl">Requests Today</div>
+        </div>
+
+        <!-- Total Requests -->
+        <div class="stat-card">
+            <div class="stat-top">
+                <div class="stat-icon" style="background: rgba(245,158,11,0.1); color: #fbbf24;">
+                    <i class="fa-solid fa-chart-line"></i>
+                </div>
+                <span class="stat-trend neutral"><i class="fa-solid fa-infinity"></i> Total</span>
+            </div>
+            <div class="stat-val">{{ total_requests_all }}</div>
+            <div class="stat-lbl">Lifetime Calls</div>
+        </div>
+    </div>
+
+    <!-- ── Key Pool Panel ── -->
+    <div class="glass-panel">
+        <div class="panel-head">
+            <h3 class="panel-title">
+                <i class="fa-solid fa-layer-group" style="color: var(--accent);"></i>
+                API Key Pool
+            </h3>
+            <div class="panel-subtitle">
+                <i class="fa-solid fa-rotate" style="color: var(--cyan);"></i>
+                Auto-rotate with 60s cooldown failover
+            </div>
+        </div>
+
+        <div class="panel-body">
+            {% if keys %}
+                <div class="key-cards">
+                    {% for k in keys %}
+                        <div class="key-card">
+                            <!-- Header: Identity + Status -->
+                            <div class="key-card-header">
+                                <div class="key-identity">
+                                    <div class="key-avatar {% if not k.is_active %}disabled{% elif k.is_cooling_down %}cooldown{% else %}active{% endif %}">
+                                        <i class="fa-solid {% if not k.is_active %}fa-ban{% elif k.is_cooling_down %}fa-hourglass-half{% else %}fa-key{% endif %}"></i>
+                                    </div>
+                                    <div style="min-width: 0;">
+                                        <div class="key-name">{{ k.label }}</div>
+                                        <div class="key-model">{{ k.model_name }}</div>
+                                    </div>
+                                </div>
+                                {% if not k.is_active %}
+                                    <span class="status-pill disabled"><i class="fa-solid fa-circle" style="font-size:0.45rem;"></i> Disabled</span>
+                                {% elif k.is_cooling_down %}
+                                    <span class="status-pill cooldown"><i class="fa-solid fa-circle" style="font-size:0.45rem;"></i> Cooldown</span>
+                                {% else %}
+                                    <span class="status-pill ready"><i class="fa-solid fa-circle" style="font-size:0.45rem;"></i> Ready</span>
+                                {% endif %}
+                            </div>
+
+                            <!-- Key Hash -->
+                            <div class="key-hash">
+                                <code>{{ k.key|slice:":8" }}••••••••{{ k.key|slice:"-4:" }}</code>
+                                <button class="copy-btn" onclick="navigator.clipboard.writeText('{{ k.key }}').then(()=>toastr.info('Key copied'))" title="Copy full key">
+                                    <i class="fa-regular fa-copy"></i>
+                                </button>
+                            </div>
+
+                            <!-- Usage Progress Bar -->
+                            <div class="usage-section">
+                                <div class="usage-header">
+                                    <span class="usage-label">Daily Usage</span>
+                                    <span class="usage-value"><span>{{ k.daily_request_count }}</span> / {{ k.daily_limit }}</span>
+                                </div>
+                                <div class="usage-bar">
+                                    <div class="usage-bar-fill {% if k.daily_usage_pct < 50 %}low{% elif k.daily_usage_pct < 80 %}mid{% else %}high{% endif %}"
+                                         style="width: 0%;" data-width="{{ k.daily_usage_pct }}%"></div>
+                                </div>
+                                <div style="text-align: right; margin-top: 4px;">
+                                    <span style="font-size: 0.7rem; font-weight: 700; color: {% if k.daily_usage_pct < 50 %}#34d399{% elif k.daily_usage_pct < 80 %}#fbbf24{% else %}#f87171{% endif %};">
+                                        {{ k.daily_usage_pct }}% used
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Stats Row -->
+                            <div class="key-stats">
+                                <div class="key-stat">
+                                    <div class="key-stat-val">{{ k.total_request_count }}</div>
+                                    <div class="key-stat-lbl">Total Calls</div>
+                                </div>
+                                <div class="key-stat">
+                                    <div class="key-stat-val" style="color: {% if k.rate_limit_hits > 0 %}#fbbf24{% else %}var(--text-1){% endif %};">{{ k.rate_limit_hits }}</div>
+                                    <div class="key-stat-lbl">429 Hits</div>
+                                </div>
+                                <div class="key-stat">
+                                    <div class="key-stat-val" style="font-size: 0.78rem;">
+                                        {% if k.last_used_at %}
+                                            {{ k.last_used_at|timesince }}
+                                        {% else %}
+                                            Never
+                                        {% endif %}
+                                    </div>
+                                    <div class="key-stat-lbl">Last Used</div>
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="key-actions">
+                                <button class="btn-act test" onclick="testExistingKey('{{ k.id }}', '{{ k.model_name }}', this)" title="Test key health">
+                                    <i class="fa-solid fa-vial"></i> Test
+                                </button>
+                                <form method="POST" action="/control/settings/gemini-keys/" style="flex:1; display:contents;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="toggle_key">
+                                    <input type="hidden" name="key_id" value="{{ k.id }}">
+                                    <button type="submit" class="btn-act {% if k.is_active %}toggle-on{% else %}toggle-off{% endif %}" title="{% if k.is_active %}Disable{% else %}Enable{% endif %}">
+                                        <i class="fa-solid {% if k.is_active %}fa-toggle-on{% else %}fa-toggle-off{% endif %}"></i>
+                                        {% if k.is_active %}Disable{% else %}Enable{% endif %}
+                                    </button>
+                                </form>
+                                <form method="POST" action="/control/settings/gemini-keys/" style="flex:1; display:contents;" onsubmit="return confirm('Delete this key from the pool?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="delete_key">
+                                    <input type="hidden" name="key_id" value="{{ k.id }}">
+                                    <button type="submit" class="btn-act delete" title="Remove key">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">
+                        <i class="fa-solid fa-key"></i>
+                    </div>
+                    <h3>No API Keys in Pool</h3>
+                    <p>
+                        Add at least one Google Gemini API key to power the AI Website Generator. Get free keys from Google AI Studio.
+                    </p>
+                    <button class="btn-vp btn-vp-primary" onclick="openAddKeyModal()">
+                        <i class="fa-solid fa-plus"></i> Add First Key
+                    </button>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ── Architecture Info ── -->
+    <div class="arch-card">
+        <div class="arch-icon">
+            <i class="fa-solid fa-circle-nodes"></i>
+        </div>
+        <div class="arch-content">
+            <h4>Round-Robin Engine Architecture</h4>
+            <p>
+                Every AI generation request invokes <code>GeminiPoolManager.generate_content()</code>.
+                Keys rotate sequentially via atomic LRU selection. HTTP 429 triggers a 60-second cooldown
+                on that key while the engine instantly fails over to the next available key — zero client disruption.
+            </p>
+        </div>
+    </div>
+
+</div>
+
+<!-- ── Add Key Modal ── -->
+<div class="vp-modal" id="addKeyModal">
+    <div class="vp-modal-content">
+        <div class="modal-header">
+            <div class="modal-title">
+                <i class="fa-solid fa-key" style="color: var(--accent);"></i>
+                Add Gemini API Key
+            </div>
+            <button class="modal-close" onclick="closeAddKeyModal()">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <form method="POST" action="/control/settings/gemini-keys/" id="addKeyForm">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_key">
+
+            <div class="form-group">
+                <label>Key Label</label>
+                <input type="text" name="label" class="form-input" placeholder="e.g. Production Key #1" required>
+                <div class="form-hint">A friendly name to identify this key in the pool.</div>
+            </div>
+
+            <div class="form-group">
+                <label>API Key</label>
+                <div style="position: relative;">
+                    <input type="password" id="input_api_key" name="api_key" class="form-input" placeholder="AIzaSy..." required style="padding-right: 44px; font-family: 'JetBrains Mono', monospace;">
+                    <button type="button" onclick="toggleKeyVis()" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-3); cursor: pointer; padding: 4px;">
+                        <i class="fa-solid fa-eye" id="eyeIcon"></i>
+                    </button>
+                </div>
+                <div class="form-hint">Get a free key at <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>.</div>
+            </div>
+
+            <div class="form-group">
+                <label>Model</label>
+                <select name="model_name" id="input_model_name" class="form-input" style="cursor: pointer;">
+                    <option value="gemini-3.8-flash" selected>gemini-3.8-flash (Latest Free Tier)</option>
+                    <option value="gemini-flash-latest">gemini-flash-latest (Auto Latest Flash)</option>
+                    <option value="gemini-2.5-pro">gemini-2.5-pro (Pro Reasoning)</option>
+                </select>
+            </div>
+
+            <div id="testResultBox" style="display: none; padding: 12px 16px; border-radius: 10px; margin-bottom: 20px; font-size: 0.82rem;"></div>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 28px;">
+                <button type="button" class="btn-vp btn-vp-ghost" onclick="testNewKey(this)">
+                    <i class="fa-solid fa-vial"></i> Test Connection
+                </button>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn-vp btn-vp-ghost" onclick="closeAddKeyModal()">Cancel</button>
+                    <button type="submit" class="btn-vp btn-vp-primary">
+                        <i class="fa-solid fa-check"></i> Save Key
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="/static/assets/vendor/jquery/jquery.min.js"></script>
+<script src="/static/assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/static/assets/vendor/toastr/toastr.min.js"></script>
+
+<script>
+    // ── Animate on load ──
+    document.addEventListener('DOMContentLoaded', function() {
+        // Animate health ring
+        document.querySelectorAll('.ring-fill').forEach(function(el) {
+            var pct = parseFloat(el.getAttribute('data-pct')) || 0;
+            var circumference = 144.51;
+            var offset = circumference - (pct / 100) * circumference;
+            setTimeout(function() { el.style.strokeDashoffset = offset; }, 200);
+        });
+
+        // Animate usage bars
+        document.querySelectorAll('.usage-bar-fill').forEach(function(el) {
+            var w = el.getAttribute('data-width') || '0%';
+            setTimeout(function() { el.style.width = w; }, 300);
+        });
+
+        // Stagger card entrance
+        document.querySelectorAll('.key-card').forEach(function(card, i) {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(12px)';
+            card.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+            setTimeout(function() {
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, 100 + i * 80);
+        });
+
+        // Stagger stat cards
+        document.querySelectorAll('.stat-card').forEach(function(card, i) {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(8px)';
+            card.style.transition = 'opacity 0.35s ease, transform 0.35s ease';
+            setTimeout(function() {
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, 50 + i * 60);
+        });
+
+        // Toastr config
+        toastr.options = {
+            closeButton: true,
+            progressBar: true,
+            positionClass: 'toast-top-right',
+            timeOut: 3500,
+            showDuration: '200',
+        };
+    });
+
+    // ── Modal ──
+    function openAddKeyModal() {
+        document.getElementById('addKeyModal').classList.add('active');
+        document.getElementById('testResultBox').style.display = 'none';
+    }
+    function closeAddKeyModal() {
+        document.getElementById('addKeyModal').classList.remove('active');
+    }
+
+    // Close modal on backdrop click
+    document.getElementById('addKeyModal').addEventListener('click', function(e) {
+        if (e.target === this) closeAddKeyModal();
+    });
+
+    // ── Toggle key visibility ──
+    function toggleKeyVis() {
+        var inp = document.getElementById('input_api_key');
+        var icon = document.getElementById('eyeIcon');
+        if (inp.type === 'password') {
+            inp.type = 'text';
+            icon.classList.replace('fa-eye', 'fa-eye-slash');
+        } else {
+            inp.type = 'password';
+            icon.classList.replace('fa-eye-slash', 'fa-eye');
+        }
+    }
+
+    // ── Test new key (modal) ──
+    function testNewKey(btn) {
+        var key = document.getElementById('input_api_key').value.trim();
+        var model = document.getElementById('input_model_name').value;
+        var resBox = document.getElementById('testResultBox');
+
+        if (!key) { toastr.warning('Enter an API key first.'); return; }
+
+        var originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Testing...';
+        btn.disabled = true;
+
+        $.ajax({
+            url: '/control/settings/gemini-keys/',
+            type: 'POST',
+            data: {
+                action: 'test_key',
+                api_key: key,
+                model_name: model,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(resp) {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+                resBox.style.display = 'block';
+                if (resp.status === 'success') {
+                    resBox.style.background = 'rgba(16,185,129,0.12)';
+                    resBox.style.border = '1px solid rgba(16,185,129,0.25)';
+                    resBox.style.color = '#34d399';
+                    resBox.innerHTML = '<i class="fa-solid fa-circle-check" style="margin-right:6px;"></i> ' + resp.message + ' (' + resp.latency_ms + 'ms)';
+                    toastr.success('Key verified — ' + resp.latency_ms + 'ms latency');
+                } else {
+                    resBox.style.background = 'rgba(239,68,68,0.12)';
+                    resBox.style.border = '1px solid rgba(239,68,68,0.25)';
+                    resBox.style.color = '#f87171';
+                    resBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i> ' + resp.message;
+                    toastr.error('Verification failed');
+                }
+            },
+            error: function() {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+                resBox.style.display = 'block';
+                resBox.style.background = 'rgba(239,68,68,0.12)';
+                resBox.style.border = '1px solid rgba(239,68,68,0.25)';
+                resBox.style.color = '#f87171';
+                resBox.innerHTML = '<i class="fa-solid fa-circle-xmark" style="margin-right:6px;"></i> Server communication error.';
+                toastr.error('Server error');
+            }
+        });
+    }
+
+    // ── Test existing key (card) ──
+    function testExistingKey(keyId, modelName, btn) {
+        var originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        btn.disabled = true;
+
+        $.ajax({
+            url: '/control/settings/gemini-keys/',
+            type: 'POST',
+            data: {
+                action: 'test_key',
+                key_id: keyId,
+                model_name: modelName,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(resp) {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+                if (resp.status === 'success') {
+                    toastr.success('Key healthy — ' + resp.latency_ms + 'ms latency');
+                } else {
+                    toastr.error('Test failed: ' + resp.message);
+                }
+            },
+            error: function() {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+                toastr.error('Server error testing key.');
+            }
+        });
+    }
+</script>
+
+</body>
+</html>

@@ -72,6 +72,14 @@ class user(models.Model):
     )
     notes            = models.TextField(blank=True, default='')
 
+    # Domain health & email verification status
+    is_domain_active  = models.BooleanField(default=True, help_text="True if domain is live/resolves to server")
+    is_email_verified = models.BooleanField(default=False, help_text="True if email is real & domain has valid MX/DNS")
+    domain_ip         = models.CharField(max_length=100, blank=True, default='', help_text="Resolved IP address of the domain")
+    domain_status_msg = models.CharField(max_length=255, blank=True, default='', help_text="Domain check status details")
+    email_status_msg  = models.CharField(max_length=255, blank=True, default='', help_text="Email verification details")
+    last_audited_at   = models.DateTimeField(null=True, blank=True, help_text="Timestamp of last automated audit")
+
     def __str__(self):
         return self.domain
 
@@ -256,6 +264,117 @@ class VoidMailWhitelistIP(models.Model):
 
     def __str__(self):
         return f"{self.ip_address} — {self.domain} ({self.label or 'no label'})"
+
+
+class VoidMailUpgradeLead(models.Model):
+    """
+    Leads captured from VoidMail users requesting AI feature upgrades.
+    Saved directly in VoidOnyx / VoidPanel Superadmin.
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending Review'),
+        ('whitelisted', 'Whitelisted / Active'),
+        ('contacted', 'Contacted'),
+        ('rejected', 'Rejected'),
+    ]
+
+    name = models.CharField(max_length=200, help_text="User's Full Name")
+    email = models.EmailField(db_index=True, help_text="User's Email Address")
+    phone = models.CharField(max_length=50, help_text="User's Phone / WhatsApp Number")
+    domain = models.CharField(max_length=255, db_index=True, help_text="User's Email Domain")
+    caller_ip = models.CharField(max_length=50, blank=True, default='')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', db_index=True)
+    notes = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'VoidMail Upgrade Lead'
+        verbose_name_plural = 'VoidMail Upgrade Leads'
+
+    def __str__(self):
+        return f"{self.name} — {self.email} ({self.domain}) [{self.status}]"
+
+
+class VoidMailWhitelistedDomain(models.Model):
+    """
+    Domain-level whitelist for VoidMail AI features.
+    Any email user matching this domain automatically receives VoidMail AI.
+    """
+    domain = models.CharField(max_length=255, unique=True, db_index=True, help_text="Whitelisted domain (e.g. 'company.com')")
+    lead = models.ForeignKey(VoidMailUpgradeLead, on_delete=models.SET_NULL, null=True, blank=True, related_name='whitelisted_domains')
+    is_active = models.BooleanField(default=True, help_text="Is AI enabled for this domain?")
+    notes = models.CharField(max_length=255, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'VoidMail Whitelisted Domain'
+        verbose_name_plural = 'VoidMail Whitelisted Domains'
+
+    def __str__(self):
+        return f"{self.domain} (Active: {self.is_active})"
+
+
+
+class EmailDeviceToken(models.Model):
+    """
+    FCM push notification device tokens for VoidMail accounts.
+    Enables remote push notifications (like Gmail) when app is closed.
+    """
+    PLATFORM_CHOICES = (
+        ('android', 'Android'),
+        ('ios', 'iOS'),
+        ('web', 'Web'),
+    )
+    email = models.CharField(max_length=255, db_index=True, help_text="Email address linked to device")
+    domain = models.CharField(max_length=255, db_index=True, help_text="Domain name")
+    fcm_token = models.TextField(help_text="Firebase Cloud Messaging Registration Token")
+    platform = models.CharField(max_length=20, default='android', choices=PLATFORM_CHOICES)
+    device_name = models.CharField(max_length=150, blank=True, default='', help_text="Device description")
+    is_active = models.BooleanField(default=True, help_text="Whether this device is active for push")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Email Device Token'
+        verbose_name_plural = 'Email Device Tokens'
+        indexes = [
+            models.Index(fields=['email', 'is_active']),
+            models.Index(fields=['domain']),
+        ]
+
+    def __str__(self):
+        return f"{self.email} [{self.platform}] - {self.device_name or 'Device'} ({'active' if self.is_active else 'inactive'})"
+
+
+class VoidMailAppLogin(models.Model):
+    """
+    Tracks every VoidMail app login for analytics.
+    Records which email logged in, when, from what device/platform.
+    """
+    email = models.CharField(max_length=255, db_index=True, help_text="Email address that logged in")
+    domain = models.CharField(max_length=255, db_index=True, help_text="Domain of the email")
+    platform = models.CharField(max_length=30, default='android', help_text="Device platform (android/ios/web)")
+    device_name = models.CharField(max_length=200, blank=True, default='', help_text="Device description")
+    ip_address = models.GenericIPAddressField(null=True, blank=True, help_text="Client IP at login")
+    login_method = models.CharField(max_length=50, default='voidpanel', help_text="Login method (voidpanel/custom_imap)")
+    logged_in_at = models.DateTimeField(auto_now_add=True, help_text="Timestamp of the login")
+
+    class Meta:
+        verbose_name = 'VoidMail App Login'
+        verbose_name_plural = 'VoidMail App Logins'
+        ordering = ['-logged_in_at']
+        indexes = [
+            models.Index(fields=['email', '-logged_in_at']),
+            models.Index(fields=['domain']),
+            models.Index(fields=['-logged_in_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.email} — {self.logged_in_at.strftime('%Y-%m-%d %H:%M') if self.logged_in_at else 'pending'}"
+
 
 class cron(models.Model):
     domain = models.CharField(max_length=100)
@@ -480,44 +599,64 @@ class PanelBranding(models.Model):
 class CloudBackupConfig(models.Model):
     """
     Per-domain cloud backup sync configuration.
-    Stores credentials for Google Cloud Storage or Amazon S3.
+    Stores credentials for Google Drive, Google Cloud Storage, or Amazon S3.
     Managed via the Backup Manager UI in the control panel.
     """
-    PROVIDER_GCS = 'gcs'
-    PROVIDER_S3  = 's3'
+    PROVIDER_GDRIVE = 'gdrive'
+    PROVIDER_GCS    = 'gcs'
+    PROVIDER_S3     = 's3'
     PROVIDER_CHOICES = [
-        (PROVIDER_GCS, 'Google Cloud Storage'),
-        (PROVIDER_S3,  'Amazon S3'),
+        (PROVIDER_GDRIVE, 'Google Drive'),
+        (PROVIDER_GCS,    'Google Cloud Storage'),
+        (PROVIDER_S3,     'Amazon S3'),
     ]
 
     SCHEDULE_DAILY  = '0 2 * * *'
     SCHEDULE_WEEKLY = '0 2 * * 0'
     SCHEDULE_CHOICES = [
-        ('daily',    'Daily at 2:00 AM'),
-        ('weekly',   'Weekly (Sunday 2:00 AM)'),
+        ('daily',    'Daily at specific time'),
+        ('weekly',   'Weekly (specific day & time)'),
         ('custom',   'Custom Cron'),
     ]
 
     domain   = models.CharField(max_length=255, unique=True, help_text="Domain this config belongs to")
-    provider = models.CharField(max_length=10, choices=PROVIDER_CHOICES, default=PROVIDER_GCS)
+    provider = models.CharField(max_length=10, choices=PROVIDER_CHOICES, default=PROVIDER_GDRIVE)
 
-    # Google Cloud Storage
+    # ── Google Drive ─────────────────────────────────────────────────────────
+    gdrive_auth_mode            = models.CharField(max_length=20, default='oauth', choices=[('oauth', 'OAuth 2.0'), ('service_account', 'Service Account')])
+    gdrive_client_id            = models.CharField(max_length=255, blank=True, default='', help_text="Google OAuth Client ID")
+    gdrive_client_secret        = models.CharField(max_length=255, blank=True, default='', help_text="Google OAuth Client Secret")
+    gdrive_refresh_token        = models.TextField(blank=True, default='', help_text="Google OAuth Refresh Token")
+    gdrive_access_token         = models.TextField(blank=True, default='', help_text="Temporary access token")
+    gdrive_token_expiry         = models.DateTimeField(null=True, blank=True)
+    gdrive_user_email           = models.CharField(max_length=255, blank=True, default='', help_text="Connected Google Account email")
+    gdrive_service_account_json = models.TextField(blank=True, default='', help_text="Service Account JSON key (paste full contents)")
+    gdrive_folder_id            = models.CharField(max_length=255, blank=True, default='', help_text="Google Drive Folder ID (leave empty for auto 'VoidPanel Backups')")
+    gdrive_folder_name          = models.CharField(max_length=255, blank=True, default='VoidPanel Backups', help_text="Folder name in Google Drive")
+
+    # ── Google Cloud Storage ──────────────────────────────────────────────────
     gcs_bucket   = models.CharField(max_length=220, blank=True, help_text="GCS bucket name")
     gcs_key_json = models.TextField(blank=True, help_text="Service Account JSON key (paste full contents)")
 
-    # Amazon S3
+    # ── Amazon S3 ─────────────────────────────────────────────────────────────
     s3_bucket      = models.CharField(max_length=220, blank=True)
     s3_access_key  = models.CharField(max_length=220, blank=True)
     s3_secret_key  = models.CharField(max_length=255, blank=True)
     s3_region      = models.CharField(max_length=60, blank=True, default='us-east-1')
 
-    # Automation
-    auto_backup_enabled  = models.BooleanField(default=False)
-    auto_schedule_preset = models.CharField(max_length=20, choices=SCHEDULE_CHOICES, default='daily')
-    auto_schedule_cron   = models.CharField(max_length=100, blank=True, default='0 2 * * *',
-                                            help_text="Cron string (used when preset=custom)")
-    sync_after_backup    = models.BooleanField(default=False,
-                                               help_text="Auto-push to cloud immediately after each backup")
+    # ── Automation & Scheduling ───────────────────────────────────────────────
+    auto_backup_enabled   = models.BooleanField(default=False)
+    auto_schedule_preset  = models.CharField(max_length=20, choices=SCHEDULE_CHOICES, default='daily')
+    auto_schedule_time    = models.CharField(max_length=10, default='02:00', help_text="Time of day in UTC (HH:MM) e.g. 02:00")
+    auto_schedule_weekday = models.IntegerField(default=0, help_text="0=Sunday, 1=Monday, 2=Tuesday, etc.")
+    auto_schedule_cron    = models.CharField(max_length=100, blank=True, default='0 2 * * *',
+                                             help_text="Cron string (used when preset=custom)")
+    sync_after_backup     = models.BooleanField(default=True,
+                                                help_text="Auto-push to cloud immediately after each backup")
+    keep_local_copy       = models.BooleanField(default=True,
+                                                help_text="Keep local backup copy on server after syncing to Google Drive")
+    last_backup_at        = models.DateTimeField(null=True, blank=True)
+    last_backup_status    = models.CharField(max_length=255, blank=True, default='')
 
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -530,16 +669,30 @@ class CloudBackupConfig(models.Model):
 
     @property
     def is_configured(self):
-        if self.provider == self.PROVIDER_GCS:
+        if self.provider == self.PROVIDER_GDRIVE:
+            if self.gdrive_auth_mode == 'service_account':
+                return bool(self.gdrive_service_account_json and self.gdrive_service_account_json.strip())
+            return bool(self.gdrive_refresh_token and self.gdrive_refresh_token.strip())
+        elif self.provider == self.PROVIDER_GCS:
             return bool(self.gcs_bucket and self.gcs_key_json)
-        return bool(self.s3_bucket and self.s3_access_key and self.s3_secret_key)
+        elif self.provider == self.PROVIDER_S3:
+            return bool(self.s3_bucket and self.s3_access_key and self.s3_secret_key)
+        return False
 
     def get_effective_cron(self):
+        try:
+            parts = (self.auto_schedule_time or '02:00').split(':')
+            h = int(parts[0])
+            m = int(parts[1]) if len(parts) > 1 else 0
+        except Exception:
+            h, m = 2, 0
+
         if self.auto_schedule_preset == 'daily':
-            return self.SCHEDULE_DAILY
+            return f"{m} {h} * * *"
         elif self.auto_schedule_preset == 'weekly':
-            return self.SCHEDULE_WEEKLY
-        return self.auto_schedule_cron or self.SCHEDULE_DAILY
+            w = self.auto_schedule_weekday if self.auto_schedule_weekday is not None else 0
+            return f"{m} {h} * * {w}"
+        return self.auto_schedule_cron or f"{m} {h} * * *"
 
 
 class InstalledScript(models.Model):
@@ -756,6 +909,8 @@ class APIToken(models.Model):
         return obj
 
     def has_scope(self, scope: str) -> bool:
+        if self.owner_type == self.OWNER_SUPERADMIN or '*' in (self.scopes or []):
+            return True
         return scope in (self.scopes or [])
 
     def touch(self):
@@ -1208,7 +1363,15 @@ class MarketingCampaign(models.Model):
         ('email', 'Email'), ('sms', 'SMS'), ('whatsapp', 'WhatsApp'),
         ('social', 'Social Media'), ('ad', 'Paid Ad'),
     ]
-    STATUS_CHOICES = [('draft','Draft'),('scheduled','Scheduled'),('sent','Sent'),('paused','Paused')]
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('scheduled', 'Scheduled'),
+        ('running', 'Running'),
+        ('paused', 'Paused'),
+        ('stopped', 'Stopped'),
+        ('sent', 'Completed'),
+        ('completed', 'Completed'),
+    ]
 
     user         = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='mkt_campaigns')
     domain       = models.CharField(max_length=253)
@@ -1221,9 +1384,25 @@ class MarketingCampaign(models.Model):
     custom_smtp  = models.ForeignKey('CustomSMTPConfig', on_delete=models.SET_NULL, null=True, blank=True, related_name='campaigns')
     scheduled_at = models.DateTimeField(null=True, blank=True)
     sent_count   = models.PositiveIntegerField(default=0)
+    send_limit   = models.PositiveIntegerField(default=0, help_text='Auto-pause after sending X emails (0 = unlimited)')
+    batch_history = models.TextField(blank=True, default='[]', help_text='JSON array of completed execution batches')
+    stop_reason  = models.CharField(max_length=255, blank=True, default='')
+    stopped_at   = models.DateTimeField(null=True, blank=True)
     open_rate    = models.FloatField(default=0)
     click_rate   = models.FloatField(default=0)
     created_at   = models.DateTimeField(auto_now_add=True)
+    # Target audience segment (e.g. 'all', 'hot', 'warm', 'group_123', 'custom_csv')
+    target_segment = models.CharField(max_length=100, blank=True, default='all')
+    # Sending speed & interval dispatch settings (Anti-Spam / Warmup)
+    send_speed_mode  = models.CharField(max_length=20, default='instant',
+                                        choices=[('instant', 'Instant'), ('interval', 'Interval')])
+    interval_type    = models.CharField(max_length=20, default='fixed',
+                                        choices=[('fixed', 'Fixed'), ('random', 'Random')])
+    interval_seconds = models.PositiveIntegerField(default=5, help_text='Delay in seconds between emails for fixed interval')
+    interval_min     = models.PositiveIntegerField(default=5, help_text='Min delay in seconds for random interval')
+    interval_max     = models.PositiveIntegerField(default=20, help_text='Max delay in seconds for random interval')
+    test_copy_email  = models.CharField(max_length=254, blank=True, default='',
+                                        help_text='Optional test/reference email to receive campaign copies at start and completion')
     # WhatsApp-specific media attachment
     wa_media_path = models.CharField(max_length=500, blank=True, default='',
                                      help_text='Server-side path to attached media file (image/video/doc)')
@@ -1647,7 +1826,7 @@ class SuitePlan(models.Model):
         defaults = [
             # ─── Social Media Suite (INR, 20% below Indian market) ─────────────────
             ('social', 'starter', 'Starter', 699,  {
-                'accounts': 5, 'posts_per_month': 100, 'ai_captions': 20,
+                'accounts': 2, 'posts_per_month': 10, 'ai_captions': 20,
                 'platforms': ['instagram','facebook','twitter'],
                 'analytics': 'basic', 'scheduler': True, 'csv_export': False,
                 'team_members': 1, 'custom_branding': False,
@@ -1667,13 +1846,13 @@ class SuitePlan(models.Model):
             }),
             # ─── SEO Suite (INR, 20% below Indian market) ──────────────────────────
             ('seo', 'lite',     'Lite',     999,  {
-                'domains': 3, 'keywords': 250, 'audits_per_month': 5,
+                'domains': 1, 'keywords': 10, 'audits_per_month': 5,
                 'backlink_rows': 500, 'competitor_tracking': 2,
                 'rank_tracking': True, 'site_audit': True, 'reports': 'basic',
                 'api_access': False,
             }),
             ('seo', 'starter',  'Starter',  999,  {
-                'domains': 3, 'keywords': 250, 'audits_per_month': 5,
+                'domains': 1, 'keywords': 10, 'audits_per_month': 5,
                 'backlink_rows': 500, 'competitor_tracking': 2,
                 'rank_tracking': True, 'site_audit': True, 'reports': 'basic',
                 'api_access': False,
@@ -1706,7 +1885,7 @@ class SuitePlan(models.Model):
             }),
             # ─── Marketing Suite (INR, 20% below Indian market) ────────────────────
             ('marketing', 'starter', 'Starter', 799,  {
-                'contacts': 2000, 'emails_per_month': 15000,
+                'contacts': 100, 'emails_per_month': 1000,
                 'campaigns_per_month': 10, 'landing_pages': 5,
                 'automation': False, 'ab_testing': False,
                 'sms_credits': 500, 'whatsapp': False,
@@ -1891,3 +2070,224 @@ class SEOHistorySnapshot(models.Model):
         return f"{self.domain} @ {self.recorded_at.strftime('%Y-%m-%d %H:%M')} (Auth: {self.authority_score})"
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# AI SITE GENERATOR & GEMINI MULTI-KEY POOL MODELS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class GeminiAPIKey(models.Model):
+    """
+    Pool of Google Gemini API keys managed by Super Admin.
+    Enables circular Round-Robin rotation and seamless failover on 429 Rate Limits.
+    """
+    key = models.CharField(max_length=255, unique=True, help_text="Google Gemini API Key")
+    label = models.CharField(max_length=100, blank=True, help_text="e.g. Account 1, Backup Key 2")
+    model_name = models.CharField(
+        max_length=50, 
+        default="gemini-2.0-flash",
+        help_text="Model identifier (e.g. gemini-2.0-flash, gemini-1.5-flash)"
+    )
+    is_active = models.BooleanField(default=True, help_text="Enabled for rotation")
+    cooldown_until = models.DateTimeField(null=True, blank=True, help_text="Timestamp when key exits rate-limit cooldown")
+    daily_request_count = models.PositiveIntegerField(default=0)
+    total_request_count = models.PositiveIntegerField(default=0)
+    rate_limit_hits = models.PositiveIntegerField(default=0)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Gemini API Key'
+        verbose_name_plural = 'Gemini API Keys'
+        ordering = ['last_used_at', 'id']
+
+    @property
+    def masked_key(self):
+        if not self.key or len(self.key) < 10:
+            return "••••••••"
+        return f"{self.key[:6]}••••••••{self.key[-4:]}"
+
+    @property
+    def is_in_cooldown(self):
+        if not self.cooldown_until:
+            return False
+        return self.cooldown_until > timezone.now()
+
+    def __str__(self):
+        status = "Cooldown" if self.is_in_cooldown else ("Active" if self.is_active else "Disabled")
+        return f"{self.label or 'Gemini Key'} ({self.masked_key}) - [{status}]"
+
+
+class AISiteProject(models.Model):
+    """
+    Tracks AI-generated websites created by users for their domains.
+    """
+    user_identifier = models.CharField(max_length=150, db_index=True)
+    domain = models.CharField(max_length=253, db_index=True)
+    business_name = models.CharField(max_length=200)
+    business_category = models.CharField(max_length=100)
+    primary_theme = models.CharField(max_length=50, default='modern_dark')
+    current_html = models.TextField(help_text="Full self-contained HTML5 code of the active version")
+    version = models.PositiveIntegerField(default=1)
+    is_published = models.BooleanField(default=False)
+    published_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'AI Site Project'
+        verbose_name_plural = 'AI Site Projects'
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"{self.business_name} ({self.domain}) v{self.version}"
+
+
+class AISiteRevision(models.Model):
+    """
+    Maintains complete version history of generated sites for rollbacks.
+    """
+    project = models.ForeignKey(AISiteProject, on_delete=models.CASCADE, related_name='revisions')
+    version = models.PositiveIntegerField()
+    prompt_used = models.TextField(blank=True)
+    html_content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'AI Site Revision'
+        verbose_name_plural = 'AI Site Revisions'
+        ordering = ['-version']
+
+    def __str__(self):
+        return f"{self.project.domain} - Revision v{self.version}"
+
+
+class SiteLeadCapture(models.Model):
+    """
+    Stores contact form inquiries submitted from the AI-generated website.
+    """
+    domain = models.CharField(max_length=253, db_index=True)
+    name = models.CharField(max_length=150, blank=True)
+    email = models.EmailField(blank=True)
+    phone = models.CharField(max_length=50, blank=True)
+    message = models.TextField(blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Site Lead'
+        verbose_name_plural = 'Site Leads'
+        ordering = ['-submitted_at']
+
+    def __str__(self):
+        return f"Lead from {self.domain} ({self.name or self.email})"
+
+
+# ==============================================================================
+# VOIDONYX INSTANT DEPLOYMENT PLATFORM (VERCEL-LIKE) MODELS
+# ==============================================================================
+
+class DeploymentProject(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='deployments', help_text="Associated user if authenticated"
+    )
+    guest_session_id = models.CharField(
+        max_length=100, blank=True, null=True, db_index=True,
+        help_text="Session identifier for frictionless guest deployments"
+    )
+    name = models.CharField(max_length=100, help_text="Project display name")
+    subdomain = models.CharField(
+        max_length=100, unique=True, db_index=True,
+        help_text="Assigned subdomain slug, e.g., 'portfolio'"
+    )
+    full_domain = models.CharField(
+        max_length=150, unique=True,
+        help_text="Full FQDN, e.g., 'portfolio.voidonyx.com'"
+    )
+    framework = models.CharField(
+        max_length=50, default='react_vite',
+        choices=[
+            ('react_vite', 'React (Vite)'),
+            ('nextjs_static', 'Next.js (Static Export)'),
+            ('vue', 'Vue.js'),
+            ('html_static', 'Static HTML / JS'),
+            ('django', 'Python (Django)'),
+            ('node_backend', 'Node.js (API/Express)'),
+            ('auto', 'Auto Detect'),
+        ]
+    )
+    source_type = models.CharField(
+        max_length=20, default='git',
+        choices=[('git', 'Git Repository'), ('zip', 'ZIP Upload'), ('template', 'Starter Template')]
+    )
+    git_repo = models.URLField(max_length=255, blank=True, null=True)
+    git_branch = models.CharField(max_length=50, default='main')
+    root_directory = models.CharField(max_length=100, default='/')
+    install_command = models.CharField(max_length=255, blank=True, default='')
+    build_command = models.CharField(max_length=255, blank=True, default='')
+    start_command = models.CharField(max_length=255, blank=True, default='')
+    output_directory = models.CharField(max_length=100, default='dist')
+    backend_port = models.IntegerField(null=True, blank=True)
+    has_backend = models.BooleanField(default=False)
+    
+    status = models.CharField(
+        max_length=20, default='ready',
+        choices=[('queued', 'Queued'), ('building', 'Building'), ('live', 'Live'), ('failed', 'Failed')]
+    )
+    active_build_id = models.IntegerField(null=True, blank=True)
+    total_deploys = models.IntegerField(default=1)
+    disk_usage_mb = models.FloatField(default=0.0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'data_deploymentproject'
+        verbose_name = 'Deployment Project'
+        verbose_name_plural = 'Deployment Projects'
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"{self.name} ({self.full_domain})"
+
+
+class DeploymentBuild(models.Model):
+    project = models.ForeignKey(
+        DeploymentProject, on_delete=models.CASCADE,
+        related_name='builds'
+    )
+    build_number = models.IntegerField(default=1)
+    status = models.CharField(
+        max_length=20, default='queued',
+        choices=[('queued', 'Queued'), ('building', 'Building'), ('success', 'Success'), ('failed', 'Failed')]
+    )
+    build_logs = models.TextField(blank=True)
+    error_message = models.TextField(blank=True)
+    duration_seconds = models.FloatField(default=0.0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'data_deploymentbuild'
+        verbose_name = 'Deployment Build'
+        verbose_name_plural = 'Deployment Builds'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.project.subdomain} - Build #{self.build_number} ({self.status})"
+
+
+class DeploymentEnvVar(models.Model):
+    project = models.ForeignKey(
+        DeploymentProject, on_delete=models.CASCADE,
+        related_name='env_vars'
+    )
+    key = models.CharField(max_length=100)
+    value = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'data_deploymentenvvar'
+        verbose_name = 'Deployment Environment Variable'
+        verbose_name_plural = 'Deployment Environment Variables'
+        unique_together = ('project', 'key')
+
+    def __str__(self):
+        return f"{self.project.subdomain} - {self.key}"

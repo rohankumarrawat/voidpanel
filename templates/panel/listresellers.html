@@ -1,0 +1,956 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>:: VoidPanel :: Manage Resellers</title>
+    <!-- ★ Early theme detection ★ -->
+    <script>
+    (function() {
+        var t = 'dark';
+        try { t = localStorage.getItem('vp-theme') || 'dark'; } catch(e) {}
+        document.documentElement.setAttribute('data-theme', t);
+    })();
+    </script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" href="/static/fav.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/assets/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/assets/vendor/toastr/toastr.min.css">
+    <link rel="stylesheet" href="/static/assets/css/main.css?v=2">
+    <style>
+        :root {
+            --neon: #00e5ff;
+            --neon-purple: #a855f7;
+            --glass-bg: rgba(15, 20, 40, 0.85);
+            --glass-border: rgba(0, 229, 255, 0.15);
+            --text-dim: #94a3b8;
+            --text-main: #f8fafc;
+            --body-bg: #080c1a;
+            --row-hover: rgba(0, 229, 255, 0.04);
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --border-subtle: rgba(255, 255, 255, 0.06);
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+            background: var(--body-bg) !important;
+            color: var(--text-main);
+        }
+
+        /* ── Page Header ── */
+        .page-header {
+            padding: 24px 0 16px;
+        }
+        .page-header h2 {
+            font-size: 1.45rem;
+            font-weight: 800;
+            color: #fff;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .page-header h2 i {
+            color: #f59e0b;
+        }
+        .breadcrumb {
+            background: transparent;
+            padding: 0;
+            margin: 6px 0 0;
+            font-size: 0.78rem;
+        }
+        .breadcrumb-item a { color: var(--neon); text-decoration: none; }
+        .breadcrumb-item.active { color: var(--text-dim); }
+
+        /* ── Header Buttons ── */
+        .btn-add {
+            background: linear-gradient(135deg, var(--neon-purple), #6366f1);
+            color: #fff !important;
+            border: none;
+            border-radius: 10px;
+            padding: 10px 18px;
+            font-size: 0.84rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none !important;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(168, 85, 247, 0.3);
+            transition: all 0.2s;
+        }
+        .btn-add:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        /* ── KPI Stats Grid ── */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        @media(max-width: 992px) { .stats-row { grid-template-columns: repeat(2, 1fr); } }
+        @media(max-width: 576px) { .stats-row { grid-template-columns: 1fr; } }
+
+        .stat-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 18px 20px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+        }
+        .stat-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+            flex-shrink: 0;
+        }
+        .stat-icon.amber {
+            background: rgba(245, 158, 11, 0.12);
+            color: #f59e0b;
+            border: 1px solid rgba(245, 158, 11, 0.25);
+        }
+        .stat-icon.green {
+            background: rgba(34, 197, 94, 0.12);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.25);
+        }
+        .stat-icon.purple {
+            background: rgba(168, 85, 247, 0.12);
+            color: #a855f7;
+            border: 1px solid rgba(168, 85, 247, 0.25);
+        }
+        .stat-icon.cyan {
+            background: rgba(0, 229, 255, 0.12);
+            color: var(--neon);
+            border: 1px solid rgba(0, 229, 255, 0.25);
+        }
+        .stat-val {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: #fff;
+            line-height: 1;
+        }
+        .stat-lbl {
+            font-size: 0.72rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        /* ── Glass Card & Toolbar ── */
+        .glass-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            margin-bottom: 30px;
+        }
+        .card-toolbar {
+            padding: 20px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .card-toolbar-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Search input */
+        .search-wrap {
+            position: relative;
+            width: 280px;
+        }
+        .search-wrap input {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            color: #fff;
+            padding: 8px 14px 8px 36px;
+            font-size: 0.82rem;
+            width: 100%;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .search-wrap input:focus {
+            border-color: var(--neon);
+            box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.12);
+        }
+        .search-wrap i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-dim);
+            font-size: 0.8rem;
+        }
+
+        /* Filter Pills */
+        .filter-pills {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .filter-pill {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            color: var(--text-dim);
+            font-size: 0.74rem;
+            font-weight: 600;
+            padding: 6px 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-pill:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .filter-pill.active {
+            background: rgba(168, 85, 247, 0.15);
+            border-color: rgba(168, 85, 247, 0.4);
+            color: #c084fc;
+        }
+
+        /* ── Users Table ── */
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.84rem;
+        }
+        .users-table th {
+            padding: 14px 18px;
+            color: var(--text-dim);
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            border-bottom: 1px solid var(--border-subtle);
+            background: rgba(255, 255, 255, 0.01);
+            white-space: nowrap;
+        }
+        .users-table td {
+            padding: 16px 18px;
+            border-bottom: 1px solid var(--border-subtle);
+            vertical-align: middle;
+            color: #e2e8f0;
+        }
+        .users-table tr:hover td {
+            background: var(--row-hover);
+        }
+        .users-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Reseller User Cell */
+        .user-cell {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .user-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(168, 85, 247, 0.2));
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #f59e0b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.95rem;
+            flex-shrink: 0;
+        }
+        .user-name {
+            font-weight: 700;
+            color: #fff;
+            font-size: 0.88rem;
+        }
+        .user-domain {
+            font-size: 0.73rem;
+            color: var(--neon);
+            margin-top: 1px;
+        }
+
+        /* Progress Mini Bars */
+        .pool-bar-track {
+            width: 120px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 999px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        .pool-bar-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #6366f1, #a855f7);
+        }
+        .pool-bar-fill.cyan {
+            background: linear-gradient(90deg, #06b6d4, #22c55e);
+        }
+
+        /* Badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+        .status-badge.active {
+            background: rgba(34, 197, 94, 0.12);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.25);
+        }
+        .status-badge.suspended {
+            background: rgba(239, 68, 68, 0.12);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.25);
+        }
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        /* Action Buttons */
+        .act-btn {
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.74rem;
+            font-weight: 700;
+            border: 1px solid transparent;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none !important;
+            transition: all 0.18s;
+        }
+        .act-btn.view {
+            background: rgba(0, 229, 255, 0.1);
+            color: var(--neon);
+            border-color: rgba(0, 229, 255, 0.25);
+        }
+        .act-btn.view:hover {
+            background: rgba(0, 229, 255, 0.2);
+            color: #fff;
+        }
+        .act-btn.act-edit {
+            background: rgba(168, 85, 247, 0.1);
+            color: #c084fc;
+            border-color: rgba(168, 85, 247, 0.25);
+        }
+        .act-btn.act-edit:hover {
+            background: rgba(168, 85, 247, 0.2);
+            color: #fff;
+        }
+        .act-btn.act-warn {
+            background: rgba(245, 158, 11, 0.1);
+            color: #fbbf24;
+            border-color: rgba(245, 158, 11, 0.25);
+        }
+        .act-btn.act-warn:hover {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fff;
+        }
+        .act-btn.act-ok {
+            background: rgba(34, 197, 94, 0.1);
+            color: #4ade80;
+            border-color: rgba(34, 197, 94, 0.25);
+        }
+        .act-btn.act-ok:hover {
+            background: rgba(34, 197, 94, 0.2);
+            color: #fff;
+        }
+        .act-btn.act-danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.25);
+        }
+        .act-btn.act-danger:hover {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fff;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+        .empty-state i {
+            font-size: 2.8rem;
+            color: rgba(245, 158, 11, 0.3);
+            margin-bottom: 14px;
+        }
+        .empty-state h4 {
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+        .empty-state p {
+            color: var(--text-dim);
+            font-size: 0.82rem;
+            max-width: 440px;
+            margin: 0 auto 18px;
+        }
+
+        /* ── Modals ── */
+        .vp-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(4px);
+            z-index: 99999;
+            align-items: center;
+            justify-content: center;
+        }
+        .vp-modal-overlay.open { display: flex; }
+        .vp-modal-box {
+            background: #0d1527;
+            border: 1px solid rgba(168, 85, 247, 0.25);
+            border-radius: 20px;
+            padding: 28px;
+            width: min(520px, 92vw);
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+        }
+        .vp-modal-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .vp-modal-title {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .vp-modal-close {
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+        .vp-modal-close:hover { color: #f87171; }
+        .form-label {
+            font-size: 0.74rem;
+            color: var(--text-dim);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: block;
+            margin-bottom: 6px;
+        }
+        .form-control-custom {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            padding: 10px 14px;
+            color: #fff;
+            font-size: 0.88rem;
+            outline: none;
+            transition: border 0.2s;
+            box-sizing: border-box;
+        }
+        .form-control-custom:focus {
+            border-color: #a855f7;
+            box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15);
+        }
+        select.form-control-custom option {
+            background: #0d1527;
+            color: #fff;
+        }
+    </style>
+</head>
+<body class="font-nunito active-dark-mode">
+<div id="wrapper" class="theme-cyan">
+
+    {% include 'navbar.html' %}
+    {% include 'left.html' %}
+    {% include 'right.html' %}
+
+    <div id="main-content">
+        <div class="container-fluid" style="padding-top: 15px;">
+
+            <!-- Header -->
+            <div class="page-header">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <h2><i class="fa fa-crown"></i> Reseller Management</h2>
+                        <ul class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="/panel/"><i class="fa fa-home"></i></a></li>
+                            <li class="breadcrumb-item"><a href="/panel/">Dashboard</a></li>
+                            <li class="breadcrumb-item active">Manage Resellers</li>
+                        </ul>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn-add" onclick="openModal('modalPromoteReseller')">
+                            <i class="fa fa-user-plus"></i> Add New Reseller
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats KPI Row -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon amber"><i class="fa fa-crown"></i></div>
+                    <div>
+                        <div class="stat-val">{{ stat_total }}</div>
+                        <div class="stat-lbl">Total Resellers</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green"><i class="fa fa-check-circle"></i></div>
+                    <div>
+                        <div class="stat-val">{{ stat_active }}</div>
+                        <div class="stat-lbl">Active Resellers</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon purple"><i class="fa fa-users"></i></div>
+                    <div>
+                        <div class="stat-val">{{ stat_sub_accounts }}</div>
+                        <div class="stat-lbl">Sub-Accounts Managed</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon cyan"><i class="fa fa-hard-drive"></i></div>
+                    <div>
+                        <div class="stat-val">{{ stat_total_quota_gb }} <span style="font-size:0.95rem;font-weight:600;">GB</span></div>
+                        <div class="stat-lbl">Total Storage Allocated</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resellers Glass Card -->
+            <div class="glass-card">
+                <div class="card-toolbar">
+                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                        <div class="card-toolbar-title">
+                            <i class="fa fa-store" style="color:#a855f7;"></i>
+                            <span>All Resellers on Server</span>
+                        </div>
+                        <span id="resellerCountBadge" style="font-size:0.75rem;padding:3px 10px;border-radius:20px;background:rgba(168,85,247,0.12);color:#c084fc;font-weight:700;">
+                            {{ resellers|length }} Resellers
+                        </span>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                        <div class="filter-pills">
+                            <button type="button" class="filter-pill active" onclick="filterResellers('all', this)">All ({{ stat_total }})</button>
+                            <button type="button" class="filter-pill" onclick="filterResellers('active', this)"><i class="fa fa-circle" style="font-size:0.45rem;color:#22c55e;"></i> Active ({{ stat_active }})</button>
+                            <button type="button" class="filter-pill" onclick="filterResellers('suspended', this)"><i class="fa fa-circle" style="font-size:0.45rem;color:#f87171;"></i> Suspended ({{ stat_suspended }})</button>
+                        </div>
+                        <div class="search-wrap">
+                            <i class="fa fa-search"></i>
+                            <input type="text" id="searchInput" oninput="searchResellers()" placeholder="Search username, company, email…">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="users-table" id="resellersTable">
+                        <thead>
+                            <tr>
+                                <th>Reseller</th>
+                                <th>Email</th>
+                                <th>Company</th>
+                                <th>Sub-Accounts Pool</th>
+                                <th>Storage Pool</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th style="text-align:right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resellerTableBody">
+                            {% for r in resellers %}
+                            <tr class="reseller-row" data-username="{{ r.username|lower }}" data-company="{{ r.company_name|lower }}" data-email="{{ r.email|lower }}" data-status="{% if r.is_active %}active{% else %}suspended{% endif %}">
+                                <td>
+                                    <div class="user-cell">
+                                        <div class="user-avatar">{{ r.username|slice:":1"|upper }}</div>
+                                        <div>
+                                            <div class="user-name">{{ r.username }}</div>
+                                            <div class="user-domain"><i class="fa fa-globe" style="font-size:0.65rem;margin-right:3px;"></i>{{ r.primary_domain }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span style="color:var(--text-dim);font-size:0.82rem;">{{ r.email }}</span></td>
+                                <td><strong style="color:#e2e8f0;font-size:0.84rem;">{{ r.company_name }}</strong></td>
+                                <td>
+                                    <div style="font-size:0.82rem;font-weight:700;color:#c084fc;">
+                                        {{ r.sub_count }} <span style="font-size:0.72rem;color:var(--text-dim);font-weight:500;">/ {{ r.max_accounts }} accounts</span>
+                                    </div>
+                                    <div class="pool-bar-track" title="{{ r.accounts_pct }}% of max accounts used">
+                                        <div class="pool-bar-fill" style="width: {{ r.accounts_pct }}%;"></div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div style="font-size:0.82rem;font-weight:700;color:var(--neon);">
+                                        {{ r.used_storage_gb }} <span style="font-size:0.72rem;color:var(--text-dim);font-weight:500;">/ {{ r.storage_quota_gb }} GB</span>
+                                    </div>
+                                    <div class="pool-bar-track" title="{{ r.storage_pct }}% storage used">
+                                        <div class="pool-bar-fill cyan" style="width: {{ r.storage_pct }}%;"></div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if r.is_active %}
+                                    <span class="status-badge active"><span class="status-dot"></span> Active</span>
+                                    {% else %}
+                                    <span class="status-badge suspended"><span class="status-dot"></span> Suspended</span>
+                                    {% endif %}
+                                </td>
+                                <td><span style="color:var(--text-dim);font-size:0.76rem;">{{ r.created_at|date:"M d, Y"|default:"—" }}</span></td>
+                                <td style="text-align:right;">
+                                    <div style="display:inline-flex;gap:6px;align-items:center;">
+                                        <a href="/control/reseller/?reseller={{ r.username }}" target="_blank" class="act-btn view" title="Login / View Reseller Dashboard">
+                                            <i class="fa fa-external-link"></i> Dashboard
+                                        </a>
+                                        <button type="button" class="act-btn act-edit" onclick="openEditQuota('{{ r.username }}', '{{ r.company_name|escapejs }}', '{{ r.storage_quota_gb }}', '{{ r.max_accounts }}')" title="Edit Resource Quota">
+                                            <i class="fa fa-pencil"></i>
+                                        </button>
+                                        {% if r.is_active %}
+                                        <button type="button" class="act-btn act-warn" onclick="toggleResellerStatus('{{ r.username }}', true)" title="Suspend Reseller">
+                                            <i class="fa fa-pause"></i>
+                                        </button>
+                                        {% else %}
+                                        <button type="button" class="act-btn act-ok" onclick="toggleResellerStatus('{{ r.username }}', false)" title="Unsuspend Reseller">
+                                            <i class="fa fa-play"></i>
+                                        </button>
+                                        {% endif %}
+                                        <button type="button" class="act-btn act-danger" onclick="demoteReseller('{{ r.username }}')" title="Demote from Reseller">
+                                            <i class="fa fa-user-minus"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr id="noResellersRow">
+                                <td colspan="8">
+                                    <div class="empty-state">
+                                        <i class="fa fa-crown"></i>
+                                        <h4>No Resellers Found</h4>
+                                        <p>You have not configured any reseller accounts yet. Promote an existing user or create a new reseller hosting account.</p>
+                                        <button type="button" class="btn-add" onclick="openModal('modalPromoteReseller')">
+                                            <i class="fa fa-user-plus"></i> Add First Reseller
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- ══ MODAL 1: EDIT RESELLER QUOTA ════════════════════════════════════ -->
+<div id="modalEditQuota" class="vp-modal-overlay">
+    <div class="vp-modal-box">
+        <div class="vp-modal-head">
+            <div class="vp-modal-title">
+                <i class="fa fa-pencil" style="color:#a855f7;"></i>
+                <span>Edit Reseller Quota</span>
+            </div>
+            <button type="button" class="vp-modal-close" onclick="closeModal('modalEditQuota')">&times;</button>
+        </div>
+        <form id="editQuotaForm" onsubmit="submitEditQuota(event)">
+            {% csrf_token %}
+            <input type="hidden" id="editUsername" name="username">
+            <div style="margin-bottom:14px;">
+                <label class="form-label">Reseller Account</label>
+                <div id="editUsernameLabel" style="font-weight:700;color:var(--neon);font-size:0.95rem;padding:8px 0;"></div>
+            </div>
+            <div style="margin-bottom:14px;">
+                <label class="form-label">Company / Brand Name</label>
+                <input type="text" id="editCompany" name="company_name" class="form-control-custom" placeholder="e.g. Acme Hosting LLC">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
+                <div>
+                    <label class="form-label">Storage Pool (GB)</label>
+                    <input type="number" id="editStorage" name="storage_quota_gb" min="1" max="999999" required class="form-control-custom">
+                </div>
+                <div>
+                    <label class="form-label">Max Sub-Accounts</label>
+                    <input type="number" id="editAccounts" name="max_accounts" min="1" max="99999" required class="form-control-custom">
+                </div>
+            </div>
+            <div class="d-flex justify-content-end gap-2">
+                <button type="button" class="btn" style="background:rgba(255,255,255,0.08);color:#fff;" onclick="closeModal('modalEditQuota')">Cancel</button>
+                <button type="submit" class="btn" style="background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;font-weight:700;">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══ MODAL 2: ADD / PROMOTE RESELLER ═════════════════════════════════ -->
+<div id="modalPromoteReseller" class="vp-modal-overlay">
+    <div class="vp-modal-box">
+        <div class="vp-modal-head">
+            <div class="vp-modal-title">
+                <i class="fa fa-user-plus" style="color:#22c55e;"></i>
+                <span>Add / Promote Reseller</span>
+            </div>
+            <button type="button" class="vp-modal-close" onclick="closeModal('modalPromoteReseller')">&times;</button>
+        </div>
+        <form id="promoteResellerForm" onsubmit="submitPromoteReseller(event)">
+            {% csrf_token %}
+            <div style="margin-bottom:14px;">
+                <label class="form-label">Select Existing User to Promote</label>
+                <select id="promoteUsername" name="username" class="form-control-custom" required>
+                    <option value="">-- Choose User --</option>
+                    {% for u in available_users %}
+                    <option value="{{ u.username }}">{{ u.username }} ({{ u.domain }}) — {{ u.email }}</option>
+                    {% endfor %}
+                </select>
+                <div style="font-size:0.73rem;color:var(--text-dim);margin-top:6px;">
+                    Want to create a brand new account? <a href="/adduser/" style="color:var(--neon);font-weight:600;">Go to Add User &rarr;</a> (with Reseller toggle enabled).
+                </div>
+            </div>
+            <div style="margin-bottom:14px;">
+                <label class="form-label">Company Name</label>
+                <input type="text" id="promoteCompany" name="company_name" class="form-control-custom" placeholder="e.g. Apex Cloud Solutions">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
+                <div>
+                    <label class="form-label">Storage Pool (GB)</label>
+                    <input type="number" id="promoteStorage" name="storage_quota_gb" value="50" min="1" max="999999" required class="form-control-custom">
+                </div>
+                <div>
+                    <label class="form-label">Max Sub-Accounts</label>
+                    <input type="number" id="promoteAccounts" name="max_accounts" value="20" min="1" max="99999" required class="form-control-custom">
+                </div>
+            </div>
+            <div class="d-flex justify-content-end gap-2">
+                <button type="button" class="btn" style="background:rgba(255,255,255,0.08);color:#fff;" onclick="closeModal('modalPromoteReseller')">Cancel</button>
+                <button type="submit" class="btn" style="background:linear-gradient(135deg,#22c55e,#06b6d4);color:#fff;font-weight:700;">Promote to Reseller</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Javascript -->
+<script src="/static/assets/bundles/libscripts.bundle.js"></script>
+<script src="/static/assets/bundles/vendorscripts.bundle.js"></script>
+<script src="/static/assets/vendor/toastr/toastr.js"></script>
+<script src="/static/assets/bundles/mainscripts.bundle.js"></script>
+
+<script>
+    const CSRF = "{{ csrf_token }}";
+
+    function openModal(id) {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('open');
+    }
+    function closeModal(id) {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('open');
+    }
+
+    // Close modal on click outside
+    document.querySelectorAll('.vp-modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', e => {
+            if (e.target === overlay) overlay.classList.remove('open');
+        });
+    });
+
+    // Filter table by status
+    let currentFilter = 'all';
+    function filterResellers(status, btn) {
+        currentFilter = status;
+        document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+        applyFilters();
+    }
+
+    // Search table
+    function searchResellers() {
+        applyFilters();
+    }
+
+    function applyFilters() {
+        const q = (document.getElementById('searchInput').value || '').toLowerCase().trim();
+        const rows = document.querySelectorAll('.reseller-row');
+        let visibleCount = 0;
+
+        rows.forEach(r => {
+            const rowStatus = r.dataset.status;
+            const rowUser = r.dataset.username || '';
+            const rowCompany = r.dataset.company || '';
+            const rowEmail = r.dataset.email || '';
+
+            const matchesStatus = (currentFilter === 'all') || (rowStatus === currentFilter);
+            const matchesQuery = !q || rowUser.includes(q) || rowCompany.includes(q) || rowEmail.includes(q);
+
+            if (matchesStatus && matchesQuery) {
+                r.style.display = '';
+                visibleCount++;
+            } else {
+                r.style.display = 'none';
+            }
+        });
+
+        const badge = document.getElementById('resellerCountBadge');
+        if (badge) badge.innerText = `${visibleCount} Resellers`;
+    }
+
+    // Open Edit Modal
+    function openEditQuota(username, company, storage, accounts) {
+        document.getElementById('editUsername').value = username;
+        document.getElementById('editUsernameLabel').innerText = username;
+        document.getElementById('editCompany').value = company;
+        document.getElementById('editStorage').value = storage;
+        document.getElementById('editAccounts').value = accounts;
+        openModal('modalEditQuota');
+    }
+
+    // Submit Edit Quota
+    async function submitEditQuota(e) {
+        e.preventDefault();
+        const username = document.getElementById('editUsername').value;
+        const company = document.getElementById('editCompany').value.trim();
+        const storage = parseInt(document.getElementById('editStorage').value) || 50;
+        const accounts = parseInt(document.getElementById('editAccounts').value) || 20;
+
+        closeModal('modalEditQuota');
+        try {
+            const resp = await fetch('/api/admin/set-reseller/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+                body: JSON.stringify({
+                    username, action: 'update_quota',
+                    storage_quota_gb: storage, max_accounts: accounts, company_name: company
+                })
+            });
+            const d = await resp.json();
+            if (d.status === 'updated') {
+                toastr.success(`Reseller ${username} quota updated successfully!`);
+                setTimeout(() => location.reload(), 800);
+            } else {
+                toastr.error(d.error || 'Failed to update quota.');
+            }
+        } catch (err) {
+            toastr.error('Network error updating reseller.');
+        }
+    }
+
+    // Submit Promote Reseller
+    async function submitPromoteReseller(e) {
+        e.preventDefault();
+        const username = document.getElementById('promoteUsername').value;
+        const company = document.getElementById('promoteCompany').value.trim();
+        const storage = parseInt(document.getElementById('promoteStorage').value) || 50;
+        const accounts = parseInt(document.getElementById('promoteAccounts').value) || 20;
+
+        if (!username) {
+            toastr.warning('Please select a user to promote.');
+            return;
+        }
+
+        closeModal('modalPromoteReseller');
+        try {
+            const resp = await fetch('/api/admin/set-reseller/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+                body: JSON.stringify({
+                    username, action: 'promote',
+                    storage_quota_gb: storage, max_accounts: accounts, company_name: company
+                })
+            });
+            const d = await resp.json();
+            if (d.status === 'promoted') {
+                toastr.success(`User ${username} has been promoted to Reseller!`);
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                toastr.error(d.error || 'Failed to promote user.');
+            }
+        } catch (err) {
+            toastr.error('Network error promoting reseller.');
+        }
+    }
+
+    // Toggle Suspend/Unsuspend
+    async function toggleResellerStatus(username, currentlyActive) {
+        const actionVerb = currentlyActive ? 'suspend' : 'unsuspend';
+        if (!confirm(`Are you sure you want to ${actionVerb} reseller "${username}"?`)) return;
+
+        try {
+            const resp = await fetch('/api/admin/set-reseller/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+                body: JSON.stringify({ username, action: 'toggle_status' })
+            });
+            const d = await resp.json();
+            if (d.status === 'updated') {
+                toastr.success(`Reseller ${username} is now ${d.is_active ? 'Active' : 'Suspended'}.`);
+                setTimeout(() => location.reload(), 800);
+            } else {
+                toastr.error(d.error || 'Action failed.');
+            }
+        } catch (err) {
+            toastr.error('Network error toggling status.');
+        }
+    }
+
+    // Demote Reseller
+    async function demoteReseller(username) {
+        if (!confirm(`⚠️ Warning: Demote "${username}" from Reseller?\n\nThey will lose access to the Reseller Dashboard and cannot create sub-accounts.`)) return;
+
+        try {
+            const resp = await fetch('/api/admin/set-reseller/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+                body: JSON.stringify({ username, action: 'demote' })
+            });
+            const d = await resp.json();
+            if (d.status === 'demoted') {
+                toastr.success(`Reseller ${username} has been demoted.`);
+                setTimeout(() => location.reload(), 800);
+            } else {
+                toastr.error(d.error || 'Failed to demote reseller.');
+            }
+        } catch (err) {
+            toastr.error('Network error demoting reseller.');
+        }
+    }
+</script>
+</body>
+</html>

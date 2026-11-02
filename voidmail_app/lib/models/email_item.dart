@@ -26,6 +26,14 @@ class EmailItem {
   final IconData? brandIcon;
   final String? htmlBody;
   final String? accountEmail; // Which account this email belongs to
+  final bool needsReply;
+  final String? urgencyLevel;
+  final String? aiReason;
+  final String? actionNeeded;
+  final int? importanceScore;
+  final int? priorityScore;
+  final bool isUnwanted;
+  bool isAnswered;
 
   EmailItem({
     required this.id,
@@ -51,6 +59,14 @@ class EmailItem {
     this.brandIcon,
     this.htmlBody,
     this.accountEmail,
+    this.needsReply = false,
+    this.urgencyLevel,
+    this.aiReason,
+    this.actionNeeded,
+    this.importanceScore,
+    this.priorityScore,
+    this.isUnwanted = false,
+    this.isAnswered = false,
   });
 
   EmailItem copyWith({
@@ -72,6 +88,15 @@ class EmailItem {
     bool? sendFailed,
     String? sendErrorDetail,
     String? htmlBody,
+    bool? needsReply,
+    String? urgencyLevel,
+    String? aiReason,
+    String? actionNeeded,
+    int? importanceScore,
+    int? priorityScore,
+    bool? isUnwanted,
+    bool? isAnswered,
+    bool? isAiPriority,
   }) {
     return EmailItem(
       id: id ?? this.id,
@@ -92,6 +117,15 @@ class EmailItem {
       sendFailed: sendFailed ?? this.sendFailed,
       sendErrorDetail: sendErrorDetail ?? this.sendErrorDetail,
       htmlBody: htmlBody ?? this.htmlBody,
+      needsReply: needsReply ?? this.needsReply,
+      urgencyLevel: urgencyLevel ?? this.urgencyLevel,
+      aiReason: aiReason ?? this.aiReason,
+      actionNeeded: actionNeeded ?? this.actionNeeded,
+      importanceScore: importanceScore ?? this.importanceScore,
+      priorityScore: priorityScore ?? this.priorityScore,
+      isUnwanted: isUnwanted ?? this.isUnwanted,
+      isAnswered: isAnswered ?? this.isAnswered,
+      isAiPriority: isAiPriority ?? this.isAiPriority,
     );
   }
 
@@ -118,6 +152,14 @@ class EmailItem {
     'category': category,
     'htmlBody': htmlBody,
     'accountEmail': accountEmail,
+    'needsReply': needsReply,
+    'urgencyLevel': urgencyLevel,
+    'aiReason': aiReason,
+    'actionNeeded': actionNeeded,
+    'importanceScore': importanceScore,
+    'priorityScore': priorityScore,
+    'isUnwanted': isUnwanted,
+    'isAnswered': isAnswered,
   };
 
   factory EmailItem.fromJson(Map<String, dynamic> json) {
@@ -167,6 +209,128 @@ class EmailItem {
       category: json['category'] ?? 'Primary',
       htmlBody: json['htmlBody'],
       accountEmail: json['accountEmail'],
+      needsReply: json['needsReply'] ?? false,
+      urgencyLevel: json['urgencyLevel'],
+      aiReason: json['aiReason'],
+      actionNeeded: json['actionNeeded'],
+      importanceScore: json['importanceScore'],
+      priorityScore: json['priorityScore'],
+      isUnwanted: json['isUnwanted'] ?? false,
+      isAnswered: json['isAnswered'] ?? false,
+    );
+  }
+
+  factory EmailItem.fromWorkspaceJson(Map<String, dynamic> json, {String? defaultAccountEmail}) {
+    FolderType parsedFolder = FolderType.inbox;
+    final folderStr = (json['folder'] as String? ?? 'inbox').toLowerCase();
+    if (folderStr == 'sent') {
+      parsedFolder = FolderType.sent;
+    } else if (folderStr == 'drafts') {
+      parsedFolder = FolderType.drafts;
+    } else if (folderStr == 'trash') {
+      parsedFolder = FolderType.trash;
+    } else if (folderStr == 'spam' || folderStr == 'junk') {
+      parsedFolder = FolderType.spam;
+    } else if (folderStr == 'archive') {
+      parsedFolder = FolderType.archive;
+    }
+
+    DateTime parsedDate;
+    if (json['mtime'] != null) {
+      try {
+        final seconds = (json['mtime'] as num).toDouble();
+        parsedDate = DateTime.fromMillisecondsSinceEpoch((seconds * 1000).toInt());
+      } catch (_) {
+        parsedDate = DateTime.now();
+      }
+    } else {
+      parsedDate = DateTime.now();
+    }
+
+    final sender = json['sender']?.toString() ?? json['from']?.toString() ?? 'VoidOnyx';
+    final fromEmail = json['from']?.toString() ?? 'security@voidonyx.com';
+    final targetAccount = json['account_email']?.toString() ?? defaultAccountEmail ?? '';
+
+    Color avatarColor = const Color(0xFFFF7A00);
+    if (sender.toLowerCase().contains('security')) {
+      avatarColor = const Color(0xFF10B981);
+    } else if (sender.toLowerCase().contains('ai')) {
+      avatarColor = const Color(0xFF8B5CF6);
+    } else if (sender.toLowerCase().contains('server')) {
+      avatarColor = const Color(0xFF3B82F6);
+    }
+
+    final attachmentsList = <String>[];
+    if (json['attachments'] is List) {
+      for (final att in json['attachments']) {
+        if (att is Map && att['name'] != null) {
+          attachmentsList.add(att['name'].toString());
+        }
+      }
+    }
+
+    final rawHtml = json['body_html']?.toString() ?? '';
+    final rawSnippet = json['snippet']?.toString() ?? '';
+    final plainBody = rawHtml.isNotEmpty
+        ? rawHtml.replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim()
+        : rawSnippet;
+
+    final isUnread = json['is_unread'] == true;
+    final isStarred = json['is_starred'] == true;
+    final pScore = (json['ai_priority_score'] ?? json['priority_score'] as num?)?.toInt();
+    final isAi = json['ai_priority'] == 'high' || (pScore != null && pScore >= 75);
+
+    // Unanswered status determination
+    bool needsReply = json['needs_reply'] == true ||
+        (json['is_answered'] == false && json['urgency_level'] != null && json['urgency_level'] != 'Normal');
+    String? urgency = json['urgency_level']?.toString();
+    String? reason = json['ai_reason']?.toString();
+
+    // Heuristic fallback for emails awaiting answer
+    if (!needsReply && parsedFolder == FolderType.inbox) {
+      final combined = '${json['subject'] ?? ''} $rawSnippet $plainBody'.toLowerCase();
+      if (combined.contains('?') ||
+          combined.contains('pricing') ||
+          combined.contains('proposal') ||
+          combined.contains('quote') ||
+          combined.contains('urgent') ||
+          combined.contains('meeting') ||
+          combined.contains('can you') ||
+          combined.contains('please confirm') ||
+          combined.contains('let me know')) {
+        needsReply = true;
+        urgency ??= combined.contains('urgent') ? 'Urgent' : (combined.contains('?') ? 'Question Asked' : 'Action Required');
+        reason ??= 'Pending question or actionable request';
+      }
+    }
+
+    return EmailItem(
+      id: json['id']?.toString() ?? 'msg-${DateTime.now().millisecondsSinceEpoch}',
+      senderName: sender,
+      senderEmail: fromEmail,
+      recipientEmail: targetAccount,
+      subject: json['subject']?.toString() ?? '(No Subject)',
+      snippet: rawSnippet.isNotEmpty ? rawSnippet : (plainBody.length > 120 ? plainBody.substring(0, 120) : plainBody),
+      body: plainBody,
+      timestamp: parsedDate,
+      isRead: !isUnread,
+      isStarred: isStarred,
+      hasAttachments: json['has_attachments'] == true || attachmentsList.isNotEmpty,
+      attachmentNames: attachmentsList,
+      folder: parsedFolder,
+      avatarColor: avatarColor,
+      isAiPriority: isAi,
+      category: json['category']?.toString() ?? 'Primary',
+      htmlBody: rawHtml.isNotEmpty ? rawHtml : null,
+      accountEmail: targetAccount.isNotEmpty ? targetAccount : defaultAccountEmail,
+      needsReply: needsReply,
+      urgencyLevel: urgency,
+      aiReason: reason,
+      actionNeeded: json['action_needed']?.toString(),
+      importanceScore: (json['importance_score'] as num?)?.toInt(),
+      priorityScore: pScore,
+      isUnwanted: json['is_unwanted'] == true,
+      isAnswered: json['is_answered'] == true,
     );
   }
 

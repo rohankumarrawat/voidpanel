@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoidMeet | Sovereign 1-Click Video Call</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root {
+      --bg-dark: #090D16;
+      --surface: #131A29;
+      --surface-light: #1E293B;
+      --border: #2D3748;
+      --primary: #4F46E5;
+      --primary-hover: #4338CA;
+      --danger: #EF4444;
+      --danger-hover: #DC2626;
+      --success: #10B981;
+      --text-white: #FFFFFF;
+      --text-muted: #94A3B8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-white);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── LOBBY OVERLAY ── */
+    #lobby-screen {
+      position: fixed;
+      inset: 0;
+      background: #0B0F19;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .lobby-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      padding: 32px;
+      width: 100%;
+      max-width: 680px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .lobby-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 18px;
+      font-weight: 800;
+      color: white;
+    }
+    .brand-logo i {
+      color: #10B981;
+      font-size: 20px;
+    }
+    .sec-badge {
+      font-size: 11.5px;
+      font-weight: 700;
+      background: rgba(16, 185, 129, 0.15);
+      color: #34D399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 4px 10px;
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .lobby-preview-box {
+      width: 100%;
+      aspect-ratio: 16/9;
+      max-height: 280px;
+      background: #000000;
+      border-radius: 14px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border);
+    }
+    .lobby-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+    .lobby-avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+      color: white;
+      font-size: 32px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .lobby-media-toggles {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(8px);
+      padding: 6px 12px;
+      border-radius: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .lobby-ctrl-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: none;
+      background: var(--surface-light);
+      color: white;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .lobby-ctrl-btn.off {
+      background: var(--danger);
+    }
+    .lobby-controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .lobby-input {
+      flex: 1;
+      background: var(--bg-dark);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 14px;
+      color: white;
+      outline: none;
+    }
+    .lobby-input:focus {
+      border-color: var(--primary);
+    }
+    .btn-join {
+      background: #16A34A;
+      color: white;
+      border: none;
+      padding: 12px 26px;
+      font-size: 14px;
+      font-weight: 800;
+      border-radius: 10px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35);
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .btn-join:hover {
+      background: #15803D;
+      transform: translateY(-1px);
+    }
+
+    /* ── IN-CALL TOP BAR ── */
+    .meet-top-bar {
+      height: 56px;
+      background: var(--surface);
+      border-bottom: 1.5px solid var(--border);
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .room-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .room-id-pill {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #E2E8F0;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+    .timer-badge {
+      font-size: 12px;
+      font-weight: 700;
+      color: #94A3B8;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-copy-link {
+      background: var(--surface-light);
+      border: 1px solid var(--border);
+      color: white;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
+    .btn-copy-link:hover {
+      background: #334155;
+    }
+
+    /* ── MAIN VIDEO STAGE ── */
+    .meet-stage {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+    }
+    .video-grid {
+      flex: 1;
+      padding: 16px;
+      display: grid;
+      gap: 16px;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      height: 100%;
+    }
+    .video-tile {
+      background: #111827;
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      aspect-ratio: 16/9;
+      width: 100%;
+      height: 100%;
+      max-height: calc(100vh - 160px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    .tile-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .tile-video.mirrored {
+      transform: scaleX(-1);
+    }
+    .tile-avatar {
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+      color: white;
+      font-size: 34px;
+      font-weight: 800;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    }
+    .tile-name-tag {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(8px);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .tile-status-icon {
+      font-size: 11px;
+      color: #94A3B8;
+    }
+    .tile-status-icon.muted {
+      color: var(--danger);
+    }
+
+    /* Solitary Waiting Card */
+    #waiting-card {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(19, 26, 41, 0.95);
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      padding: 24px 30px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      max-width: 400px;
+      z-index: 5;
+    }
+    #waiting-card h3 {
+      font-size: 16px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    #waiting-card p {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      line-height: 1.4;
+    }
+
+    /* ── CHAT SLIDE-OUT DRAWER ── */
+    .chat-drawer {
+      width: 320px;
+      background: var(--surface);
+      border-left: 1.5px solid var(--border);
+      display: none;
+      flex-direction: column;
+      height: 100%;
+    }
+    .chat-drawer.open {
+      display: flex;
+    }
+    .chat-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .chat-messages {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .chat-msg {
+      background: var(--surface-light);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 12.5px;
+    }
+    .chat-msg-sender {
+      font-size: 11px;
+      font-weight: 700;
+      color: #818CF8;
+      margin-bottom: 3px;
+    }
+    .chat-input-row {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+    }
+    .chat-input {
+      flex: 1;
+      background: var(--bg-dark);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12.5px;
+      color: white;
+      outline: none;
+    }
+
+    /* ── BOTTOM FLOATING CONTROL BAR ── */
+    .meet-controls-bar {
+      height: 72px;
+      background: var(--surface);
+      border-top: 1.5px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 0 20px;
+      flex-shrink: 0;
+    }
+    .ctrl-btn {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      border: none;
+      background: var(--surface-light);
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+    .ctrl-btn:hover {
+      background: #334155;
+      transform: translateY(-2px);
+    }
+    .ctrl-btn.off {
+      background: var(--danger);
+      color: white;
+    }
+    .ctrl-btn.active-screen {
+      background: #4F46E5;
+      color: white;
+    }
+    .ctrl-btn.active-drawer {
+      background: #4F46E5;
+      color: white;
+    }
+    .ctrl-btn.leave {
+      background: var(--danger);
+      width: 52px;
+      height: 46px;
+      border-radius: 24px;
+    }
+    .ctrl-btn.leave:hover {
+      background: var(--danger-hover);
+    }
+    .badge-count {
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      background: #4F46E5;
+      color: white;
+      font-size: 10px;
+      font-weight: 800;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 1. Lobby / Entry Screen -->
+  <div id="lobby-screen">
+    <div class="lobby-card">
+      <div class="lobby-header">
+        <div class="brand-logo">
+          <i class="fa-solid fa-video"></i>
+          <span>VoidMeet</span>
+        </div>
+        <div class="sec-badge">
+          <i class="fa-solid fa-lock"></i>
+          <span>P2P Encrypted Call</span>
+        </div>
+      </div>
+
+      <div class="lobby-preview-box">
+        <video id="lobby-local-video" class="lobby-video" autoplay playsinline muted></video>
+        <div id="lobby-local-avatar" class="lobby-avatar" style="display: none;">V</div>
+        <div class="lobby-media-toggles">
+          <button type="button" id="lobby-btn-mic" class="lobby-ctrl-btn" onclick="toggleLobbyMic()" title="Toggle Microphone">
+            <i class="fa-solid fa-microphone"></i>
+          </button>
+          <button type="button" id="lobby-btn-cam" class="lobby-ctrl-btn" onclick="toggleLobbyCam()" title="Toggle Camera">
+            <i class="fa-solid fa-video"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="lobby-controls">
+        <input type="text" id="lobby-name-input" class="lobby-input" placeholder="Enter your name..." value="{{ display_name|default:'' }}">
+        <button type="button" class="btn-join" onclick="joinMeetingRoom()">
+          <i class="fa-solid fa-arrow-right-to-bracket"></i>
+          <span>Join Call</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Active Meeting Top Bar -->
+  <div class="meet-top-bar">
+    <div class="room-title">
+      <div class="brand-logo" style="font-size: 16px;">
+        <i class="fa-solid fa-video" style="color: #10B981;"></i>
+        <span>VoidMeet</span>
+      </div>
+      <div class="room-id-pill">
+        <i class="fa-solid fa-hashtag" style="color: #94A3B8; font-size: 11px;"></i>
+        <span>{{ room_id }}</span>
+      </div>
+      <div class="timer-badge">
+        <i class="fa-regular fa-circle-dot" style="color: #10B981; font-size: 8px;"></i>
+        <span id="call-timer">00:00</span>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button type="button" class="btn-copy-link" onclick="copyMeetingLink()">
+        <i class="fa-solid fa-link"></i>
+        <span>Copy Invite Link</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 3. Video Stage & Chat Drawer -->
+  <div class="meet-stage">
+    <div class="video-grid" id="video-grid">
+      <!-- Local User Video Tile -->
+      <div class="video-tile" id="tile-local">
+        <video id="video-local" class="tile-video mirrored" autoplay playsinline muted></video>
+        <div id="avatar-local" class="tile-avatar">Y</div>
+        <div class="tile-name-tag">
+          <span id="name-tag-local">You</span>
+          <i class="fa-solid fa-microphone tile-status-icon" id="mic-icon-local"></i>
+        </div>
+      </div>
+
+      <!-- Remote Peers Tiles dynamically added here -->
+    </div>
+
+    <!-- Waiting for Others Callout (shown if alone) -->
+    <div id="waiting-card">
+      <div style="width: 44px; height: 44px; border-radius: 50%; background: rgba(79, 70, 229, 0.15); color: #818CF8; display: flex; align-items: center; justify-content: center; font-size: 18px; margin: 0 auto 12px auto;">
+        <i class="fa-solid fa-user-plus"></i>
+      </div>
+      <h3>Waiting for others to join</h3>
+      <p>Share this link with your client or colleague to start your video call:</p>
+      <button type="button" class="btn-copy-link" style="width: 100%; justify-content: center; padding: 10px;" onclick="copyMeetingLink()">
+        <i class="fa-solid fa-copy"></i>
+        <span>Copy Meeting Link</span>
+      </button>
+    </div>
+
+    <!-- Slide-Out Chat Drawer -->
+    <div class="chat-drawer" id="chat-drawer">
+      <div class="chat-header">
+        <span>In-Call Chat</span>
+        <button type="button" style="background: none; border: none; color: #94A3B8; cursor: pointer;" onclick="toggleChatDrawer()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="chat-messages" id="chat-messages">
+        <div style="text-align: center; color: var(--text-muted); font-size: 11.5px; padding: 20px 0;">
+          Messages sent here are end-to-end and deleted when the call ends.
+        </div>
+      </div>
+      <div class="chat-input-row">
+        <input type="text" id="chat-input-field" class="chat-input" placeholder="Type a message..." onkeydown="if(event.key==='Enter') sendChatMessage()">
+        <button type="button" class="btn-join" style="padding: 8px 14px; border-radius: 8px;" onclick="sendChatMessage()">
+          <i class="fa-solid fa-paper-plane" style="font-size: 12px;"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Bottom Controls Bar -->
+  <div class="meet-controls-bar">
+    <!-- Mic Toggle -->
+    <button type="button" id="btn-mic" class="ctrl-btn" onclick="toggleMic()" title="Mute/Unmute Mic (M)">
+      <i class="fa-solid fa-microphone"></i>
+    </button>
+
+    <!-- Camera Toggle -->
+    <button type="button" id="btn-cam" class="ctrl-btn" onclick="toggleCam()" title="Start/Stop Camera (V)">
+      <i class="fa-solid fa-video"></i>
+    </button>
+
+    <!-- Screen Share Toggle -->
+    <button type="button" id="btn-screen" class="ctrl-btn" onclick="toggleScreenShare()" title="Share Screen">
+      <i class="fa-solid fa-display"></i>
+    </button>
+
+    <!-- Chat Drawer Toggle -->
+    <button type="button" id="btn-chat" class="ctrl-btn" onclick="toggleChatDrawer()" title="In-Call Chat">
+      <i class="fa-regular fa-comment-dots"></i>
+      <span class="badge-count" id="chat-badge">0</span>
+    </button>
+
+    <!-- End / Leave Call -->
+    <button type="button" class="ctrl-btn leave" onclick="leaveCall()" title="Leave Meeting">
+      <i class="fa-solid fa-phone-slash"></i>
+    </button>
+  </div>
+
+  <script>
+    const ROOM_ID = "{{ room_id }}";
+    const PEER_ID = 'p_' + Math.random().toString(36).substring(2, 10);
+    let myDisplayName = "{{ display_name|default:'' }}" || 'Guest';
+
+    let localStream = null;
+    let screenStream = null;
+    let isMicEnabled = true;
+    let isCamEnabled = true;
+    let isScreenSharing = false;
+    let isInMeeting = false;
+
+    // WebRTC Peer Connections Map: { remotePeerId: RTCPeerConnection }
+    const peerConnections = {};
+    let lastSignalId = 0;
+    let signalingInterval = null;
+    let callTimerInterval = null;
+    let callSeconds = 0;
+
+    const ICE_CONFIG = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
+    };
+
+    // 1. Initialize Local Media in Lobby
+    async function initLobby() {
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: true
+        });
+        document.getElementById('lobby-local-video').srcObject = localStream;
+      } catch (err) {
+        console.warn("Could not access camera/mic with high quality, trying audio only:", err);
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          isCamEnabled = false;
+          updateCamUI();
+        } catch (audioErr) {
+          console.error("Camera and Microphone both unavailable:", audioErr);
+        }
+      }
+    }
+
+    function toggleLobbyMic() {
+      isMicEnabled = !isMicEnabled;
+      if (localStream) {
+        localStream.getAudioTracks().forEach(t => t.enabled = isMicEnabled);
+      }
+      const btn = document.getElementById('lobby-btn-mic');
+      btn.className = 'lobby-ctrl-btn ' + (isMicEnabled ? '' : 'off');
+      btn.innerHTML = `<i class="fa-solid fa-microphone${isMicEnabled ? '' : '-slash'}"></i>`;
+    }
+
+    function toggleLobbyCam() {
+      isCamEnabled = !isCamEnabled;
+      if (localStream) {
+        localStream.getVideoTracks().forEach(t => t.enabled = isCamEnabled);
+      }
+      const btn = document.getElementById('lobby-btn-cam');
+      btn.className = 'lobby-ctrl-btn ' + (isCamEnabled ? '' : 'off');
+      btn.innerHTML = `<i class="fa-solid fa-video${isCamEnabled ? '' : '-slash'}"></i>`;
+      document.getElementById('lobby-local-video').style.display = isCamEnabled ? 'block' : 'none';
+      document.getElementById('lobby-local-avatar').style.display = isCamEnabled ? 'none' : 'flex';
+    }
+
+    // 2. Join the Meeting Room
+    async function joinMeetingRoom() {
+      const nameInput = document.getElementById('lobby-name-input').value.trim();
+      if (nameInput) myDisplayName = nameInput;
+
+      document.getElementById('name-tag-local').innerText = `${myDisplayName} (You)`;
+      document.getElementById('avatar-local').innerText = (myDisplayName[0] || 'Y').toUpperCase();
+      document.getElementById('lobby-screen').style.display = 'none';
+
+      // Put stream into in-call video tile
+      if (localStream) {
+        document.getElementById('video-local').srcObject = localStream;
+      }
+      isInMeeting = true;
+      startCallTimer();
+
+      // Register with Django Signaling API
+      try {
+        const resp = await fetch(`/api/meet/${ROOM_ID}/signal/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'join',
+            sender_id: PEER_ID,
+            sender_name: myDisplayName
+          })
+        });
+        const data = await resp.json();
+
+        // Connect to any existing active peers
+        if (data.peers && data.peers.length > 0) {
+          document.getElementById('waiting-card').style.display = 'none';
+          for (const p of data.peers) {
+            initiatePeerConnection(p.peer_id, p.name, true);
+          }
+        }
+      } catch (e) {
+        console.error("Signaling join error:", e);
+      }
+
+      // Start short polling for incoming WebRTC signals
+      signalingInterval = setInterval(pollSignals, 1500);
+    }
+
+    // 3. Initiate RTCPeerConnection
+    function initiatePeerConnection(remotePeerId, remoteName, isInitiator) {
+      if (peerConnections[remotePeerId]) return peerConnections[remotePeerId];
+
+      const pc = new RTCPeerConnection(ICE_CONFIG);
+      peerConnections[remotePeerId] = pc;
+
+      // Add local stream tracks to PC
+      if (localStream) {
+        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+      }
+
+      // Handle remote tracks
+      pc.ontrack = (event) => {
+        document.getElementById('waiting-card').style.display = 'none';
+        attachRemoteVideo(remotePeerId, remoteName, event.streams[0]);
+      };
+
+      // Handle ICE Candidates
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          sendSignal(remotePeerId, 'candidate', event.candidate);
+        }
+      };
+
+      // If initiator, create and send SDP offer
+      if (isInitiator) {
+        pc.createOffer()
+          .then(offer => pc.setLocalDescription(offer))
+          .then(() => {
+            sendSignal(remotePeerId, 'offer', pc.localDescription);
+          })
+          .catch(e => console.error("Error creating offer:", e));
+      }
+
+      return pc;
+    }
+
+    // 4. WebRTC Signaling Relays
+    async function sendSignal(recipientId, signalType, payload) {
+      try {
+        await fetch(`/api/meet/${ROOM_ID}/signal/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'signal',
+            sender_id: PEER_ID,
+            sender_name: myDisplayName,
+            recipient_id: recipientId,
+            signal_type: signalType,
+            payload: payload
+          })
+        });
+      } catch (e) {
+        console.error("Signal send error:", e);
+      }
+    }
+
+    // Poll for pending signals
+    async function pollSignals() {
+      if (!isInMeeting) return;
+      try {
+        const resp = await fetch(`/api/meet/${ROOM_ID}/signal/?peer_id=${PEER_ID}&since_id=${lastSignalId}`);
+        const data = await resp.json();
+
+        if (data.status === 'success' && data.signals) {
+          lastSignalId = data.last_id || lastSignalId;
+          for (const s of data.signals) {
+            handleIncomingSignal(s);
+          }
+        }
+      } catch (e) {
+        console.warn("Poll signal error:", e);
+      }
+    }
+
+    async function handleIncomingSignal(sig) {
+      const senderId = sig.sender_id;
+      const senderName = sig.sender_name || 'Guest';
+
+      if (sig.signal_type === 'join') {
+        document.getElementById('waiting-card').style.display = 'none';
+        // A new peer joined, connect as initiator
+        initiatePeerConnection(senderId, senderName, true);
+      } else if (sig.signal_type === 'offer') {
+        document.getElementById('waiting-card').style.display = 'none';
+        const pc = initiatePeerConnection(senderId, senderName, false);
+        await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        sendSignal(senderId, 'answer', pc.localDescription);
+      } else if (sig.signal_type === 'answer') {
+        const pc = peerConnections[senderId];
+        if (pc) {
+          await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
+        }
+      } else if (sig.signal_type === 'candidate') {
+        const pc = peerConnections[senderId];
+        if (pc && sig.payload) {
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(sig.payload));
+          } catch (e) {
+            console.warn("Error adding candidate:", e);
+          }
+        }
+      } else if (sig.signal_type === 'leave') {
+        removeRemoteTile(senderId);
+      } else if (sig.signal_type === 'chat') {
+        displayChatMessage(senderName, sig.payload.text || sig.payload);
+      }
+    }
+
+    // 5. Remote Video Tiles Management
+    function attachRemoteVideo(peerId, name, stream) {
+      let tile = document.getElementById(`tile-${peerId}`);
+      if (!tile) {
+        tile = document.createElement('div');
+        tile.className = 'video-tile';
+        tile.id = `tile-${peerId}`;
+
+        const video = document.createElement('video');
+        video.className = 'tile-video';
+        video.id = `video-${peerId}`;
+        video.autoplay = true;
+        video.playsInline = true;
+
+        const nameTag = document.createElement('div');
+        nameTag.className = 'tile-name-tag';
+        nameTag.innerHTML = `<span>${escapeHtml(name)}</span>`;
+
+        tile.appendChild(video);
+        tile.appendChild(nameTag);
+        document.getElementById('video-grid').appendChild(tile);
+      }
+
+      const vid = document.getElementById(`video-${peerId}`);
+      if (vid) vid.srcObject = stream;
+    }
+
+    function removeRemoteTile(peerId) {
+      const tile = document.getElementById(`tile-${peerId}`);
+      if (tile) tile.remove();
+      if (peerConnections[peerId]) {
+        peerConnections[peerId].close();
+        delete peerConnections[peerId];
+      }
+      // If alone again, show waiting card
+      if (Object.keys(peerConnections).length === 0) {
+        document.getElementById('waiting-card').style.display = 'block';
+      }
+    }
+
+    // 6. In-Call Media Controls
+    function toggleMic() {
+      isMicEnabled = !isMicEnabled;
+      if (localStream) {
+        localStream.getAudioTracks().forEach(t => t.enabled = isMicEnabled);
+      }
+      const btn = document.getElementById('btn-mic');
+      btn.className = 'ctrl-btn ' + (isMicEnabled ? '' : 'off');
+      btn.innerHTML = `<i class="fa-solid fa-microphone${isMicEnabled ? '' : '-slash'}"></i>`;
+      document.getElementById('mic-icon-local').className = `fa-solid fa-microphone${isMicEnabled ? '' : '-slash'} tile-status-icon ${isMicEnabled ? '' : 'muted'}`;
+    }
+
+    function toggleCam() {
+      isCamEnabled = !isCamEnabled;
+      if (localStream) {
+        localStream.getVideoTracks().forEach(t => t.enabled = isCamEnabled);
+      }
+      const btn = document.getElementById('btn-cam');
+      btn.className = 'ctrl-btn ' + (isCamEnabled ? '' : 'off');
+      btn.innerHTML = `<i class="fa-solid fa-video${isCamEnabled ? '' : '-slash'}"></i>`;
+      document.getElementById('video-local').style.display = isCamEnabled ? 'block' : 'none';
+      document.getElementById('avatar-local').style.display = isCamEnabled ? 'none' : 'flex';
+    }
+
+    async function toggleScreenShare() {
+      if (!isScreenSharing) {
+        try {
+          screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+          const screenTrack = screenStream.getVideoTracks()[0];
+
+          // Replace track in all peer connections
+          for (const pid in peerConnections) {
+            const senders = peerConnections[pid].getSenders();
+            const vidSender = senders.find(s => s.track && s.track.kind === 'video');
+            if (vidSender) vidSender.replaceTrack(screenTrack);
+          }
+
+          document.getElementById('video-local').srcObject = screenStream;
+          document.getElementById('video-local').classList.remove('mirrored');
+
+          screenTrack.onended = () => stopScreenShare();
+          isScreenSharing = true;
+          document.getElementById('btn-screen').classList.add('active-screen');
+        } catch (err) {
+          console.warn("Screen share cancelled or failed:", err);
+        }
+      } else {
+        stopScreenShare();
+      }
+    }
+
+    function stopScreenShare() {
+      if (screenStream) {
+        screenStream.getTracks().forEach(t => t.stop());
+        screenStream = null;
+      }
+      if (localStream) {
+        const camTrack = localStream.getVideoTracks()[0];
+        for (const pid in peerConnections) {
+          const senders = peerConnections[pid].getSenders();
+          const vidSender = senders.find(s => s.track && s.track.kind === 'video');
+          if (vidSender && camTrack) vidSender.replaceTrack(camTrack);
+        }
+        document.getElementById('video-local').srcObject = localStream;
+        document.getElementById('video-local').classList.add('mirrored');
+      }
+      isScreenSharing = false;
+      document.getElementById('btn-screen').classList.remove('active-screen');
+    }
+
+    // 7. In-Call Chat
+    function toggleChatDrawer() {
+      const drawer = document.getElementById('chat-drawer');
+      drawer.classList.toggle('open');
+      const btn = document.getElementById('btn-chat');
+      btn.classList.toggle('active-drawer');
+      document.getElementById('chat-badge').style.display = 'none';
+      document.getElementById('chat-badge').innerText = '0';
+    }
+
+    function sendChatMessage() {
+      const input = document.getElementById('chat-input-field');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+
+      displayChatMessage('You', text);
+      sendSignal('', 'chat', { text: text });
+    }
+
+    function displayChatMessage(sender, text) {
+      const container = document.getElementById('chat-messages');
+      const msg = document.createElement('div');
+      msg.className = 'chat-msg';
+      msg.innerHTML = `
+        <div class="chat-msg-sender">${escapeHtml(sender)}</div>
+        <div>${escapeHtml(text)}</div>
+      `;
+      container.appendChild(msg);
+      container.scrollTop = container.scrollHeight;
+
+      if (!document.getElementById('chat-drawer').classList.contains('open') && sender !== 'You') {
+        const badge = document.getElementById('chat-badge');
+        badge.style.display = 'flex';
+        badge.innerText = parseInt(badge.innerText || '0') + 1;
+      }
+    }
+
+    function copyMeetingLink() {
+      const url = window.location.href;
+      navigator.clipboard.writeText(url).then(() => {
+        alert('✓ VoidMeet invite link copied to clipboard:\n' + url);
+      });
+    }
+
+    function startCallTimer() {
+      callTimerInterval = setInterval(() => {
+        callSeconds++;
+        const mins = String(Math.floor(callSeconds / 60)).padStart(2, '0');
+        const secs = String(callSeconds % 60).padStart(2, '0');
+        document.getElementById('call-timer').innerText = `${mins}:${secs}`;
+      }, 1000);
+    }
+
+    async function leaveCall() {
+      isInMeeting = false;
+      clearInterval(signalingInterval);
+      clearInterval(callTimerInterval);
+
+      if (localStream) localStream.getTracks().forEach(t => t.stop());
+      if (screenStream) screenStream.getTracks().forEach(t => t.stop());
+
+      try {
+        await fetch(`/api/meet/${ROOM_ID}/signal/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'leave', sender_id: PEER_ID, sender_name: myDisplayName })
+        });
+      } catch (e) {}
+
+      window.location.href = 'https://mail.voidonyx.in/';
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.innerText = str || '';
+      return div.innerHTML;
+    }
+
+    // Keyboard Shortcuts (M for mic, V for cam)
+    window.addEventListener('keydown', (e) => {
+      if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+      if (e.key.toLowerCase() === 'm') toggleMic();
+      if (e.key.toLowerCase() === 'v') toggleCam();
+    });
+
+    window.onload = initLobby;
+    window.onbeforeunload = () => {
+      if (isInMeeting) {
+        navigator.sendBeacon(`/api/meet/${ROOM_ID}/signal/`, JSON.stringify({ action: 'leave', sender_id: PEER_ID }));
+      }
+    };
+  </script>
+</body>
+</html>

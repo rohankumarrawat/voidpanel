@@ -68,12 +68,20 @@ def secure_fm_paths(view_func):
                 except Exception:
                     pass
 
+            # Determine which keys represent directory/file paths for this view.
+            # 'copy' is ONLY a destination directory path for copydata and movedata.
+            # For renamedata it is a new filename, and for permissiondata it is an octal mode!
+            path_keys = ['path', 'xfilepath', 'xfolderpath', 'file_path']
+            vname = getattr(view_func, '__name__', '')
+            if vname in ('copydata', 'movedata'):
+                path_keys.append('copy')
+
             # 2. Handle JSON formatted bodies
             if request.content_type == 'application/json' and request.body:
                 import json
                 try:
                     data = json.loads(request.body)
-                    for key in ['path', 'copy', 'xfilepath', 'xfolderpath', 'file_path']:
+                    for key in path_keys:
                         if key in data and data[key]:
                             data[key] = sanitize_path(data[key], request.user)
                     request._body = json.dumps(data).encode('utf-8')
@@ -87,7 +95,7 @@ def secure_fm_paths(view_func):
                 from django.http import QueryDict
                 try:
                     q = request.POST.copy()
-                    for key in ['path', 'copy', 'xfilepath', 'xfolderpath', 'file_path']:
+                    for key in path_keys:
                         if key in q and q[key]:
                             q[key] = sanitize_path(q[key], request.user)
                     request.POST = q
@@ -276,68 +284,9 @@ def suspend_account(request):
         return Response({'status': 'error', 'message': 'Username is required'}, status=400)
 
     try:
-        lold = domain.objects.get(dir=username)
-    except domain.DoesNotExist:
-        return Response({'status': 'error', 'message': 'Account not found'}, status=404)
-
-    data = lold.domain
-    try:
-        dub = subdomainname.objects.filter(domain=data).all()
-        file_path_ = os.path.join(paths.NGINX_SITES_ENABLED, data+".conf")
-
-        if os.path.exists(file_path_):
-            with open(file_path_, 'r') as file:
-                config_data = file.readlines()
-            root_updated = False
-            for i, line in enumerate(config_data):
-                if line.strip().startswith('root '):
-                    config_data[i] = f"    root /var/www/suspend;\n"
-                    root_updated = True
-                    break
-            if root_updated:
-                with open(file_path_, 'w') as file:
-                    file.writelines(config_data)
-
-        for iu in dub:
-            file_path_ = os.path.join(paths.NGINX_SITES_ENABLED, iu.subdomain+".conf")
-            if os.path.exists(file_path_):
-                with open(file_path_, 'r') as file:
-                    config_data = file.readlines()
-                root_updated = False
-                for i, line in enumerate(config_data):
-                    if line.strip().startswith('root '):
-                        config_data[i] = f"    root /var/www/suspend;\n"
-                        root_updated = True
-                        break
-                if root_updated:
-                    with open(file_path_, 'w') as file:
-                        file.writelines(config_data)
-
-        lold.status = False
-        lold.save()
-
-        try:
-            loldd = user.objects.get(domain=data)
-            loldd.status = False
-            loldd.save()
-        except:
-            pass
-
-        toggle_email_suspension(data, True)
-        
-        try:
-            import subprocess
-            subprocess.run(['sudo', 'systemctl', 'reload', 'nginx'], timeout=15, check=False)
-        except:
-            pass
-
-        try:
-            from control.utils import trigger_user_suspended_notification
-            trigger_user_suspended_notification(username, data)
-        except:
-            pass
-
-        return Response({'status': 'success', 'message': 'Account suspended'})
+        from control.suspension_manager import suspend_account_action
+        res = suspend_account_action(username)
+        return Response(res)
     except Exception as e:
         return Response({'status': 'error', 'message': str(e)}, status=500)
 
@@ -359,68 +308,9 @@ def unsuspend_account(request):
         return Response({'status': 'error', 'message': 'Username is required'}, status=400)
 
     try:
-        lold = domain.objects.get(dir=username)
-    except domain.DoesNotExist:
-        return Response({'status': 'error', 'message': 'Account not found'}, status=404)
-
-    data = lold.domain
-    try:
-        dub = subdomainname.objects.filter(domain=data).all()
-        file_path_ = os.path.join(paths.NGINX_SITES_ENABLED, data+".conf")
-
-        if os.path.exists(file_path_):
-            with open(file_path_, 'r') as file:
-                config_data = file.readlines()
-            root_updated = False
-            for i, line in enumerate(config_data):
-                if line.strip().startswith('root '):
-                    config_data[i] = f"    root {os.path.join(paths.HOME_BASE, lold.dir, 'public_html')};\n"
-                    root_updated = True
-                    break
-            if root_updated:
-                with open(file_path_, 'w') as file:
-                    file.writelines(config_data)
-
-        for iu in dub:
-            file_path_ = os.path.join(paths.NGINX_SITES_ENABLED, iu.subdomain+".conf")
-            if os.path.exists(file_path_):
-                with open(file_path_, 'r') as file:
-                    config_data = file.readlines()
-                root_updated = False
-                for i, line in enumerate(config_data):
-                    if line.strip().startswith('root '):
-                        config_data[i] = f"    root {os.path.join(paths.HOME_BASE, lold.dir, 'public_html')};\n"
-                        root_updated = True
-                        break
-                if root_updated:
-                    with open(file_path_, 'w') as file:
-                        file.writelines(config_data)
-
-        lold.status = True
-        lold.save()
-
-        try:
-            loldd = user.objects.get(domain=data)
-            loldd.status = True
-            loldd.save()
-        except:
-            pass
-
-        toggle_email_suspension(data, False)
-        
-        try:
-            import subprocess
-            subprocess.run(['sudo', 'systemctl', 'reload', 'nginx'], timeout=15, check=False)
-        except:
-            pass
-
-        try:
-            from control.utils import trigger_user_unsuspended_notification
-            trigger_user_unsuspended_notification(username, data)
-        except:
-            pass
-
-        return Response({'status': 'success', 'message': 'Account unsuspended'})
+        from control.suspension_manager import unsuspend_account_action
+        res = unsuspend_account_action(username)
+        return Response(res)
     except Exception as e:
         return Response({'status': 'error', 'message': str(e)}, status=500)
 
@@ -1541,104 +1431,230 @@ def save_file(request):
 @csrf_exempt
 @secure_fm_paths
 def upload_file(request):
-    if request.method == 'POST' and request.FILES.getlist('file'):
-        # Check Account Storage Quota (Bypass for Admin)
-        if not request.user.is_superuser:
+    if request.method == 'POST':
+        # --- Chunked Upload Handling (Resilient for large files > 100MB / Cloudflare / Slow networks) ---
+        chunk_index_raw = request.POST.get('chunk_index')
+        if chunk_index_raw is not None:
+            uploaded_chunk = request.FILES.get('file')
+            if not uploaded_chunk:
+                return JsonResponse({'status': 'error', 'message': 'No chunk data received.'}, status=400)
+
             try:
-                from core.models import user, package
-                from .views import get_directory_size_in_mb, safe_get_package
-                currentstorage = get_directory_size_in_mb(os.path.join(paths.HOME_BASE, str(request.user)))
-                packagecc = safe_get_package(user.objects.get(username=request.user).hosting_package).storage
-                
-                if int(packagecc) != 0:
-                    uploaded_files = request.FILES.getlist('file')
-                    total_upload_size_mb = sum([f.size for f in uploaded_files]) / (1024 * 1024)
-                    
-                    if (float(currentstorage) + total_upload_size_mb) > float(packagecc):
-                        return JsonResponse({'status': 'error', 'message': 'Storage Quota Exceeded. Upload Blocked.'}, status=400)
-            except Exception as e:
-                pass # Fallback to standard flow if check errors out
+                chunk_index = int(chunk_index_raw)
+                total_chunks = int(request.POST.get('total_chunks', 1))
+                total_size = int(request.POST.get('total_size', 0))
+            except (ValueError, TypeError):
+                return JsonResponse({'status': 'error', 'message': 'Invalid chunk index or total chunks.'}, status=400)
 
-        uploaded_files = request.FILES.getlist('file')
-        # Use .get() to avoid KeyError when file_path is missing from POST
-        file_path_base = request.POST.get('file_path', '').strip()
-        force_overwrite = request.POST.get('force', 'false').lower() == 'true'
+            raw_upload_id = request.POST.get('upload_id', '')
+            import re
+            upload_id = re.sub(r'[^a-zA-Z0-9_\-]', '', raw_upload_id)
+            if not upload_id:
+                return JsonResponse({'status': 'error', 'message': 'Missing upload_id.'}, status=400)
 
-        if not file_path_base:
-            return JsonResponse({'status': 'error', 'message': 'Upload destination path is missing. Please refresh the file manager and try again.'}, status=400)
+            raw_file_name = request.POST.get('file_name', '')
+            file_name = os.path.basename(raw_file_name) if raw_file_name else uploaded_chunk.name
+            file_path_base = request.POST.get('file_path', '').strip()
+            force_overwrite = request.POST.get('force', 'false').lower() == 'true'
 
-        # --- Conflict detection (skip if user confirmed overwrite) ---
-        if not force_overwrite:
-            conflicts = []
-            for uploaded_file in uploaded_files:
-                if not uploaded_file:
-                    continue
-                dest = os.path.join(file_path_base, uploaded_file.name)
-                if not dest.startswith('/'):
-                    dest = '/' + dest
-                if os.path.exists(dest):
-                    conflicts.append(uploaded_file.name)
-            if conflicts:
-                return JsonResponse({
-                    'status': 'conflict',
-                    'message': f'{len(conflicts)} file(s) already exist and will be overwritten.',
-                    'conflicts': conflicts
-                })
+            if not file_path_base:
+                return JsonResponse({'status': 'error', 'message': 'Upload destination path is missing.'}, status=400)
 
-        try: 
-            import tempfile
+            dest_path = os.path.join(file_path_base, file_name)
+            if not dest_path.startswith('/'):
+                dest_path = '/' + dest_path
+
+            # Security: non-superusers cannot upload outside their home directory
+            if not request.user.is_superuser:
+                user_home = os.path.join(paths.HOME_BASE, request.user.username)
+                if not os.path.abspath(dest_path).startswith(os.path.abspath(user_home)):
+                    return JsonResponse({'status': 'error', 'message': 'Access denied: cannot write outside your home directory.'}, status=403)
+
+            # On first chunk (chunk_index == 0):
+            if chunk_index == 0:
+                # Check conflict
+                if not force_overwrite and os.path.exists(dest_path):
+                    return JsonResponse({
+                        'status': 'conflict',
+                        'message': f'"{file_name}" already exists and will be overwritten.',
+                        'conflicts': [file_name]
+                    })
+                # Check storage quota for non-superusers
+                if not request.user.is_superuser and total_size > 0:
+                    try:
+                        from control.models import user as UserModel
+                        from .views import get_directory_size_in_mb, safe_get_package
+                        currentstorage = get_directory_size_in_mb(os.path.join(paths.HOME_BASE, str(request.user)))
+                        user_obj = UserModel.objects.filter(username=request.user.username).first()
+                        if user_obj and user_obj.hosting_package:
+                            packagecc = safe_get_package(user_obj.hosting_package).storage
+                            if int(packagecc) != 0:
+                                total_upload_size_mb = total_size / (1024 * 1024)
+                                if (float(currentstorage) + total_upload_size_mb) > float(packagecc):
+                                    return JsonResponse({'status': 'error', 'message': 'Storage Quota Exceeded. Upload Blocked.'}, status=400)
+                    except Exception:
+                        pass
+
+            # Write chunk to temp part file
             import shutil
             import subprocess
+            part_path = f"/tmp/vp_chunk_{upload_id}.part"
+            write_mode = 'wb' if chunk_index == 0 else 'ab'
+            try:
+                with open(part_path, write_mode) as pf:
+                    for chunk in uploaded_chunk.chunks():
+                        pf.write(chunk)
+            except Exception as w_err:
+                return JsonResponse({'status': 'error', 'message': f'Failed writing chunk to disk: {w_err}'}, status=500)
 
-            for uploaded_file in uploaded_files:
-                if not uploaded_file:
-                    continue
-                file_name = uploaded_file.name
-                file_path = os.path.join(file_path_base, file_name)
-                if not file_path.startswith('/'):
-                    file_path = '/' + file_path
-                
-                # Write to a secure temp file first (always writable by www-data)
-                with tempfile.NamedTemporaryFile(delete=False) as temp_dest:
-                    for chunk in uploaded_file.chunks():
-                        temp_dest.write(chunk)
-                    temp_path = temp_dest.name
-                
-                # Move to the final destination
+            # If this is the final chunk, finalize and move to destination
+            if chunk_index == total_chunks - 1:
                 try:
-                    # Try normal python move first
-                    shutil.move(temp_path, file_path)
+                    shutil.move(part_path, dest_path)
                 except PermissionError:
-                    # Fallback to sudo mv if normal move fails
                     try:
-                        subprocess.run(['sudo', 'mv', temp_path, file_path], check=True)
+                        subprocess.run(['sudo', 'mv', part_path, dest_path], check=True)
                     except Exception as mv_err:
-                        if os.path.exists(temp_path):
-                            try: os.unlink(temp_path)
+                        if os.path.exists(part_path):
+                            try: os.unlink(part_path)
                             except: pass
-                        return JsonResponse({'status': 'error', 'message': f'Permission denied: cannot write to destination {file_path_base}. Error: {str(mv_err)}'}, status=400)
+                        return JsonResponse({'status': 'error', 'message': f'Permission denied writing to {dest_path}: {mv_err}'}, status=400)
                 except Exception as move_err:
-                    if os.path.exists(temp_path):
-                        try: os.unlink(temp_path)
+                    if os.path.exists(part_path):
+                        try: os.unlink(part_path)
                         except: pass
-                    return JsonResponse({'status': 'error', 'message': f'Failed to move file to destination: {str(move_err)}'}, status=400)
+                    return JsonResponse({'status': 'error', 'message': f'Failed to move file to destination: {move_err}'}, status=400)
 
-                # Set correct file ownership and permissions
+                # Set permissions and ownership
                 try:
                     if sys.platform != 'win32':
                         if request.user.is_superuser:
-                            subprocess.run(['sudo', 'chown', f'{get_web_user()}:{get_web_user()}', file_path], check=True)
+                            try:
+                                parent_stat = os.stat(os.path.dirname(dest_path))
+                                import pwd, grp
+                                p_user = pwd.getpwuid(parent_stat.st_uid).pw_name
+                                p_group = grp.getgrgid(parent_stat.st_gid).gr_name
+                                subprocess.run(['sudo', 'chown', f'{p_user}:{p_group}', dest_path], check=True)
+                            except Exception:
+                                subprocess.run(['sudo', 'chown', f'{get_web_user()}:{get_web_user()}', dest_path], check=True)
                         else:
-                            subprocess.run(['sudo', 'chown', f'{request.user.username}:{request.user.username}', file_path], check=True)
-                        # Fix permissions: temp files are created with 600,
-                        # but uploaded web files need to be readable (644)
-                        subprocess.run(['sudo', 'chmod', '644', file_path], check=True)
+                            subprocess.run(['sudo', 'chown', f'{request.user.username}:{request.user.username}', dest_path], check=True)
+                        subprocess.run(['sudo', 'chmod', '644', dest_path], check=True)
                 except Exception:
                     pass
-            return JsonResponse({'status': 'success', 'message': f'{len(uploaded_files)} file(s) uploaded successfully!'})
-        except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
-    return JsonResponse({'status': 'error', 'message': 'No files received. Please select files and try again.'}, status=400)
+
+                return JsonResponse({'status': 'success', 'message': f'{file_name} uploaded successfully!'})
+
+            return JsonResponse({'status': 'chunk_received', 'chunk_index': chunk_index, 'next_chunk': chunk_index + 1})
+
+        # --- Standard Multi-File Upload Handling (Non-chunked fallback) ---
+        if request.FILES.getlist('file'):
+            # Check Account Storage Quota (Bypass for Admin)
+            if not request.user.is_superuser:
+                try:
+                    from control.models import user as UserModel
+                    from .views import get_directory_size_in_mb, safe_get_package
+                    currentstorage = get_directory_size_in_mb(os.path.join(paths.HOME_BASE, str(request.user)))
+                    user_obj = UserModel.objects.filter(username=request.user.username).first()
+                    if user_obj and user_obj.hosting_package:
+                        packagecc = safe_get_package(user_obj.hosting_package).storage
+                        if int(packagecc) != 0:
+                            uploaded_files = request.FILES.getlist('file')
+                            total_upload_size_mb = sum([f.size for f in uploaded_files]) / (1024 * 1024)
+                            if (float(currentstorage) + total_upload_size_mb) > float(packagecc):
+                                return JsonResponse({'status': 'error', 'message': 'Storage Quota Exceeded. Upload Blocked.'}, status=400)
+                except Exception:
+                    pass
+
+            uploaded_files = request.FILES.getlist('file')
+            file_path_base = request.POST.get('file_path', '').strip()
+            force_overwrite = request.POST.get('force', 'false').lower() == 'true'
+
+            if not file_path_base:
+                return JsonResponse({'status': 'error', 'message': 'Upload destination path is missing. Please refresh the file manager and try again.'}, status=400)
+
+            # --- Conflict detection (skip if user confirmed overwrite) ---
+            if not force_overwrite:
+                conflicts = []
+                for uploaded_file in uploaded_files:
+                    if not uploaded_file:
+                        continue
+                    dest = os.path.join(file_path_base, uploaded_file.name)
+                    if not dest.startswith('/'):
+                        dest = '/' + dest
+                    if os.path.exists(dest):
+                        conflicts.append(uploaded_file.name)
+                if conflicts:
+                    return JsonResponse({
+                        'status': 'conflict',
+                        'message': f'{len(conflicts)} file(s) already exist and will be overwritten.',
+                        'conflicts': conflicts
+                    })
+
+            try:
+                import tempfile
+                import shutil
+                import subprocess
+
+                for uploaded_file in uploaded_files:
+                    if not uploaded_file:
+                        continue
+                    file_name = uploaded_file.name
+                    file_path = os.path.join(file_path_base, file_name)
+                    if not file_path.startswith('/'):
+                        file_path = '/' + file_path
+
+                    # Security: non-superusers cannot upload outside their home directory
+                    if not request.user.is_superuser:
+                        user_home = os.path.join(paths.HOME_BASE, request.user.username)
+                        if not os.path.abspath(file_path).startswith(os.path.abspath(user_home)):
+                            return JsonResponse({'status': 'error', 'message': 'Access denied: cannot write outside your home directory.'}, status=403)
+
+                    # Write to a secure temp file first (always writable by www-data)
+                    with tempfile.NamedTemporaryFile(delete=False) as temp_dest:
+                        for chunk in uploaded_file.chunks():
+                            temp_dest.write(chunk)
+                        temp_path = temp_dest.name
+
+                    # Move to the final destination
+                    try:
+                        shutil.move(temp_path, file_path)
+                    except PermissionError:
+                        try:
+                            subprocess.run(['sudo', 'mv', temp_path, file_path], check=True)
+                        except Exception as mv_err:
+                            if os.path.exists(temp_path):
+                                try: os.unlink(temp_path)
+                                except: pass
+                            return JsonResponse({'status': 'error', 'message': f'Permission denied: cannot write to destination {file_path_base}. Error: {str(mv_err)}'}, status=400)
+                    except Exception as move_err:
+                        if os.path.exists(temp_path):
+                            try: os.unlink(temp_path)
+                            except: pass
+                        return JsonResponse({'status': 'error', 'message': f'Failed to move file to destination: {str(move_err)}'}, status=400)
+
+                    # Set correct file ownership and permissions
+                    try:
+                        if sys.platform != 'win32':
+                            if request.user.is_superuser:
+                                try:
+                                    parent_stat = os.stat(os.path.dirname(file_path))
+                                    import pwd, grp
+                                    p_user = pwd.getpwuid(parent_stat.st_uid).pw_name
+                                    p_group = grp.getgrgid(parent_stat.st_gid).gr_name
+                                    subprocess.run(['sudo', 'chown', f'{p_user}:{p_group}', file_path], check=True)
+                                except Exception:
+                                    subprocess.run(['sudo', 'chown', f'{get_web_user()}:{get_web_user()}', file_path], check=True)
+                            else:
+                                subprocess.run(['sudo', 'chown', f'{request.user.username}:{request.user.username}', file_path], check=True)
+                            subprocess.run(['sudo', 'chmod', '644', file_path], check=True)
+                    except Exception:
+                        pass
+                return JsonResponse({'status': 'success', 'message': f'{len(uploaded_files)} file(s) uploaded successfully!'})
+            except Exception as e:
+                return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+        return JsonResponse({'status': 'error', 'message': 'No files received. Please select files and try again.'}, status=400)
+    return JsonResponse({'status': 'error', 'message': 'Method not allowed.'}, status=405)
 
 
 
@@ -1653,27 +1669,27 @@ def upload_file(request):
 #                         except:
 #                              pass
 @login_required(login_url='/')
-def upload_files(request,file_path):
-    if request.user.is_authenticated:
-        d={}
-        file_path=file_path.replace('////','').replace('//','')
-        d['location']=file_path
-        new="/"+file_path
-        try:
-            dataw = os.listdir(new)
-        except Exception:
-            dataw = []
-        d['data']=dataw
-        try:
-            url = 'https://voidpanel.com/admindocs/'
-            response = requests.get(url, timeout=3)
-            if response.status_code == 200:
-                d['docs'] = response.json()
-        except:
-            d['docs'] = []
-        return render(request,'panel/upload.html',d)
-    else: 
-        return redirect('/')
+def upload_files(request, file_path):
+    d = {}
+    try:
+        clean_path = sanitize_path(file_path, request.user)
+    except ValueError as e:
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden(str(e))
+    d['location'] = clean_path
+    try:
+        dataw = os.listdir(clean_path)
+    except Exception:
+        dataw = []
+    d['data'] = dataw
+    try:
+        url = 'https://voidpanel.com/admindocs/'
+        response = requests.get(url, timeout=3)
+        if response.status_code == 200:
+            d['docs'] = response.json()
+    except:
+        d['docs'] = []
+    return render(request, 'panel/upload.html', d)
     
 
 @login_required(login_url='/')
@@ -2562,28 +2578,45 @@ def trash_empty(request):
 def renamedata(request):
      if request.user.is_superuser or request.user.is_authenticated:
          if request.method == "POST":
-             data = json.loads(request.body)
+             try:
+                 data = json.loads(request.body)
+             except Exception:
+                 data = request.POST.dict()
+
              selected_items = data.get('selected', [])
              file_path = data.get('path', '')
              new_name = data.get('copy', '')
 
-             # @secure_fm_paths sanitizes 'path' into an absolute path.
-             # 'copy' (new filename) is also sanitized into an absolute path,
-             # so extract just the basename for the new name.
-             new_name = os.path.basename(new_name) if new_name else ''
-             if not new_name:
-                 return JsonResponse({'status': 'error', 'message': 'New name is required.'})
+             new_name = os.path.basename(str(new_name).strip()) if new_name else ''
+             if not new_name or new_name in ('.', '..'):
+                 return JsonResponse({'status': 'error', 'message': 'Valid new name is required.'})
+
+             if not selected_items:
+                 return JsonResponse({'status': 'error', 'message': 'No file selected.'})
+
+             old_name = os.path.basename(str(selected_items[0]).strip())
+             if not old_name or old_name in ('.', '..'):
+                 return JsonResponse({'status': 'error', 'message': 'Invalid file selected.'})
 
              # Ensure path ends with /
              if not file_path.endswith('/'):
                  file_path = file_path + '/'
 
-             if not selected_items:
-                 return JsonResponse({'status': 'error', 'message': 'No file selected.'})
-
-             old_name = os.path.basename(selected_items[0])
              src = os.path.join(file_path, old_name)
              dst = os.path.join(file_path, new_name)
+
+             # Validate both src and dst are strictly within user's allowed scope
+             try:
+                 src = sanitize_path(src, request.user)
+                 dst = sanitize_path(dst, request.user)
+             except ValueError as ve:
+                 return JsonResponse({'status': 'error', 'message': str(ve)}, status=403)
+
+             if not os.path.exists(src):
+                 return JsonResponse({'status': 'error', 'message': f'"{old_name}" does not exist.'})
+
+             if os.path.exists(dst):
+                 return JsonResponse({'status': 'error', 'message': f'"{new_name}" already exists.'})
 
              try:
                  os.rename(src, dst)
@@ -2597,59 +2630,69 @@ def renamedata(request):
                      return JsonResponse({'status': 'error', 'message': f'Rename failed: {str(e2)}'})
              except Exception as e:
                  return JsonResponse({'status': 'error', 'message': f'Rename failed: {str(e)}'})
-             
-
-
-
+     return JsonResponse({'status': 'error', 'message': 'Method not allowed.'}, status=405)
 
 
 @login_required(login_url='/')
 @secure_fm_paths
 def permissiondata(request):
-     c=0
-
      if request.user.is_superuser or request.user.is_authenticated:
-         if request.method =="POST":
-               data = json.loads(request.body)  # Get the data from the request body
-               selected_items = data.get('selected', [])
-               file_path = data.get('path')
-               copy = data.get('copy')   
-               if '/' !=file_path[0]:
-                   file_path="/"+file_path
-               if '/' !=file_path[-1]:
-                   file_path=file_path+"/"
-            #    if '/' ==file_path[-1]:
-            #        file_path=file_path[:len(copy)-1]
-       
-               common_permissions = [
-    "000",
-    "644",
-    "755",
-    "666",
-    "700",
-    "777",
-    "644",
-    "750",
-    "770",
-    "400",
-    "500"
-]
-           
-               if copy not in common_permissions:
-               
-                     return JsonResponse({'status': 'error', 'message': 'Set Valid Permission!'})
-               for i in selected_items:
-                    try:
-                        permission = int(copy, 8)
-                        os.chmod(file_path+i, permission)
-                        return JsonResponse({'status': 'success', 'message': 'File uploaded successfully!'})
-                        c=c+1
-                    except Exception as e:
-                        print(e)
-                        return JsonResponse({'status': 'error', 'message': 'File upload Failed!'})
-               
-         return JsonResponse({'status': 'error', 'message': 'File upload Failed!'})
-     
+         if request.method == "POST":
+             try:
+                 data = json.loads(request.body)
+             except Exception:
+                 data = request.POST.dict()
+
+             selected_items = data.get('selected', [])
+             file_path = data.get('path', '')
+             copy = str(data.get('copy', '')).strip()
+
+             if not file_path:
+                 return JsonResponse({'status': 'error', 'message': 'Path is required.'}, status=400)
+
+             if not file_path.endswith('/'):
+                 file_path = file_path + '/'
+
+             common_permissions = [
+                 "000", "400", "500", "600", "640", "644", "660", "664", "666",
+                 "700", "750", "755", "770", "775", "777"
+             ]
+
+             if copy not in common_permissions:
+                 return JsonResponse({'status': 'error', 'message': 'Set Valid Permission!'})
+
+             if not selected_items:
+                 return JsonResponse({'status': 'error', 'message': 'No items selected.'})
+
+             try:
+                 permission = int(copy, 8)
+             except ValueError:
+                 return JsonResponse({'status': 'error', 'message': 'Invalid permission octal value.'})
+
+             import subprocess
+             for i in selected_items:
+                 item_name = os.path.basename(str(i).strip())
+                 if not item_name or item_name in ('.', '..'):
+                     continue
+                 item_path = os.path.join(file_path, item_name)
+                 try:
+                     item_path = sanitize_path(item_path, request.user)
+                 except ValueError as ve:
+                     return JsonResponse({'status': 'error', 'message': str(ve)}, status=403)
+
+                 try:
+                     os.chmod(item_path, permission)
+                 except PermissionError:
+                     try:
+                         subprocess.run(['sudo', 'chmod', copy, item_path], check=True)
+                     except Exception as e2:
+                         return JsonResponse({'status': 'error', 'message': f'Permission update failed: {str(e2)}'})
+                 except Exception as e:
+                     return JsonResponse({'status': 'error', 'message': f'Permission update failed: {str(e)}'})
+
+             return JsonResponse({'status': 'success', 'message': f'Permissions updated to {copy} successfully!'})
+     return JsonResponse({'status': 'error', 'message': 'Method not allowed.'}, status=405)
+
 
 @login_required(login_url='/')
 def addwebsite(request):
@@ -3489,20 +3532,72 @@ def editdnsrecord(request):
 
 @login_required(login_url='/')
 def loginuser(request):
-   
+    username = request.GET.get('user', 'none')
+    if username == 'none':
+        return redirect('/listusers/' if request.user.is_superuser else '/control/reseller/accounts/')
+
+    from django.contrib.auth import get_user_model, login as auth_login
+    AuthUser = get_user_model()
+    target_user = AuthUser.objects.filter(username=username).first()
+
+    if not target_user:
+        from control.models import user as UserModel
+        u_model = UserModel.objects.filter(username=username).first()
+        if u_model:
+            target_user = AuthUser.objects.create_user(
+                username=username,
+                email=u_model.email or f"{username}@local",
+                password=None
+            )
+            target_user.is_active = True
+            target_user.save()
+        else:
+            messages.error(request, f'User {username} not found.')
+            return redirect('/listusers/' if request.user.is_superuser else '/control/reseller/accounts/')
+
+    # 1. Superuser: can switch to any account
     if request.user.is_superuser:
-              username=request.GET.get('user','none')
-              if username== 'none':
-                   return redirect('/listusers/')
-              else:
-                   request.session['name']=username
-                   return redirect('/control')
-              
-                
-              pass
-           
-    else: 
-        return redirect('/')
+        prev_user = request.user.username
+        auth_login(request, target_user, backend='django.contrib.auth.backends.ModelBackend')
+        request.session['name'] = target_user.username
+        request.session['switched_from'] = prev_user
+        return redirect('/control/')
+
+    # 2. Reseller: can switch to sub-accounts they own
+    from control.models import ResellerProfile, user as UserModel
+    rp = getattr(request.user, 'reseller_profile', None)
+    if not rp:
+        rp = ResellerProfile.objects.filter(auth_user=request.user, is_active=True).first()
+
+    if rp and UserModel.objects.filter(username=username, reseller=rp).exists():
+        prev_user = request.user.username
+        auth_login(request, target_user, backend='django.contrib.auth.backends.ModelBackend')
+        request.session['name'] = target_user.username
+        request.session['switched_from'] = prev_user
+        return redirect('/control/')
+
+    messages.error(request, 'Unauthorized to login as this user.')
+    return redirect('/control/reseller/accounts/' if rp else '/')
+
+
+@login_required(login_url='/')
+def switch_back_user(request):
+    switched_from = request.session.get('switched_from')
+    if switched_from:
+        from django.contrib.auth import get_user_model, login as auth_login
+        AuthUser = get_user_model()
+        prev_user = AuthUser.objects.filter(username=switched_from).first()
+        if prev_user:
+            auth_login(request, prev_user, backend='django.contrib.auth.backends.ModelBackend')
+            request.session.pop('switched_from', None)
+            request.session['name'] = prev_user.username
+            if prev_user.is_superuser:
+                return redirect('/panel/')
+            from control.models import ResellerProfile
+            if ResellerProfile.objects.filter(auth_user=prev_user, is_active=True).exists():
+                return redirect('/control/reseller/accounts/')
+            return redirect('/control/')
+    return redirect('/control/')
     
 @login_required(login_url='/')
 def listwebsite(request):
@@ -3562,6 +3657,14 @@ def listusers(request):
                         u_obj.has_reseller_profile = u_obj.username in reseller_usernames
                     d['domain'] = listdomain
                     d['package'] = package.objects.all()
+                    d['stat_total'] = len(listdomain)
+                    d['stat_active'] = sum(1 for u in listdomain if u.status)
+                    d['stat_suspended'] = sum(1 for u in listdomain if not u.status)
+                    d['stat_dom_active'] = sum(1 for u in listdomain if getattr(u, 'is_domain_active', True))
+                    d['stat_dom_inactive'] = sum(1 for u in listdomain if not getattr(u, 'is_domain_active', True))
+                    d['stat_email_verified'] = sum(1 for u in listdomain if getattr(u, 'is_email_verified', False))
+                    d['stat_email_unverified'] = sum(1 for u in listdomain if not getattr(u, 'is_email_verified', False))
+                    d['last_audit_at'] = user.objects.filter(last_audited_at__isnull=False).order_by('-last_audited_at').values_list('last_audited_at', flat=True).first()
 
                 try:
                     url = 'https://voidpanel.com/admindocs/'
@@ -3604,6 +3707,7 @@ def listdns(request):
               
 from django.views.decorators.csrf import csrf_exempt
 
+@login_required(login_url='/')
 def addemailaccount(request):
     import base64
     from control.models import user as sysuser
@@ -3616,6 +3720,13 @@ def addemailaccount(request):
             domain_name = request.POST.get('domain')
             if not domain_name: return JsonResponse({'status': 'error', 'message': 'Invalid'})
             domain_name = domain_name.lower()
+
+            # Ownership check: non-superusers must own the target domain
+            if not request.user.is_superuser:
+                owner_obj = sysuser.objects.filter(domain=domain_name).first()
+                if not owner_obj or owner_obj.username != request.user.username:
+                    return JsonResponse({'status': 'error', 'message': 'Permission denied: You do not own this domain.'}, status=403)
+
             full_email = f"{username}@{domain_name}"
 
             # Industry Standard Feature: Enforce Hosting Package Limits
@@ -3760,16 +3871,24 @@ def listemail(request,data):
     
 
 @login_required(login_url='/')
-
 def changeemailpassword(request):
     import base64
     if request.user.is_superuser or request.user.is_authenticated:
         if request.method == 'POST':
             password = request.POST.get('password')
             domain_name = request.POST.get('domain')
+            if not domain_name: return JsonResponse({'status': 'error', 'message': 'Invalid domain'}, status=400)
             domain_name = domain_name.lower()
             email = request.POST.get('emailname')
+            if not email: return JsonResponse({'status': 'error', 'message': 'Invalid email'}, status=400)
             email = email.lower()
+
+            # Ownership check: non-superusers must own the target domain
+            if not request.user.is_superuser:
+                from control.models import user as sysuser
+                owner_obj = sysuser.objects.filter(domain=domain_name).first()
+                if not owner_obj or owner_obj.username != request.user.username:
+                    return JsonResponse({'status': 'error', 'message': 'Permission denied: You do not own this domain.'}, status=403)
             if sys.platform != 'win32':
                 import subprocess
                 # Generate SHA512-CRYPT hash for Dovecot
@@ -4023,23 +4142,34 @@ def addpermissiontouser(request):
     if not database or not userdatabase:
          return JsonResponse({'status': 'error', 'message': 'Database and user required'})
          
-    priv = []
-    allowed_privs = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'EXECUTE', 'CREATE', 'DROP', 'ALTER', 'INDEX', 'REFERENCES']
+    priv = set()
+    allowed_privs = {'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'EXECUTE', 'CREATE', 'DROP', 'ALTER', 'INDEX', 'REFERENCES'}
+
+    # Check for individual privilege keys (e.g. name="select", name="insert", etc.)
     for p in allowed_privs:
-        if request.POST.get(p.lower()):
-            priv.append(p)
-            
-    if not priv:
-        if request.POST.getlist('select'):
-            priv.extend([x.upper() for x in request.POST.getlist('select') if x.upper() in allowed_privs])
-        elif request.POST.getlist('priv'):
-            priv.extend([x.upper() for x in request.POST.getlist('priv') if x.upper() in allowed_privs])
+        val = request.POST.get(p.lower())
+        if val and val.upper().strip() in allowed_privs:
+            priv.add(val.upper().strip())
 
-    priv = list(set(priv))
-    if not priv:
-         return JsonResponse({'status': 'error', 'message': 'No privileges selected'})
+    # Check for multi-value lists (e.g. name="priv", name="select", etc.)
+    for list_key in ['priv', 'select', 'privileges', 'perms']:
+        for val in request.POST.getlist(list_key):
+            v_upper = val.upper().strip()
+            if v_upper in allowed_privs:
+                priv.add(v_upper)
+            elif v_upper in ('ALL', 'ALL PRIVILEGES'):
+                priv.update(allowed_privs)
 
-    if grant_mysql_user_privileges(userdatabase, database, priv, adminpassword):
+    if not priv:
+        return JsonResponse({'status': 'error', 'message': 'No privileges selected'})
+
+    # If all standard privileges are selected, grant ALL PRIVILEGES
+    if priv >= allowed_privs:
+        priv_to_grant = ['ALL PRIVILEGES']
+    else:
+        priv_to_grant = list(priv)
+
+    if grant_mysql_user_privileges(userdatabase, database, priv_to_grant, adminpassword):
         return JsonResponse({'status': 'success', 'message': 'Success.'})
     return JsonResponse({'status': 'error', 'message': 'failed.'})
                       
@@ -4981,46 +5111,56 @@ def _background_terminate_user(domain_str, mainusername, subdomains):
     import shutil
     import subprocess
 
-    all_domains = [domain_str] + list(subdomains)
+    all_domains = [d for d in ([domain_str] + list(subdomains)) if d]
 
     # --- Filesystem: home directory ---
     try:
+        home_user = os.path.join(paths.HOME_BASE, mainusername) if mainusername else None
+        home_dom = os.path.join(paths.HOME_BASE, domain_str) if domain_str else None
         if sys.platform != 'win32':
-            subprocess.run(['sudo', 'rm', '-rf', os.path.join(paths.HOME_BASE, mainusername)], check=False)
+            if home_user and os.path.exists(home_user):
+                subprocess.run(['sudo', 'rm', '-rf', home_user], check=False)
+            if home_dom and home_dom != home_user and os.path.exists(home_dom):
+                subprocess.run(['sudo', 'rm', '-rf', home_dom], check=False)
         else:
-            shutil.rmtree(os.path.join(paths.HOME_BASE, mainusername), ignore_errors=True)
+            if home_user and os.path.exists(home_user):
+                shutil.rmtree(home_user, ignore_errors=True)
+            if home_dom and home_dom != home_user and os.path.exists(home_dom):
+                shutil.rmtree(home_dom, ignore_errors=True)
     except Exception as e:
         logger.warning('[terminate] Could not remove home dir for %s: %s', mainusername, e)
 
-    # --- Nginx configs: main domain + all subdomains ---
+    # --- Nginx configs: main domain + all subdomains + active/suspended backups ---
     for d in all_domains:
         for nginx_dir in (paths.NGINX_SITES_ENABLED, paths.NGINX_SITES_AVAILABLE):
-            conf = os.path.join(nginx_dir, f'{d}.conf')
+            for suffix in ['', '.active_vhost', '.suspended_backup', '.bak', '.disabled']:
+                conf = os.path.join(nginx_dir, f'{d}.conf{suffix}')
+                try:
+                    if sys.platform != 'win32':
+                        subprocess.run(['sudo', 'rm', '-f', conf], check=False)
+                    else:
+                        if os.path.exists(conf):
+                            os.remove(conf)
+                except Exception:
+                    pass
+
+    # --- DNS zone files & BIND config ---
+    for d in all_domains:
+        for zf_name in (f'db.{d}', f'{d}.db', f'{d}.zone'):
+            zf = os.path.join(paths.BIND_ZONE_DIR, zf_name)
             try:
                 if sys.platform != 'win32':
-                    subprocess.run(['sudo', 'rm', '-f', conf], check=False)
+                    subprocess.run(['sudo', 'rm', '-f', zf], check=False)
                 else:
-                    if os.path.exists(conf):
-                        os.remove(conf)
+                    if os.path.exists(zf):
+                        os.remove(zf)
             except Exception:
                 pass
-
-    # --- DNS zone file ---
-    for d in all_domains:
         try:
-            zf = os.path.join(paths.BIND_ZONE_DIR, f'db.{d}')
             if sys.platform != 'win32':
-                subprocess.run(['sudo', 'rm', '-f', zf], check=False)
-            else:
-                if os.path.exists(zf):
-                    os.remove(zf)
+                remove_zone_from_file(paths.BIND_CONF, d)
         except Exception:
             pass
-    try:
-        if sys.platform != 'win32':
-            remove_zone_from_file(paths.BIND_CONF, domain_str)
-    except Exception:
-        pass
 
     # --- DKIM keys & Tables ---
     if paths.OPENDKIM_KEY_DIR:
@@ -5059,8 +5199,10 @@ def _background_terminate_user(domain_str, mainusername, subdomains):
         except Exception:
             pass
 
-    # --- SSL certificates ---
+    # --- SSL certificates (Certbot / Let's Encrypt) ---
     for d in all_domains:
+        if sys.platform != 'win32':
+            subprocess.run(['sudo', 'certbot', 'delete', '--cert-name', d, '--non-interactive'], timeout=15, check=False)
         live_dir = os.path.join(paths.LETSENCRYPT_LIVE, d)
         archive_dir = f'/etc/letsencrypt/archive/{d}'
         renewal = f'/etc/letsencrypt/renewal/{d}.conf'
@@ -5074,14 +5216,19 @@ def _background_terminate_user(domain_str, mainusername, subdomains):
                 except Exception: pass
 
     # --- Mail data ---
-    try:
-        mail_dir = _resolve_mail_domain_dir(domain_str)
-        if sys.platform != 'win32':
-            subprocess.run(['sudo', 'rm', '-rf', mail_dir], check=False)
-        else:
-            shutil.rmtree(mail_dir, ignore_errors=True)
-    except Exception:
-        pass
+    for d in all_domains:
+        try:
+            mail_dir = _resolve_mail_domain_dir(d)
+            if sys.platform != 'win32':
+                subprocess.run(['sudo', 'rm', '-rf', mail_dir], check=False)
+            else:
+                shutil.rmtree(mail_dir, ignore_errors=True)
+        except Exception:
+            pass
+        for extra_mail_root in ['/var/mail/vhosts', '/var/vmail']:
+            pth = os.path.join(extra_mail_root, d)
+            if os.path.exists(pth):
+                subprocess.run(['sudo', 'rm', '-rf', pth], check=False)
 
     # --- Postfix & Dovecot configs ---
     for fpath in (
@@ -5089,6 +5236,8 @@ def _background_terminate_user(domain_str, mainusername, subdomains):
         paths.POSTFIX_VIRTUAL_ALIAS,
         getattr(paths, 'POSTFIX_VIRTUAL_DOMAINS', ''),
         paths.DOVECOT_USERS,
+        '/etc/postfix/vp_suspended_incoming',
+        '/etc/postfix/vp_suspended_outgoing',
     ):
         if not fpath or not os.path.exists(fpath):
             continue
@@ -5114,15 +5263,17 @@ def _background_terminate_user(domain_str, mainusername, subdomains):
     # Rebuild postfix maps
     try:
         if sys.platform != 'win32':
-            subprocess.run(['sudo', 'postmap', paths.POSTFIX_VIRTUAL_MAILBOX], timeout=10, check=False)
-            subprocess.run(['sudo', 'postmap', paths.POSTFIX_VIRTUAL_ALIAS], timeout=10, check=False)
+            if os.path.exists(paths.POSTFIX_VIRTUAL_MAILBOX):
+                subprocess.run(['sudo', 'postmap', paths.POSTFIX_VIRTUAL_MAILBOX], timeout=10, check=False)
+            if os.path.exists(paths.POSTFIX_VIRTUAL_ALIAS):
+                subprocess.run(['sudo', 'postmap', paths.POSTFIX_VIRTUAL_ALIAS], timeout=10, check=False)
     except Exception:
         pass
 
     # --- MySQL: drop databases and users ---
     try:
         mysql_pw_file = paths.MYSQL_PASSWORD_FILE
-        if os.path.exists(mysql_pw_file):
+        if os.path.exists(mysql_pw_file) and mainusername:
             with open(mysql_pw_file, 'r') as f:
                 mysql_root_pass = f.read().strip()
 
@@ -5133,54 +5284,52 @@ def _background_terminate_user(domain_str, mainusername, subdomains):
                 delete_mysql_user,
             )
             prefix = mainusername + '_'
-
-            # Drop databases
             dbs = get_database_names_with_filter(mysql_root_pass, prefix)
             for db in dbs:
                 remove_database(db, mysql_root_pass)
 
-            # Drop users
             db_users = get_database_users_with_filter(mysql_root_pass, prefix)
             for db_user in db_users:
                 delete_mysql_user(db_user, mysql_root_pass)
+
+            try:
+                remove_database(mainusername, mysql_root_pass)
+            except Exception:
+                pass
+            try:
+                delete_mysql_user(mainusername, mysql_root_pass)
+            except Exception:
+                pass
     except Exception as e:
         logger.warning('[terminate] MySQL cleanup failed: %s', e)
 
-    # --- Reload services (zero-downtime: reload not restart) ---
-    try:
-        subprocess.run(['sudo', 'systemctl', 'reload', get_dns_service_name()], timeout=15, check=False)
-    except Exception:
-        pass
-    # Reload Nginx only if the test is successful to avoid failing the server globally
-    try:
-        nginx_test = subprocess.run(['sudo', 'nginx', '-t'], timeout=15, capture_output=True, text=True)
-        if nginx_test.returncode == 0:
-            subprocess.run(['sudo', 'systemctl', 'reload', 'nginx'], timeout=15, check=False)
-    except Exception:
-        pass
-    try:
-        subprocess.run(['sudo', 'systemctl', 'reload', 'postfix'], timeout=15, check=False)
-    except Exception:
-        pass
-    try:
-        subprocess.run(['sudo', 'systemctl', 'reload', 'dovecot'], timeout=15, check=False)
-    except Exception:
-        pass
-
     # --- Remove FTP accounts ---
     try:
-        ft = ftpaccount.objects.filter(main=mainusername)
-        for ftp_acct in ft:
-            get_platform().users.delete_user(ftp_acct.main)
-        ft.delete()
+        if mainusername:
+            ft = ftpaccount.objects.filter(main=mainusername)
+            for ftp_acct in ft:
+                get_platform().users.delete_user(ftp_acct.main)
+            ft.delete()
     except Exception as e:
         logger.warning('[terminate] FTP cleanup error for %s: %s', mainusername, e)
 
-    # --- Remove Linux system user ---
+    # --- Remove Linux system user & processes ---
+    if sys.platform != 'win32' and mainusername:
+        try:
+            subprocess.run(['sudo', 'pkill', '-9', '-u', mainusername], timeout=5, check=False)
+            subprocess.run(['sudo', 'crontab', '-u', mainusername, '-r'], timeout=5, check=False)
+        except Exception:
+            pass
     try:
-        get_platform().users.delete_user(mainusername)
+        if mainusername:
+            get_platform().users.delete_user(mainusername)
     except Exception as e:
         logger.warning('[terminate] userdel error for %s: %s', mainusername, e)
+    if sys.platform != 'win32' and mainusername:
+        try:
+            subprocess.run(['sudo', 'userdel', '-f', '-r', mainusername], timeout=10, check=False)
+        except Exception:
+            pass
 
     # --- Python/MERN app service files ---
     try:
@@ -5223,42 +5372,141 @@ def _background_terminate_user(domain_str, mainusername, subdomains):
     except Exception as e:
         logger.warning('[terminate] MERN cleanup failed: %s', e)
 
+    # --- Reload services (zero-downtime) ---
+    try:
+        subprocess.run(['sudo', 'systemctl', 'reload', get_dns_service_name()], timeout=15, check=False)
+    except Exception:
+        pass
+    try:
+        nginx_test = subprocess.run(['sudo', 'nginx', '-t'], timeout=15, capture_output=True, text=True)
+        if nginx_test.returncode == 0:
+            subprocess.run(['sudo', 'systemctl', 'reload', 'nginx'], timeout=15, check=False)
+    except Exception:
+        pass
+    try:
+        subprocess.run(['sudo', 'systemctl', 'reload', 'postfix'], timeout=15, check=False)
+    except Exception:
+        pass
+    try:
+        subprocess.run(['sudo', 'systemctl', 'reload', 'dovecot'], timeout=15, check=False)
+    except Exception:
+        pass
 
 
 @login_required(login_url='/')
 def terminate(request, data):
     """Terminate a hosted account: remove all files, configs, DNS, SSL, and DB records.
     Validation is instant; the actual heavy I/O runs in a background thread.
+    Accepts either a domain name ('example.com') or a username ('john').
     """
     if not request.user.is_superuser:
         return redirect('/')
 
-    try:
-        lold = domain.objects.get(domain=data)
-    except domain.DoesNotExist:
-        return redirect('/listwebsite/')
+    clean_data = (data or '').strip().rstrip('/')
+    if not clean_data:
+        messages.error(request, "Invalid domain or username specified.")
+        return redirect('/listusers/')
 
-    # Capture all needed data BEFORE deleting the DB record (fixes the use-after-delete bug)
-    domain_str   = lold.domain
-    mainusername = lold.dir
-    subdomains   = list(subdomainname.objects.filter(domain=domain_str).values_list('subdomain', flat=True))
+    # 1. Resolve domain and user objects from either domain name or username
+    u_obj = (
+        user.objects.filter(domain__iexact=clean_data).first()
+        or user.objects.filter(username__iexact=clean_data).first()
+    )
+    d_obj = (
+        domain.objects.filter(domain__iexact=clean_data).first()
+        or (domain.objects.filter(dir__iexact=clean_data).first() if not u_obj else domain.objects.filter(dir__iexact=u_obj.username).first())
+    )
 
-    # --- Immediately clean up all DB records (fast, in-request) ---
-    subdomainname.objects.filter(domain=domain_str).delete()
-    allemail.objects.filter(domain=domain_str).delete()
-    cron.objects.filter(domain=domain_str).delete()
-    redir.objects.filter(domain=domain_str).delete()
+    domain_str = d_obj.domain if d_obj else (u_obj.domain if u_obj else clean_data)
+    mainusername = u_obj.username if u_obj else (d_obj.dir if d_obj else clean_data)
+
+    # Check if this account actually exists in DB, Auth, or filesystem
+    exists_in_db = (u_obj is not None or d_obj is not None)
+    exists_in_auth = False
     try:
-        user.objects.filter(username=mainusername).delete()
+        from django.contrib.auth import get_user_model
+        AuthUser = get_user_model()
+        if AuthUser.objects.filter(username__in=[mainusername, domain_str, clean_data]).exists():
+            exists_in_auth = True
+    except Exception:
+        pass
+
+    home_dir_exists = (
+        (mainusername and os.path.exists(os.path.join(paths.HOME_BASE, mainusername)))
+        or (domain_str and os.path.exists(os.path.join(paths.HOME_BASE, domain_str)))
+    )
+    nginx_conf_exists = (
+        os.path.exists(os.path.join(paths.NGINX_SITES_AVAILABLE, f"{domain_str}.conf"))
+        or os.path.exists(os.path.join(paths.NGINX_SITES_ENABLED, f"{domain_str}.conf"))
+    )
+
+    if not exists_in_db and not exists_in_auth and not home_dir_exists and not nginx_conf_exists:
+        messages.error(request, f"Account or domain '{clean_data}' was not found on the server.")
+        return redirect('/listusers/')
+
+    # 2. Capture all subdomains before deleting DB records
+    subdomains = list(subdomainname.objects.filter(domain__iexact=domain_str).values_list('subdomain', flat=True))
+
+    # 3. Clean up ALL database records immediately
+    try:
+        subdomainname.objects.filter(domain__iexact=domain_str).delete()
     except Exception:
         pass
     try:
-        User.objects.filter(username=mainusername).delete()
+        allemail.objects.filter(domain__iexact=domain_str).delete()
     except Exception:
         pass
-    lold.delete()  # Safe now — all needed strings captured above
+    try:
+        cron.objects.filter(domain__iexact=domain_str).delete()
+        if mainusername:
+            cron.objects.filter(main=mainusername).delete()
+    except Exception:
+        pass
+    try:
+        redir.objects.filter(domain__iexact=domain_str).delete()
+    except Exception:
+        pass
+    try:
+        from control.models import AISiteProject, SiteLeadCapture, cloudflare_dns
+        AISiteProject.objects.filter(domain__iexact=domain_str).delete()
+        SiteLeadCapture.objects.filter(domain__iexact=domain_str).delete()
+        cloudflare_dns.objects.filter(domain__iexact=domain_str).delete()
+    except Exception:
+        pass
+    try:
+        if mainusername:
+            user.objects.filter(username__iexact=mainusername).delete()
+        user.objects.filter(domain__iexact=domain_str).delete()
+    except Exception:
+        pass
+    # Guaranteed direct database cleanup fallback
+    try:
+        from django.db import connection
+        with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM control_user WHERE username = %s OR domain = %s", [mainusername, domain_str])
+    except Exception:
+        pass
+    try:
+        from django.contrib.auth import get_user_model
+        AuthUser = get_user_model()
+        delete_targets = [t for t in [mainusername, domain_str, clean_data] if t]
+        AuthUser.objects.filter(username__in=delete_targets).delete()
+    except Exception:
+        pass
+    try:
+        domain.objects.filter(domain__iexact=domain_str).delete()
+        if mainusername:
+            domain.objects.filter(dir__iexact=mainusername).delete()
+    except Exception:
+        pass
+    try:
+        from django.db import connection
+        with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM control_domain WHERE domain = %s OR dir = %s", [domain_str, mainusername])
+    except Exception:
+        pass
 
-    # --- Push slow filesystem/service I/O to background thread ---
+    # 4. Push slow filesystem/service I/O to background thread
     import threading
     t = threading.Thread(
         target=_background_terminate_user,
@@ -5267,8 +5515,17 @@ def terminate(request, data):
     )
     t.start()
 
+    try:
+        from control.utils import trigger_user_terminated_notification
+        trigger_user_terminated_notification(mainusername, domain_str)
+    except Exception:
+        pass
+
+    messages.success(request, f"Account '{domain_str}' has been permanently terminated and all server resources deleted.")
+    referer = request.META.get('HTTP_REFERER', '')
+    if 'listwebsite' in referer:
+        return redirect('/listwebsite/')
     return redirect('/listusers/')
-    
 
 
 def toggle_email_suspension(domain_name, suspend_status=True):
@@ -5291,129 +5548,36 @@ def toggle_email_suspension(domain_name, suspend_status=True):
                     else: fp.write(line)
             if changed and fpath in (paths.POSTFIX_VIRTUAL_ALIAS, paths.POSTFIX_VIRTUAL_MAILBOX, paths.POSTFIX_VIRTUAL_DOMAINS):
                 if sys.platform != 'win32':
-                    subprocess.run(["postmap", fpath], capture_output=True)
+                    subprocess.run(["sudo", "postmap", fpath], capture_output=True)
     except Exception as e: pass
 
+
 @login_required(login_url='/')
-def suspend(request,data):
-   
-    if request.user.is_superuser:
-                d={}
-                try:
-                    
-                    lold=domain.objects.get(domain=data)
-                    dub=subdomainname.objects.filter(domain=data).all()
-                    file_path_=os.path.join(paths.NGINX_SITES_ENABLED, data+".conf")
-
-                    with open(file_path_, 'r') as file:
-                        config_data = file.readlines()
-                    root_updated = False
-                    for i, line in enumerate(config_data):
-                        if line.strip().startswith('root '):
-                            config_data[i] = f"    root /var/www/suspend;\n"
-                            root_updated = True
-                            break
-                    if root_updated:
-
-                        with open(file_path_, 'w') as file:
-                            file.writelines(config_data)
-                    for iu in dub:
-                            file_path_=os.path.join(paths.NGINX_SITES_ENABLED, iu.subdomain+".conf")
-                            with open(file_path_, 'r') as file:
-                                config_data = file.readlines()
-                            root_updated = False
-                            for i, line in enumerate(config_data):
-                                if line.strip().startswith('root '):
-                                    config_data[i] = f"    root /var/www/suspend;\n"
-                                    root_updated = True
-                                    break
-                            if root_updated:
-        
-                                with open(file_path_, 'w') as file:
-                                    file.writelines(config_data)
-                    lold.status=False
-                    
-                    lold.save()
-                    try:
-                        loldd=user.objects.get(domain=data)
-                        loldd.status=False
-                        loldd.save()
-                        
-                        # Added: suspend emails dynamically
-                        toggle_email_suspension(data, True)
-                        
-                        return redirect('/listusers/')
-                    except:
-
-                        return redirect('/listwebsite/')
-                         
-                    
-                              
-                except Exception as e:
-                    return redirect("/listwebsite/")
-           
-    else: 
+def suspend(request, data):
+    if not request.user.is_superuser:
         return redirect('/')
-                        
+    try:
+        from control.suspension_manager import suspend_account_action
+        suspend_account_action(data)
+        messages.success(request, f"Account {data} has been suspended.")
+    except Exception as e:
+        logger.error(f"Error suspending {data}: {e}", exc_info=True)
+        messages.error(request, f"Failed to suspend {data}: {e}")
+    return redirect('/listusers/')
+
+
 @login_required(login_url='/')
-def unsuspend(request,data):
-   
-    if request.user.is_superuser:
-                d={}
-                try:
-                    
-                    lold=domain.objects.get(domain=data)
-                    dub=subdomainname.objects.filter(domain=data).all()
-                    file_path_=os.path.join(paths.NGINX_SITES_ENABLED, data+".conf")
-
-                    with open(file_path_, 'r') as file:
-                        config_data = file.readlines()
-                    root_updated = False
-                    for i, line in enumerate(config_data):
-                        if line.strip().startswith('root '):
-                            config_data[i] = f"    root {os.path.join(paths.HOME_BASE, lold.dir, 'public_html')};\n"
-                            root_updated = True
-                            break
-                    if root_updated:
-
-                        with open(file_path_, 'w') as file:
-                            file.writelines(config_data)
-                    for iu in dub:
-                            file_path_=os.path.join(paths.NGINX_SITES_ENABLED, iu.subdomain+".conf")
-                            with open(file_path_, 'r') as file:
-                                config_data = file.readlines()
-                            root_updated = False
-                            for i, line in enumerate(config_data):
-                                if line.strip().startswith('root '):
-                                    config_data[i] = f"    root {os.path.join(paths.HOME_BASE, lold.dir, 'public_html', iu.name)};\n"
-                                    root_updated = True
-                                    break
-                            if root_updated:
-        
-                                with open(file_path_, 'w') as file:
-                                    file.writelines(config_data)
-                    lold.status=True
-                    lold.save()
-                    try:
-                        loldd=user.objects.get(domain=data)
-                        loldd.status=True
-                        loldd.save()
-                        
-                        # Added: unsuspend emails dynamically
-                        toggle_email_suspension(data, False)
-                        
-                        return redirect('/listusers/')
-                    except:
-                         
-                        return redirect('/listwebsite/')
-                         
-                    
-                              
-                except Exception as e:
-                    return redirect("/listwebsite/")
-           
-    else: 
+def unsuspend(request, data):
+    if not request.user.is_superuser:
         return redirect('/')
+    try:
+        from control.suspension_manager import unsuspend_account_action
+        unsuspend_account_action(data)
+        messages.success(request, f"Account {data} has been unsuspended.")
+    except Exception as e:
+        logger.error(f"Error unsuspending {data}: {e}", exc_info=True)
+        messages.error(request, f"Failed to unsuspend {data}: {e}")
+    return redirect('/listusers/')
     
 
 
@@ -6050,6 +6214,12 @@ def deleteemail(request, data):
     try:
         email_obj = allemail.objects.get(email=data)
         domain_name = email_obj.domain
+
+        # Ownership check: non-superusers must own the domain of this email
+        if not request.user.is_superuser:
+            owner_obj = sysuser.objects.filter(domain=domain_name).first()
+            if not owner_obj or owner_obj.username != request.user.username:
+                return JsonResponse({'status': 'error', 'message': 'Permission denied: You do not own this domain.'}, status=403)
         user_prefix = data.split("@")[0]
         
         # Cleanup from files securely using temporary files and sudo cp
@@ -6087,7 +6257,9 @@ def deleteemail(request, data):
 
         # Apply to postfix virtual_alias and virtual_mailbox
         _modify_mail_file_securely(paths.POSTFIX_VIRTUAL_ALIAS, f'{data} ')
+        _modify_mail_file_securely(paths.POSTFIX_VIRTUAL_ALIAS, f'{data}\t')
         _modify_mail_file_securely(paths.POSTFIX_VIRTUAL_MAILBOX, f'{data} ')
+        _modify_mail_file_securely(paths.POSTFIX_VIRTUAL_MAILBOX, f'{data}\t')
 
         if sys.platform != 'win32':
             run_command(f"sudo postmap {paths.POSTFIX_VIRTUAL_ALIAS}")
@@ -6102,14 +6274,22 @@ def deleteemail(request, data):
         home_path = os.path.join(paths.HOME_BASE, sys_owner, 'mail', domain_name, user_prefix)
         old_path = os.path.join(_resolve_mail_domain_dir(domain_name), user_prefix)
         
-        if os.path.exists(home_path): shutil.rmtree(home_path, ignore_errors=True)
-        if os.path.exists(old_path): shutil.rmtree(old_path, ignore_errors=True)
+        if os.path.exists(home_path):
+            shutil.rmtree(home_path, ignore_errors=True)
+            subprocess.run(['sudo', 'rm', '-rf', home_path], capture_output=True, timeout=10)
+        if os.path.exists(old_path):
+            shutil.rmtree(old_path, ignore_errors=True)
+            subprocess.run(['sudo', 'rm', '-rf', old_path], capture_output=True, timeout=10)
         
         # Remove from Dovecot users mapping and domain passwd/shadow files if they exist
         for _fpath in [paths.DOVECOT_USERS,
                        os.path.join(_resolve_mail_domain_dir(domain_name), 'passwd'),
                        os.path.join(_resolve_mail_domain_dir(domain_name), 'shadow')]:
             _modify_mail_file_securely(_fpath, f'{data}:')
+
+        if sys.platform != 'win32':
+            subprocess.run(['sudo', 'systemctl', 'reload', 'postfix'], capture_output=True, timeout=10)
+            subprocess.run(['sudo', 'systemctl', 'reload', 'dovecot'], capture_output=True, timeout=10)
         
         email_obj.delete()
         return JsonResponse({'status': 'success'})
@@ -7275,20 +7455,169 @@ def api_set_reseller(request):
         ResellerProfile.objects.filter(auth_user=auth_user).delete()
         return JsonResponse({'status': 'demoted', 'username': username})
 
+    elif action == 'toggle_status':
+        profile = ResellerProfile.objects.filter(auth_user=auth_user).first()
+        if not profile:
+            return JsonResponse({'error': 'Reseller profile not found'}, status=404)
+        profile.is_active = not profile.is_active
+        profile.save()
+        return JsonResponse({'status': 'updated', 'is_active': profile.is_active, 'username': username})
+
+    elif action == 'update_quota':
+        profile = ResellerProfile.objects.filter(auth_user=auth_user).first()
+        if not profile:
+            return JsonResponse({'error': 'Reseller profile not found'}, status=404)
+        if company:
+            profile.company_name = company
+        profile.storage_quota_gb = storage_gb
+        profile.max_accounts = max_acc
+        profile.save()
+        return JsonResponse({'status': 'updated', 'username': username})
+
     return JsonResponse({'error': f'Unknown action: {action}'}, status=400)
+
+
+@login_required(login_url='/')
+def listresellers(request):
+    """Super Admin page to manage and monitor all resellers on the server."""
+    if not request.user.is_superuser:
+        messages.error(request, 'Superuser privileges required.')
+        return redirect('/')
+
+    import os
+    from control.models import ResellerProfile, user as UserModel
+    from function import get_directory_size_in_mb
+    from voidplatform.config import paths
+
+    reseller_profiles = ResellerProfile.objects.select_related('auth_user').all().order_by('-id')
+
+    resellers = []
+    total_sub_accounts = 0
+    total_allocated_gb = 0
+    total_active_resellers = 0
+    total_suspended_resellers = 0
+
+    for rp in reseller_profiles:
+        u_obj = UserModel.objects.filter(username=rp.auth_user.username).first()
+        primary_domain = u_obj.domain if u_obj else '—'
+
+        sub_qs = UserModel.objects.filter(reseller=rp) if hasattr(UserModel, 'reseller') else UserModel.objects.none()
+        sub_count = sub_qs.count()
+        total_sub_accounts += sub_count
+
+        quota_gb = rp.storage_quota_gb or 0
+        total_allocated_gb += quota_gb
+
+        if rp.is_active:
+            total_active_resellers += 1
+        else:
+            total_suspended_resellers += 1
+
+        used_storage_mb = 0
+        try:
+            for sub_acc in sub_qs:
+                p = os.path.join(getattr(paths, 'HOME_BASE', '/home'), sub_acc.username)
+                if os.path.exists(p):
+                    used_storage_mb += get_directory_size_in_mb(p)
+        except Exception:
+            pass
+
+        used_storage_gb = round(used_storage_mb / 1024, 2)
+        max_accounts = rp.max_accounts or 0
+
+        storage_pct = round(min((used_storage_gb / quota_gb) * 100, 100), 1) if quota_gb > 0 else 0
+        accounts_pct = round(min((sub_count / max_accounts) * 100, 100), 1) if max_accounts > 0 else 0
+
+        resellers.append({
+            'id': rp.id,
+            'username': rp.auth_user.username,
+            'email': rp.auth_user.email,
+            'primary_domain': primary_domain,
+            'company_name': rp.company_name or '—',
+            'storage_quota_gb': quota_gb,
+            'used_storage_gb': used_storage_gb,
+            'storage_pct': storage_pct,
+            'max_accounts': max_accounts,
+            'sub_count': sub_count,
+            'accounts_pct': accounts_pct,
+            'is_active': rp.is_active,
+            'created_at': rp.created_at,
+        })
+
+    reseller_usernames = set(r['username'] for r in resellers)
+    available_users = UserModel.objects.exclude(username__in=reseller_usernames).values('username', 'domain', 'email')
+
+    d = {
+        'resellers': resellers,
+        'stat_total': len(resellers),
+        'stat_active': total_active_resellers,
+        'stat_suspended': total_suspended_resellers,
+        'stat_sub_accounts': total_sub_accounts,
+        'stat_total_quota_gb': total_allocated_gb,
+        'available_users': list(available_users),
+        'title': 'Manage Resellers',
+    }
+    try:
+        d['license_features'] = get_features()
+    except Exception:
+        d['license_features'] = {'reseller': True}
+
+    return render(request, 'panel/listresellers.html', d)
+
+    
+@login_required(login_url='/')
+def api_audit_accounts(request):
+    """Run automated verification of domain live status and email realness."""
+    if not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Superuser privileges required.'}, status=403)
+    
+    import json as _json
+    from control.auditor import audit_all_accounts, audit_single_user
+    from control.models import user as UserModel
+    username = request.GET.get('username') or request.POST.get('username')
+    if not username and request.body:
+        try:
+            payload = _json.loads(request.body)
+            if isinstance(payload, dict):
+                username = payload.get('username')
+        except Exception:
+            pass
+
+    try:
+        if username:
+            target = UserModel.objects.filter(username=username).first()
+            if not target:
+                return JsonResponse({'status': 'error', 'message': f'User "{username}" not found.'}, status=404)
+            res = audit_single_user(target)
+            return JsonResponse({'status': 'success', 'user_result': res})
+        else:
+            stats = audit_all_accounts()
+            return JsonResponse({'status': 'success', 'stats': stats})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
 
 
 @login_required(login_url='/')
 def chpassuser(request):
     """Securely change a hosted user's panel login password and Linux system password."""
-    if not request.user.is_superuser:
-        return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
-
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'Invalid request method.'}, status=405)
 
     password = request.POST.get('password', '').strip()
     username = request.POST.get('user', '').strip().lower()
+
+    owns_reseller = False
+    if not request.user.is_superuser:
+        from control.models import ResellerProfile, user as UserModel
+        rp = getattr(request.user, 'reseller_profile', None)
+        if not rp:
+            rp = ResellerProfile.objects.filter(auth_user=request.user, is_active=True).first()
+        if rp and UserModel.objects.filter(username=username, reseller=rp).exists():
+            owns_reseller = True
+
+    if not request.user.is_superuser and not owns_reseller:
+        return JsonResponse({'status': 'error', 'message': 'Permission denied.'}, status=403)
 
     if not username or not password:
         return JsonResponse({'status': 'error', 'message': 'Username and password are required.'}, status=400)
@@ -8487,10 +8816,19 @@ def copysite_status(request):
         return JsonResponse({'status': 'error', 'message': f'Failed to read status: {str(e)}'}, status=500)
 
 
+@login_required(login_url='/')
 def analytics(request):
-    domain_name = request.GET.get('domain', '')
+    domain_name = request.GET.get('domain', '').strip().lower()
     if not domain_name:
         return redirect('/panel/')
+
+    # Authorization check: non-superusers must own this domain
+    if not request.user.is_superuser:
+        from control.models import user as sysuser
+        owner_obj = sysuser.objects.filter(domain=domain_name).first()
+        if not owner_obj or owner_obj.username != request.user.username:
+            from django.http import HttpResponseForbidden
+            return HttpResponseForbidden("Access Denied: You do not have permission to view analytics for this domain.")
 
     try:
         with open(paths.MYSQL_PASSWORD_FILE, 'r') as f:
@@ -8499,7 +8837,6 @@ def analytics(request):
         adminpassword = ''
 
     d = {}
-    d['adminpassword'] = adminpassword
     d['domain'] = domain_name
 
     # Domain object
@@ -8507,7 +8844,8 @@ def analytics(request):
     if not dom_obj:
         return redirect('/panel/')
 
-    d['username'] = dom_obj.username
+    usr_obj = user.objects.filter(domain=domain_name).first()
+    d['username'] = getattr(dom_obj, 'username', '') or (usr_obj.username if usr_obj else '')
     d['homedir'] = dom_obj.dir
     d['php_version'] = getattr(dom_obj, 'php', 'N/A')
     d['domain_status'] = getattr(dom_obj, 'status', True)
@@ -9721,38 +10059,32 @@ def autologin(request):
     except Exception:
         pass
 
-    if sso_valid:
-        # SSO validated — use portal-provided data as fallback
-        panel_username = sso_data.get('panel_username') or sso_data.get('username', '')
-        email          = sso_data.get('email', '')
+    if not sso_valid:
+        _log.warning('SSO validation failed or rejected for domain %s with token %s', domain, token[:8] if token else '')
+        from django.contrib import messages as dj_messages
+        dj_messages.error(request, 'This login link is invalid or has expired. Please log in from your client portal.')
+        return redirect('/')
 
-        if not resolved_user and panel_username:
-            resolved_user = AuthUser.objects.filter(username=panel_username).first()
-        if not resolved_user and email:
-            resolved_user = AuthUser.objects.filter(email=email).first()
-        if not resolved_user and panel_username:
-            resolved_user, _ = AuthUser.objects.get_or_create(
-                username=panel_username,
-                defaults={'email': email},
-            )
-    else:
-        # SSO failed (expired/network) — domain-based fallback.
-        # The user clicked a link on voidpanel.com which means the website
-        # already verified ownership. If the domain exists here, log them in.
-        if not resolved_user:
-            _log.warning('SSO fallback: token invalid for %s, no domain match found', domain)
-            from django.contrib import messages as dj_messages
-            dj_messages.error(request, 'This login link has expired. Please try again from your portal.')
-            return redirect('/')
+    # SSO successfully validated by portal website — resolve user
+    panel_username = sso_data.get('panel_username') or sso_data.get('username', '')
+    email          = sso_data.get('email', '')
 
-        _log.info('SSO fallback: token expired for %s but domain matched user %s', domain, resolved_user.username)
+    if not resolved_user and panel_username:
+        resolved_user = AuthUser.objects.filter(username=panel_username).first()
+    if not resolved_user and email:
+        resolved_user = AuthUser.objects.filter(email=email).first()
+    if not resolved_user and panel_username:
+        resolved_user, _ = AuthUser.objects.get_or_create(
+            username=panel_username,
+            defaults={'email': email},
+        )
 
     if not resolved_user:
         from django.contrib import messages as dj_messages
         dj_messages.error(request, 'Could not resolve your account. Please contact support.')
         return redirect('/')
 
-    # Log the user in
+    # Log the validated user in
     resolved_user.backend = 'django.contrib.auth.backends.ModelBackend'
     auth_login(request, resolved_user)
 

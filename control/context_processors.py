@@ -16,17 +16,18 @@ def reseller_context(request):
         is_reseller (bool)        — True when the logged-in user is an active reseller
         reseller_profile (obj)    — ResellerProfile instance, or None
     """
-    if not request.user.is_authenticated:
+    req_user = getattr(request, 'user', None)
+    if not req_user or not getattr(req_user, 'is_authenticated', False):
         return {'is_reseller': False, 'reseller_profile': None}
 
     # Super admins are never resellers — they have full access
-    if request.user.is_superuser:
+    if getattr(req_user, 'is_superuser', False):
         return {'is_reseller': False, 'reseller_profile': None}
 
     try:
         from control.models import ResellerProfile
         profile = ResellerProfile.objects.select_related('auth_user').get(
-            auth_user=request.user,
+            auth_user=req_user,
             is_active=True,
         )
         return {'is_reseller': True, 'reseller_profile': profile}

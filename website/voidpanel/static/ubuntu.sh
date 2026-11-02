@@ -15,7 +15,7 @@ exec > >(tee -i "$LOG_FILE") 2>&1
 print_header() {
     clear
     echo -e "${CYAN}=========================================================================="
-    echo "          VoidPanel Enterprise Installation Pipeline v2.5.37"
+    echo "          VoidPanel Enterprise Installation Pipeline v2.5.52"
     echo "=========================================================================="
     echo -e " Time: $(date)"
     echo -e " Logs: $LOG_FILE"
@@ -446,7 +446,7 @@ WorkingDirectory=${PROJECT_DIR}
 EnvironmentFile=${PROJECT_DIR}/.env
 Environment=PYTHONPATH=${PROJECT_DIR}
 Environment=DJANGO_SETTINGS_MODULE=panel.settings
-ExecStart=${VENV_DIR}/bin/daphne -b 0.0.0.0 -p 8081 panel.asgi:application
+ExecStart=${VENV_DIR}/bin/daphne -b 127.0.0.1 -p 8081 panel.asgi:application
 Restart=always
 RestartSec=5s
 
@@ -623,11 +623,11 @@ NGINXCONF
     # ── Version tracking file — must be writable by www-data (Django update process) ──
     # Without this, the update flow can't record the new version after applying an update.
     VFILE="/etc/version.txt"
-    echo "2.5.37" > "$VFILE"
+    echo "2.5.52" > "$VFILE"
     chown www-data:www-data "$VFILE"
     chmod 664 "$VFILE"
     # Also write to panel dir as a reliable fallback
-    echo "2.5.37" > "$PROJECT_DIR/version.txt"
+    echo "2.5.52" > "$PROJECT_DIR/version.txt"
     chown www-data:www-data "$PROJECT_DIR/version.txt"
 
 
@@ -997,7 +997,8 @@ EOF
 
     touch /etc/dovecot/users
     chown vmail:dovecot /etc/dovecot/users
-    chmod 640 /etc/dovecot/users
+    chmod 660 /etc/dovecot/users
+    usermod -aG dovecot www-data 2>/dev/null || true
 
     # Create voidemail wrapper script for API v2
     cat > /usr/bin/voidemail <<'EOF'
@@ -1856,7 +1857,7 @@ EOF
 #  MAIN
 # =============================================================================
 install_main_system() {
-    status_msg "VoidPanel v2.5.37 — Enterprise Installation Starting (Ubuntu 22.04)"
+    status_msg "VoidPanel v2.5.52 — Enterprise Installation Starting (Ubuntu 22.04)"
     panelsetup
     bindsetup
     quotasetup

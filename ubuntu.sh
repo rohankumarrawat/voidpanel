@@ -15,7 +15,7 @@ exec > >(tee -i "$LOG_FILE") 2>&1
 print_header() {
     clear
     echo -e "${CYAN}=========================================================================="
-    echo "          VoidPanel Enterprise Installation Pipeline v2.5.37"
+    echo "          VoidPanel Enterprise Installation Pipeline v2.5.52"
     echo "=========================================================================="
     echo -e " Time: $(date)"
     echo -e " Logs: $LOG_FILE"
@@ -375,6 +375,14 @@ module          = panel.wsgi:application
 home            = ${VENV_DIR}
 master          = true
 processes       = 4
+cheaper         = 2
+cheaper-initial = 2
+cheaper-step    = 1
+cheaper-algo    = spare
+max-requests    = 1000
+max-worker-lifetime = 3600
+reload-on-rss   = 256
+worker-reload-mercy = 30
 socket          = ${PROJECT_DIR}/panel.sock
 chmod-socket    = 660
 uid             = www-data
@@ -623,11 +631,11 @@ NGINXCONF
     # ── Version tracking file — must be writable by www-data (Django update process) ──
     # Without this, the update flow can't record the new version after applying an update.
     VFILE="/etc/version.txt"
-    echo "2.5.37" > "$VFILE"
+    echo "2.5.52" > "$VFILE"
     chown www-data:www-data "$VFILE"
     chmod 664 "$VFILE"
     # Also write to panel dir as a reliable fallback
-    echo "2.5.37" > "$PROJECT_DIR/version.txt"
+    echo "2.5.52" > "$PROJECT_DIR/version.txt"
     chown www-data:www-data "$PROJECT_DIR/version.txt"
 
 
@@ -1490,7 +1498,9 @@ NGINXCONF
         if [[ -z "$CURRENT_MEM" || "$CURRENT_MEM" -lt 512 ]]; then
             sed -i 's/^memory_limit = .*/memory_limit = 512M/' "$PHP_FPM_INI"
         fi
-        success_msg "PHP-FPM ini tuned: upload=256M post=256M exec=600s"
+        # Harden session upload progress to protect against CVE-2026-109618 / CVE-2026-109619
+        sed -i 's/^;\?session\.upload_progress\.enabled.*/session.upload_progress.enabled = Off/' "$PHP_FPM_INI"
+        success_msg "PHP-FPM ini tuned: upload=256M post=256M exec=600s (upload_progress hardened)"
     else
         warn_msg "PHP-FPM ini not found at $PHP_FPM_INI — skipping ini tuning"
     fi
@@ -1857,7 +1867,7 @@ EOF
 #  MAIN
 # =============================================================================
 install_main_system() {
-    status_msg "VoidPanel v2.5.37 — Enterprise Installation Starting (Ubuntu 22.04)"
+    status_msg "VoidPanel v2.5.52 — Enterprise Installation Starting (Ubuntu 22.04)"
     panelsetup
     bindsetup
     quotasetup

@@ -47,6 +47,53 @@ class StaticPlanWrapper:
             return (Decimal(str(qp)) / 3).quantize(Decimal('0.01'))
         return None
 
+    @property
+    def front_price(self):
+        val = self._data.get('front_price')
+        if val is not None:
+            return val
+        cp = self._data.get('cycle_pricing')
+        if cp and 'triennially' in cp:
+            return cp['triennially']
+        return self.monthly_price
+
+    @property
+    def front_discount_pct(self):
+        val = self._data.get('front_discount_pct')
+        if val is not None:
+            return val
+        fp = self.front_price
+        mp = self.monthly_price
+        if mp and fp and mp > 0:
+            return int(round((1 - (float(fp) / float(mp))) * 100))
+        return 0
+
+    @property
+    def cycle_pricing(self):
+        return self._data.get('cycle_pricing', {})
+
+    def get_cycle_rate(self, cycle):
+        cp = self.cycle_pricing
+        if cp and cycle in cp:
+            return Decimal(str(cp[cycle]))
+        # Normalize common cycle aliases
+        if cycle in ('yearly', 'annual') and 'annually' in cp:
+            return Decimal(str(cp['annually']))
+        if cycle in ('triennial', '3year', '3years') and 'triennially' in cp:
+            return Decimal(str(cp['triennially']))
+        if cycle in ('semi_annual', 'half_yearly', '6month', '6months') and 'semi_annually' in cp:
+            return Decimal(str(cp['semi_annually']))
+        mp = self.monthly_price or Decimal('149.00')
+        discounts = {
+            'triennially': Decimal('0.237'),
+            'annually': Decimal('0.398'),
+            'semi_annually': Decimal('0.598'),
+            'quarterly': Decimal('0.799'),
+            'monthly': Decimal('1.00'),
+        }
+        mult = discounts.get(cycle, Decimal('1.00'))
+        return (mp * mult).quantize(Decimal('1.00'))
+
     def get_ssl_type_display(self):
         stype = self._data.get('ssl_type')
         if stype == 'dv':
@@ -95,12 +142,21 @@ _STATIC_HOSTING_PACKAGES = {
         'package_type': 'shared',
         'name': 'Cloud Starter',
         'slug': 'cloud-starter',
-        'short_description': 'Launch your first website with high-speed NVMe SSD, free Let\'s Encrypt SSL, and full VoidPanel control.',
+        'short_description': 'Launch your first website with high-speed NVMe SSD, free Lifetime SSL, and full VoidPanel control.',
         'storage_gb': 10,
         'ram_gb': 1,
         'cpu_cores': 1,
         'bandwidth_label': 'Unmetered',
-        'monthly_price': Decimal('149.00'),
+        'monthly_price': Decimal('249.00'),
+        'front_price': Decimal('69.00'),
+        'front_discount_pct': 72,
+        'cycle_pricing': {
+            'triennially': Decimal('69.00'),
+            'annually': Decimal('99.00'),
+            'semi_annually': Decimal('149.00'),
+            'quarterly': Decimal('199.00'),
+            'monthly': Decimal('249.00'),
+        },
         'is_featured': False,
         'is_active': True,
         'sort_order': 1,
@@ -121,7 +177,16 @@ _STATIC_HOSTING_PACKAGES = {
         'ram_gb': 2,
         'cpu_cores': 2,
         'bandwidth_label': 'Unmetered',
-        'monthly_price': Decimal('299.00'),
+        'monthly_price': Decimal('499.00'),
+        'front_price': Decimal('139.00'),
+        'front_discount_pct': 72,
+        'cycle_pricing': {
+            'triennially': Decimal('139.00'),
+            'annually': Decimal('199.00'),
+            'semi_annually': Decimal('299.00'),
+            'quarterly': Decimal('399.00'),
+            'monthly': Decimal('499.00'),
+        },
         'is_featured': True,
         'is_active': True,
         'sort_order': 2,
@@ -138,11 +203,20 @@ _STATIC_HOSTING_PACKAGES = {
         'name': 'Cloud Business',
         'slug': 'cloud-business',
         'short_description': 'High-performance cloud infrastructure for agencies, e-commerce stores, and high-traffic websites.',
-        'storage_gb': 100,
+        'storage_gb': 50,
         'ram_gb': 4,
         'cpu_cores': 4,
         'bandwidth_label': 'Unmetered',
-        'monthly_price': Decimal('599.00'),
+        'monthly_price': Decimal('999.00'),
+        'front_price': Decimal('279.00'),
+        'front_discount_pct': 72,
+        'cycle_pricing': {
+            'triennially': Decimal('279.00'),
+            'annually': Decimal('399.00'),
+            'semi_annually': Decimal('599.00'),
+            'quarterly': Decimal('799.00'),
+            'monthly': Decimal('999.00'),
+        },
         'is_featured': False,
         'is_active': True,
         'sort_order': 3,
@@ -164,7 +238,16 @@ _STATIC_HOSTING_PACKAGES = {
         'ram_gb': 1,
         'cpu_cores': 1,
         'bandwidth_label': 'Unmetered',
-        'monthly_price': Decimal('199.00'),
+        'monthly_price': Decimal('299.00'),
+        'front_price': Decimal('69.00'),
+        'front_discount_pct': 77,
+        'cycle_pricing': {
+            'triennially': Decimal('69.00'),
+            'annually': Decimal('119.00'),
+            'semi_annually': Decimal('179.00'),
+            'quarterly': Decimal('239.00'),
+            'monthly': Decimal('299.00'),
+        },
         'is_featured': False,
         'is_active': True,
         'sort_order': 4,
@@ -185,7 +268,16 @@ _STATIC_HOSTING_PACKAGES = {
         'ram_gb': 2,
         'cpu_cores': 2,
         'bandwidth_label': 'Unmetered',
-        'monthly_price': Decimal('399.00'),
+        'monthly_price': Decimal('599.00'),
+        'front_price': Decimal('149.00'),
+        'front_discount_pct': 75,
+        'cycle_pricing': {
+            'triennially': Decimal('149.00'),
+            'annually': Decimal('239.00'),
+            'semi_annually': Decimal('359.00'),
+            'quarterly': Decimal('479.00'),
+            'monthly': Decimal('599.00'),
+        },
         'is_featured': True,
         'is_active': True,
         'sort_order': 5,
@@ -206,7 +298,16 @@ _STATIC_HOSTING_PACKAGES = {
         'ram_gb': 6,
         'cpu_cores': 4,
         'bandwidth_label': 'Unmetered',
-        'monthly_price': Decimal('799.00'),
+        'monthly_price': Decimal('1199.00'),
+        'front_price': Decimal('299.00'),
+        'front_discount_pct': 75,
+        'cycle_pricing': {
+            'triennially': Decimal('299.00'),
+            'annually': Decimal('479.00'),
+            'semi_annually': Decimal('719.00'),
+            'quarterly': Decimal('959.00'),
+            'monthly': Decimal('1199.00'),
+        },
         'is_featured': False,
         'is_active': True,
         'sort_order': 6,
@@ -228,7 +329,16 @@ _STATIC_HOSTING_PACKAGES = {
         'ram_gb': 4,
         'cpu_cores': 2,
         'bandwidth_label': 'Unmetered',
-        'monthly_price': Decimal('999.00'),
+        'monthly_price': Decimal('1299.00'),
+        'front_price': Decimal('399.00'),
+        'front_discount_pct': 69,
+        'cycle_pricing': {
+            'triennially': Decimal('399.00'),
+            'annually': Decimal('599.00'),
+            'semi_annually': Decimal('899.00'),
+            'quarterly': Decimal('1099.00'),
+            'monthly': Decimal('1299.00'),
+        },
         'is_featured': False,
         'is_active': True,
         'sort_order': 7,
@@ -249,7 +359,16 @@ _STATIC_HOSTING_PACKAGES = {
         'ram_gb': 8,
         'cpu_cores': 4,
         'bandwidth_label': 'Unmetered',
-        'monthly_price': Decimal('1999.00'),
+        'monthly_price': Decimal('2499.00'),
+        'front_price': Decimal('799.00'),
+        'front_discount_pct': 68,
+        'cycle_pricing': {
+            'triennially': Decimal('799.00'),
+            'annually': Decimal('1199.00'),
+            'semi_annually': Decimal('1699.00'),
+            'quarterly': Decimal('2099.00'),
+            'monthly': Decimal('2499.00'),
+        },
         'is_featured': True,
         'is_active': True,
         'sort_order': 8,
@@ -265,12 +384,21 @@ _STATIC_HOSTING_PACKAGES = {
         'package_type': 'reseller',
         'name': 'Reseller Cloud Enterprise',
         'slug': 'reseller-cloud-enterprise',
-        'short_description': 'Unlimited client accounts, top-tier compute resources, and 100% white-label VoidPanel platform branding.',
-        'storage_gb': 500,
+        'short_description': 'Top-tier infrastructure supporting up to 200 client accounts with uncompromised isolated cloud power.',
+        'storage_gb': 300,
         'ram_gb': 16,
         'cpu_cores': 8,
         'bandwidth_label': 'Unmetered',
-        'monthly_price': Decimal('3999.00'),
+        'monthly_price': Decimal('4999.00'),
+        'front_price': Decimal('1499.00'),
+        'front_discount_pct': 70,
+        'cycle_pricing': {
+            'triennially': Decimal('1499.00'),
+            'annually': Decimal('2399.00'),
+            'semi_annually': Decimal('3399.00'),
+            'quarterly': Decimal('4199.00'),
+            'monthly': Decimal('4999.00'),
+        },
         'is_featured': False,
         'is_active': True,
         'sort_order': 9,
@@ -374,7 +502,16 @@ def get_static_email_plan(plan_id):
             'slug': 'email-cloud-starter',
             'max_mailboxes': 5,
             'storage_per_mailbox_gb': 5,
-            'monthly_price': Decimal('99.00'),
+            'monthly_price': Decimal('49.00'),
+            'front_price': Decimal('12.00'),
+            'front_discount_pct': 76,
+            'cycle_pricing': {
+                'triennially': Decimal('12.00'),
+                'annually': Decimal('19.00'),
+                'semi_annually': Decimal('29.00'),
+                'quarterly': Decimal('39.00'),
+                'monthly': Decimal('49.00'),
+            },
             'is_featured': False,
             'is_active': True,
             'short_description': 'Ideal for freelancers and small teams needing professional domain email.',
@@ -386,7 +523,16 @@ def get_static_email_plan(plan_id):
             'slug': 'email-cloud-pro',
             'max_mailboxes': 20,
             'storage_per_mailbox_gb': 10,
-            'monthly_price': Decimal('299.00'),
+            'monthly_price': Decimal('99.00'),
+            'front_price': Decimal('24.00'),
+            'front_discount_pct': 76,
+            'cycle_pricing': {
+                'triennially': Decimal('24.00'),
+                'annually': Decimal('39.00'),
+                'semi_annually': Decimal('59.00'),
+                'quarterly': Decimal('79.00'),
+                'monthly': Decimal('99.00'),
+            },
             'is_featured': True,
             'is_active': True,
             'short_description': 'Perfect for growing companies needing high quotas and spam protection.',
@@ -398,7 +544,16 @@ def get_static_email_plan(plan_id):
             'slug': 'email-cloud-enterprise',
             'max_mailboxes': 100,
             'storage_per_mailbox_gb': 25,
-            'monthly_price': Decimal('999.00'),
+            'monthly_price': Decimal('199.00'),
+            'front_price': Decimal('49.00'),
+            'front_discount_pct': 75,
+            'cycle_pricing': {
+                'triennially': Decimal('49.00'),
+                'annually': Decimal('79.00'),
+                'semi_annually': Decimal('119.00'),
+                'quarterly': Decimal('159.00'),
+                'monthly': Decimal('199.00'),
+            },
             'is_featured': False,
             'is_active': True,
             'short_description': 'Dedicated scalability, advanced routing, and enterprise storage pools.',
@@ -600,8 +755,8 @@ def get_static_social_plan(plan_id):
             'monthly_price': Decimal('199.00'),
             'yearly_price': Decimal('1990.00'),
             'effective_yearly_price': Decimal('1990.00'),
-            'max_accounts': 3,
-            'max_scheduled_posts_per_month': 30,
+            'max_accounts': 2,
+            'max_scheduled_posts_per_month': 10,
             'max_ai_captions_per_month': 5,
             'max_team_members': 1,
             'media_storage_gb': 1,
@@ -614,7 +769,7 @@ def get_static_social_plan(plan_id):
             'has_calendar_view': True,
             'has_bulk_schedule': False,
             'has_link_shortener': False,
-            'short_description': 'Manage up to 3 core accounts with calendar scheduling.',
+            'short_description': 'Manage up to 2 core accounts with 10 scheduled posts/month.',
         },
         2: {
             'id': 2,
@@ -684,12 +839,12 @@ def get_static_marketing_plan(plan_id):
             'slug': 'starter-marketing',
             'monthly_price': Decimal('299.00'),
             'effective_yearly_price': Decimal('2990.00'),
-            'max_leads': 500,
-            'max_emails_per_month': 5000,
+            'max_leads': 100,
+            'max_emails_per_month': 1000,
             'max_ai_copies_per_month': 10,
             'has_ab_testing': False,
             'has_whatsapp_automation': False,
-            'short_description': 'Perfect for small lists and beginning marketers.',
+            'short_description': 'Perfect for up to 100 customers/contacts.',
         },
         2: {
             'id': 2,
@@ -819,6 +974,8 @@ class CustomerProfile(models.Model):
     portal_role = models.CharField(max_length=40, default='Account Owner')
     balance_funds = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), null=False)
     balance_chips = models.IntegerField(default=0, null=False)
+    is_email_verified = models.BooleanField(default=True)
+    email_otp = models.CharField(max_length=10, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -834,7 +991,9 @@ class HostingService(models.Model):
     BILLING_CHOICES = [
         ('monthly', 'Monthly'),
         ('quarterly', 'Quarterly'),
-        ('annually', 'Annually'),
+        ('semi_annually', '6 Months'),
+        ('annually', '1 Year'),
+        ('triennially', '3 Years'),
     ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='hosting_services')
@@ -984,8 +1143,43 @@ class Invoice(models.Model):
     class Meta:
         ordering = ['due_date', '-created_at']
 
+    GST_NUMBER = "07ABCFV6322K1ZZ"
+    GST_RATE = 18
+
     def __str__(self):
         return self.invoice_number
+
+    @property
+    def gst_number(self):
+        return self.GST_NUMBER
+
+    @property
+    def gst_rate(self):
+        return self.GST_RATE
+
+    @property
+    def subtotal(self):
+        """Returns base amount before 18% GST."""
+        from decimal import Decimal
+        return (self.total / Decimal('1.18')).quantize(Decimal('0.01'))
+
+    @property
+    def gst_amount(self):
+        """Returns 18% GST amount."""
+        from decimal import Decimal
+        return (self.total - self.subtotal).quantize(Decimal('0.01'))
+
+    @property
+    def cgst_amount(self):
+        """Returns 9% CGST amount."""
+        from decimal import Decimal
+        return (self.gst_amount / Decimal('2.0')).quantize(Decimal('0.01'))
+
+    @property
+    def sgst_amount(self):
+        """Returns 9% SGST amount."""
+        from decimal import Decimal
+        return (self.gst_amount - self.cgst_amount).quantize(Decimal('0.01'))
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
@@ -2865,6 +3059,17 @@ class SocialPlatformSettings(models.Model):
     gbusiness_enabled      = models.BooleanField(default=False)
     gbusiness_auth_mode    = models.CharField(max_length=10, default='admin', choices=[('admin','Admin Master Key'),('user','User Custom Key')])
 
+    # ── AI Content Generation Settings ───────────────────────────────────────
+    ai_text_enabled        = models.BooleanField(default=True, help_text='Enable AI text generation (captions, repurpose)')
+    ai_image_enabled       = models.BooleanField(default=True, help_text='Enable AI image generation (HuggingFace)')
+    ai_text_chips_cost     = models.PositiveIntegerField(default=5, help_text='Chips deducted per AI text request')
+    ai_image_chips_cost    = models.PositiveIntegerField(default=15, help_text='Chips deducted per AI image request')
+    ai_max_requests_per_day = models.PositiveIntegerField(default=50, help_text='Max AI requests per user per day (0=unlimited)')
+    hf_image_model         = models.CharField(max_length=200, default='stabilityai/stable-diffusion-xl-base-1.0',
+                                              help_text='HuggingFace model ID for image generation')
+    hf_image_api_key       = models.CharField(max_length=255, blank=True,
+                                              help_text='HuggingFace API key for image gen (leave blank to use global AI key)')
+
     updated_at             = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -2909,6 +3114,35 @@ class SocialPlatformSettings(models.Model):
         """Platforms enabled AND configured to use Admin Master Key for 1-Click login."""
         modes = self.auth_modes_dict()
         return [p for p in self.enabled_platform_list() if modes.get(p) == 'admin']
+
+    def get_ai_config_dict(self):
+        """Return AI config as a JSON-serializable dict for API responses."""
+        return {
+            'ai_text_enabled': self.ai_text_enabled,
+            'ai_image_enabled': self.ai_image_enabled,
+            'ai_text_chips_cost': self.ai_text_chips_cost,
+            'ai_image_chips_cost': self.ai_image_chips_cost,
+            'ai_max_requests_per_day': self.ai_max_requests_per_day,
+            'hf_image_model': self.hf_image_model,
+        }
+
+
+class SocialAIChipTransaction(models.Model):
+    """Audit log for every Social AI chip deduction."""
+    user            = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='social_ai_transactions')
+    request_type    = models.CharField(max_length=20, choices=[('text', 'Text Generation'), ('image', 'Image Generation')])
+    chips_deducted  = models.PositiveIntegerField()
+    balance_after   = models.IntegerField()
+    prompt_summary  = models.CharField(max_length=200, blank=True)
+    created_at      = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name        = 'Social AI Chip Transaction'
+        verbose_name_plural = 'Social AI Chip Transactions'
+        ordering            = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username} −{self.chips_deducted} chips ({self.request_type}) @ {self.created_at:%Y-%m-%d %H:%M}"
 
 
 class OAuthRelayState(models.Model):
@@ -4180,3 +4414,139 @@ class VoidMailAIWhitelistDomain(models.Model):
 
     def __str__(self):
         return f"{self.domain} ({'active' if self.is_active else 'inactive'})"
+
+
+class VoidMailAppLogin(models.Model):
+    """
+    Tracks every VoidMail app login for analytics.
+    Records which email logged in, when, from what device/platform.
+    """
+    email = models.CharField(max_length=255, db_index=True, help_text="Email address that logged in")
+    domain = models.CharField(max_length=255, db_index=True, help_text="Domain of the email")
+    platform = models.CharField(max_length=30, default='android', help_text="Device platform (android/ios/web)")
+    device_name = models.CharField(max_length=200, blank=True, default='', help_text="Device description")
+    ip_address = models.GenericIPAddressField(null=True, blank=True, help_text="Client IP at login")
+    login_method = models.CharField(max_length=50, default='voidpanel', help_text="Login method (voidpanel/custom_imap)")
+    logged_in_at = models.DateTimeField(auto_now_add=True, help_text="Timestamp of the login")
+
+    class Meta:
+        verbose_name = 'VoidMail App Login'
+        verbose_name_plural = 'VoidMail App Logins'
+        ordering = ['-logged_in_at']
+        indexes = [
+            models.Index(fields=['email', '-logged_in_at']),
+            models.Index(fields=['domain']),
+            models.Index(fields=['-logged_in_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.email} — {self.logged_in_at.strftime('%Y-%m-%d %H:%M') if self.logged_in_at else 'pending'}"
+
+
+# ==============================================================================
+# VOIDONYX INSTANT DEPLOYMENT PLATFORM (VERCEL-LIKE) MODELS
+# ==============================================================================
+
+class DeploymentProject(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='deployments', help_text="Associated user if authenticated"
+    )
+    guest_session_id = models.CharField(
+        max_length=100, blank=True, null=True, db_index=True,
+        help_text="Session identifier for frictionless guest deployments"
+    )
+    name = models.CharField(max_length=100, help_text="Project display name")
+    subdomain = models.CharField(
+        max_length=100, unique=True, db_index=True,
+        help_text="Assigned subdomain slug, e.g., 'portfolio'"
+    )
+    full_domain = models.CharField(
+        max_length=150, unique=True,
+        help_text="Full FQDN, e.g., 'portfolio.voidonyx.com'"
+    )
+    framework = models.CharField(
+        max_length=50, default='react_vite',
+        choices=[
+            ('react_vite', 'React (Vite)'),
+            ('nextjs_static', 'Next.js (Static Export)'),
+            ('vue', 'Vue.js'),
+            ('html_static', 'Static HTML / JS'),
+            ('django', 'Python (Django)'),
+            ('node_backend', 'Node.js (API/Express)'),
+            ('auto', 'Auto Detect'),
+        ]
+    )
+    source_type = models.CharField(
+        max_length=20, default='git',
+        choices=[('git', 'Git Repository'), ('zip', 'ZIP Upload'), ('template', 'Starter Template')]
+    )
+    git_repo = models.URLField(max_length=255, blank=True, null=True)
+    git_branch = models.CharField(max_length=50, default='main')
+    root_directory = models.CharField(max_length=100, default='/')
+    install_command = models.CharField(max_length=255, blank=True, default='')
+    build_command = models.CharField(max_length=255, blank=True, default='')
+    start_command = models.CharField(max_length=255, blank=True, default='')
+    output_directory = models.CharField(max_length=100, default='dist')
+    backend_port = models.IntegerField(null=True, blank=True)
+    has_backend = models.BooleanField(default=False)
+
+    status = models.CharField(
+        max_length=20, default='ready',
+        choices=[('queued', 'Queued'), ('building', 'Building'), ('live', 'Live'), ('failed', 'Failed')]
+    )
+    active_build_id = models.IntegerField(null=True, blank=True)
+    total_deploys = models.IntegerField(default=1)
+    disk_usage_mb = models.FloatField(default=0.0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'data_deploymentproject'
+        verbose_name = 'Deployment Project'
+        verbose_name_plural = 'Deployment Projects'
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"{self.name} ({self.full_domain})"
+
+
+class DeploymentBuild(models.Model):
+    project = models.ForeignKey(
+        DeploymentProject, on_delete=models.CASCADE,
+        related_name='builds'
+    )
+    build_number = models.IntegerField(default=1)
+    status = models.CharField(
+        max_length=20, default='queued',
+        choices=[('queued', 'Queued'), ('building', 'Building'), ('success', 'Success'), ('failed', 'Failed')]
+    )
+    build_logs = models.TextField(blank=True)
+    error_message = models.TextField(blank=True)
+    duration_seconds = models.FloatField(default=0.0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'data_deploymentbuild'
+        verbose_name = 'Deployment Build'
+        verbose_name_plural = 'Deployment Builds'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.project.subdomain} - Build #{self.build_number} ({self.status})"
+
+
+class DeploymentEnvVar(models.Model):
+    project = models.ForeignKey(
+        DeploymentProject, on_delete=models.CASCADE,
+        related_name='env_vars'
+    )
+    key = models.CharField(max_length=100)
+    value = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'data_deploymentenvvar'
+        verbose_name = 'Deployment Environment Variable'
+        verbose_name_plural = 'Deployment Environment Variables'
+        unique_together = ('project', 'key')

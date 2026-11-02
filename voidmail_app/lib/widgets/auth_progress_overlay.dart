@@ -33,11 +33,13 @@ class AuthStepInfo {
 class AuthProgressOverlay extends StatefulWidget {
   final VoidCallback? onDismiss;
   final VoidCallback? onRetry;
+  final VoidCallback? onDemoMode;
 
   const AuthProgressOverlay({
     super.key,
     this.onDismiss,
     this.onRetry,
+    this.onDemoMode,
   });
 
   @override
@@ -176,14 +178,14 @@ class AuthProgressOverlayState extends State<AuthProgressOverlay>
             margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF16122E) : Colors.white,
+              color: isDark ? const Color(0xFF1C140D) : Colors.white,
               borderRadius: BorderRadius.circular(28),
               border: Border.all(
-                color: isDark ? const Color(0xFF2C2554) : const Color(0xFFEFEFF6),
+                color: isDark ? const Color(0xFF2E1F14) : const Color(0xFFFED7AA).withValues(alpha: 0.5),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF6C5CE7).withValues(alpha: 0.12),
+                  color: const Color(0xFFFF7A00).withValues(alpha: 0.15),
                   blurRadius: 40,
                   offset: const Offset(0, 12),
                 ),
@@ -260,7 +262,7 @@ class AuthProgressOverlayState extends State<AuthProgressOverlay>
       iconData = Icons.error_rounded;
       iconColor = Colors.white;
     } else {
-      iconBg = const Color(0xFF6C5CE7);
+      iconBg = const Color(0xFFFF7A00);
       iconData = Icons.shield_rounded;
       iconColor = Colors.white;
     }
@@ -311,7 +313,7 @@ class AuthProgressOverlayState extends State<AuthProgressOverlay>
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: isActive
-                ? const Color(0xFF6C5CE7).withValues(alpha: isDark ? 0.15 : 0.08)
+                ? const Color(0xFFFF7A00).withValues(alpha: isDark ? 0.18 : 0.1)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
@@ -326,10 +328,11 @@ class AuthProgressOverlayState extends State<AuthProgressOverlay>
                   color: isDone
                       ? const Color(0xFF10B981)
                       : isActive
-                          ? const Color(0xFF6C5CE7)
-                          : (isDark ? const Color(0xFF2C2554) : const Color(0xFFE5E7EB)),
+                          ? const Color(0xFFFF7A00)
+                          : (isDark ? const Color(0xFF2E1F14) : const Color(0xFFE5E7EB)),
                   borderRadius: BorderRadius.circular(8),
                 ),
+
                 child: isDone
                     ? const Icon(Icons.check_rounded, size: 15, color: Colors.white)
                     : isActive
@@ -514,7 +517,7 @@ class AuthProgressOverlayState extends State<AuthProgressOverlay>
               child: Container(
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF6C5CE7), Color(0xFF8C7CFF)],
+                    colors: [Color(0xFFFF7A00), Color(0xFFFF9E3B)],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -532,8 +535,28 @@ class AuthProgressOverlayState extends State<AuthProgressOverlay>
                 ),
               ),
             ),
+
           ],
         ),
+        if (widget.onDemoMode != null) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: widget.onDemoMode,
+              icon: const Icon(Icons.explore_rounded, size: 16, color: Colors.white),
+              label: Text(
+                'Explore with Demo Account',
+                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

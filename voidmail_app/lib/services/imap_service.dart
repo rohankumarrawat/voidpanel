@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:enough_mail/enough_mail.dart';
 import '../models/email_item.dart';
 import '../models/folder.dart';
+import 'link_launcher_helper.dart';
 
 class ImapService {
   static String _unescapeHtmlEntities(String text) {
@@ -41,6 +42,11 @@ class ImapService {
     return fallbackSubject;
   }
 
+  /// Escape characters (double quotes and backslashes) for IMAP quoted strings in enough_mail
+  static String _escapeImapString(String str) {
+    return str.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
+  }
+
   static Future<List<EmailItem>> fetchEmails({
     required String host,
     required int port,
@@ -52,11 +58,15 @@ class ImapService {
   }) async {
     final domain = username.contains('@') ? username.split('@')[1] : '';
 
-    final candidateHosts = <String>[host];
+    final candidateHosts = <String>[];
+    if (domain == 'voidonyx.com' || domain == 'voidonyx.in' || domain == 'voidpanel.com') {
+      candidateHosts.add('fast.voidpanel.com');
+    }
+    if (!candidateHosts.contains(host)) candidateHosts.add(host);
     if (domain.isNotEmpty) {
+      if (!candidateHosts.contains('fast.voidpanel.com')) candidateHosts.add('fast.voidpanel.com');
       if (!candidateHosts.contains('mail.$domain')) candidateHosts.add('mail.$domain');
       if (!candidateHosts.contains(domain)) candidateHosts.add(domain);
-      if (!candidateHosts.contains('fast.voidpanel.com')) candidateHosts.add('fast.voidpanel.com');
       if (!candidateHosts.contains('mail.voidonyx.com')) candidateHosts.add('mail.voidonyx.com');
       if (!candidateHosts.contains('mail.voidonyx.in')) candidateHosts.add('mail.voidonyx.in');
     }
@@ -79,7 +89,7 @@ class ImapService {
       final client = ImapClient(isLogEnabled: false);
       try {
         await client.connectToServer(tryHost, tryPort, isSecure: trySsl).timeout(
-          const Duration(seconds: 3),
+          const Duration(milliseconds: 2500),
         );
 
         if (!trySsl) {
@@ -88,7 +98,9 @@ class ImapService {
           } catch (_) {}
         }
 
-        await client.login(username, password);
+        // Escape double quotes and backslashes in credentials for IMAP LOGIN command
+        await client.login(_escapeImapString(username), _escapeImapString(password));
+
 
         String folderName = 'INBOX';
         if (folderType == FolderType.sent) {
@@ -107,6 +119,7 @@ class ImapService {
 
         // Try the primary folder name, then common alternates
         bool folderOpened = false;
+        Mailbox? selectedMailbox;
         final alternatePaths = <String>[];
         if (folderType == FolderType.sent) {
           alternatePaths.addAll(['Sent', 'Sent Messages', 'Sent Items', 'INBOX.Sent']);
@@ -126,9 +139,9 @@ class ImapService {
 
         for (final path in alternatePaths) {
           try {
-            await client.selectMailboxByPath(path);
+            selectedMailbox = await client.selectMailboxByPath(path);
             folderOpened = true;
-            debugPrint('[IMAP] Opened folder: $path');
+            debugPrint('[IMAP] Opened folder: $path (messages: ${selectedMailbox.messagesExists})');
             break;
           } catch (_) {
             continue;
@@ -137,8 +150,16 @@ class ImapService {
 
         // If no matching folder was found, return empty list instead of
         // falling back to INBOX (which causes inbox emails to show as sent)
-        if (!folderOpened) {
+        if (!folderOpened || selectedMailbox == null) {
           debugPrint('[IMAP] Folder "$folderName" not found on server — returning empty');
+          try { await client.logout(); } catch (_) { client.disconnect(); }
+          return [];
+        }
+
+        // If the mailbox is empty (0 EXISTS on server), do NOT call fetchRecentMessages
+        // which sends FETCH 1:0 causing Dovecot to throw 'BAD Invalid messageset'
+        if (selectedMailbox.messagesExists == 0) {
+          debugPrint('[IMAP] Mailbox "$folderName" has 0 messages — returning empty list safely');
           try { await client.logout(); } catch (_) { client.disconnect(); }
           return [];
         }
@@ -160,7 +181,7 @@ class ImapService {
           // Extract actual recipient from To: header
           final toList = message.to;
           final recipientEmail = (toList != null && toList.isNotEmpty)
-              ? toList.map((addr) => addr.email).where((e) => e != null && e.isNotEmpty).join(', ')
+              ? toList.map((addr) => addr.email).where((e) => e.isNotEmpty).join(', ')
               : username;
 
           final subject = message.decodeSubject() ?? '(No Subject)';
@@ -225,6 +246,7 @@ class ImapService {
     required String recipientEmail,
     required String subject,
     required String body,
+    String? fromSender,
   }) async {
     final domain = username.contains('@') ? username.split('@')[1] : '';
 
@@ -276,11 +298,14 @@ class ImapService {
           continue;
         }
 
-        final builder = MessageBuilder.prepareMultipartAlternativeMessage();
-        builder.from = [MailAddress(username, username)];
+        final senderAddress = (fromSender != null && fromSender.trim().isNotEmpty) ? fromSender.trim() : username;
+        final builder = MessageBuilder.prepareMultipartAlternativeMessage(
+          plainText: body,
+          htmlText: LinkLauncherHelper.convertPlainTextToHtml(body),
+        );
+        builder.from = [MailAddress(senderAddress, senderAddress)];
         builder.to = [MailAddress('', recipientEmail)];
         builder.subject = subject.isEmpty ? '(No Subject)' : subject;
-        builder.text = body;
 
         final mimeMessage = builder.buildMimeMessage();
         bool sendOk = false;
@@ -301,9 +326,10 @@ class ImapService {
         if (sendOk) {
           return {
             'success': true,
-            'message': 'Sent via $tryHost',
+            'message': 'Sent via $tryHost: $responseMsg',
           };
         }
+
       } catch (e) {
         lastException = e;
         try {
@@ -341,21 +367,24 @@ class ImapService {
       final client = ImapClient(isLogEnabled: false);
       try {
         await client.connectToServer(tryHost, port, isSecure: isSsl).timeout(
-          const Duration(seconds: 3),
+          const Duration(seconds: 8),
         );
         if (!isSsl) {
           try { await client.startTls(); } catch (_) {}
         }
-        await client.login(username, password);
+        await client.login(_escapeImapString(username), _escapeImapString(password));
+
 
         final alternatePaths = ['Sent', 'Sent Messages', 'Sent Items', 'INBOX.Sent'];
         for (final path in alternatePaths) {
           try {
-            final builder = MessageBuilder.prepareMultipartAlternativeMessage();
+            final builder = MessageBuilder.prepareMultipartAlternativeMessage(
+              plainText: body,
+              htmlText: LinkLauncherHelper.convertPlainTextToHtml(body),
+            );
             builder.from = [MailAddress(username, username)];
             builder.to = [MailAddress('', recipientEmail)];
             builder.subject = subject.isEmpty ? '(No Subject)' : subject;
-            builder.text = body;
             final mimeMessage = builder.buildMimeMessage();
 
             await client.appendMessage(mimeMessage, targetMailboxPath: path);

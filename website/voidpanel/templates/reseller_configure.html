@@ -71,25 +71,26 @@
         .field .hint { color: var(--text-muted); font-size: .75rem; line-height: 1.55; }
         .field .hint code { background: rgba(168,85,247,.08); padding: 1px 5px; border-radius: 4px; font-size: .73rem; color: #7e22ce; }
 
-        .cycle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .cycle-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
         .cycle-opt { position: relative; }
         .cycle-opt input[type=radio] { position: absolute; opacity: 0; }
         .cycle-opt label {
             display: flex; flex-direction: column; gap: 4px;
-            padding: 14px 16px; border-radius: 14px;
+            padding: 12px 14px; border-radius: 14px;
             border: 1px solid var(--border-subtle);
             background: #ffffff;
             cursor: pointer; transition: all .2s;
         }
         .cycle-opt input[type=radio]:checked + label {
-            border-color: rgba(168,85,247,.45);
+            border-color: #a855f7;
             background: rgba(168,85,247,.08);
+            box-shadow: 0 0 0 2px rgba(168,85,247,0.2);
         }
         .cycle-opt label strong { color: var(--text-primary); font-size: .88rem; }
         .cycle-opt label span   { color: var(--text-muted);   font-size: .76rem; }
         .cycle-badge {
-            display: inline-block; padding: 2px 8px; border-radius: 999px;
-            background: rgba(22,163,74,.08); color: #16a34a; font-size: .7rem; font-weight: 700;
+            display: inline-block; padding: 2px 7px; border-radius: 999px;
+            background: rgba(22,163,74,.1); color: #16a34a; font-size: .68rem; font-weight: 700;
         }
 
         .btn-primary {
@@ -195,17 +196,38 @@
             <label><i class="fas fa-calendar" style="color:#a855f7;margin-right:5px;"></i> Billing Cycle</label>
             <div class="cycle-grid">
               <div class="cycle-opt">
-                <input type="radio" name="cycle" id="cycle_monthly" value="monthly" checked>
-                <label for="cycle_monthly">
-                  <strong>Monthly</strong>
-                  <span>Pay month-to-month</span>
+                <input type="radio" name="cycle" id="cycle_triennially" value="triennially" checked>
+                <label for="cycle_triennially">
+                  <strong>3 Years</strong>
+                  <span><span class="cycle-badge">Save {{ pkg.front_discount_pct|default:"69" }}%</span> ₹<span class="cycle-rate-disp" data-cycle="triennially">{{ pkg.cycle_pricing.triennially|default:"399" }}</span>/mo</span>
                 </label>
               </div>
               <div class="cycle-opt">
-                <input type="radio" name="cycle" id="cycle_yearly" value="yearly">
-                <label for="cycle_yearly">
-                  <strong>Annual</strong>
-                  <span><span class="cycle-badge">Save 15%</span> Pay yearly</span>
+                <input type="radio" name="cycle" id="cycle_annually" value="annually">
+                <label for="cycle_annually">
+                  <strong>1 Year</strong>
+                  <span><span class="cycle-badge">Popular</span> ₹<span class="cycle-rate-disp" data-cycle="annually">{{ pkg.cycle_pricing.annually|default:"599" }}</span>/mo</span>
+                </label>
+              </div>
+              <div class="cycle-opt">
+                <input type="radio" name="cycle" id="cycle_semi_annually" value="semi_annually">
+                <label for="cycle_semi_annually">
+                  <strong>6 Months</strong>
+                  <span>₹<span class="cycle-rate-disp" data-cycle="semi_annually">{{ pkg.cycle_pricing.semi_annually|default:"899" }}</span>/mo</span>
+                </label>
+              </div>
+              <div class="cycle-opt">
+                <input type="radio" name="cycle" id="cycle_quarterly" value="quarterly">
+                <label for="cycle_quarterly">
+                  <strong>Quarterly</strong>
+                  <span>₹<span class="cycle-rate-disp" data-cycle="quarterly">{{ pkg.cycle_pricing.quarterly|default:"1099" }}</span>/mo</span>
+                </label>
+              </div>
+              <div class="cycle-opt">
+                <input type="radio" name="cycle" id="cycle_monthly" value="monthly">
+                <label for="cycle_monthly">
+                  <strong>Monthly</strong>
+                  <span>₹<span class="cycle-rate-disp" data-cycle="monthly">{{ pkg.cycle_pricing.monthly|default:pkg.monthly_price|default:"1299" }}</span>/mo</span>
                 </label>
               </div>
             </div>
@@ -226,8 +248,8 @@
           <p style="color:var(--text-muted);font-size:.8rem;margin:4px 0 0;">{{ pkg.short_description }}</p>
         </div>
         <div>
-          <div class="price-big">₹{{ pkg.monthly_price }}</div>
-          <div class="price-cycle">per month (billed as selected)</div>
+          <div class="price-big" id="summaryRate">₹{{ pkg.front_price|default:pkg.monthly_price }}<span style="font-size:0.9rem;font-weight:500;color:var(--text-muted);">/mo</span></div>
+          <div class="price-cycle" id="summaryCycle">Billed upfront: <strong id="summaryTotal" style="color:var(--text-primary);">₹0</strong> for <span id="summaryTerm">3 Years</span></div>
         </div>
         <div>
           <div class="spec-row"><span><i class="fas fa-hard-drive" style="color:#a855f7;margin-right:7px;"></i> Storage Pool</span><strong>{{ pkg.storage_gb }} GB</strong></div>
@@ -270,6 +292,37 @@
 
   </div><!-- .cfg-wrap -->
 </div>
+
+<script>
+(function() {
+  const cycleRates = {
+    'triennially': { rate: {{ pkg.cycle_pricing.triennially|default:399 }}, months: 36, label: '3 Years' },
+    'annually': { rate: {{ pkg.cycle_pricing.annually|default:599 }}, months: 12, label: '1 Year' },
+    'semi_annually': { rate: {{ pkg.cycle_pricing.semi_annually|default:899 }}, months: 6, label: '6 Months' },
+    'quarterly': { rate: {{ pkg.cycle_pricing.quarterly|default:1099 }}, months: 3, label: 'Quarterly' },
+    'monthly': { rate: {{ pkg.cycle_pricing.monthly|default:pkg.monthly_price|default:1299 }}, months: 1, label: 'Monthly' }
+  };
+
+  function updateResellerTotal() {
+    const checked = document.querySelector('input[name="cycle"]:checked');
+    if (!checked) return;
+    const cycle = checked.value;
+    const info = cycleRates[cycle] || cycleRates['monthly'];
+    const total = info.rate * info.months;
+    const rateEl = document.getElementById('summaryRate');
+    const totalEl = document.getElementById('summaryTotal');
+    const termEl = document.getElementById('summaryTerm');
+    if (rateEl) rateEl.innerHTML = '₹' + info.rate + '<span style="font-size:0.9rem;font-weight:500;color:var(--text-muted);">/mo</span>';
+    if (totalEl) totalEl.textContent = '₹' + total.toLocaleString('en-IN');
+    if (termEl) termEl.textContent = info.label;
+  }
+
+  document.querySelectorAll('input[name="cycle"]').forEach(function(radio) {
+    radio.addEventListener('change', updateResellerTotal);
+  });
+  updateResellerTotal();
+})();
+</script>
 
 {% include 'footer.html' %}
 </body>

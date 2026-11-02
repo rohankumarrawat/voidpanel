@@ -64,7 +64,20 @@ module = app
 callable = application
 home = $VENV_DIR
 master = true
-processes = 5
+
+# Dynamic worker scaling (spawns 1 when idle, scales up to 3 under traffic)
+processes = 3
+cheaper = 1
+cheaper-initial = 1
+cheaper-step = 1
+cheaper-algo = spare
+
+# Memory leak protection & auto-recycling
+max-requests = 1000
+max-worker-lifetime = 3600
+reload-on-rss = 256
+worker-reload-mercy = 30
+
 socket = $PROJECT_DIR/${PROJECT_NAME}.sock
 chmod-socket = 664
 vacuum = true
@@ -85,6 +98,8 @@ Restart=always
 User=$WEB_USER
 Group=$WEB_USER
 UMask=007
+MemoryHigh=512M
+MemoryMax=768M
 
 [Install]
 WantedBy=multi-user.target

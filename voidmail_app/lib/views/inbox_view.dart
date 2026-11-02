@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../models/folder.dart';
+import '../models/email_item.dart';
 import '../providers/mail_provider.dart';
 import '../widgets/email_tile.dart';
+import 'email_detail_view.dart';
 
 enum InboxTab { all, aiPriority, primary, social, promotions }
 
@@ -17,6 +19,7 @@ class InboxView extends StatefulWidget {
 class _InboxViewState extends State<InboxView> {
   InboxTab _activeTab = InboxTab.all;
   final TextEditingController _searchController = TextEditingController();
+  String? _selectedEmailId;
 
   // Keyword-based email categorization
   static const _socialSenders = [
@@ -70,9 +73,14 @@ class _InboxViewState extends State<InboxView> {
       }
     }
 
-    return Column(
-      children: [
-        // 1. Search Box Bar
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth;
+        final isWide = availableWidth >= 700;
+
+        final listPane = Column(
+          children: [
+            // 1. Search Box Bar
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Container(
@@ -273,11 +281,161 @@ class _InboxViewState extends State<InboxView> {
                   ),
                   itemBuilder: (context, index) {
                     final email = emails[index];
-                    return EmailTile(email: email);
+                    return EmailTile(
+                      email: email,
+                      isCurrentPreview: isWide && email.id == _selectedEmailId,
+                      onTap: () {
+                        provider.markAsRead(email.id);
+                        if (isWide) {
+                          setState(() {
+                            _selectedEmailId = email.id;
+                          });
+                        } else {
+                          Navigator.pushNamed(
+                            context,
+                            '/email_detail',
+                            arguments: email,
+                          );
+                        }
+                      },
+                    );
                   },
                 ),
         ),
       ],
+    );
+
+        if (!isWide) {
+          return listPane;
+        }
+
+        EmailItem? selectedEmail;
+        if (_selectedEmailId != null) {
+          try {
+            selectedEmail = emails.firstWhere((e) => e.id == _selectedEmailId);
+          } catch (_) {
+            try {
+              selectedEmail = provider.emails.firstWhere((e) => e.id == _selectedEmailId);
+            } catch (_) {
+              selectedEmail = null;
+            }
+          }
+        }
+        if (selectedEmail == null && emails.isNotEmpty) {
+          selectedEmail = emails.first;
+          _selectedEmailId = selectedEmail.id;
+        }
+
+        return Row(
+          children: [
+            SizedBox(
+              width: availableWidth > 1100 ? 420 : (availableWidth > 850 ? 380 : 340),
+              child: listPane,
+            ),
+            VerticalDivider(
+              width: 1,
+              thickness: 1,
+              color: isDark ? Colors.white12 : const Color(0xFFE2E8F0),
+            ),
+            Expanded(
+              child: selectedEmail != null
+                  ? EmailDetailView(
+                      key: ValueKey(selectedEmail.id),
+                      email: selectedEmail,
+                      isEmbedded: true,
+                      onClose: () {
+                        setState(() {
+                          _selectedEmailId = null;
+                        });
+                      },
+                    )
+                  : _buildEmptyReadingPane(isDark),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildEmptyReadingPane(bool isDark) {
+    return Container(
+      color: isDark ? const Color(0xFF0F0C20) : const Color(0xFFF8FAFC),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isDark ? const Color(0xFF1E1638) : const Color(0xFFFFF7ED),
+                  border: Border.all(
+                    color: const Color(0xFFFF7A00).withValues(alpha: 0.35),
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF7A00).withValues(alpha: 0.15),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.mark_email_read_outlined,
+                  size: 38,
+                  color: Color(0xFFFF7A00),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'No Email Selected',
+                style: GoogleFonts.outfit(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 380),
+                child: Text(
+                  'Select an email from the left pane to preview details, conversations, and AI actions.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    height: 1.5,
+                    color: isDark ? Colors.white60 : const Color(0xFF64748B),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/compose');
+                },
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                label: Text(
+                  'Compose Message',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF7A00),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

@@ -34,6 +34,19 @@ urlpatterns = [
     path('emails/whitelist/remove/', email.api_email_whitelist_remove, name='api_email_whitelist_remove'),
     path('emails/ai-status/', email.api_email_ai_status, name='api_email_ai_status'),
 
+    # ── VoidMail FCM Push Notification Devices ───────────────────────────
+    path('emails/devices/register/', email.api_email_device_register, name='api_email_device_register'),
+    path('emails/devices/unregister/', email.api_email_device_unregister, name='api_email_device_unregister'),
+    path('emails/devices/test-push/', email.api_email_device_test_push, name='api_email_device_test_push'),
+    path('emails/devices/broadcast-push/', email.api_email_device_broadcast_push, name='api_email_device_broadcast_push'),
+    path('emails/devices/track-login/', email.api_email_track_login, name='api_email_track_login'),
+
+    # ── VoidMail AI Upgrade Leads & 1-Click Whitelist ─────────────────────
+    path('emails/upgrade-lead/', email.api_email_upgrade_lead_submit, name='api_email_upgrade_lead_submit'),
+    path('emails/upgrade-lead/whitelist/', email.api_email_upgrade_lead_whitelist, name='api_email_upgrade_lead_whitelist'),
+
+
+
     # ── FTP Management ───────────────────────────────────────────────────
     path('ftp/', ftp.api_ftp_list, name='api_ftp_list'),
     path('ftp/create/', ftp.api_ftp_create, name='api_ftp_create'),

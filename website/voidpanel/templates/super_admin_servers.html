@@ -22,6 +22,14 @@
     .sa-modal-title{font-size:1rem;font-weight:800;color:#f0f4ff;}
     .sa-modal-close{background:none;border:none;color:#64748b;font-size:1.2rem;cursor:pointer;padding:4px 8px;border-radius:6px;}
     .sa-modal-close:hover{color:#f87171;}
+    /* Server card responsive */
+    .sa-server-card-inner { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .sa-server-card-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; flex-shrink: 0; }
+    @media (max-width: 580px) {
+        .sa-server-card-inner { flex-direction: column; align-items: stretch; gap: 14px; }
+        .sa-server-card-actions { flex-direction: row; align-items: center; justify-content: flex-start; flex-wrap: wrap; width: 100%; border-top: 1px solid var(--border); padding-top: 10px; }
+        .sa-server-card-actions .sa-btn { flex: 1 1 auto; justify-content: center; text-align: center; }
+    }
 </style>
 
 <div class="sa-page-header">
@@ -48,7 +56,7 @@
         <form method="post" action="/super-admin/servers/" id="addServerForm" onsubmit="return handleServerSave(event)">
             {% csrf_token %}
             <input type="hidden" name="action" value="create_server">
-            <div class="sa-form-grid-2" style="grid-template-columns:repeat(4,1fr);">
+            <div class="sa-form-grid-4">
                 <div class="sa-form-group"><label class="sa-label">Node Name</label><input type="text" name="name" id="srv_name" class="sa-input" placeholder="IN-Mumbai Node 1" required></div>
                 <div class="sa-form-group"><label class="sa-label">API Endpoint URL</label><input type="url" name="url" id="srv_url" class="sa-input" placeholder="http://178.18.250.134:8080" required></div>
                 <div class="sa-form-group"><label class="sa-label">API Key</label><input type="text" name="api_key" id="srv_key" class="sa-input" placeholder="Enter API key..." required></div>
@@ -81,7 +89,7 @@
 <div class="sa-grid-2">
     {% for server in servers %}
     <div class="sa-card" id="srv-card-{{ server.id }}">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+        <div class="sa-server-card-inner">
             <div style="flex:1;min-width:0;">
                 <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
                     <div class="sa-kpi-icon {% if server.is_active %}green{% else %}red{% endif %}" style="width:36px;height:36px;border-radius:9px;">
@@ -98,9 +106,9 @@
                 </div>
                 <div style="font-size:0.78rem;color:var(--text-3);margin-bottom:3px;display:flex;align-items:center;gap:6px;">
                     <i class="fas fa-link" style="width:12px;"></i>
-                    <code style="background:rgba(255,255,255,0.05);padding:2px 7px;border-radius:4px;color:var(--sky-2);">{{ server.url }}</code>
+                    <code style="background:rgba(255,255,255,0.05);padding:2px 7px;border-radius:4px;color:var(--sky-2);word-break:break-all;">{{ server.url }}</code>
                 </div>
-                <div style="font-size:0.76rem;color:var(--text-3);">
+                <div style="font-size:0.76rem;color:var(--text-3);line-height:1.5;">
                     <i class="fas fa-server" style="width:12px;"></i> {{ server.active_services.count }} hosting service(s) &nbsp;·&nbsp;
                     {{ server.reseller_packages.count }} reseller package(s) &nbsp;·&nbsp;
                     Added {{ server.created_at|date:"M d, Y" }}
@@ -110,7 +118,7 @@
                 </div>
                 <div id="ping-result-{{ server.id }}" style="margin-top:10px;display:none;font-size:0.8rem;"></div>
             </div>
-            <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+            <div class="sa-server-card-actions">
                 <button class="sa-btn sky sm"
                     onclick="openEditModal({{ server.id }},'{{ server.name|escapejs }}','{{ server.url|escapejs }}','{{ server.login_url|escapejs }}','{{ server.nameservers|escapejs }}','{{ server.is_active|yesno:'true,false' }}')">
                     <i class="fas fa-pen"></i> Edit
@@ -118,7 +126,7 @@
                 <button class="sa-btn ghost sm" onclick="pingServer({{ server.id }}, '{{ server.url|escapejs }}', '{{ server.api_key|escapejs }}')" id="ping-btn-{{ server.id }}">
                     <i class="fas fa-satellite-dish"></i> Ping
                 </button>
-                <form method="post" action="/super-admin/servers/" onsubmit="return confirm('Delete this server? Existing services will fall back to default provisioning.');">
+                <form method="post" action="/super-admin/servers/" onsubmit="return confirm('Delete this server? Existing services will fall back to default provisioning.');" style="margin:0;">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="delete_server">
                     <input type="hidden" name="server_id" value="{{ server.id }}">

@@ -11,6 +11,7 @@ try:
     import paramiko
 except ImportError:
     paramiko = None
+from django.conf import settings
 from django.core.mail import send_mail
 
 from django.contrib.auth import authenticate, login, logout
@@ -121,6 +122,195 @@ def _get_next_invoice_number(user, prefix='VP'):
     return f"{prefix}-{user.id:04d}-{next_num:03d}"
 
 
+# ─── Supercharged Stack Auto-Activation (KhataBook & HRMS) ───────────────────────
+
+def _auto_activate_super_stack_services(user, domain=None, password=None):
+    """
+    Auto-activates KhataBook and HRMS (ERP/CRM) free-tier services for the customer
+    as part of the Supercharged Cloud Stack (100% Free Lifetime Add-ons).
+    Returns a dict with access info for inclusion in the welcome email and portal.
+    """
+    from data.models import KhataBookService, ErpCrmService
+    import re
+
+    domain_str = domain or f"{user.username}.com"
+    clean_domain = domain_str.lower().strip()
+    due_date = (timezone.now() + timedelta(days=3650)).date()
+
+    # 1. KhataBook Auto-Activation & Real Provisioning
+    kb_service = KhataBookService.objects.filter(user=user).first()
+    if not kb_service:
+        remote_id = None
+        max_cust = 100
+        max_st = 5
+        try:
+            import urllib3; urllib3.disable_warnings()
+            kb_phone = getattr(getattr(user, 'customer_profile', None), 'phone_number', '') or '9999999999'
+            kb_resp = _requests.post(
+                f"{_djsettings.KHATABOOK_API_URL}/api/v1/saas/tenant/create/",
+                json={
+                    "business_name": domain_str,
+                    "owner_username": user.username,
+                    "owner_email": user.email,
+                    "owner_phone": kb_phone,
+                    "owner_password": password or 'VoidOnyx@2026',
+                    "package_id": "FREE"
+                },
+                headers={"X-Provision-Key": getattr(_djsettings, 'KHATABOOK_PROVISION_KEY', 'voidonyx-khatabook-provision-2026')},
+                timeout=10,
+                verify=False
+            )
+            if kb_resp.status_code in (200, 201):
+                kb_data = kb_resp.json()
+                t_info = kb_data.get('tenant', kb_data.get('business', {}))
+                remote_id = t_info.get('id')
+                max_cust = t_info.get('max_customers', 100)
+                max_st = t_info.get('max_staff', 5)
+            _logger.info("KhataBook auto-provision response for %s: %s %s", user.email, kb_resp.status_code, kb_resp.text[:120])
+        except Exception as kb_err:
+            _logger.error('Failed to call KhataBook provision API for %s: %s', user.username, kb_err)
+
+        try:
+            kb_service = KhataBookService.objects.create(
+                user=user,
+                business_name=domain_str,
+                owner_username=user.username,
+                package_name='Free Forever (Super Stack)',
+                package_id='free_super_stack',
+                status='active',
+                monthly_price=Decimal('0.00'),
+                billing_cycle='annually',
+                dashboard_url='https://khatabook.voidonyx.in',
+                owner_email=user.email,
+                max_customers=max_cust,
+                max_staff=max_st,
+                remote_id=remote_id,
+                next_due_date=due_date,
+            )
+            PortalActivity.objects.create(
+                user=user,
+                category='service',
+                title=f'KhataBook Activated (100% Free): {domain_str}',
+                description='Included with cloud hosting package. Dashboard: https://khatabook.voidonyx.in',
+            )
+            _logger.info('Auto-activated KhataBook for %s', user.username)
+        except Exception as e:
+            _logger.error('Failed to auto-activate KhataBook for %s: %s', user.username, e)
+    elif password:
+        try:
+            import urllib3; urllib3.disable_warnings()
+            kb_phone = getattr(getattr(user, 'customer_profile', None), 'phone_number', '') or '9999999999'
+            _requests.post(
+                f"{_djsettings.KHATABOOK_API_URL}/api/v1/saas/tenant/create/",
+                json={
+                    "business_name": domain_str,
+                    "owner_username": user.username,
+                    "owner_email": user.email,
+                    "owner_phone": kb_phone,
+                    "owner_password": password,
+                    "package_id": "FREE"
+                },
+                headers={"X-Provision-Key": getattr(_djsettings, 'KHATABOOK_PROVISION_KEY', 'voidonyx-khatabook-provision-2026')},
+                timeout=10,
+                verify=False
+            )
+        except Exception as kb_sync_err:
+            _logger.error('Failed to sync KhataBook password for %s: %s', user.username, kb_sync_err)
+
+    # 2. HRMS (ErpCrmService) Auto-Activation & Real Provisioning
+    hrms_service = ErpCrmService.objects.filter(user=user).first()
+    subdomain_base = re.sub(r'[^a-z0-9]', '', clean_domain.split('.')[0])[:20]
+    if not subdomain_base:
+        subdomain_base = f"tenant{user.id}"
+    subdomain = subdomain_base
+    if ErpCrmService.objects.filter(subdomain=subdomain).exists():
+        subdomain = f"{subdomain_base}{user.id}"[:25]
+
+    if not hrms_service:
+        login_url = 'https://hrms.voidpanel.com/login/'
+        try:
+            import urllib3; urllib3.disable_warnings()
+            hrms_resp = _requests.post(
+                f"{_djsettings.HRMS_SAAS_API_URL}/api/v1/provision/",
+                json={
+                    "company_name": domain_str,
+                    "subdomain": subdomain,
+                    "package_name": "Starter",
+                    "admin_name": user.get_full_name() or user.username,
+                    "admin_email": user.email,
+                    "admin_password": password or 'VoidOnyx@2026'
+                },
+                headers={
+                    "Authorization": f"Bearer {_djsettings.HRMS_SAAS_TOKEN}",
+                    "Content-Type": "application/json"
+                },
+                timeout=10,
+                verify=False
+            )
+            if hrms_resp.status_code in (200, 201):
+                h_data = hrms_resp.json()
+                login_url = h_data.get('login_url', login_url)
+            _logger.info("HRMS auto-provision response for %s: %s %s", user.email, hrms_resp.status_code, hrms_resp.text[:120])
+        except Exception as hrms_api_err:
+            _logger.error('Failed to call HRMS provision API for %s: %s', user.username, hrms_api_err)
+
+        try:
+            hrms_service = ErpCrmService.objects.create(
+                user=user,
+                company_name=domain_str,
+                subdomain=subdomain,
+                package_name='Free Starter (Super Stack)',
+                status='active',
+                monthly_price=Decimal('0.00'),
+                billing_cycle='annually',
+                dashboard_url=login_url,
+                admin_email=user.email,
+                next_due_date=due_date,
+            )
+            PortalActivity.objects.create(
+                user=user,
+                category='service',
+                title=f'HRMS Portal Activated (100% Free): {domain_str}',
+                description=f'Included with cloud hosting package. Subdomain: {subdomain} | Portal: https://hrms.voidpanel.com',
+            )
+            _logger.info('Auto-activated HRMS for %s with subdomain %s', user.username, subdomain)
+        except Exception as e:
+            _logger.error('Failed to auto-activate HRMS for %s: %s', user.username, e)
+    elif password:
+        try:
+            import urllib3; urllib3.disable_warnings()
+            _requests.post(
+                f"{_djsettings.HRMS_SAAS_API_URL}/api/v1/provision/",
+                json={
+                    "company_name": domain_str,
+                    "subdomain": hrms_service.subdomain or subdomain,
+                    "package_name": "Starter",
+                    "admin_name": user.get_full_name() or user.username,
+                    "admin_email": user.email,
+                    "admin_password": password
+                },
+                headers={
+                    "Authorization": f"Bearer {_djsettings.HRMS_SAAS_TOKEN}",
+                    "Content-Type": "application/json"
+                },
+                timeout=10,
+                verify=False
+            )
+        except Exception as hrms_sync_err:
+            _logger.error('Failed to sync HRMS password for %s: %s', user.username, hrms_sync_err)
+
+    return {
+        'khatabook_active': True,
+        'khatabook_url': 'https://khatabook.voidonyx.in',
+        'khatabook_plan': '100% Free Lifetime',
+        'hrms_active': True,
+        'hrms_url': 'https://hrms.voidpanel.com',
+        'hrms_alt_url': 'https://crm.voidonyx.in',
+        'hrms_plan': '100% Free Lifetime',
+        'hrms_subdomain': getattr(hrms_service, 'subdomain', '') if hrms_service else '',
+    }
+
+
 # ─── Welcome Email ───────────────────────────────────────────────────────────────
 
 def send_welcome_email(service, provision_result, invoice=None):
@@ -144,14 +334,13 @@ def send_welcome_email(service, provision_result, invoice=None):
         _logger.warning('send_welcome_email: missing credentials in provision_result — skipping email')
         return
 
+    # Auto-activate KhataBook & HRMS (100% Free Lifetime)
+    stack_info = _auto_activate_super_stack_services(service.user, domain=service.domain, password=password)
+
     customer_name  = service.user.get_full_name() or service.user.username
     customer_email = service.user.email
 
-    nameservers_list = []
-    if service.server and service.server.nameservers:
-        nameservers_list = [ns.strip() for ns in service.server.nameservers.split('\n') if ns.strip()]
-    if not nameservers_list:
-        nameservers_list = ['ns1.voidpanel.com', 'ns2.voidpanel.com']
+    nameservers_list = ['ns1.voidonyx.com', 'ns2.voidonyx.com']
 
     context = {
         'customer_name':  customer_name,
@@ -165,19 +354,37 @@ def send_welcome_email(service, provision_result, invoice=None):
         'invoice_number': invoice.invoice_number if invoice else '—',
         'amount':         invoice.total if invoice else '—',
         'nameservers':    nameservers_list,
+        'khatabook_url':  stack_info.get('khatabook_url', 'https://khatabook.voidonyx.in'),
+        'hrms_url':       stack_info.get('hrms_url', 'https://hrms.voidpanel.com'),
+        'hrms_alt_url':   stack_info.get('hrms_alt_url', 'https://crm.voidonyx.in'),
+        'hrms_subdomain': stack_info.get('hrms_subdomain', ''),
     }
 
-    subject  = f'🎉 Your Hosting Account for {service.domain} is Ready — VoidPanel'
+    subject  = f'🎉 Your Hosting Account & Business Stack for {service.domain} is Live — VoidOnyx'
     html_msg = render_to_string('emails/welcome_hosting.html', context)
     text_msg = (
         f'Hi {customer_name},\n\n'
-        f'Your hosting account for {service.domain} is now active.\n\n'
-        f'Panel URL : {panel_url}\n'
-        f'Username  : {username}\n'
-        f'Password  : {password}\n\n'
+        f'Your hosting account for {service.domain} is now active!\n\n'
+        f'── VoidPanel Hosting Credentials ──\n'
+        f'Panel URL   : {panel_url}\n'
+        f'Username    : {username}\n'
+        f'Password    : {password}\n'
+        f'Domain      : {service.domain}\n'
+        f'Nameservers : ns1.voidonyx.com, ns2.voidonyx.com\n\n'
+        f'── Supercharged Cloud Stack (100% Free Lifetime) ──\n'
+        f'KhataBook Portal : {stack_info.get("khatabook_url", "https://khatabook.voidonyx.in")}\n'
+        f'  - Login ID     : {customer_email}\n'
+        f'  - Password     : {password}\n\n'
+        f'HRMS Portal      : https://hrms.voidpanel.com\n'
+        f'  - Alternative  : https://crm.voidonyx.in\n'
+        f'  - Admin Email  : {customer_email}\n'
+        f'  - Organization : {stack_info.get("hrms_subdomain", "")}\n'
+        f'  - Password     : {password}\n\n'
+        f'Lifetime SSL     : Auto-Renewing HTTPS pre-configured\n\n'
         f'Please change your password after first login.\n\n'
-        f'Need help? Open a ticket at https://voidpanel.com/portal/ticket/new/\n\n'
-        f'— VoidPanel Team'
+        f'Need help? Open a ticket at https://voidonyx.in/portal/ticket/new/\n\n'
+        f'— VoidOnyx Cloud Team\n'
+        f'https://voidonyx.in'
     )
 
     # Try OutboundEmailProfile first
@@ -191,39 +398,46 @@ def send_welcome_email(service, provision_result, invoice=None):
     except Exception:
         smtp_profile = None
 
+    sent_ok = False
     try:
         if smtp_profile:
+            try:
+                email = EmailMessage(
+                    subject=subject,
+                    body=html_msg,
+                    from_email=f'{smtp_profile.from_name or "VoidOnyx Cloud"} <{smtp_profile.from_email}>',
+                    to=[customer_email],
+                    reply_to=[smtp_profile.reply_to_email] if smtp_profile.reply_to_email else [],
+                )
+                email.content_subtype = 'html'
+                backend = EmailBackend(
+                    host=smtp_profile.smtp_host,
+                    port=smtp_profile.smtp_port,
+                    username=smtp_profile.smtp_username,
+                    password=smtp_profile.smtp_password,
+                    use_tls=smtp_profile.use_tls,
+                    use_ssl=smtp_profile.use_ssl,
+                    fail_silently=False,
+                )
+                backend.open()
+                backend.send_messages([email])
+                backend.close()
+                sent_ok = True
+                _logger.info('Welcome email sent via profile %s to %s for domain %s', smtp_profile.profile_name, customer_email, service.domain)
+            except Exception as prof_err:
+                _logger.warning('Failed sending welcome email via OutboundEmailProfile (%s), attempting fallback: %s', smtp_profile.profile_name, prof_err)
+
+        if not sent_ok:
             email = EmailMessage(
                 subject=subject,
                 body=html_msg,
-                from_email=f'{smtp_profile.from_name or "VoidPanel"} <{smtp_profile.from_email}>',
-                to=[customer_email],
-                reply_to=[smtp_profile.reply_to_email] if smtp_profile.reply_to_email else [],
-            )
-            email.content_subtype = 'html'
-            backend = EmailBackend(
-                host=smtp_profile.smtp_host,
-                port=smtp_profile.smtp_port,
-                username=smtp_profile.smtp_username,
-                password=smtp_profile.smtp_password,
-                use_tls=smtp_profile.use_tls,
-                use_ssl=smtp_profile.use_ssl,
-                fail_silently=False,
-            )
-            backend.open()
-            backend.send_messages([email])
-            backend.close()
-        else:
-            email = EmailMessage(
-                subject=subject,
-                body=html_msg,
-                from_email=settings.DEFAULT_FROM_EMAIL,
+                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@voidpanel.com'),
                 to=[customer_email],
             )
             email.content_subtype = 'html'
             email.send(fail_silently=False)
-
-        _logger.info('Welcome email sent to %s for domain %s', customer_email, service.domain)
+            sent_ok = True
+            _logger.info('Welcome email sent via default backend to %s for domain %s', customer_email, service.domain)
 
     except Exception as exc:
         _logger.error('Failed to send welcome email to %s: %s', customer_email, exc)
@@ -266,6 +480,17 @@ def get_inr_to_currency_rate(target_currency):
     return fallbacks.get(target_currency, Decimal('1.0'))
 
 
+# ─── GST 18% Rate & Helper ───────────────────────────────────────────────────
+GST_RATE = Decimal('0.18')
+GST_NUMBER = '07ABCFV6322K1ZZ'
+
+def add_gst_to_amount(amount):
+    """Adds 18% GST to transaction amount."""
+    amt = Decimal(str(amount))
+    gst = (amt * GST_RATE).quantize(Decimal('0.01'))
+    return (amt + gst).quantize(Decimal('0.01'))
+
+
 def calculate_invoice_payment_split(invoice, profile):
     """
     Returns (chips_to_use, funds_to_deduct_inr, remaining_due_in_currency)
@@ -294,7 +519,8 @@ def calculate_invoice_payment_split(invoice, profile):
     # Step 1: Use chips first
     available_chips = profile.balance_chips
     if chip_value_in_curr > 0:
-        chips_needed = int(total_due / chip_value_in_curr)
+        import math
+        chips_needed = math.ceil(float(total_due) / float(chip_value_in_curr))
     else:
         chips_needed = 0
     chips_to_use = min(available_chips, chips_needed)
@@ -382,6 +608,11 @@ def _activate_service_after_provision(order, invoice=None):
             description=f'Username: {username} — Dashboard: {panel_url or order.service.server_hostname}',
         )
 
+        # ── Auto-activate Supercharged Cloud Stack (KhataBook & HRMS) ──────────
+        try:
+            _auto_activate_super_stack_services(order.service.user, domain=order.service.domain, password=password)
+        except Exception as stack_err:
+            _logger.error('Failed to auto-activate super stack for %s: %s', order.service.domain, stack_err)
 
         # ── Auto-install WordPress for WordPress Hosting ───────────────────
         if getattr(order.service, 'product_type', '') == 'WordPress Hosting':
@@ -481,39 +712,57 @@ def _auto_install_wordpress(service, invoice=None):
 
 
 def _send_wordpress_welcome_email(service, wp_install, wp_admin_pass, invoice=None):
-    """Sends WordPress credentials welcome email to the customer."""
+    """Sends WordPress credentials welcome email to the customer with Super Stack links."""
     try:
         from django.core.mail import EmailMessage
         from django.conf import settings
+        stack_info = _auto_activate_super_stack_services(service.user, domain=service.domain)
         customer_email = service.user.email
         customer_name  = service.user.get_full_name() or service.user.username
+        kb_url = stack_info.get('khatabook_url', 'https://khatabook.voidonyx.in')
+        hrms_url = stack_info.get('hrms_url', 'https://crm.voidonyx.in')
         html = f"""
-<div style="font-family:'Inter',Arial,sans-serif;max-width:580px;margin:auto;background:#0f172a;color:#e2e8f0;border-radius:16px;overflow:hidden;">
-  <div style="background:linear-gradient(135deg,#7c3aed,#4f46e5);padding:36px 32px;text-align:center;">
-    <h1 style="margin:0;font-size:1.8rem;color:#fff;">&#127758; Your WordPress Site is Live!</h1>
-    <p style="margin:8px 0 0;color:rgba(255,255,255,0.8);">Your WordPress hosting is ready</p>
+<div style="font-family:'Inter',-apple-system,Arial,sans-serif;max-width:600px;margin:auto;background:#0d1829;color:#f1f5f9;border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);">
+  <div style="background:linear-gradient(135deg,#0e2238,#0a334c);padding:36px 32px;text-align:center;border-bottom:1px solid rgba(56,189,248,0.2);">
+    <div style="display:inline-block;padding:5px 12px;border-radius:999px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);color:#34d399;font-size:11px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:12px;">● Service Active</div>
+    <h1 style="margin:0;font-size:1.8rem;color:#fff;">🎉 Your WordPress Site is Ready!</h1>
+    <p style="margin:8px 0 0;color:#94a3b8;font-size:13px;">Managed WordPress Hosting &bull; VoidOnyx Cloud</p>
   </div>
   <div style="padding:28px 32px;">
-    <p>Hi {customer_name},</p>
-    <p>Your WordPress site for <strong>{service.domain}</strong> has been automatically set up. Here are your login details:</p>
-    <div style="background:#1e293b;border-radius:12px;padding:20px 24px;margin:20px 0;">
-      <table style="width:100%;border-collapse:collapse;">
-        <tr><td style="color:#94a3b8;padding:6px 0;">Site URL</td><td style="font-weight:700;">http://{service.domain}</td></tr>
-        <tr><td style="color:#94a3b8;padding:6px 0;">WP Admin URL</td><td style="font-weight:700;">{wp_install.wp_admin_url}</td></tr>
-        <tr><td style="color:#94a3b8;padding:6px 0;">Admin Username</td><td style="font-weight:700;">{wp_install.wp_admin_user}</td></tr>
-        <tr><td style="color:#94a3b8;padding:6px 0;">Admin Email</td><td style="font-weight:700;">{wp_install.wp_admin_email}</td></tr>
-        <tr><td style="color:#94a3b8;padding:6px 0;">Admin Password</td><td style="font-weight:700;color:#4ade80;">{wp_admin_pass}</td></tr>
+    <p style="font-size:15px;color:#f8fafc;margin:0 0 16px;">Hi {customer_name},</p>
+    <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin:0 0 20px;">Your WordPress site for <strong style="color:#38bdf8;">{service.domain}</strong> has been automatically provisioned and launched. Here are your admin credentials:</p>
+    
+    <div style="background:#070f1e;border:1px solid rgba(56,189,248,0.25);border-radius:14px;padding:20px;margin-bottom:24px;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <tr><td style="color:#64748b;padding:8px 0;">Site URL</td><td style="font-weight:700;"><a href="http://{service.domain}" style="color:#38bdf8;text-decoration:none;">http://{service.domain}</a></td></tr>
+        <tr><td style="color:#64748b;padding:8px 0;border-top:1px solid rgba(255,255,255,0.05);">WP Admin URL</td><td style="font-weight:700;border-top:1px solid rgba(255,255,255,0.05);"><a href="{wp_install.wp_admin_url}" style="color:#38bdf8;text-decoration:none;">{wp_install.wp_admin_url}</a></td></tr>
+        <tr><td style="color:#64748b;padding:8px 0;border-top:1px solid rgba(255,255,255,0.05);">Admin Username</td><td style="font-weight:700;border-top:1px solid rgba(255,255,255,0.05);font-family:monospace;">{wp_install.wp_admin_user}</td></tr>
+        <tr><td style="color:#64748b;padding:8px 0;border-top:1px solid rgba(255,255,255,0.05);">Admin Email</td><td style="font-weight:700;border-top:1px solid rgba(255,255,255,0.05);">{wp_install.wp_admin_email}</td></tr>
+        <tr><td style="color:#64748b;padding:8px 0;border-top:1px solid rgba(255,255,255,0.05);">Admin Password</td><td style="font-weight:800;color:#34d399;border-top:1px solid rgba(255,255,255,0.05);font-family:monospace;"><span style="background:rgba(16,185,129,0.1);padding:3px 8px;border-radius:6px;border:1px solid rgba(16,185,129,0.25);">{wp_admin_pass}</span></td></tr>
       </table>
+      <div style="margin-top:16px;text-align:center;">
+        <a href="{wp_install.wp_admin_url}" style="display:inline-block;width:100%;box-sizing:border-box;background:linear-gradient(135deg,#38bdf8,#0284c7);color:#04131f;font-weight:800;font-size:13px;padding:12px;border-radius:10px;text-decoration:none;text-align:center;">Log In to WordPress &rarr;</a>
+      </div>
     </div>
-    <p style="color:#94a3b8;font-size:.85rem;">Manage your WordPress, reset passwords, and issue SSL directly from your <a href="https://voidpanel.com/portal/" style="color:#7c3aed;">client portal</a>.</p>
-    <p style="color:#94a3b8;font-size:.85rem;">If you did not make this request, please contact support immediately.</p>
+
+    <div style="background:linear-gradient(135deg,rgba(168,85,247,0.08),rgba(59,130,246,0.05));border:1px solid rgba(168,85,247,0.3);border-radius:14px;padding:18px 20px;margin-bottom:20px;">
+      <div style="font-size:12px;font-weight:800;text-transform:uppercase;color:#c084fc;margin-bottom:12px;">⚡ Supercharged Cloud Stack (100% Free Lifetime)</div>
+      <div style="margin-bottom:10px;font-size:12px;color:#cbd5e1;">
+        📖 <strong>KhataBook / LedgerFlow:</strong> <a href="{kb_url}" style="color:#38bdf8;text-decoration:none;">{kb_url}</a> (Active)
+      </div>
+      <div style="font-size:12px;color:#cbd5e1;">
+        👥 <strong>HRMS Portal:</strong> <a href="{hrms_url}" style="color:#38bdf8;text-decoration:none;">{hrms_url}</a> (Active)
+      </div>
+    </div>
+
+    <p style="color:#64748b;font-size:12px;line-height:1.5;margin:0;">Manage WordPress, databases, SSL and backups directly from your <a href="https://voidonyx.in/portal/" style="color:#38bdf8;">Client Portal</a>.</p>
   </div>
-  <div style="background:#0f172a;padding:16px 32px;border-top:1px solid rgba(255,255,255,0.06);text-align:center;font-size:.75rem;color:#475569;">
-    VoidPanel — Managed WordPress Hosting
+  <div style="background:#070d18;padding:16px 32px;border-top:1px solid rgba(255,255,255,0.06);text-align:center;font-size:11px;color:#64748b;">
+    VoidOnyx Cloud &bull; https://voidonyx.in
   </div>
 </div>"""
         email = EmailMessage(
-            subject=f'[VoidPanel] Your WordPress Site is Ready — {service.domain}',
+            subject=f'🎉 Your WordPress Site is Ready — {service.domain} — VoidOnyx',
             body=html,
             from_email=settings.DEFAULT_FROM_EMAIL,
             to=[customer_email],
@@ -1236,15 +1485,31 @@ def reseller_order_checkout(request):
             monthly_price = pkg.monthly_price
 
     # ── Calculate total ──────────────────────────────────────────────────────
-    if cycle == 'yearly':
-        total = (monthly_price * 12 * Decimal('0.85')).quantize(Decimal('0.01'))
-    else:
-        total = monthly_price
+    cycle_months = {
+        'triennially': 36,
+        'annually': 12,
+        'yearly': 12,
+        'semi_annually': 6,
+        'quarterly': 3,
+        'monthly': 1,
+    }
+    months = cycle_months.get(cycle, 1)
+    rate_per_mo = pkg.get_cycle_rate(cycle) if pkg else monthly_price
+    total = (rate_per_mo * months).quantize(Decimal('0.01'))
+    # 18% GST applied to all transactions
+    total = add_gst_to_amount(total)
 
     # ── Build service + invoice + order ─────────────────────────────────────
-    today     = date.today()
-    due_delta = 365 if cycle == 'yearly' else 30
-    next_due  = today + timedelta(days=due_delta)
+    today = date.today()
+    due_delta = {
+        'triennially': 1095,
+        'annually': 365,
+        'yearly': 365,
+        'semi_annually': 180,
+        'quarterly': 90,
+        'monthly': 30,
+    }.get(cycle, 30)
+    next_due = today + timedelta(days=due_delta)
 
     ensure_portal_seed_data(request.user)
 
@@ -1257,7 +1522,7 @@ def reseller_order_checkout(request):
             is_reseller=True,
             status='pending',
             billing_cycle=cycle,
-            monthly_price=monthly_price,
+            monthly_price=rate_per_mo,
             next_due_date=next_due,
             server_hostname='in-mum-01.voidpanel.cloud',
             storage_gb=storage_gb,
@@ -1927,6 +2192,12 @@ def ensure_portal_seed_data(user, profile_defaults=None):
 
 @login_required(login_url='/login/')
 def portal(request):
+    if not request.user.is_superuser:
+        profile = getattr(request.user, 'customer_profile', None)
+        if profile and not profile.is_email_verified:
+            request.session['reg_email'] = request.user.email
+            messages.info(request, "Please verify your email address to access your client portal. Check your inbox or spam folder for your OTP.")
+            return redirect('/register/verify/')
     ensure_portal_seed_data(request.user)
 
     # ── Handle incoming reseller order activation ──────────────────────────
@@ -1978,6 +2249,7 @@ def portal(request):
         'ssl_services': request.user.ssl_services.all().order_by('-created_at'),
         'suite_services': request.user.suite_services.select_related('plan', 'server').order_by('-created_at'),
         'erp_services': request.user.erp_services.all().order_by('-created_at'),
+        'khatabook_services': request.user.khatabook_services.all().order_by('-created_at'),
         'domain_orders': DomainOrder.objects.filter(user=request.user).order_by('-created_at'),
         'invoices': invoices[:5],
         'tickets': tickets[:5],
@@ -2900,6 +3172,33 @@ def _handle_super_admin_post(request):
                 messages.error(request, f"SMTP test failed for {profile.profile_name}: {exc}")
             return _super_admin_redirect(request, '/super-admin/emails/')
 
+    # ── VoidMail AI Whitelist Domain management ──────────────────────────
+    if action == 'add_voidmail_ai_domain':
+        from data.models import VoidMailAIWhitelistDomain
+        domain = request.POST.get('ai_domain', '').strip().lower()
+        label = request.POST.get('ai_label', '').strip()
+        if not domain:
+            messages.error(request, 'Domain is required.')
+        elif VoidMailAIWhitelistDomain.objects.filter(domain=domain).exists():
+            messages.error(request, f'Domain "{domain}" is already whitelisted.')
+        else:
+            VoidMailAIWhitelistDomain.objects.create(domain=domain, label=label)
+            messages.success(request, f'Domain "{domain}" added to VoidMail AI whitelist.')
+        return _super_admin_redirect(request, '/super-admin/emails/')
+
+    if action == 'remove_voidmail_ai_domain':
+        from data.models import VoidMailAIWhitelistDomain
+        domain = request.POST.get('ai_domain', '').strip().lower()
+        if not domain:
+            messages.error(request, 'Domain is required.')
+        else:
+            deleted, _ = VoidMailAIWhitelistDomain.objects.filter(domain=domain).delete()
+            if deleted:
+                messages.success(request, f'Domain "{domain}" removed from VoidMail AI whitelist.')
+            else:
+                messages.error(request, f'Domain "{domain}" not found in whitelist.')
+        return _super_admin_redirect(request, '/super-admin/emails/')
+
     if action in ['create_hosting_package', 'create_reseller_package', 'toggle_reseller_package', 'toggle_hosting_package', 'edit_hosting_package']:
         from data.models import HostingPackageOverride, _STATIC_HOSTING_PACKAGES
 
@@ -3240,7 +3539,7 @@ def _build_super_admin_context(active_page):
         bucket = [profile for profile in email_profiles if profile.purpose_category == value]
         if bucket:
             email_profiles_by_purpose[label] = bucket
-    return {
+    ctx = {
         'active_page': active_page,
         'email_event_fields': EMAIL_EVENT_FIELDS,
         'email_purpose_choices': EMAIL_PURPOSE_CHOICES,
@@ -3271,7 +3570,22 @@ def _build_super_admin_context(active_page):
         'license_count': PanelLicenseRecord.objects.count(),
         'license_active_count': PanelLicenseRecord.objects.filter(status='active').count(),
         'razorpay_active': RazorpayConfig.objects.filter(pk=1, is_active=True).exists(),
+        'voidmail_ai_domains': __import__('data.models', fromlist=['VoidMailAIWhitelistDomain']).VoidMailAIWhitelistDomain.objects.all().order_by('-created_at'),
     }
+    # ── VoidMail App Login tracking ──
+    try:
+        from data.models import VoidMailAppLogin
+        all_logins = VoidMailAppLogin.objects.all()
+        ctx['app_logins'] = list(all_logins.order_by('-logged_in_at')[:50])
+        ctx['app_logins_total'] = all_logins.count()
+        ctx['app_logins_unique'] = all_logins.values('email').distinct().count()
+        ctx['app_logins_has_more'] = ctx['app_logins_total'] > 50
+    except Exception:
+        ctx['app_logins'] = []
+        ctx['app_logins_total'] = 0
+        ctx['app_logins_unique'] = 0
+        ctx['app_logins_has_more'] = False
+    return ctx
 
 
 @login_required(login_url='/login/')
@@ -3748,6 +4062,38 @@ def loginn(request):
                 user = authenticate(request, username=matched_user.username, password=password)
 
         if user is not None:
+            # ── Check Email Verification ─────────────────────────────────
+            if not user.is_superuser:
+                profile = getattr(user, 'customer_profile', None)
+                if not profile:
+                    ensure_portal_seed_data(user)
+                    profile = getattr(user, 'customer_profile', None)
+
+                if profile and not profile.is_email_verified:
+                    import random
+                    # Generate fresh OTP code
+                    new_otp = str(random.randint(100000, 999999))
+                    profile.email_otp = new_otp
+                    profile.save(update_fields=['email_otp'])
+
+                    request.session['reg_email'] = user.email
+                    request.session['reg_otp'] = new_otp
+                    if profile.phone:
+                        request.session['reg_phone'] = profile.phone
+                        request.session['reg_phone_raw'] = profile.phone
+                        send_whatsapp_registration_otp(profile.phone, new_otp)
+
+                    send_registration_otp_email(user.email, new_otp)
+
+                    wa_notice = f"your WhatsApp ({profile.phone}) and " if profile.phone else ""
+                    messages.info(
+                        request,
+                        f"Please verify your account to access your services. "
+                        f"A 6-digit verification code has been sent to {wa_notice}email ({user.email}). "
+                        f"If you do not see the email in your inbox, please check your spam folder."
+                    )
+                    return redirect('/register/verify/')
+
             # ── Success ──────────────────────────────────────────────────
             LoginAttempt.clear_on_success(client_ip, identity)
             LoginAttempt.record(client_ip, identity, user_agent, succeeded=True)
@@ -3937,31 +4283,49 @@ def _send_password_reset_email(user, request):
         _logger.info('Password reset email sent via Django default to %s', user.email)
 
 
-def send_registration_otp_email(customer_email, otp_code):
-    from django.core.mail import EmailMessage
+def send_registration_otp_email(customer_email, otp_code, site_name=None):
+    from django.core.mail import EmailMultiAlternatives
     from django.conf import settings
     from data.models import OutboundEmailProfile
     from django.core.mail.backends.smtp import EmailBackend
+    from email.utils import make_msgid
     import logging
     _logger = logging.getLogger('voidpanel')
 
-    subject = f'🔒 Email Verification Code: {otp_code} — VoidPanel'
-    html_msg = f"""
-    <div style="font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 32px; border: 1px solid #e2e8f0; border-radius: 16px; background: #ffffff;">
+    # Brand detection
+    brand = "VoidOnyx" if (site_name == "voidonyx" or getattr(settings, 'FORCE_SITE', '') == 'voidonyx') else "VoidPanel"
+    subject = f'{brand} Verification Code: {otp_code}'
+
+    text_msg = (
+        f"Hi there,\n\n"
+        f"Thank you for signing up for {brand}. Use the following verification code to activate your account:\n\n"
+        f"Verification Code: {otp_code}\n\n"
+        f"This code is valid for 10 minutes. If you did not request this code, please ignore this email.\n\n"
+        f"Best regards,\n"
+        f"The {brand} Team\n"
+    )
+
+    html_msg = f"""<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>{brand} Verification Code</title></head>
+<body style="margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc;">
+    <div style="max-width: 500px; margin: 0 auto; padding: 32px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
         <div style="text-align: center; margin-bottom: 24px;">
-            <h2 style="color: #1e3a8a; margin: 0; font-weight: 800; font-size: 1.5rem;">VoidPanel</h2>
+            <h2 style="color: #0f172a; margin: 0; font-weight: 800; font-size: 1.5rem; letter-spacing: -0.02em;">{brand}</h2>
         </div>
-        <p style="font-size: 1rem; color: #334155; line-height: 1.6; margin-bottom: 20px;">Hi there,</p>
-        <p style="font-size: 1rem; color: #334155; line-height: 1.6; margin-bottom: 24px;">Thank you for signing up for VoidPanel. Please use the following One-Time Password (OTP) to verify your email address and activate your account:</p>
+        <p style="font-size: 1rem; color: #334155; line-height: 1.6; margin-bottom: 16px;">Hi there,</p>
+        <p style="font-size: 0.95rem; color: #475569; line-height: 1.6; margin-bottom: 24px;">Thank you for signing up for <strong>{brand}</strong>. Please use the following One-Time Password (OTP) to verify your email address and activate your account:</p>
         <div style="text-align: center; margin: 28px 0;">
-            <span style="font-size: 2.25rem; font-weight: 800; letter-spacing: 0.2em; color: #2563eb; background: #eff6ff; padding: 12px 28px; border-radius: 12px; border: 1px dashed #bfdbfe; display: inline-block;">{otp_code}</span>
+            <span style="font-size: 2.25rem; font-weight: 800; letter-spacing: 0.2em; color: #2563eb; background-color: #eff6ff; padding: 12px 28px; border-radius: 12px; border: 1px dashed #bfdbfe; display: inline-block;">{otp_code}</span>
         </div>
-        <p style="font-size: 0.88rem; color: #64748b; line-height: 1.6; margin-bottom: 28px;">This code is valid for 10 minutes. If you did not request this code, please ignore this email.</p>
-        <div style="border-top: 1px solid #e2e8f0; padding-top: 16px; text-align: center; font-size: 0.8rem; color: #94a3b8;">
-            © VoidPanel. Free & Open Source.
+        <p style="font-size: 0.88rem; color: #64748b; line-height: 1.6; margin-bottom: 24px;">This code is valid for <strong>10 minutes</strong>. If you did not request this code, please disregard this email.</p>
+        <div style="border-top: 1px solid #f1f5f9; padding-top: 16px; text-align: center; font-size: 0.8rem; color: #94a3b8;">
+            © {brand}. All rights reserved.
         </div>
     </div>
-    """
+</body>
+</html>
+"""
 
     # Try OutboundEmailProfile first
     try:
@@ -3974,16 +4338,36 @@ def send_registration_otp_email(customer_email, otp_code):
     except Exception:
         smtp_profile = None
 
+    from_domain = "voidonyx.com"
+    if smtp_profile and '@' in (smtp_profile.from_email or ''):
+        from_domain = smtp_profile.from_email.split('@')[-1].strip()
+
+    # Generate standard RFC 5322 compliant Message-ID with valid FQDN
+    custom_msg_id = make_msgid(domain=from_domain)
+
     try:
+        from_email_addr = (
+            f'{smtp_profile.from_name or brand} <{smtp_profile.from_email}>'
+            if smtp_profile
+            else (settings.DEFAULT_FROM_EMAIL or f'{brand} <details@voidonyx.com>')
+        )
+        reply_to_list = [smtp_profile.reply_to_email] if (smtp_profile and smtp_profile.reply_to_email) else []
+
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=text_msg,
+            from_email=from_email_addr,
+            to=[customer_email],
+            reply_to=reply_to_list,
+            headers={
+                'Message-ID': custom_msg_id,
+                'X-Entity-Ref-ID': custom_msg_id,
+                'Auto-Submitted': 'auto-generated',
+            }
+        )
+        email.attach_alternative(html_msg, "text/html")
+
         if smtp_profile:
-            email = EmailMessage(
-                subject=subject,
-                body=html_msg,
-                from_email=f'{smtp_profile.from_name or "VoidPanel"} <{smtp_profile.from_email}>',
-                to=[customer_email],
-                reply_to=[smtp_profile.reply_to_email] if smtp_profile.reply_to_email else [],
-            )
-            email.content_subtype = 'html'
             backend = EmailBackend(
                 host=smtp_profile.smtp_host,
                 port=smtp_profile.smtp_port,
@@ -3997,33 +4381,351 @@ def send_registration_otp_email(customer_email, otp_code):
             backend.send_messages([email])
             backend.close()
         else:
-            email = EmailMessage(
-                subject=subject,
-                body=html_msg,
-                from_email=settings.DEFAULT_FROM_EMAIL or 'noreply@voidpanel.com',
-                to=[customer_email],
-            )
-            email.content_subtype = 'html'
             email.send(fail_silently=False)
-        _logger.info('Verification OTP sent to %s', customer_email)
+        _logger.info('Verification OTP sent to %s with Message-ID %s', customer_email, custom_msg_id)
     except Exception as exc:
         _logger.error('Failed to send verification OTP to %s: %s', customer_email, exc)
 
 
+def _validate_and_normalize_phone(phone_raw):
+    """
+    Validates and normalizes phone number for mandatory WhatsApp OTP.
+    Returns (normalized_digits, formatted_display, error_message).
+    - Blocks fake numbers (e.g., 9999999999, 1234567890).
+    - Requires valid 10-digit mobile (starting with 6-9 for India).
+    """
+    import re as _re
+
+    if not phone_raw or not str(phone_raw).strip():
+        return None, None, "Phone number is mandatory to receive your WhatsApp verification OTP."
+
+    clean = _re.sub(r'[^\d]', '', str(phone_raw).strip())
+
+    # Handle common prefixes: +91, 91, or leading 0
+    if len(clean) == 12 and clean.startswith('91'):
+        national = clean[2:]
+    elif len(clean) == 11 and clean.startswith('0'):
+        national = clean[1:]
+    elif len(clean) == 10:
+        national = clean
+    else:
+        return None, None, "Please enter a valid 10-digit mobile number."
+
+    if len(national) != 10:
+        return None, None, "Please enter a valid 10-digit mobile number."
+
+    # In India, mobile numbers start with 6, 7, 8, or 9
+    if national[0] not in ('6', '7', '8', '9'):
+        return None, None, "Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9."
+
+    # Anti-bot / Fake number checks:
+    # 1. Reject identical digits: 9999999999, 8888888888, etc.
+    if len(set(national)) <= 2:
+        return None, None, "Please enter a valid active mobile number."
+
+    # 2. Reject obvious sequential numbers or dummy tests
+    if national in ('1234567890', '9876543210', '0123456789', '9898989898', '9000000000', '9123456789', '9876501234'):
+        return None, None, "Please enter a valid active mobile number."
+
+    # 3. Require at least 4 unique digits to prevent 9898989898 or 9111111111
+    if len(set(national)) < 4:
+        return None, None, "Please enter a valid active mobile number."
+
+    normalized_e164 = '91' + national
+    display_phone = f"+91 {national[:5]} {national[5:]}"
+    return normalized_e164, display_phone, None
+
+
+def send_whatsapp_registration_otp(phone_raw, otp_code):
+    """
+    Send registration verification OTP to customer's WhatsApp using Meta Cloud API.
+    Template: 'otp_template' (language: 'en').
+    Executes in a background thread to prevent blocking registration requests.
+    """
+    import threading
+
+    def _worker():
+        import re as _re
+        import urllib.request
+        import urllib.error
+        import json
+        import logging
+
+        _logger = logging.getLogger('voidpanel')
+
+        if not phone_raw or not otp_code:
+            return
+
+        digits = _re.sub(r'[^\d]', '', str(phone_raw))
+        if len(digits) == 10:
+            digits = '91' + digits
+        elif len(digits) == 11 and digits.startswith('0'):
+            digits = '91' + digits[1:]
+        elif len(digits) == 12 and digits.startswith('91'):
+            pass
+        elif len(digits) < 10 or len(digits) > 15:
+            _logger.warning("WhatsApp OTP skipped for invalid phone length: %s", phone_raw)
+            return
+
+        try:
+            from data.models import WhatsAppConfig
+            config = WhatsAppConfig.objects.filter(id=1).first()
+        except Exception:
+            config = None
+
+        phone_number_id = getattr(config, 'api_phone_number_id', '') or '1236644629538328'
+        api_ver = getattr(config, 'api_version', '') or 'v26.0'
+        access_token = getattr(config, 'api_access_token', '')
+
+        if not access_token:
+            _logger.error("WhatsApp API access token not configured in WhatsAppConfig.")
+            return
+
+        url = f'https://graph.facebook.com/{api_ver}/{phone_number_id}/messages'
+
+        # Approved template: otp_template (language: en)
+        payload = {
+            'messaging_product': 'whatsapp',
+            'recipient_type': 'individual',
+            'to': digits,
+            'type': 'template',
+            'template': {
+                'name': 'otp_template',
+                'language': {'code': 'en'},
+                'components': [
+                    {
+                        'type': 'body',
+                        'parameters': [
+                            {'type': 'text', 'text': str(otp_code)}
+                        ]
+                    },
+                    {
+                        'type': 'button',
+                        'sub_type': 'url',
+                        'index': '0',
+                        'parameters': [
+                            {'type': 'text', 'text': str(otp_code)}
+                        ]
+                    }
+                ]
+            }
+        }
+
+        def _post_payload(p_dict):
+            req_data = json.dumps(p_dict).encode('utf-8')
+            req = urllib.request.Request(
+                url,
+                data=req_data,
+                headers={
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {access_token}'
+                },
+                method='POST'
+            )
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                return json.loads(resp.read().decode('utf-8'))
+
+        try:
+            res_body = _post_payload(payload)
+            msg_id = res_body.get('messages', [{}])[0].get('id', '')
+            _logger.info("WhatsApp registration OTP sent to %s (msg_id=%s)", digits, msg_id)
+            try:
+                from data.models import WhatsAppLog
+                WhatsAppLog.objects.create(
+                    phone_to=digits,
+                    message=f'Registration OTP code: {otp_code}',
+                    msg_type='registration_otp',
+                    status='sent',
+                    error_msg=''
+                )
+            except Exception:
+                pass
+        except urllib.error.HTTPError as exc:
+            err_text = ''
+            try:
+                err_body = json.loads(exc.read().decode('utf-8'))
+                err_text = err_body.get('error', {}).get('message', str(exc))
+            except Exception:
+                err_text = str(exc)
+
+            # Try fallback to body-only template component if button schema failed
+            try:
+                fallback_payload = {
+                    'messaging_product': 'whatsapp',
+                    'recipient_type': 'individual',
+                    'to': digits,
+                    'type': 'template',
+                    'template': {
+                        'name': 'otp_template',
+                        'language': {'code': 'en'},
+                        'components': [
+                            {
+                                'type': 'body',
+                                'parameters': [
+                                    {'type': 'text', 'text': str(otp_code)}
+                                ]
+                            }
+                        ]
+                    }
+                }
+                res_body2 = _post_payload(fallback_payload)
+                msg_id2 = res_body2.get('messages', [{}])[0].get('id', '')
+                _logger.info("WhatsApp registration OTP sent via body-only fallback to %s (msg_id=%s)", digits, msg_id2)
+                try:
+                    from data.models import WhatsAppLog
+                    WhatsAppLog.objects.create(
+                        phone_to=digits,
+                        message=f'Registration OTP code: {otp_code}',
+                        msg_type='registration_otp',
+                        status='sent',
+                        error_msg=''
+                    )
+                except Exception:
+                    pass
+                return
+            except Exception as fb_exc:
+                _logger.error("WhatsApp registration OTP failed for %s: %s | fallback error: %s", digits, err_text, fb_exc)
+
+            try:
+                from data.models import WhatsAppLog
+                WhatsAppLog.objects.create(
+                    phone_to=digits,
+                    message=f'Registration OTP code: {otp_code}',
+                    msg_type='registration_otp',
+                    status='failed',
+                    error_msg=err_text[:400]
+                )
+            except Exception:
+                pass
+        except Exception as exc:
+            _logger.error("WhatsApp registration OTP network exception for %s: %s", digits, exc)
+            try:
+                from data.models import WhatsAppLog
+                WhatsAppLog.objects.create(
+                    phone_to=digits,
+                    message=f'Registration OTP code: {otp_code}',
+                    msg_type='registration_otp',
+                    status='failed',
+                    error_msg=str(exc)[:400]
+                )
+            except Exception:
+                pass
+
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
+
+
 def register(request):
     if request.user.is_authenticated:
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', ''):
+            return JsonResponse({'status': 'redirect', 'redirect_url': '/portal/'})
         return redirect("/portal/")
+
+    from django.core import signing
+    import time
+
+    def _get_form_token():
+        return signing.dumps(str(int(time.time())), salt='reg_form_time')
+
     if request.method == 'POST':
         import re as _re
         import random
-        # ── Field names must match the VoidOnyx register.html template ────────
-        email            = request.POST.get('email', '').strip().lower()
+        from django.http import JsonResponse
+        from django.core.cache import cache
+
+        # Determine if request is AJAX
+        is_ajax = (
+            request.headers.get('x-requested-with') == 'XMLHttpRequest' or 
+            request.content_type == 'application/json' or 
+            'application/json' in request.headers.get('Accept', '')
+        )
+
+        xff = request.META.get('HTTP_X_FORWARDED_FOR', '')
+        client_ip = xff.split(',')[0].strip() if xff else request.META.get('REMOTE_ADDR', '0.0.0.0')
+
+        # ── 1. Anti-Bot Defense: Honeypot check ────────────────────────────────
+        honeypot_fax = (request.POST.get('b_company_fax') or '').strip()
+        honeypot_code = (request.POST.get('b_partner_code') or '').strip()
+        if honeypot_fax or honeypot_code:
+            import logging
+            logging.getLogger('voidpanel').warning(
+                "Bot honeypot triggered from IP %s (fax=%s, code=%s)",
+                client_ip, honeypot_fax, honeypot_code
+            )
+            time.sleep(1.5)
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'message': 'Invalid submission.'}, status=400)
+            messages.error(request, 'Invalid submission.')
+            return render(request, 'register.html', {'form_ts_token': _get_form_token()})
+
+        # ── 2. Anti-Bot Defense: Form timing check ────────────────────────────
+        form_token = request.POST.get('form_ts_token', '').strip()
+        if form_token:
+            try:
+                loaded_ts = int(signing.loads(form_token, salt='reg_form_time', max_age=3600))
+                elapsed = time.time() - loaded_ts
+                if elapsed < 2.0:
+                    import logging
+                    logging.getLogger('voidpanel').warning(
+                        "Bot fast-submission rejected from IP %s (elapsed: %.2fs)",
+                        client_ip, elapsed
+                    )
+                    msg = "Submission was too fast. Please take your time to fill the form."
+                    if is_ajax:
+                        return JsonResponse({'status': 'error', 'message': msg}, status=400)
+                    messages.error(request, msg)
+                    return render(request, 'register.html', {'form_ts_token': _get_form_token()})
+            except Exception:
+                pass
+
+        # ── 3. Anti-Bot Defense: IP rate limiting ─────────────────────────────
+        rl_key = f'reg_rate_limit:{client_ip}'
+        hits = cache.get(rl_key, 0)
+        if hits >= 5:
+            msg = "Too many registration attempts from your network. Please wait 10 minutes before trying again."
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'message': msg}, status=429)
+            messages.error(request, msg)
+            return render(request, 'register.html', {'form_ts_token': _get_form_token()})
+        cache.set(rl_key, hits + 1, 600)  # Max 5 attempts per 10 minutes
+
+        # ── 4. Optional reCAPTCHA v3 verification ─────────────────────────────
+        recaptcha_token = request.POST.get('g-recaptcha-response', '').strip()
+        recaptcha_secret = getattr(settings, 'RECAPTCHA_SECRET_KEY', '')
+        if recaptcha_token and recaptcha_secret:
+            import urllib.request, urllib.parse, json
+            try:
+                verify_data = urllib.parse.urlencode({
+                    'secret': recaptcha_secret,
+                    'response': recaptcha_token,
+                    'remoteip': client_ip,
+                }).encode()
+                verify_req = urllib.request.Request(
+                    'https://www.google.com/recaptcha/api/siteverify',
+                    data=verify_data, method='POST'
+                )
+                with urllib.request.urlopen(verify_req, timeout=5) as resp:
+                    rc_res = json.loads(resp.read().decode())
+                if rc_res.get('success') is False or rc_res.get('score', 1.0) < 0.3:
+                    if is_ajax:
+                        return JsonResponse({'status': 'error', 'message': "Security verification failed. Please try again."}, status=400)
+                    messages.error(request, "Security verification failed. Please try again.")
+                    return render(request, 'register.html', {'form_ts_token': _get_form_token()})
+            except Exception:
+                pass  # Graceful fallback on network timeout
+
+        # ── Field extraction ──────────────────────────────────────────────────
+        email            = (request.POST.get('email') or request.POST.get('Email') or '').strip().lower()
         first_name       = request.POST.get('first_name', '').strip()
         last_name        = request.POST.get('last_name', '').strip()
-        full_name        = (first_name + ' ' + last_name).strip()
+        full_name        = request.POST.get('full_name', '').strip() or (first_name + ' ' + last_name).strip()
+        if not first_name and full_name:
+            parts = full_name.split(' ', 1)
+            first_name = parts[0]
+            last_name = parts[1] if len(parts) > 1 else ''
         phone_raw        = request.POST.get('phone', '').strip()
-        password         = request.POST.get('password1', '')
-        confirm_password = request.POST.get('password2', '')
+        password         = request.POST.get('password1') or request.POST.get('password', '')
+        confirm_password = request.POST.get('password2') or request.POST.get('confirm_password', '')
 
         def _ctx():
             return {
@@ -4032,52 +4734,161 @@ def register(request):
                 'last_name': last_name,
                 'email': email,
                 'phone': phone_raw,
+                'form_ts_token': _get_form_token(),
             }
+
+        def _err(msg, field=None):
+            if is_ajax:
+                resp = {'status': 'error', 'message': msg}
+                if field:
+                    resp['field'] = field
+                return JsonResponse(resp, status=400)
+            messages.error(request, msg)
+            return render(request, 'register.html', _ctx())
 
         # Basic presence check
         if not first_name or not email:
-            messages.error(request, "Please complete your name and email.")
-            return render(request, 'register.html', _ctx())
+            return _err("Please complete your name and email.", field="first_name" if not first_name else "email")
 
-        # Simple email format validation
+        # Email format validation
         if not _re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
-            messages.error(request, "Please enter a valid email address.")
-            return render(request, 'register.html', _ctx())
+            return _err("Please enter a valid email address.", field="email")
 
-        # Phone validation — digits only, 7–15 chars (optional on VoidOnyx)
-        if phone_raw:
-            phone_digits = _re.sub(r'[^\d]', '', phone_raw)
-            if not (7 <= len(phone_digits) <= 15):
-                messages.error(request, "Enter a valid phone number (7–15 digits).")
-                return render(request, 'register.html', _ctx())
+        # ── 5. Phone Validation & Normalization (MANDATORY for WhatsApp OTP) ──
+        norm_phone, display_phone, phone_err = _validate_and_normalize_phone(phone_raw)
+        if phone_err:
+            return _err(phone_err, field="phone")
+
+        # ── 6. Phone Rate Limiting to Prevent Costly WhatsApp Abuse ────────────
+        wa_cd_key = f'otp_phone_cd:{norm_phone}'
+        if cache.get(wa_cd_key):
+            return _err(
+                "An OTP code was already sent to this WhatsApp number recently. Please wait 60 seconds before requesting another code.",
+                field="phone"
+            )
+
+        wa_daily_key = f'otp_phone_daily:{norm_phone}'
+        daily_count = cache.get(wa_daily_key, 0)
+        if daily_count >= 5:
+            return _err(
+                "Daily OTP verification limit reached for this phone number. Please try again tomorrow or contact support.",
+                field="phone"
+            )
+
+        if not password:
+            return _err("Please enter a password.", field="password1")
 
         if password != confirm_password:
-            messages.error(request, "Passwords do not match.")
-            return render(request, 'register.html', _ctx())
-        if User.objects.filter(email=email).exists():
-            messages.error(request, "An account with this email already exists.")
-            return render(request, 'register.html', _ctx())
+            return _err("Passwords do not match.", field="password2")
+
+        # Check existing user
+        existing_user = User.objects.filter(email=email).first()
+        if existing_user:
+            profile = getattr(existing_user, 'customer_profile', None)
+            if profile and not profile.is_email_verified:
+                if password:
+                    existing_user.set_password(password)
+                    existing_user.save(update_fields=['password'])
+                otp_code = str(random.randint(100000, 999999))
+                profile.email_otp = otp_code
+                profile.phone = display_phone
+                profile.save(update_fields=['email_otp', 'phone'])
+
+                # Track rate limits
+                cache.set(wa_cd_key, 1, 60)
+                cache.set(wa_daily_key, daily_count + 1, 86400)
+
+                request.session['reg_email'] = email
+                request.session['reg_phone'] = display_phone
+                request.session['reg_phone_raw'] = norm_phone
+                request.session['reg_otp'] = otp_code
+
+                send_registration_otp_email(email, otp_code)
+                send_whatsapp_registration_otp(norm_phone, otp_code)
+
+                msg = (
+                    f"An unverified account with this email already exists. "
+                    f"A 6-digit verification code has been sent to your WhatsApp ({display_phone}) and email ({email}). "
+                    f"If not in your inbox, please check your spam folder."
+                )
+                if is_ajax:
+                    return JsonResponse({
+                        'status': 'success',
+                        'message': msg,
+                        'redirect_url': '/register/verify/'
+                    })
+                messages.info(request, msg)
+                return redirect("/register/verify/")
+            return _err("An account with this email already exists.", field="email")
+
         try:
             validate_password(password)
         except ValidationError as exc:
             for error in exc.messages:
                 messages.error(request, error)
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'message': ' '.join(exc.messages), 'field': 'password1'}, status=400)
             return render(request, 'register.html', _ctx())
 
-        # Generate OTP code and store signup info in session
+        # Generate OTP code and create user account immediately (unverified)
         otp_code = str(random.randint(100000, 999999))
-        request.session['reg_email']     = email
-        request.session['reg_full_name'] = full_name
-        request.session['reg_phone']     = phone_raw
-        request.session['reg_password']  = password
-        request.session['reg_otp']       = otp_code
+        name_parts = [part for part in full_name.split() if part]
+        user_first_name = name_parts[0] if name_parts else first_name
+        user_last_name = ' '.join(name_parts[1:]) if len(name_parts) > 1 else last_name
+        username = _generate_username_from_email(email)
+        country = _detect_country_from_request(request)
 
+        with transaction.atomic():
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                first_name=user_first_name,
+                last_name=user_last_name,
+            )
+            ensure_portal_seed_data(
+                user,
+                profile_defaults={
+                    'country': country,
+                    'phone': display_phone,
+                },
+            )
+            profile = getattr(user, 'customer_profile', None)
+            if not profile:
+                profile, _ = CustomerProfile.objects.get_or_create(user=user)
+            profile.is_email_verified = False
+            profile.email_otp = otp_code
+            profile.phone = display_phone
+            profile.save(update_fields=['is_email_verified', 'email_otp', 'phone'])
+
+        # Track phone rate limits
+        cache.set(wa_cd_key, 1, 60)
+        cache.set(wa_daily_key, daily_count + 1, 86400)
+
+        request.session['reg_email'] = email
+        request.session['reg_phone'] = display_phone
+        request.session['reg_phone_raw'] = norm_phone
+        request.session['reg_otp'] = otp_code
+
+        # Send OTP via both Email and WhatsApp
         send_registration_otp_email(email, otp_code)
+        send_whatsapp_registration_otp(norm_phone, otp_code)
 
-        messages.success(request, f"A 6-digit verification code has been sent to {email}.")
+        msg = (
+            f"A 6-digit verification code has been sent to your WhatsApp ({display_phone}) and email ({email}). "
+            f"If you do not see it in your inbox, please check your spam folder."
+        )
+        messages.success(request, msg)
+        if is_ajax:
+            return JsonResponse({
+                'status': 'success',
+                'message': msg,
+                'redirect_url': '/register/verify/'
+            })
+
         return redirect("/register/verify/")
 
-    return render(request, 'register.html')
+    return render(request, 'register.html', {'form_ts_token': _get_form_token()})
 
 
 def register_verify(request):
@@ -4085,59 +4896,59 @@ def register_verify(request):
         return redirect("/portal/")
     
     email = request.session.get('reg_email')
-    otp_code = request.session.get('reg_otp')
-    if not email or not otp_code:
-        messages.error(request, "Please register first.")
+    if not email:
+        messages.info(request, "Please log in to verify your email address.")
+        return redirect("/login/")
+
+    user = User.objects.filter(email=email).first()
+    if not user:
+        messages.error(request, "Account not found. Please register.")
         return redirect("/register/")
+
+    profile = getattr(user, 'customer_profile', None)
+    if profile and profile.is_email_verified:
+        messages.info(request, "Your email is already verified. Please log in.")
+        return redirect("/login/")
+
+    phone = request.session.get('reg_phone', '') or (profile.phone if profile else '')
 
     if request.method == 'POST':
         user_otp = request.POST.get('otp', '').strip()
-        if user_otp == otp_code:
-            full_name = request.session.get('reg_full_name')
-            phone_raw = request.session.get('reg_phone')
-            password = request.session.get('reg_password')
+        expected_otp = request.session.get('reg_otp') or (profile.email_otp if profile else '')
 
-            name_parts = [part for part in full_name.split() if part]
-            first_name = name_parts[0] if name_parts else ''
-            last_name = ' '.join(name_parts[1:]) if len(name_parts) > 1 else ''
-            username = _generate_username_from_email(email)
-            country = _detect_country_from_request(request)
-
-            with transaction.atomic():
-                user = User.objects.create_user(
-                    username=username,
-                    email=email,
-                    password=password,
-                    first_name=first_name,
-                    last_name=last_name,
-                )
-                ensure_portal_seed_data(
-                    user,
-                    profile_defaults={
-                        'country': country,
-                        'phone': phone_raw,
-                    },
-                )
+        if user_otp and user_otp == expected_otp:
+            if profile:
+                profile.is_email_verified = True
+                profile.email_otp = ''
+                profile.save(update_fields=['is_email_verified', 'email_otp'])
 
             login(request, user)
 
+            PortalActivity.objects.create(
+                user=user,
+                category='account',
+                title='Account verified',
+                description=f'Verified account with email {email} and phone {phone}.',
+            )
+
             # Clear session
-            for key in ['reg_email', 'reg_full_name', 'reg_phone', 'reg_password', 'reg_otp']:
+            for key in ['reg_email', 'reg_full_name', 'reg_phone', 'reg_phone_raw', 'reg_password', 'reg_otp']:
                 request.session.pop(key, None)
 
-            messages.success(request, "Email verified successfully! Welcome to your VoidPanel Client Portal.")
+            messages.success(request, "Account verified successfully! Welcome to your VoidOnyx Client Portal.")
             return redirect("/portal/")
         else:
-            messages.error(request, "Invalid verification code. Please try again.")
+            messages.error(request, "Invalid verification code. Please check your WhatsApp or spam folder and try again.")
 
     _ps = HostingPricingSettings.objects.first()
     _bonus_chips   = getattr(_ps, 'signup_bonus_chips', 5000) if _ps else 5000
     _rate          = getattr(_ps, 'credits_per_rupee', 100)  if _ps else 100
     _bonus_rupees  = int(_bonus_chips / _rate) if _rate else 0
     return render(request, 'verify_email.html', {
-        'email':         email,
+        'email':              email,
+        'phone':              phone,
         'signup_bonus_chips': _bonus_chips,
-        'bonus_rupees':  _bonus_rupees,
+        'bonus_rupees':       _bonus_rupees,
     })
 
 
@@ -4148,15 +4959,65 @@ def register_resend_otp(request):
 
     email = request.session.get('reg_email')
     if not email:
-        messages.error(request, "Please register first.")
+        messages.info(request, "Please log in to request a new verification code.")
+        return redirect("/login/")
+
+    user = User.objects.filter(email=email).first()
+    if not user:
+        messages.error(request, "Account not found. Please register.")
         return redirect("/register/")
 
+    profile = getattr(user, 'customer_profile', None)
+    if profile and profile.is_email_verified:
+        messages.info(request, "Your email is already verified. Please log in.")
+        return redirect("/login/")
+
     import random
+    import re as _re
+    from django.core.cache import cache
+
     new_otp = str(random.randint(100000, 999999))
     request.session['reg_otp'] = new_otp
+    if profile:
+        profile.email_otp = new_otp
+        profile.save(update_fields=['email_otp'])
+
+    # Phone rate limit & cooldown for resend
+    phone_raw = request.session.get('reg_phone_raw') or getattr(profile, 'phone', '')
+    display_phone = request.session.get('reg_phone') or getattr(profile, 'phone', '')
+    wa_sent = False
+
+    if phone_raw:
+        digits = _re.sub(r'[^\d]', '', str(phone_raw))
+        if len(digits) == 10:
+            digits = '91' + digits
+        elif len(digits) == 11 and digits.startswith('0'):
+            digits = '91' + digits[1:]
+
+        cd_key = f'otp_phone_cd:{digits}'
+        daily_key = f'otp_phone_daily:{digits}'
+        daily_count = cache.get(daily_key, 0)
+
+        if cache.get(cd_key):
+            messages.warning(request, "Please wait 60 seconds before requesting another WhatsApp OTP.")
+            return redirect("/register/verify/")
+
+        if daily_count >= 5:
+            messages.error(request, "Daily OTP limit reached for this WhatsApp number. Please try again tomorrow.")
+            return redirect("/register/verify/")
+
+        cache.set(cd_key, 1, 60)
+        cache.set(daily_key, daily_count + 1, 86400)
+        send_whatsapp_registration_otp(digits, new_otp)
+        wa_sent = True
 
     send_registration_otp_email(email, new_otp)
-    messages.success(request, f"A new verification code has been sent to {email}.")
+
+    target_desc = f"WhatsApp ({display_phone}) and email ({email})" if wa_sent else f"email ({email})"
+    messages.success(
+        request,
+        f"A new verification code has been sent to your {target_desc}. If not in your inbox, please check your spam folder."
+    )
     return redirect("/register/verify/")
 
 
@@ -4207,13 +5068,18 @@ def cart_config(request, slug):
             messages.error(request, 'Please enter a valid domain name (e.g. example.com).')
             return render(request, 'cart_config.html', {'package': package, 'discounts': discounts})
 
-        # Calculate discounted price
-        discount_pct = discounts.get(billing_cycle, 0)
-        total = package.monthly_price * (1 - Decimal(discount_pct) / 100)
-        if billing_cycle == 'annually':
-            total = total * 12
-        elif billing_cycle == 'quarterly':
-            total = total * 3
+        # Calculate price based on package cycle rate
+        cycle_months = {
+            'triennially': 36,
+            'annually': 12,
+            'yearly': 12,
+            'semi_annually': 6,
+            'quarterly': 3,
+            'monthly': 1,
+        }
+        months = cycle_months.get(billing_cycle, 1)
+        rate_per_mo = package.get_cycle_rate(billing_cycle)
+        total = (rate_per_mo * months).quantize(Decimal('0.01'))
             
         applied_coupon = None
         if coupon_code:
@@ -4228,9 +5094,18 @@ def cart_config(request, slug):
 
         total = total + domain_price
         total = total.quantize(Decimal('0.01'))
+        # 18% GST applied to all transactions
+        total = add_gst_to_amount(total)
 
         today = timezone.localdate()
-        due_delta = {'monthly': 30, 'quarterly': 90, 'annually': 365}.get(billing_cycle, 30)
+        due_delta = {
+            'triennially': 1095,
+            'annually': 365,
+            'yearly': 365,
+            'semi_annually': 180,
+            'quarterly': 90,
+            'monthly': 30,
+        }.get(billing_cycle, 30)
         next_due = today + timedelta(days=due_delta)
 
         # ── Check if domain already exists in our system ──────────────────────
@@ -4241,11 +5116,16 @@ def cart_config(request, slug):
             status__in=('cancelled', 'terminated')
         ).first()
         if existing_service:
-            domain_error = (
-                f"The domain <strong>{domain}</strong> is already associated with an "
-                f"existing hosting service in our system. Please use a different domain "
-                f"name, or contact support if you believe this is an error."
-            )
+            if existing_service.user == request.user and existing_service.status == 'pending':
+                # User is re-configuring their own unpaid pending order — remove stale pending records
+                HostingOrder.objects.filter(service=existing_service, status='pending_payment').delete()
+                existing_service.delete()
+            else:
+                domain_error = (
+                    f"The domain <strong>{domain}</strong> is already associated with an "
+                    f"existing hosting service in our system. Please use a different domain "
+                    f"name, or contact support if you believe this is an error."
+                )
 
         # ── External domain availability check for "register" action ─────────
         if not domain_error and domain_action == 'register' and '.' in domain:
@@ -4278,7 +5158,7 @@ def cart_config(request, slug):
                 product_type=package.get_package_type_display(),
                 status='pending',
                 billing_cycle=billing_cycle,
-                monthly_price=package.monthly_price,
+                monthly_price=rate_per_mo,
                 next_due_date=next_due,
                 server_hostname='in-mum-01.voidpanel.cloud',
                 storage_gb=package.storage_gb,
@@ -4335,9 +5215,25 @@ def cart_config(request, slug):
 
         return redirect(f'/portal/invoice/{invoice.id}/pay/')
 
+    cycle_rates = {
+        'triennially': package.get_cycle_rate('triennially'),
+        'annually': package.get_cycle_rate('annually'),
+        'semi_annually': package.get_cycle_rate('semi_annually'),
+        'quarterly': package.get_cycle_rate('quarterly'),
+        'monthly': package.get_cycle_rate('monthly'),
+    }
+    cycle_totals = {
+        'triennially': cycle_rates['triennially'] * 36,
+        'annually': cycle_rates['annually'] * 12,
+        'semi_annually': cycle_rates['semi_annually'] * 6,
+        'quarterly': cycle_rates['quarterly'] * 3,
+        'monthly': cycle_rates['monthly'],
+    }
     return render(request, 'cart_config.html', {
         'package': package,
         'discounts': discounts,
+        'cycle_rates': cycle_rates,
+        'cycle_totals': cycle_totals,
     })
 
 
@@ -4557,8 +5453,16 @@ def super_admin_clients(request):
         return denied
     if request.method == 'POST':
         action = request.POST.get('action')
-        if action == 'suspend_all':
-            uid = request.POST.get('user_id')
+        uid = request.POST.get('user_id')
+        if action == 'activate' and uid:
+            User.objects.filter(id=uid).update(is_active=True)
+            messages.success(request, 'Client account activated successfully.')
+        elif action == 'login_as' and uid:
+            return super_admin_login_as_client(request, uid)
+        elif action == 'deactivate' and uid:
+            User.objects.filter(id=uid).update(is_active=False)
+            messages.success(request, 'Client account deactivated. User will be required to verify OTP upon next login.')
+        elif action == 'suspend_all' and uid:
             suspended_svcs = list(HostingService.objects.filter(user_id=uid, status='active'))
             HostingService.objects.filter(user_id=uid, status='active').update(status='suspended')
             if suspended_svcs:
@@ -4567,6 +5471,47 @@ def super_admin_clients(request):
                 msg = f"🚫 *Service Suspended*\nYour hosting services ({domains}) have been suspended due to unpaid invoices.\nPlease clear pending payments to restore access.\nPortal: https://voidonyx.in/portal/"
                 send_whatsapp_notification_async(suspended_user, msg, 'service_suspend')
             messages.success(request, 'All active services for that client have been suspended.')
+        elif action == 'delete_client' and uid:
+            u_del = User.objects.filter(id=uid, is_staff=False, is_superuser=False).first()
+            if u_del:
+                del_name = u_del.email or u_del.username
+                HostingService.objects.filter(user=u_del).delete()
+                CustomerProfile.objects.filter(user=u_del).delete()
+                u_del.delete()
+                messages.success(request, f'Client account {del_name} deleted successfully.')
+            else:
+                messages.error(request, 'Client account not found or cannot delete staff/superuser.')
+        elif action == 'edit_client' and uid:
+            u_edit = User.objects.filter(id=uid).first()
+            if u_edit:
+                u_edit.first_name = request.POST.get('first_name', u_edit.first_name).strip()
+                u_edit.last_name = request.POST.get('last_name', u_edit.last_name).strip()
+                u_edit.email = request.POST.get('email', u_edit.email).strip()
+                u_edit.username = request.POST.get('username', u_edit.username).strip()
+                new_pw = request.POST.get('new_password', '').strip()
+                if new_pw:
+                    u_edit.set_password(new_pw)
+                u_edit.save()
+
+                prof = CustomerProfile.objects.filter(user=u_edit).first()
+                if prof:
+                    prof.phone = request.POST.get('phone', prof.phone).strip()
+                    prof.company_name = request.POST.get('company_name', prof.company_name).strip()
+                    prof.address = request.POST.get('address', prof.address).strip()
+                    prof.city = request.POST.get('city', prof.city).strip()
+                    prof.state = request.POST.get('state', prof.state).strip()
+                    prof.postal_code = request.POST.get('postal_code', prof.postal_code).strip()
+                    prof.country = request.POST.get('country', prof.country).strip()
+                    try:
+                        prof.balance_funds = Decimal(request.POST.get('balance_funds', prof.balance_funds))
+                    except Exception:
+                        pass
+                    try:
+                        prof.balance_chips = int(request.POST.get('balance_chips', prof.balance_chips))
+                    except Exception:
+                        pass
+                    prof.save()
+                messages.success(request, 'Client details updated successfully.')
         return _super_admin_redirect(request, '/super-admin/clients/')
 
     clients = User.objects.filter(is_staff=False, is_superuser=False).order_by('-date_joined')
@@ -4584,6 +5529,55 @@ def super_admin_clients(request):
     ctx = _build_super_admin_context('clients')
     ctx['client_data'] = client_data
     return render(request, 'super_admin_clients.html', ctx)
+
+
+@login_required(login_url='/login/')
+def super_admin_login_as_client(request, user_id):
+    denied = _super_admin_guard(request)
+    if denied:
+        return denied
+    target_user = get_object_or_404(User, id=user_id)
+    if target_user.is_superuser:
+        messages.error(request, "Cannot impersonate another super administrator.")
+        return redirect('/super-admin/clients/')
+
+    orig_admin_id = request.user.id
+    orig_admin_name = request.user.get_full_name() or request.user.username
+
+    target_user.backend = 'django.contrib.auth.backends.ModelBackend'
+    login(request, target_user)
+
+    request.session['impersonator_admin_id'] = orig_admin_id
+    request.session['impersonator_admin_name'] = orig_admin_name
+    request.session['is_impersonating'] = True
+    request.session.modified = True
+
+    messages.success(request, f"Logged in as client: {target_user.get_full_name() or target_user.email or target_user.username}. You are now viewing their client portal.")
+    return redirect('/portal/')
+
+
+@login_required(login_url='/login/')
+def exit_impersonate_client(request):
+    orig_admin_id = request.session.get('impersonator_admin_id')
+    if not orig_admin_id:
+        messages.error(request, "No active impersonation session found.")
+        return redirect('/portal/')
+
+    admin_user = User.objects.filter(id=orig_admin_id, is_superuser=True).first()
+    if not admin_user:
+        messages.error(request, "Original administrator account could not be found.")
+        return redirect('/login/')
+
+    admin_user.backend = 'django.contrib.auth.backends.ModelBackend'
+    login(request, admin_user)
+
+    request.session.pop('impersonator_admin_id', None)
+    request.session.pop('impersonator_admin_name', None)
+    request.session.pop('is_impersonating', None)
+    request.session.modified = True
+
+    messages.success(request, "Returned to Super Admin session.")
+    return redirect('/super-admin/clients/')
 
 
 @login_required(login_url='/login/')
@@ -5230,6 +6224,9 @@ def super_admin_livechat_detail(request, session_id):
         
     from chatting.models import LiveChatSession
     session = get_object_or_404(LiveChatSession, id=session_id)
+    if not session.assigned_agent:
+        session.assigned_agent = request.user
+        session.save(update_fields=['assigned_agent'])
     return render(request, "super_admin_livechat_detail.html", {"chat_session": session})
 
 @login_required(login_url="/login/")
@@ -5621,13 +6618,14 @@ def domain_order_checkout(request):
     ensure_portal_seed_data(request.user)
     
     today = timezone.localdate()
+    total_with_gst = add_gst_to_amount(final_price)
     with transaction.atomic():
         invoice = Invoice.objects.create(
             user=request.user,
             invoice_number=_get_next_invoice_number(request.user, prefix='VP-DOM'),
             description=f'Domain Registration: {domain_name} ({years} Year{"s" if years > 1 else ""})',
             status='unpaid',
-            total=final_price,
+            total=total_with_gst,
             currency='INR',
             due_date=today + timedelta(days=7),
         )
@@ -6293,8 +7291,9 @@ def api_razorpay_create_order(request):
         'order_id':    rz_order['id'],
         'amount':      amount_paise,
         'currency':    'INR',
+        'key':         kid,
         'key_id':      kid,
-        'name':        'VoidPanel',
+        'name':        'VoidOnyx Cloud',
         'description': invoice.description,
         'invoice_id':  invoice.id,
         'prefill': {
@@ -6439,6 +7438,10 @@ def api_razorpay_verify(request):
     if order:
         order.status = 'provisioning'
         order.save(update_fields=['status'])
+        try:
+            _auto_activate_super_stack_services(request.user, domain=order.domain)
+        except Exception as _stack_err:
+            _logger.error('Super stack auto-activate error: %s', _stack_err)
         try:
             _activate_service_after_provision(order, invoice=invoice)
         except Exception as prov_err:
@@ -7645,6 +8648,9 @@ def email_checkout(request):
         price = plan['monthly_price']
         cycle_label = 'Monthly'
 
+    # 18% GST applied to all transactions
+    price = add_gst_to_amount(price)
+
     with transaction.atomic():
         invoice = Invoice.objects.create(
             user           = request.user,
@@ -8196,6 +9202,9 @@ def ssl_checkout(request):
     else:
         price = Decimal(str(base_price))
         desc = f"SSL Certificate Plan: {plan.name} (Quarterly) — {domain}"
+
+    # 18% GST applied to all transactions
+    price = add_gst_to_amount(price)
 
     # Create Invoice
     from django.utils import timezone
@@ -11652,6 +12661,8 @@ def suite_checkout(request):
             price = max(price, Decimal('0.00'))
 
     price = price.quantize(Decimal('0.01'))
+    # 18% GST applied to all transactions
+    price = add_gst_to_amount(price)
     suite_display = plan.get_suite_display()
 
     with transaction.atomic():
@@ -11837,8 +12848,9 @@ def _provision_suite_on_panel(service):
         req.add_header('Content-Type', 'application/json')
         req.add_header('X-Suite-API-Key', server.api_key)
         urllib.request.urlopen(req, timeout=8)
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logging.error(f"[DigitalSuites] Failed to provision {service.suite} on panel: {e}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -13592,3 +14604,458 @@ def api_saas_client_create(request):
             'service': f"Khatabook ({kb_service_name})"
         }
     }, status=201)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  VOIDMAIL AI — Public API Endpoints (called by VoidMail mobile app)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@csrf_exempt
+@api_view(['GET'])
+def api_voidmail_ai_status(request):
+    """
+    Check if a domain is whitelisted for VoidMail AI features.
+    GET /api/v1/voidmail/ai-status/?domain=voidonyx.com
+    """
+    domain = request.GET.get('domain', '').strip().lower()
+
+    is_whitelisted = False
+    if domain:
+        try:
+            from data.models import VoidMailAIWhitelistDomain
+            is_whitelisted = VoidMailAIWhitelistDomain.objects.filter(
+                domain__iexact=domain,
+                is_active=True,
+            ).exists()
+        except Exception:
+            pass
+
+    license_key = ''
+    try:
+        from data.models import LicenseKey
+        lic = LicenseKey.objects.filter(is_active=True).first()
+        if lic:
+            license_key = lic.key
+    except Exception:
+        pass
+
+    return Response({
+        'status': 'ok',
+        'data': {
+            'ai_enabled': is_whitelisted,
+            'domain': domain,
+            'is_domain_whitelisted': is_whitelisted,
+            'voidonyx_url': 'https://voidonyx.in',
+            'license_key': license_key or 'domain-whitelisted',
+        }
+    })
+
+
+@csrf_exempt
+@api_view(['POST'])
+def api_voidmail_upgrade_lead(request):
+    """
+    Submit a VoidMail AI upgrade lead from the mobile app.
+    POST /api/v1/voidmail/upgrade-lead/
+    """
+    try:
+        data = request.data
+        name = data.get('name', '').strip()
+        email_addr = data.get('email', '').strip().lower()
+        phone = data.get('phone', '').strip()
+        domain = data.get('domain', '').strip().lower()
+        notes = data.get('notes', '').strip()
+
+        if not email_addr:
+            return Response({'status': 'error', 'message': 'Email is required.'}, status=400)
+
+        if not domain and '@' in email_addr:
+            domain = email_addr.split('@')[-1]
+
+        from data.models import VoidMailAIUpgradeLead
+        existing = VoidMailAIUpgradeLead.objects.filter(
+            email__iexact=email_addr,
+            status__in=['pending', 'whitelisted'],
+        ).first()
+
+        if existing:
+            return Response({
+                'status': 'ok',
+                'data': {
+                    'already_requested': True,
+                    'message': f'Upgrade request for @{domain} is already under review. Our team will activate it shortly!',
+                }
+            })
+
+        VoidMailAIUpgradeLead.objects.create(
+            name=name, email=email_addr, phone=phone, domain=domain, notes=notes, status='pending',
+        )
+
+        return Response({
+            'status': 'ok',
+            'data': {
+                'already_requested': False,
+                'message': f'AI upgrade request for @{domain} submitted successfully! We will activate it shortly.',
+            }
+        })
+    except Exception as e:
+        return Response({'status': 'error', 'message': str(e)}, status=500)
+
+
+# ── Inactive Account Reactivation & OTP Delivery ─────────────────────────────
+def send_account_reactivation_otp(user, otp_code):
+    from django.core.mail import EmailMultiAlternatives
+    from django.core.mail.backends.smtp import EmailBackend
+    from data.models import OutboundEmailProfile
+    from email.utils import make_msgid, formatdate
+    import logging
+    _logger = logging.getLogger('voidpanel')
+
+    customer_email = user.email
+    customer_name = user.get_full_name() or user.username or "Valued Customer"
+
+    subject = f"Your VoidOnyX Verification Code: {otp_code}"
+    text_content = (
+        f"Hi {customer_name},\n\n"
+        f"Your VoidOnyX account is currently inactive.\n"
+        f"Please enter the following 6-digit One-Time Password (OTP) to verify your identity and instantly activate your account:\n\n"
+        f"VERIFICATION CODE: {otp_code}\n\n"
+        f"This code will expire in 10 minutes.\n"
+        f"If you did not request this login attempt, please secure your account immediately.\n\n"
+        f"— VoidOnyX Team\n"
+        f"https://voidonyx.in"
+    )
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0b1422; margin: 0; padding: 30px 15px; color: #f0f4ff;">
+      <div style="max-width: 520px; margin: 0 auto; background: #0f1c2e; border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 36px 28px; box-shadow: 0 16px 40px rgba(0,0,0,0.5);">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <h1 style="color: #38bdf8; font-size: 26px; font-weight: 900; margin: 0; letter-spacing: -0.03em;">VoidOnyX</h1>
+          <p style="color: #8fa3c0; font-size: 13px; margin: 4px 0 0;">Account Verification &amp; Security</p>
+        </div>
+        <p style="font-size: 15px; color: #f0f4ff; margin: 0 0 16px;">Hello <strong>{customer_name}</strong>,</p>
+        <p style="font-size: 14px; color: #8fa3c0; line-height: 1.6; margin: 0 0 24px;">
+          Your account was detected as inactive. For your protection, please use the following 6-digit One-Time Password (OTP) to activate your account and complete your login:
+        </p>
+        <div style="text-align: center; margin: 28px 0;">
+          <div style="display: inline-block; font-size: 32px; font-weight: 900; letter-spacing: 0.3em; color: #38bdf8; background: #070d18; padding: 14px 32px; border-radius: 12px; border: 1.5px solid rgba(14,165,233,0.4);">
+            {otp_code}
+          </div>
+        </div>
+        <p style="font-size: 12px; color: #64748b; line-height: 1.5; margin: 0 0 24px; text-align: center;">
+          ⏱ This verification code is valid for <strong>10 minutes</strong>. Never share this code with anyone.
+        </p>
+        <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 18px; text-align: center; font-size: 11px; color: #475569;">
+          &copy; VoidOnyX Enterprise Cloud &bull; <a href="https://voidonyx.in" style="color: #38bdf8; text-decoration: none;">voidonyx.in</a>
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+
+    smtp_profile = None
+    try:
+        smtp_profile = OutboundEmailProfile.objects.filter(from_email='details@voidonyx.com', is_active=True).first()
+        if not smtp_profile:
+            smtp_profile = OutboundEmailProfile.objects.filter(is_active=True, is_default=True).first()
+    except Exception:
+        pass
+
+    msg_id = make_msgid(domain='voidonyx.com')
+    date_str = formatdate(localtime=True)
+    headers = {
+        'Message-ID': msg_id,
+        'Date': date_str,
+        'X-Mailer': 'VoidOnyX Secure Mailer',
+        'X-Entity-Ref-ID': f"voidonyx-otp-{user.id}",
+    }
+
+    from_email = f"VoidOnyX Support <details@voidonyx.com>"
+    if smtp_profile:
+        from_email = f"{smtp_profile.from_name or 'VoidOnyX Support'} <{smtp_profile.from_email}>"
+
+    try:
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=text_content,
+            from_email=from_email,
+            to=[customer_email],
+            headers=headers,
+        )
+        email.attach_alternative(html_content, "text/html")
+
+        if smtp_profile:
+            backend = EmailBackend(
+                host=smtp_profile.smtp_host,
+                port=smtp_profile.smtp_port,
+                username=smtp_profile.smtp_username,
+                password=smtp_profile.smtp_password,
+                use_tls=smtp_profile.use_tls,
+                use_ssl=smtp_profile.use_ssl,
+                fail_silently=False,
+            )
+            backend.open()
+            backend.send_messages([email])
+            backend.close()
+        else:
+            email.send(fail_silently=False)
+        _logger.info('Reactivation OTP sent successfully to %s via details@voidonyx.com', customer_email)
+    except Exception as exc:
+        _logger.error('Failed to send reactivation OTP to %s: %s', customer_email, exc)
+
+
+def login_verify_otp(request):
+    if request.user.is_authenticated:
+        return redirect('/portal/')
+    
+    uid = request.session.get('inactive_login_uid')
+    otp_stored = request.session.get('inactive_login_otp')
+    expiry = request.session.get('inactive_login_expiry')
+    email = request.session.get('inactive_login_email', '')
+
+    if not uid or not otp_stored:
+        messages.error(request, "Session expired or no activation pending. Please log in.")
+        return redirect('/login/')
+
+    if request.method == 'POST':
+        import time
+        from django.contrib.auth import login
+        from django.contrib.auth.models import User
+        from data.models import PortalActivity
+
+        submitted_otp = request.POST.get('otp', '').strip()
+
+        if time.time() > (expiry or 0):
+            messages.error(request, "The verification code has expired. Please request a new one.")
+            return render(request, 'login_verify_otp.html', {'email': email})
+
+        if submitted_otp == otp_stored:
+            user = User.objects.filter(id=uid).first()
+            if user:
+                user.is_active = True
+                user.save(update_fields=['is_active'])
+
+                for k in ['inactive_login_uid', 'inactive_login_otp', 'inactive_login_expiry', 'inactive_login_email']:
+                    request.session.pop(k, None)
+
+                login(request, user)
+                PortalActivity.objects.create(
+                    user=user,
+                    category='account',
+                    title='Account Activated via OTP',
+                    description='User successfully verified OTP and transitioned from inactive to active.',
+                )
+                messages.success(request, "Your account has been successfully verified and activated! Welcome back.")
+                next_url = request.session.pop('inactive_login_next', None)
+                if next_url:
+                    return redirect(next_url)
+                if user.is_superuser:
+                    return redirect('/super-admin/')
+                return redirect('/portal/')
+        else:
+            messages.error(request, "Invalid verification code. Please check your email and try again.")
+
+    return render(request, 'login_verify_otp.html', {'email': email})
+
+
+def login_resend_otp(request):
+    if request.user.is_authenticated:
+        return redirect('/portal/')
+
+    uid = request.session.get('inactive_login_uid')
+    if not uid:
+        messages.error(request, "Session expired. Please log in.")
+        return redirect('/login/')
+
+    from django.contrib.auth.models import User
+    import random, time
+
+    user = User.objects.filter(id=uid).first()
+    if not user:
+        return redirect('/login/')
+
+    new_otp = str(random.randint(100000, 999999))
+    request.session['inactive_login_otp'] = new_otp
+    request.session['inactive_login_expiry'] = time.time() + 600
+
+    send_account_reactivation_otp(user, new_otp)
+    messages.success(request, f"A fresh verification code has been sent to {user.email}.")
+    return redirect('/login/verify-otp/')
+
+
+def robots_txt(request):
+    from django.http import HttpResponse
+    lines = [
+        "User-agent: *",
+        "Disallow: /portal/",
+        "Disallow: /super-admin/",
+        "Disallow: /admin/",
+        "Disallow: /api/",
+        "Allow: /",
+    ]
+    return HttpResponse("\n".join(lines), content_type="text/plain")
+
+
+def sitemap_xml(request):
+    from django.http import HttpResponse
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://voidonyx.in/</loc></url>
+  <url><loc>https://voidonyx.in/pricing/</loc></url>
+  <url><loc>https://voidonyx.in/login/</loc></url>
+  <url><loc>https://voidonyx.in/register/</loc></url>
+</urlset>"""
+    return HttpResponse(xml, content_type="application/xml")
+
+
+def refund_policy(request):
+    return render(request, 'refund_policy.html')
+
+
+def portal_blog_edit(request, blog_id=None):
+    return redirect('/portal/')
+
+
+def portal_subscriptions(request):
+    return redirect('/portal/')
+
+
+from django.views.decorators.csrf import csrf_exempt as _csrf_exempt_stub
+
+
+@_csrf_exempt_stub
+def api_create_subscription(request):
+    from django.http import JsonResponse
+    return JsonResponse({"error": "not implemented"}, status=501)
+
+
+@_csrf_exempt_stub
+def api_cancel_subscription(request):
+    from django.http import JsonResponse
+    return JsonResponse({"error": "not implemented"}, status=501)
+
+
+@_csrf_exempt_stub
+def api_quote_coupon_validate(request):
+    from django.http import JsonResponse
+    return JsonResponse({"error": "not implemented"}, status=501)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  VOIDMAIL DEVICE TOKEN MANAGEMENT APIs
+# ══════════════════════════════════════════════════════════════════════════════
+
+@_csrf_exempt_stub
+def api_voidmail_device_register(request):
+    """Register an FCM device token for push notifications.
+    POST /api/v1/voidmail/devices/register/
+    Body: { email, fcm_token, platform, device_name }
+    """
+    from django.http import JsonResponse
+    import json
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    try:
+        data = json.loads(request.body) if request.body else {}
+        email = data.get('email', '').strip().lower()
+        fcm_token = data.get('fcm_token', '').strip()
+        platform = data.get('platform', 'android').strip()
+        device_name = data.get('device_name', '').strip()
+
+        if not email or not fcm_token:
+            return JsonResponse({'error': 'email and fcm_token are required'}, status=400)
+
+        domain = email.split('@')[-1] if '@' in email else ''
+
+        from data.models import EmailDeviceToken
+        obj, created = EmailDeviceToken.objects.update_or_create(
+            email=email,
+            fcm_token=fcm_token,
+            defaults={
+                'domain': domain,
+                'platform': platform,
+                'device_name': device_name,
+                'is_active': True,
+            }
+        )
+        return JsonResponse({
+            'status': 'ok',
+            'message': 'Device registered for push notifications.',
+            'created': created,
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@_csrf_exempt_stub
+def api_voidmail_device_unregister(request):
+    """Unregister an FCM device token.
+    POST /api/v1/voidmail/devices/unregister/
+    Body: { email, fcm_token }
+    """
+    from django.http import JsonResponse
+    import json
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    try:
+        data = json.loads(request.body) if request.body else {}
+        email = data.get('email', '').strip().lower()
+        fcm_token = data.get('fcm_token', '').strip()
+
+        from data.models import EmailDeviceToken
+        updated = EmailDeviceToken.objects.filter(
+            email=email, fcm_token=fcm_token
+        ).update(is_active=False)
+        return JsonResponse({
+            'status': 'ok',
+            'message': 'Device unregistered.' if updated else 'Token not found.',
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@_csrf_exempt_stub
+def api_voidmail_track_login(request):
+    """Track a VoidMail app login.
+    POST /api/v1/voidmail/track-login/
+    Body: { email, domain, platform, device_name, login_method }
+    """
+    from django.http import JsonResponse
+    import json
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    try:
+        data = json.loads(request.body) if request.body else {}
+        email = data.get('email', '').strip().lower()
+        domain = data.get('domain', '').strip().lower()
+        platform = data.get('platform', 'android')
+        device_name = data.get('device_name', '')
+        login_method = data.get('login_method', 'voidpanel')
+
+        if not email:
+            return JsonResponse({'error': 'email required'}, status=400)
+
+        if not domain and '@' in email:
+            domain = email.split('@')[-1]
+
+        ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', ''))
+        if ip and ',' in ip:
+            ip = ip.split(',')[0].strip()
+
+        from data.models import VoidMailAppLogin
+        VoidMailAppLogin.objects.create(
+            email=email,
+            domain=domain,
+            platform=platform,
+            device_name=device_name,
+            ip_address=ip[:39] if ip else '',
+            login_method=login_method,
+        )
+        return JsonResponse({'status': 'ok', 'message': 'Login tracked.'})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+

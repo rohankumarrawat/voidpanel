@@ -42,6 +42,12 @@ body { font-family: 'Inter', system-ui, sans-serif; background: #f8fafc; color: 
 
 .btn-pay { padding: 5px 14px; border-radius: 8px; background: linear-gradient(135deg,#f59e0b,#ea580c); color: #fff; font-size: 0.75rem; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
 .btn-pay:hover { opacity: 0.88; }
+.btn-view { padding: 5px 12px; border-radius: 8px; background: #f1f5f9; border: 1px solid #cbd5e1; color: #334155; font-size: 0.75rem; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; transition: all 0.15s ease; }
+.btn-view:hover { background: #e2e8f0; color: #0f172a; border-color: #94a3b8; }
+.inv-num-link { color: #0f172a; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-family: 'Plus Jakarta Sans', sans-serif; transition: color 0.15s; }
+.inv-num-link:hover { color: #2563eb; }
+.inv-num-link i { font-size: 0.65rem; color: #94a3b8; opacity: 0.6; transition: opacity 0.15s, color 0.15s; }
+.inv-num-link:hover i { opacity: 1; color: #2563eb; }
 
 .empty-state { text-align: center; padding: 48px 20px; }
 .empty-state i { font-size: 2.5rem; color: #e2e8f0; margin-bottom: 12px; }
@@ -84,13 +90,18 @@ body { font-family: 'Inter', system-ui, sans-serif; background: #f8fafc; color: 
           <th>Date</th>
           <th>Due Date</th>
           <th>Status</th>
-          <th></th>
+          <th style="text-align:right;">Actions</th>
         </tr>
       </thead>
       <tbody>
         {% for inv in invoices %}
         <tr>
-          <td style="font-weight:700;font-family:'Plus Jakarta Sans',sans-serif;">{{ inv.invoice_number }}</td>
+          <td>
+            <a href="/portal/invoice/{{ inv.id }}/pay/" class="inv-num-link" title="Click to view invoice details">
+              {{ inv.invoice_number }}
+              <i class="fas fa-arrow-up-right-from-square"></i>
+            </a>
+          </td>
           <td>{{ inv.description|truncatechars:50 }}</td>
           <td style="font-weight:700;">₹{{ inv.total }}</td>
           <td style="color:#64748b;font-size:0.8rem;">{{ inv.created_at|date:"d M Y" }}</td>
@@ -98,10 +109,17 @@ body { font-family: 'Inter', system-ui, sans-serif; background: #f8fafc; color: 
           <td>
             <span class="badge badge-{{ inv.status }}">{{ inv.status|upper }}</span>
           </td>
-          <td>
-            {% if inv.status == 'unpaid' or inv.status == 'overdue' %}
-            <a href="/portal/invoice/{{ inv.id }}/pay/" class="btn-pay"><i class="fas fa-wallet"></i> Pay</a>
-            {% endif %}
+          <td style="text-align:right;">
+            <div style="display:inline-flex;align-items:center;gap:6px;justify-content:flex-end;">
+              <a href="/portal/invoice/{{ inv.id }}/pay/" class="btn-view" title="View invoice & download receipt">
+                <i class="fas fa-eye"></i> View
+              </a>
+              {% if inv.status == 'unpaid' or inv.status == 'overdue' %}
+              <a href="/portal/invoice/{{ inv.id }}/pay/" class="btn-pay">
+                <i class="fas fa-wallet"></i> Pay
+              </a>
+              {% endif %}
+            </div>
           </td>
         </tr>
         {% endfor %}

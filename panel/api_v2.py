@@ -459,8 +459,11 @@ def ssl_status(request):
     if not ok: return err
 
     import os
-    ssl_file = f'/usr/local/lsws/conf/cert/{domain}/fullchain.cer'
-    status = 'active' if os.path.exists(ssl_file) else 'inactive'
+    cert_paths = [
+        f'/etc/letsencrypt/live/{domain}/fullchain.pem',
+        f'/usr/local/lsws/conf/cert/{domain}/fullchain.cer',
+    ]
+    status = 'active' if any(os.path.exists(p) for p in cert_paths) else 'inactive'
     return _json_success({'ssl_status': status})
 
 # ── Packages & Server ─────────────────────────────────────────────────────────

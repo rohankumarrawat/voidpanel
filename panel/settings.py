@@ -104,7 +104,7 @@ ROOT_URLCONF = 'panel.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': ['templates'],
+        'DIRS': [BASE_DIR / 'templates', 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -312,7 +312,12 @@ CELERY_BEAT_SCHEDULE = {
         'task':     'control.tasks.process_automation_workflows_task',
         'schedule': crontab(minute='*'),        # run every minute
     },
+    'voidmail-push-scan-every-2-minutes': {
+        'task':     'control.tasks.scan_maildir_and_push_task',
+        'schedule': crontab(minute='*/2'),       # scan for new emails every 2 minutes
+    },
 }
+
 
 # ─────────────────────────────────────────────────────────────
 # Django logging — routes voidpanel.* to /var/log/voidpanel/

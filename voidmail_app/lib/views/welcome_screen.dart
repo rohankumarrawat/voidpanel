@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../providers/mail_provider.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -50,7 +52,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F0C20) : const Color(0xFFF9F9FE),
+      backgroundColor: isDark ? const Color(0xFF100B07) : const Color(0xFFFAFAFA),
       body: SafeArea(
         child: Column(
           children: [
@@ -66,18 +68,18 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     'assets/icon/google_console_icon.png',
                     width: 44,
                     height: 44,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) {
                       return Image.asset(
                         'assets/google_console_icon.png',
                         width: 44,
                         height: 44,
-                        fit: BoxFit.cover,
+                        fit: BoxFit.contain,
                         errorBuilder: (context, e2, st2) {
                           return Container(
                             width: 44,
                             height: 44,
-                            color: const Color(0xFF6366F1),
+                            color: const Color(0xFFFF7A00),
                             child: const Icon(Icons.mark_email_unread_rounded, size: 24, color: Colors.white),
                           );
                         },
@@ -90,29 +92,29 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'VOIDONYX',
+                      'VOIDMAIL',
                       style: GoogleFonts.outfit(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        color: isDark ? Colors.white : const Color(0xFF1C130D),
                         letterSpacing: 2.0,
                       ),
                     ),
                     Row(
                       children: [
-                        Container(width: 12, height: 1, color: const Color(0xFF6366F1)),
+                        Container(width: 10, height: 1, color: const Color(0xFFFF7A00)),
                         const SizedBox(width: 4),
                         Text(
-                          'MAIL',
+                          'BY VOIDONYX',
                           style: GoogleFonts.inter(
-                            fontSize: 10,
+                            fontSize: 9,
                             fontWeight: FontWeight.w700,
-                            color: const Color(0xFF6366F1),
-                            letterSpacing: 3.5,
+                            color: const Color(0xFFFF7A00),
+                            letterSpacing: 1.8,
                           ),
                         ),
                         const SizedBox(width: 4),
-                        Container(width: 12, height: 1, color: const Color(0xFF6366F1)),
+                        Container(width: 10, height: 1, color: const Color(0xFFFF7A00)),
                       ],
                     ),
                   ],
@@ -146,13 +148,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                           style: GoogleFonts.outfit(
                             fontSize: 32,
                             fontWeight: FontWeight.w800,
-                            color: isDark ? Colors.white : const Color(0xFF1E1B4B),
+                            color: isDark ? Colors.white : const Color(0xFF1C130D),
                             height: 1.15,
                           ),
                         ),
                         ShaderMask(
                           shaderCallback: (bounds) => const LinearGradient(
-                            colors: [Color(0xFF6366F1), Color(0xFF4F46E5), Color(0xFF818CF8)],
+                            colors: [Color(0xFFFF7A00), Color(0xFFFF9E3B), Color(0xFFFFB800)],
                           ).createShader(bounds),
                           child: Text(
                             slide['title2'],
@@ -174,14 +176,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                           style: GoogleFonts.inter(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w400,
-                            color: isDark ? Colors.grey[400] : const Color(0xFF64748B),
+                            color: isDark ? Colors.grey[400] : const Color(0xFF6B5E55),
                             height: 1.45,
                           ),
                         ),
 
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 32),
 
-                        // Hero Illustration Graphic Area
+                        // Center Graphic Container
                         Expanded(
                           child: Center(
                             child: _buildGraphicForSlide(slide['type'], isDark),
@@ -194,7 +196,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               ),
             ),
 
-            // Page Indicator Dots
+            // Dot Indicator
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(_slides.length, (index) {
@@ -206,8 +208,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   height: 7,
                   decoration: BoxDecoration(
                     color: isActive
-                        ? const Color(0xFF5B50E6)
-                        : (isDark ? Colors.grey[700] : const Color(0xFFCBD5E1)),
+                        ? const Color(0xFFFF7A00)
+                        : (isDark ? Colors.grey[800] : const Color(0xFFFED7AA)),
                     borderRadius: BorderRadius.circular(4),
                   ),
                 );
@@ -230,10 +232,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         Navigator.pushNamed(context, '/login');
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF5B50E6),
+                        backgroundColor: const Color(0xFFFF7A00),
                         foregroundColor: Colors.white,
                         elevation: 4,
-                        shadowColor: const Color(0xFF5B50E6).withOpacity(0.4),
+                        shadowColor: const Color(0xFFFF7A00).withValues(alpha: 0.4),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
@@ -258,12 +260,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         Navigator.pushNamed(context, '/login');
                       },
                       style: OutlinedButton.styleFrom(
-                        backgroundColor: isDark ? const Color(0xFF1B1638) : Colors.white,
-                        foregroundColor: const Color(0xFF5B50E6),
+                        backgroundColor: isDark ? const Color(0xFF1C140D) : Colors.white,
+                        foregroundColor: const Color(0xFFFF7A00),
                         side: BorderSide(
                           color: isDark
-                              ? const Color(0xFF3730A3)
-                              : const Color(0xFF5B50E6).withOpacity(0.3),
+                              ? const Color(0xFF432818)
+                              : const Color(0xFFFF7A00).withValues(alpha: 0.35),
                           width: 1.5,
                         ),
                         shape: RoundedRectangleBorder(
@@ -271,20 +273,40 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         ),
                       ),
                       child: Text(
-                        'Login',
+                        'Log In to Existing Account',
                         style: GoogleFonts.inter(
                           fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF5B50E6),
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFFFF7A00),
                         ),
                       ),
                     ),
                   ),
+                  const SizedBox(height: 12),
+
+                  // Reviewer / Guest Demo Mode
+                  TextButton.icon(
+                    onPressed: () async {
+                      final provider = Provider.of<MailProvider>(context, listen: false);
+                      await provider.loginAsDemo();
+                      if (context.mounted) {
+                        Navigator.pushReplacementNamed(context, '/main');
+                      }
+                    },
+                    icon: const Icon(Icons.explore_rounded, size: 16, color: Color(0xFF10B981)),
+                    label: Text(
+                      'Explore Demo Workspace',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF10B981),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
-
-            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -303,8 +325,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             shape: BoxShape.circle,
             gradient: RadialGradient(
               colors: [
-                const Color(0xFF6366F1).withOpacity(isDark ? 0.25 : 0.12),
-                const Color(0xFF818CF8).withOpacity(0.02),
+                const Color(0xFFFF7A00).withValues(alpha: isDark ? 0.25 : 0.15),
+                const Color(0xFFFF9E3B).withValues(alpha: 0.03),
                 Colors.transparent,
               ],
             ),
@@ -317,14 +339,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           height: 155,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+              colors: [Color(0xFFFF7A00), Color(0xFFE65100)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF4F46E5).withOpacity(0.35),
+                color: const Color(0xFFFF7A00).withValues(alpha: 0.35),
                 blurRadius: 28,
                 offset: const Offset(0, 14),
               ),
@@ -345,7 +367,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
+                        color: Colors.black.withValues(alpha: 0.08),
                         blurRadius: 10,
                       ),
                     ],
@@ -357,7 +379,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         width: 40,
                         height: 6,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF6366F1),
+                          color: const Color(0xFFFF7A00),
                           borderRadius: BorderRadius.circular(3),
                         ),
                       ),

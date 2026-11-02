@@ -52,15 +52,10 @@ class _AiAssistantDrawerState extends State<AiAssistantDrawer> {
         }
       });
     } else {
-      // ── Fallback mock responses (AI not enabled) ──
-      Future.delayed(const Duration(milliseconds: 800), () {
+      // ── Fallback notice (AI not enabled) ──
+      Future.delayed(const Duration(milliseconds: 500), () {
         if (!mounted) return;
-        String response = "🔒 AI features are not enabled. Please whitelist your IP in Settings → VoidMail AI Whitelist.";
-        if (query.toLowerCase().contains('summar')) {
-          response = "✨ **Inbox Summary** (Demo):\n• Instagram security login alert.\n• Rohan sent a project proposal for VoidMail AI.\n• Amazon package arriving on 10 Aug.\n\n_Note: Enable AI via IP whitelist for live responses._";
-        } else if (query.toLowerCase().contains('draft')) {
-          response = "✍️ Draft (Demo):\n\n'Hi Rohan, thanks for sending the proposal. I'll review and get back to you shortly!'\n\n_Enable AI via IP whitelist for real drafts._";
-        }
+        const response = "🔒 Sovereign AI features are not active. Please verify your server credentials or whitelist your IP in Settings → VoidMail AI Whitelist.";
         setState(() {
           _isThinking = false;
           _chatMessages.add({'sender': 'ai', 'text': response});
@@ -176,11 +171,11 @@ class _AiAssistantDrawerState extends State<AiAssistantDrawer> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: const RadialGradient(
-                        colors: [Color(0xFF818CF8), Color(0xFF4F46E5), Color(0xFF1E1B4B)],
+                        colors: [Color(0xFFFFB800), Color(0xFFFF7A00), Color(0xFFE65100)],
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF6366F1).withOpacity(0.4),
+                          color: const Color(0xFFFF7A00).withValues(alpha: 0.4),
                           blurRadius: 24,
                           spreadRadius: 4,
                         ),
@@ -200,11 +195,11 @@ class _AiAssistantDrawerState extends State<AiAssistantDrawer> {
                   const SizedBox(height: 16),
 
                   Text(
-                    'Hi Pari! 👋',
+                    'VoidMail AI ✨',
                     style: GoogleFonts.outfit(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      color: const Color(0xFF1E1B4B),
+                      color: const Color(0xFF1C130D),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -212,7 +207,7 @@ class _AiAssistantDrawerState extends State<AiAssistantDrawer> {
                     'How can I help you today?',
                     style: GoogleFonts.inter(
                       fontSize: 14,
-                      color: const Color(0xFF6B7280),
+                      color: const Color(0xFF6B5E55),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -227,15 +222,15 @@ class _AiAssistantDrawerState extends State<AiAssistantDrawer> {
                           margin: const EdgeInsets.only(bottom: 12),
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: isUser ? const Color(0xFF4F46E5) : Colors.white,
+                            color: isUser ? const Color(0xFFFF7A00) : Colors.white,
                             borderRadius: BorderRadius.circular(16),
-                            border: isUser ? null : Border.all(color: const Color(0xFFEFEFF6)),
+                            border: isUser ? null : Border.all(color: const Color(0xFFFED7AA)),
                           ),
                           child: Text(
                             msg['text'] ?? '',
                             style: GoogleFonts.inter(
                               fontSize: 13,
-                              color: isUser ? Colors.white : const Color(0xFF1E1B4B),
+                              color: isUser ? Colors.white : const Color(0xFF1C130D),
                               height: 1.4,
                             ),
                           ),
@@ -245,29 +240,29 @@ class _AiAssistantDrawerState extends State<AiAssistantDrawer> {
                     if (_isThinking)
                       const Padding(
                         padding: EdgeInsets.all(12.0),
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4F46E5)),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF7A00)),
                       ),
                     const SizedBox(height: 16),
                   ],
 
-                  // Quick Action Cards matching Screenshot 4
+                  // Quick Action Cards
                   _buildQuickActionCard(
                     Icons.summarize_outlined,
                     'Summarize Inbox',
                     'Get a summary of unread emails',
-                    const Color(0xFF6366F1),
+                    const Color(0xFFFF7A00),
                   ),
                   _buildQuickActionCard(
                     Icons.edit_note_rounded,
                     'Draft Email',
                     'Write an email with AI',
-                    const Color(0xFF8B5CF6),
+                    const Color(0xFFFF9E3B),
                   ),
                   _buildQuickActionCard(
                     Icons.search_rounded,
                     'Find Anything',
                     'Search emails, docs, people...',
-                    const Color(0xFF3B82F6),
+                    const Color(0xFFFFB800),
                   ),
                   _buildQuickActionCard(
                     Icons.cleaning_services_outlined,
@@ -279,7 +274,7 @@ class _AiAssistantDrawerState extends State<AiAssistantDrawer> {
                     Icons.reply_all_rounded,
                     'Smart Reply',
                     'Reply to emails with AI',
-                    const Color(0xFFEC4899),
+                    const Color(0xFFE65100),
                   ),
                 ],
               ),
@@ -294,10 +289,10 @@ class _AiAssistantDrawerState extends State<AiAssistantDrawer> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: const Color(0xFFEFEFF6)),
+                border: Border.all(color: const Color(0xFFFED7AA)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
+                    color: const Color(0xFFFF7A00).withValues(alpha: 0.08),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -328,7 +323,7 @@ class _AiAssistantDrawerState extends State<AiAssistantDrawer> {
                       decoration: const BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: LinearGradient(
-                          colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+                          colors: [Color(0xFFFF7A00), Color(0xFFFF9E3B)],
                         ),
                       ),
                       child: const Icon(Icons.send_rounded, color: Colors.white, size: 16),
@@ -338,6 +333,7 @@ class _AiAssistantDrawerState extends State<AiAssistantDrawer> {
               ),
             ),
           ),
+
         ],
       ),
     );

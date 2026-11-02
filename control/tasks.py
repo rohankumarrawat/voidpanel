@@ -75,7 +75,8 @@ def _reload(service: str) -> None:
 )
 def provision_user_task(self, domain12: str, domainname: str, email: str,
                         password: str, package12: str, path: str,
-                        sto: int, inipath: str, php_ini_content: str):
+                        sto: int, inipath: str, php_ini_content: str,
+                        reseller_id: int = None):
     """
     Celery task: provision a new VoidPanel hosting account.
     Replaces the threading.Thread approach with a retryable, monitorable task.
@@ -151,7 +152,7 @@ def provision_user_task(self, domain12: str, domainname: str, email: str,
         # ── 3. Atomic DB inserts ──────────────────────────────────────────────
         with transaction.atomic():
             domain.objects.create(domain=domain12, email=email, dir=domainname, userdomain=True)
-            user.objects.create(domain=domain12, email=email, username=domainname, hosting_package=package12)
+            user.objects.create(domain=domain12, email=email, username=domainname, hosting_package=package12, reseller_id=reseller_id)
             User.objects.create_user(username=domainname, email=email, password=password)
 
         # ── 4. Create system user ─────────────────────────────────────────────
@@ -269,16 +270,17 @@ def terminate_user_task(self, domain_str: str, mainusername: str, subdomains: li
     # another nginx -t reads it, the entire nginx fails globally for ALL sites.
     for d in all_domains:
         for nginx_dir in (paths.NGINX_SITES_ENABLED, paths.NGINX_SITES_AVAILABLE):
-            conf = os.path.join(nginx_dir, f'{d}.conf')
-            try:
-                if sys.platform != 'win32':
-                    subprocess.run(['sudo', 'rm', '-f', conf], check=False)
-                else:
-                    if os.path.exists(conf):
-                        os.remove(conf)
-                logger.info('[terminate] Removed nginx conf: %s', conf)
-            except Exception as e:
-                logger.warning('[terminate] nginx conf %s: %s', conf, e)
+            for suffix in ['', '.active_vhost', '.suspended_backup', '.bak', '.disabled']:
+                conf = os.path.join(nginx_dir, f'{d}.conf{suffix}')
+                try:
+                    if sys.platform != 'win32':
+                        subprocess.run(['sudo', 'rm', '-f', conf], check=False)
+                    else:
+                        if os.path.exists(conf):
+                            os.remove(conf)
+                    logger.info('[terminate] Removed nginx conf: %s', conf)
+                except Exception as e:
+                    logger.warning('[terminate] nginx conf %s: %s', conf, e)
 
     # ── 3. DNS zone ────────────────────────────────────────────────────────────
     for d in all_domains:
@@ -491,6 +493,23 @@ def terminate_user_task(self, domain_str: str, mainusername: str, subdomains: li
                     os.remove(sock)
     except Exception as e:
         logger.warning('[terminate] MERN cleanup: %s', e)
+
+    # ── 14. Ensure DB records are cleaned up ───────────────────────────────────
+    try:
+        from control.models import (
+            domain as DomainModel, user as UserModel,
+            subdomainname, allemail, cron, redir
+        )
+        from django.contrib.auth import get_user_model
+        DomainModel.objects.filter(domain__in=all_domains).delete()
+        subdomainname.objects.filter(domain__in=all_domains).delete()
+        allemail.objects.filter(domain__in=all_domains).delete()
+        cron.objects.filter(domain__in=all_domains).delete()
+        redir.objects.filter(domain__in=all_domains).delete()
+        UserModel.objects.filter(username=mainusername).delete()
+        get_user_model().objects.filter(username=mainusername).delete()
+    except Exception as e:
+        logger.warning('[terminate] DB cleanup: %s', e)
 
     logger.info('Termination SUCCESS: %s', domain_str)
 
@@ -1130,7 +1149,7 @@ def process_scheduled_campaigns_task(self):
                     smtp = smtplib.SMTP('localhost', 25, timeout=10)
                     smtp.ehlo()
 
-            from control.views import replace_email_placeholders
+            from control.views import replace_email_placeholders, get_marketing_tracking_url, append_tracking_pixel
             from email.utils import formataddr
 
             for rcpt in recipients:
@@ -1144,8 +1163,8 @@ def process_scheduled_campaigns_task(self):
 
                     rcpt_subject = replace_email_placeholders(subject, rcpt.name, domain)
                     rcpt_body = replace_email_placeholders(body_html, rcpt.name, domain)
-                    tracking_url = f'https://{domain}/control/marketing/{domain}/track/{rcpt.id}/open.png'
-                    html_body = rcpt_body + f'<img src="{tracking_url}" width="1" height="1" style="display:none" alt="" />'
+                    tracking_url = get_marketing_tracking_url(domain, rcpt.id)
+                    html_body = append_tracking_pixel(rcpt_body, tracking_url)
 
                     msg['Subject'] = rcpt_subject
                     msg.attach(MIMEText(rcpt_body, 'plain'))
@@ -1195,16 +1214,19 @@ def update_all_email_stats():
     from control.models import allemail
     from django.core.cache import cache
 
+    # Build a set of known emails for fast lookup
+    all_emails = set(e.email.lower() for e in allemail.objects.all())
+
     queue_counts = defaultdict(int)
     if sys.platform != 'win32':
         try:
             r = subprocess.run(['sudo', 'postqueue', '-p'], capture_output=True, text=True, timeout=10)
             if r.returncode == 0:
-                lines = r.stdout.splitlines()
-                for line in lines:
-                    for email_obj in allemail.objects.all():
-                        if email_obj.email.lower() in line.lower():
-                            queue_counts[email_obj.email.lower()] += 1
+                for line in r.stdout.splitlines():
+                    line_lower = line.lower()
+                    for email in all_emails:
+                        if email in line_lower:
+                            queue_counts[email] += 1
         except Exception:
             pass
 
@@ -1215,20 +1237,25 @@ def update_all_email_stats():
             log_path = '/var/log/mail.log'
             if not os.path.exists(log_path) or os.path.getsize(log_path) == 0:
                 log_path = '/var/log/syslog'
-                
+
             if os.path.exists(log_path):
-                r = subprocess.run(['sudo', 'cat', log_path], capture_output=True, text=True, timeout=15)
-                if r.returncode == 0:
-                    lines = r.stdout.splitlines()
-                    queue_sender = {}
-                    for line in lines:
+                # Stream the file line-by-line using tail to limit memory usage
+                # Only read the last 500,000 lines (~2 days of logs) to avoid OOM
+                max_lines = 500000
+                r = subprocess.Popen(
+                    ['sudo', 'tail', '-n', str(max_lines), log_path],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                )
+                queue_sender = {}
+                try:
+                    for line in r.stdout:
                         match_qid = re.search(r'postfix/\w+\[\d+\]:\s+([0-9a-zA-Z]+):\s+', line)
                         if match_qid:
                             qid = match_qid.group(1)
                             match_from = re.search(r'from=<([^>]+)>', line)
                             if match_from:
                                 queue_sender[qid] = match_from.group(1).lower()
-                                
+
                             match_status = re.search(r'status=(\w+)', line)
                             if match_status and qid in queue_sender:
                                 sender = queue_sender[qid]
@@ -1237,11 +1264,13 @@ def update_all_email_stats():
                                     sent_counts[sender] += 1
                                 elif status in ('bounced', 'deferred'):
                                     failed_counts[sender] += 1
+                finally:
+                    r.stdout.close()
+                    r.wait(timeout=30)
         except Exception as e:
             pass
 
-    for email_obj in allemail.objects.all():
-        email = email_obj.email.lower()
+    for email in all_emails:
         stats = {
             'sent': sent_counts.get(email, 0),
             'failed': failed_counts.get(email, 0),
@@ -1409,4 +1438,136 @@ def process_automation_workflows_task(self):
         if enroll.status == 'running' and enroll.current_step_index >= len(steps):
             enroll.status = 'completed'
             enroll.save()
+
+
+# ─────────────────────────────────────────────────────────────
+# VoidMail FCM Remote Push Notification Tasks
+# ─────────────────────────────────────────────────────────────
+
+@shared_task(name='control.tasks.send_mail_fcm_push_task', bind=True, max_retries=2, default_retry_delay=5)
+def send_mail_fcm_push_task(self, email_address: str, sender_name: str, subject: str, snippet: str, email_id: str = ''):
+    """
+    Celery task to dispatch FCM remote push notifications asynchronously
+    whenever a new email is received.
+    """
+    try:
+        from control.fcm_service import send_fcm_push_to_email
+        return send_fcm_push_to_email(
+            email_address=email_address,
+            sender_name=sender_name,
+            subject=subject,
+            snippet=snippet,
+            email_id=email_id,
+        )
+    except Exception as exc:
+        logger.error('[FCM Task] Failed to send push to %s: %s', email_address, exc)
+        raise self.retry(exc=exc)
+
+
+@shared_task(name='control.tasks.process_maildir_push_task')
+def process_maildir_push_task(file_path: str, fallback_recipient: str = ''):
+    """
+    Celery task to parse an incoming Maildir email file and dispatch FCM push.
+    """
+    try:
+        from control.mail_push_monitor import process_new_mail_file
+        return process_new_mail_file(file_path, fallback_recipient=fallback_recipient)
+    except Exception as exc:
+        logger.error('[FCM Maildir Task] Error processing %s: %s', file_path, exc)
+        return {'success': False, 'error': str(exc)}
+
+
+@shared_task(name='control.tasks.scan_maildir_and_push_task')
+def scan_maildir_and_push_task():
+    """
+    Periodic Celery Beat task: scans all Maildir/new/ directories for
+    unprocessed emails and dispatches FCM push notifications.
+    Tracks already-notified files in Django cache to prevent duplicates.
+    """
+    import os
+    import glob
+    from django.core.cache import cache
+
+    CACHE_KEY = 'voidmail_push_notified_files'
+    notified = set(cache.get(CACHE_KEY, []))
+    total_sent = 0
+
+    search_patterns = [
+        '/home/*/mail/*/*/new/*',
+        '/home/*/Maildir/new/*',
+        '/var/mail/vhosts/*/*/new/*',
+    ]
+
+    for pattern in search_patterns:
+        for mail_path in glob.glob(pattern):
+            if not os.path.isfile(mail_path):
+                continue
+            basename = os.path.basename(mail_path)
+            if basename in notified:
+                continue
+
+            try:
+                from control.mail_push_monitor import process_new_mail_file
+                result = process_new_mail_file(mail_path)
+                if result.get('success'):
+                    total_sent += 1
+                notified.add(basename)
+            except Exception as e:
+                logger.error('[FCM Scan] Error processing %s: %s', mail_path, e)
+
+    # Keep only last 5000 entries to prevent unbounded growth, expire in 24h
+    if len(notified) > 5000:
+        notified = set(list(notified)[-5000:])
+    cache.set(CACHE_KEY, list(notified), timeout=86400)
+
+    if total_sent > 0:
+        logger.info('[FCM Scan] Sent %d push notification(s) for new emails.', total_sent)
+    return {'success': True, 'pushed': total_sent}
+
+
+# ─────────────────────────────────────────────────────────────
+# Task: Automated Scheduled Backups & Cloud Sync
+# ─────────────────────────────────────────────────────────────
+
+@shared_task(
+    bind=True,
+    max_retries=1,
+    name='voidpanel.run_scheduled_backups',
+)
+def run_scheduled_backups_task(self):
+    """
+    Periodic task: Checks all domains with auto_backup_enabled=True.
+    When a domain's defined scheduled time is reached, creates a complete
+    backup and syncs directly to Google Drive or configured cloud storage.
+    """
+    from control.management.commands.run_scheduled_backups import execute_backup_for_domain
+    from control.models import CloudBackupConfig
+
+    configs = CloudBackupConfig.objects.filter(auto_backup_enabled=True)
+    results = {}
+    for cfg in configs:
+        try:
+            ran, msg = execute_backup_for_domain(cfg.domain, force=False)
+            results[cfg.domain] = {'ran': ran, 'message': msg}
+        except Exception as exc:
+            logger.error('Scheduled backup error for %s: %s', cfg.domain, exc)
+            results[cfg.domain] = {'ran': False, 'error': str(exc)}
+
+    return results
+
+
+@shared_task(name='control.suspend_user_task')
+def suspend_user_task(username, domain):
+    """Celery task to asynchronously suspend an account and take its websites offline."""
+    from control.suspension_manager import suspend_account_action
+    identifier = domain or username
+    return suspend_account_action(identifier)
+
+
+@shared_task(name='control.unsuspend_user_task')
+def unsuspend_user_task(username, domain):
+    """Celery task to asynchronously unsuspend an account and restore its websites."""
+    from control.suspension_manager import unsuspend_account_action
+    identifier = domain or username
+    return unsuspend_account_action(identifier)
 
